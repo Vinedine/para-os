@@ -1,0 +1,3 @@
+# This repo deliberately ships CLAUDE.md files (the example vault's conventions
+# are part of the product). Un-ignore them in case your global gitignore excludes CLAUDE.md.
+!CLAUDE.md

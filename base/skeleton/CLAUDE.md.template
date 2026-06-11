@@ -1,0 +1,67 @@
+# {{Vault Name}} Vault Conventions
+
+{{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.
+
+<!-- OPTIONAL: add a "## Context" section if this vault needs scope boundaries or cross-vault
+     context (e.g. "building ownership is documented in the X vault; this vault only covers
+     operations"). Delete this comment if not needed. -->
+
+## PARA layout
+
+- **triage/** - landing zone for anything that doesn't obviously fit elsewhere; emptied via `/triage` at the next review.
+- **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline, one folder per project, each holding a `brief.md` + `actions.md` and, where relevant, a `sources/` subfolder.}}
+- **areas/** - ongoing responsibilities. `business/` = running narrative and strategic actions. `network/` = one file per person.{{ Add any other area subfolders this vault needs.}}
+- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage ventures with no committed outcome; same `brief.md` shape as a project for easy promotion.
+- **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records.{{ Add `projects/` = completed work, if this vault archives finished projects.}}
+
+Promote `resources/ideas/<x>` to `projects/` when one of: someone is waiting on a deliverable by a date; money or a formal engagement is committed; a go/no-go review is on the calendar. Ideas with no traction at 6+ months retire to `archive/`.
+
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record. Derived outputs regenerate from it.
+
+## Filing rules
+
+- **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context at the top, `## Next actions` appended at the bottom.
+- **Actions**: co-locate with the project, idea, or contact they belong to. Per-project actions live in `projects/<project>/actions.md`; per-idea actions in `resources/ideas/<idea>/actions.md`; per-contact actions inside the contact file. Strategic work not tied to one of those goes in `areas/business/actions.md`. Never create a monolithic root `actions.md`.
+- **Dated meeting/chat/email artifacts**: `archive/meetings/YYYYMMDD Description.ext`.
+- **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. The /triage skill applies this convention literally; if you leave it undefined, /triage will ask before renaming anything.}}
+- **Shared workstreams across contacts**: track actions in the primary contact's file; the other files get a pointer line.
+- **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
+
+## Obsidian Tasks markers for actions.md files
+
+Any `actions.md` file in this vault uses Obsidian Tasks plugin markers. The `/daily-brief` skill parses these with regex:
+
+- `📅 YYYY-MM-DD` - due date (hard deadline)
+- `🛫 YYYY-MM-DD` - start date (item not actionable until then)
+- `⏳ YYYY-MM-DD` - scheduled (planned work date)
+- `🔁 every <cadence>` - recurring (pair with `📅` for the next occurrence)
+- `🔺 🔼 🔽 ⏬` - priority, highest to lowest. Medium = no marker. Use 🔺 sparingly.
+- `✅ YYYY-MM-DD` - completion (auto-filled when ticked)
+
+Rules when writing or editing tasks:
+
+- Put markers at the end of the line: `- [ ] Pay invoice 📅 2026-05-15`
+- Replace free-text dates with markers (no "before Jul 10 📅 2026-07-10", just the marker)
+- Convert fuzzy dates ("Q4", "summer") to concrete dates (usually end-of-quarter or end-of-season)
+- For items gated on external events, leave undated. Do not invent dates.
+- One flattened `## Recurring` section per file, not separate "quarterly" / "annually" headings.
+
+Never archive an `actions.md` file: it must stay outside `archive/` to be picked up by `/daily-brief`.
+
+## Language
+
+Folders and structural files in English. Content (notes, contacts, briefs) may be in any language, matching the source. Don't translate unless asked.
+
+## Do not add
+
+- **Templates** - do not create per-contact or per-project templates preemptively. Wait until a second instance proves the shape, then document it here.
+- **Derived outputs as standalone files** - web copy, deck content, one-pager text regenerate from `README.md`. Do not let them drift into separate source-of-truth files.
+- **Content rewrites during reorganization** - structure changes preserve copy verbatim. Fix wording in a later, dedicated pass.
+- {{Anything else that belongs in a different vault or system, e.g. "Accounting, invoicing, financial records - belong in a separate vault (one vault per life context)."}}
+
+<!-- OPTIONAL sections that mature vaults grow - add only when this vault actually needs them:
+  - "## README structures" - canonical section order per entity type, ONLY once a SECOND instance
+    of that entity type proves the shape.
+  - "## Cross-vault references" - when this vault overlaps another. Keep the full entry where the
+    relationship is primary and a short pointer line in the other.
+  - "## Project context" - durable, non-obvious facts about ongoing work not derivable from the files. -->
