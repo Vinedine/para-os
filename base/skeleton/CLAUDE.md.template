@@ -52,6 +52,14 @@ Never archive an `actions.md` file: it must stay outside `archive/` to be picked
 
 Folders and structural files in English. Content (notes, contacts, briefs) may be in any language, matching the source. Don't translate unless asked.
 
+## Memory
+
+This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files (`/AI/sessions/` and the like). The agent reads the vault fresh each session; the git history is the audit log. Durable facts belong in the file they describe: conventions in this `CLAUDE.md`, identity and operating model in `README.md`, and everything else in the relevant project, idea, or contact note. If you would otherwise save a memory, write the fact into the vault file it belongs to instead.
+
+## File formats
+
+The substrate is real, readable files. The agent works over what exists on disk as bytes, so prefer formats it can read and move directly: Markdown and plain text first (read and edited in place, and they diff cleanly in git), with `.csv`/`.docx`/`.xlsx` as the fallback for material received from others. Avoid cloud-native pointer formats (e.g. Google Docs/Sheets): they sync as stubs linking to content held on a server, so the bytes aren't local, tooling can't move or rename them, and the agent often can't read them at all. When one lands in the vault, convert it to a real file. A format the tooling can't touch is dead weight, the same way a junk folder is.
+
 ## Do not add
 
 - **Templates** - do not create per-contact or per-project templates preemptively. Wait until a second instance proves the shape, then document it here.

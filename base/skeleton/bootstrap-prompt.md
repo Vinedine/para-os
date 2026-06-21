@@ -1,6 +1,6 @@
 # Bootstrap prompt - stand up a new para-os vault
 
-Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/skeleton/` into. It interviews you, fills the templates, seeds a starter `actions.md`, and cleans up after itself.
+Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/skeleton/` into. It asks three short questions, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (your braindump, then connecting your systems), and cleans up after itself.
 
 ---
 
@@ -8,21 +8,52 @@ You are setting up a new para-os vault. The working directory is the vault root.
 
 para-os vaults follow a fixed pattern: a PARA layout, a per-vault `CLAUDE.md` documenting the local conventions, an `actions.md` task format using Obsidian Tasks emoji markers, and the principle "don't template an entity shape until a second instance proves it."
 
-Interview me briefly - one round of questions, don't over-ask - then fill the templates:
+Onboarding runs in three phases. **You run phase 1 now**, in this session. Phases 2 and 3 are real work that spans sessions, so you capture them as the vault's first project, `projects/vault-setup/`, which I retire once the vault is loaded and wired.
+
+## Phase 1 - Setup (now)
+
+Interview me with **exactly these three questions, nothing more** - keep it short, I'm new to this:
 
 1. **Vault name** and a one-line description of what it covers.
-2. **What this vault is for** - a person's life admin, a business, a project portfolio, a client engagement?
-3. **What a "project" means here** - time-bound deliverable with a deadline (the default), or something domain-specific?
-4. **Extra `areas/` subfolders** beyond `business/` and `network/` (e.g. `properties/`, `clients/`, `health/`)?
-5. **Source-document naming convention**, if you have one (e.g. `YYYYMMDD <Who> <Description>.<ext>`). `/triage` applies it literally; leave it blank and `/triage` will ask before renaming.
-6. **README framing** - what the master document should emphasise (identity, operating model, track record / portfolio). Any legal-entity or ownership details for the Identity section.
-7. **Anything that does NOT belong in this vault** - it goes in the "Do not add" list (e.g. accounting kept in a separate finance vault).
+2. **What this vault is for** - my own life admin, a business I run, a project portfolio, or a client engagement?
+3. **Any websites or profiles you can read** to learn about it - a company site, a LinkedIn page, a listing. (Optional; I may have none.)
 
-Then:
+Do **not** ask about project definitions, extra `areas/` folders, naming conventions, or README framing or ownership. Those all get sensible defaults (below); they are decisions I make later when a real need appears, not on day zero.
 
-- Fill every `{{placeholder}}` in `CLAUDE.md.template` and `README.md.template` with the answers, keeping the invariant blocks (Obsidian Tasks markers, filing rules, Language, the standing "Do not add" items) exactly as written - only fill the vault-specific slots. **Rename each to drop the `.template` suffix** (`CLAUDE.md`, `README.md`).
-- Seed a starter strategic actions file at `areas/business/actions.md` from `actions.md.template`, with 1-3 real first tasks drawn from the interview (or just the empty `## Next actions` / `## Recurring` headings if there's nothing concrete yet). Per-project and per-contact `actions.md` files get created later, where the work actually lands.
+Then fill the templates:
+
+- If I gave URLs, **read them** (WebFetch) and draft the `README.md` Identity / Operating model / Track record sections from what you find. Flag anything you inferred so I can correct it. If I gave none, leave those sections as short, obvious stubs for the braindump (phase 2) to fill.
+- Fill every `{{placeholder}}` in `CLAUDE.md.template` and `README.md.template`. Keep the invariant blocks (Obsidian Tasks markers, filing rules, Language, Memory, File formats, the standing "Do not add" items) exactly as written. For the taxonomy slots, use these **defaults** verbatim unless I volunteered otherwise:
+  - **project** = time-bound work with a committed deliverable and deadline.
+  - **extra `areas/` subfolders** = none. `business/` + `network/` only; more emerge later.
+  - **source-document naming** = `YYYYMMDD <Who> <Description>.<ext>`.
+  - **archive `projects/`** = omit unless I said the vault archives finished projects.
+  - **"Do not add"** = the three standing items only, plus the accounting line if this is a business or financial vault.
+- **Rename each template to drop the `.template` suffix** (`CLAUDE.md`, `README.md`).
+- Seed `areas/business/actions.md` from `actions.md.template` with empty `## Next actions` / `## Recurring` headings - real strategic actions emerge from the braindump, not now.
+
+## Phases 2 + 3 - the vault-setup project
+
+Create `projects/vault-setup/` - the vault's first project, since standing the vault up is itself a time-bound deliverable. It holds two files:
+
+**`brief.md`** - a short plan covering:
+
+- **Phase 2, Braindump.** I tell you about this vault in my own words - typed, or as a voice memo / notes I drop into `triage/` for you to read. You fold it into `README.md` and spin out the first real projects, contacts, and actions from it.
+- **Phase 3, Inventory & connect.** Two tables to fill together:
+  - *Systems* - one row per system my work lives in (mail, calendar, drive, accounting, tickets, ...): what it holds · which connector (MCP / API) reaches it · status (pending / connected). Connectors live in the agent, not the vault, so this table only plans and tracks them.
+  - *Data sources* - one row per existing folder or inbox to pull from: where it is · what to extract into the vault.
+
+**`actions.md`** (Obsidian Tasks markers) - the concrete next steps:
+
+- `- [ ] Braindump: describe this vault (type it, or drop a recording / notes in triage/)`
+- `- [ ] List the systems my work lives in`
+- `- [ ] Connect each system - plan the MCP / API wiring`
+- `- [ ] Extract existing data from each folder / inbox`
+
+## Finish
+
 - Leave the PARA placeholder READMEs in place - they self-delete as real content arrives.
 - Do **not** add entity templates or a "## README structures" section yet; those come once a second instance of an entity type exists.
-- When done, delete the leftover `actions.md.template` and this `bootstrap-prompt.md`, then confirm the vault is clean: a filled `CLAUDE.md` + `README.md`, a seeded `areas/business/actions.md`, and no remaining `.template` files.
-- Finally, tell me to install the skills (`base/skills/` -> `~/.claude/skills/`) and run `/daily-brief`, and ask whether I want the read-only / iPad flavor instead of the default editable one (see the repo's `flavors/`).
+- Delete the leftover `actions.md.template` and this `bootstrap-prompt.md`. Confirm the vault is clean: filled `CLAUDE.md` + `README.md`, a seeded `areas/business/actions.md`, a `projects/vault-setup/` with `brief.md` + `actions.md`, and no remaining `.template` files.
+- Tell me to install the skills (`base/skills/` -> `~/.claude/skills/`) and run `/daily-brief`, and ask whether I want the read-only / iPad flavor instead of the default editable one (see the repo's `flavors/`).
+- Offer to start the braindump (phase 2) right now if I have a few minutes. Once every action in the vault-setup project is done, I retire it - archive or delete `projects/vault-setup/`.
