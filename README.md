@@ -1,38 +1,50 @@
 # para-os
 
-para-os is a free kit for running your paperwork with an AI assistant. Your documents stay what they are: ordinary files (PDFs, scans, spreadsheets) in ordinary folders on your own computer. The assistant does the part that never sticks: it files what comes in, drafts what goes out, tracks what's due, and answers questions across everything you keep ("what's still open with this client?", "what did we agree with the bank in March?"). Connect it to the places your work already lives (mail, calendar, your accounting tool) and it works there too.
+**Run your work out of one structured place, with an AI assistant on top.**
 
-The kit is a folder you copy, not a program you install: a ready-made set of folders with one obvious place for everything, house rules in plain language that tell the assistant how to behave, and three routines for the recurring chores (process the inbox, brief me each morning, tidy up). The name comes from [PARA](https://fortelabs.com/blog/para/), the filing method the folders follow.
+para-os is a free kit for anyone whose information is scattered across drives, inboxes, and people's heads: a practice, a business you run, a project, a household. You bring your files and connect your systems (mail, calendar, accounting). para-os gives them one structured home and an AI assistant that reads across all of it, so the questions that used to mean digging just get answered:
 
-## What that looks like in practice
+- "What's still open with this client?"
+- "What did we agree with the bank in March?"
+- "Where did that contract end up?"
 
-**If you run a practice or a small business.** A scanned letter from the tax office lands in the inbox folder. You ask the assistant to process the inbox: it reads the letter, files it in the right dossier under a proper name, and puts "respond before 1 July" on the to-do list. With your mail connected, it checks whether you've corresponded before and notes what it finds ("the accountant requested a postponement on 12 May"). Next morning you ask for your daily brief: one page with everything due or overdue, plus today's meetings from your calendar.
+Your files stay ordinary files (PDFs, scans, spreadsheets) in ordinary folders on your own computer. The assistant does the part that never sticks: it files what comes in, drafts what goes out, tracks what's due, and answers across everything you keep.
 
-**If you run IT projects.** Hook it to Jira, Azure DevOps, and your mail through the standard connectors (MCP). The morning brief now checks your to-do list against the live sprint board. The steering-meeting transcript you dropped in the inbox gets filed, its decisions linked to the tickets they affect. "What's still blocking the release?" is answered from the board plus everything in your own files.
+> **Want it set up for you?** The kit is free and do-it-yourself. If you'd rather have your business structured and the assistant wired in for you, that's a service I offer - [get in touch](https://trotstar.tech).
 
-**At home.** School letters, insurance renewals, the contractor's quote: same folders, same routines. The assistant files them, keeps one list of what needs an answer, and remembers what the insurer wrote last year, so you don't have to.
+## What it is
 
-**You don't need to be a programmer.** You work in two free-to-install tools: [VS Code](https://code.visualstudio.com/), an editor, and [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant (the AI itself needs a paid Claude plan). Both were built for software work, but here they are just a window onto your folders with a chat box beside it. You type plain English; the assistant handles the files. If you can use email and a file explorer, you can run this.
+A folder you copy, not a program you install. Inside: a ready-made set of folders with one obvious place for everything, house rules in plain language that tell the assistant how to behave, and three routines for the recurring chores (process the inbox, brief me each morning, tidy up). The folders follow [PARA](https://fortelabs.com/blog/para/), the filing method, hence the name.
 
-**Why not just [Claude Cowork](https://www.anthropic.com/product/claude-cowork)?** Cowork is Anthropic's same idea in app form: an AI assistant pointed at a folder. What it doesn't ship is the part para-os exists for: a sensible folder structure, written house rules the assistant re-reads every session, and routines to keep it consistent over months. Point an assistant at a shapeless folder and you get a clever helper in a messy cabinet; para-os is the cabinet. And because everything stays plain files, you're not married to one assistant: run it with Claude Code today, Cowork or whatever comes next tomorrow.
+Everything stays plain files and Markdown on your own disk. No app, no database, no sync service, nothing locked inside one program. That keeps it portable: run it with one AI assistant today and a different one tomorrow, and the data outlives them all.
+
+## What it looks like in practice
+
+**Running a business.** A scanned letter from the tax office lands in the inbox. You ask the assistant to process it: it reads the letter, files it in the right dossier under a proper name, and adds "respond before 1 July" to the to-do list. With your mail connected, it checks whether you've corresponded before and notes what it finds ("the accountant requested a postponement on 12 May"). Next morning you ask for your daily brief: one page with everything due or overdue, plus today's meetings.
+
+**IT projects.** Connect Jira, Azure DevOps, and your mail through the standard connectors (MCP). The morning brief now checks your to-do list against the live sprint board. A steering-meeting transcript you drop in the inbox gets filed, its decisions linked to the tickets they affect. "What's still blocking the release?" is answered from the board plus everything in your own files.
+
+**At home.** School letters, insurance renewals, the contractor's quote: same folders, same routines. One list of what needs an answer, and it remembers what the insurer wrote last year, so you don't have to.
+
+## You don't need to be a programmer
+
+You work in two free-to-install tools: [VS Code](https://code.visualstudio.com/), an editor, and [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant (the AI itself needs a paid Claude plan). Both were built for software work, but here they are just a window onto your folders with a chat box beside it. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, like `#` for a heading and `-` for a list, readable on any device. If you can use email and a file explorer, you can run this.
+
+## Why not Claude Cowork?
+
+[Claude Cowork](https://www.anthropic.com/product/claude-cowork) is Anthropic's same idea in app form: an AI assistant pointed at a folder. What it doesn't ship is the part para-os exists for: a sensible folder structure, written house rules the assistant re-reads every session, and routines to keep it consistent over months. Point an assistant at a shapeless folder and you get a clever helper in a messy cabinet. para-os is the cabinet.
 
 ## Why this exists
 
-I ran my working life out of one paper notebook per year, for years. The digital replacements never stuck: Notion and Obsidian turned into admin overhead that pulled me from the real work, and chat-based AI workspaces came close but broke down past small topics. The failure mode was always the same: keeping the structure current cost more than it gave back.
+I ran my working life out of one paper notebook per year, for years. The digital replacements never stuck: Notion and Obsidian turned into admin overhead that pulled me off the real work, and chat-based AI workspaces came close but broke down past small topics. The failure mode was always the same: keeping the structure current cost more than it gave back.
 
-Early 2026, three things clicked together: PARA for the folder structure, VS Code as the workbench, Claude Code as the assistant. The agent absorbs exactly the overhead that killed every earlier attempt; the structure finally pays back more than it costs. I now run client engagements, a business, family admin, and my finances this way, and maintain read-only vaults for non-technical people close to me. Wired into my bookkeeping system, a vault answers questions I used to pay an accountant for.
+In early 2026, three things clicked together: PARA for the folder structure, VS Code as the workbench, Claude Code as the assistant. The agent absorbs exactly the overhead that killed every earlier attempt, so the structure finally pays back more than it costs. I now run a business, client engagements, and family admin this way; wired into my bookkeeping, a vault answers questions I used to pay an accountant for.
 
-For technical readers, the thesis underneath: **clean file structures are the substrate for AI.** An agent is only as good as the files you point it at. Give it `Documents/Misc` and it can search, at best. Give it a predictable layout with documented conventions and every "where does this go?" has one answer, so it files, cross-references, audits, and briefs you reliably.
-
-Three things worth noticing:
-
-- **More assistant than archive.** This is not a static knowledge store; it's closer to a personal assistant that keeps a tidy filing cabinet behind it.
-- **Developer tools, almost no code.** VS Code and Claude Code were built for software work, but they are excellent general knowledge-work tools once you point them at the right folders.
-- **The files are the memory.** No memory features, no chat-history dependence. The vault on disk is the durable state, the agent reads it fresh every session, and the git diff is the audit log. Durable, inspectable, portable, yours.
+For technical readers, the thesis underneath: **clean file structures are the substrate for AI.** An agent is only as good as the files you point it at. Give it `Documents/Misc` and it can search, at best. Give it a predictable layout with documented conventions and every "where does this go?" has one answer, so it files, cross-references, audits, and briefs you reliably. And the files are the memory: no memory features, no chat-history dependence. The folder on disk is the durable state, the agent reads it fresh every session, and the git diff is the audit log. Durable, inspectable, portable, yours.
 
 ## The vault
 
-A vault is one folder tree per life context: a client engagement, a business you run, family admin, financial records. Keep contexts in separate vaults; the agent stays focused and nothing leaks across boundaries.
+A vault is one folder tree per life context: a client engagement, a business you run, family admin, financial records. Keep contexts in separate vaults so the agent stays focused and nothing leaks across boundaries.
 
 ```
 your-vault/
@@ -55,13 +67,11 @@ The conventions the templates encode:
 - **Actions live with their context.** Tasks sit in the project, idea, or contact file they belong to, as markdown checkboxes with [Obsidian Tasks](https://publish.obsidian.md/tasks/) emoji markers (`📅` due, `🛫` start, `🔁` recurring, `🔺🔼🔽⏬` priority). Trivially regex-parseable; Obsidian itself optional. `/daily-brief` reassembles the global view at read time.
 - **Don't template prematurely.** Wait until a second instance proves a shape, then document it in `CLAUDE.md`.
 
-No app, no database, no sync service. Plain folders and markdown are the lowest common denominator every agent, editor, and future tool can read; the data outlives all of them.
-
 ## Quickstart
 
 1. **Copy [`base/skeleton/`](base/skeleton/)** as the root of your new vault: a folder in your cloud drive, a git repo, anywhere.
-2. **Run the bootstrap.** Open a Claude Code session in the vault root and paste the prompt from `bootstrap-prompt.md`. It interviews you, fills the `CLAUDE.md` and `README.md` templates, seeds a starter `actions.md`, and cleans up after itself.
-3. **Install the skills.** Copy the folders under [`base/skills/`](base/skills/) into `~/.claude/skills/`, then run `/daily-brief`.
+2. **Run the bootstrap.** Open a Claude Code session in the vault root and paste the prompt from `bootstrap-prompt.md`. It asks three short questions, fills the `CLAUDE.md` and `README.md` templates, seeds a starter `actions.md`, and creates a self-retiring `vault-setup` project that walks you through the rest of onboarding (a braindump, then connecting your systems) before cleaning up after itself.
+3. **Install the skills.** The three routines are agent tooling shared across *all* your vaults, so they install once, globally: copy the folders under [`base/skills/`](base/skills/) into `~/.claude/skills/`, then run `/daily-brief`. (Prefer to keep them with a single vault? Drop them in `<vault>/.claude/skills/` instead.)
 
 To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/): a fictional consulting engagement with projects, contacts, actions, and meeting records. Run `/daily-brief` or `/triage` in its root to watch the skills work.
 
@@ -93,7 +103,7 @@ If no calendar connector is wired in, a root `meetings.md` (one line per meeting
 
 A vault the agent can only read is a tidy filing cabinet. Wired into the systems your work actually lives in, it becomes an operator. MCP servers (Gmail, Calendar, Drive, Slack, Atlassian, Azure DevOps, ...) and anything scriptable (`az`, a REST API, your accounting tool) compose: `/daily-brief` shows your real meetings, attachments get filed straight from mail, action lists reconcile against live tickets, and "what's still outstanding on this client?" is answered from the live ledger instead of a stale export.
 
-The connectors live in the agent, not in para-os. The vault stays plain files, portable and tool-agnostic.
+The connectors live in the agent, not in para-os; the vault stays plain files.
 
 ## The read-only flavor
 
