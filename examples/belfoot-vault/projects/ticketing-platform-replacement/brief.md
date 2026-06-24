@@ -38,4 +38,4 @@ Out:
 
 ## Status
 
-In vendor selection. RFP issued to four vendors (Ticketmaster Sport, Seatgeek Enterprise, AXS, and a Belgian niche player). Responses due 2026-06-20.
+In vendor selection. RFP issued 2026-05-15 to four vendors (Ticketmaster Sport, SeatGeek Enterprise, AXS, and TicketMatch BE); all four responses received by the 2026-06-20 deadline. Now scoring responses against the matrix, with demo days the week of 2026-07-06. See [actions.md](actions.md) for the live task list.

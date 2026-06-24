@@ -23,6 +23,5 @@ Married, two kids in primary school. Marathon runner; talks about it.
 
 ## Next actions
 
-- [ ] Draft Q3 cost-recovery options for him by Friday 🔺 📅 2026-05-29
-- [ ] Pre-brief him on the 4G fallback hardware delay before he hears it elsewhere 🔼 📅 2026-05-27
+- [ ] Get his decision on the three Q3 cost-recovery options (with him since 2026-05-29) 🔺 📅 2026-06-22
 - [ ] Send the AML reporting hooks design once it's drafted 🔽 📅 2026-09-30

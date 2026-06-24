@@ -16,5 +16,6 @@ Suspicious of technology he can't physically see working. Won't sign off on cash
 
 ## Next actions
 
-- [ ] Schedule a match-day flow walk-through at the stadium 📅 2026-06-03
-- [ ] Confirm soft-launch friendly fixture for cashless 🛫 2026-07-15 📅 2026-07-20
+- [ ] Pre-brief him on the Q3 cost issues before the match-day walk-through, so he doesn't hear it second-hand 🔼 📅 2026-06-23
+- [ ] Schedule a match-day flow walk-through at the stadium 📅 2026-07-02
+- [ ] Confirm soft-launch friendly fixture for cashless 🛫 2026-07-27 📅 2026-07-30
