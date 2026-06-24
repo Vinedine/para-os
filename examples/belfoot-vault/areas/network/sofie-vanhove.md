@@ -24,6 +24,6 @@ Lives in Mechelen. Cyclist (commutes by bike year-round). Prefers morning meetin
 
 ## Next actions
 
-- [ ] Walk through the south stand network survey results with her 📅 2026-05-29
-- [ ] Co-write the ticketing RFP scoring matrix 📅 2026-05-29
-- [ ] Weekly steering 🔁 every Wednesday 📅 2026-05-27
+- [ ] Co-writing the RFP evaluation matrix with Thomas (tracked in [ticketing-platform-replacement](../../projects/ticketing-platform-replacement/actions.md)) 📅 2026-06-26
+- [ ] Owe her the ADR clean-up pass on the cashless deployment-target inconsistency she flagged 📅 2026-07-28
+- [ ] Weekly steering 🔁 every Wednesday 📅 2026-07-29

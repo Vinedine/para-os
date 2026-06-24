@@ -7,7 +7,7 @@
 
 ### South stand network survey
 
-The third-party survey results landed. Worse than the optimistic case. Sofie thinks we need 4G fallback at three clusters, not one. She's confident about the survey methodology. I trust her read.
+The third-party survey results landed. Worse than the optimistic case. Sofie thinks we need 4G fallback at three of the five concession clusters, not one. She's confident about the survey methodology. I trust her read.
 
 → Flag this to Jan at the next budget review. (Did, see [20260522 CFO budget review](20260522%20CFO%20budget%20review.md).)
 

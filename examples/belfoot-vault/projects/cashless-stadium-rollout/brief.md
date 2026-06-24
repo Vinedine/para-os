@@ -43,10 +43,10 @@ NovaPay (Antwerp). Contract signed 2026-04-18. SOW on file at `sources/20260418 
 
 ## Risks (live)
 
-- **Network coverage** at the south stand is unreliable; 4G fallback hardware still on order.
-- **Q3 budget overrun** flagged by Jan Claes at the 2026-05-22 meeting (~€85k over). Cost-recovery option due to him by Friday.
-- **Season-ticket NFC chip** firmware refresh has a 6-week lead time and we haven't started.
+- **Network coverage** at the south stand is unreliable; 4G fallback ordered for three of the five concession clusters, install date being confirmed with NovaPay.
+- **Q3 budget overrun** flagged by Jan Claes at the 2026-05-22 meeting (~€85k over). The three cost-recovery options went to him on 2026-05-29; decision pending.
+- **Season-ticket NFC chip** firmware refresh kicked off 2026-05-26 (6-week lead time), tracking to the 2026-07-15 hardware-install deadline.
 
 ## Status
 
-On track for soft launch, slipping on budget. See [actions.md](actions.md) for the live task list.
+On track for the 2026-08-02 soft launch, slipping on budget. See [actions.md](actions.md) for the live task list.
