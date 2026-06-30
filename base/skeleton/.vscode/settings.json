@@ -1,0 +1,8 @@
+{
+    "workbench.startupEditor": "none",
+    "editor.wordWrap": "on",
+    "editor.minimap.enabled": false,
+    "workbench.editorAssociations": {
+        "*.md": "vscode.markdown.preview.editor"
+    }
+}

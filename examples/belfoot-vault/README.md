@@ -9,4 +9,4 @@ Consultant vault for the BelFoot Royal Sporting Club IT modernisation programme.
 - **Past meetings:** [archive/meetings/](archive/meetings/).
 - **Conventions for Claude:** [CLAUDE.md](CLAUDE.md).
 
-Run `/daily-brief` for a bucketed view of what's open across the vault.
+Run `/para-daily-brief` for a bucketed view of what's open across the vault.

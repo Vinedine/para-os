@@ -8,28 +8,38 @@
 
 ## PARA layout
 
-- **triage/** - landing zone for anything that doesn't obviously fit elsewhere; emptied via `/triage` at the next review.
+- **triage/** - landing zone for anything that doesn't obviously fit elsewhere; emptied via `/para-triage` at the next review.
 - **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline, one folder per project, each holding a `brief.md` + `actions.md` and, where relevant, a `sources/` subfolder.}}
 - **areas/** - ongoing responsibilities. `business/` = running narrative and strategic actions. `network/` = one file per person.{{ Add any other area subfolders this vault needs.}}
 - **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage ventures with no committed outcome; same `brief.md` shape as a project for easy promotion.
-- **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records.{{ Add `projects/` = completed work, if this vault archives finished projects.}}
+- **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
 
-Promote `resources/ideas/<x>` to `projects/` when one of: someone is waiting on a deliverable by a date; money or a formal engagement is committed; a go/no-go review is on the calendar. Ideas with no traction at 6+ months retire to `archive/`.
+Promote `resources/ideas/<x>` to `projects/` when one of: someone is waiting on a deliverable by a date; money or a formal engagement is committed; a go/no-go review is on the calendar. Ideas with no traction at 6+ months retire to `archive/ideas/` (via `/para-archive`).
 
 Root `README.md` is the master document, single source of truth for identity, operating model, and track record. Derived outputs regenerate from it.
+
+### Archive hygiene
+
+What a clean `archive/` looks like (applied on the way in, and audited by `/para-deep-clean`):
+
+- **No live work in the archive.** An archived entity has zero open actions - every item done, or open items softened to an explicit "fully closed; minor gaps not material" note. Surviving work is routed out *before* archiving (to a successor idea, an existing project, or `areas/business/actions.md`), never left as a dangling `[ ]`. A closed project must not keep surfacing in `/para-daily-brief`.
+- **History archives; living references go to `resources/`.** Brief, actions, and one-time migration/handoff notes are history - they archive with the entity. Reusable material (playbooks, positioning/strategy docs, templates, anything other live work links to as a resource) is *not* buried in the archive; route it to `resources/<name>/`.
+- **No loose files at the archive root.** Everything under `archive/` lives in a subfolder (`meetings/`, `projects/`, ...). A stray top-level file is misfiled.
+- **Minimum record.** Each archived entity carries a status marker (why it's archived) and a `brief.md`/`README.md`, so it's self-explanatory years later.
+- **Zero dangling links.** Moving something into the archive repoints every inbound reference (contacts, areas, README, other entities) in the same pass; a stale link is rot. A historical mention *inside* the archived folder itself is fine.
 
 ## Filing rules
 
 - **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context at the top, `## Next actions` appended at the bottom.
 - **Actions**: co-locate with the project, idea, or contact they belong to. Per-project actions live in `projects/<project>/actions.md`; per-idea actions in `resources/ideas/<idea>/actions.md`; per-contact actions inside the contact file. Strategic work not tied to one of those goes in `areas/business/actions.md`. Never create a monolithic root `actions.md`.
 - **Dated meeting/chat/email artifacts**: `archive/meetings/YYYYMMDD Description.ext`.
-- **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. The /triage skill applies this convention literally; if you leave it undefined, /triage will ask before renaming anything.}}
+- **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. The /para-triage skill applies this convention literally; if you leave it undefined, /para-triage will ask before renaming anything.}}
 - **Shared workstreams across contacts**: track actions in the primary contact's file; the other files get a pointer line.
 - **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
 
 ## Obsidian Tasks markers for actions.md files
 
-Any `actions.md` file in this vault uses Obsidian Tasks plugin markers. The `/daily-brief` skill parses these with regex:
+Any `actions.md` file in this vault uses Obsidian Tasks plugin markers. The `/para-daily-brief` skill parses these with regex:
 
 - `📅 YYYY-MM-DD` - due date (hard deadline)
 - `🛫 YYYY-MM-DD` - start date (item not actionable until then)
@@ -46,7 +56,7 @@ Rules when writing or editing tasks:
 - For items gated on external events, leave undated. Do not invent dates.
 - One flattened `## Recurring` section per file, not separate "quarterly" / "annually" headings.
 
-Never archive an `actions.md` file: it must stay outside `archive/` to be picked up by `/daily-brief`.
+Never archive an `actions.md` file: it must stay outside `archive/` to be picked up by `/para-daily-brief`.
 
 ## Language
 
@@ -68,6 +78,13 @@ The substrate is real, readable files. The agent works over what exists on disk 
 - {{Anything else that belongs in a different vault or system, e.g. "Accounting, invoicing, financial records - belong in a separate vault (one vault per life context)."}}
 
 <!-- OPTIONAL sections that mature vaults grow - add only when this vault actually needs them:
+  - "## MCP integration intent" - which connectors (MCP servers) this vault uses and for what, one
+    bullet per server with its scope. The shared rule across all of them: fetch tickets / pages /
+    repo contents on demand; never mirror whole tickets, pages, or repos into the vault. Omit the
+    section entirely if the vault has no MCP configured.
+  - "## Operating rules" - vault-specific working rules that aren't structure: drafting register for
+    a given recipient, read-only-connector restraints, domain naming conventions, deliverable style.
+    Each is local to this vault; do not import another vault's rules.
   - "## README structures" - canonical section order per entity type, ONLY once a SECOND instance
     of that entity type proves the shape.
   - "## Cross-vault references" - when this vault overlaps another. Keep the full entry where the
