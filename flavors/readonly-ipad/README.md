@@ -6,7 +6,7 @@ Two iPadOS + Google Drive quirks shape the design: the Drive file provider on iO
 
 ## What this flavor adds to the base
 
-0. **A CLAUDE.md template** ([`skeleton/CLAUDE.md.template`](skeleton/CLAUDE.md.template)): the base skeleton template adapted for this flavor - the actions / Obsidian Tasks section removed (no `actions.md` here), and an `## iPad access and rendering` section added for the pipeline and reader-access model. A vault of this flavor follows this template, not `base/skeleton/CLAUDE.md.template`. It is the source of truth `/claude-md-audit` compares Katrin-style vaults against.
+0. **A CLAUDE.md template** ([`skeleton/CLAUDE.md.template`](skeleton/CLAUDE.md.template)): the base skeleton template adapted for this flavor - the actions / Obsidian Tasks section removed (no `actions.md` here), and an `## iPad access and rendering` section added for the pipeline and reader-access model. A vault of this flavor follows this template, not `base/skeleton/CLAUDE.md.template`.
 1. **The pipeline** ([`pipeline/`](pipeline/)), three files copied verbatim into the vault root:
    - `render.ps1` + `render.mjs`: render every `.md` to a sibling `.pdf` with one persistent headless Chromium (Puppeteer + github-markdown-css). Incremental by mtime; `-Force` re-renders all.
    - `flip.ps1`: switches the vault between **spread** (`.md` next to `.pdf`, the editing state) and **collected** (all `.md` files in a flat `resources/mds/` bucket, path encoded into the filename with `__`). Collected is the default; the reader's folders then contain only PDFs.
