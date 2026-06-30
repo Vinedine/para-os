@@ -4,25 +4,44 @@
 
 The hard part of AI assistance isn't the assistant. It's that everything it needs is scattered across drives, inboxes, and people's heads. Point a capable assistant at a shapeless folder and you get a clever helper rummaging through a messy cabinet: it can search, at best.
 
-**para-os is the cabinet.** A free, do-it-yourself kit for anyone whose information is scattered: a practice, a business you run, a project, a household. You bring your files and connect your systems (mail, calendar, accounting); para-os gives them one structured home and an AI assistant that reads across all of it, so the questions that used to mean digging just get answered:
+**para-os is the cabinet.** A free, do-it-yourself kit for anyone whose information is scattered: a practice, a business you run, a project, a household. You bring your files and connect your systems (mail, calendar, accounting); para-os gives them one structured home and an AI assistant that reads across *all of it at once* - your files plus every connected system, cross-referenced into one answer instead of leaving you to check each silo by hand. So the questions that used to mean an afternoon of digging just get answered:
 
-- "What's still open with this client?"
-- "What did we agree with the bank in March?"
-- "Where did that contract end up?"
+- "What's the full history with this client, across email and our files?"
+- "What did we agree with the bank in March, and where's the document?"
+- "Pull every order this supplier sent and flag what's still open."
 
-Your files stay ordinary files (PDFs, scans, spreadsheets) in ordinary folders on your own computer. The assistant does the part that never sticks: it files what comes in, drafts what goes out, tracks what's due, and answers across everything you keep.
+Your mailbox alone is your richest untapped record - years of customers, suppliers, decisions, orders, and attachments - and the assistant mines structure out of it rather than keyword-searching it. Your files stay ordinary files (PDFs, scans, spreadsheets) in ordinary folders on your own computer. The assistant does the part that never sticks: it files what comes in, drafts what goes out, writes the small tool it needs when it gets stuck, and answers across everything you keep.
+
+```text
+  Scattered today          →          One structured home with para-os
+  ───────────────                     ────────────────────────────────
+  drives                              Projects
+  inboxes                             Areas
+  people's heads                      Resources
+  ERP · Jira · files                  Archive
+  external systems                    + triage inbox
+
+  the assistant can                   the assistant does the work,
+  search, at best                     across all of it
+```
 
 > **Want it set up for you?** The kit is free. If you'd rather have your business structured and the assistant wired in for you, that's a service I offer - [get in touch](https://trotstar.tech).
 
 ## What it is
 
-A folder you copy, not a program you install. Inside: a ready-made set of folders with one obvious place for everything, house rules in plain language that tell the assistant how to behave, and three routines for the recurring chores (process the inbox, brief me each morning, tidy up). The folders follow [PARA](https://fortelabs.com/blog/para/), the filing method, hence the name.
+A folder you copy, not a program you install. Inside: a ready-made set of folders with one obvious place for everything, house rules in plain language that tell the assistant how to behave, and a handful of routines for the recurring chores (process the inbox, brief me each morning, tidy up, archive what's done). The folders follow [PARA](https://fortelabs.com/blog/para/), the filing method, hence the name.
 
 Everything stays plain files and Markdown on your own disk. No app, no database, no lock-in - run it with one AI assistant today and a different one tomorrow, and the data outlives them all.
 
 ## What it looks like in practice
 
-**Running a business.** A scanned letter from the tax office lands in the inbox. You ask the assistant to process it: it reads the letter, files it under a proper name, and adds "respond before 1 July" to the to-do list. With your mail connected, it notes what it finds ("the accountant requested a postponement on 12 May"). Next morning, your daily brief is one page of everything due, plus today's meetings.
+**Running a business.** A scanned letter from the tax office lands in the inbox. You ask the assistant to process it: it reads the letter, files it under a proper name, and adds "respond before 1 July" to the to-do list. With your mail connected, it cross-references what it finds ("the accountant requested a postponement on 12 May") - and then does the next bit too: drafts the reply for you to send, and when the figures it needs aren't in the letter but buried in a spreadsheet it can't parse cleanly, it writes a throwaway script on the spot to pull them. Next morning, your daily brief is one page of everything due, plus today's meetings. The point isn't that it *finds* things; it's that it produces finished work across everything you keep.
+
+```text
+ messy input  ──▶  reads every source  ──▶  writes its own tool  ──▶  finished output
+  (a letter,        (mail + drive +          (hits a wall, scripts      (a drafted reply
+   a request)        accounting, joined)      its way past it)           you can send)
+```
 
 **IT projects.** Connect Jira, Azure DevOps, and your mail (MCP). The morning brief checks your to-do list against the live sprint board; a steering transcript you drop in the inbox gets filed and its decisions linked to the tickets they affect. "What's still blocking the release?" is answered from the board plus your own files.
 
@@ -38,6 +57,8 @@ Any "AI on top of my stuff" setup is three layers stacked. Naming them shows whe
 
 para-os owns layer 1 and is agnostic about 2 and 3 - **bring your own agent**. Almost nobody does the layer-1 work because it feels like filing, not engineering. That's exactly why it pays off: an agent is only as good as the files you point it at, and that leverage grows as agents get better. The files are the memory - the folder on disk is the durable state, the agent reads it fresh each session, and the git diff is the audit log. No memory features, no chat-history dependence.
 
+Because it reasons over real files rather than a black box, the setup stays **agentic**: you hold the goals, the assistant does the work and surfaces its uncertainty - when something is ambiguous or it can't do a step reliably, it says so and asks, rather than confidently handing you the wrong thing. You stay the operator; the structure amplifies you.
+
 ## You don't need to be a programmer
 
 You work in two free-to-install tools: [VS Code](https://code.visualstudio.com/), an editor, and [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant (the AI itself needs a paid Claude plan). Both were built for software work, but here they're just a window onto your folders with a chat box beside it. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.
@@ -50,7 +71,7 @@ A vault is one folder tree per life context: a client engagement, a business, fa
 your-vault/
 ├── CLAUDE.md      # the contract: local conventions, read by the agent at runtime
 ├── README.md      # master document; derived outputs regenerate from it
-├── triage/        # capture inbox; /triage empties it
+├── triage/        # capture inbox; /para-triage empties it
 ├── projects/      # time-bound work; one folder per project: brief.md + actions.md + sources/
 ├── areas/         # ongoing responsibilities; contacts in areas/network/, one file per person
 ├── resources/     # reusable reference; not-yet-projects in resources/ideas/
@@ -68,26 +89,27 @@ The conventions the templates encode:
 
 ## Quickstart
 
-1. **Install the skills once, up front.** The three routines are shared across *all* your vaults, so they live globally: copy the folders under [`base/skills/`](base/skills/) into `~/.claude/skills/`. (Prefer per-vault? Drop them in `<vault>/.claude/skills/`.)
+1. **Install the skills once, up front.** The routines are shared across *all* your vaults, so they live globally: copy the folders under [`base/skills/`](base/skills/) into `~/.claude/skills/`. (Prefer per-vault? Drop them in `<vault>/.claude/skills/`.)
 2. **Copy [`base/skeleton/`](base/skeleton/)** to become the root of your new vault - a folder in your cloud drive, a git repo, anywhere:
    ```
    cp -r base/skeleton ~/my-vault                # macOS / Linux / Git Bash
    Copy-Item base/skeleton ~/my-vault -Recurse   # Windows PowerShell
    ```
 3. **Run the bootstrap.** Open a Claude Code session **in the new vault root** and paste the prompt from `bootstrap-prompt.md`. It asks three short questions, fills the `CLAUDE.md` and `README.md` templates, and creates a self-retiring `vault-setup` project that walks you through the rest.
-4. **Run `/daily-brief`.** The vault answers from day one - and richer as you feed it your braindump.
+4. **Run `/para-daily-brief`.** The vault answers from day one - and richer as you feed it your braindump.
 
-To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/): a fictional consulting engagement with projects, contacts, actions, and meeting records. Run `/daily-brief` or `/triage` in its root to watch the skills work.
+To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/): a fictional consulting engagement with projects, contacts, actions, and meeting records. Run `/para-daily-brief` or `/para-triage` in its root to watch the skills work.
 
 ## The skills
 
 | Skill | What it does |
 |---|---|
-| [`/triage`](base/skills/triage/SKILL.md) | Empties `triage/`: identifies each loose file, proposes a destination and a convention-conform rename, executes after your approval. |
-| [`/daily-brief`](base/skills/daily-brief/SKILL.md) | One-pass dashboard of every open task, bucketed by urgency against today, plus a meetings agenda and a triage count. |
-| [`/deep-clean`](base/skills/deep-clean/SKILL.md) | Periodic maintenance: structural audit, README normalisation, closing documented open items by reading the source files. |
+| [`/para-triage`](base/skills/para-triage/SKILL.md) | Empties `triage/`: identifies each loose file, proposes a destination and a convention-conform rename, executes after your approval. |
+| [`/para-daily-brief`](base/skills/para-daily-brief/SKILL.md) | One-pass dashboard of every open task, bucketed by urgency against today, plus a meetings agenda and a triage count. |
+| [`/para-deep-clean`](base/skills/para-deep-clean/SKILL.md) | Periodic maintenance: structural audit, README normalisation, closing documented open items by reading the source files. |
+| [`/para-archive`](base/skills/para-archive/SKILL.md) | Closes out one finished project or shelved idea: reconciles open actions, validates its records, moves it to `archive/`, and repoints every inbound link. |
 
-All three read the vault's own `CLAUDE.md` for conventions; no paths are hardcoded. `/daily-brief` against the example vault (fragment):
+They all read the vault's own `CLAUDE.md` for conventions; no paths are hardcoded. `/para-daily-brief` against the example vault (fragment):
 
 ```
 # Daily Brief - 2026-06-24
@@ -104,7 +126,7 @@ If no calendar connector is wired in, a root `meetings.md` (one line per meeting
 
 ## Connectors
 
-A vault the agent can only read is a tidy filing cabinet. Wired into the systems your work lives in, it becomes an operator. MCP servers (Gmail, Calendar, Drive, Slack, Atlassian, Azure DevOps, ...) and anything scriptable compose: `/daily-brief` shows your real meetings, attachments get filed straight from mail, action lists reconcile against live tickets. The connectors live in the agent, not in para-os; the vault stays plain files.
+A vault the agent can only read is a tidy filing cabinet. Each connector you add is another source the *same* assistant can see and fold into the answer - so reach compounds: the more you wire in, the more it joins up. Mail, Calendar, Drive, Slack, Atlassian, Azure DevOps, and anything scriptable all compose into one picture: `/para-daily-brief` shows your real meetings, attachments get filed straight from mail, action lists reconcile against live tickets, and a question gets answered from your files *and* every system at once. The connectors live in the agent, not in para-os; the vault stays plain files.
 
 ## The read-only flavor
 
@@ -116,8 +138,8 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 
 ## What's in the repo
 
-- [`base/skeleton/`](base/skeleton/) - the vault skeleton: PARA folders, placeholder READMEs, templates, bootstrap prompt.
-- [`base/skills/`](base/skills/) - the three skills, installable into `~/.claude/skills/`.
+- [`base/skeleton/`](base/skeleton/) - the vault skeleton: PARA folders, placeholder READMEs, templates, bootstrap prompt, and editor settings (`.vscode/settings.json`) that open `.md` files in clean rendered preview.
+- [`base/skills/`](base/skills/) - the skills, installable into `~/.claude/skills/`.
 - [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - the render pipeline for the read-only model.
 - [`examples/belfoot-vault/`](examples/belfoot-vault/) - a fictional, fully populated vault to poke at.
 

@@ -1,6 +1,6 @@
 ---
-name: triage
-description: Empty the current vault's triage/ folder by classifying each loose file, proposing a destination + rename per the vault's naming convention, then moving/deleting after user confirmation. Use when user asks to "process triage", "clean up triage", "empty the inbox", or types /triage.
+name: para-triage
+description: Empty the current vault's triage/ folder by classifying each loose file, proposing a destination + rename per the vault's naming convention, then moving/deleting after user confirmation. Use when user asks to "process triage", "clean up triage", "empty the inbox", or types /para-triage.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write
 arg-hint: '[preview|apply]'
 ---
@@ -23,7 +23,7 @@ Processes every loose file in the current vault's `triage/` folder by:
 
 ## When to invoke
 
-- User types `/triage` (optionally with `preview` to skip the execution step)
+- User types `/para-triage` (optionally with `preview` to skip the execution step)
 - User asks "process the triage folder" / "clean up triage" / "empty the inbox" / "file everything in triage"
 - User asks to file or sort specific loose files that happen to live in `triage/`
 
@@ -214,4 +214,4 @@ Follow-on README edits to mention in the same response:
 
 Part of the para-os skill set. Sibling skills:
 
-- `/deep-clean` - comprehensive cleanup pass: audits structural issues, normalises READMEs, closes open items from source PDFs. Run **after** `/triage` has emptied the loose-files queue.
+- `/para-deep-clean` - comprehensive cleanup pass: audits structural issues, normalises READMEs, closes open items from source PDFs. Run **after** `/para-triage` has emptied the loose-files queue.

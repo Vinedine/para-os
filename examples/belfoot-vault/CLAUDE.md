@@ -10,7 +10,7 @@ BelFoot internal data (financials, employee records, contracts) is confidential 
 
 ## PARA layout
 
-- **triage/** - capture area for unprocessed artifacts before they get filed (call notes, screenshots, meeting transcripts, scanned docs, ad-hoc thoughts). Process via `/triage`.
+- **triage/** - capture area for unprocessed artifacts before they get filed (call notes, screenshots, meeting transcripts, scanned docs, ad-hoc thoughts). Process via `/para-triage`.
 - **projects/** - time-bound IT workstreams with a committed deliverable and deadline, one folder per workstream. Each holds a `brief.md` (what it is, who it's for, scope, stakeholders, deadline), an `actions.md` (task list with Obsidian Tasks markers, see below), and a `sources/` subfolder for raw material (RFP PDFs, vendor decks, scanned contracts).
 - **areas/** - ongoing responsibilities. `stadium/` = the stadium modernisation programme as a standing responsibility: cross-cutting strategic actions not tied to a single workstream. `network/` = one file per BelFoot stakeholder.
 - **resources/** - reusable reference (procurement templates, vendor evaluations, regulatory notes). `prompts/` = reusable specs and drafts; `ideas/` = concept-stage workstreams with no committed outcome, same `brief.md` shape as a project for easy promotion.
@@ -31,7 +31,7 @@ Root `README.md` is the master document, single source of truth for the engageme
 
 ## Obsidian Tasks markers for actions.md files
 
-Any `actions.md` file in this vault uses Obsidian Tasks plugin markers. The `/daily-brief` skill parses these with regex:
+Any `actions.md` file in this vault uses Obsidian Tasks plugin markers. The `/para-daily-brief` skill parses these with regex:
 
 - `📅 YYYY-MM-DD` - due date (hard deadline)
 - `🛫 YYYY-MM-DD` - start date (item not actionable until then)
@@ -48,7 +48,7 @@ Rules when writing or editing tasks:
 - For items gated on external events, leave undated. Do not invent dates.
 - One flattened `## Recurring` section per file, not separate "quarterly" / "annually" headings.
 
-Never archive an `actions.md` file: it must stay outside `archive/` to be picked up by `/daily-brief`.
+Never archive an `actions.md` file: it must stay outside `archive/` to be picked up by `/para-daily-brief`.
 
 ## Language
 
@@ -71,5 +71,5 @@ The substrate is real, readable files. The agent works over what exists on disk 
 
 ## Skills and MCPs wired to this vault
 
-- Skills: `/daily-brief` (bucketed action dashboard across every `actions.md`), `/triage` (empty the inbox by classifying then moving each item), `/deep-clean` (audit structural drift).
+- Skills: `/para-daily-brief` (bucketed action dashboard across every `actions.md`), `/para-triage` (empty the inbox by classifying then moving each item), `/para-deep-clean` (audit structural drift), `/para-archive` (close out one finished project or shelved idea).
 - MCPs: Atlassian (Jira + Confluence) for the programme board; Google Workspace for the shared engagement Drive; Odoo (read-only) for invoice cross-reference.

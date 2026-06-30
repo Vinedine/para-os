@@ -55,5 +55,5 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 - Leave the PARA placeholder READMEs in place - they self-delete as real content arrives.
 - Do **not** add entity templates or a "## README structures" section yet; those come once a second instance of an entity type exists.
 - Delete the leftover `actions.md.template` and this `bootstrap-prompt.md`. Confirm the vault is clean: filled `CLAUDE.md` + `README.md`, a seeded `areas/business/actions.md`, a `projects/vault-setup/` with `brief.md` + `actions.md`, and no remaining `.template` files.
-- Tell me to install the skills (`base/skills/` -> `~/.claude/skills/`) and run `/daily-brief`, and ask whether I want the read-only / iPad flavor instead of the default editable one (see the repo's `flavors/`).
+- Tell me to install the skills (`base/skills/` -> `~/.claude/skills/`) and run `/para-daily-brief`, and ask whether I want the read-only / iPad flavor instead of the default editable one (see the repo's `flavors/`).
 - Offer to start the braindump (phase 2) right now if I have a few minutes. Once every action in the vault-setup project is done, I retire it - archive or delete `projects/vault-setup/`.

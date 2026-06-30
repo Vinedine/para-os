@@ -1,0 +1,123 @@
+# {{Vault Name}} Vault Conventions
+
+{{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.
+
+<!-- This is the CLAUDE.md template for the readonly-ipad FLAVOR: one person maintains the vault
+     in markdown, another consumes it read-only as PDFs on an iPad via Google Drive. It is the base
+     skeleton template adapted for that reader: the actions / Obsidian Tasks section is removed (this
+     flavor has no actions.md), and an "## iPad access and rendering" section is added for the
+     flip/render pipeline and the Drive-shortcut access model. See flavors/readonly-ipad/README.md. -->
+
+<!-- OPTIONAL: add a "## Context" section if this vault needs scope boundaries or cross-vault
+     context (e.g. "building ownership is documented in the X vault; this vault only covers
+     operations"). Delete this comment if not needed. -->
+
+## PARA layout
+
+- **triage/** - landing zone for anything that doesn't obviously fit elsewhere; sorted at the next review.
+- **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable, one folder per project, each holding a `brief.md` and, where relevant, a `sources/` subfolder. This flavor has no per-project `actions.md` - capture next steps as prose in the brief.}}
+- **areas/** - ongoing responsibilities. `business/` = running narrative. `network/` = one file per person.{{ Add any other area subfolders this vault needs.}}
+- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage ventures with no committed outcome; same `brief.md` shape as a project for easy promotion. `mds/` = collected `.md` sources (see the flip workflow below); never browsed manually.
+- **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
+
+Promote `resources/ideas/<x>` to `projects/` (or to the vault's active bucket) once there is a committed outcome. Ideas with no traction at 6+ months retire to `archive/ideas/` (via `/para-archive`).
+
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record. It sits above the PARA folders so the reader never sees it; derived outputs regenerate from it.
+
+### Archive hygiene
+
+What a clean `archive/` looks like (applied on the way in, and audited by `/para-deep-clean`):
+
+- **No live work in the archive.** An archived entity has zero open next-steps - every item done, or open items softened to an explicit "fully closed; minor gaps not material" note in the brief. Surviving work is routed out *before* archiving. (This flavor tracks next steps as prose, not `[ ]` tasks, so "no live work" means no open prose next-steps left dangling.)
+- **History archives; living references go to `resources/`.** Brief and one-time migration/handoff notes are history - they archive with the entity. Reusable material (playbooks, positioning/strategy docs, anything other live work links to as a resource) is routed to `resources/<name>/`, not buried in the archive.
+- **No loose files at the archive root.** Everything under `archive/` lives in a subfolder (`meetings/`, `projects/`, ...). A stray top-level file is misfiled.
+- **Minimum record.** Each archived entity carries a status marker (why it's archived) and a `brief.md`/`README.md`, so it's self-explanatory years later.
+- **Zero dangling links.** Moving something into the archive repoints every inbound reference (contacts, areas, README, other entities) in the same pass; a stale link is rot. A historical mention *inside* the archived folder itself is fine.
+
+## Filing rules
+
+- **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context as prose. {{If the maintainer has their own naming for some folders/people, preserve it verbatim; their style takes precedence over the convention.}}
+- **Next steps**: this flavor has **no `actions.md` files**. Capture next steps as prose inside the relevant brief, area file, or contact file. Never create an `actions.md`.
+- **Dated meeting/chat/email artifacts**: `archive/meetings/YYYYMMDD Description.ext`.
+- **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. The /para-triage skill applies this convention literally; if you leave it undefined, /para-triage will ask before renaming anything.}}
+- **Shared workstreams across contacts**: narrate in the primary contact's file; the other files get a pointer line.
+- **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
+
+## Language
+
+Folders and structural files in English. Content (notes, contacts, briefs) may be in any language, matching the source. Don't translate unless asked.
+
+## iPad access and rendering ({{Reader}})
+
+{{Reader}} works from an iPad and consumes this vault read-only as PDFs through Google Drive. Two iPadOS + Google Drive quirks shape the vault:
+
+1. Drive's iOS Files-provider only reliably opens types iOS has a native preview handler for (`.pdf`, images, video, Office docs). `.md` and large `.txt` tap-to-open is unreliable.
+2. Drive doesn't hide dotfiles. The only way to keep `CLAUDE.md`, `.claude/`, `.obsidian/`, `.git/` out of the reader's view is to make sure their access points don't include the vault root.
+
+### Access model
+
+The reader's personal My Drive has a folder named after this vault with Google Drive shortcuts pointing to `triage/`, `projects/`, `areas/`, `resources/`, `archive/`. They navigate via iOS Files into those shortcuts and never reach the vault root. If a new top-level folder is added, flag that a matching shortcut needs to be created.
+
+### `.md` <-> `.pdf` workflow (collect / spread / render)
+
+Two states, flipped with [`flip.ps1`](flip.ps1):
+
+- **Collected** (default, what the reader sees): every `.md` lives in `resources/mds/` with its vault path encoded in the filename (separator `__`, e.g. `projects__<entity>__brief.md`). PARA folders contain only `.pdf` files.
+- **Spread** (editing): `.md` files sit next to their `.pdf` siblings under PARA. This is the state [`render.ps1`](render.ps1) operates on.
+
+Edit cycle:
+
+```
+.\flip.ps1 spread    # .md back to PARA paths
+# edit in your editor
+.\render.ps1         # regenerate .pdf siblings
+.\flip.ps1 collect   # .md back to resources/mds/
+```
+
+- Both flip modes are idempotent; `-DryRun` previews. `render.ps1` re-renders only when `.md` is newer than `.pdf` (`-Force` to override) and denylists `mds/`.
+- Ignored everywhere: `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.git/`, `.obsidian/`, `.vscode/`. Vault-root `README.md` is left in place (sits above PARA; the reader never sees it).
+- Engine: Puppeteer + `github-markdown-css` via [`render.mjs`](render.mjs). Install: `npm install -g puppeteer marked github-markdown-css`.
+- Identical copies of `render.ps1`, `render.mjs`, `flip.ps1` live in each vault of this flavor. Canonical master: the para-os repo, under `flavors/readonly-ipad/pipeline/`. Change the master first (or fold a vault-side fix back into it), then propagate to every vault.
+
+### File types via Drive provider
+
+| Type | Behavior | Action |
+|---|---|---|
+| `.pdf`, images, video | iOS Quick Look | Works as-is |
+| `.xlsx` / `.docx` / `.pptx` | Microsoft app (read-only without M365); edits via Sheets/Docs | Works as-is |
+| `.md` / `.txt` | Unreliable | Render to `.pdf`; don't use `.txt` for read content |
+
+### File formats: real files only
+
+The substrate is real, readable files. Google-native Docs/Sheets/Slides sync as `.gdoc`/`.gsheet` stubs that `flip.ps1`, `render.mjs`, and `mv` can't relocate and the Read tool can't read. When cleaning a drive, convert them to `.docx`/`.xlsx` (or Markdown/CSV for our own content) so the pipeline can move, render, and track them. New files the reader saves should be Word/Excel, not Google Docs/Sheets, for the same reason.
+
+### Notes for Claude sessions
+
+- If the vault is already spread, the maintainer may be mid-edit; don't re-collect without checking.
+- If the reader reports a `.md` not opening, the answer is "look for the PDF sibling", not a technical fix on their side.
+
+## Memory
+
+This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files. The agent reads the vault fresh each session; the git history is the audit log. Durable facts belong in the file they describe: conventions in this `CLAUDE.md`, identity and operating model in `README.md`, and everything else in the relevant project, idea, or contact note.
+
+## Do not add
+
+- **Action tracking** - this flavor's reader doesn't use action lists. Capture next steps as prose in the relevant brief, area, or contact file; no `actions.md` files.
+- **Templates** - do not create per-contact or per-project templates preemptively. Wait until a second instance proves the shape, then document it here.
+- **Derived outputs as standalone files** - web copy, deck content, one-pager text regenerate from `README.md`. Do not let them drift into separate source-of-truth files.
+- **Content rewrites during reorganization** - structure changes preserve copy verbatim. Fix wording in a later, dedicated pass.
+- {{Anything else that belongs in a different vault or system, e.g. "Accounting, invoicing, financial records - belong in a separate vault (one vault per life context)."}}
+
+<!-- OPTIONAL sections that mature vaults grow - add only when this vault actually needs them:
+  - "## MCP integration intent" - which connectors (MCP servers) this vault uses and for what, one
+    bullet per server with its scope. The shared rule across all of them: fetch tickets / pages /
+    repo contents on demand; never mirror whole tickets, pages, or repos into the vault. Omit the
+    section entirely if the vault has no MCP configured.
+  - "## Operating rules" - vault-specific working rules that aren't structure: drafting register for
+    a given recipient, read-only-connector restraints, domain naming conventions, deliverable style.
+    Each is local to this vault; do not import another vault's rules.
+  - "## README structures" - canonical section order per entity type, ONLY once a SECOND instance
+    of that entity type proves the shape.
+  - "## Cross-vault references" - when this vault overlaps another. Keep the full entry where the
+    relationship is primary and a short pointer line in the other.
+  - "## Project context" - durable, non-obvious facts about ongoing work not derivable from the files. -->

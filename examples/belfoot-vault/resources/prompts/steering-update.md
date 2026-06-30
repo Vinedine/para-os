@@ -9,7 +9,7 @@ Produce the BelFoot IT modernisation steering-committee update for the current m
 **Sources to read:**
 
 - Each `projects/*/brief.md` for scope, deadline, and the Status section.
-- Each `projects/*/actions.md` and `areas/stadium/actions.md` for live and overdue tasks (use the same parse as `/daily-brief`).
+- Each `projects/*/actions.md` and `areas/stadium/actions.md` for live and overdue tasks (use the same parse as `/para-daily-brief`).
 - `archive/meetings/` entries dated in the reporting month for decisions taken.
 
 **Output (one page, in this order):**

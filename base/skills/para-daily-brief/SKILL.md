@@ -1,6 +1,6 @@
 ---
-name: daily-brief
-description: Produce a bucketed daily-action dashboard from the current vault's actions.md and per-contact files, with a meetings agenda from the vault's meetings.md. Use when user asks "what should I work on today", "what's overdue", or types /daily-brief [today|week|overdue|all].
+name: para-daily-brief
+description: Produce a bucketed daily-action dashboard from the current vault's actions.md and per-contact files, with a meetings agenda from the vault's meetings.md. Use when user asks "what should I work on today", "what's overdue", or types /para-daily-brief [today|week|overdue|all].
 allowed-tools: Bash, Glob, Grep, Read
 ---
 
@@ -36,7 +36,7 @@ Use the Bash tool. **Do NOT substitute a cached date from memory or context** - 
 
 ### Step 1b: Identify the vault type
 
-- **Type B (read-only consumer vault)** - no `actions.md` anywhere in the vault **and** a `flip.ps1` or `render.ps1` at the vault root (the render-pipeline signature). Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one. Skip the task buckets and the Agenda entirely; the whole output is the 📥 Triage section (Step 5b), titled `## 📥 Triage - loose files (N · run /triage)`, plus a one-line note that this is a read-only vault, so the next step is to run `/triage` here.
+- **Type B (read-only consumer vault)** - no `actions.md` anywhere in the vault **and** a `flip.ps1` or `render.ps1` at the vault root (the render-pipeline signature). Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one. Skip the task buckets and the Agenda entirely; the whole output is the 📥 Triage section (Step 5b), titled `## 📥 Triage - loose files (N · run /para-triage)`, plus a one-line note that this is a read-only vault, so the next step is to run `/para-triage` here.
 - **Type A (PARA vault with action tracking)** otherwise - the normal full dashboard (Steps 2-6).
 
 Fold the detection into Step 2: only if the grep returns zero `actions.md` matches, Glob for `flip.ps1`/`render.ps1` to decide Type B vs. a genuinely empty Type A vault.

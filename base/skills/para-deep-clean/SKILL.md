@@ -1,6 +1,6 @@
 ---
-name: deep-clean
-description: Run a comprehensive cleanup pass on a vault - audits structural/housekeeping issues, normalizes README structure per a canonical template, closes documented open items by reading source PDFs, and ensures status tables make each entity's state visible at a glance. Use when user asks for a "deep clean", "deep cleanup", "vault review", "vault cleanup", "cleanup pass", or types /deep-clean.
+name: para-deep-clean
+description: Run a comprehensive cleanup pass on a vault - audits structural/housekeeping issues, normalizes README structure per a canonical template, closes documented open items by reading source PDFs, and ensures status tables make each entity's state visible at a glance. Use when user asks for a "deep clean", "deep cleanup", "vault review", "vault cleanup", "cleanup pass", or types /para-deep-clean.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write
 arg-hint: '[phase1|phase2|phase3|phase4|audit]'
 ---
@@ -13,7 +13,7 @@ A multi-phase cleanup workflow for vaults following the PARA + per-entity `sourc
 
 ## When to invoke
 
-- User types `/deep-clean` (optionally with a phase argument to skip to that phase)
+- User types `/para-deep-clean` (optionally with a phase argument to skip to that phase)
 - User asks for a "deep clean", "deep cleanup", "vault review", "cleanup pass", "review the repo", "clean up the vault"
 - After a large content migration that left the vault inconsistent
 - Periodically (every 3-6 months) to catch drift
@@ -38,7 +38,7 @@ Confirm before starting:
 1. Vault has a `CLAUDE.md` documenting structure, naming conventions, and "do not add" rules. If missing, stop and ask the user to create one (or use a similar vault's CLAUDE.md as a template).
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
 3. Entities (properties, projects, clients, etc.) each have a `README.md` + optional `sources/` folder.
-4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check - if any loose files (not subdirectories) are present, **stop and tell the user to run `/triage` first**. Subdirectories in `triage/` (especially underscore-prefixed handoff batches) are OK to leave. Rationale: deep-clean operates on routed-and-named state. Loose triage files are uncategorized data that haven't been routed to their entity `sources/` folders; running deep-clean over them would either miss them entirely or propose changes against a moving target.
+4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check - if any loose files (not subdirectories) are present, **stop and tell the user to run `/para-triage` first**. Subdirectories in `triage/` (especially underscore-prefixed handoff batches) are OK to leave. Rationale: deep-clean operates on routed-and-named state. Loose triage files are uncategorized data that haven't been routed to their entity `sources/` folders; running deep-clean over them would either miss them entirely or propose changes against a moving target.
 
 If the vault uses the flip.ps1 collected/spread workflow (the para-os read-only flavor):
 - If currently in **collected** state, ask the user to run `flip.ps1 spread` first so READMEs are editable in their natural locations.
@@ -67,6 +67,15 @@ Goal: identify and fix obvious structural issues before deeper work.
 - **Cross-reference link style**: links should match the vault's mode. If vault uses collected/spread with `.pdf` siblings, links inside READMEs should target `.md` (so they work in both modes for the maintainer + collaborators).
 - **Archive vs active misclassification**: entities whose README marks them as no longer active (terminology varies by vault - sold, closed, completed, rejected, terminated, superseded) but that still live in `areas/` or `projects/` should be moved to `archive/`.
 - **Duplicate documents**: same content under different filenames (often from migration passes).
+
+**Step 1.2b - Archive-folder hygiene.** Audit `archive/` against the vault's **Archive hygiene** conventions in CLAUDE.md (no live work in the archive, history-archives-but-living-references-go-to-resources, no loose files at the archive root, minimum record per archived entity). Concretely, scan for:
+
+- **Loose files at the archive root** - anything not in a documented subfolder (`meetings/`, `projects/`, ...). Propose moving to the right subfolder, or deleting (individual approval) if thin and fully superseded.
+- **Dated-naming violations in `archive/meetings/`** - files not matching the vault's dated pattern. Flag.
+- **Archived entities missing their minimum record** - no `brief.md`/`README.md` or status marker. Flag.
+- **Typos / wrong names in already-archived filenames** - the naming scan applies to archived files too; a misspelled name or wrong date defeats search. Propose a rename (preserve source language).
+
+Approval discipline for all archive fixes follows [shared/operating-discipline.md](../shared/operating-discipline.md).
 
 **Step 1.3 - Present issues table.** Build a single table:
 
@@ -145,6 +154,7 @@ Read-only verification pass:
 - CLAUDE.md documents the canonical structures used
 - Triage folder is empty
 - No empty PARA leaf directories
+- Archive folder is clean: no loose files at the archive root, `archive/meetings/` files follow the dated-naming convention, archived entities carry their minimum record (brief/README)
 - Root README is complete (no `_To be filled in_` placeholders)
 - Status tables ("where do we stand" per entity: cost basis, stage, key numbers) present and current, where the vault uses them
 
@@ -195,4 +205,4 @@ Final summary report covering:
 
 Part of the para-os skill set. Sibling skills:
 
-- `/triage` - empty the `triage/` folder and route loose files to their entity `sources/`. **Always run before** `/deep-clean` if triage has loose files (enforced by Precondition 4).
+- `/para-triage` - empty the `triage/` folder and route loose files to their entity `sources/`. **Always run before** `/para-deep-clean` if triage has loose files (enforced by Precondition 4).
