@@ -1,3 +1,8 @@
 # This repo deliberately ships CLAUDE.md files (the example vault's conventions
 # are part of the product). Un-ignore them in case your global gitignore excludes CLAUDE.md.
 !CLAUDE.md
+
+# The skeleton bundles the skills in .claude/skills/ so one copy yields a working
+# vault. Un-ignore that path in case your global gitignore excludes .claude/.
+!base/skeleton/.claude/
+!base/skeleton/.claude/**
