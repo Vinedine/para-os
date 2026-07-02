@@ -89,14 +89,15 @@ The conventions the templates encode:
 
 ## Quickstart
 
-1. **Install the skills once, up front.** The routines are shared across *all* your vaults, so they live globally: copy the folders under [`base/skills/`](base/skills/) into `~/.claude/skills/`. (Prefer per-vault? Drop them in `<vault>/.claude/skills/`.)
-2. **Copy [`base/skeleton/`](base/skeleton/)** to become the root of your new vault - a folder in your cloud drive, a git repo, anywhere:
+1. **Copy [`base/skeleton/`](base/skeleton/)** to become the root of your new vault - a folder in your cloud drive, a git repo, anywhere. The skills come bundled inside it (`.claude/skills/`), so this one copy gives you a working vault:
    ```
    cp -r base/skeleton ~/my-vault                # macOS / Linux / Git Bash
    Copy-Item base/skeleton ~/my-vault -Recurse   # Windows PowerShell
    ```
-3. **Run the bootstrap.** Open a Claude Code session **in the new vault root** and paste the prompt from `bootstrap-prompt.md`. It asks three short questions, fills the `CLAUDE.md` and `README.md` templates, and creates a self-retiring `vault-setup` project that walks you through the rest.
-4. **Run `/para-daily-brief`.** The vault answers from day one - and richer as you feed it your braindump.
+2. **Run the bootstrap.** Open a Claude Code session **in the new vault root** and paste the prompt from `bootstrap-prompt.md`. It asks three short questions, fills the `CLAUDE.md` and `README.md` templates, and creates a self-retiring `vault-setup` project that walks you through the rest.
+3. **Run `/para-daily-brief`.** The vault answers from day one - and richer as you feed it your braindump.
+
+> **Running several vaults?** The bundled copy just works, but you'll then carry one skills copy per vault. If you'd rather maintain a single source, move the skills to `~/.claude/skills/` (Claude Code loads them there for every vault) and delete the per-vault `.claude/skills/`. One-vault users can ignore this.
 
 To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/): a fictional consulting engagement with projects, contacts, actions, and meeting records. Run `/para-daily-brief` or `/para-triage` in its root to watch the skills work.
 
@@ -138,8 +139,8 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 
 ## What's in the repo
 
-- [`base/skeleton/`](base/skeleton/) - the vault skeleton: PARA folders, placeholder READMEs, templates, bootstrap prompt, and editor settings (`.vscode/settings.json`) that open `.md` files in clean rendered preview.
-- [`base/skills/`](base/skills/) - the skills, installable into `~/.claude/skills/`.
+- [`base/skeleton/`](base/skeleton/) - the vault skeleton: PARA folders, placeholder READMEs, templates, bootstrap prompt, the bundled skills (`.claude/skills/`), and editor settings (`.vscode/settings.json`) that open `.md` files in clean rendered preview.
+- [`base/skills/`](base/skills/) - the skills, kept here as the canonical source. They ship inside the skeleton by default; copy them to `~/.claude/skills/` if you run several vaults and want a single source.
 - [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - the render pipeline for the read-only model.
 - [`examples/belfoot-vault/`](examples/belfoot-vault/) - a fictional, fully populated vault to poke at.
 
