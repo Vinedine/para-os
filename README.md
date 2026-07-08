@@ -25,7 +25,7 @@ Your mailbox alone is your richest untapped record - years of customers, supplie
   search, at best                     across all of it
 ```
 
-> **Want it set up for you?** The kit is free. If you'd rather have your business structured and the assistant wired in for you, that's a service I offer - [get in touch](https://trotstar.tech).
+> **Want it set up for you?** The kit is free. If you'd rather have your business structured and the assistant wired in for you, that's the **AI Workspace** service I offer - [get in touch](https://trotstar.tech).
 
 ## What it is
 
@@ -51,9 +51,9 @@ Everything stays plain files and Markdown on your own disk. No app, no database,
 
 Any "AI on top of my stuff" setup is three layers stacked. Naming them shows where para-os sits, and why it isn't competing with the tools it gets compared to:
 
-1. **Substrate** - the files and how they're organised. **This is para-os.**
-2. **Agent** - the model that reads and writes them: Claude Code, Cursor, Codex, Claude Cowork.
-3. **Interface** - how you drive it: an editor, a notes app, a chat app, PDFs on an iPad.
+1. **Substrate (your files)** - the files and how they're organised. **This is para-os.**
+2. **Agent (the assistant)** - the model that reads and writes them: Claude Code, Cursor, Codex, Claude Cowork.
+3. **Interface (how you work with it)** - how you drive it: an editor, a notes app, a chat app, PDFs on an iPad.
 
 para-os owns layer 1 and is agnostic about 2 and 3 - **bring your own agent**. Almost nobody does the layer-1 work because it feels like filing, not engineering. That's exactly why it pays off: an agent is only as good as the files you point it at, and that leverage grows as agents get better. The files are the memory - the folder on disk is the durable state, the agent reads it fresh each session, and the git diff is the audit log. No memory features, no chat-history dependence.
 
