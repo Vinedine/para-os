@@ -86,6 +86,7 @@ The conventions the templates encode:
 - **One source of truth.** The root `README.md` is the master document; decks, web copy, and summaries regenerate from it.
 - **Ideas are not projects.** A concept stays in `resources/ideas/` until someone's waiting on a deliverable or money is committed, then it promotes to `projects/`.
 - **Actions live with their context.** Tasks sit in the project, idea, or contact file they belong to, as markdown checkboxes with [Obsidian Tasks](https://publish.obsidian.md/tasks/) emoji markers (`📅` due, `🛫` start, `🔁` recurring, `🔺🔼🔽⏬` priority). Regex-parseable; Obsidian itself optional.
+- **Scripts live in the vault, their secrets don't.** A persistent tool the agent writes goes in `resources/scripts/`; its credentials, caches, and bulk data live outside the vault under `~/.paraos/` (resolved via `PARAOS_HOME`), so nothing sensitive syncs to a cloud drive or git remote and no large file bloats the vault.
 
 ## Quickstart
 
@@ -125,9 +126,17 @@ They all read the vault's own `CLAUDE.md` for conventions; no paths are hardcode
 
 If no calendar connector is wired in, a root `meetings.md` (one line per meeting: `- 🗓 2026-06-12 14:00 · Title`) feeds the agenda.
 
-## Connectors
+## Reaching beyond your files
 
-A vault the agent can only read is a tidy filing cabinet. Each connector you add is another source the *same* assistant can see and fold into the answer - so reach compounds: the more you wire in, the more it joins up. Mail, Calendar, Drive, Slack, Atlassian, Azure DevOps, and anything scriptable all compose into one picture: `/para-daily-brief` shows your real meetings, attachments get filed straight from mail, action lists reconcile against live tickets, and a question gets answered from your files *and* every system at once. The connectors live in the agent, not in para-os; the vault stays plain files.
+A vault the agent can only read is a tidy filing cabinet. Wire in a source and the *same* assistant can see it and fold it into the answer - so reach compounds: `/para-daily-brief` shows your real meetings, attachments get filed straight from mail, action lists reconcile against live tickets, a question gets answered from your files *and* every system at once. There are three ways to wire one in, by how much lives in the vault:
+
+- **Connectors** - authorized once in your agent (Gmail, Calendar, Drive, Slack). Nothing lands in the vault; every vault benefits automatically.
+- **MCP servers** - wiring as a config declaration, scopeable to one vault or shared globally, for a source with no built-in connector (a self-hosted Google Workspace server, Jira, Azure DevOps). A connector is really just a pre-authorized remote MCP server - the line between the two is *authorized-in-the-agent* vs *declared-in-config*, not different plumbing.
+- **Integrations** - wiring as code: a small script that pulls a source into the vault as Markdown. This is the only tier para-os ships (see below); the other two live in the agent, and the vault stays plain files.
+
+## Integrations
+
+Integrations are the scriptable tier: a small script drops into a vault's `resources/scripts/` and pulls a source in as Markdown the assistant reads like everything else. [`integrations/`](integrations/) packages them as drop-in folders - [`granola/`](integrations/granola/) syncs your Granola meeting notes and transcripts into `triage/`. Secrets and caches stay outside the vault under `~/.paraos/`; the [folder's README](integrations/) has the full contract.
 
 ## The read-only flavor
 
@@ -142,12 +151,15 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 - [`base/skeleton/`](base/skeleton/) - the vault skeleton: PARA folders, placeholder READMEs, templates, bootstrap prompt, the bundled skills (`.claude/skills/`), and editor settings (`.vscode/settings.json`) that open `.md` files in clean rendered preview.
 - [`base/skills/`](base/skills/) - the skills, kept here as the canonical source. They ship inside the skeleton by default; copy them to `~/.claude/skills/` if you run several vaults and want a single source.
 - [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - the render pipeline for the read-only model.
+- [`integrations/`](integrations/) - drop-in connectors that pull an outside system into a vault (e.g. `granola/` for meeting sync).
 - [`examples/belfoot-vault/`](examples/belfoot-vault/) - a fictional, fully populated vault to poke at.
 
 ## Requirements
 
 - [Claude Code](https://claude.com/claude-code), or adapt the skills to your agent of choice; they're plain markdown instructions.
-- Read-only flavor only: Windows PowerShell, Node.js, and `npm install -g puppeteer marked github-markdown-css`.
+- The core (skeleton + skills) needs nothing else. Scripts here (the read-only flavor, integrations) that need a runtime assume **[Node.js](https://nodejs.org/) 18+** (for the built-in `fetch`).
+- Read-only flavor only: Windows PowerShell and `npm install -g puppeteer marked github-markdown-css`.
+- Some integrations add their own prerequisites (an app, an account, a platform); each states them in its README.
 
 ## License
 
