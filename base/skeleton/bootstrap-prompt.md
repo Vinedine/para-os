@@ -40,7 +40,7 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 
 - **Phase 2, Braindump.** I tell you about this vault in my own words - typed, or as a voice memo / notes I drop into `triage/` for you to read. You fold it into `README.md` and spin out the first real projects, contacts, and actions from it.
 - **Phase 3, Inventory & connect.** Two tables to fill together:
-  - *Systems* - one row per system my work lives in (mail, calendar, drive, accounting, tickets, ...): what it holds · which connector (MCP / API) reaches it · status (pending / connected). Connectors live in the agent, not the vault, so this table only plans and tracks them.
+  - *Systems* - one row per system my work lives in (mail, calendar, drive, accounting, tickets, ...): what it holds · how it's wired in (connector authorized in the agent · MCP server declared in config · integration script in `resources/scripts/`) · status (pending / connected). Only the integration scripts live in the vault; connectors and MCP servers are agent-side, so this table plans and tracks them.
   - *Data sources* - one row per existing folder or inbox to pull from: where it is · what to extract into the vault.
 
 **`actions.md`** (Obsidian Tasks markers) - the concrete next steps:

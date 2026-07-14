@@ -11,7 +11,7 @@
 - **triage/** - landing zone for anything that doesn't obviously fit elsewhere; emptied via `/para-triage` at the next review.
 - **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline, one folder per project, each holding a `brief.md` + `actions.md` and, where relevant, a `sources/` subfolder.}}
 - **areas/** - ongoing responsibilities. `business/` = running narrative and strategic actions. `network/` = one file per person.{{ Add any other area subfolders this vault needs.}}
-- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage ventures with no committed outcome; same `brief.md` shape as a project for easy promotion.
+- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage ventures with no committed outcome; same `brief.md` shape as a project for easy promotion. `scripts/` = persistent tools the vault needs; their runtime state lives *outside* the vault (see "Integration scripts and their state" below).
 - **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
 
 Promote `resources/ideas/<x>` to `projects/` when one of: someone is waiting on a deliverable by a date; money or a formal engagement is committed; a go/no-go review is on the calendar. Ideas with no traction at 6+ months retire to `archive/ideas/` (via `/para-archive`).
@@ -69,6 +69,15 @@ This vault on disk IS the memory. Do not use the agent's built-in memory feature
 ## File formats
 
 The substrate is real, readable files. The agent works over what exists on disk as bytes, so prefer formats it can read and move directly: Markdown and plain text first (read and edited in place, and they diff cleanly in git), with `.csv`/`.docx`/`.xlsx` as the fallback for material received from others. Avoid cloud-native pointer formats (e.g. Google Docs/Sheets): they sync as stubs linking to content held on a server, so the bytes aren't local, tooling can't move or rename them, and the agent often can't read them at all. When one lands in the vault, convert it to a real file. A format the tooling can't touch is dead weight, the same way a junk folder is.
+
+## Integration scripts and their state
+
+When the agent writes a *persistent* tool for this vault - a script that pulls from a connected system (accounting, mail, a scraper, an export) rather than a throwaway one-off - the code and its runtime state get separate, fixed homes:
+
+- **The script is code, so it lives in the vault**, at `resources/scripts/`, version-controlled next to the work it serves.
+- **Its runtime state is not code, so it lives outside the vault** under `~/.paraos/`, in three buckets whose names say what is safe to delete: `secrets/` (credentials, one file per service, never synced), `cache/` (regenerable output, delete anytime), `data/` (working source data, kept but too raw or too large for the vault).
+
+Two rules keep it clean: resolve the root from the `PARAOS_HOME` environment variable (default `~/.paraos`), never hardcoding a home path; and never read or write a secret inside the vault, which a cloud drive or git remote would leak. `resources/scripts/README.md` carries the resolver snippet; `~/.paraos/README.md` is the manifest of what's installed.
 
 ## Do not add
 
