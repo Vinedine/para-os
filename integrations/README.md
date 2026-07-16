@@ -15,7 +15,7 @@ An integration is **not** a [flavor](../flavors/). A flavor changes how a whole 
 | Regenerable output | `~/.paraos/cache/<service>/` - safe to delete anytime |
 | Bulk working data | `~/.paraos/data/<name>/` - kept, but not vault-worthy |
 
-The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a home path. `~/.paraos/README.md` on each machine is the manifest of what's actually installed. The full convention for that destination folder - the buckets and the `PARAOS_HOME` resolver, with Python and Node snippets - is specified in [`base/skeleton/resources/scripts/README.md`](../base/skeleton/resources/scripts/README.md).
+The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a home path. `~/.paraos/README.md` on each machine is the manifest of what's actually installed. The full convention for that destination folder - the buckets and the `PARAOS_HOME` resolver, with Python and Node snippets - is specified in [`base/resources/scripts/README.md`](../base/resources/scripts/README.md).
 
 ## Available
 

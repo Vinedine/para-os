@@ -90,10 +90,10 @@ The conventions the templates encode:
 
 ## Quickstart
 
-1. **Copy [`base/skeleton/`](base/skeleton/)** to become the root of your new vault - a folder in your cloud drive, a git repo, anywhere. The skills come bundled inside it (`.claude/skills/`), so this one copy gives you a working vault:
+1. **Copy [`base/`](base/)** to become the root of your new vault - a folder in your cloud drive, a git repo, anywhere. The skills come bundled inside it (`.claude/skills/`), so this one copy gives you a working vault:
    ```
-   cp -r base/skeleton ~/my-vault                # macOS / Linux / Git Bash
-   Copy-Item base/skeleton ~/my-vault -Recurse   # Windows PowerShell
+   cp -r base ~/my-vault                # macOS / Linux / Git Bash
+   Copy-Item base ~/my-vault -Recurse   # Windows PowerShell
    ```
 2. **Run the bootstrap.** Open a Claude Code session **in the new vault root** and paste the prompt from `bootstrap-prompt.md`. It asks three short questions, fills the `CLAUDE.md` and `README.md` templates, and creates a self-retiring `vault-setup` project that walks you through the rest.
 3. **Run `/para-daily-brief`.** The vault answers from day one - and richer as you feed it your braindump.
@@ -106,10 +106,10 @@ To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot
 
 | Skill | What it does |
 |---|---|
-| [`/para-triage`](base/skills/para-triage/SKILL.md) | Empties `triage/`: identifies each loose file, proposes a destination and a convention-conform rename, executes after your approval. |
-| [`/para-daily-brief`](base/skills/para-daily-brief/SKILL.md) | One-pass dashboard of every open task, bucketed by urgency against today, plus a meetings agenda and a triage count. |
-| [`/para-deep-clean`](base/skills/para-deep-clean/SKILL.md) | Periodic maintenance: structural audit, README normalisation, closing documented open items by reading the source files. |
-| [`/para-archive`](base/skills/para-archive/SKILL.md) | Closes out one finished project or shelved idea: reconciles open actions, validates its records, moves it to `archive/`, and repoints every inbound link. |
+| [`/para-triage`](base/.claude/skills/para-triage/SKILL.md) | Empties `triage/`: identifies each loose file, proposes a destination and a convention-conform rename, executes after your approval. |
+| [`/para-daily-brief`](base/.claude/skills/para-daily-brief/SKILL.md) | One-pass dashboard of every open task, bucketed by urgency against today, plus a meetings agenda and a triage count. |
+| [`/para-deep-clean`](base/.claude/skills/para-deep-clean/SKILL.md) | Periodic maintenance: structural audit, README normalisation, closing documented open items by reading the source files. |
+| [`/para-archive`](base/.claude/skills/para-archive/SKILL.md) | Closes out one finished project or shelved idea: reconciles open actions, validates its records, moves it to `archive/`, and repoints every inbound link. |
 
 They all read the vault's own `CLAUDE.md` for conventions; no paths are hardcoded. `/para-daily-brief` against the example vault (fragment):
 
@@ -148,8 +148,7 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 
 ## What's in the repo
 
-- [`base/skeleton/`](base/skeleton/) - the vault skeleton: PARA folders, placeholder READMEs, templates, bootstrap prompt, the bundled skills (`.claude/skills/`), and editor settings (`.vscode/settings.json`) that open `.md` files in clean rendered preview.
-- [`base/skills/`](base/skills/) - the skills, kept here as the canonical source. They ship inside the skeleton by default; copy them to `~/.claude/skills/` if you run several vaults and want a single source.
+- [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, bootstrap prompt, the skills (`.claude/skills/`), and editor settings (`.vscode/settings.json`) that open `.md` files in clean rendered preview. The skills live here as their single source; if you run several vaults and want one shared copy, lift them to `~/.claude/skills/`.
 - [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - the render pipeline for the read-only model.
 - [`integrations/`](integrations/) - drop-in connectors that pull an outside system into a vault (e.g. `granola/` for meeting sync).
 - [`examples/belfoot-vault/`](examples/belfoot-vault/) - a fictional, fully populated vault to poke at.
