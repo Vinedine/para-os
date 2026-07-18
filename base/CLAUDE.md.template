@@ -37,6 +37,15 @@ What a clean `archive/` looks like (applied on the way in, and audited by `/para
 - **Shared workstreams across contacts**: track actions in the primary contact's file; the other files get a pointer line.
 - **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
 
+## Authoritative sources
+
+Pick the source of truth *before* answering, not after. The recurring failure is querying the wrong surface first - the wrong mailbox, the newest file instead of the one sitting in `triage/`, a hand-kept table in a brief over the system that actually owns the data - and only catching it on correction. Naming the owning surface up front pre-empts it.
+
+- **Check `triage/` before searching by date.** An item waiting to be filed is usually the current one; a file found by "most recent" may be a stale copy.
+- **Prefer machine-readable exports and system-of-record data over hand-maintained tables in briefs.** A table typed into a brief is a convenience copy; the export, the model, or the live connector owns the truth. When they disagree, the system wins and the brief gets corrected.
+
+{{OPTIONAL: for a vault with several competing sources, add a short table - `Question | Authoritative source` - so the agent knows up front which mailbox, export, or model owns each kind of question (e.g. "who owes me -> the accounting export, not the AR notes in a brief"; "current system model -> the structurizr workspace, not a diagram pasted in a doc"). Delete this line if the vault has one obvious source.}}
+
 ## Obsidian Tasks markers for actions.md files
 
 Any `actions.md` file in this vault uses Obsidian Tasks plugin markers. The `/para-daily-brief` skill parses these with regex:
@@ -60,7 +69,9 @@ Never archive an `actions.md` file: it must stay outside `archive/` to be picked
 
 ## Language
 
-Folders and structural files in English. Content (notes, contacts, briefs) may be in any language, matching the source. Don't translate unless asked.
+Folders and structural files in English. Content (notes, contacts, briefs) may be in any language, matching the source. Don't translate stored content unless asked.
+
+The operator's language is {{operator language, e.g. English / French / Dutch}}. Explain, summarize, and answer in the operator's language regardless of the source document's language: a document in another language gets explained back in the operator's language, not echoed in its own. Quote the original wording only where the exact phrasing is load-bearing (a legal clause, a term of art, a figure).
 
 ## Memory
 
@@ -91,6 +102,14 @@ Two rules keep it clean: resolve the root from the `PARAOS_HOME` environment var
     bullet per server with its scope. The shared rule across all of them: fetch tickets / pages /
     repo contents on demand; never mirror whole tickets, pages, or repos into the vault. Omit the
     section entirely if the vault has no MCP configured.
+  - "## Triage sources" - extra inputs `/para-triage` pulls beyond the `triage/` folder. Omit for
+    folder-only (the default). A table `| Source | Type | Endpoint | Relevant when |`, one row per
+    source. `Type` is either `sync-script` (a `resources/scripts/` script that writes items into
+    `triage/`, e.g. a meeting-notes sync) or `connector: <mcp-server>` (a live mailbox read, e.g.
+    `connector: google-workspace` or `connector: claude_ai_Gmail`, with the mailbox as `Endpoint`).
+    `Relevant when` is the per-source filter that scopes what counts for THIS vault. Connectors are
+    read-only: a surfaced item becomes a `triage/` note or a line in the relevant `actions.md`,
+    never a sent or modified mail. Vaults with no `actions.md` route to `triage/` notes only.
   - "## Operating rules" - vault-specific working rules that aren't structure: drafting register for
     a given recipient, read-only-connector restraints, domain naming conventions, deliverable style.
     Each is local to this vault; do not import another vault's rules.

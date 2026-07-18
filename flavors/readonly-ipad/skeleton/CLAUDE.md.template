@@ -113,6 +113,13 @@ This vault on disk IS the memory. Do not use the agent's built-in memory feature
     bullet per server with its scope. The shared rule across all of them: fetch tickets / pages /
     repo contents on demand; never mirror whole tickets, pages, or repos into the vault. Omit the
     section entirely if the vault has no MCP configured.
+  - "## Triage sources" - extra inputs `/para-triage` pulls beyond the `triage/` folder. Omit for
+    folder-only (the default). A table `| Source | Type | Endpoint | Relevant when |`, one row per
+    source. `Type` is either `sync-script` (a `resources/scripts/` script that writes items into
+    `triage/`) or `connector: <mcp-server>` (a live mailbox read, e.g. `connector: google-workspace`
+    or `connector: claude_ai_Gmail`, with the mailbox as `Endpoint`); `Relevant when` scopes what
+    counts for THIS vault. Connectors are read-only. **This flavor has no `actions.md`, so a surfaced
+    item can only become a `triage/` note - never an action line, never a sent or modified mail.**
   - "## Operating rules" - vault-specific working rules that aren't structure: drafting register for
     a given recipient, read-only-connector restraints, domain naming conventions, deliverable style.
     Each is local to this vault; do not import another vault's rules.
