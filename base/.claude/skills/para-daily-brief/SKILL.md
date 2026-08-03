@@ -6,9 +6,9 @@ allowed-tools: Bash, Glob, Grep, Read
 
 # Daily Brief
 
-Produces a single-pass, date-aware dashboard of open tasks from every action-bearing file in the current vault, grouped into urgency buckets relative to today. Covers both project/area action files and per-contact files (relationship-paced actions).
+A single-pass, date-aware dashboard of every open task in the vault, bucketed by urgency against today. Covers both project/area action files and per-contact files (relationship-paced actions).
 
-**This skill is vault-agnostic.** It discovers action-bearing files at runtime and relies on Obsidian Tasks plugin conventions - no vault-specific paths are hardcoded. There are two vault types, detected at runtime in Step 1b.
+**This skill is vault-agnostic.** It discovers action-bearing files at runtime and relies on Obsidian Tasks plugin conventions - no vault-specific paths are hardcoded. There are two vault types, detected in Step 1b.
 
 ## Arguments
 
@@ -36,7 +36,7 @@ Use the Bash tool. **Do NOT substitute a cached date from memory or context** - 
 
 ### Step 1b: Identify the vault type
 
-- **Type B (read-only consumer vault)** - no `actions.md` anywhere in the vault **and** a `flip.ps1` or `render.ps1` at the vault root (the render-pipeline signature). Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one. Skip the task buckets and the Agenda entirely; the whole output is the 📥 Triage section (Step 5b), titled `## 📥 Triage - loose files (N · run /para-triage)`, plus a one-line note that this is a read-only vault, so the next step is to run `/para-triage` here.
+- **Type B (read-only consumer vault)** - no `actions.md` anywhere **and** a `flip.ps1` or `render.ps1` at the vault root. Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one. Skip the task buckets and the Agenda; the whole output is the 📥 Triage section (Step 5b), titled `## 📥 Triage - loose files (N · run /para-triage)`, plus a one-line note that this is a read-only vault.
 - **Type A (PARA vault with action tracking)** otherwise - the normal full dashboard (Steps 2-6).
 
 Fold the detection into Step 2: only if the grep returns zero `actions.md` matches, Glob for `flip.ps1`/`render.ps1` to decide Type B vs. a genuinely empty Type A vault.
@@ -47,15 +47,16 @@ One Grep call, scoped tightly to action-bearing files. Do NOT scan the whole vau
 
 - `pattern`: `^(# |## |- \[ \])`
 - `glob`: `{**/actions.md,**/network/*.md,**/contacts/*.md,**/people/*.md}` (flat alternates only - ripgrep does not support nested `{}` globs)
+- `path`: `.` - the vault root, which is the CWD
 - `output_mode`: `content`
 - `-n`: `true`
 - `head_limit`: `0` (unlimited - missing a match means a wrong dashboard)
 
-ripgrep returns lines like `path/to/file.md:5:## Heading` grouped by file in line-number order. Discard any match where the file path starts with `archive/` (historical, not actionable).
+ripgrep returns lines like `path/to/file.md:5:## Heading` grouped by file in line-number order. **Discard any match whose path starts with `archive/` or `resources/`** (see the vault's "Where a checkbox may live" rule). Do this as a post-filter, never by anchoring the glob to `projects/**/`: a root-anchored alternate silently matches nothing when `path` is not the vault root, dropping every `actions.md` while the call still appears to succeed.
 
 If the call returns zero matches, apply the Step 1b Type B check; if Type A, respond `No action-bearing files found in <cwd>.` and stop.
 
-**Handle truncated lines.** ripgrep emits `[Omitted long matching line]` for results past its column-width limit - common in vaults with detailed one-line tasks (owner, rent amount, source-doc link, instructions all on one line), and it silently corrupts the dashboard. For each `(file, line)` pair flagged as omitted, recover the line with `Read` using `offset: <line>, limit: 1` - do not read the whole file.
+**Handle truncated lines.** ripgrep emits `[Omitted long matching line]` for results past its column-width limit, which silently corrupts the dashboard. For each `(file, line)` pair flagged as omitted, recover it with `Read` using `offset: <line>, limit: 1` - do not read the whole file.
 
 ### Step 3: Associate tasks with section headings and parse markers
 
@@ -81,7 +82,7 @@ For each emitted task, parse markers from the line text:
 | Recurring | `🔁 (every [^📅🛫⏳🔺🔼🔽⏬\n]+)` | Cadence pattern |
 | Priority | `[🔺🔼🔽⏬]` | 🔺 highest → ⏬ lowest (4 levels; no marker = medium) |
 
-Derive the **scope label** from the file path: strip the leading category folder (`projects/`, `areas/`, `resources/ideas/`) and the trailing `/actions.md` (action files) or `.md` (contact files). Preserve an intermediate subfolder when the leaf alone is ambiguous (e.g. a country code or short acronym). Examples:
+Derive the **scope label** from the file path: strip the leading category folder (`projects/`, `areas/`) and the trailing `/actions.md` (action files) or `.md` (contact files). Preserve an intermediate subfolder when the leaf alone is ambiguous (e.g. a country code or short acronym). Examples:
 
 - `projects/ticketing-platform-replacement/actions.md` → `ticketing-platform-replacement`
 - `areas/finance/vat/actions.md` → `finance/vat`
@@ -95,7 +96,7 @@ Final per-task record: file path (relative to CWD), line number, scope label, ta
 
 Let `T` = today's date from Step 1.
 
-Let `D` = the task's **effective date**: its `📅` due date if present, otherwise its `⏳` scheduled date. The date buckets below key off `D`, so a scheduled-only task (`⏳` but no `📅`) is bucketed by its planned work date instead of vanishing into Undated.
+Let `D` = the task's **effective date**: its `📅` due date if present, otherwise its `⏳` scheduled date.
 
 | Bucket | Condition |
 |---|---|
@@ -110,7 +111,7 @@ Let `D` = the task's **effective date**: its `📅` due date if present, otherwi
 
 A **past `🛫`** (a start-gate that has already opened) is not "waiting" and does not make a task undated on its own - ignore it and bucket the task by `D` if it has one, else Undated. Only a *future* `🛫` routes a task to Waiting.
 
-**Precedence when multiple apply:** Recurring > Waiting > date-based bucket. A recurring item overdue is in Recurring, not Overdue (the `🔁` template says "do it, then check to roll forward"). When rendering the `overdue` scope, list overdue recurring items (`🔁` with a past `D`) inside the 🔴 Overdue section too, tagged `🔁`, so a "what's late" view never hides a genuinely-late recurring task.
+**Precedence when multiple apply:** Recurring > Waiting > date-based bucket. An overdue recurring item is in Recurring, not Overdue. In the `overdue` scope, list overdue recurring items (`🔁` with a past `D`) inside 🔴 Overdue too, tagged `🔁`.
 
 ### Step 5: Sort within each bucket
 
@@ -120,9 +121,9 @@ A **past `🛫`** (a start-gate that has already opened) is not "waiting" and do
 
 ### Step 5b: Check the triage folder (optional)
 
-Use Glob to check whether `triage/` exists in the current vault. If it does, list its **direct file children** (top-level only - do not recurse; subdirectories like `triage/mail/` are not loose triage items). Capture filenames and a count. If the folder is missing or empty, omit the Triage section entirely.
+Use Glob to check whether `triage/` exists. If it does, list its **direct file children** (top-level only - subdirectories like `triage/mail/` are not loose triage items). Capture filenames and a count. If the folder is missing or empty, omit the Triage section entirely.
 
-**Do not parse file contents.** This is a pure file listing - the triage folder is a reminder, not a task source.
+**Do not parse file contents.** This is a pure file listing.
 
 In a Type B vault this section is the *entire* output, with the title and read-only framing from Step 1b.
 
@@ -219,6 +220,7 @@ Use this exact layout, filtered to the sections the argument selects (see Argume
 - **Recurring item without a date:** still list in Recurring, show "next: -" placeholder.
 - **Undated item with 🔺 priority:** still goes in Undated bucket, but retains 🔺 marker in output.
 - **Malformed date** (e.g. `📅 2026-13-45`): skip the date, treat as undated, and note "(malformed date)" at end of line.
+- **Open item found in `resources/` or `archive/`:** Step 2's discard rule drops it. `/para-deep-clean` owns the repair.
 
 ## Example output (fragment)
 

@@ -17,5 +17,5 @@ Keep him close on commercial side; loop Sofie in before commitments get made on 
 
 ## Next actions
 
-- [ ] Finalise the RFP evaluation matrix with him 🔺 📅 2026-06-26
-- [ ] Brief him on the cashless sponsor-branding options before the next sponsor meeting 📅 2026-07-30
+- [ ] Brief him on the cashless sponsor-branding options before the next sponsor meeting 📅 2026-07-09
+- Finalising the RFP evaluation matrix with him - tracked in [ticketing-platform-replacement](../../projects/ticketing-platform-replacement/actions.md), due 2026-06-26.

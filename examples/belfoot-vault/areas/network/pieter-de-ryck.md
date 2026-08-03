@@ -18,4 +18,4 @@ Suspicious of technology he can't physically see working. Won't sign off on cash
 
 - [ ] Pre-brief him on the Q3 cost issues before the match-day walk-through, so he doesn't hear it second-hand 🔼 📅 2026-06-23
 - [ ] Schedule a match-day flow walk-through at the stadium 📅 2026-07-02
-- [ ] Confirm soft-launch friendly fixture for cashless 🛫 2026-07-27 📅 2026-07-30
+- Soft-launch friendly confirmation (his sign-off gate) - tracked in [cashless-stadium-rollout](../../projects/cashless-stadium-rollout/actions.md), due 2026-07-30.

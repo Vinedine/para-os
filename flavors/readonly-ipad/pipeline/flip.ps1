@@ -105,9 +105,9 @@ if ($Mode -eq 'collect') {
         $base = Join-Path $VaultRoot $folder
         if (-not (Test-Path $base)) { continue }
 
-        # .md sources, plus deal-sheet .html - but only .html that already has a
-        # rendered .pdf sibling, so raw saved-webpage .html (e.g. under sources/)
-        # is left in place.
+        # .md sources, plus authored styled .html documents - but only .html that
+        # already has a rendered .pdf sibling, so raw saved-webpage .html (e.g. under
+        # sources/) is left in place.
         $mds = Get-ChildItem -Path $base -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object {
                 $_.Extension -eq '.md' -or
@@ -158,7 +158,7 @@ if ($Mode -eq 'spread') {
     $moved = 0
     $collisions = 0
 
-    # .md and deal-sheet .html both round-trip out of resources\mds.
+    # .md and authored styled .html both round-trip out of resources\mds.
     $mds = Get-ChildItem -Path $SourcesDir -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Extension -in '.md', '.html' }
 

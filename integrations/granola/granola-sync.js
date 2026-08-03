@@ -21,6 +21,7 @@ const MEETINGS_SUBDIR = "triage";
 // To fan meetings out across several sibling vaults by a title prefix - e.g. a
 // meeting titled "Acme - Kickoff" into the sibling "acme-client" vault - map each
 // prefix to its vault folder name. Sibling vaults must share one parent directory.
+// Prefixes match case-insensitively, so "ACME - Kickoff" routes on an "Acme" key.
 //   const ROUTE = { Acme: "acme-client", Home: "family", Side: "side-project" };
 const ROUTE = {};
 // ─── end config ──────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ const VAULT_ROOT = path.resolve(__dirname, "..", "..");
 const VAULT_NAME = path.basename(VAULT_ROOT);
 const PARENT = path.dirname(VAULT_ROOT); // shared parent of sibling vaults (multi-vault mode)
 const MULTI = Object.keys(ROUTE).length > 0;
+const ROUTE_CI = Object.fromEntries(Object.entries(ROUTE).map(([k, v]) => [k.toLowerCase(), v]));
 const ONLY_VAULT = VAULT_ARG || (ALL ? null : VAULT_NAME); // in multi-vault mode, default to this vault
 
 const H = t => ({ "Authorization": "Bearer " + t, "Content-Type": "application/json", "User-Agent": "Granola/6.0.0", "X-Client-Version": "6.0.0" });
@@ -123,7 +125,7 @@ function resolveDest(d) {
   }
   const m = String(d.title || "").match(/^\s*([A-Za-z0-9]+)\s*-/);
   const prefix = m && m[1];
-  const vault = prefix && ROUTE[prefix];
+  const vault = prefix && ROUTE_CI[prefix.toLowerCase()];
   if (!vault) return { unrouted: true, prefix: prefix || "none" };
   if (ONLY_VAULT && vault !== ONLY_VAULT) return { skip: true };
   const desc = sanitize(String(d.title).replace(/^\s*[A-Za-z0-9]+\s*-\s*/, "")) || sanitize(d.title);

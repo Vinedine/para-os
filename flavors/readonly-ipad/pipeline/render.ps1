@@ -59,7 +59,7 @@ $denyFilenames = @('CLAUDE.md', 'AGENTS.md')
 
 # Folders whose contents are never rendered
 # 'mds' is the collected .md bucket used by flip.ps1; render only ever runs in spread state.
-$denyFolders = @('.claude', '.git', '.obsidian', 'mds')
+$denyFolders = @('.claude', '.git', '.obsidian', '.vscode', 'mds')
 
 # Required npm packages (installed globally)
 $requiredPackages = @('puppeteer', 'marked', 'github-markdown-css')
@@ -148,8 +148,9 @@ foreach ($md in $mdFiles) {
     }
 }
 
-# --- Deal-sheet HTML: render <name>.html -> <name>.pdf (full styled documents,
-# not markdown). Skip sources/, where raw saved webpages live. ---
+# --- Styled HTML documents: render <name>.html -> <name>.pdf (full designed documents
+# authored as HTML, e.g. one-pagers - not markdown). Skip sources/, where raw saved
+# webpages live. ---
 
 $htmlFiles = Get-ChildItem -Path $VaultRoot -Recurse -Filter '*.html' -File
 $htmlJobs = 0
