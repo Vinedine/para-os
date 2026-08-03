@@ -2,7 +2,19 @@
 # are part of the product). Un-ignore them in case your global gitignore excludes CLAUDE.md.
 !CLAUDE.md
 
+# The repo's own root CLAUDE.md is working instructions, not product. Keep it local,
+# per the global ignore. (Last matching pattern wins, so this re-ignores just the root.)
+/CLAUDE.md
+
 # The base vault bundles the skills in .claude/skills/ so one copy yields a working
 # vault. Un-ignore that path in case your global gitignore excludes .claude/.
 !base/.claude/
 !base/.claude/**
+
+# The example vault ships .claude/settings.json as product content too.
+!examples/belfoot-vault/.claude/
+!examples/belfoot-vault/.claude/**
+
+# Its skills, however, are copied in by the user to try the demo (see examples/README.md)
+# and stay untracked, so base/.claude/skills/ remains their single source.
+examples/belfoot-vault/.claude/skills/

@@ -17,8 +17,8 @@ See [brief.md](brief.md) for scope. Deadline: full live 2026-08-09.
 
 ## Recurring
 
-- [ ] Weekly status with Jan Claes 🔁 every Tuesday 📅 2026-07-28
-- [ ] Bi-weekly steering with NovaPay 🔁 every 2 weeks 📅 2026-07-29
+- [ ] Weekly status with Jan Claes 🔁 every Tuesday 📅 2026-06-30
+- [ ] Bi-weekly steering with NovaPay 🔁 every 2 weeks 📅 2026-07-01
 
 ## Completed
 

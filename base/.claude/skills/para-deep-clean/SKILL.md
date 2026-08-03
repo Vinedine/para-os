@@ -7,18 +7,11 @@ arg-hint: '[phase1|phase2|phase3|phase4|audit]'
 
 # Deep clean
 
-A multi-phase cleanup workflow for vaults following the PARA + per-entity `sources/` convention (areas / projects / resources / archive / triage, with each entity having its own README.md + optional sources/ folder).
+A multi-phase cleanup workflow for vaults following the PARA + per-entity `sources/` convention.
 
-**This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime to discover the entity type (properties, clients, applications, etc.), naming conventions, language rules, "do not add" restrictions, and any iPad-rendering toolchain (`flip.ps1` / `render.ps1`). No vault-specific paths are hardcoded.
+**This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime for the entity type, naming conventions, language rules, "do not add" restrictions, and any iPad-rendering toolchain (`flip.ps1` / `render.ps1`). No vault-specific paths are hardcoded.
 
-## When to invoke
-
-- User types `/para-deep-clean` (optionally with a phase argument to skip to that phase)
-- User asks for a "deep clean", "deep cleanup", "vault review", "cleanup pass", "review the repo", "clean up the vault"
-- After a large content migration that left the vault inconsistent
-- Periodically (every 3-6 months) to catch drift
-
-Do NOT invoke for single-file edits or small tweaks. This is a multi-hour, multi-phase pass that touches most READMEs in the vault.
+Also invoke after a large content migration, or periodically (every 3-6 months) to catch drift. Do NOT invoke for single-file edits or small tweaks: this is a multi-hour pass that touches most READMEs in the vault.
 
 ## Arguments
 
@@ -38,7 +31,8 @@ Confirm before starting:
 1. Vault has a `CLAUDE.md` documenting structure, naming conventions, and "do not add" rules. If missing, stop and ask the user to create one (or use a similar vault's CLAUDE.md as a template).
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
 3. Entities (properties, projects, clients, etc.) each have a `README.md` + optional `sources/` folder.
-4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check - if any loose files (not subdirectories) are present, **stop and tell the user to run `/para-triage` first**. Subdirectories in `triage/` (especially underscore-prefixed handoff batches) are OK to leave. Rationale: deep-clean operates on routed-and-named state. Loose triage files are uncategorized data that haven't been routed to their entity `sources/` folders; running deep-clean over them would either miss them entirely or propose changes against a moving target.
+4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check - if any loose files (not subdirectories) are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1 rather than treating it as a loose item to file.
+5. **The vault must be on the current para-os template revision.** Read the first `<!-- para-os-template: YYYY.MM -->` comment in the vault's `CLAUDE.md` and compare it against the one in `base/CLAUDE.md.template` in the para-os clone. If the vault is behind, or carries no marker at all, **stop and tell the user to run `/para-upgrade` first**. This skill audits the vault against the rules its own `CLAUDE.md` states; if that contract is a revision behind, a clean bill of health here only means the vault is faithful to a stale spec. Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
 If the vault uses the flip.ps1 collected/spread workflow (the para-os read-only flavor):
 - If currently in **collected** state, ask the user to run `flip.ps1 spread` first so READMEs are editable in their natural locations.
@@ -57,23 +51,26 @@ Goal: identify and fix obvious structural issues before deeper work.
 - Entity count per area (number of properties / projects / clients)
 - Empty PARA leaf directories (`resources/ideas/`, `resources/prompts/` often end up empty)
 - Root `README.md` presence and completeness (look for `_To be filled in_` placeholders)
+- **Unfilled template placeholders in `CLAUDE.md`** - `{{...}}` slots the bootstrap never filled. These survive for months because the file is long and the placeholder sits inside a section that otherwise reads fine, so nobody rereads it. Grep for `{{` across the vault, not just the root README.
 
 (Triage emptiness is already enforced by Precondition 4 - no need to re-check here.)
 
 **Step 1.2 - Scan for housekeeping issues.** Look for:
 
-- **Stale draft files**: `.doc` / `.docx` drafts alongside signed `.pdf` finals. Often safe to delete the draft if the signed PDF supersedes. Per the vault's CLAUDE.md, some drafts are kept intentionally as searchable text - check the README's source-document description before proposing deletion.
+- **Stale draft files**: `.doc` / `.docx` drafts alongside signed `.pdf` finals. Often safe to delete once superseded, but some vaults keep them as searchable text - check the README before proposing deletion.
 - **Naming convention violations**: filenames not matching the convention in CLAUDE.md (legacy suffixes like ` - FINAL`, typos, wrong dates, wrong language).
-- **Cross-reference link style**: links should match the vault's mode. If vault uses collected/spread with `.pdf` siblings, links inside READMEs should target `.md` (so they work in both modes for the maintainer + collaborators).
-- **Archive vs active misclassification**: entities whose README marks them as no longer active (terminology varies by vault - sold, closed, completed, rejected, terminated, superseded) but that still live in `areas/` or `projects/` should be moved to `archive/`.
+- **Cross-reference link style**: links should match the vault's mode. With collected/spread and `.pdf` siblings, links inside READMEs target `.md` so they work in both modes.
+- **Dangling links**: every relative `](path)` in a live-bucket file must resolve to a file that exists. Report each with its source file and the likely intended target. External URLs and cross-drive absolute paths are out of scope.
+- **Link syntaxes the audit can't see**: a vault that uses markdown links everywhere can still carry a pocket of Obsidian `[[wikilinks]]` from an older editing habit. They don't render in VS Code preview or on GitHub, and the dangling-link check above steps straight over them - so rot inside them can never surface. Grep for the syntaxes the vault doesn't otherwise use, resolve each target, and propose converting them to the vault's normal form. Piped aliases (`[[target|display text]]`) keep their display text.
+- **Archive vs active misclassification**: entities whose README marks them as no longer active (sold, closed, completed, rejected, superseded) but that still live in `areas/` or `projects/`.
 - **Duplicate documents**: same content under different filenames (often from migration passes).
 
-**Step 1.2b - Archive-folder hygiene.** Audit `archive/` against the vault's **Archive hygiene** conventions in CLAUDE.md (no live work in the archive, history-archives-but-living-references-go-to-resources, no loose files at the archive root, minimum record per archived entity). Concretely, scan for:
+**Step 1.2b - Archive-folder hygiene.** Audit `archive/` against the vault's **Archive hygiene** conventions in CLAUDE.md. Scan for:
 
-- **Loose files at the archive root** - anything not in a documented subfolder (`meetings/`, `projects/`, ...). Propose moving to the right subfolder, or deleting (individual approval) if thin and fully superseded.
+- **Loose files at the archive root** - anything not in a documented subfolder (`meetings/`, `projects/`, ...). Propose moving, or deleting (individual approval) if thin and fully superseded.
 - **Dated-naming violations in `archive/meetings/`** - files not matching the vault's dated pattern. Flag.
 - **Archived entities missing their minimum record** - no `brief.md`/`README.md` or status marker. Flag.
-- **Typos / wrong names in already-archived filenames** - the naming scan applies to archived files too; a misspelled name or wrong date defeats search. Propose a rename (preserve source language).
+- **Typos / wrong names in already-archived filenames** - the naming scan applies to archived files too. Propose a rename (preserve source language).
 
 Approval discipline for all archive fixes follows [shared/operating-discipline.md](../shared/operating-discipline.md).
 
@@ -101,9 +98,9 @@ The canonical structure should:
 - Specify that sections that don't apply get explicit `_n/a_` lines (not omission), so gaps stay visible
 - Include domain-specific sections needed for the vault's purpose
 
-**This skill does not bring a default section list.** The canonical structure for active entities and archived entities must come from each vault's CLAUDE.md - they are vault-specific. If you find yourself reaching for "what a good README looks like", that's a signal to read the vault's CLAUDE.md, not to invent or import a template.
+**This skill does not bring a default section list.** The canonical structure comes from each vault's CLAUDE.md. Never invent or import a template.
 
-**Step 2.2 - Archived / dead entities.** Check CLAUDE.md for a documented archived-entity template (often shorter than the active-entity one). If none is documented, **ask the user** what shape archived entries should take - do not apply a default. The travelling principle to surface in the conversation: archived entities don't need open-items or active-relationship sections, but should carry enough context (status marker, why they're archived, where source docs live) to be self-explanatory years later.
+**Step 2.2 - Archived / dead entities.** Check CLAUDE.md for a documented archived-entity template (often shorter than the active one). If none is documented, **ask the user** - do not apply a default. Archived entities don't need open-items or active-relationship sections, but carry enough context (status marker, why archived, where source docs live) to be self-explanatory years later.
 
 **Step 2.3 - Apply.** For each entity README:
 - Do the **first one as a worked example** and pause for user approval before batching the rest
@@ -115,11 +112,11 @@ The canonical structure should:
 
 Goal: every "Open items" section reflects real outstanding work, not historical record-keeping gaps.
 
-**Phase 3 precondition:** verify Python + pypdf are installed before proceeding - `py -c "import pypdf"`. If the import fails: install with `pip install pypdf`, OR skip Step 3.1's PDF-based closure and proceed directly to Steps 3.2 and 3.3 (which don't need pypdf). Don't fail mid-flight on a missing dependency.
+**Phase 3 precondition:** verify pypdf is installed - `py -c "import pypdf"`. If the import fails, either `pip install pypdf` or skip Step 3.1 and go straight to Steps 3.2 and 3.3, which don't need it.
 
 For each entity's Open items section:
 
-**Step 3.1 - Read source PDFs to close items.** Many "missing data" open items are actually answerable by reading the source documents already on file. Use Python + pypdf to extract text from PDFs:
+**Step 3.1 - Read source PDFs to close items.** Many "missing data" items are answerable from documents already on file:
 
 ```bash
 py -X utf8 -c "from pypdf import PdfReader; r = PdfReader(r'<path>'); print(r.pages[0].extract_text())"
@@ -152,11 +149,13 @@ Read-only verification pass:
 - All active entities have Open items reflecting real outstanding work only
 - All READMEs follow canonical structure
 - CLAUDE.md documents the canonical structures used
-- Triage folder is empty
+- Triage folder is empty (a `.gitkeep` is fine; a `README.md` is not)
 - No empty PARA leaf directories
 - Archive folder is clean: no loose files at the archive root, `archive/meetings/` files follow the dated-naming convention, archived entities carry their minimum record (brief/README)
-- Root README is complete (no `_To be filled in_` placeholders)
+- No dangling relative links in live buckets (the Step 1.2 check comes back clean)
+- Root README is complete (no `_To be filled in_` placeholders), and no `{{...}}` template placeholder survives anywhere in the vault
 - Status tables ("where do we stand" per entity: cost basis, stage, key numbers) present and current, where the vault uses them
+- **`/para-daily-brief` actually runs** against the cleaned vault and its counts look right. Run it; don't simulate its file scan with a grep. Every check above confirms the files say the right words, not that the tooling can still read them, and a pass that reorganised actions files is exactly when that breaks.
 
 Report a clean state summary or list residual issues with proposed fixes.
 
@@ -206,3 +205,4 @@ Final summary report covering:
 Part of the para-os skill set. Sibling skills:
 
 - `/para-triage` - empty the `triage/` folder and route loose files to their entity `sources/`. **Always run before** `/para-deep-clean` if triage has loose files (enforced by Precondition 4).
+- `/para-upgrade` - migrate the vault to a newer para-os template revision. **Always run before** `/para-deep-clean` if the vault is behind (enforced by Precondition 5). The division: `/para-upgrade` changes what the rules are, this skill checks the vault against the rules it has.

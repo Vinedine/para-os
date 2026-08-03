@@ -91,9 +91,9 @@ The conventions the templates encode:
 2. **Run the bootstrap.** Open a Claude Code session **in the new vault root** and paste the prompt from `bootstrap-prompt.md`. It asks three short questions, fills the `CLAUDE.md` and `README.md` templates, and creates a self-retiring `vault-setup` project that walks you through the rest.
 3. **Run `/para-daily-brief`.** The vault answers from day one - and richer as you feed it your braindump.
 
-> **Running several vaults?** The bundled copy just works, but you'll then carry one skills copy per vault. If you'd rather maintain a single source, move the skills to `~/.claude/skills/` (Claude Code loads them there for every vault) and delete the per-vault `.claude/skills/`. One-vault users can ignore this.
+> **Running several vaults?** The bundled copy works, but you'll carry one skills copy per vault. To keep a single source, move the skills to `~/.claude/skills/` (Claude Code loads them there for every vault) and delete the per-vault `.claude/skills/`.
 
-To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/): a fictional consulting engagement with projects, contacts, actions, and meeting records. Run `/para-daily-brief` or `/para-triage` in its root to watch the skills work.
+To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/): a fictional consulting engagement with projects, contacts, actions, and meeting records. Copy `base/.claude/skills/` into `examples/belfoot-vault/.claude/`, then run `/para-daily-brief` from the vault root. Its dates are frozen at the reference date in its README, so expect a mostly-overdue dashboard.
 
 ## The skills
 
@@ -103,6 +103,7 @@ To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot
 | [`/para-daily-brief`](base/.claude/skills/para-daily-brief/SKILL.md) | One-pass dashboard of every open task, bucketed by urgency against today, plus a meetings agenda and a triage count. |
 | [`/para-deep-clean`](base/.claude/skills/para-deep-clean/SKILL.md) | Periodic maintenance: structural audit, README normalisation, closing documented open items by reading the source files. |
 | [`/para-archive`](base/.claude/skills/para-archive/SKILL.md) | Closes out one finished project or shelved idea: reconciles open actions, validates its records, moves it to `archive/`, and repoints every inbound link. |
+| [`/para-upgrade`](base/.claude/skills/para-upgrade/SKILL.md) | Migrates a vault to a newer template revision: reads the marker in its `CLAUDE.md`, applies the intervening [`CHANGELOG.md`](CHANGELOG.md) entries, and re-stamps it. Run before a deep clean, which otherwise audits against a stale contract. |
 
 `/para-daily-brief` against the example vault (fragment):
 
@@ -143,8 +144,8 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 
 ## What's in the repo
 
-- [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, bootstrap prompt, the skills (`.claude/skills/`), and editor settings (`.vscode/settings.json`) that open `.md` files in clean rendered preview.
-- [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - the render pipeline for the read-only model.
+- [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, bootstrap prompt, the skills (`.claude/skills/`), agent settings (`.claude/settings.json`, which turns off auto memory since the files are the memory), and editor settings (`.vscode/settings.json`) that open `.md` in rendered preview.
+- [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - render pipeline for the read-only model.
 - [`integrations/`](integrations/) - drop-in scripts that pull an outside system into a vault (e.g. `granola/` for meeting sync).
 - [`examples/belfoot-vault/`](examples/belfoot-vault/) - a fictional, fully populated vault to poke at.
 
@@ -153,6 +154,7 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 - [Claude Code](https://claude.com/claude-code), or adapt the skills to your agent of choice; they're plain markdown instructions.
 - The core (skeleton + skills) needs nothing else. Scripts here (the read-only flavor, integrations) that need a runtime assume **[Node.js](https://nodejs.org/) 18+** (for the built-in `fetch`).
 - **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
+- **A substrate that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible.
 - Read-only flavor only: Windows PowerShell and `npm install -g puppeteer marked github-markdown-css`.
 - Some integrations add their own prerequisites (an app, an account, a platform); each states them in its README.
 

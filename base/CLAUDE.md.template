@@ -1,52 +1,64 @@
 # {{Vault Name}} Vault Conventions
 
+<!-- para-os-template: 2026.08 -->
+**Type:** {{vault-type}}
+
 {{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.
 
-<!-- OPTIONAL: add a "## Context" section if this vault needs scope boundaries or cross-vault
-     context (e.g. "building ownership is documented in the X vault; this vault only covers
-     operations"). Delete this comment if not needed. -->
+Both lines above are machine-read (the comment by `/para-upgrade`, the type by your own tooling) and must survive every upgrade.
 
 ## PARA layout
 
-- **triage/** - landing zone for anything that doesn't obviously fit elsewhere; emptied via `/para-triage` at the next review.
-- **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline, one folder per project, each holding a `brief.md` + `actions.md` and, where relevant, a `sources/` subfolder.}}
-- **areas/** - ongoing responsibilities. `business/` = running narrative and strategic actions. `network/` = one file per person.{{ Add any other area subfolders this vault needs.}}
-- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage ventures with no committed outcome; same `brief.md` shape as a project for easy promotion. `scripts/` = persistent tools the vault needs; their runtime state lives *outside* the vault (see "Integration scripts and their state" below).
+The sorting test between buckets: **committed and dated → project. Maintained, no end date → area. Only thinking about it → idea. Over → archive.**
+
+- **triage/** - landing zone for anything that doesn't obviously fit elsewhere; emptied via `/para-triage` at the next review. It never holds a `README.md`: every file here is by definition unprocessed, so a permanent one is indistinguishable from a real item and inflates the loose-file count forever. A `.gitkeep` keeps the empty folder in git.
+- **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline, one folder per project, each holding a `brief.md` + `actions.md` and, where relevant, a `sources/` subfolder.}} A project needs a clear goal **and** a deadline; a rolling improvement backlog on something you own is an area wearing a project name.
+- **areas/** - ongoing responsibilities: anything live that you maintain, with no end date. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset (a shipped repo, a live site, a standing support duty), each with its own `brief.md` + `actions.md` - but assets that gate each other (a domain estate, the sites on it, the subscription paying for both) form **one** area.{{ Add any other area subfolders this vault needs.}}
+- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage brainstorms to pick future projects from: one folder per idea, `brief.md` only, holding its thinking as open questions plus at most one prose "revisit when X" trigger. `scripts/` = persistent tools the vault needs; their runtime state lives *outside* the vault (see "Integration scripts and their state" below).
 - **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
 
-Promote `resources/ideas/<x>` to `projects/` when one of: someone is waiting on a deliverable by a date; money or a formal engagement is committed; a go/no-go review is on the calendar. Ideas with no traction at 6+ months retire to `archive/ideas/` (via `/para-archive`).
-
 Root `README.md` is the master document, single source of truth for identity, operating model, and track record. Derived outputs regenerate from it.
+
+### Lifecycle
+
+- An idea **promotes** to `projects/` when someone is waiting on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar - and it earns its `actions.md` at that moment, not before. Retiring an idea is always the operator's call, never automatic: an idea that never happened goes to `archive/ideas/`, one where real work ran and then stopped goes to `archive/projects/`.
+- The next big, dated push on a maintained asset is a **project running alongside its area**; when that project archives, surviving work returns to the area.
+- An entity **archives whole** - brief, actions, sources together, via `/para-archive` - with surviving open items routed out *first* (to the owning area, a successor project, or the contact file).
+- **Every move repoints inbound links in the same pass**, not just archiving. `/para-deep-clean` audits for dangling links.
 
 ### Archive hygiene
 
 What a clean `archive/` looks like (applied on the way in, and audited by `/para-deep-clean`):
 
-- **No live work in the archive.** An archived entity has zero open actions - every item done, or open items softened to an explicit "fully closed; minor gaps not material" note. Surviving work is routed out *before* archiving (to a successor idea, an existing project, or `areas/business/actions.md`), never left as a dangling `[ ]`. A closed project must not keep surfacing in `/para-daily-brief`.
+- **No live work in the archive.** An archived entity has zero open actions - every item done, or open items softened to an explicit "fully closed; minor gaps not material" note. A closed project must not keep surfacing in `/para-daily-brief`.
 - **History archives; living references go to `resources/`.** Brief, actions, and one-time migration/handoff notes are history - they archive with the entity. Reusable material (playbooks, positioning/strategy docs, templates, anything other live work links to as a resource) is *not* buried in the archive; route it to `resources/<name>/`.
 - **No loose files at the archive root.** Everything under `archive/` lives in a subfolder (`meetings/`, `projects/`, ...). A stray top-level file is misfiled.
 - **Minimum record.** Each archived entity carries a status marker (why it's archived) and a `brief.md`/`README.md`, so it's self-explanatory years later.
-- **Zero dangling links.** Moving something into the archive repoints every inbound reference (contacts, areas, README, other entities) in the same pass; a stale link is rot. A historical mention *inside* the archived folder itself is fine.
+- **Zero dangling links.** The general repoint-on-move rule above, audited at the archive boundary: no inbound reference may still point at the pre-archive path. A historical mention *inside* the archived folder itself is fine.
 
-## Filing rules
+## Actions
 
-- **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context at the top, `## Next actions` appended at the bottom.
-- **Actions**: co-locate with the project, idea, or contact they belong to. Per-project actions live in `projects/<project>/actions.md`; per-idea actions in `resources/ideas/<idea>/actions.md`; per-contact actions inside the contact file. Strategic work not tied to one of those goes in `areas/business/actions.md`. Never create a monolithic root `actions.md`.
-- **Dated meeting/chat/email artifacts**: `archive/meetings/YYYYMMDD Description.ext`.
-- **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. The /para-triage skill applies this convention literally; if you leave it undefined, /para-triage will ask before renaming anything.}}
-- **Shared workstreams across contacts**: track actions in the primary contact's file; the other files get a pointer line.
-- **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
+### Where a checkbox may live
 
-## Authoritative sources
+A checkbox is a commitment, so the bucket a file sits in decides whether it may hold one.
 
-Pick the source of truth *before* answering, not after. The recurring failure is querying the wrong surface first - the wrong mailbox, the newest file instead of the one sitting in `triage/`, a hand-kept table in a brief over the system that actually owns the data - and only catching it on correction. Naming the owning surface up front pre-empts it.
+| Bucket | `actions.md` | State |
+|---|---|---|
+| `projects/`, `areas/` | yes | open + closed |
+| `resources/` | **never** | a checkbox here is a filing error |
+| `archive/` | yes | **all closed** - one open `- [ ]` means it was archived too early |
 
-- **Check `triage/` before searching by date.** An item waiting to be filed is usually the current one; a file found by "most recent" may be a stale copy.
-- **Prefer machine-readable exports and system-of-record data over hand-maintained tables in briefs.** A table typed into a brief is a convenience copy; the export, the model, or the live connector owns the truth. When they disagree, the system wins and the brief gets corrected.
+Everything genuinely actionable still has a home: a dated go/no-go is a strategic action in the owning area's `actions.md`, linking to the idea; a person-related follow-up lives in that contact's file; scheduled multi-step work means the thing is a project, not an idea.
 
-{{OPTIONAL: for a vault with several competing sources, add a short table - `Question | Authoritative source` - so the agent knows up front which mailbox, export, or model owns each kind of question (e.g. "who owes me -> the accounting export, not the AR notes in a brief"; "current system model -> the structurizr workspace, not a diagram pasted in a doc"). Delete this line if the vault has one obvious source.}}
+### Which file an action goes in
 
-## Obsidian Tasks markers for actions.md files
+- Co-locate with the project or area it belongs to: `projects/<x>/actions.md`, `areas/<x>/actions.md`.
+- Per-contact actions live inside the contact file (`areas/network/<person>.md`, under `## Next actions`).
+- Strategic work not tied to one project, area, or person goes in `areas/business/actions.md`.
+- Never create a monolithic root `actions.md`.
+- An `actions.md` archives *with its entity*, fully closed - never on its own, and never carrying an open item.
+
+### Task markers (Obsidian Tasks syntax)
 
 Any `actions.md` file in this vault uses Obsidian Tasks plugin markers. The `/para-daily-brief` skill parses these with regex:
 
@@ -62,10 +74,25 @@ Rules when writing or editing tasks:
 - Put markers at the end of the line: `- [ ] Pay invoice 📅 2026-05-15`
 - Replace free-text dates with markers (no "before Jul 10 📅 2026-07-10", just the marker)
 - Convert fuzzy dates ("Q4", "summer") to concrete dates (usually end-of-quarter or end-of-season)
-- For items gated on external events, leave undated. Do not invent dates.
+- A `📅` records a real-world deadline (someone expects it, something renews or expires), never an aspiration. For items gated on external events, leave undated. Do not invent dates.
 - One flattened `## Recurring` section per file, not separate "quarterly" / "annually" headings.
 
-Never archive an `actions.md` file: it must stay outside `archive/` to be picked up by `/para-daily-brief`.
+## Filing and naming
+
+- **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context at the top, `## Next actions` appended at the bottom, carrying `_None currently._` when there are none.
+- **Dated meeting/chat/email artifacts**: `archive/meetings/YYYYMMDD Description.ext`.
+- **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. The /para-triage skill applies this convention literally; if you leave it undefined, /para-triage will ask before renaming anything.}}
+- **Shared workstreams across contacts**: track actions in the primary contact's file; the other files get a pointer line.
+- **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
+
+## Authoritative sources
+
+Name the owning surface *before* answering, not after.
+
+- **Check `triage/` before searching by date.** An item waiting to be filed is usually the current one; a file found by "most recent" may be a stale copy.
+- **Prefer machine-readable exports and system-of-record data over hand-maintained tables in briefs.** When they disagree, the system wins and the brief gets corrected.
+
+{{OPTIONAL: for a vault with several competing sources, add a short table - `Question | Authoritative source` - so the agent knows up front which mailbox, export, or model owns each kind of question (e.g. "who owes me -> the accounting export, not the AR notes in a brief"; "current system model -> the structurizr workspace, not a diagram pasted in a doc"). Delete this line if the vault has one obvious source.}}
 
 ## Language
 
@@ -75,20 +102,17 @@ The operator's language is {{operator language, e.g. English / French / Dutch}}.
 
 ## Memory
 
-This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files (`/AI/sessions/` and the like). The agent reads the vault fresh each session; the git history is the audit log. Durable facts belong in the file they describe: conventions in this `CLAUDE.md`, identity and operating model in `README.md`, and everything else in the relevant project, idea, or contact note. If you would otherwise save a memory, write the fact into the vault file it belongs to instead.
+This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files (`/AI/sessions/` and the like). The agent reads the vault fresh each session; the git history is the audit log. Durable facts belong in the file they describe: conventions in this `CLAUDE.md`, identity and operating model in `README.md`, and everything else in the relevant project, idea, or contact note.
 
 ## File formats
 
-The substrate is real, readable files. The agent works over what exists on disk as bytes, so prefer formats it can read and move directly: Markdown and plain text first (read and edited in place, and they diff cleanly in git), with `.csv`/`.docx`/`.xlsx` as the fallback for material received from others. Avoid cloud-native pointer formats (e.g. Google Docs/Sheets): they sync as stubs linking to content held on a server, so the bytes aren't local, tooling can't move or rename them, and the agent often can't read them at all. When one lands in the vault, convert it to a real file. A format the tooling can't touch is dead weight, the same way a junk folder is.
+The substrate is real, readable files. Markdown and plain text first (edited in place, diff cleanly in git), with `.csv`/`.docx`/`.xlsx` as the fallback for material received from others. Avoid cloud-native pointer formats (e.g. Google Docs/Sheets): they sync as stubs, so the bytes aren't local and the agent often can't read them at all. When one lands in the vault, convert it to a real file.
 
 ## Integration scripts and their state
 
-When the agent writes a *persistent* tool for this vault - a script that pulls from a connected system (accounting, mail, a scraper, an export) rather than a throwaway one-off - the code and its runtime state get separate, fixed homes:
+A *persistent* tool the agent writes for this vault (a script pulling from a connected system, not a throwaway one-off) is code, so it lives in the vault at `resources/scripts/`. Its runtime state does not: credentials, caches, and bulk data go under `~/.paraos/`, because **a secret written inside the vault leaks the moment the vault syncs to a cloud drive or a git remote**.
 
-- **The script is code, so it lives in the vault**, at `resources/scripts/`, version-controlled next to the work it serves.
-- **Its runtime state is not code, so it lives outside the vault** under `~/.paraos/`, in three buckets whose names say what is safe to delete: `secrets/` (credentials, one file per service, never synced), `cache/` (regenerable output, delete anytime), `data/` (working source data, kept but too raw or too large for the vault).
-
-Two rules keep it clean: resolve the root from the `PARAOS_HOME` environment variable (default `~/.paraos`), never hardcoding a home path; and never read or write a secret inside the vault, which a cloud drive or git remote would leak. `resources/scripts/README.md` carries the resolver snippet; `~/.paraos/README.md` is the manifest of what's installed.
+`resources/scripts/README.md` carries the rest: the three state buckets, the `PARAOS_HOME` resolver, and the language preference.
 
 ## Do not add
 
@@ -96,25 +120,3 @@ Two rules keep it clean: resolve the root from the `PARAOS_HOME` environment var
 - **Derived outputs as standalone files** - web copy, deck content, one-pager text regenerate from `README.md`. Do not let them drift into separate source-of-truth files.
 - **Content rewrites during reorganization** - structure changes preserve copy verbatim. Fix wording in a later, dedicated pass.
 - {{Anything else that belongs in a different vault or system, e.g. "Accounting, invoicing, financial records - belong in a separate vault (one vault per life context)."}}
-
-<!-- OPTIONAL sections that mature vaults grow - add only when this vault actually needs them:
-  - "## MCP integration intent" - which connectors (MCP servers) this vault uses and for what, one
-    bullet per server with its scope. The shared rule across all of them: fetch tickets / pages /
-    repo contents on demand; never mirror whole tickets, pages, or repos into the vault. Omit the
-    section entirely if the vault has no MCP configured.
-  - "## Triage sources" - extra inputs `/para-triage` pulls beyond the `triage/` folder. Omit for
-    folder-only (the default). A table `| Source | Type | Endpoint | Relevant when |`, one row per
-    source. `Type` is either `sync-script` (a `resources/scripts/` script that writes items into
-    `triage/`, e.g. a meeting-notes sync) or `connector: <mcp-server>` (a live mailbox read, e.g.
-    `connector: google-workspace` or `connector: claude_ai_Gmail`, with the mailbox as `Endpoint`).
-    `Relevant when` is the per-source filter that scopes what counts for THIS vault. Connectors are
-    read-only: a surfaced item becomes a `triage/` note or a line in the relevant `actions.md`,
-    never a sent or modified mail. Vaults with no `actions.md` route to `triage/` notes only.
-  - "## Operating rules" - vault-specific working rules that aren't structure: drafting register for
-    a given recipient, read-only-connector restraints, domain naming conventions, deliverable style.
-    Each is local to this vault; do not import another vault's rules.
-  - "## README structures" - canonical section order per entity type, ONLY once a SECOND instance
-    of that entity type proves the shape.
-  - "## Cross-vault references" - when this vault overlaps another. Keep the full entry where the
-    relationship is primary and a short pointer line in the other.
-  - "## Project context" - durable, non-obvious facts about ongoing work not derivable from the files. -->

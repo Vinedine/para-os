@@ -14,6 +14,11 @@ Cross-skill rules for *how a skill behaves* when it changes files. This is not a
 - **Preserve facts verbatim** when reorganizing or retensing a file. Reorganize and add missing structure; never lose information.
 - **Don't editorialize during a structural pass.** Fixing wording is a separate, dedicated pass - not something a cleanup/triage/archive run does silently.
 
+## Leave other people's words alone
+
+- **Third-party verbatim content is out of scope for every normalization pass.** Synced publications, meeting transcripts and their auto-extracted "next steps", quoted correspondence, signed documents. Rewriting those is rewriting someone else's record, not tidying yours. Exclude them explicitly and name which files you excluded, so the exclusion reads as a decision rather than an oversight.
+- **A checkbox inside a transcript is not a task.** It records what was said in a room. Mark the record frozen and route any surviving work into a real `actions.md`; never tick it.
+
 ## Defer to the vault
 
 - **Read the vault's `CLAUDE.md` first** for naming conventions, language rules, the action-marker syntax, the PARA/archive layout, and the "do not add" list. The skill brings *procedure*; the vault brings *parameters*.

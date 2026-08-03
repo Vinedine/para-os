@@ -1,6 +1,6 @@
 # 2026-05-08 - IT director check-in
 
-**Attendees:** [Sofie Vanhove](../../areas/network/sofie-vanhove.md) (IT Director), Vincent.
+**Attendees:** [Sofie Vanhove](../../areas/network/sofie-vanhove.md) (IT Director), Bram.
 **Format:** Slack huddle, 45 min.
 
 ## Topics

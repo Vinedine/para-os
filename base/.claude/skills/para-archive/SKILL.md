@@ -12,19 +12,11 @@ Performs the full lifecycle transition for **one finished project or one retired
 - A **project** moves from `projects/<name>/` (active) to `archive/projects/<name>/` (closed).
 - An **idea** moves from `resources/ideas/<name>/` (concept-stage) to `archive/ideas/<name>/` (shelved).
 
-Both follow the same flow. The only difference is the source/destination bucket and the **version-suffix step, which applies to projects only** - ideas are archived under their own name with no `-v1` logic. This is the on-demand counterpart to `/para-deep-clean`, which only *flags* entities that look archivable during a vault-wide sweep. Deep-clean finds; this skill executes the one move thoroughly.
+Both follow the same flow. The only difference is the source/destination bucket and the **version-suffix step, which applies to projects only**. Deep-clean finds archivable entities during a sweep; this skill executes the one move thoroughly.
 
-**This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime to discover the PARA layout, the **Archive hygiene** conventions (the contract for what a clean archive looks like), the action-marker syntax, the naming convention, the ideas-vs-projects bar, and any "do not add" rules. It follows the shared [operating-discipline.md](../shared/operating-discipline.md) for approval/deletion/preservation rules. No vault-specific paths are hardcoded.
+**This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime for the PARA layout, the **Archive hygiene** conventions, the action-marker syntax, the naming convention, and any "do not add" rules. It follows the shared [operating-discipline.md](../shared/operating-discipline.md) for approval/deletion/preservation rules. No vault-specific paths are hardcoded.
 
-## When to invoke
-
-- User types `/para-archive <name>` (optionally `preview` to stop before any change)
-- User says "archive <name>", "close out <name>", "wrap up <name>", "<name> shipped, file it away" (a project)
-- User says "shelve <idea>", "archive this idea", "park <idea>", "<idea> is going nowhere, file it" (an idea)
-- A project's committed deliverable is done and it no longer belongs in `projects/`
-- An idea has been abandoned, superseded, or has had no traction long enough that it should leave `resources/ideas/`
-
-Do NOT invoke to archive areas or contacts - this skill handles projects and ideas. Do NOT invoke mid-project to "tidy up"; archiving a project means the time-bound deliverable is complete. Archiving an idea means the concept is being shelved, not that it's mid-exploration.
+Do NOT invoke to archive areas or contacts - this skill handles projects and ideas only. Do NOT invoke mid-project to "tidy up": archiving a project means the deliverable is complete, and archiving an idea means the concept is being shelved, not that it's mid-exploration.
 
 ## Arguments
 
@@ -69,20 +61,23 @@ Never invent dates or completion stamps. Use the vault's marker syntax for any e
 ### Step 4 - Route surviving actions and living-reference files
 
 **Surviving actions** (from Step 2): ask each time where they go - do not assume a v2. Options to offer:
-- A **new successor idea** at `resources/ideas/<name>-vNext/` (scaffold `brief.md` + `actions.md`, cross-linked to the archived original) - use only if the user chooses it.
+- A **new successor idea** at `resources/ideas/<name>-vNext/` (scaffold `brief.md` **only**, cross-linked to the archived original) - use only if the user chooses it.
 - An **existing project** or an **area's rolling actions**.
+- A **contact file**, for anything that is really a follow-up with one person.
 - **Drop**.
 
-**Living-reference files**: per the Archive hygiene contract (history archives, living references go to `resources/`), scan the entity folder for files whose *content* is reusable reference rather than history - playbooks, positioning/strategy docs, templates, anything self-describing as "keep current"/"reusable"/"template" or linked by other live work as a resource. Propose moving them to `resources/<name>/`. The entity's *history* (brief, actions, one-time migration/handoff plans) stays and gets archived.
+**A successor idea never gets an `actions.md`** (the vault's "Where a checkbox may live" rule). Fold what survives into its `brief.md` as open questions and prose next steps. A genuinely dated commitment is not idea material: route it to the owning area's `actions.md`, an existing project, or the contact file.
 
-**Stale source snapshots**: flag any in-folder copy superseded by a canonical live source (a `starter/` snapshot now owned by a public repo; a vendored copy of files that live authoritatively elsewhere) - keeping a dead copy invites edits to the wrong source. Surface for deletion (compare contents + individual approval, per the operating discipline).
+**Living-reference files**: scan the entity folder for files whose *content* is reusable reference rather than history - playbooks, positioning/strategy docs, templates, anything linked by other live work as a resource. Propose moving them to `resources/<name>/`. The entity's history (brief, actions, one-time migration/handoff plans) archives with it.
+
+**Stale source snapshots**: flag any in-folder copy superseded by a canonical live source - keeping a dead copy invites edits to the wrong source. Surface for deletion (compare contents + individual approval, per the operating discipline).
 
 ### Step 5 - Decide the version suffix (projects only)
 
 **Skip this step entirely for ideas.** Ideas are archived under their own name at `archive/ideas/<name>/`, with no `-v1`/`-vN` suffix - they were never a versioned deliverable, so the version pairing doesn't apply.
 
 For **projects**, ask whether the archived folder should carry a version suffix (`<name>-v1`, etc.). Recommend one when **either**:
-- A successor (`-v2` idea, or a planned rebuild) exists or was just created in Step 4, so the pair reads as `v1` shipped / `v2` backlog, **or**
+- A successor (`-v2` idea, or a planned rebuild) exists or was just created in Step 4, so the pair reads as `v1` shipped / `v2` still a concept, **or**
 - The project is likely to recur (websites, decks, seasonal work).
 
 Recommend **no suffix** for one-off projects with no expected successor. Let the user override either way. Apply the chosen name to the archive destination.
@@ -104,7 +99,7 @@ grep -rn "resources/ideas/<name>/" --include="*.md" .
 
 Build an **inbound-link table**: every file + line that points at the entity, its brief, its actions, or any file being routed to `resources/`. Classify each:
 - → repoint to the **archive** path (`archive/projects/<name>[-v1]/...` for a project, `archive/ideas/<name>/...` for an idea)
-- → repoint to the **successor** (`resources/ideas/<name>-vNext/...`) when it referenced live/forward work (e.g. an `actions.md` link tracking remaining work)
+- → repoint to the **successor** (`resources/ideas/<name>-vNext/brief.md`) when it referenced live/forward work. A link to the old `actions.md` lands on the successor's brief; if it tracked a dated commitment, repoint to wherever that commitment went instead.
 - → repoint to the **resources** home (for routed living-reference files)
 - → repoint to a **live external source** (e.g. a shipped URL, a public repo) when that's the truer target than a dead vault path
 - → leave as-is
@@ -119,7 +114,7 @@ In order, with `git mv` / `git rm` so history is preserved (fall back to plain `
 2. Delete approved stale snapshots.
 3. Create the successor scaffold if chosen.
 4. Retense/clean brief.md and actions.md to their archived form.
-5. Move the entity to its archive bucket: `projects/<name>/` → `archive/projects/<name>[-v1]/`, or `resources/ideas/<name>/` → `archive/ideas/<name>/`. Create the destination parent (`archive/ideas/`) if it doesn't exist yet. **Check the destination does not already exist before moving** (`test -e "<dst>" && echo EXISTS`, or `Test-Path` in PowerShell). If it exists, stop and resolve the collision with the user per the Step 5 / edge-case rules (further version, re-archive, or a disambiguating name) - never let `git mv`/`mv` merge into or clobber an occupied archive path. The suffix-collision and idea-name-collision edge cases are enforced here, not just flagged in Step 5.
+5. Move the entity to its archive bucket: `projects/<name>/` → `archive/projects/<name>[-v1]/`, or `resources/ideas/<name>/` → `archive/ideas/<name>/`. Create the destination parent if needed. **Check the destination does not already exist first** (`test -e "<dst>" && echo EXISTS`). If it exists, stop and resolve the collision with the user - never let `mv` merge into or clobber an occupied archive path.
 6. Apply every approved link repoint from the Step 6 table.
 7. **Windows note**: an empty source directory can linger ("device or resource busy") if the IDE or a terminal holds a handle - the files moved fine; `rm -rf` the empty shell and tell the user it was a stale handle, not a failure.
 
