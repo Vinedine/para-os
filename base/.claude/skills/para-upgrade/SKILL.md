@@ -1,6 +1,6 @@
 ---
 name: para-upgrade
-description: Bring a vault in line with a newer para-os template revision - reads the vault's template marker, diffs it against a para-os clone at an explicit ref, then applies the intervening changelog entries as a reviewed migration (structure, skeleton files, stale rule copies, and rule-driven content violations). Use when the user asks to "upgrade the vault", "align this vault to para-os", "is this vault on the latest structure", "apply the new para-os structure", or types /para-upgrade.
+description: Bring a vault in line with a newer para-os template revision - reads the vault's template marker, diffs it against a para-os clone at an explicit ref, then applies the intervening changelog entries as a reviewed migration (structure, skeleton files, stale rule and integration-script copies, and rule-driven content violations). Use when the user asks to "upgrade the vault", "align this vault to para-os", "is this vault on the latest structure", "apply the new para-os structure", or types /para-upgrade.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write
 arg-hint: '[--ref <git-ref>] [audit]'
 ---
@@ -29,12 +29,13 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 
 Read the vault's marker and the master's, then read `CHANGELOG.md` at the ref and collect every entry strictly between the two.
 
-- **Vault's marker**: the first `<!-- para-os-template: YYYY.MM -->` comment in its `CLAUDE.md` (line 3 in the shipped template).
+- **Vault's marker**: the first `<!-- para-os-template: YYYY.MM.NN -->` comment in its `CLAUDE.md` (line 3 in the shipped template).
 - **Master's marker**: the same comment in `base/CLAUDE.md.template` at the ref, or the flavor's skeleton template if the vault declares a flavor. Read it from the template, not from `CHANGELOG.md`, which carries a lookalike inside a code fence.
 
-- **Equal** - stop. Report "vault is on revision X, nothing to do" and suggest `/para-deep-clean` if the user wanted a cleanup.
+- **Equal** - run the integration drift check from Phase 3 (it keys off each script's own marker, not the template's, so an aligned vault can still be carrying a stale copy), then stop. Report "vault is on revision X, nothing to do", plus any script found behind, and suggest `/para-deep-clean` if the user wanted a cleanup.
 - **Vault ahead of master** - stop and ask. Either the ref is stale or someone hand-edited the marker. Never downgrade a vault.
 - **No marker in the vault** - it predates the scheme. Treat as the oldest revision in the changelog and run everything.
+- **Vault stamped `2026.08`** - the label the first revision shipped under before revisions carried a sequence. It means `2026.08.01`, so the vault is already migrated to it: read it as that, collect only the entries after it, and restamp in Phase 5. Never re-run the `2026.08.01` entry against it.
 
 Present the collected entries as the migration plan before touching anything. **That list is the scope.** Do not opportunistically fix things the changelog doesn't mention: unrelated drift is `/para-deep-clean`'s job, and mixing the two buries the migration in noise.
 
@@ -60,20 +61,28 @@ For each file the skeleton ships at the ref, check whether the vault has an equi
 
 Other skeleton files (`resources/scripts/README.md`, folder placeholders) are created when absent, populated from what's actually on disk in that vault. Never invent inventory.
 
-## Phase 3 - Derived copies of the rules
+**A skeleton file the vault already has is still in scope when a changelog entry says so.** Where an entry names a rule the file must now carry, add that to the vault's existing copy in the vault's own words. Only what the entry names: re-flowing the whole file to match the skeleton is the rewrite Phase 1 already forbids.
 
-**This is the phase that pays for the skill.** A vault's rules get copied into places a template diff never looks, and a stale copy silently re-breaks the vault on its next run. Sweep for:
+## Phase 3 - Derived copies: rules and scripts
+
+**This is the phase that pays for the skill.** A vault's rules get copied into places a template diff never looks, and a stale copy silently re-breaks the vault on its next run. An installed integration script is the same failure in code rather than prose: the vault holds a copy, the master moved, and nothing on either side says so. Sweep for:
 
 - **Vault-local skills** (`.claude/skills/`). A skill that restates a rule the changelog just changed will undo this migration the next time it runs. Read every one; fix the rule text, not just the skill name.
 - **Skill names** in `README.md`, `meetings.md`, briefs, and other skills. Renames don't propagate on their own. Verify each name still exists as a skill before repointing; drop references to skills that no longer exist rather than guessing a replacement.
 - **Installed skill copies** at the user level, if the vault runs on those rather than its bundled `.claude/skills/`. Diff against the ref's masters and report drift. Syncing them is a machine-level action, so propose it, don't do it silently.
+- **Installed integration scripts** (`resources/scripts/`). Every script a para-os integration ships carries `para-os-integration: <name> <revision>` in its header. Grep the vault's scripts folder for that marker and compare each revision against the master's at the ref (`git show <ref>:integrations/<name>/<file>`). **Report, never overwrite** - this is the one read-only item in an otherwise applying skill:
+  - *Behind* - the master moved and this copy didn't. Name the script, both revisions, and the changelog entries in between, so the user can decide. These scripts are edited in place by design, so re-syncing one is a hand-merge they make; copying the master over it would wipe their config.
+  - *Ahead* - the vault's copy was improved locally. Say so, and suggest folding it back into `integrations/` rather than touching the vault.
+  - *No marker* - an older copy, or a script written for that vault alone. Never guess which integration it came from: that is how a hand-merge destroys a one-off. Name it, ask the user which shipped integration it is (if any), and stamp the copy at the revision they say they installed from. Unstamped, it is invisible to this check forever, so an install that predates the marker scheme has to be identified once, by the only party who knows. A script the user says is theirs stays unmarked and is named as skipped.
+
+  This check keys off the script's own marker, so it is also the one thing Phase 0 runs when the template revisions already match.
 - **The vault's own `CLAUDE.md` claims about itself**: folders it says exist, scripts it says are installed, files it says carry a given snippet. Check each against disk. These rot quietly and every one is cheap to verify.
 
 ## Phase 4 - Rule-driven content violations
 
 Now find the content that breaks the *new* rules. This is where the destructive work is.
 
-Derive the checks from the changelog entries rather than a fixed list. For the 2026.08 revision that means: checkboxes under `resources/`, open checkboxes in `archive/`, `projects/` entries whose own brief describes a maintained area, aspirational `📅` dates, contact files with an empty actions heading.
+Derive the checks from the changelog entries rather than a fixed list. For the 2026.08.01 revision that means: checkboxes under `resources/`, open checkboxes in `archive/`, `projects/` entries whose own brief describes a maintained area, aspirational `📅` dates, contact files with an empty actions heading.
 
 **Approval discipline follows [shared/operating-discipline.md](../shared/operating-discipline.md), strictly.** Everything in this phase is destructive or reclassifying: deleting an `actions.md`, moving a folder between PARA buckets, demoting a project to an idea. Those are approved **one at a time**, never batched, and each needs the routing decision made first: an open item that survives the move goes somewhere explicit (into the brief, into the owning area, onto a contact file). Items dropped in a migration are gone; only git history remembers them.
 
@@ -98,6 +107,7 @@ Two things that are never automatic:
 - **Never remove vault-local additions** - sections, rules, markers, or the `**Type:**` label. The template is a floor.
 - **Never create a redundant `.claude/settings.json`** when the user-level settings already set the same keys, and never create a `triage/README.md` at all.
 - **Never invent content.** A missing brief is written from what's on disk, or left missing with the gap stated. A missing date stays missing.
+- **Never write to a script in `resources/scripts/`**, beyond adding the `para-os-integration:` marker line the user has identified in Phase 3. Integration drift is reported, and the user merges it themselves. A vault's copy carries their config and their local fixes; a copy from the master silently discards both, and the failure only shows up on the next sync run.
 - **Third-party verbatim content is out of scope** for every normalization: synced publications, meeting transcripts, quoted correspondence, signed documents. Editing those rewrites someone else's words. Exclude them explicitly and say which files you excluded.
 - **Preserve facts verbatim** when restructuring; only reorganize and add.
 - **Never commit.** Stop after editing; the user commits manually.
@@ -108,6 +118,7 @@ Two things that are never automatic:
 - **The vault predates the marker scheme and has diverged heavily.** Run Phase 0 and Phase 1 as an audit first, present the size of the delta, and let the user decide whether to do it in one pass or split it.
 - **The vault was migrated by hand and only lacks the marker.** Run the full pass anyway; it is the only thing that actually verifies the hand migration landed. Expect Phase 1 to 3 to come back near-empty and Phase 4 to re-derive proposals the earlier migration already settled. Present those as re-proposals, not discoveries, and take a "we looked at this and decided otherwise" as final - an agent with no memory of the first pass must not re-argue a closed decision.
 - **A changelog entry doesn't apply to this vault.** Say so and skip it. A vault with no `resources/ideas/` has nothing to migrate from a checkbox-placement rule.
+- **A script's marker names an integration that isn't in `integrations/` at the ref.** It was renamed, removed, or the marker was hand-typed. Report it as unresolvable and leave the script alone. Never match it to a folder with a similar name: a wrong match turns the next hand-merge into a rewrite of a script that was doing its job.
 - **The vault runs a flavor** (readonly-ipad or similar). Read the flavor's skeleton template as the master, not `base/`. If the vault is in collected state, ask for a spread first.
 - **Counting characters in a normalization pass.** `grep -c` counts matching *lines*, not occurrences, and byte-wise matching in a non-UTF-8 locale makes multi-byte patterns match fragments of unrelated characters (an em dash pattern hitting `→`, `✅`, `œ`). Use a UTF-8-aware codepoint scan for any before/after count, and re-verify with one after applying.
 - **A link checker's own false positives.** Bare-relative paths, parentheses in filenames, and fenced code blocks all break naive relative-link resolution. Validate the checker against a known-good file before trusting a "0 dangling" claim.

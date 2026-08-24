@@ -22,7 +22,7 @@ Do **not** ask about project definitions, extra `areas/` folders, naming convent
 
 Then fill the templates:
 
-- If I gave URLs, **read them** (WebFetch) and draft the `README.md` Identity / Operating model / Track record sections from what you find. Flag anything you inferred so I can correct it. If I gave none, leave those sections as short, obvious stubs for the braindump (phase 2) to fill.
+- If I gave URLs, **read them** (WebFetch) and draft the four `README.md` sections (Identity, Operating model, Track record, Vision) from what you find. Flag anything you inferred so I can correct it. If I gave none, leave them as short, obvious stubs for the braindump (phase 2) to fill; the four headings stay exactly as the template names them.
 - Fill every `{{placeholder}}` in `CLAUDE.md.template` and `README.md.template`. Keep the invariant blocks (the PARA sorting test, Lifecycle, Archive hygiene, Actions, Filing and naming, Language, Memory, File formats, the standing "Do not add" items) exactly as written. A **flavor** skeleton's header comment lists which of these it drops; treat the rest as invariant. For the taxonomy slots, use these **defaults** verbatim unless I volunteered otherwise:
   - **project** = time-bound work with a committed deliverable and deadline.
   - **extra `areas/` subfolders** = none. `business/` + `network/` only; more emerge later.
@@ -48,14 +48,14 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 
 **`brief.md`** - a short plan covering:
 
-- **Phase 2, Braindump.** I tell you about this vault in my own words - typed, or as a voice memo / notes I drop into `triage/` for you to read. You fold it into `README.md` and spin out the first real projects, contacts, and actions from it.
+- **Phase 2, Braindump.** I tell you about this vault in my own words - typed, or as a voice memo / notes I drop into `triage/` for you to read. You fold it into `README.md`, every section real and Vision included (ask where this should end up if I didn't say), and spin out the first real projects, contacts, and actions from it.
 - **Phase 3, Inventory & connect.** Two tables to fill together:
   - *Systems* - one row per system my work lives in (mail, calendar, drive, accounting, tickets, ...): what it holds · how it's wired in (connector authorized in the agent · MCP server declared in config · integration script in `resources/scripts/`) · status (pending / connected). Only the integration scripts live in the vault; connectors and MCP servers are agent-side, so this table plans and tracks them.
   - *Data sources* - one row per existing folder or inbox to pull from: where it is · what to extract into the vault.
 
 **`actions.md`** (Obsidian Tasks markers) - the concrete next steps:
 
-- `- [ ] Braindump: describe this vault (type it, or drop a recording / notes in triage/)`
+- `- [ ] Braindump: describe this vault and where it should end up (type it, or drop a recording / notes in triage/)`
 - `- [ ] List the systems my work lives in`
 - `- [ ] Connect each system - plan the MCP / API wiring`
 - `- [ ] Extract existing data from each folder / inbox`

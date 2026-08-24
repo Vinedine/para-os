@@ -1,6 +1,6 @@
 # Granola meeting sync
 
-Pull your [Granola](https://www.granola.ai/) meetings - the enhanced notes *and* the full transcript - into a vault's `triage/` as dated Markdown notes, one file per meeting. From there `/para-triage` files each one where it belongs (a project, a contact, `archive/meetings/`).
+Pull your [Granola](https://www.granola.ai/) meetings - the enhanced notes *and* the full transcript - into a vault's `triage/` as dated Markdown notes, one file per meeting. From there `/para-triage` files each one where it belongs (the owning project's `sources/`, a contact, `archive/meetings/` when it spans several).
 
 Granola holds a rich, growing record of every call you take. This integration lands that record in your vault as plain Markdown, so the assistant can read across your meetings the same way it reads everything else.
 

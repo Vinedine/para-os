@@ -1,6 +1,6 @@
 # {{Vault Name}} Vault Conventions
 
-<!-- para-os-template: 2026.08 -->
+<!-- para-os-template: 2026.08.02 -->
 **Type:** {{vault-type}}
 
 {{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.
@@ -23,9 +23,9 @@ The sorting test between buckets: **committed and dated → project. Maintained,
 - **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable, one folder per project, each holding a `brief.md` and, where relevant, a `sources/` subfolder. This flavor has no per-project `actions.md` - capture next steps as prose in the brief.}} A project needs a clear goal **and** a deadline.
 - **areas/** - ongoing responsibilities: anything live you maintain, with no end date. `business/` = running narrative. `network/` = one file per person. One folder per maintained asset, each with its own `brief.md`, but assets that gate each other (a property, its tenants, the loan against it) form **one** area.{{ Add any other area subfolders this vault needs.}}
 - **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage ventures to pick future projects from: one folder per idea, `brief.md` only, holding open questions plus at most one prose "revisit when X" trigger. `scripts/` = persistent tools; their runtime state lives *outside* the vault (see below). `mds/` = collected `.md` sources (see the flip workflow); never browsed manually.
-- **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
+- **archive/** - inactive artifacts. `meetings/` = conversation records spanning several entities.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
 
-Root `README.md` is the master document, single source of truth for identity, operating model, and track record. It sits above the PARA folders so the reader never sees it; derived outputs regenerate from it.
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record. It sits above the PARA folders so the reader never sees it; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained state - no checkbox, `📅` marker, status column, project status list, or deadline table: live state belongs in `projects/` and `areas/` and surfaces through `/para-daily-brief`.
 
 ### Lifecycle
 
@@ -48,7 +48,7 @@ What a clean `archive/` looks like (applied on the way in, and audited by `/para
 
 - **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context as prose, with open asks stated explicitly, including when there are none. {{If the maintainer has their own naming for some folders/people, preserve it verbatim.}}
 - **Next steps**: this flavor has **no `actions.md` files** and no `- [ ]` checkboxes anywhere. Capture next steps as prose in the relevant brief, area file, or contact file. `/para-daily-brief` detects this vault type by their absence, so one stray actions file breaks that detection.
-- **Dated meeting/chat/email artifacts**: `archive/meetings/YYYYMMDD Description.ext`.
+- **Dated conversation records** (meeting notes, call transcripts, chat/email sequences): to the `sources/` of the project or area that owns them; `archive/meetings/YYYYMMDD Description.ext` only when they span several entities.
 - **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. /para-triage applies it literally; left undefined, it asks before renaming anything.}}
 - **Shared workstreams across contacts**: narrate in the primary contact's file; the others get a pointer line.
 - **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.

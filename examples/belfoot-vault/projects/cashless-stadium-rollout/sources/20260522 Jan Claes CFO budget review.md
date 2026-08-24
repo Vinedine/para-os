@@ -1,7 +1,7 @@
 # 2026-05-22 - CFO budget review
 
-**Attendees:** [Jan Claes](../../areas/network/jan-claes.md) (CFO), Bram.
-**Project:** [Cashless stadium rollout](../../projects/cashless-stadium-rollout/brief.md).
+**Attendees:** [Jan Claes](../../../areas/network/jan-claes.md) (CFO), Bram.
+**Project:** [Cashless stadium rollout](../brief.md).
 **Format:** in person, Antwerp office, 90 min.
 
 ## Headline

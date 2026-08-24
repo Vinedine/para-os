@@ -10,22 +10,20 @@ External consultant engagement for **BelFoot Royal Sporting Club** ("BelFoot FC"
 
 ## Operating model
 
-One programme, multiple time-bound workstreams, each run as a project with its own brief, task list, and source documents:
+One programme of time-bound IT workstreams, each run as a project with its own brief, task list, and source documents, across three domains: [stadium payments](projects/cashless-stadium-rollout/brief.md) (a closed-loop cashless wallet on the season-ticket NFC chip, replacing cash at every sales point), [ticketing](projects/ticketing-platform-replacement/brief.md) (an API-first platform replacing the 2014 system, integrated with the Salesforce CRM and the wallet), and [fan-facing digital](resources/ideas/fan-app-rebuild/brief.md) (the fan app rebuilt on the new ticketing API once it exists). Each workstream is vendor-delivered and consultant-led: the consultant runs selection, contracting, integration design, and cutover; the club's IT department operates the result.
 
-- **[Cashless stadium rollout](projects/cashless-stadium-rollout/brief.md)** - replace cash at every stadium sales point with a closed-loop wallet before the 2026-27 season opener (2026-08-09). Vendor: NovaPay.
-- **[Ticketing platform replacement](projects/ticketing-platform-replacement/brief.md)** - replace the 2014 legacy ticketing platform; vendor selection by 2026-09-15, phased cutover through 2027.
-- **[Fan app rebuild](resources/ideas/fan-app-rebuild/brief.md)** - concept-stage idea, dependent on the ticketing replacement landing first; not yet a project.
+Governance is a standing responsibility rather than a workstream: the budget envelope, cross-workstream dependencies, and board reporting are tracked in [areas/stadium/actions.md](areas/stadium/actions.md). Stakeholder relationships live one file per person in [areas/network/](areas/network/): [Jan Claes](areas/network/jan-claes.md) (CFO), [Pieter De Ryck](areas/network/pieter-de-ryck.md) (Head of Operations), [Sofie Vanhove](areas/network/sofie-vanhove.md) (IT Director), [Thomas Vermeulen](areas/network/thomas-vermeulen.md) (Commercial Director). A dated meeting record lands in its owning workstream's `sources/`, or in [archive/meetings/](archive/meetings/) when it spans several.
 
-Cross-cutting programme work (budget envelope, dependency mapping, board reporting) lives in [areas/stadium/actions.md](areas/stadium/actions.md). Stakeholder relationships live one file per person in [areas/network/](areas/network/): [Jan Claes](areas/network/jan-claes.md) (CFO), [Pieter De Ryck](areas/network/pieter-de-ryck.md) (Head of Operations), [Sofie Vanhove](areas/network/sofie-vanhove.md) (IT Director), [Thomas Vermeulen](areas/network/thomas-vermeulen.md) (Commercial Director). Dated meeting records land in [archive/meetings/](archive/meetings/).
+Out of scope, and living elsewhere: retail outside the stadium (club shops, online merchandise) stays on the club's existing payment processors, and the loyalty programme is a separate workstream outside this engagement.
 
 ## Track record
 
 - **2026-04-18** - NovaPay contract signed for the cashless rollout (SOW on file in the project's `sources/`).
 - **2026-05-15** - Ticketing RFP issued to four shortlisted vendors after a clean legal review; all four responses received by the 2026-06-20 deadline.
-- **2026-05-22** - Q3 budget overrun (~€85k) on the cashless rollout flagged with the CFO; three cost-recovery options delivered 2026-05-29, decision pending.
-- **Currently** (2026-06-24, the vault's reference date): cashless rollout on track for the 2026-08-02 soft launch, slipping on budget; ticketing in vendor selection with demo days the week of 2026-07-06.
+- **2026-05-22** - Q3 budget overrun (~€85k) on the cashless rollout flagged with the CFO; three cost-recovery options delivered 2026-05-29.
 
-## Working in this vault
+## Vision
 
-- **Conventions for Claude:** [CLAUDE.md](CLAUDE.md).
-- Run `/para-daily-brief` for a bucketed view of what's open across the vault.
+By the end of 2027 the club runs a cashless stadium and a modern ticketing platform, with the fan app rebuilt on the new ticketing data, and the IT department operates all three without the consultant. The engagement ends when the last ticketing cutover is signed off and the programme is handed to [Sofie Vanhove](areas/network/sofie-vanhove.md)'s team.
+
+Conventions in [CLAUDE.md](CLAUDE.md); `/para-daily-brief` for what is open.

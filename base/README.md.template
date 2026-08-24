@@ -1,19 +1,21 @@
 # {{Vault Name}}
 
-Master document for {{what this vault covers}}. Single source of truth for identity, operating model, and track record.
+Master document for {{what this vault covers}}. Single source of truth for identity, operating model, and track record; derived outputs regenerate from it.
 
 ## Identity
 
-{{Who runs it and how it's owned. Legal entities, partners and stakes if relevant. Cross-link the network cards for any partners.}}
+{{Who owns and runs it: legal entities, partners and stakes, the people involved (link their network cards).}}
 
 ## Operating model
 
-{{What the operation does, in one or two paragraphs. Its edge. Geography / market. The shape of the assets or service.}}
+{{How it runs, in one or two paragraphs: what it does, its edge, geography or market, the shape of the assets or service. End with the scope boundary: what deliberately lives elsewhere (another vault, a shared drive, an accounting system).}}
 
 ## Track record
 
-{{Pointer to the operational register in areas/ if one exists. Summarise the current portfolio / inventory / completed work; keep the detail in the per-entity files, not here.}}
+{{What has been done: a pointer to the operational register in areas/ if one exists, and a summary of the current portfolio, inventory, or completed work. Detail stays in the per-entity files.}}
 
 ## Vision
 
-_To be filled in - longer-term aim: scale, mix, exit horizon._
+{{The end state this vault works toward, and its horizon. A business: scale, mix, exit. A client engagement: what must be true when it ends, and when. A household or family: the picture being built, and by when. A search: the role and conditions that end it. Write a real one; this section is never a stub.}}
+
+Conventions in [CLAUDE.md](CLAUDE.md); `/para-daily-brief` for what is open.

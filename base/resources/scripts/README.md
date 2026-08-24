@@ -31,4 +31,6 @@ const authPath = path.join(PARAOS_HOME, "secrets", "SERVICE.json");
 
 Write scripts in **Python by default**. Use JS only when the integration is bound to a JS/Electron source, such as a desktop app's local token.
 
+A script installed from a para-os **integration** carries a version marker in its header - `para-os-integration: <name> <revision>` - recording the revision it was copied at. `/para-upgrade` compares it against the master and reports a copy that is behind; it never overwrites, because these scripts are meant to be edited here (routing tables, filters, the vault's own config block). Re-syncing one is a hand-merge you make, reading the changelog entry for what changed. Keep the marker on the line it's on: a script that loses it stops being checked. A script written for this vault alone carries no marker and is skipped.
+
 When you add a script, add a one-line entry to the manifest at `~/.paraos/README.md` (its secret, what it writes) so "what's installed" stays answerable. On first run, `~/.paraos/` and its buckets won't exist yet - create the ones you use.
