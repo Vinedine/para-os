@@ -1,4 +1,5 @@
 // granola-auth-init.js  (ONE-TIME / re-login bootstrap - run this once before your first sync)
+// para-os-integration: granola 2026.08.02 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 //   node granola-auth-init.js
 // Extracts the Granola login token from the local Granola desktop app and writes it to the paraos
 // secret (~/.paraos/secrets/granola.json), then does a quick API sanity check. Run it again only if

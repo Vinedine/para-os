@@ -67,7 +67,7 @@ your-vault/
 ├── projects/      # time-bound work; one folder per project: brief.md + actions.md + sources/
 ├── areas/         # ongoing responsibilities; contacts in areas/network/, one file per person
 ├── resources/     # reusable reference; not-yet-projects in resources/ideas/
-└── archive/       # anything inactive; dated records in archive/meetings/
+└── archive/       # anything inactive; cross-cutting dated records in archive/meetings/
 ```
 
 `triage/` is para-os's addition to stock PARA: a capture inbox for anything you can't file in ten seconds. Capture stays frictionless because filing is delegated to the agent.
@@ -126,7 +126,7 @@ A vault the agent can only read is a tidy filing cabinet. Wire in a source and t
 
 - **Connectors** - authorized once in your agent (Gmail, Calendar, Drive, Slack). Nothing lands in the vault; every vault benefits automatically.
 - **MCP servers** - wiring as a config declaration, scopeable to one vault or shared globally, for a source with no built-in connector (a self-hosted Google Workspace server, Jira, Azure DevOps). A connector is really just a pre-authorized remote MCP server - the line between the two is *authorized-in-the-agent* vs *declared-in-config*, not different plumbing.
-- **Integrations** - wiring as code: a small script in `resources/scripts/` that pulls a source into the vault as Markdown the assistant reads like everything else. This is the only tier para-os ships: [`integrations/`](integrations/) packages them as drop-in folders (e.g. [`granola/`](integrations/granola/) syncs your Granola meeting notes into `triage/`). Secrets and caches stay outside the vault under `~/.paraos/`; the [folder's README](integrations/) has the full contract.
+- **Integrations** - wiring as code: a small script in `resources/scripts/` that pulls a source into the vault as Markdown the assistant reads like everything else. This is the only tier para-os ships: [`integrations/`](integrations/) packages them as drop-in folders (e.g. [`granola/`](integrations/granola/) syncs your Granola meeting notes into `triage/`). Secrets and caches stay outside the vault under `~/.paraos/`; the [folder's README](integrations/) has the full contract. Each script carries a version marker, so `/para-upgrade` tells you when your installed copy has fallen behind the master, and leaves the merge to you.
 
 ## The read-only flavor
 

@@ -1,4 +1,5 @@
 // granola-sync.js - pull recent Granola meetings (enhanced notes + transcript) into a vault's triage/.
+// para-os-integration: granola 2026.08.02 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 // Drop this file in <vault>/resources/scripts/ and run it there. By default every recent meeting is
 // written to THIS vault's triage/ as a dated Markdown note, ready for /para-triage to file.
 //   node granola-sync.js            # DRY RUN: shows what it would write, touches nothing
@@ -105,7 +106,12 @@ function transcriptMd(segs) {
   return lines.join("\n\n");
 }
 
-const sanitize = s => String(s).replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 80);
+// Illegal characters become a space rather than nothing, so "Q3/Q4 plan" stays two words
+// instead of welding into "Q3Q4". Leading/trailing spaces and dots go: Windows strips both,
+// so a name ending in one does not round-trip. Matches outlook_sync.py's safe_title.
+const TRIM_EDGES = /^[ .]+|[ .]+$/g;
+const sanitize = s => String(s ?? "").replace(/[\\/:*?"<>|\x00-\x1f]/g, " ")
+  .replace(/\s+/g, " ").replace(TRIM_EDGES, "").slice(0, 80).replace(TRIM_EDGES, "");
 
 // Renumber panel heading levels to consecutive, starting at ### so they nest under "## Summary".
 function demote(md, base = 3) {
@@ -207,4 +213,8 @@ async function main() {
   console.log(`\n${WRITE ? "wrote" : "would write"}: ${written} · skipped(exists): ${skipped}${MULTI ? ` · unrouted: ${unrouted}` : ""}`);
   if (!WRITE) console.log("Re-run with --write to create the files.");
 }
-main().catch(e => console.log("[x]", e.message));
+// Run only when invoked directly, so the test suite can require() the pure helpers below
+// without firing a sync. Behaviour under `node granola-sync.js` is unchanged.
+if (require.main === module) main().catch(e => console.log("[x]", e.message));
+
+module.exports = { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest };

@@ -18,3 +18,7 @@
 # Its skills, however, are copied in by the user to try the demo (see examples/README.md)
 # and stay untracked, so base/.claude/skills/ remains their single source.
 examples/belfoot-vault/.claude/skills/
+
+# Build artifacts from running the integration scripts in place.
+__pycache__/
+*.pyc

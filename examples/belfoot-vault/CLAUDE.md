@@ -1,6 +1,6 @@
 # BelFoot Vault Conventions
 
-<!-- para-os-template: 2026.08 -->
+<!-- para-os-template: 2026.08.02 -->
 **Type:** vault (default flavor: plain editable markdown)
 
 The consulting vault for BelFoot Royal Sporting Club ("BelFoot FC", Belgian Pro League) and its multi-stream IT modernisation programme - an external consultant engagement, started Q1 2026, running through 2027. Per-vault guidance for Claude Code sessions.
@@ -21,9 +21,9 @@ The sorting test between buckets: **committed and dated → project. Maintained,
 - **projects/** - time-bound IT workstreams with a committed deliverable and deadline, one folder per workstream. Each holds a `brief.md` (what it is, who it's for, scope, stakeholders, deadline), an `actions.md` (task list with Obsidian Tasks markers, see below), and a `sources/` subfolder for raw material (RFP PDFs, vendor decks, scanned contracts). A workstream needs a committed deliverable **and** a date; a rolling improvement backlog on a system the club already runs is an area wearing a project name.
 - **areas/** - ongoing responsibilities: anything live that gets maintained, with no end date. `stadium/` = the stadium modernisation programme as a standing responsibility: cross-cutting strategic actions not tied to a single workstream. `network/` = one file per BelFoot stakeholder. Systems that gate each other (the wallet, the ticketing platform it integrates with, the stadium network both depend on) stay **one** area.
 - **resources/** - reusable reference (procurement templates, vendor evaluations, regulatory notes). `prompts/` = reusable specs and drafts. `ideas/` = concept-stage workstreams to pick future projects from: one folder per idea, `brief.md` only, holding its thinking as open questions plus at most one prose "revisit when X" trigger. `scripts/` = persistent tools the vault needs; their runtime state lives *outside* the vault (see "Integration scripts and their state" below).
-- **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records. `projects/` = completed workstreams and `ideas/` = shelved concepts (both filled by `/para-archive`).
+- **archive/** - inactive artifacts. `meetings/` = conversation records spanning several entities. `projects/` = completed workstreams and `ideas/` = shelved concepts (both filled by `/para-archive`).
 
-Root `README.md` is the master document, single source of truth for the engagement's scope, stakeholders, and track record. Derived outputs regenerate from it.
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained state - no checkbox, `📅` marker, status column, project status list, or deadline table: live state belongs in `projects/` and `areas/` and surfaces through `/para-daily-brief`.
 
 ### Lifecycle
 
@@ -86,7 +86,7 @@ Rules when writing or editing tasks:
 ## Filing and naming
 
 - **Contacts**: one file per stakeholder at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context at the top, `## Next actions` appended at the bottom, carrying `_None currently._` when there are none.
-- **Dated meeting/chat/email artifacts**: `archive/meetings/YYYYMMDD Description.md`.
+- **Dated conversation records** (meeting notes, call transcripts, chat/email sequences): to the `sources/` of the workstream or area that owns them; `archive/meetings/YYYYMMDD Description.md` only when they span several entities.
 - **Source documents**: `sources/YYYYMMDD <Who> <Description>.<ext>` - the date of the document itself (signing, issue, inspection), not the received date.
 - **Shared workstreams across stakeholders**: track actions in the primary stakeholder's file; the others get a pointer line.
 - **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
@@ -102,7 +102,7 @@ Name the owning surface *before* answering, not after.
 |---|---|
 | What did we agree with NovaPay? | the signed SOW in `projects/cashless-stadium-rollout/sources/` |
 | What does a ticketing vendor offer / charge? | that vendor's RFP response in `projects/ticketing-platform-replacement/sources/` |
-| What was decided in a meeting? | the dated record in `archive/meetings/` |
+| What was decided in a meeting? | the dated record, in the owning workstream's `sources/` or in `archive/meetings/` if it spans several |
 
 ## Language
 

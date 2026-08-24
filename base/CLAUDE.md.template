@@ -1,6 +1,6 @@
 # {{Vault Name}} Vault Conventions
 
-<!-- para-os-template: 2026.08 -->
+<!-- para-os-template: 2026.08.02 -->
 **Type:** {{vault-type}}
 
 {{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.
@@ -15,9 +15,9 @@ The sorting test between buckets: **committed and dated → project. Maintained,
 - **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline, one folder per project, each holding a `brief.md` + `actions.md` and, where relevant, a `sources/` subfolder.}} A project needs a clear goal **and** a deadline; a rolling improvement backlog on something you own is an area wearing a project name.
 - **areas/** - ongoing responsibilities: anything live that you maintain, with no end date. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset (a shipped repo, a live site, a standing support duty), each with its own `brief.md` + `actions.md` - but assets that gate each other (a domain estate, the sites on it, the subscription paying for both) form **one** area.{{ Add any other area subfolders this vault needs.}}
 - **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage brainstorms to pick future projects from: one folder per idea, `brief.md` only, holding its thinking as open questions plus at most one prose "revisit when X" trigger. `scripts/` = persistent tools the vault needs; their runtime state lives *outside* the vault (see "Integration scripts and their state" below).
-- **archive/** - inactive artifacts. `meetings/` = dated meeting/chat/email records.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
+- **archive/** - inactive artifacts. `meetings/` = conversation records spanning several entities.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
 
-Root `README.md` is the master document, single source of truth for identity, operating model, and track record. Derived outputs regenerate from it.
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained state - no checkbox, `📅` marker, status column, project status list, or deadline table: live state belongs in `projects/` and `areas/` and surfaces through `/para-daily-brief`.
 
 ### Lifecycle
 
@@ -80,7 +80,7 @@ Rules when writing or editing tasks:
 ## Filing and naming
 
 - **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context at the top, `## Next actions` appended at the bottom, carrying `_None currently._` when there are none.
-- **Dated meeting/chat/email artifacts**: `archive/meetings/YYYYMMDD Description.ext`.
+- **Dated conversation records** (meeting notes, call transcripts, chat/email sequences): to the `sources/` of the project or area that owns them; `archive/meetings/YYYYMMDD Description.ext` only when they span several entities.
 - **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. The /para-triage skill applies this convention literally; if you leave it undefined, /para-triage will ask before renaming anything.}}
 - **Shared workstreams across contacts**: track actions in the primary contact's file; the other files get a pointer line.
 - **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
