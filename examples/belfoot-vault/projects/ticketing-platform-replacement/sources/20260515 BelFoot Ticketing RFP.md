@@ -4,7 +4,7 @@
 **Issued:** 2026-05-15
 **Responses due:** 2026-06-20, 17:00 CET
 **Contact:** Sofie Vanhove (IT Director), via the engagement Drive
-**Issued to:** Ticketmaster Sport, SeatGeek Enterprise, AXS, TicketMatch BE
+**Issued to:** Gateline Sport, Tribunex Enterprise, Kavelo, TicketMatch BE
 
 ## Background
 

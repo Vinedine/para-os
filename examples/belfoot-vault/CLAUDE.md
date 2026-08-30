@@ -1,6 +1,6 @@
 # BelFoot Vault Conventions
 
-<!-- para-os-template: 2026.08.02 -->
+<!-- para-os-template: 2026.08.03 -->
 **Type:** vault (default flavor: plain editable markdown)
 
 The consulting vault for BelFoot Royal Sporting Club ("BelFoot FC", Belgian Pro League) and its multi-stream IT modernisation programme - an external consultant engagement, started Q1 2026, running through 2027. Per-vault guidance for Claude Code sessions.
@@ -23,10 +23,11 @@ The sorting test between buckets: **committed and dated → project. Maintained,
 - **resources/** - reusable reference (procurement templates, vendor evaluations, regulatory notes). `prompts/` = reusable specs and drafts. `ideas/` = concept-stage workstreams to pick future projects from: one folder per idea, `brief.md` only, holding its thinking as open questions plus at most one prose "revisit when X" trigger. `scripts/` = persistent tools the vault needs; their runtime state lives *outside* the vault (see "Integration scripts and their state" below).
 - **archive/** - inactive artifacts. `meetings/` = conversation records spanning several entities. `projects/` = completed workstreams and `ideas/` = shelved concepts (both filled by `/para-archive`).
 
-Root `README.md` is the master document, single source of truth for identity, operating model, and track record; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained state - no checkbox, `📅` marker, status column, project status list, or deadline table: live state belongs in `projects/` and `areas/` and surfaces through `/para-daily-brief`.
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained **work** state - no checkbox, `📅` marker, project status list, deadline table, or Status column in a table listing workstreams or entities: live state belongs in `projects/` and `areas/` and surfaces through `/para-daily-brief`. A status *fact* about the club itself is not work state and stays - a registration table reading `| Status | Active |` alongside a VAT number is describing the entity, not tracking a task.
 
 ### Lifecycle
 
+- `/para-new` **creates** an entity - a project, an area, an idea, or a contact - settling its shape against the sorting test above before scaffolding anything, and runs the idea-to-project promotion below.
 - An idea **promotes** to `projects/` when someone is waiting on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar - and it earns its `actions.md` at that moment, not before. Retiring an idea is always the operator's call, never automatic: an idea that never happened goes to `archive/ideas/`, a workstream where real work ran and then stopped goes to `archive/projects/`.
 - The next big, dated push on a maintained system is a **project running alongside its area**; when that project archives, surviving work returns to the area.
 - An entity **archives whole** - brief, actions, sources together, via `/para-archive` - with surviving open items routed out *first* (to `areas/stadium/actions.md`, a successor workstream, or the stakeholder's contact file).
@@ -55,6 +56,23 @@ A checkbox is a commitment, so the bucket a file sits in decides whether it may 
 | `archive/` | yes | **all closed** - one open `- [ ]` means it was archived too early |
 
 Everything genuinely actionable still has a home: a dated go/no-go is a strategic action in `areas/stadium/actions.md`, linking to the idea; a stakeholder follow-up lives in that person's contact file; scheduled multi-step work means the thing is a workstream, not an idea.
+
+### The actionable frontier
+
+A checkbox is a commitment you could act on now or on its marked date - not a plan. When work decomposes into phases, only the steps whose dependencies have cleared get checkboxes; everything downstream stays prose (a `## Backlog` section in the same file, or the brief) until its gate opens. The failure this prevents is **action inflation**: decompose the whole rollout into checkboxes up front and the speculative items soon outnumber the committed work until nobody believes the count. Two guardrails:
+
+- **The WIP flag.** Before appending an action to a file already holding 12 or more open items, say so and propose grooming instead of silently adding. `/para-daily-brief` flags such files; `/para-deep-clean` grooms them.
+- **One next step per inbound item.** Triage and working sessions add at most one next step per thread or document, never a decomposition. A vendor proposal landing in `triage/` yields "decide whether to shortlist", not a nine-step evaluation plan.
+
+### The content frontier
+
+The same rule applied to prose. Files only ever grow: a brief gets one more dated entry, a vendor's pricing gets restated in a second file "for context", a superseded decision is left in place because deleting it feels lossy. Content inflation is action inflation's quieter half - an over-grown action file announces itself with a count, while an over-grown brief just looks thorough.
+
+- **Say it once.** Every fact has one owning file. Vendor pricing lives in the RFP response in `sources/`; the brief links to it rather than restating it. A copy is a second thing to keep true, and once the two disagree nobody can tell which is current.
+- **A development log records decisions, not activity.** An entry earns its place by recording what a later reader would otherwise get wrong: a decision and why, a constraint discovered, an option rejected. "Continued vendor evaluation" is not an entry.
+- **Superseded content leaves the live buckets** for `archive/` or git history. A shortlist that has been narrowed is history, not current state.
+
+**Never delete to satisfy this.** Pruning is proposed and ruled on one item at a time; the default is *move* or *demote*, and outright deletion applies only to a genuine duplicate whose contents have been compared against the copy that survives. Source documents and anything in `triage/` are never pruned.
 
 ### Which file an action goes in
 
@@ -133,4 +151,4 @@ A *persistent* tool the agent writes for this vault (a script pulling from a con
 
 ## Skills wired to this vault
 
-`/para-daily-brief` (bucketed action dashboard across every `actions.md`), `/para-triage` (empty the inbox by classifying then moving each item), `/para-deep-clean` (audit structural drift), `/para-archive` (close out one finished project or shelved idea).
+`/para-daily-brief` (bucketed action dashboard across every `actions.md`), `/para-triage` (empty the inbox by classifying then moving each item), `/para-new` (create a workstream, area, idea or contact, and promote an idea), `/para-deep-clean` (audit structural drift), `/para-archive` (close out one finished project or shelved idea).

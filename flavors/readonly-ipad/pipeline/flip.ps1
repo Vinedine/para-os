@@ -47,6 +47,8 @@
     others.
 #>
 
+# para-os-integration: readonly-ipad 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory)]

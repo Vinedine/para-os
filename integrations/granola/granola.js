@@ -1,10 +1,14 @@
-// granola-sync.js - pull recent Granola meetings (enhanced notes + transcript) into a vault's triage/.
-// para-os-integration: granola 2026.08.02 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// granola.js - pull recent Granola meetings (enhanced notes + transcript) into a vault's triage/.
+// para-os-integration: granola 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 // Drop this file in <vault>/resources/scripts/ and run it there. By default every recent meeting is
 // written to THIS vault's triage/ as a dated Markdown note, ready for /para-triage to file.
-//   node granola-sync.js            # DRY RUN: shows what it would write, touches nothing
-//   node granola-sync.js --write    # actually create the notes
-//   node granola-sync.js --days 14  # override the 30-day look-back window
+//   node granola.js            # DRY RUN: shows what it would write, touches nothing
+//   node granola.js --write    # actually create the notes
+//   node granola.js --days 14  # override the 30-day look-back window
+//
+// This file holds nothing vault-specific: the routing table lives in granola.config.json beside it,
+// credentials in ~/.paraos/secrets/, and the vault is derived from this copy's own path. So an
+// installed copy re-syncs by straight file copy - never edit this script to configure a vault.
 //
 // Auth: reads ~/.paraos/secrets/granola.json (run granola-auth-init.js once to create it).
 // The sync refreshes the access token itself and writes the rotated token back.
@@ -12,20 +16,6 @@
 
 const fs = require("fs");
 const path = require("path");
-
-// ─── CONFIG · edit this block ────────────────────────────────────────────────
-// Where synced meetings land inside the vault (relative to the vault root).
-const MEETINGS_SUBDIR = "triage";
-
-// Multi-vault routing (advanced, optional). Leave empty ({}) if you run a single
-// vault: every meeting then goes to THIS vault's triage/.
-// To fan meetings out across several sibling vaults by a title prefix - e.g. a
-// meeting titled "Acme - Kickoff" into the sibling "acme-client" vault - map each
-// prefix to its vault folder name. Sibling vaults must share one parent directory.
-// Prefixes match case-insensitively, so "ACME - Kickoff" routes on an "Acme" key.
-//   const ROUTE = { Acme: "acme-client", Home: "family", Side: "side-project" };
-const ROUTE = {};
-// ─── end config ──────────────────────────────────────────────────────────────
 
 // Integration state lives under ~/.paraos (override with PARAOS_HOME); see ~/.paraos/README.md.
 const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE, ".paraos");
@@ -41,6 +31,40 @@ const VAULT_ARG = (() => { const i = process.argv.indexOf("--vault"); return i >
 const VAULT_ROOT = path.resolve(__dirname, "..", "..");
 const VAULT_NAME = path.basename(VAULT_ROOT);
 const PARENT = path.dirname(VAULT_ROOT); // shared parent of sibling vaults (multi-vault mode)
+
+// ─── this vault's config, in granola.config.json beside this script. Never secret. ──────────
+// Absent or empty = single-vault mode: every meeting lands in THIS vault's triage/.
+//   { "meetings_subdir": "triage",
+//     "route": { "Acme": "acme-client", "Home": "family", "Side": "side-project" } }
+// `route` fans meetings out across sibling vaults by title prefix - a meeting titled
+// "Acme - Kickoff" goes to the sibling "acme-client" vault. Sibling vaults must share one
+// parent directory. Prefixes match case-insensitively, so "ACME - Kickoff" routes on "Acme".
+const VAULT_CONFIG = path.join(__dirname, "granola.config.json");
+const CONFIG = (() => {
+  if (!fs.existsSync(VAULT_CONFIG)) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(VAULT_CONFIG, "utf8"));
+  } catch (e) {
+    // Never fall through to {}: an unreadable config silently means single-vault mode, which
+    // writes every other vault's meetings into this one. Stop instead.
+    console.error(`granola.config.json is present but unreadable: ${e.message}`);
+    console.error(`  ${VAULT_CONFIG}`);
+    process.exit(1);
+  }
+  // Valid JSON of the wrong shape (an array, a string, a bare number...) is exactly as
+  // dangerous as malformed JSON: CONFIG.route would silently resolve to undefined, ROUTE
+  // would fall back to {}, and every other vault's meetings would land in this one.
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    console.error(`granola.config.json must be a JSON object (got ${Array.isArray(parsed) ? "an array" : typeof parsed}).`);
+    console.error(`  ${VAULT_CONFIG}`);
+    process.exit(1);
+  }
+  return parsed;
+})();
+
+const MEETINGS_SUBDIR = CONFIG.meetings_subdir || "triage";
+const ROUTE = CONFIG.route || {};
 const MULTI = Object.keys(ROUTE).length > 0;
 const ROUTE_CI = Object.fromEntries(Object.entries(ROUTE).map(([k, v]) => [k.toLowerCase(), v]));
 const ONLY_VAULT = VAULT_ARG || (ALL ? null : VAULT_NAME); // in multi-vault mode, default to this vault
@@ -108,7 +132,7 @@ function transcriptMd(segs) {
 
 // Illegal characters become a space rather than nothing, so "Q3/Q4 plan" stays two words
 // instead of welding into "Q3Q4". Leading/trailing spaces and dots go: Windows strips both,
-// so a name ending in one does not round-trip. Matches outlook_sync.py's safe_title.
+// so a name ending in one does not round-trip. Matches outlook.py's safe_title.
 const TRIM_EDGES = /^[ .]+|[ .]+$/g;
 const sanitize = s => String(s ?? "").replace(/[\\/:*?"<>|\x00-\x1f]/g, " ")
   .replace(/\s+/g, " ").replace(TRIM_EDGES, "").slice(0, 80).replace(TRIM_EDGES, "");
@@ -214,7 +238,7 @@ async function main() {
   if (!WRITE) console.log("Re-run with --write to create the files.");
 }
 // Run only when invoked directly, so the test suite can require() the pure helpers below
-// without firing a sync. Behaviour under `node granola-sync.js` is unchanged.
+// without firing a sync. Behaviour under `node granola.js` is unchanged.
 if (require.main === module) main().catch(e => console.log("[x]", e.message));
 
 module.exports = { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest };

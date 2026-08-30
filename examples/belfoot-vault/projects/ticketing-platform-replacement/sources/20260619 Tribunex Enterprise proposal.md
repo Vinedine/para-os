@@ -1,12 +1,12 @@
-# Vendor proposal - SeatGeek Enterprise
+# Vendor proposal - Tribunex Enterprise
 
-**Vendor:** SeatGeek Enterprise
+**Vendor:** Tribunex Enterprise
 **Submitted:** 2026-06-19 (one day before the deadline)
 **In response to:** `20260515 BelFoot Ticketing RFP.md`
 
 ## Summary
 
-SeatGeek Enterprise proposes its Open Platform with full API coverage, native dynamic pricing, and an integrated resale marketplace. EU data residency via their Frankfurt region. Salesforce integration through a supported managed connector.
+Tribunex Enterprise proposes its Connect suite with full API coverage, native dynamic pricing, and an integrated resale marketplace. EU data residency via their Amsterdam region. Salesforce integration through a supported managed connector.
 
 ## Fit against mandatory requirements
 
@@ -18,7 +18,7 @@ SeatGeek Enterprise proposes its Open Platform with full API coverage, native dy
 | Salesforce integration | Met - managed connector, bidirectional |
 | 24k account migration | Met - phased migration tooling, dedicated migration lead |
 | Phased cutover | Met |
-| EU data residency | Met - Frankfurt |
+| EU data residency | Met - Amsterdam |
 | SSO | Met - SAML / OIDC |
 
 ## Commercials (indicative)

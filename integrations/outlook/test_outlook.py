@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Unit tests for outlook_sync.py. Pure functions and filesystem behaviour only - no network,
+"""Unit tests for outlook.py. Pure functions and filesystem behaviour only - no network,
 no mailbox, no credentials, and no `requests` install needed (it is stubbed at import).
 
 Run from anywhere:
-    python3 integrations/outlook/test_outlook_sync.py
+    python3 integrations/outlook/test_outlook.py
 
 Scope: the parts that can be wrong without Microsoft being involved. The OAuth device-code
 flow and the Graph queries are deliberately NOT covered - mocking them would assert that the
 mock behaves, which is not the risk. Their correctness is established by running the thing.
 """
+import argparse
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import re
@@ -19,16 +22,17 @@ import tempfile
 import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
-SCRIPT = HERE / "outlook_sync.py"
+SCRIPT = HERE / "outlook.py"
 
 # Stub `requests` so the suite runs on a bare interpreter. Nothing under test calls it; any
 # test that reached the network would fail loudly on the missing attribute rather than
 # silently hitting Microsoft.
 sys.modules.setdefault("requests", types.ModuleType("requests"))
 
-spec = importlib.util.spec_from_file_location("outlook_sync", SCRIPT)
+spec = importlib.util.spec_from_file_location("outlook", SCRIPT)
 osync = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(osync)
 
@@ -243,7 +247,7 @@ class AtomicState(unittest.TestCase):
         osync.write_json_atomic(self.f, {"a": 9})
         self.assertEqual(json.loads(self.f.read_text(encoding="utf-8")), {"a": 9})
 
-    def test_save_token_keeps_a_concurrent_runs_rotation(self):
+    def test_save_account_keeps_a_concurrent_runs_rotation(self):
         # Two vault copies refresh different accounts at once. Writing our whole in-memory cfg
         # back would undo the other's rotation, and the superseded token is already dead.
         original = osync.CONFIG_FILE
@@ -256,26 +260,83 @@ class AtomicState(unittest.TestCase):
             # the other run rotates b while we hold `stale` in memory
             osync.write_json_atomic(self.f, {"client_id": "x", "accounts": {
                 "a@h.com": {"refresh_token": "a-old"}, "b@h.com": {"refresh_token": "b-NEW"}}})
-            osync.save_token(stale, "a@h.com", "a-NEW")
+            osync.save_account(stale, "a@h.com", refresh_token="a-NEW")
             on_disk = json.loads(self.f.read_text(encoding="utf-8"))["accounts"]
             self.assertEqual(on_disk["a@h.com"]["refresh_token"], "a-NEW")
             self.assertEqual(on_disk["b@h.com"]["refresh_token"], "b-NEW")
         finally:
             osync.CONFIG_FILE = original
 
-    def test_save_token_preserves_other_fields_on_the_account(self):
+    def test_save_account_preserves_other_fields_on_the_account(self):
         original = osync.CONFIG_FILE
         osync.CONFIG_FILE = self.f
         try:
             cfg = {"client_id": "x", "accounts": {"a@h.com": {"refresh_token": "old",
                                                               "self": ["a@icloud.com"]}}}
             osync.write_json_atomic(self.f, cfg)
-            osync.save_token(cfg, "a@h.com", "new")
+            osync.save_account(cfg, "a@h.com", refresh_token="new")
             acct = json.loads(self.f.read_text(encoding="utf-8"))["accounts"]["a@h.com"]
             self.assertEqual(acct["self"], ["a@icloud.com"])
             self.assertEqual(acct["refresh_token"], "new")
         finally:
             osync.CONFIG_FILE = original
+
+    def test_rotation_preserves_the_accounts_app_pointer(self):
+        # Every refresh rewrites the account. If that write dropped client_id/authority, a work
+        # mailbox would silently fall back to the personal-accounts app on the NEXT run and stop
+        # authenticating, with a token error that looks like an expired login.
+        original = osync.CONFIG_FILE
+        osync.CONFIG_FILE = self.f
+        try:
+            cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.be": {
+                "refresh_token": "old", "client_id": "WORK", "authority": "tenant-guid"}}}
+            osync.write_json_atomic(self.f, cfg)
+            osync.save_account(cfg, "v@corp.be", refresh_token="new")
+            on_disk = json.loads(self.f.read_text(encoding="utf-8"))
+            self.assertEqual(osync.account_app(on_disk, "v@corp.be"), ("WORK", "tenant-guid"))
+        finally:
+            osync.CONFIG_FILE = original
+
+    def test_login_merges_rather_than_overwriting_the_whole_file(self):
+        # A device-code wait runs for minutes. Another vault's scheduled sync can rotate a
+        # token in that window, and a wholesale write of the cfg read before the wait would
+        # kill it - a dead token means a full re-login of a mailbox nobody touched.
+        original = osync.CONFIG_FILE
+        osync.CONFIG_FILE = self.f
+        try:
+            osync.write_json_atomic(self.f, {"client_id": "GLOBAL", "accounts": {
+                "b@h.com": {"refresh_token": "b-old"}}})
+            cfg = json.loads(self.f.read_text(encoding="utf-8"))
+            # ...the other run rotates b while the device-code flow is still waiting
+            osync.write_json_atomic(self.f, {"client_id": "GLOBAL", "accounts": {
+                "b@h.com": {"refresh_token": "b-NEW"}}})
+            args = argparse.Namespace(email="v@corp.be", client_id="WORK", authority="tenant")
+            with mock.patch.object(osync, "device_login", return_value="v-token"), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                osync.cmd_login(cfg, args)
+            on_disk = json.loads(self.f.read_text(encoding="utf-8"))
+            self.assertEqual(on_disk["accounts"]["b@h.com"]["refresh_token"], "b-NEW")
+            self.assertEqual(osync.account_app(on_disk, "v@corp.be"), ("WORK", "tenant"))
+        finally:
+            osync.CONFIG_FILE = original
+
+
+class LoadJson(unittest.TestCase):
+    """A malformed vault or machine config must fail cleanly, not with a raw traceback -
+    load_config() and load_vault_config() both go through this for every file they read."""
+
+    def test_valid_json_round_trips(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "x.json"
+            p.write_text('{"a": 1}', encoding="utf-8")
+            self.assertEqual(osync._load_json(p), {"a": 1})
+
+    def test_malformed_json_exits_cleanly_instead_of_raising(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "x.json"
+            p.write_text("{not json", encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                osync._load_json(p)
 
 
 class CommandRouting(unittest.TestCase):
@@ -307,6 +368,182 @@ class CommandRouting(unittest.TestCase):
 
     def test_search_accepts_the_all_mailboxes_flag(self):
         self.assertIn("--all-mailboxes", self.run_cli("search", "--help").stdout)
+
+    def test_login_accepts_the_work_account_flags(self):
+        out = self.run_cli("login", "--help").stdout
+        self.assertIn("--client-id", out)
+        self.assertIn("--authority", out)
+
+
+class AccountApp(unittest.TestCase):
+    """Which Entra app serves which mailbox. A personal and a work mailbox cannot share one
+    registration: the "consumers" endpoint refuses org accounts outright, so a work mailbox
+    needs its own app in its own tenant while the personal ones keep the machine-wide app."""
+
+    def test_falls_back_to_the_machine_wide_app(self):
+        cfg = {"client_id": "GLOBAL", "accounts": {"a@hotmail.com": {"refresh_token": "t"}}}
+        self.assertEqual(osync.account_app(cfg, "a@hotmail.com"), ("GLOBAL", "consumers"))
+
+    def test_account_overrides_win(self):
+        cfg = {"client_id": "GLOBAL", "authority": "consumers",
+               "accounts": {"v@corp.be": {"client_id": "WORK", "authority": "tenant-guid"}}}
+        self.assertEqual(osync.account_app(cfg, "v@corp.be"), ("WORK", "tenant-guid"))
+
+    def test_one_override_does_not_drag_the_other(self):
+        # The two settings are independent: an app shared across tenants would switch only the
+        # authority. Coupling them would silently send a work account at the personal app.
+        cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.be": {"authority": "tenant-guid"}}}
+        self.assertEqual(osync.account_app(cfg, "v@corp.be"), ("GLOBAL", "tenant-guid"))
+
+    def test_unknown_account_still_resolves(self):
+        # `login` resolves the app before the account exists in the file.
+        self.assertEqual(osync.account_app({"client_id": "GLOBAL", "accounts": {}}, "new@h.com"),
+                         ("GLOBAL", "consumers"))
+
+    def test_missing_client_id_everywhere_exits(self):
+        with self.assertRaises(SystemExit):
+            osync.account_app({"accounts": {}}, "a@h.com")
+
+    def test_token_url_is_built_from_the_authority(self):
+        self.assertEqual(osync.token_url("consumers"),
+                         "https://login.microsoftonline.com/consumers/oauth2/v2.0")
+        self.assertEqual(osync.token_url("7b70908c-ae16-4dd6-9fcb-5f364b57510b"),
+                         "https://login.microsoftonline.com/"
+                         "7b70908c-ae16-4dd6-9fcb-5f364b57510b/oauth2/v2.0")
+
+
+class CmdAccounts(unittest.TestCase):
+    """cmd_accounts() lists every configured account; one bad account must not blank the rest."""
+
+    def test_an_account_with_no_resolvable_client_id_does_not_abort_the_listing(self):
+        # No top-level client_id and no per-account override for stale@corp.be: account_app()
+        # would sys.exit on it. That must not stop the other accounts from being listed.
+        cfg = {"accounts": {
+            "a@hotmail.com": {"refresh_token": "t", "client_id": "X"},
+            "stale@corp.be": {"refresh_token": "t2"},
+        }}
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            osync.cmd_accounts(cfg, argparse.Namespace())
+        text = out.getvalue()
+        self.assertIn("a@hotmail.com", text)
+        self.assertIn("stale@corp.be", text)
+
+
+class AccountFilter(unittest.TestCase):
+    """Per-account filter resolution. One vault can be fed by mailboxes
+    of opposite shapes - a dedicated one where everything is in scope, a shared funnel
+    where four figures a week arrive - and one vault-level list cannot serve both."""
+
+    def test_vault_level_keywords_apply_when_accounts_is_a_list(self):
+        vc = {"accounts": ["a@h.com"], "keywords": ["Invoice"]}
+        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["invoice"], False, True))
+
+    def test_a_per_account_block_overrides_the_vault_default(self):
+        vc = {"keywords": ["invoice"],
+              "accounts": {"a@h.com": {}, "info@c.com": {"keywords": ["offerte"]}}}
+        self.assertEqual(osync.account_filter(vc, "info@c.com")[0], ["offerte"])
+        self.assertEqual(osync.account_filter(vc, "a@h.com")[0], ["invoice"])
+
+    def test_settings_fall_back_independently(self):
+        # A block that only tightens keywords must keep the vault's match_body choice,
+        # not silently revert it to the shipped default.
+        vc = {"keywords": ["x"], "match_body": False,
+              "accounts": {"a@h.com": {"keywords": ["y"]}}}
+        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["y"], False, False))
+
+    def test_match_all_is_per_account(self):
+        vc = {"keywords": ["invoice"],
+              "accounts": {"dedicated@c.com": {"match_all": True}, "info@c.com": {}}}
+        self.assertTrue(osync.account_filter(vc, "dedicated@c.com")[1])
+        self.assertFalse(osync.account_filter(vc, "info@c.com")[1])
+
+    def test_an_unlisted_account_gets_the_vault_default(self):
+        vc = {"keywords": ["invoice"], "accounts": {"a@h.com": {"match_all": True}}}
+        self.assertEqual(osync.account_filter(vc, "other@h.com"), (["invoice"], False, True))
+
+    def test_a_null_override_falls_back_rather_than_crashing(self):
+        # JSON `null` on a per-account key is a plausible "no opinion, use the vault
+        # default" typo, not an actual empty/false value - `.get(key, default)` doesn't
+        # tell those apart on its own, so this must be handled explicitly.
+        vc = {"keywords": ["invoice"], "accounts": {"a@h.com": {"keywords": None}}}
+        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["invoice"], False, True))
+
+    def test_a_null_match_body_override_falls_back_rather_than_silently_disabling(self):
+        vc = {"match_body": True, "accounts": {"a@h.com": {"match_body": None}}}
+        self.assertEqual(osync.account_filter(vc, "a@h.com")[2], True)
+
+    def test_a_null_vault_level_default_falls_back_to_the_shipped_default(self):
+        vc = {"keywords": None, "accounts": {}}
+        self.assertEqual(osync.account_filter(vc, "a@h.com"), ([], False, True))
+
+    def test_vault_accounts_reads_both_config_shapes(self):
+        self.assertEqual(osync.vault_accounts({"accounts": ["a@h.com", "b@h.com"]}),
+                         ["a@h.com", "b@h.com"])
+        self.assertEqual(osync.vault_accounts({"accounts": {"a@h.com": {}, "b@h.com": {}}}),
+                         ["a@h.com", "b@h.com"])
+        self.assertEqual(osync.vault_accounts({}), [])
+
+
+class FilterModes(unittest.TestCase):
+    """match_all and match_body."""
+
+    def test_match_all_takes_everything(self):
+        msg = {"from": {"emailAddress": {"address": "stranger@x.com"}}, "subject": "hallo"}
+        self.assertEqual(osync.is_relevant(msg, set(), [], match_all=True), "all")
+
+    def test_emptying_keywords_is_stricter_not_looser(self):
+        # The trap match_all exists to close: the obvious guess for "file everything"
+        # leaves the contact allowlist as the only gate, which matches less, not more.
+        msg = {"from": {"emailAddress": {"address": "stranger@x.com"}}, "subject": "invoice"}
+        self.assertIsNone(osync.is_relevant(msg, set(), []))
+        self.assertEqual(osync.is_relevant(msg, set(), [], match_all=True), "all")
+
+    def test_body_matching_catches_a_subject_in_another_language(self):
+        # The live failure: a real notice dropped because its subject was Dutch, in a
+        # Dutch-speaking company, against an English keyword list.
+        msg = {"from": {"emailAddress": {"address": "no-reply@sharepoint.com"}},
+               "subject": "Documenten gedeeld met u",
+               "bodyPreview": "A document was shared with you"}
+        self.assertEqual(osync.is_relevant(msg, set(), ["shared"]), "body:shared")
+
+    def test_body_matching_can_be_turned_off(self):
+        msg = {"from": {"emailAddress": {"address": "x@y.com"}},
+               "subject": "hallo", "bodyPreview": "shared"}
+        self.assertIsNone(osync.is_relevant(msg, set(), ["shared"], match_body=False))
+
+    def test_subject_wins_over_body_for_the_stated_reason(self):
+        msg = {"from": {"emailAddress": {"address": "x@y.com"}},
+               "subject": "invoice", "bodyPreview": "invoice"}
+        self.assertEqual(osync.is_relevant(msg, set(), ["invoice"]), "keyword:invoice")
+
+    def test_null_body_preview_does_not_crash(self):
+        msg = {"from": {"emailAddress": {"address": "x@y.com"}},
+               "subject": None, "bodyPreview": None}
+        self.assertIsNone(osync.is_relevant(msg, set(), ["invoice"]))
+
+    def test_contact_still_wins_over_match_all(self):
+        # The reason string is what lands in the triage note; "contact" says more than "all".
+        msg = {"from": {"emailAddress": {"address": "jan@club.be"}}, "subject": "x"}
+        self.assertEqual(osync.is_relevant(msg, {"jan@club.be"}, [], match_all=True), "contact")
+
+
+class VaultConfigNaming(unittest.TestCase):
+    """The script/config rename. A half-done migration - script updated, config left behind -
+    must be loud, because a copy that reads no config files nothing and looks configured."""
+
+    def test_config_is_not_named_after_the_machine_global_secret(self):
+        # ~/.paraos/secrets/outlook.json holds credentials. A vault config sharing that
+        # name across opposite trust zones invites the secret-inside-a-vault mistake.
+        self.assertEqual(osync.VAULT_CONFIG.name, "outlook.config.json")
+        self.assertNotEqual(osync.VAULT_CONFIG.name, osync.CONFIG_FILE.name)
+
+    def test_the_legacy_config_name_is_still_read(self):
+        self.assertEqual(osync.LEGACY_VAULT_CONFIG.name, "outlook_sync.json")
+
+    def test_both_config_names_resolve_beside_the_script(self):
+        self.assertEqual(osync.VAULT_CONFIG.parent, osync.SCRIPT_DIR)
+        self.assertEqual(osync.LEGACY_VAULT_CONFIG.parent, osync.SCRIPT_DIR)
 
 
 if __name__ == "__main__":

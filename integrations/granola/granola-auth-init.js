@@ -1,10 +1,10 @@
 // granola-auth-init.js  (ONE-TIME / re-login bootstrap - run this once before your first sync)
-// para-os-integration: granola 2026.08.02 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: granola 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 //   node granola-auth-init.js
 // Extracts the Granola login token from the local Granola desktop app and writes it to the paraos
 // secret (~/.paraos/secrets/granola.json), then does a quick API sanity check. Run it again only if
 // the refresh token ever dies (you logged out / back in to the Granola app). Normal syncing never
-// needs this - granola-sync.js refreshes the token itself.
+// needs this - granola.js refreshes the token itself.
 //
 // PLATFORM: Windows only. It reads the Granola app's encrypted token store via Windows DPAPI
 // (through PowerShell). macOS/Linux are not supported by this script - see the README.
@@ -82,7 +82,7 @@ async function main() {
   if (res.ok) {
     const docs = (await res.json()).docs || [];
     console.log("[ok] API reachable - newest meeting:", docs[0] ? `${docs[0].title} (${(docs[0].created_at || "").slice(0, 10)})` : "(none)");
-    console.log("\nDone. You can now run granola-sync.js.");
+    console.log("\nDone. You can now run granola.js.");
   } else {
     console.log("[x] API returned HTTP", res.status, "-", (await res.text()).slice(0, 200));
   }

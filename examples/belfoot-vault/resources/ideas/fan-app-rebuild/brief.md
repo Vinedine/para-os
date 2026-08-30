@@ -1,5 +1,7 @@
 # Fan app rebuild (idea)
 
+**Stage:** Concept - parked until the ticketing vendor is selected (2026-09-15).
+
 > Concept-stage. No committed deliverable, deadline, or budget yet. Dependent on the [ticketing platform replacement](../../../projects/ticketing-platform-replacement/brief.md) landing first. Promote to `projects/` once a go/no-go is on the calendar or budget is committed.
 
 Rebuild the BelFoot fan mobile app on top of the new ticketing API, folding the cashless wallet and matchday services into one app.

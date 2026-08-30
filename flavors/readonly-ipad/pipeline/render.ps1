@@ -43,6 +43,8 @@
                                 CDN-dependent stylesheets, prone to hangs).
 #>
 
+# para-os-integration: readonly-ipad 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+
 [CmdletBinding()]
 param(
     [Parameter()]
@@ -53,6 +55,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Windows PowerShell 5.1 pipes native-command input as ASCII, so a non-ASCII
+# character in a job path reaches render.mjs as '?' and the file fails with ENOENT.
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
 # Files never rendered (maintainer-tooling artifacts, not for the reader's view)
 $denyFilenames = @('CLAUDE.md', 'AGENTS.md')
