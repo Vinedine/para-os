@@ -28,10 +28,31 @@ What it enforces, and why each one is machinery rather than prose:
                         than skipping: an integration nobody could verify must not report as a
                         clean bill of health.
 
+  Flavor tracking       Each flavor skeleton file is a derived copy of a base file, shipped
+                        whole rather than as a patch. Content cannot be compared - the deltas
+                        are the point - so FLAVOR_TRACKING stamps the digest of each base file
+                        and this fails when base moves, until someone has reconciled the two.
+
+  Vendor validator      `claude plugin validate` over the same folder, which is a linter and
+                        not a distribution step: no manifest, no marketplace, nothing
+                        published. It enforces whatever the tool currently requires of a
+                        SKILL.md, which moves release to release - the part the checks above
+                        cannot keep up with by hand.
+
+  Skill contract        Every skill master keeps its frontmatter contract (name matching its
+                        folder, a description, allowed-tools, arg-hint), a `## Strict rules`
+                        block, a spine under the line cap, and references that resolve both
+                        ways. The spine cap is the load-bearing one: a SKILL.md body loads on
+                        every invoke, so a skill that regrows charges every run for procedure
+                        it may never reach - which is the 1106 lines the 2026.08.03 split
+                        removed, and nothing else stops them coming back.
+
 Deliberately NOT checked: anything requiring judgement (privacy, bloat, whether a rule earns
 its words). Those are review, not a script.
 """
+import hashlib
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -56,6 +77,30 @@ def rel(p):
     return p.relative_to(ROOT).as_posix()
 
 
+def console_safe(s):
+    """Drop what a Windows console cannot encode.
+
+    The vendor validator reports with box-drawing and warning glyphs. Quoting them back
+    verbatim in a failure message kills the whole run on a cp1252 console: the first FAIL
+    line prints, the UnicodeEncodeError lands, and the summary never appears - so a report
+    whose job is making failures visible would hide them behind a crash.
+    """
+    return s.encode("ascii", "replace").decode("ascii")
+
+
+def run_captured(cmd, timeout):
+    """Run a command the way every subprocess-backed check here needs: from ROOT, stdout and
+    stderr combined into one string. Raises FileNotFoundError / subprocess.TimeoutExpired,
+    same as a bare subprocess.run - callers still handle those per command."""
+    r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=timeout)
+    return r.returncode, f"{r.stdout or ''}\n{r.stderr or ''}".strip()
+
+
+def tail(text, n=15, transform=str):
+    return "\n".join(f"        {transform(ln)}" for ln in text.splitlines()[-n:])
+
+
 def is_test_file(p):
     return p.name.startswith("test_") or ".test." in p.name
 
@@ -75,6 +120,29 @@ def available_table():
         if m:
             rows[m.group(1)] = m.group(2)
     return rows
+
+
+def check_config_naming(d, scripts):
+    """One name for a vault config, across every integration: `<folder>.config.json`.
+
+    The convention is stated in base/resources/scripts/README.md, and it is load-bearing in
+    two directions. `<folder>` rather than the script's own basename, because /para-upgrade
+    resolves an installed copy by the integration name in its marker, so that is the name a
+    reader already has. And `.config.json` rather than the bare `<name>.json`, which is the
+    machine-global secret: two files sharing one name across opposite trust zones is how a
+    credential ends up inside a folder that syncs. Left to per-integration taste this drifted
+    three ways in one revision, which is why it is a check and not a paragraph.
+    """
+    want = f"{d.name}.config.json"
+    referenced = {m for p in scripts
+                  for m in re.findall(r"[A-Za-z0-9_.-]+\.config\.json",
+                                      p.read_text(encoding="utf-8", errors="ignore"))}
+    for wrong in sorted(referenced - {want}):
+        bad(f"integrations/{d.name}/ reads a vault config named `{wrong}`; the convention is "
+            f"`{want}` (named for the integration, never for the script or the secret)")
+    for tmpl in d.glob("*.config.json.template"):
+        if tmpl.name != f"{want}.template":
+            bad(f"{rel(tmpl)}: template should be `{want}.template`")
 
 
 def check_integrations():
@@ -97,6 +165,7 @@ def check_integrations():
         if not scripts:
             bad(f"integrations/{d.name}/ ships no script")
             continue
+        check_config_naming(d, scripts)
 
         revisions = {}
         for p in scripts:
@@ -228,8 +297,7 @@ def check_tests():
         try:
             # utf-8 explicitly: node --test emits box-drawing and ℹ, which a cp1252 console
             # default cannot decode, and a UnicodeDecodeError here would read as a test failure.
-            r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=300)
+            returncode, combined = run_captured(cmd, timeout=300)
         except FileNotFoundError:
             bad(f"{rel(p)}: cannot run, `{cmd[0]}` is not on PATH. A suite that could not "
                 f"run has not passed.")
@@ -238,11 +306,9 @@ def check_tests():
             bad(f"{rel(p)}: timed out after 300s")
             continue
 
-        combined = f"{r.stdout or ''}\n{r.stderr or ''}".strip()
         count = next((int(m.group(1)) for m in (c.search(combined) for c in COUNTS) if m), None)
-        if r.returncode != 0:
-            tail = "\n".join(f"        {ln}" for ln in combined.splitlines()[-15:])
-            bad(f"{rel(p)}: suite failed (exit {r.returncode})\n{tail}")
+        if returncode != 0:
+            bad(f"{rel(p)}: suite failed (exit {returncode})\n{tail(combined)}")
         elif count == 0:
             bad(f"{rel(p)}: ran 0 tests - discovery found nothing to run")
         elif count is None:
@@ -251,11 +317,195 @@ def check_tests():
             ok(f"{rel(p)}: {count} test(s) passed")
 
 
+# --- skill masters ---------------------------------------------------------------------
+
+SKILLS_DIR = ROOT / "base" / ".claude" / "skills"
+SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "arg-hint")
+SPINE_MAX_LINES = 130      # current worst is 113; the cap catches regrowth, not today's shape
+DESCRIPTION_MAX_CHARS = 600
+
+
+def check_skills():
+    if not SKILLS_DIR.is_dir():
+        bad("base/.claude/skills/ is missing")
+        return
+
+    masters = sorted(d for d in SKILLS_DIR.iterdir() if (d / "SKILL.md").exists())
+    if not masters:
+        bad("base/.claude/skills/ ships no SKILL.md")
+        return
+
+    for d in masters:
+        sk = d / "SKILL.md"
+        text = sk.read_text(encoding="utf-8")
+        before = len(failures)
+
+        m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+        if not m:
+            bad(f"{rel(sk)}: no YAML frontmatter")
+            continue
+        fm = m.group(1)
+        fields = {k: v.strip() for k, v in re.findall(r"^([\w-]+):\s*(.*)$", fm, re.M)}
+
+        for key in SKILL_FRONTMATTER:
+            if key not in fields:
+                bad(f"{rel(sk)}: frontmatter is missing `{key}:`")
+
+        name = fields.get("name")
+        if name and name != d.name:
+            bad(f"{rel(sk)}: frontmatter name `{name}` does not match folder `{d.name}`. "
+                f"The frontmatter name is what the skill is invoked as.")
+
+        desc = fields.get("description")
+        if desc and len(desc) > DESCRIPTION_MAX_CHARS:
+            bad(f"{rel(sk)}: description is {len(desc)} chars "
+                f"(cap {DESCRIPTION_MAX_CHARS}). It sits in context every turn.")
+
+        lines = text.count("\n") + 1
+        if lines > SPINE_MAX_LINES:
+            bad(f"{rel(sk)}: {lines} lines (cap {SPINE_MAX_LINES}). A SKILL.md is a loader "
+                f"spine; per-step procedure belongs in references/.")
+
+        if not re.search(r"^##\s+Strict rules\s*$", text, re.M):
+            bad(f"{rel(sk)}: no `## Strict rules` section. A skill has to say what it must "
+                f"never do, not only what it does.")
+
+        refs = d / "references"
+        on_disk = {p.name for p in refs.glob("*.md")} if refs.is_dir() else set()
+        linked = set(re.findall(r"references/([A-Za-z0-9_.-]+\.md)", text))
+        for orphan in sorted(on_disk - linked):
+            bad(f"{rel(refs / orphan)}: on disk but never linked from SKILL.md, so no step "
+                f"ever loads it")
+        for dangling in sorted(linked - on_disk):
+            bad(f"{rel(sk)}: links references/{dangling}, which does not exist")
+
+        if len(failures) == before:
+            ok(f"{rel(d)}/ contract holds ({lines} spine lines, {len(on_disk)} reference(s))")
+
+
+# --- flavor skeletons track base ------------------------------------------------------
+
+# What each flavor skeleton file is a derived copy of, and the digest of that master as of
+# the last time a human reconciled the two. The digests live HERE rather than stamped in the
+# flavor files themselves because those files ship: the flavor CLAUDE.md.template becomes an
+# adopter's vault CLAUDE.md, read every session, and a repo-maintenance hash has no business
+# being a permanent line in it. Add a row when a flavor gains a file that derives from base.
+FLAVOR_TRACKING = {
+    "flavors/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "b28d8ed592bc"),
+    "flavors/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
+    "flavors/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "92d77ba2543f"),
+}
+
+
+def base_digest(p):
+    """Content hash, line endings normalized: a CRLF checkout must hash the same as an LF one,
+    or this check would fire on every machine that clones the repo rather than on a real edit."""
+    text = "\n".join(p.read_bytes().decode("utf-8", "replace").splitlines())
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def check_flavor_tracking():
+    """A flavor skeleton file is a derived copy of a base file, and nothing else notices it rot.
+
+    `flavors/*/skeleton/` ships whole files, not patches, so each is 39% to 67% a verbatim copy
+    of its base counterpart with a handful of deliberate deltas. The convention has been a
+    header comment reading "if base changes, propagate here" - the same unenforced promise that
+    let installed integration scripts drift for a revision, in the one place /para-upgrade reads
+    as a master. Base moves, the flavor keeps the old paragraph, and every vault on that flavor
+    is migrated to a rule the product no longer states.
+
+    Comparing content cannot work: the deltas are the point, so a content rule either passes on
+    everything or fails on the deltas forever. What CAN be checked is whether the master has
+    moved since a human last looked. Re-stamping after reviewing a base diff and changing
+    nothing is a legitimate outcome, and is the whole point: it records that someone looked.
+    """
+    for flavor_path, (base_path, stamped) in sorted(FLAVOR_TRACKING.items()):
+        f, m = ROOT / flavor_path, ROOT / base_path
+        if not f.exists():
+            bad(f"{flavor_path}: listed in FLAVOR_TRACKING but does not exist. Drop the row, "
+                f"or restore the file.")
+            continue
+        if not m.exists():
+            bad(f"{flavor_path}: tracks `{base_path}`, which does not exist")
+            continue
+        want = base_digest(m)
+        if stamped != want:
+            bad(f"{base_path} changed ({stamped} -> {want}); {flavor_path} derives from it and "
+                f"may now be stale. Review the diff, apply what the flavor needs, then update "
+                f"the digest in tools/check.py FLAVOR_TRACKING. Re-stamping with no edit to the "
+                f"flavor is fine - it records that someone looked.")
+        else:
+            ok(f"{flavor_path} reconciled against {base_path} @ {want}")
+
+
+def check_skill_validator():
+    """Run the vendor's own validator over the skills directory.
+
+    Deliberately not a plugin step: `claude plugin validate <dir>` reads a plain folder of
+    skills, needs no manifest and no marketplace, and publishes nothing. It complements the
+    checks above rather than repeating them - those enforce this repo's conventions, this one
+    enforces whatever the tool currently requires of a SKILL.md, which moves release to release
+    and is the part a hand-written check cannot keep up with.
+
+    Two things the tool does that this wrapper has to correct for, both measured rather than
+    assumed. It picks its mode from the path - a folder under .claude/ validates as components,
+    the same folder elsewhere is treated as a plugin directory and fails for having no manifest -
+    so the run is only meaningful once the output says which mode it chose. And it exits 0 on
+    warnings: a SKILL.md with a malformed name and no description reports "passed with warnings"
+    and returns success. Keying on the exit code alone would be a check that runs, passes, and
+    measures nothing.
+    """
+    claude = shutil.which("claude")
+    if not claude:
+        bad("`claude` is not on PATH, so the vendor's skill validator could not run. A check "
+            "that could not run has not passed.")
+        return
+    try:
+        returncode, out = run_captured([claude, "plugin", "validate", str(SKILLS_DIR)],
+                                        timeout=120)
+    except subprocess.TimeoutExpired:
+        bad("claude plugin validate: timed out after 120s")
+        return
+
+    out_tail = tail(out, transform=console_safe)
+
+    if "early access" in out.lower():
+        bad(f"claude plugin validate: refused, {console_safe(out.splitlines()[0])}")
+        return
+    if "Validating components in" not in out:
+        bad(f"claude plugin validate: did not validate {rel(SKILLS_DIR)}/ as a skills folder. "
+            f"It picks its mode from the path, so this reports on the wrong thing rather than "
+            f"failing outright.\n{out_tail}")
+        return
+
+    found = re.findall(r"Found (\d+) (error|warning)", out)
+    counts = ", ".join(f"{n} {kind}(s)" for n, kind in found)
+
+    # The CLI's own pass/fail phrasing is the closer thing to a stable contract; "Found N" is
+    # supporting detail. Fail CLOSED on anything that isn't a recognized clean pass: a future
+    # wording change must read as "could not confirm clean", never as "nothing to report".
+    if returncode != 0 or "Validation failed" in out:
+        bad(f"claude plugin validate: failed (exit {returncode})"
+            f"{': ' + counts if counts else ''}\n{out_tail}")
+    elif "Validation passed with warnings" in out or found:
+        bad(f"claude plugin validate: {counts or 'passed with warnings'}. It exits 0 on "
+            f"warnings, so these are caught here rather than by the exit code.\n{out_tail}")
+    elif "Validation passed" in out:
+        ok(f"claude plugin validate: {rel(SKILLS_DIR)}/ clean, no errors or warnings")
+    else:
+        bad(f"claude plugin validate: output did not match a recognized pass/fail shape "
+            f"(exit {returncode}). Treating as failed rather than silently reporting "
+            f"clean - the vendor CLI's wording may have changed.\n{out_tail}")
+
+
 def main():
     verbose = "-v" in sys.argv or "--verbose" in sys.argv
     check_integrations()
     check_template_revisions()
     check_dashes()
+    check_flavor_tracking()
+    check_skills()
+    check_skill_validator()
     check_tests()
 
     if verbose:

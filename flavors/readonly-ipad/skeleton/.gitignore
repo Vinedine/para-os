@@ -1,0 +1,46 @@
+# Vault .gitignore, read-only iPad flavor.
+#
+# The base vault's file plus what a Drive-synced vault accumulates. This flavor lives on a
+# *shared* drive, which makes the secret guard at the bottom matter more, not less: a
+# credential dropped in here leaks to every reader, not just to a cloud provider.
+
+# Override a global gitignore that hides agent config - this IS the vault's content
+!CLAUDE.md
+!.claude/
+!.claude/**
+!.mcp.json
+
+# ...but never Claude Code runtime state
+.claude/*.lock
+
+# Python bytecode (scripts in resources/scripts/ run in place)
+__pycache__/
+*.pyc
+
+# Drive for Desktop folder metadata
+desktop.ini
+
+# Google Drive virtual stub files. These are cloud pointers, not real files: the bytes
+# live on a server, so tooling cannot read, move or rename them. The vault's own rule is
+# to convert one to a real file when it lands; committing the stub defeats that.
+*.gdoc
+*.gsheet
+*.gslides
+*.gform
+*.gdraw
+*.gmap
+*.gsite
+*.gjam
+*.gtable
+
+# Defensive: never commit a secret if one is dropped into the vault by mistake.
+# Real secrets live in ~/.paraos/secrets/, outside any synced folder.
+**/config.json
+**/cookies.json
+**/cookies.txt
+**/.env
+
+# Broad cookie glob scoped to where only code lives - vault-wide it would hide real
+# content (a photo named "cookies.jpg"). The narrow globs above are not a substitute:
+# they miss session-cookie.txt, which is exactly the shape a scraper writes.
+resources/scripts/**/*cookie*

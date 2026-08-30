@@ -1,6 +1,6 @@
 # {{Vault Name}} Vault Conventions
 
-<!-- para-os-template: 2026.08.02 -->
+<!-- para-os-template: 2026.08.03 -->
 **Type:** {{vault-type}}
 
 {{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.
@@ -8,11 +8,14 @@
 Both lines above are machine-read (the comment by `/para-upgrade`, the type by your own tooling) and must survive every upgrade.
 
 <!-- readonly-ipad FLAVOR: one person maintains the vault in markdown, another consumes it
-     read-only as PDFs on an iPad via Google Drive. Four deltas from base/CLAUDE.md.template:
+     read-only as PDFs on an iPad via Google Drive. Five deltas from base/CLAUDE.md.template:
        1. The base "## Actions" section is dropped - next steps are prose in the brief.
        2. "## iPad access and rendering" is added, for the flip/render pipeline.
        3. PARA layout gains `resources/mds/` (the collected-.md bucket the pipeline needs).
        4. Root README.md sits above the PARA folders, out of the reader's view.
+       5. "## Content frontier" stands as its own section. In base it lives under "## Actions",
+          which delta 1 removes - and it matters MORE here, since with no actions.md every next
+          step is prose in a brief, so briefs carry that load and grow faster.
      Everything else tracks base verbatim. If base changes, propagate here. -->
 
 ## PARA layout
@@ -25,10 +28,11 @@ The sorting test between buckets: **committed and dated → project. Maintained,
 - **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage ventures to pick future projects from: one folder per idea, `brief.md` only, holding open questions plus at most one prose "revisit when X" trigger. `scripts/` = persistent tools; their runtime state lives *outside* the vault (see below). `mds/` = collected `.md` sources (see the flip workflow); never browsed manually.
 - **archive/** - inactive artifacts. `meetings/` = conversation records spanning several entities.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
 
-Root `README.md` is the master document, single source of truth for identity, operating model, and track record. It sits above the PARA folders so the reader never sees it; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained state - no checkbox, `📅` marker, status column, project status list, or deadline table: live state belongs in `projects/` and `areas/` and surfaces through `/para-daily-brief`.
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record. It sits above the PARA folders so the reader never sees it; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained **work** state - no checkbox, `📅` marker, project status list, deadline table, or Status column in a table listing projects or entities: live state belongs in `projects/` and `areas/`. A status *fact* about the vault's subject is not work state and stays - a company registration table reading `| Status | Active |` alongside its VAT number is describing the entity, not tracking a task.
 
 ### Lifecycle
 
+- `/para-new` **creates** an entity - a project, an area, an idea, or a contact - settling its shape against the sorting test above before scaffolding anything, and runs the idea-to-project promotion below.
 - An idea **promotes** to `projects/` (or the vault's active bucket) once there is a committed outcome: someone waiting on a deliverable by a date, money or a formal engagement committed, or a go/no-go review on the calendar. Retiring an idea is always the maintainer's call, never automatic: an idea that never happened goes to `archive/ideas/`, one where real work ran and then stopped goes to `archive/projects/`.
 - The next big, dated push on a maintained asset is a **project running alongside its area**; when that project archives, surviving work returns to the area.
 - An entity **archives whole** - brief, sources, and any prose next-steps together, via `/para-archive` - with anything still live routed out *first* (to the owning area, a successor project, or the contact file).
@@ -43,6 +47,16 @@ What a clean `archive/` looks like (applied on the way in, and audited by `/para
 - **No loose files at the archive root.** Everything under `archive/` lives in a subfolder. A stray top-level file is misfiled.
 - **Minimum record.** Each archived entity carries a status marker and a `brief.md`/`README.md`, so it's self-explanatory years later.
 - **Zero dangling links.** The repoint-on-move rule above, audited at the archive boundary. A historical mention *inside* the archived folder is fine.
+
+## Content frontier
+
+Files only ever grow: a brief gets one more dated entry, a fact gets restated in a second file "for context", a superseded decision is left in place because deleting it feels lossy. Nothing in the structure pushes back, so the vault fills with text that costs a session tokens to read and returns nothing. **This flavor is more exposed than the base**, not less: with no `actions.md`, every next step is prose in a brief, so briefs here carry the load that checkboxes carry elsewhere and grow faster. And every one of them is rendered to a PDF the reader has to page through.
+
+- **Say it once.** Every fact has one owning file - the rule that governs it, the brief of the entity it describes, the contact card of the person it concerns. Elsewhere it is a link, never a copy. A copy is a second thing to keep true, and once the two disagree the reader cannot tell which is current - here least of all, since the reader sees only PDFs.
+- **A brief records decisions, not activity.** An entry earns its place by recording something a later reader would otherwise get wrong: a decision and why, a constraint discovered, a route tried and rejected. "Continued work on X" is not an entry.
+- **Superseded content leaves the live buckets** for `archive/` or git history. Keeping it inline makes a live file argue with itself, and leaves a stale PDF in the reader's folder.
+
+**Never delete to satisfy this.** Pruning is proposed and ruled on one item at a time; the default is *move* or *demote*, and outright deletion applies only to a genuine duplicate whose contents have been compared against the copy that survives. Source documents and anything in `triage/` are never pruned. Deleting a `.md` without deleting its rendered `.pdf` sibling leaves the reader looking at a document that no longer exists - remove both, then re-render. `/para-deep-clean` proposes the repair.
 
 ## Filing and naming
 
@@ -136,7 +150,7 @@ A *persistent* tool the agent writes for this vault (a script pulling from a con
 - {{Anything else that belongs in a different vault or system, e.g. "Accounting, invoicing, financial records - belong in a separate vault (one vault per life context)."}}
 
 <!-- The optional sections a mature vault grows into (## MCP integration intent, ## Triage sources,
-     ## Operating rules, ## README structures, ## Cross-vault references, ## Project context) are
+     ## Agenda sources, ## Operating rules, ## README structures, ## Cross-vault references, ## Project context) are
      listed once, in base/bootstrap-prompt.md. Do not restate them here - two copies drift. Add none
      of them at setup; each arrives when the vault actually needs it.
 

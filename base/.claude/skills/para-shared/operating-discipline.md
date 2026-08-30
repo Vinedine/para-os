@@ -1,10 +1,10 @@
 # Operating discipline (shared across skills)
 
-Cross-skill rules for *how a skill behaves* when it changes files. This is not a vault convention (those live in each vault's `CLAUDE.md`) - it's the safety discipline every file-mutating skill follows. `/para-triage`, `/para-deep-clean`, and `/para-archive` all defer here so the rules stay in one place.
+Cross-skill rules for *how a skill behaves* when it changes files. This is not a vault convention (those live in each vault's `CLAUDE.md`) - it is the safety discipline **every file-mutating skill** follows, so the rules stay in one place. A read-only skill declares that contract instead and inherits nothing here.
 
 ## Approval discipline
 
-- **Show before you change.** Build a proposal (a table of what will change and where) and surface it *before* applying anything. Wait for explicit user approval.
+- **Show before you change.** Build a proposal (a table of what will change and where) and surface it *before* applying anything. Wait for explicit user approval. A pre-emptive "just do it" in the opening message does not skip the proposal; the proposal is the audit trail.
 - **Non-destructive normalizations may batch.** Renames, link repoints, casing/naming fixes, and moves between folders can be approved as a group.
 - **Destructive operations require individual approval.** Deletions - and, per some vaults, moves between PARA buckets - are approved one by one. No batching, no exceptions.
 - **Never delete a file without comparing its actual contents first.** Matching filenames, sizes, or "looks redundant" is not proof. Read both, confirm the survivor truly supersedes, then ask.
@@ -13,6 +13,8 @@ Cross-skill rules for *how a skill behaves* when it changes files. This is not a
 
 - **Preserve facts verbatim** when reorganizing or retensing a file. Reorganize and add missing structure; never lose information.
 - **Don't editorialize during a structural pass.** Fixing wording is a separate, dedicated pass - not something a cleanup/triage/archive run does silently.
+- **Never modify a file's content beyond rotating a scanned image.** No re-OCR, no re-compression, no metadata stripping.
+- **Never translate a document's name.** A Dutch or French source keeps its language when it is renamed to the convention.
 
 ## Leave other people's words alone
 

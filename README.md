@@ -102,21 +102,34 @@ To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot
 | [`/para-triage`](base/.claude/skills/para-triage/SKILL.md) | Empties `triage/`: identifies each loose file, proposes a destination and a convention-conform rename, executes after your approval. |
 | [`/para-daily-brief`](base/.claude/skills/para-daily-brief/SKILL.md) | One-pass dashboard of every open task, bucketed by urgency against today, plus a meetings agenda and a triage count. |
 | [`/para-deep-clean`](base/.claude/skills/para-deep-clean/SKILL.md) | Periodic maintenance: structural audit, README normalisation, closing documented open items by reading the source files. |
+| [`/para-new`](base/.claude/skills/para-new/SKILL.md) | Starts one project, area, idea, or contact: runs the sorting test so committed work becomes a project, a maintained responsibility becomes an area, and a concept stays an idea, asks the two or three questions that shape needs, and scaffolds it. Also promotes an idea. |
 | [`/para-archive`](base/.claude/skills/para-archive/SKILL.md) | Closes out one finished project or shelved idea: reconciles open actions, validates its records, moves it to `archive/`, and repoints every inbound link. |
+| [`/para-activity-review`](base/.claude/skills/para-activity-review/SKILL.md) | Reads a vault's activity ledger and reports how it is really used: which skills nobody invokes, where sessions stall, which conventions people work around. Every finding names a change. Needs the [activity](integrations/activity/) integration. |
 | [`/para-upgrade`](base/.claude/skills/para-upgrade/SKILL.md) | Migrates a vault to a newer template revision: reads the marker in its `CLAUDE.md`, applies the intervening [`CHANGELOG.md`](CHANGELOG.md) entries, and re-stamps it. Run before a deep clean, which otherwise audits against a stale contract. |
 
 `/para-daily-brief` against the example vault (fragment):
 
-```
-# Daily Brief - 2026-06-24
+````
+# Daily Brief - 2026-06-24 - BelFoot
 
-## 🔴 Overdue (2)
-- 🔺 Get Jan's decision on the three Q3 cost-recovery options - [network/jan-claes:26] · 📅 2026-06-22 (2d ago)
-- 🔼 Pre-brief Pieter on the Q3 cost issues before the walk-through - [network/pieter-de-ryck:19] · 📅 2026-06-23 (1d ago)
-
-## 🟡 This week (4)
-- 🔺 Finalise the RFP evaluation matrix with Thomas Vermeulen - [ticketing-platform-replacement:7] · 📅 2026-06-26
+## 📊 Vault state
 ```
+[P] cashless-stadium-rollout       ██████████  9 open
+[A] stadium                        ████████░░  7 open ·         1 undated
+[A] network (4 files)              ███████░░░  6 open · 2 🔴
+[P] ticketing-platform-replacement ████░░░░░░  4 open
+```
+**Totals:** 26 open · 2 🔴 overdue · 25 dated · 4% undated
+
+## 🎯 Now (5 of 26)
+1. 🔺 Get Jan's decision on the three Q3 cost-recovery options - [network/jan-claes:26] · 📅 2026-06-22 (2d ago)
+2. 🔼 Pre-brief Pieter on the Q3 cost issues before the walk-through - [network/pieter-de-ryck:19] · 📅 2026-06-23 (1d ago)
+3. 🔺 Finalise the RFP evaluation matrix with Thomas Vermeulen - [ticketing-platform-replacement:7] · 📅 2026-06-26
+**Later:** 3 this week · 6 next 30 days · 5 later · 5 recurring · 1 waiting · 1 undated
+
+---
+**Next action:** Open Jan's May 29 cost-recovery mail and pick the option you would defend - [network/jan-claes:26]
+````
 
 If no calendar connector is wired in, a root `meetings.md` (one line per meeting: `- 🗓 2026-06-12 14:00 · Title`) feeds the agenda.
 
@@ -148,6 +161,7 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 - [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - render pipeline for the read-only model.
 - [`integrations/`](integrations/) - drop-in scripts that pull an outside system into a vault (e.g. `granola/` for meeting sync).
 - [`examples/belfoot-vault/`](examples/belfoot-vault/) - a fictional, fully populated vault to poke at.
+- [`tools/check.py`](tools/check.py) - the repo's contract checks. Run it before shipping a revision; it is the gate that catches a marker, a skill spine or a manifest drifting out of line with the rest.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
-// Unit tests for granola-sync.js. Pure functions only - no Granola API, no token, no writes.
+// Unit tests for granola.js. Pure functions only - no Granola API, no token, no writes.
 // Uses node:test, built into Node 18+, which this integration already requires. Nothing to install.
 //
-//   node --test integrations/granola/granola-sync.test.js
+//   node --test integrations/granola/granola.test.js
 //
 // Scope: the ProseMirror-to-Markdown conversion, transcript grouping, filename shaping, and
 // single-vault routing. The API calls and the DPAPI token extraction are deliberately not
@@ -11,7 +11,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
 
-const { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest } = require("./granola-sync.js");
+const { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest } = require("./granola.js");
 
 // The vault convention, from base/CLAUDE.md.template: `YYYYMMDD Description.ext`. Both shipped
 // integrations write into the same triage/ folder, so both must satisfy this. The outlook suite
@@ -150,7 +150,7 @@ test("sanitize: replaces characters a filesystem rejects", () => {
 });
 
 test("sanitize: illegal characters do not weld words together", () => {
-  // Matches outlook_sync.py's safe_title: both land in the same triage/ folder.
+  // Matches outlook.py's safe_title: both land in the same triage/ folder.
   assert.equal(sanitize("Q3/Q4 plan"), "Q3 Q4 plan");
 });
 
@@ -216,11 +216,62 @@ test("resolveDest: an untitled meeting still gets a description", () => {
 });
 
 test("the filename this integration writes matches the vault convention", () => {
-  // granola-sync.js builds `${date.replace(/-/g,"")} ${desc}.md`; the same shape outlook_sync.py
+  // granola.js builds `${date.replace(/-/g,"")} ${desc}.md`; the same shape outlook.py
   // must produce, since both land in the same triage/ folder for /para-triage to file.
   for (const title of ["Acme - Kickoff", "", null, "Q3/Q4: planning <call>", "...", "x".repeat(200)]) {
     const d = resolveDest({ created_at: "2026-07-28T09:11:00Z", title });
     const fname = `${d.date.replace(/-/g, "")} ${d.desc}.md`;
     assert.match(fname, TRIAGE_NAME, `bad triage filename for title ${JSON.stringify(title)}: ${fname}`);
   }
+});
+
+// --- config contract -------------------------------------------------------------------
+// The property this integration guards: the script body holds nothing
+// vault-specific, so an installed copy re-syncs by straight file copy. These guard the
+// regression that made the old shape dangerous - a routing table living in the code, where
+// a two-line diff looked trivial while silently zeroing it and dropping the script out of
+// multi-vault mode.
+
+const SOURCE = require("fs").readFileSync(path.join(__dirname, "granola.js"), "utf8");
+
+test("the script declares no routing table of its own", () => {
+  // `const ROUTE = { Acme: ... }` in the body is the old, dangerous shape. ROUTE must be
+  // derived from the config file, never assigned an object literal with entries in it.
+  const literal = /const\s+ROUTE\s*=\s*\{\s*[^}\s]/.exec(SOURCE);
+  assert.equal(literal, null,
+    `granola.js assigns ROUTE a populated literal: ${literal && literal[0]}`);
+  assert.match(SOURCE, /CONFIG\.route/,
+    "ROUTE must come from granola.config.json, not from the script body");
+});
+
+test("the config file sits beside the script, not in the vault's state directory", () => {
+  // granola.config.json is vault config and belongs next to the copy that reads it. Only
+  // credentials and cache go under ~/.paraos - putting config there would make one machine's
+  // vaults share a routing table.
+  assert.match(SOURCE, /VAULT_CONFIG\s*=\s*path\.join\(__dirname,\s*"granola\.config\.json"\)/,
+    "granola.config.json must resolve beside the script");
+  assert.doesNotMatch(SOURCE, /PARAOS_HOME[^\n]*granola\.config\.json/,
+    "granola.config.json must not resolve under ~/.paraos");
+});
+
+test("an unreadable config stops the run instead of falling back to single-vault mode", () => {
+  // The dangerous failure: malformed JSON silently yielding {} means MULTI is false, and every
+  // other vault's meetings land in this one. Assert the catch path exits rather than defaults.
+  const at = SOURCE.indexOf("catch (e)");
+  assert.notEqual(at, -1, "config load must have a catch block");
+  const catchBody = SOURCE.slice(at, SOURCE.indexOf("})();", at));
+  assert.match(catchBody, /process\.exit\(1\)/,
+    "a malformed granola.config.json must exit, never fall through to an empty config");
+  assert.doesNotMatch(catchBody, /return\s*\{\s*\}/,
+    "the catch must not return an empty config - that is single-vault mode by accident");
+});
+
+test("a config that parses but is not an object also stops the run", () => {
+  // Valid-but-wrong-shape JSON (an array, a string, a bare number) must not slip past the
+  // try/catch and land in CONFIG as something CONFIG.route silently can't see - that produces
+  // the exact same "every other vault's meetings land in this one" failure as malformed JSON.
+  assert.match(SOURCE, /typeof\s+parsed\s*!==\s*"object"/,
+    "the config loader must reject a parsed value that is not an object");
+  assert.match(SOURCE, /Array\.isArray\(parsed\)/,
+    "an array is valid JSON but not a valid config shape, and must be rejected explicitly");
 });

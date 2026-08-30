@@ -10,11 +10,16 @@ See [brief.md](brief.md) for scope. Vendor selection deadline: 2026-09-15.
 
 - [ ] Score the four responses against the matrix 🔼 📅 2026-07-01
 - [ ] Schedule the vendor demo days for the week of July 6-10 📅 2026-06-29
-- [ ] Vendor demo days 📅 2026-07-08
-- [ ] Reference calls with two existing customers per shortlisted vendor 📅 2026-08-07
-- [ ] Best-and-final pricing round 📅 2026-08-14
-- [ ] Selection decision to the board 📅 2026-09-15
-- [ ] Data migration plan for the ~24k season-ticket records 🔽 📅 2026-10-30
+
+## Backlog
+
+Gated on the scoring above, so prose until each one is actually the next step:
+
+- Vendor demo days, once the shortlist comes out of the scoring.
+- Reference calls with two existing customers per shortlisted vendor.
+- Best-and-final pricing round with whoever survives the references.
+- Selection decision to the board, by the 2026-09-15 deadline in the brief.
+- Data migration plan for the ~24k season-ticket records, once a vendor is picked.
 
 ## Recurring
 

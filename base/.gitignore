@@ -1,0 +1,34 @@
+# Vault .gitignore.
+#
+# Every vault needs one, for a reason that is not obvious: a machine-wide gitignore that
+# hides CLAUDE.md and .claude/ (a common setup for people who keep agent config out of
+# client repos) will hide them here too, and a vault whose conventions file is untracked
+# loses the one thing its history is for. The negations below override that.
+
+# Override a global gitignore that hides agent config - this IS the vault's content
+!CLAUDE.md
+!.claude/
+!.claude/**
+!.mcp.json
+
+# ...but never Claude Code runtime state
+.claude/*.lock
+
+# Python bytecode (scripts in resources/scripts/ run in place)
+__pycache__/
+*.pyc
+
+# Defensive: never commit a secret if one is dropped into the vault by mistake.
+# Real secrets live in ~/.paraos/secrets/, outside any synced folder - this is the last
+# line of defence for that rule, because a credential written into a vault leaks the
+# moment the vault syncs to a cloud drive or a git remote.
+**/config.json
+**/cookies.json
+**/cookies.txt
+**/.env
+
+# The broad cookie glob is scoped to where only code lives. Vault-wide it would also hide
+# real content - an event photo named "cookies.jpg" - which is how a guard like this
+# quietly drops files out of a repo. Narrow globs above are not a substitute: they miss
+# session-cookie.txt, which is exactly the shape a scraper writes.
+resources/scripts/**/*cookie*

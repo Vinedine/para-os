@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.08.02 - see CHANGELOG.md; /para-upgrade reports drift against this line.
-"""Read personal Outlook.com / Hotmail mailboxes via Microsoft Graph, filter for
+# para-os-integration: outlook 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+"""Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph, filter for
 vault-relevant mail, and drop matches into the vault's triage/ folder.
 
-Personal Microsoft accounts (outlook.com, hotmail.com, live.com) no longer accept
-Basic Auth or app passwords: the ONLY way in is OAuth2. This script uses the OAuth2
-device-code flow against one Entra app registration (delegated Graph Mail.Read), which
-serves any number of personal accounts. No client secret (public client). Read-only:
-it never sends, deletes, or marks mail read (a Graph GET does not change is-read state).
+Microsoft accounts no longer accept Basic Auth or app passwords: the ONLY way in is
+OAuth2. This script uses the OAuth2 device-code flow against an Entra app registration
+(delegated Graph Mail.Read), with no client secret (public client). Read-only: it never
+sends, deletes, or marks mail read (a Graph GET does not change is-read state).
+
+One app cannot serve every mailbox. A personal-accounts app is registered against the
+"consumers" authority, which refuses work/school accounts outright, so a Microsoft 365
+mailbox needs its own registration in its own tenant. Both the app and the authority
+therefore resolve PER ACCOUNT, falling back to the machine-wide pair (see account_app).
 
 Per-vault copy, shared state (the granola pattern): this script is COPIED into each
 vault it serves and syncs ONLY the vault it lives in, auto-detected from its own path.
@@ -23,30 +27,71 @@ Config is split by what it is:
   rotates the refresh token on each refresh. "self" lists the owner's other addresses
   (see is_relevant).
     {
-      "client_id": "00000000-0000-...",       # Entra app (client) id
-      "authority": "consumers",               # "consumers" (personal-only app) or "common"
+      "client_id": "00000000-0000-...",       # default Entra app (client) id
+      "authority": "consumers",               # default: "consumers", "common", or a tenant id
       "accounts": {
-        "someone@hotmail.com": { "refresh_token": "...", "self": ["someone@icloud.com"] }
+        "someone@hotmail.com": { "refresh_token": "...", "self": ["someone@icloud.com"] },
+
+        # A work/school mailbox overrides both, pointing at its own tenant's app.
+        # Seed them at login:  outlook.py login someone@company.com \
+        #                        --client-id <app> --authority <tenant-id>
+        "someone@company.com": { "refresh_token": "...",
+                                 "client_id": "11111111-1111-...",
+                                 "authority": "22222222-2222-..." }
       }
     }
 
-  VAULT CONFIG - this vault's resources/scripts/outlook_sync.json, next to this copy,
-  version-controlled with the vault. Which mailboxes feed THIS vault plus its
-  subject-keyword filter; edit it freely in a vault session, no secret ever lives here.
+  VAULT CONFIG - this vault's resources/scripts/outlook.config.json, next to this copy,
+  version-controlled with the vault. Which mailboxes feed THIS vault plus their filters;
+  edit it freely in a vault session, no secret ever lives here. NOT named outlook.json:
+  that is the machine-global secret above, and two files sharing one name across opposite
+  trust zones is how a credential ends up inside a synced vault.
     { "accounts": ["someone@hotmail.com"], "keywords": ["invoice", "contract"] }
+
+  One list per vault only works while every mailbox feeding it has the same shape. Give
+  `accounts` an object instead to filter per mailbox, each key falling back independently
+  to the vault-level default (see account_filter):
+    {
+      "keywords": ["invoice", "contract"],      # vault-level default
+      "accounts": {
+        # A dedicated mailbox IS the filter - take everything, keywords only subtract.
+        "engagement@company.com": { "match_all": true },
+        # A shared funnel needs its own tight list; four figures a week otherwise.
+        "info@company.com": { "keywords": ["offerte", "bestelling"] }
+      }
+    }
+
+  Three filter settings, vault-level or per account:
+    keywords    - matched case-insensitively (see match_body for where).
+    match_all   - take every message. The explicit catch-all, because EMPTYING keywords
+                  does the opposite: it leaves the contact allowlist as the only gate,
+                  which is stricter, not looser. Default false.
+    match_body  - match keywords against bodyPreview as well as the subject. Default
+                  TRUE: subject-only matching silently drops any message whose subject is
+                  in a language the filter wasn't written in, and a dropped message leaves
+                  no trace. Set false for subject-only, accepting that blind spot.
+
+  A drafted filter is a hypothesis until it has run against real traffic. Run `sync`
+  without --write against a real window before trusting one, and prefer distinguishing
+  words: a company's own name matches almost everything in that company's mailbox, so it
+  is noise dressed as precision.
 
 Per vault, the sender allowlist is NOT stored anywhere: it is rebuilt from
 <vault>/areas/network/*.md on every run, so adding a contact automatically widens what
 gets through.
 
+`sync` is one of five subcommands, and the filter above shapes ONLY what `sync` files
+unasked. `search` deliberately ignores it and queries the whole mailbox: the point of a
+search is to ask a question the filter would not have surfaced.
+
 Usage (on Windows, `py` works in place of `python3`):
-  python3 outlook_sync.py accounts                   # login state + which accounts feed this vault
-  python3 outlook_sync.py login someone@outlook.com  # one-time device-code login (machine-global)
-  python3 outlook_sync.py sync                       # dry run: what WOULD be filed into THIS vault
-  python3 outlook_sync.py sync --write               # actually write matches into this vault's triage/
-  python3 outlook_sync.py sync --account someone@hotmail.com --days 14 --write
-  python3 outlook_sync.py search "contract renewal"  # search the mailboxes feeding this vault
-  python3 outlook_sync.py raw '/me/messages?$top=1'  # any Graph path, prints JSON (debug)
+  python3 outlook.py accounts                   # login state + which accounts feed this vault
+  python3 outlook.py login someone@outlook.com  # one-time device-code login (machine-global)
+  python3 outlook.py sync                       # dry run: what WOULD be filed into THIS vault
+  python3 outlook.py sync --write               # actually write matches into this vault's triage/
+  python3 outlook.py sync --account someone@hotmail.com --days 14 --write
+  python3 outlook.py search "contract renewal"  # search the mailboxes feeding this vault
+  python3 outlook.py raw '/me/messages?$top=1'  # any Graph path, prints JSON (debug)
 """
 import argparse
 import hashlib
@@ -71,7 +116,8 @@ VAULT = VAULT_ROOT.name
 
 PARAOS_HOME = Path(os.environ.get("PARAOS_HOME") or Path.home() / ".paraos")  # outside the vault on purpose
 CONFIG_FILE = PARAOS_HOME / "secrets" / "outlook.json"      # credentials only, machine-global
-VAULT_CONFIG = SCRIPT_DIR / "outlook_sync.json"             # this vault's accounts + keywords
+VAULT_CONFIG = SCRIPT_DIR / "outlook.config.json"           # this vault's accounts + filters
+LEGACY_VAULT_CONFIG = SCRIPT_DIR / "outlook_sync.json"      # pre-2026.08.03 name, still read
 LEDGER_FILE = PARAOS_HOME / "cache" / "outlook" / "synced.json"
 
 GRAPH = "https://graph.microsoft.com/v1.0"
@@ -81,21 +127,40 @@ EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 # --- config + ledger -------------------------------------------------------------------
 
+def _load_json(path):
+    """Parse a JSON file, or exit cleanly rather than let a malformed one surface as a raw
+    traceback - the same clean-failure bar this file already holds for a missing one."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        sys.exit(f"{path} is not valid JSON ({e}). Fix it or delete it and re-run.")
+
+
 def load_config():
     if not CONFIG_FILE.exists():
         sys.exit(f"No config at {CONFIG_FILE}. Create it with at least: "
                  '{"client_id": "...", "accounts": {}}')
-    return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+    return _load_json(CONFIG_FILE)
 
 
 def load_vault_config(required=True):
-    """This vault's own accounts + keywords, next to this script copy. Never secret."""
-    if not VAULT_CONFIG.exists():
-        if not required:
-            return {}
-        sys.exit(f"No vault config at {VAULT_CONFIG}. Create it with: "
-                 '{"accounts": ["someone@hotmail.com"], "keywords": []}')
-    return json.loads(VAULT_CONFIG.read_text(encoding="utf-8"))
+    """This vault's own accounts + filters, next to this script copy. Never secret.
+
+    Reads the legacy `outlook_sync.json` name when the current one is absent, and says so.
+    This script was renamed in 2026.08.03 and the config with it; a copy updated without its
+    config would otherwise start up looking correctly configured and quietly file nothing.
+    """
+    if VAULT_CONFIG.exists():
+        return _load_json(VAULT_CONFIG)
+    if LEGACY_VAULT_CONFIG.exists():
+        print(f"! reading {LEGACY_VAULT_CONFIG.name} (pre-2026.08.03 name). "
+              f"Rename it to {VAULT_CONFIG.name} - the old name stops being read "
+              f"once this vault is on a later revision.", file=sys.stderr)
+        return _load_json(LEGACY_VAULT_CONFIG)
+    if not required:
+        return {}
+    sys.exit(f"No vault config at {VAULT_CONFIG}. Create it with: "
+             '{"accounts": ["someone@hotmail.com"], "keywords": []}')
 
 
 def write_json_atomic(path, data):
@@ -107,19 +172,16 @@ def write_json_atomic(path, data):
     os.replace(tmp, path)
 
 
-def save_config(cfg):
-    write_json_atomic(CONFIG_FILE, cfg)
+def save_account(cfg, email, **fields):
+    """Persist fields on ONE account, re-reading first so a concurrent run's write survives.
 
-
-def save_token(cfg, email, refresh_token):
-    """Persist ONE account's rotated token, re-reading first so a concurrent run's write survives.
-
-    Two vault copies can refresh different accounts at the same moment. Writing our whole
-    in-memory cfg back would undo the other's rotation, and the superseded token is dead:
-    that account would need a full device-code re-login.
+    Two vault copies can refresh different accounts at the same moment, and a device-code
+    login holds the file open for minutes. Writing our whole in-memory cfg back would undo
+    the other's rotation, and the superseded token is dead: that account would need a full
+    device-code re-login. So every write to this file goes through here, never wholesale.
     """
-    on_disk = json.loads(CONFIG_FILE.read_text(encoding="utf-8")) if CONFIG_FILE.exists() else cfg
-    on_disk.setdefault("accounts", {}).setdefault(email, {})["refresh_token"] = refresh_token
+    on_disk = _load_json(CONFIG_FILE) if CONFIG_FILE.exists() else cfg
+    on_disk.setdefault("accounts", {}).setdefault(email, {}).update(fields)
     write_json_atomic(CONFIG_FILE, on_disk)
 
 
@@ -133,8 +195,25 @@ def save_ledger(ledger):
     write_json_atomic(LEDGER_FILE, ledger)
 
 
-def token_url(cfg):
-    authority = cfg.get("authority", "consumers")  # personal-only app -> "consumers"
+def account_app(cfg, email):
+    """The Entra app and authority serving ONE mailbox, as (client_id, authority).
+
+    Both fall back to the machine-wide pair, so every personal-only config keeps working
+    untouched. They resolve independently: a work mailbox on a shared multi-tenant app needs
+    only the authority switched, and coupling them would quietly send it at the wrong app.
+
+    Resolved before the account exists in the file, because `login` needs it on first run.
+    """
+    acct = (cfg.get("accounts") or {}).get(email) or {}
+    client_id = acct.get("client_id") or cfg.get("client_id")
+    authority = acct.get("authority") or cfg.get("authority", "consumers")
+    if not client_id:
+        sys.exit(f"No client_id for {email}. Set one on the account, or machine-wide "
+                 f"at the top of {CONFIG_FILE}.")
+    return client_id, authority
+
+
+def token_url(authority):
     return f"https://login.microsoftonline.com/{authority}/oauth2/v2.0"
 
 
@@ -142,9 +221,10 @@ def token_url(cfg):
 
 def device_login(cfg, email):
     """Interactive: user opens a URL, types a code, consents once. Returns a refresh token."""
-    base = token_url(cfg)
+    client_id, authority = account_app(cfg, email)
+    base = token_url(authority)
     r = requests.post(f"{base}/devicecode",
-                      data={"client_id": cfg["client_id"], "scope": SCOPE}, timeout=30)
+                      data={"client_id": client_id, "scope": SCOPE}, timeout=30)
     r.raise_for_status()
     dc = r.json()
     print(f"\n  To sign in as {email}:")
@@ -158,7 +238,7 @@ def device_login(cfg, email):
         time.sleep(interval)
         p = requests.post(f"{base}/token", data={
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-            "client_id": cfg["client_id"],
+            "client_id": client_id,
             "device_code": dc["device_code"],
         }, timeout=30)
         body = p.json()
@@ -178,21 +258,22 @@ def access_token(cfg, email):
     """Trade the stored refresh token for an access token; persist the rotated refresh token."""
     acct = cfg["accounts"][email]
     if not acct.get("refresh_token"):
-        sys.exit(f"{email} has no token yet. Run:  outlook_sync.py login {email}")
-    base = token_url(cfg)
+        sys.exit(f"{email} has no token yet. Run:  outlook.py login {email}")
+    client_id, authority = account_app(cfg, email)
+    base = token_url(authority)
     r = requests.post(f"{base}/token", data={
         "grant_type": "refresh_token",
-        "client_id": cfg["client_id"],
+        "client_id": client_id,
         "refresh_token": acct["refresh_token"],
         "scope": SCOPE,
     }, timeout=30)
     body = r.json()
     if r.status_code != 200:
         sys.exit(f"Token refresh for {email} failed ({body.get('error')}). "
-                 f"Re-run:  outlook_sync.py login {email}")
+                 f"Re-run:  outlook.py login {email}")
     if body.get("refresh_token"):           # MSA rotates refresh tokens: write the new one back
         acct["refresh_token"] = body["refresh_token"]
-        save_token(cfg, email, body["refresh_token"])
+        save_account(cfg, email, refresh_token=body["refresh_token"])
     return body["access_token"]
 
 
@@ -258,7 +339,46 @@ def addrs(msg):
             for p in people if p and p.get("emailAddress", {}).get("address")}
 
 
-def is_relevant(msg, allow, keywords, self_addrs=frozenset()):
+def vault_accounts(vc):
+    """The mailboxes feeding this vault, from either config shape: `accounts` is a list of
+    addresses when one filter serves them all, or an object keyed by address when they need
+    different ones. Iterating a dict yields its keys, so both forms read the same here."""
+    return list(vc.get("accounts") or [])
+
+
+def account_filter(vc, email):
+    """The filter serving ONE mailbox, as (keywords, match_all, match_body).
+
+    Per account, not per vault, because one vault can be fed by mailboxes of opposite shapes.
+    A dedicated engagement mailbox IS the filter: everything in it is in scope, and keywords
+    there only subtract, adding silent-drop risk for nothing. A shared info@ funnel is the
+    reverse: a week can be four figures of mail, and the filter is the only thing between it
+    and a triage/ folder abandoned in its first week. One vault-level list can serve either
+    one, never both.
+
+    Each setting falls back independently to the vault-level default, so a per-account block
+    that only tightens `keywords` keeps the vault's body-matching choice rather than silently
+    reverting it. A setting explicitly written as JSON `null` falls back too - `.get(key, ...)`
+    only defaults on a MISSING key, and a null override is indistinguishable from "no opinion",
+    not from "the empty/false value".
+    """
+    accts = vc.get("accounts") or []
+    over = (accts.get(email) or {}) if isinstance(accts, dict) else {}
+
+    def setting(key, default):
+        value = over.get(key)          # a null (or missing) override defers to the vault level
+        if value is None:
+            value = vc.get(key)        # a null (or missing) vault default falls to `default`
+        return default if value is None else value
+
+    return (
+        [k.lower() for k in setting("keywords", [])],
+        bool(setting("match_all", False)),
+        bool(setting("match_body", True)),
+    )
+
+
+def is_relevant(msg, allow, keywords, self_addrs=frozenset(), match_all=False, match_body=True):
     # Match a COUNTERPARTY who is a known contact, not the mailbox owner. The owner's own
     # addresses are in the vault's contacts and every message in their box is to/from them,
     # so leaving them in would match everything (incl. the owner's other addresses, e.g.
@@ -266,10 +386,23 @@ def is_relevant(msg, allow, keywords, self_addrs=frozenset()):
     others = addrs(msg) - self_addrs
     if others & allow:
         return "contact"
+    # match_all is the explicit catch-all. It exists because emptying `keywords` - the obvious
+    # guess for "file everything" - does the opposite: it leaves the contact allowlist as the
+    # only gate, which is STRICTER, not looser.
+    if match_all:
+        return "all"
     subject = (msg.get("subject") or "").lower()
     for kw in keywords:
         if kw in subject:
             return f"keyword:{kw}"
+    # Subject-only matching is a systematic blind spot, not an occasional miss: it drops any
+    # message whose subject is in a language the filter wasn't written in, and a dropped
+    # message leaves no trace. bodyPreview is already fetched, so this costs nothing.
+    if match_body:
+        body = (msg.get("bodyPreview") or "").lower()
+        for kw in keywords:
+            if kw in body:
+                return f"body:{kw}"
     return None
 
 
@@ -323,19 +456,33 @@ def cmd_accounts(cfg, _args):
     if not accts:
         print("No accounts configured yet.")
         return
-    feeds = load_vault_config(required=False).get("accounts", [])
+    feeds = vault_accounts(load_vault_config(required=False))
     for email, a in accts.items():
         state = "logged in" if a.get("refresh_token") else "NOT logged in (run login)"
         mark = "*" if email in feeds else " "
-        print(f" {mark} {email:40s} [{state}]")
+        # Show the authority when it is not the machine-wide one: a work mailbox silently
+        # falling back to the personal app is otherwise invisible until the token fails.
+        # account_app() exits on an unresolvable client_id; one such account must not blank
+        # out the listing for every account after it.
+        try:
+            _, authority = account_app(cfg, email)
+            own = f"  via {authority}" if authority != cfg.get("authority", "consumers") else ""
+        except SystemExit:
+            own = "  [no client_id configured]"
+        print(f" {mark} {email:40s} [{state}]{own}")
     print(f"\n(* = feeds this vault: {VAULT}, per {VAULT_CONFIG.name})")
 
 
 def cmd_login(cfg, args):
-    accts = cfg.setdefault("accounts", {})
-    entry = accts.setdefault(args.email, {})
+    entry = cfg.setdefault("accounts", {}).setdefault(args.email, {})
+    # Seed the app pointers BEFORE the flow runs: device_login resolves them per account.
+    seeded = {k: v for k, v in (("client_id", args.client_id),
+                                ("authority", args.authority)) if v}
+    entry.update(seeded)
+    # The device-code wait can run for minutes, and another vault's sync can rotate a token
+    # meanwhile. Merge this one account rather than writing the cfg we read before the wait.
     entry["refresh_token"] = device_login(cfg, args.email)
-    save_config(cfg)
+    save_account(cfg, args.email, refresh_token=entry["refresh_token"], **seeded)
     print(f"Logged in (machine-global). Token stored in {CONFIG_FILE}.\n"
           f"A vault pulls this mailbox when its own {VAULT_CONFIG.name} lists it under \"accounts\".")
 
@@ -344,7 +491,7 @@ def cmd_sync(cfg, args):
     # This copy syncs ONLY its own vault: the accounts its vault config declares.
     require_vault()
     vc = load_vault_config()
-    feeds = vc.get("accounts") or []
+    feeds = vault_accounts(vc)
     if not feeds:
         sys.exit(f"{VAULT_CONFIG} lists no accounts - add the mailbox(es) that feed '{VAULT}'.")
     if args.account:
@@ -356,27 +503,33 @@ def cmd_sync(cfg, args):
     missing = [e for e in feeds if e not in cfg.get("accounts", {})]
     if missing:
         sys.exit(f"Not logged in on this machine: {', '.join(missing)}. "
-                 f"Run:  outlook_sync.py login <email>")
+                 f"Run:  outlook.py login <email>")
 
     ledger = load_ledger()
     allow = build_allowlist(VAULT_ROOT)
-    keywords = [k.lower() for k in vc.get("keywords", [])]
-    if not allow and not keywords:
-        print(f"! vault '{VAULT}' has no contact emails and no keywords - nothing can match yet.")
 
     total_new = 0
     for email in feeds:
+        keywords, match_all, match_body = account_filter(vc, email)
+        if not allow and not keywords and not match_all:
+            print(f"! {email} -> '{VAULT}': no contact emails, no keywords, and match_all is "
+                  f"off, so nothing can match. Add keywords, or set \"match_all\": true on "
+                  f"this account in {VAULT_CONFIG.name} to file everything it receives.")
         acct = cfg["accounts"][email]
         self_addrs = {email.lower()} | {a.lower() for a in acct.get("self", [])}
         token = access_token(cfg, email)
         msgs = fetch_messages(token, args.days)
+        # Name the filter actually in force per account: with per-account overrides, "which
+        # filter ran against this mailbox" is no longer answerable from the config at a glance.
+        scope = "match_all" if match_all else \
+            f"{len(keywords)} keywords ({'subject+body' if match_body else 'subject only'})"
         print(f"\n{email}  scanned {len(msgs)} msgs -> {VAULT}  "
-              f"({len(allow)} allowlisted senders, {len(keywords)} keywords)")
+              f"({len(allow)} allowlisted senders, {scope})")
 
         for msg in msgs:
             if VAULT in ledger.get(msg["id"], {}).get("filed", []):   # already filed here
                 continue
-            reason = is_relevant(msg, allow, keywords, self_addrs)
+            reason = is_relevant(msg, allow, keywords, self_addrs, match_all, match_body)
             if not reason:
                 continue
             total_new += 1
@@ -419,12 +572,12 @@ def cmd_search(cfg, args):
     elif args.all_mailboxes:
         accounts = list(cfg.get("accounts", {}))
     else:
-        accounts = load_vault_config(required=False).get("accounts") or []
+        accounts = vault_accounts(load_vault_config(required=False))
         if not accounts:
             sys.exit(f"{VAULT_CONFIG.name} lists no accounts for vault '{VAULT}'. Pass "
                      f"--account <email>, or --all-mailboxes for every mailbox on this machine.")
     if not accounts:
-        sys.exit("No accounts configured. Run: outlook_sync.py login <email>")
+        sys.exit("No accounts configured. Run: outlook.py login <email>")
     total = 0
     for email in accounts:
         try:
@@ -454,6 +607,10 @@ def main():
 
     lg = sub.add_parser("login")
     lg.add_argument("email")
+    lg.add_argument("--client-id", help="Entra app for THIS mailbox (default: the machine-wide one). "
+                                        "A work/school mailbox needs its own tenant's app")
+    lg.add_argument("--authority", help="tenant id for THIS mailbox, or 'common' / 'consumers' "
+                                        "(default: the machine-wide setting)")
 
     sy = sub.add_parser("sync")
     sy.add_argument("--account", help="only this account (default: all)")
@@ -472,7 +629,7 @@ def main():
     rw.add_argument("path")
     rw.add_argument("--account")
 
-    # `sync` is the default command: bare `outlook_sync.py` or `... --write` runs a sync, so the
+    # `sync` is the default command: bare `outlook.py` or `... --write` runs a sync, so the
     # /para-triage sync-script convention (`<script> --write`, dry in preview) works unchanged.
     # Anything that is a real subcommand, or asks for the top-level help, is left alone.
     argv = sys.argv[1:]

@@ -1,6 +1,6 @@
 # {{Vault Name}} Vault Conventions
 
-<!-- para-os-template: 2026.08.02 -->
+<!-- para-os-template: 2026.08.03 -->
 **Type:** {{vault-type}}
 
 {{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.
@@ -14,13 +14,14 @@ The sorting test between buckets: **committed and dated → project. Maintained,
 - **triage/** - landing zone for anything that doesn't obviously fit elsewhere; emptied via `/para-triage` at the next review. It never holds a `README.md`: every file here is by definition unprocessed, so a permanent one is indistinguishable from a real item and inflates the loose-file count forever. A `.gitkeep` keeps the empty folder in git.
 - **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline, one folder per project, each holding a `brief.md` + `actions.md` and, where relevant, a `sources/` subfolder.}} A project needs a clear goal **and** a deadline; a rolling improvement backlog on something you own is an area wearing a project name.
 - **areas/** - ongoing responsibilities: anything live that you maintain, with no end date. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset (a shipped repo, a live site, a standing support duty), each with its own `brief.md` + `actions.md` - but assets that gate each other (a domain estate, the sites on it, the subscription paying for both) form **one** area.{{ Add any other area subfolders this vault needs.}}
-- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage brainstorms to pick future projects from: one folder per idea, `brief.md` only, holding its thinking as open questions plus at most one prose "revisit when X" trigger. `scripts/` = persistent tools the vault needs; their runtime state lives *outside* the vault (see "Integration scripts and their state" below).
+- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = concept-stage brainstorms to pick future projects from: one folder per idea, holding its thinking as open questions plus at most one prose "revisit when X" trigger. A `brief.md` always, plus a `sources/` where real documents back the thinking (a vendor quote, a board deck, a demo artifact) - that folder travels with the idea when it is promoted. Never an `actions.md`: `resources/` holds no checkbox. `scripts/` = persistent tools the vault needs; their runtime state lives *outside* the vault (see "Integration scripts and their state" below).
 - **archive/** - inactive artifacts. `meetings/` = conversation records spanning several entities.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
 
-Root `README.md` is the master document, single source of truth for identity, operating model, and track record; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained state - no checkbox, `📅` marker, status column, project status list, or deadline table: live state belongs in `projects/` and `areas/` and surfaces through `/para-daily-brief`.
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision (the end state and its horizon) is never a stub. Vault-specific sections follow them, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no hand-maintained **work** state - no checkbox, `📅` marker, project status list, deadline table, or Status column in a table listing projects or entities: live state belongs in `projects/` and `areas/` and surfaces through `/para-daily-brief`. A status *fact* about the vault's subject is not work state and stays - a company registration table reading `| Status | Active |` alongside its VAT number is describing the entity, not tracking a task.
 
 ### Lifecycle
 
+- `/para-new` **creates** an entity - a project, an area, an idea, or a contact - settling its shape against the sorting test above before scaffolding anything, and runs the idea-to-project promotion below.
 - An idea **promotes** to `projects/` when someone is waiting on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar - and it earns its `actions.md` at that moment, not before. Retiring an idea is always the operator's call, never automatic: an idea that never happened goes to `archive/ideas/`, one where real work ran and then stopped goes to `archive/projects/`.
 - The next big, dated push on a maintained asset is a **project running alongside its area**; when that project archives, surviving work returns to the area.
 - An entity **archives whole** - brief, actions, sources together, via `/para-archive` - with surviving open items routed out *first* (to the owning area, a successor project, or the contact file).
@@ -48,12 +49,31 @@ A checkbox is a commitment, so the bucket a file sits in decides whether it may 
 | `resources/` | **never** | a checkbox here is a filing error |
 | `archive/` | yes | **all closed** - one open `- [ ]` means it was archived too early |
 
-Everything genuinely actionable still has a home: a dated go/no-go is a strategic action in the owning area's `actions.md`, linking to the idea; a person-related follow-up lives in that contact's file; scheduled multi-step work means the thing is a project, not an idea.
+Everything genuinely actionable still has a home: a dated go/no-go is a strategic action in the owning area's `actions.md`, linking to the idea; a person-related follow-up lives in that contact's file (except where `## Who writes this vault` overrides it); scheduled multi-step work means the thing is a project, not an idea.
+
+### The actionable frontier
+
+A checkbox is a commitment you could act on now or on its marked date - not a plan. When work decomposes into phases, only the steps whose dependencies have cleared get checkboxes; everything downstream stays prose (a `## Backlog` section in the same file, or the brief) until its gate opens, and promotes to a checkbox at that moment. The failure this prevents is **action inflation**: decompose every plan into checkboxes up front and the speculative items soon outnumber the committed work until the operator stops believing the count. Two guardrails keep it honest:
+
+- **The WIP flag.** Before appending an action to a file that already holds 12 or more open items, say so and propose grooming instead of silently adding - a file past that threshold is usually a decomposed plan wearing checkboxes. `/para-daily-brief` flags such files; `/para-deep-clean` grooms them (demote to prose, close, or date).
+- **One next step per inbound item.** Triage and working sessions add at most one next step per thread or document, never a decomposition.
+
+### The content frontier
+
+The same rule applied to prose. A vault's files only ever grow: a development log gets one more dated entry, a fact gets restated in a second file "for context", a superseded decision is left in place because deleting it feels lossy. Nothing in the structure pushes back, so the vault fills with text that costs a session tokens to read and returns nothing. **Content inflation** is action inflation's quieter half, and it is worse in one respect: an over-grown action file announces itself with a count, while an over-grown brief just looks thorough.
+
+Three rules, all of which decide what a file should say rather than what to throw away:
+
+- **Say it once.** Every fact has one owning file - the rule that governs it, the brief of the entity it describes, the contact card of the person it concerns. Elsewhere it is a link, never a copy. A copy is not a redundancy, it is a second thing to keep true, and the moment the two disagree the reader has no way to tell which is current.
+- **A development log records decisions, not activity.** An entry earns its place by recording something a later reader would otherwise get wrong: a decision and why, a constraint discovered, a route tried and rejected. "Continued work on X" is not an entry. When a log's early entries have been overtaken by its later ones, the superseded narrative belongs in git history, not in the file.
+- **Superseded content leaves the live buckets.** A decision that has been reversed, a plan that was replaced, a section describing how something used to work: this is history, and history lives in `archive/` or in git. Keeping it inline makes a live file argue with itself.
+
+**Never delete to satisfy this.** Pruning is proposed and ruled on, one item at a time - the operator decides what stops being true, and no tool sweeps for it. The default disposition is *move* (to the owning file, to the archive) or *demote* (to a shorter summary that links to the detail), and outright deletion applies only to a genuine duplicate whose contents have been compared against the copy that survives. Source documents and anything in `triage/` are never pruned. `/para-daily-brief` flags the symptoms; `/para-deep-clean` proposes the repair.
 
 ### Which file an action goes in
 
 - Co-locate with the project or area it belongs to: `projects/<x>/actions.md`, `areas/<x>/actions.md`.
-- Per-contact actions live inside the contact file (`areas/network/<person>.md`, under `## Next actions`).
+- Per-contact actions live inside the contact file (`areas/network/<person>.md`, under `## Next actions`). A vault with a `## Who writes this vault` section overrides this.
 - Strategic work not tied to one project, area, or person goes in `areas/business/actions.md`.
 - Never create a monolithic root `actions.md`.
 - An `actions.md` archives *with its entity*, fully closed - never on its own, and never carrying an open item.
@@ -82,7 +102,7 @@ Rules when writing or editing tasks:
 - **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context at the top, `## Next actions` appended at the bottom, carrying `_None currently._` when there are none.
 - **Dated conversation records** (meeting notes, call transcripts, chat/email sequences): to the `sources/` of the project or area that owns them; `archive/meetings/YYYYMMDD Description.ext` only when they span several entities.
 - **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. The /para-triage skill applies this convention literally; if you leave it undefined, /para-triage will ask before renaming anything.}}
-- **Shared workstreams across contacts**: track actions in the primary contact's file; the other files get a pointer line.
+- **Shared workstreams across contacts**: track actions in the primary contact's file; the other files get a pointer line. Same override as above.
 - **Project brief + relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
 
 ## Authoritative sources
@@ -120,3 +140,9 @@ A *persistent* tool the agent writes for this vault (a script pulling from a con
 - **Derived outputs as standalone files** - web copy, deck content, one-pager text regenerate from `README.md`. Do not let them drift into separate source-of-truth files.
 - **Content rewrites during reorganization** - structure changes preserve copy verbatim. Fix wording in a later, dedicated pass.
 - {{Anything else that belongs in a different vault or system, e.g. "Accounting, invoicing, financial records - belong in a separate vault (one vault per life context)."}}
+
+<!-- The optional sections a mature vault grows into (## MCP integration intent,
+     ## Triage sources, ## Agenda sources, ## Operating rules, ## README structures,
+     ## Cross-vault references, ## Project context) are listed once, in
+     base/bootstrap-prompt.md. Do not restate them here - two copies drift. Add none of
+     them at setup; each arrives when the vault actually needs it. -->

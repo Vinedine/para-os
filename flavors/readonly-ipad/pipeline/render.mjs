@@ -1,4 +1,5 @@
 // Node renderer driven by render.ps1.
+// para-os-integration: readonly-ipad 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 //
 // Reads a JSON array of jobs from stdin:
 //   [{ in: "<src path>", out: "<pdf path>", rel: "<display path>", type: "md" | "html" }, ...]
@@ -81,6 +82,17 @@ log(`boot: Chromium up (${((Date.now() - tBrowser) / 1000).toFixed(1)}s)`);
 const page = await browser.newPage();
 log('boot: new page created, starting render loop\n');
 
+// Render-vintage stamp: computed once, identical on every PDF in this batch, so a brief and
+// its deal sheet rendered in the same run carry the same "Updated:" value. The reader of this
+// flavor sees only PDFs and has no way to tell a fresh one from a stale one; same value on
+// both means same vintage, which makes "are these two in sync?" an at-a-glance check.
+const pad = (n) => String(n).padStart(2, '0');
+const now = new Date();
+const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+const footerTemplate = `<div style="width:100%;margin:0 0.6cm;font-size:8px;color:#8a8a8a;text-align:right;">Updated: ${stamp}</div>`;
+const headerTemplate = '<div></div>'; // suppress Chromium's default header line
+log(`boot: render stamp = ${stamp}`);
+
 let rendered = 0;
 let failed = 0;
 
@@ -99,7 +111,12 @@ for (let i = 0; i < jobs.length; i++) {
         path: job.out,
         format: 'A4',
         printBackground: true,
-        margin: { top: '0.6cm', right: '0.6cm', bottom: '0.6cm', left: '0.6cm' },
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
+        // bottom bumped 0.6->1cm to make room for the footer stamp; flow + the
+        // @media print atomic-block rules absorb the minor reflow.
+        margin: { top: '0.6cm', right: '0.6cm', bottom: '1cm', left: '0.6cm' },
       });
     } else {
       log(`${prefix} ${job.rel} - reading markdown...`);
@@ -116,6 +133,9 @@ for (let i = 0; i < jobs.length; i++) {
         path: job.out,
         format: 'A4',
         printBackground: true,
+        displayHeaderFooter: true,
+        headerTemplate,
+        footerTemplate,
         margin: { top: '1.2cm', right: '1.2cm', bottom: '1.2cm', left: '1.2cm' },
       });
     }

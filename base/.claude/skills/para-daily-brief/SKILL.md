@@ -1,28 +1,33 @@
 ---
 name: para-daily-brief
-description: Produce a bucketed daily-action dashboard from the current vault's actions.md and per-contact files, with a meetings agenda from the vault's meetings.md. Use when user asks "what should I work on today", "what's overdue", or types /para-daily-brief [today|week|overdue|all].
-allowed-tools: Bash, Glob, Grep, Read
+description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Use when user asks "what should I work on today", "what's overdue", "where does the vault stand", or types /para-daily-brief [today|week|overdue|all].
+allowed-tools: Bash, Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
+arg-hint: '[today|week|overdue|all]'
 ---
 
 # Daily Brief
 
-A single-pass, date-aware dashboard of every open task in the vault, bucketed by urgency against today. Covers both project/area action files and per-contact files (relationship-paced actions).
+A single-pass, date-aware picture of **where the vault stands**: which projects and areas carry the open work, what is actually due, what is quietly rotting, and which ideas are waiting. The task list is capped and ranked; the shape of the vault leads. Covers project and area action files plus per-contact files (relationship-paced actions).
+
+**Read-only contract.** This skill never edits a file. Its only writes are the temporary HTML for the visual dashboard (Step 7), written outside the vault. It reports; the operator decides. Repairs belong to `/para-deep-clean`.
+
+**Operator-language output.** Every line must be actionable by a reader who has not seen this skill's internals: plain sentences, the vault's own entity names, no bucket jargon beyond the section titles.
 
 **This skill is vault-agnostic.** It discovers action-bearing files at runtime and relies on Obsidian Tasks plugin conventions - no vault-specific paths are hardcoded. There are two vault types, detected in Step 1b.
 
 ## Arguments
 
-Optional single scope argument controls which sections render:
+Optional single scope argument:
 
 | Arg | Renders |
 |---|---|
-| *(none)* | 🗓 Agenda + 🔴 Overdue + 🟠 Today + 🟡 This week + 🔵 Next 30 days + 🔁 Recurring + ⏳ Waiting + 📥 Triage + Collapsed (one-line counts for Later and Undated) |
-| `today` | 🗓 Agenda (today) + 🔴 + 🟠 + 📥 Triage (morning standup view) |
-| `week` | 🗓 Agenda (today + this week) + 🔴 + 🟠 + 🟡 + 📥 Triage |
-| `overdue` | 🔴 only - no Agenda, no Triage, no Collapsed (strict "what's late" view) |
-| `all` | Full expansion - ⚪ Later and ❓ Undated as full sections, Agenda includes Upcoming |
+| *(none)* | 📊 Vault state + 🗓 Agenda + 🎯 Now (max 5) + Later counts + 🚩 Health flags + 💡 Ideas + 📥 Triage + **Next action** close + the visual dashboard artifact (Step 7) |
+| `today` | 🗓 Agenda (today) + 🎯 Now (overdue + today only, max 5) + 📥 Triage + Next action (morning standup view; no artifact) |
+| `week` | 🗓 Agenda (today + week) + 🎯 Now (max 5) + Later counts + 📥 Triage + Next action (no artifact) |
+| `overdue` | 🔴 Overdue only, **uncapped** - the strict "what's late" view (no Agenda, no artifact) |
+| `all` | Full expansion: everything in the default view, plus every bucket as a full list (the audit view), artifact included |
 
-In every mode except `overdue`, the 🗓 Agenda renders at the top (scoped to the arg, always including its Recurring group) and 📥 Triage renders at the bottom. Both appear only when they have content (Steps 5b/5c).
+Sections with no content are omitted - no empty placeholders.
 
 ## Procedure
 
@@ -36,198 +41,56 @@ Use the Bash tool. **Do NOT substitute a cached date from memory or context** - 
 
 ### Step 1b: Identify the vault type
 
-- **Type B (read-only consumer vault)** - no `actions.md` anywhere **and** a `flip.ps1` or `render.ps1` at the vault root. Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one. Skip the task buckets and the Agenda; the whole output is the 📥 Triage section (Step 5b), titled `## 📥 Triage - loose files (N · run /para-triage)`, plus a one-line note that this is a read-only vault.
-- **Type A (PARA vault with action tracking)** otherwise - the normal full dashboard (Steps 2-6).
+- **Type B (read-only consumer vault)** - no `actions.md` anywhere **and** a `flip.ps1` or `render.ps1` at the vault root. Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one. Skip everything except 📥 Triage (Step 5b), titled `## 📥 Triage - loose files (N · run /para-triage)`, plus a one-line note that this is a read-only vault.
+- **Type A (PARA vault with action tracking)** otherwise - the full flow.
 
-Fold the detection into Step 2: only if the grep returns zero `actions.md` matches, Glob for `flip.ps1`/`render.ps1` to decide Type B vs. a genuinely empty Type A vault.
+Fold the detection into Step 2: only if the grep returns zero `actions.md` matches, Glob for `flip.ps1` / `render.ps1` to decide Type B vs. a genuinely empty Type A vault.
 
-### Step 2: Extract all open tasks and headings
+### Steps 2 to 4b: Scan, parse, bucket, aggregate
 
-One Grep call, scoped tightly to action-bearing files. Do NOT scan the whole vault with `path: .` + `type: md` - that pulls in every README and reference doc (70KB+ on a moderately populated vault).
+One tightly scoped Grep over action-bearing files, then heading association, marker parsing, bucketing against today, and per-entity aggregation. **Full procedure: [references/task-scan.md](references/task-scan.md).**
 
-- `pattern`: `^(# |## |- \[ \])`
-- `glob`: `{**/actions.md,**/network/*.md,**/contacts/*.md,**/people/*.md}` (flat alternates only - ripgrep does not support nested `{}` globs)
-- `path`: `.` - the vault root, which is the CWD
-- `output_mode`: `content`
-- `-n`: `true`
-- `head_limit`: `0` (unlimited - missing a match means a wrong dashboard)
+### Steps 4c to 4e: Health flags, ideas lane, Vision
 
-ripgrep returns lines like `path/to/file.md:5:## Heading` grouped by file in line-number order. **Discard any match whose path starts with `archive/` or `resources/`** (see the vault's "Where a checkbox may live" rule). Do this as a post-filter, never by anchoring the glob to `projects/**/`: a root-anchored alternate silently matches nothing when `path` is not the vault root, dropping every `actions.md` while the call still appears to succeed.
+Standing signals computed from the task scan, plus the ideas lane and the Vision read. All read-only. **Full procedure: [references/signals.md](references/signals.md).**
 
-If the call returns zero matches, apply the Step 1b Type B check; if Type A, respond `No action-bearing files found in <cwd>.` and stop.
+### Step 5: Rank and cap
 
-**Handle truncated lines.** ripgrep emits `[Omitted long matching line]` for results past its column-width limit, which silently corrupts the dashboard. For each `(file, line)` pair flagged as omitted, recover it with `Read` using `offset: <line>, limit: 1` - do not read the whole file.
+Merge 🔴 + 🟠 + 🟡 into the **Now** candidates. Sort: overdue and due-today items before merely-upcoming ones (a blown or due date never drops out of the list below something that can still wait), then priority descending (🔺 to 🔼 to none to 🔽 to ⏬), then date ascending, then **Vision alignment** as the tiebreak - an item that visibly advances the Vision outranks one that doesn't, at equal priority and date. Vision never overrides a real deadline.
 
-### Step 3: Associate tasks with section headings and parse markers
+**Cap Now at five.** Five ranked beats ten unranked. Everything else becomes one-line **Later** counts (this week beyond the cap, next 30 days, later, recurring, waiting, undated). If overdue and due-today items alone exceed five, they take the whole list; add `*(run /para-daily-brief overdue for the full list)*`.
 
-For each surviving file, walk its lines in the order ripgrep returned them, maintaining two cursors:
+### Steps 5b to 5c: Triage count and agenda
 
-- `currentH1` - most recent `# ` heading seen
-- `currentH2` - most recent `## ` heading seen since the last H1 (reset to null on H1)
-
-For each line:
-- `# <text>` → set `currentH1 = <text>`, reset `currentH2 = null`
-- `## <text>` → set `currentH2 = <text>`
-- `- [ ] <text>` → emit a task. Section heading = `currentH2`, unless it's literally `Next actions` (case-insensitive) in which case use `currentH1`. If both are null, leave section blank.
-
-`- [x]` (completed) lines never match the regex, so no separate skip logic is needed.
-
-For each emitted task, parse markers from the line text:
-
-| Marker | Regex | Meaning |
-|---|---|---|
-| Due date | `📅 (\d{4}-\d{2}-\d{2})` | Hard deadline |
-| Start date | `🛫 (\d{4}-\d{2}-\d{2})` | Not actionable until this date |
-| Scheduled | `⏳ (\d{4}-\d{2}-\d{2})` | Planned work date - used as the effective date when there is no `📅` (see Step 4) |
-| Recurring | `🔁 (every [^📅🛫⏳🔺🔼🔽⏬\n]+)` | Cadence pattern |
-| Priority | `[🔺🔼🔽⏬]` | 🔺 highest → ⏬ lowest (4 levels; no marker = medium) |
-
-Derive the **scope label** from the file path: strip the leading category folder (`projects/`, `areas/`) and the trailing `/actions.md` (action files) or `.md` (contact files). Preserve an intermediate subfolder when the leaf alone is ambiguous (e.g. a country code or short acronym). Examples:
-
-- `projects/ticketing-platform-replacement/actions.md` → `ticketing-platform-replacement`
-- `areas/finance/vat/actions.md` → `finance/vat`
-- `areas/network/jan-claes.md` → `network/jan-claes`
-
-If the path doesn't start with a known category folder, use the full relative path minus the trailing `/actions.md` or `.md`.
-
-Final per-task record: file path (relative to CWD), line number, scope label, task text (stripped of all emoji markers and trailing whitespace), due/start/scheduled dates, priority, recurring cadence, and section heading (per the H2/H1 fallback rule above).
-
-### Step 4: Bucket against today
-
-Let `T` = today's date from Step 1.
-
-Let `D` = the task's **effective date**: its `📅` due date if present, otherwise its `⏳` scheduled date.
-
-| Bucket | Condition |
-|---|---|
-| 🔴 Overdue | has `D` AND `D < T` |
-| 🟠 Today | has `D` AND `D == T` |
-| 🟡 This week | has `D` AND `T < D ≤ T+7` |
-| 🔵 Next 30 days | has `D` AND `T+7 < D ≤ T+30` |
-| ⚪ Later | has `D` AND `D > T+30` |
-| 🔁 Recurring | has `🔁` marker - classify here regardless of `D` |
-| ⏳ Waiting | has `🛫` AND `🛫 > T` (not actionable yet) |
-| ❓ Undated | no `D`, no `🔁`, and no *future* `🛫` |
-
-A **past `🛫`** (a start-gate that has already opened) is not "waiting" and does not make a task undated on its own - ignore it and bucket the task by `D` if it has one, else Undated. Only a *future* `🛫` routes a task to Waiting.
-
-**Precedence when multiple apply:** Recurring > Waiting > date-based bucket. An overdue recurring item is in Recurring, not Overdue. In the `overdue` scope, list overdue recurring items (`🔁` with a past `D`) inside 🔴 Overdue too, tagged `🔁`.
-
-### Step 5: Sort within each bucket
-
-1. Priority descending: 🔺 → 🔼 → (no marker) → 🔽 → ⏬
-2. Date ascending (nearest first)
-3. File path alphabetically
-
-### Step 5b: Check the triage folder (optional)
-
-Use Glob to check whether `triage/` exists. If it does, list its **direct file children** (top-level only - subdirectories like `triage/mail/` are not loose triage items). Capture filenames and a count. If the folder is missing or empty, omit the Triage section entirely.
-
-**Do not parse file contents.** This is a pure file listing.
-
-In a Type B vault this section is the *entire* output, with the title and read-only framing from Step 1b.
-
-### Step 5c: Build the 🗓 Agenda from meetings.md
-
-Type A vaults only. Meetings live one per line in the vault's `meetings.md`. Grep the current vault:
-
-- `pattern`: `^- 🗓 `
-- `glob`: `**/meetings.md`
-- `output_mode`: `content`, `-n`: `true`, `head_limit`: `0`
-
-Discard `archive/` paths. Parse each line - `- 🗓 <date> [<time>] · <title> [· <field>…] [🔁 every <cadence>]`:
-- date `(\d{4}-\d{2}-\d{2})`; optional time `(\d{1,2}:\d{2}(?:[–-]\d{1,2}:\d{2})?)`; then ` · `-separated
-  fields (first = title). If `🔁 (every …)` present, capture the cadence and strip it.
-
-Bucket against today `T`:
-- `🔁` present → **Recurring**; date == `T` → **Today**; `T` < date ≤ `T+7` → **This week**;
-  date > `T+7` → **Upcoming** (count only, expand in `all`); date < `T` and not recurring → ignore (past).
-
-Sort within each group by date then time. Omit the Agenda entirely if no meetings are in scope, or if
-the vault has no `meetings.md`.
+The triage count and the agenda. All read-only. **Full procedure: [references/signals.md](references/signals.md).**
 
 ### Step 6: Render output
 
-Use this exact layout, filtered to the sections the argument selects (see Arguments). **Omit any bucket that has zero items** - no empty placeholders. Always start with the H1 title line.
+Exact layout, line rules, and the single Next action close. **Full spec: [references/output.md](references/output.md).**
 
-```
-# Daily Brief - <YYYY-MM-DD>
+### Step 7: The visual dashboard
 
-## 🗓 Agenda
-**Today**
-- <time> · <title> · <attendees/where>
-**This week**
-- <Dow DD> · <time> · <title>
-**Recurring**
-- every <cadence> · <title>
-*(+N more upcoming)*
+Default and `all` scopes only, and **only when an Artifact tool is available in the harness** - if it is not, skip this step silently; the terminal output above is complete on its own.
 
-## 🔴 Overdue (N)
-- 🔺 <task text> - [<scope>:<line>](<relative/path>#L<line>) · *<section heading>* · 📅 <date> (<Nd> ago)
-- ...
-
-## 🟠 Today (N)
-- <task text> - [<scope>:<line>](<path>#L<line>) · *<section>* · 📅 <today>
-
-## 🟡 This week (N)
-- <task text> - [<scope>:<line>](<path>#L<line>) · *<section>* · 📅 <date> (in <Nd>)
-
-## 🔵 Next 30 days (N)
-- ...
-
-## 🔁 Recurring (N)
-- <task text> - [<scope>:<line>](<path>#L<line>) · *<section>* · every 3 months · next 📅 <date>
-
-## ⏳ Waiting on start date (N)
-- <task text> - [<scope>:<line>](<path>#L<line>) · *<section>* · 🛫 <date> (starts in <Nd>)
-
-## 📥 Triage (N to process)
-- [<filename>](triage/<filename>)
-- ...
-
-## Collapsed
-- Later (>30 days): N items
-- Undated: N items
-```
-
-**Line rules:**
-- One line per task - no wraps
-- Priority emoji at start of bullet when present (🔺/🔼/🔽/⏬), omit the emoji when priority is medium
-- Date suffix in parens - "(22d ago)" for overdue, "(in 5d)" for upcoming
-- Section heading italicized - gives context *why* the task exists
-- Link text is `<scope>:<line>` (e.g. `cashless-stadium-rollout:7`), so the project/area is visible without opening the file
-- Use relative paths from CWD for the link target (VS Code renders them clickable via the extension)
+Read [references/dashboard.md](references/dashboard.md) for the page spec. Build the self-contained HTML from the data already collected (no new scanning), write it to the harness's scratchpad or temp directory - **never inside the vault**; it is a derived output and would sync - and publish it. **Update in place across days:** list existing artifacts first and, if one titled `<Vault name> Dashboard` exists, publish with its `url`; otherwise create it. Give the user the link on one line.
 
 ## Strict rules
 
 - **Do NOT parse completed items (`- [x]`)** - they're history.
-- **Do NOT rewrite actions.md files** to "fix" missing markers. If an item is undated, report it as undated; don't invent dates.
-- **Do NOT follow links** into other files for extra context. The H2 section heading is sufficient.
-- **Do NOT add commentary or recommendations** about what to do. Just present the dashboard. Decisions are the user's.
-- **Do NOT include the `**Status:**` lines** from actions files.
-- **Do NOT dedupe cross-referenced items** (same task mentioned in two files). Show both - the links let the user jump to either context.
-- **Meetings (🗓 Agenda): today + future only, never invented.** Ignore past-dated, non-recurring meeting lines (history). Render only what the `meetings.md` line contains - never fabricate a meeting, time, or attendee.
+- **Do NOT rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`; this skill never applies them.
+- **Do NOT follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, and idea `**Stage:**` lines.)
+- **Do NOT add commentary or recommendations** beyond the Health flags and the single Next action. Decisions are the operator's.
+- **Do NOT dedupe cross-referenced items** (same task in two files). Show both.
+- **Meetings: today and future only, never invented.** Render only what the calendar or `meetings.md` line contains - never fabricate a meeting, time, or attendee. Calendars are read-only.
+- **Do NOT include `**Status:**` lines** from actions files.
 
 ## Edge cases
 
-- **Vault with no actions.md files:** apply Step 1b. Type B → the Triage-only output, never "No actions.md files found." Type A with an empty/absent `triage/` → respond "No actions.md files found in <cwd>." and stop; Type A with a populated triage → render only the 📥 Triage section.
-- **`triage/` missing or empty:** silently omit the Triage section.
-- **File with only completed items:** skip silently, don't list it.
-- **Item with both 🛫 future AND 📅:** goes in Waiting (not actionable yet).
-- **Item with 🛫 in the past (start-gate opened):** ignore the 🛫; bucket by the effective date `D` (its `📅`, else its `⏳`). If it has neither, it goes to Undated - a past `🛫` alone never routes to Waiting and never hides the task.
-- **Item with ⏳ scheduled but no 📅:** bucket by the `⏳` date as the effective date `D` (Overdue/Today/This week/... just like a due date). It is not Undated.
-- **Overdue recurring item in `overdue` scope:** a `🔁` task with a past effective date is normally in Recurring, but in the `overdue` scope it also appears in 🔴 Overdue (tagged `🔁`) so "what's late" stays complete.
-- **Recurring item without a date:** still list in Recurring, show "next: -" placeholder.
-- **Undated item with 🔺 priority:** still goes in Undated bucket, but retains 🔺 marker in output.
-- **Malformed date** (e.g. `📅 2026-13-45`): skip the date, treat as undated, and note "(malformed date)" at end of line.
-- **Open item found in `resources/` or `archive/`:** Step 2's discard rule drops it. `/para-deep-clean` owns the repair.
-
-## Example output (fragment)
-
-```
-# Daily Brief - 2026-04-22
-
-## 🔴 Overdue (2)
-- 🔺 Score the two remaining ticketing vendor bids - [ticketing-platform-replacement:13](projects/ticketing-platform-replacement/actions.md#L13) · *Vendor selection* · 📅 2026-03-31 (22d ago)
-- Jan to send the legacy POS transaction export - [cashless-stadium-rollout:7](projects/cashless-stadium-rollout/actions.md#L7) · *Data migration (critical path)* · 📅 2026-04-02 (20d ago)
-```
+- **Vault with no actions.md files:** apply Step 1b. Type B gives the Triage-only output. Type A with empty or absent `triage/` gives `No actions.md files found in <cwd>.` and stops; with a populated triage, render only 📥 Triage.
+- **Item with both future `🛫` AND `📅`:** Waiting (not actionable yet). **Past `🛫`:** ignore the gate, bucket by `D`, else Undated - a past `🛫` never hides a task.
+- **Item with `⏳` but no `📅`:** the `⏳` date is `D`. Not Undated.
+- **Recurring item without a date:** counts in Recurring; in `all`, show "next: -".
+- **Malformed date** (`📅 2026-13-45`): treat as undated, note "(malformed date)".
+- **Fewer than 5 Now candidates:** show what exists; never pad the list from Undated.
+- **`resources/ideas/` missing or empty:** omit the Ideas lane.
+- **Artifact publish fails** (no tool, no network): say so in one line and move on - the terminal brief already stands.

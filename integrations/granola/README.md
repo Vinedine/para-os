@@ -5,7 +5,7 @@ Pull your [Granola](https://www.granola.ai/) meetings - the enhanced notes *and*
 Granola holds a rich, growing record of every call you take. This integration lands that record in your vault as plain Markdown, so the assistant can read across your meetings the same way it reads everything else.
 
 ```
-Granola app  ──▶  granola-sync.js  ──▶  <vault>/triage/20260709 Kickoff call.md  ──▶  /para-triage files it
+Granola app  ──▶  granola.js  ──▶  <vault>/triage/20260709 Kickoff call.md  ──▶  /para-triage files it
 ```
 
 ## Prerequisites
@@ -18,7 +18,7 @@ Granola app  ──▶  granola-sync.js  ──▶  <vault>/triage/20260709 Kick
 
 1. Copy both scripts into the vault you want meetings to land in:
    ```
-   <vault>/resources/scripts/granola-sync.js
+   <vault>/resources/scripts/granola.js
    <vault>/resources/scripts/granola-auth-init.js
    ```
    The sync finds its vault from its own location (two levels up), so it must live under `resources/scripts/`.
@@ -31,8 +31,8 @@ Granola app  ──▶  granola-sync.js  ──▶  <vault>/triage/20260709 Kick
 
 3. **Dry run**, then write:
    ```
-   node <vault>/resources/scripts/granola-sync.js            # shows what it would write, touches nothing
-   node <vault>/resources/scripts/granola-sync.js --write    # creates the notes in triage/
+   node <vault>/resources/scripts/granola.js            # shows what it would write, touches nothing
+   node <vault>/resources/scripts/granola.js --write    # creates the notes in triage/
    ```
 
 4. Run `/para-triage` in the vault to file the new notes.
@@ -40,9 +40,9 @@ Granola app  ──▶  granola-sync.js  ──▶  <vault>/triage/20260709 Kick
 ## Usage
 
 ```
-node granola-sync.js            # DRY RUN (default) - last 30 days
-node granola-sync.js --write    # create the notes
-node granola-sync.js --days 14  # override the look-back window
+node granola.js            # DRY RUN (default) - last 30 days
+node granola.js --write    # create the notes
+node granola.js --days 14  # override the look-back window
 ```
 
 Re-runs are safe: a dedup ledger (`~/.paraos/cache/granola/synced.json`) and an existing-file check mean a meeting is never written twice. Delete a synced note and it will not come back unless you also clear it from the ledger.
@@ -63,10 +63,15 @@ The root is `PARAOS_HOME` (default `~/.paraos`). See [`integrations/README.md`](
 
 ## Multiple vaults (optional)
 
-Run several vaults and want one Granola account fanned out across them? Prefix your meeting titles by vault (e.g. `Acme - Steering`, `Home - Contractor`) and set the `ROUTE` map at the top of `granola-sync.js`:
+Run several vaults and want one Granola account fanned out across them? Prefix your meeting titles by vault (e.g. `Acme - Steering`, `Home - Contractor`) and drop a `granola.config.json` next to the script, mapping each title prefix to its sibling vault folder (copy `granola.config.json.template` to start):
 
-```js
-const ROUTE = { Acme: "acme-client", Home: "family", Side: "side-project" }; // title prefix -> sibling vault folder
+```json
+{
+  "meetings_subdir": "triage",
+  "route": { "Acme": "acme-client", "Home": "family", "Side": "side-project" }
+}
 ```
 
-With `ROUTE` set, each copy of the script writes only its own vault's meetings by default; `--vault X` targets another, `--all` writes every routed vault in one pass. The vaults must be sibling folders under one parent. Leave `ROUTE` empty (the default) and every meeting simply goes to the local vault - which is all a single-vault user needs.
+With `route` set, each copy of the script writes only its own vault's meetings by default; `--vault X` targets another, `--all` writes every routed vault in one pass. The vaults must be sibling folders under one parent. Prefixes match case-insensitively, so `ACME - Steering` routes on an `Acme` key. Omit the file entirely - or leave `route` empty - and every meeting simply goes to the local vault, which is all a single-vault user needs.
+
+**The config is a separate file on purpose.** With the table in `granola.config.json`, `granola.js` holds nothing vault-specific, so re-syncing an installed copy is a straight file copy that leaves the routing untouched. Keep it that way: configure the vault in the JSON, never in the script - an edit to the script is what the next resync silently discards.
