@@ -36,14 +36,25 @@ In order, with `git mv` / `git rm` so history is preserved (fall back to plain `
 3. Create the successor scaffold if chosen.
 4. Retense and clean `brief.md` and `actions.md` to their archived form.
 5. Move the entity to its archive bucket: `projects/<name>/` to `archive/projects/<name>[-v1]/`, or `resources/ideas/<name>/` to `archive/ideas/<name>/`. Create the destination parent if needed. **Check the destination does not already exist first** (`test -e "<dst>" && echo EXISTS`). If it exists, stop and resolve the collision with the user - never let `mv` merge into or clobber an occupied archive path.
-6. Apply every approved link repoint from the Step 6 table.
-7. **Windows note**: an empty source directory can linger ("device or resource busy") if the IDE or a terminal holds a handle - the files moved fine; `rm -rf` the empty shell and tell the user it was a stale handle, not a failure.
+6. **Re-depth the links *inside* the moved folder** ([operating-discipline.md](../../para-shared/operating-discipline.md#moving-an-entity-folder)). Two of the four moves above change depth, in opposite directions:
+
+   | Move | Depth | Each outbound link |
+   |---|---|---|
+   | `projects/<name>/` to `archive/projects/<name>[-v1]/` | 2 to 3 | gains one `../` |
+   | `resources/ideas/<name>/` to `archive/ideas/<name>/` | 3 to 3 | unchanged |
+   | routed file, `projects/<name>/` to `resources/<name>/` | 2 to 2 | unchanged |
+   | routed file, `resources/ideas/<name>/` to `resources/<name>/` | 3 to 2 | loses one `../` |
+
+   Depths are the entity folder's own; a file in a `sources/` subfolder starts one deeper and shifts by the same amount.
+7. Apply every approved link repoint from the Step 6 table.
+8. **Windows note**: an empty source directory can linger ("device or resource busy") if the IDE or a terminal holds a handle - the files moved fine; `rm -rf` the empty shell and tell the user it was a stale handle, not a failure.
 
 ## Step 8 - Verify and report
 
-- Re-run the inbound-link grep. Assert **zero** stale references remain to the old source path. A still-live historical mention inside the archived folder itself (a migration plan, say) is acceptable; flag it explicitly.
+- Re-run the inbound-link grep. Assert **zero** stale references remain to the old source path.
+- Resolve every relative link *inside* the archived folder and any file routed to `resources/` - the half the inbound grep cannot see. A still-live historical mention inside the archived folder itself (a migration plan, say) is acceptable; flag it explicitly.
 - Confirm the archived folder contains only history (brief, actions, one-time plans) and that the successor, if any, holds the surviving work.
-- Report: what was archived (project or idea), the version decision (projects only), files routed to resources, snapshots deleted, the successor created, and the count of links repointed with the table.
+- Report: what was archived (project or idea), the version decision (projects only), files routed to resources, snapshots deleted, the successor created, and the count of links repointed with the table - inbound and outbound counted separately, since they come from different scans.
 - Remind the user that nothing is committed (per the no-commit convention) and, if the skill itself or a public repo was touched, that those need their own review.
 
 ## Edge cases

@@ -30,7 +30,9 @@ SCRIPT = HERE / "outlook.py"
 # Stub `requests` so the suite runs on a bare interpreter. Nothing under test calls it; any
 # test that reached the network would fail loudly on the missing attribute rather than
 # silently hitting Microsoft.
-sys.modules.setdefault("requests", types.ModuleType("requests"))
+_requests_stub = types.ModuleType("requests")
+_requests_stub.Session = lambda: None      # outlook.py builds one at import; nothing calls it
+sys.modules.setdefault("requests", _requests_stub)
 
 spec = importlib.util.spec_from_file_location("outlook", SCRIPT)
 osync = importlib.util.module_from_spec(spec)
@@ -95,40 +97,73 @@ class WriteTriage(unittest.TestCase):
         m.update(over)
         return m
 
+    def write(self, msg=None, reason="contact", body="hello", source="uniqueBody"):
+        return osync.write_triage(self.root, "me@h.com", msg or self.msg(), reason, body, source)
+
     def test_filename_matches_the_vault_convention(self):
-        p = osync.write_triage(self.root, "me@h.com", self.msg(), "contact")
+        p = self.write()
         self.assertRegex(p.name, TRIAGE_NAME)
         self.assertTrue(p.name.startswith("20260728 "), p.name)
 
     def test_null_from_does_not_crash(self):
         # Graph sends "from": null for drafts and some system-generated mail.
-        p = osync.write_triage(self.root, "me@h.com", self.msg(**{"from": None}), "contact")
+        p = self.write(self.msg(**{"from": None}))
         self.assertIn("- **From:**  <>", p.read_text(encoding="utf-8"))
 
     def test_null_body_preview_and_weblink_do_not_crash(self):
-        p = osync.write_triage(self.root, "me@h.com",
-                               self.msg(bodyPreview=None, webLink=None), "keyword:invoice")
+        p = self.write(self.msg(bodyPreview=None, webLink=None), "keyword:invoice", body="")
         self.assertIn("- **Link:** \n", p.read_text(encoding="utf-8"))
 
     def test_missing_received_date_still_yields_a_usable_name(self):
-        p = osync.write_triage(self.root, "me@h.com", self.msg(receivedDateTime=None), "contact")
+        p = self.write(self.msg(receivedDateTime=None))
         self.assertFalse(p.name.startswith(" "), f"leading space in {p.name!r}")
         self.assertFalse(p.name.startswith("."), f"hidden file: {p.name!r}")
 
     def test_same_message_twice_is_one_file(self):
-        a = osync.write_triage(self.root, "me@h.com", self.msg(), "contact")
-        b = osync.write_triage(self.root, "me@h.com", self.msg(), "contact")
+        a = self.write()
+        b = self.write()
         self.assertEqual(a, b)
         self.assertEqual(len(list((self.root / "triage").iterdir())), 1)
 
     def test_thread_replies_sharing_a_subject_get_distinct_files(self):
-        a = osync.write_triage(self.root, "me@h.com", self.msg(id="one"), "contact")
-        b = osync.write_triage(self.root, "me@h.com", self.msg(id="two"), "contact")
+        a = self.write(self.msg(id="one"))
+        b = self.write(self.msg(id="two"))
         self.assertNotEqual(a.name, b.name)
 
-    def test_body_is_the_preview_stripped(self):
-        p = osync.write_triage(self.root, "me@h.com", self.msg(), "contact")
-        self.assertTrue(p.read_text(encoding="utf-8").endswith("hello\n"))
+    def test_body_is_the_fetched_body_not_the_preview(self):
+        # The bug this replaced: bodyPreview went straight into the file, capped by Graph at
+        # 255 chars, with nothing in the file saying so. A record that reads as complete and
+        # is not is worse than one that fails outright.
+        p = self.write(body="the full message, well past what a preview would hold")
+        text = p.read_text(encoding="utf-8")
+        self.assertTrue(text.endswith("the full message, well past what a preview would hold\n"))
+        self.assertNotIn("hello", text)
+
+    def test_a_preview_fallback_says_so_in_the_file(self):
+        # The fallback files Graph's 255-char preview. Unmarked it is indistinguishable from
+        # the full message - the exact failure fetching the body exists to end - and the
+        # ledger entry written straight after means no later run revisits it. So the
+        # qualification has to live in the file, where its reader is.
+        p = self.write(body="cut off mid-sen", source="preview")
+        text = p.read_text(encoding="utf-8")
+        self.assertIn("- **Body:** preview only", text)
+        self.assertIn("255-character", text)
+
+    def test_a_full_body_carries_no_such_marker(self):
+        for source in ("uniqueBody", "body"):
+            p = self.write(body="the whole message", source=source)
+            self.assertNotIn("- **Body:**", p.read_text(encoding="utf-8"), source)
+
+    def test_the_marker_sits_above_the_link_so_the_body_stays_measurable(self):
+        # Everything after the Link line is the message body verbatim. A marker placed below it
+        # would add its own characters to the body of every degraded record, so anything that
+        # measures body length - a reader judging whether a record is complete, or a tool
+        # auditing for truncation - would count the note as part of the message.
+        p = self.write(body="x" * 255, source="preview")
+        text = p.read_text(encoding="utf-8")
+        self.assertLess(text.index("- **Body:**"), text.index("- **Link:**"))
+        self.assertEqual(text.split("- **Link:** https://outlook.live.com/x")[1].strip(),
+                         "x" * 255)
 
 
 class Addrs(unittest.TestCase):
@@ -437,7 +472,7 @@ class AccountFilter(unittest.TestCase):
 
     def test_vault_level_keywords_apply_when_accounts_is_a_list(self):
         vc = {"accounts": ["a@h.com"], "keywords": ["Invoice"]}
-        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["invoice"], False, True))
+        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["invoice"], False, True, set()))
 
     def test_a_per_account_block_overrides_the_vault_default(self):
         vc = {"keywords": ["invoice"],
@@ -450,7 +485,7 @@ class AccountFilter(unittest.TestCase):
         # not silently revert it to the shipped default.
         vc = {"keywords": ["x"], "match_body": False,
               "accounts": {"a@h.com": {"keywords": ["y"]}}}
-        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["y"], False, False))
+        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["y"], False, False, set()))
 
     def test_match_all_is_per_account(self):
         vc = {"keywords": ["invoice"],
@@ -460,14 +495,14 @@ class AccountFilter(unittest.TestCase):
 
     def test_an_unlisted_account_gets_the_vault_default(self):
         vc = {"keywords": ["invoice"], "accounts": {"a@h.com": {"match_all": True}}}
-        self.assertEqual(osync.account_filter(vc, "other@h.com"), (["invoice"], False, True))
+        self.assertEqual(osync.account_filter(vc, "other@h.com"), (["invoice"], False, True, set()))
 
     def test_a_null_override_falls_back_rather_than_crashing(self):
         # JSON `null` on a per-account key is a plausible "no opinion, use the vault
         # default" typo, not an actual empty/false value - `.get(key, default)` doesn't
         # tell those apart on its own, so this must be handled explicitly.
         vc = {"keywords": ["invoice"], "accounts": {"a@h.com": {"keywords": None}}}
-        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["invoice"], False, True))
+        self.assertEqual(osync.account_filter(vc, "a@h.com"), (["invoice"], False, True, set()))
 
     def test_a_null_match_body_override_falls_back_rather_than_silently_disabling(self):
         vc = {"match_body": True, "accounts": {"a@h.com": {"match_body": None}}}
@@ -475,7 +510,23 @@ class AccountFilter(unittest.TestCase):
 
     def test_a_null_vault_level_default_falls_back_to_the_shipped_default(self):
         vc = {"keywords": None, "accounts": {}}
-        self.assertEqual(osync.account_filter(vc, "a@h.com"), ([], False, True))
+        self.assertEqual(osync.account_filter(vc, "a@h.com"), ([], False, True, set()))
+
+    def test_subject_only_keywords_default_to_empty_and_are_lowercased(self):
+        self.assertEqual(osync.account_filter({"keywords": ["x"]}, "a@h.com")[3], set())
+        vc = {"keywords": ["Stationsstraat"], "subject_only_keywords": ["Stationsstraat"]}
+        self.assertEqual(osync.account_filter(vc, "a@h.com")[3], {"stationsstraat"})
+
+    def test_subject_only_keywords_resolve_per_account_like_every_other_setting(self):
+        vc = {"keywords": ["stationsstraat"], "subject_only_keywords": ["stationsstraat"],
+              "accounts": {"a@h.com": {}, "b@h.com": {"subject_only_keywords": []}}}
+        self.assertEqual(osync.account_filter(vc, "a@h.com")[3], {"stationsstraat"})
+        self.assertEqual(osync.account_filter(vc, "b@h.com")[3], set())
+
+    def test_a_null_subject_only_override_falls_back_rather_than_emptying_the_list(self):
+        vc = {"subject_only_keywords": ["stationsstraat"],
+              "accounts": {"a@h.com": {"subject_only_keywords": None}}}
+        self.assertEqual(osync.account_filter(vc, "a@h.com")[3], {"stationsstraat"})
 
     def test_vault_accounts_reads_both_config_shapes(self):
         self.assertEqual(osync.vault_accounts({"accounts": ["a@h.com", "b@h.com"]}),
@@ -528,6 +579,38 @@ class FilterModes(unittest.TestCase):
         self.assertEqual(osync.is_relevant(msg, {"jan@club.be"}, [], match_all=True), "contact")
 
 
+class SubjectOnlyKeywords(unittest.TestCase):
+    """A keyword that is also a street name doubling as somebody's home or delivery address
+    keeps matching parcel and marketing bodies forever. Turning match_body off for the whole
+    account closes that at the price of every OTHER keyword's body side - the exact blind
+    spot match_body exists to cover - so the opt-out is per keyword."""
+
+    KW = ["stationsstraat", "kerkstraat"]
+    SUBJ_ONLY = {"stationsstraat"}
+
+    def rel(self, subject, body):
+        msg = {"from": {"emailAddress": {"address": "no-reply@notify.courier.example"}},
+               "subject": subject, "bodyPreview": body}
+        return osync.is_relevant(msg, set(), self.KW, subject_only=self.SUBJ_ONLY)
+
+    def test_the_courier_false_positive_no_longer_matches(self):
+        self.assertIsNone(self.rel("Your parcel has been delivered",
+                                   "Delivered at Stationsstraat 12, 1000 Brussel"))
+
+    def test_a_real_subject_hit_on_the_same_keyword_still_matches(self):
+        self.assertEqual(self.rel("Re: Stationsstraat dakwerken - factuur", ""),
+                         "keyword:stationsstraat")
+
+    def test_every_other_keyword_keeps_its_body_side(self):
+        self.assertEqual(self.rel("Offerte", "in bijlage voor Kerkstraat 30"),
+                         "body:kerkstraat")
+
+    def test_a_subject_only_keyword_that_is_not_a_keyword_is_inert(self):
+        msg = {"from": {"emailAddress": {"address": "x@y.com"}},
+               "subject": "stationsstraat", "bodyPreview": ""}
+        self.assertIsNone(osync.is_relevant(msg, set(), [], subject_only={"stationsstraat"}))
+
+
 class VaultConfigNaming(unittest.TestCase):
     """The script/config rename. A half-done migration - script updated, config left behind -
     must be loud, because a copy that reads no config files nothing and looks configured."""
@@ -544,6 +627,280 @@ class VaultConfigNaming(unittest.TestCase):
     def test_both_config_names_resolve_beside_the_script(self):
         self.assertEqual(osync.VAULT_CONFIG.parent, osync.SCRIPT_DIR)
         self.assertEqual(osync.LEGACY_VAULT_CONFIG.parent, osync.SCRIPT_DIR)
+
+
+class FetchBody(unittest.TestCase):
+    """Filing reads the full body, not the 255-char preview the FILTER reads. The two fields
+    are different jobs: a record built from the preview stops mid-sentence while presenting
+    itself as a complete one."""
+
+    MSG = {"id": "AAMkAD", "bodyPreview": "preview, capped at 255"}
+
+    def fetch(self, payload, **over):
+        """((body, source), the graph_get mock). `over` patches the message, e.g. subject."""
+        with mock.patch.object(osync, "graph_get", return_value=payload) as g:
+            return osync.fetch_body("tok", dict(self.MSG, **over)), g
+
+    def test_unique_body_wins(self):
+        # The reply without the quoted history: a file for the fifth message in a thread
+        # should hold that message, not five copies of the thread.
+        (body, source), _ = self.fetch({"uniqueBody": {"content": "just my reply"},
+                              "body": {"content": "just my reply\n> and 5k of quoted thread"}})
+        self.assertEqual(body, "just my reply")
+        self.assertEqual(source, "uniqueBody")
+
+    def test_falls_back_to_body_when_unique_body_is_empty(self):
+        # Graph cannot always work out the reply boundary and returns an empty uniqueBody.
+        (body, source), _ = self.fetch({"uniqueBody": {"content": "  "},
+                                        "body": {"content": "whole thread"}})
+        self.assertEqual(body, "whole thread")
+        self.assertEqual(source, "body")
+
+    def test_falls_back_to_the_preview_when_graph_returns_neither(self):
+        (body, source), _ = self.fetch({})
+        self.assertEqual(body, "preview, capped at 255")
+        self.assertEqual(source, "preview", "the caller cannot mark what it is not told")
+
+    def test_a_failed_fetch_files_the_preview_rather_than_killing_the_sync(self):
+        with mock.patch.object(osync, "graph_get", side_effect=RuntimeError("503")), \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            body, source = osync.fetch_body("tok", dict(self.MSG))
+        self.assertEqual(body, "preview, capped at 255")
+        self.assertEqual(source, "preview", "a failed fetch must be reported as degraded")
+        self.assertIn("body fetch failed", err.getvalue())
+
+    def test_graph_is_asked_for_plain_text_server_side(self):
+        # Without the Prefer header the body comes back as HTML and something here would
+        # have to parse it. Let Graph do the conversion.
+        _, g = self.fetch({"body": {"content": "x"}})
+        self.assertEqual(g.call_args.kwargs["prefer"], 'outlook.body-content-type="text"')
+
+    def test_a_forward_files_the_forwarded_content_not_the_covering_note(self):
+        # uniqueBody excludes whatever Graph considers quoted, and for a forward that is the
+        # forwarded message itself - the reason the mail exists. Taking uniqueBody here cuts
+        # the file off at the client's "Begin forwarded message:" line.
+        (body, source), _ = self.fetch(
+            {"uniqueBody": {"content": "Dag Sofie, in bijlage heb ik de offerte gezet"},
+             "body": {"content": "Dag Sofie, in bijlage heb ik de offerte gezet\n\n"
+                                 "Begin forwarded message:\n\nTotaal 12.400 EUR"}},
+            subject="Fwd: Offerte Kerkstraat en Molenweg")
+        self.assertIn("12.400 EUR", body)
+        self.assertEqual(source, "body")
+
+    def test_a_forward_with_an_empty_body_still_falls_back_to_unique_body(self):
+        got, _ = self.fetch({"body": {"content": "  "},
+                             "uniqueBody": {"content": "covering note"}},
+                            subject="FW: Offerte")
+        self.assertEqual(got, ("covering note", "uniqueBody"))
+
+    def test_a_reply_is_unaffected_and_still_drops_the_quoted_history(self):
+        # The negative control: the forward branch must not reach replies, or every reply
+        # goes back to being five copies of its own thread.
+        got, _ = self.fetch({"uniqueBody": {"content": "Done"},
+                             "body": {"content": "Done\n> 600 chars of quoted thread"}},
+                            subject="Re: Offerte")
+        self.assertEqual(got, ("Done", "uniqueBody"))
+
+    def test_a_message_id_with_url_unsafe_characters_is_escaped(self):
+        # Graph ids are base64-derived and can carry "+", "/" and "=". An unescaped "/" splits
+        # the path into another segment, Graph 404s, and the message is filed as a preview - a
+        # degraded record caused by a URL this script built wrong rather than by the mailbox.
+        with mock.patch.object(osync, "graph_get", return_value={"body": {"content": "x"}}) as g:
+            osync.fetch_body("tok", {"id": "AA/k+D=", "bodyPreview": ""})
+        path = g.call_args.args[1]
+        self.assertIn("/me/messages/AA%2Fk%2BD%3D", path)
+        self.assertNotIn("AA/k+D=", path)
+        self.assertIn("?$select=", path, "only the id is escaped, not the query that follows")
+
+    def test_it_is_a_single_message_get_asking_for_both_fields(self):
+        _, g = self.fetch({"body": {"content": "x"}})
+        path = g.call_args.args[1]
+        self.assertIn("/me/messages/AAMkAD", path)
+        self.assertIn("uniqueBody", path)
+
+
+class IsForward(unittest.TestCase):
+    """`uniqueBody` means opposite things for a reply and a forward, and the subject is the
+    only thing filing has to tell them apart with."""
+
+    def test_a_forward_is_one_whatever_the_client_wrote(self):
+        for s in ("Fwd: Offerte Kerkstraat", "FW: 26.019039 - Rapport lekdetectie",
+                  "fwd: lowercase", "  Fw : leading space and a spaced colon"):
+            self.assertTrue(osync.is_forward(s), s)
+
+    def test_a_reply_or_a_plain_subject_is_not(self):
+        for s in ("Re: Offerte", "Offerte", "", None, "Forwarding you the offer"):
+            self.assertFalse(osync.is_forward(s), s)
+
+    def test_a_reply_to_a_forward_is_still_a_forward(self):
+        # The Re: chain is on the outside; what decides the body ordering is the Fwd: under it.
+        self.assertTrue(osync.is_forward("Re: Fwd: Offerte"))
+        self.assertTrue(osync.is_forward("RE: Re: FW: Offerte"))
+
+    def test_a_localised_client_writes_its_own_forward_prefix(self):
+        # The subject arrives in the sender's language, not the filter's. Missing one of these
+        # is not a cosmetic miss: the reply ordering then takes uniqueBody, which for a forward
+        # is the covering note alone, and the forwarded content never reaches the file. Exactly
+        # the defect this function was added to prevent, recurring one locale over.
+        for s in ("TR: Offre",                    # French
+                  "WG: Angebot",                  # German
+                  "Doorst: Offerte",              # Dutch
+                  "RV: Oferta",                   # Spanish
+                  "ENC: Proposta",                # Portuguese
+                  "VS: Tilbud",                   # Danish / Norwegian
+                  "VB: Offert",                   # Swedish
+                  "I: Preventivo"):               # Italian
+            self.assertTrue(osync.is_forward(s), s)
+
+    def test_a_localised_reply_prefix_does_not_hide_the_forward_under_it(self):
+        # The reply half is not enumerated - any `XX:` token is stepped over - so a German or
+        # Dutch reply sitting on top of a forward still resolves to a forward.
+        for s in ("AW: Fwd: Offerte", "Antw: FW: Offerte", "SV: VB: Offert",
+                  "RIF: WG: Angebot"):
+            self.assertTrue(osync.is_forward(s), s)
+
+    def test_an_ordinary_colon_in_a_subject_is_not_a_forward(self):
+        # The prefix scan must not turn every colon into a routing decision.
+        for s in ("Note: the roof needs doing", "Update: plan v2", "Q3: budget",
+                  "Contract renewal: final", "Re: Note: something"):
+            self.assertFalse(osync.is_forward(s), s)
+
+
+class SearchMessages(unittest.TestCase):
+    """`quote` is shared with fetch_body from the module imports rather than imported inside
+    this function, so the search path needs a guard of its own: an unquoted $search sends the
+    user's spaces and punctuation raw and Graph rejects the request."""
+
+    def test_the_query_is_quoted_and_phrase_wrapped(self):
+        with mock.patch.object(osync, "graph_get", return_value={"value": []}) as g:
+            osync.search_messages("tok", 'contract renewal & co')
+        path = g.call_args.args[1]
+        self.assertIn("$search=%22contract%20renewal%20%26%20co%22", path)
+
+    def test_it_stops_at_the_limit(self):
+        page = {"value": [{"id": str(i)} for i in range(50)], "@odata.nextLink": "http://next"}
+        with mock.patch.object(osync, "graph_get", return_value=page):
+            self.assertEqual(len(osync.search_messages("tok", "x", limit=20)), 20)
+
+
+class GraphGet(unittest.TestCase):
+    def get(self, *args, **kwargs):
+        """graph_get against a stubbed session; returns the session mock."""
+        session = mock.Mock()
+        session.get.return_value = mock.Mock(json=lambda: {}, raise_for_status=lambda: None)
+        with mock.patch.object(osync, "SESSION", session):
+            osync.graph_get(*args, **kwargs)
+        return session
+
+    def test_prefer_header_is_omitted_unless_asked_for(self):
+        session = self.get("tok", "/me/messages")
+        self.assertNotIn("Prefer", session.get.call_args.kwargs["headers"])
+
+    def test_reads_go_through_one_pooled_session(self):
+        # fetch_body makes this one call per filed message. Through `requests.get` each would
+        # build and discard its own session, paying a fresh DNS + TCP + TLS handshake.
+        self.assertIsInstance(osync.SESSION, object)
+        session = self.get("tok", "/me/messages")
+        session.get.assert_called_once()
+
+
+class SyncAccountPresence(unittest.TestCase):
+    """A refresh token lives only on the machine it was granted on. On a vault fed by several
+    mailboxes NO machine ever holds every account - not even the machine of whoever added the
+    second one - so a missing account is an absence to work around, not a reason to exit
+    before touching a single mailbox."""
+
+    ACCOUNTS = ["a@x.com", "b@x.com"]
+
+    def run_sync(self, cfg_accounts, account=None, filt=([], True, True, frozenset()),
+                 msgs=(), write=False):
+        """cmd_sync with the vault, the ledger and Graph stubbed out.
+
+        Returns (mailboxes read, stdout, stderr) - the per-account scope line and the closing
+        summary are on stdout, the per-skip warnings on stderr.
+        """
+        cfg = {"accounts": {e: {"refresh_token": "t"} for e in cfg_accounts}}
+        args = argparse.Namespace(account=account, days=7, write=write)
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(osync, "require_vault"), \
+                mock.patch.object(osync, "load_vault_config", return_value={}), \
+                mock.patch.object(osync, "vault_accounts", return_value=list(self.ACCOUNTS)), \
+                mock.patch.object(osync, "load_ledger", return_value={}), \
+                mock.patch.object(osync, "save_ledger"), \
+                mock.patch.object(osync, "write_triage"), \
+                mock.patch.object(osync, "build_allowlist", return_value={"z@x.com"}), \
+                mock.patch.object(osync, "account_filter", return_value=filt), \
+                mock.patch.object(osync, "access_token", side_effect=lambda c, e: "tok"), \
+                mock.patch.object(osync, "fetch_messages", return_value=list(msgs)) as fetched, \
+                contextlib.redirect_stdout(out), \
+                contextlib.redirect_stderr(err):
+            osync.cmd_sync(cfg, args)
+        return fetched.call_count, out.getvalue(), err.getvalue()
+
+    def test_a_missing_account_no_longer_blocks_the_ones_that_are_present(self):
+        n, _, err = self.run_sync(["a@x.com"])
+        self.assertEqual(n, 1, "the logged-in account was not synced")
+        self.assertIn("b@x.com", err)
+        self.assertIn("skipping", err)
+
+    def test_every_account_present_syncs_them_all_and_says_nothing(self):
+        n, _, err = self.run_sync(self.ACCOUNTS)
+        self.assertEqual(n, 2)
+        self.assertNotIn("skipping", err)
+
+    def test_no_account_logged_in_here_still_exits(self):
+        # Nothing to do and no partial result to report: that is a real stop.
+        with self.assertRaises(SystemExit):
+            self.run_sync([])
+
+    def test_a_named_account_that_is_not_logged_in_exits(self):
+        # A direct ask deserves a direct answer. Skipping past it would answer a question
+        # the user did not put.
+        with self.assertRaises(SystemExit):
+            self.run_sync(["a@x.com"], account="b@x.com")
+
+    def test_a_named_account_that_is_logged_in_syncs_only_that_one(self):
+        n, _, _ = self.run_sync(self.ACCOUNTS, account="a@x.com")
+        self.assertEqual(n, 1)
+
+    def test_the_scope_line_names_the_subject_only_count(self):
+        # With the opt-out resolving per keyword as well as per account, "which filter ran
+        # against this mailbox" stops being answerable from the config at a glance.
+        _, out, _ = self.run_sync(self.ACCOUNTS, filt=(["a", "b"], False, True, {"a"}))
+        self.assertIn("2 keywords (subject+body, 1 subject-only)", out)
+
+    def test_the_scope_line_stays_as_it_was_when_there_are_none(self):
+        _, out, _ = self.run_sync(self.ACCOUNTS, filt=(["a", "b"], False, True, set()))
+        self.assertIn("2 keywords (subject+body)", out)
+
+    def test_the_scope_line_does_not_claim_a_subject_only_opt_out_that_cannot_apply(self):
+        # With match_body off the body loop never runs, so subject_only is inert. Reporting a
+        # count for it says "subject only, 1 subject-only" - self-contradictory, and it shows
+        # an opt-out as in force when it is doing nothing.
+        _, out, _ = self.run_sync(self.ACCOUNTS, filt=(["a", "b"], False, False, {"a"}))
+        self.assertIn("2 keywords (subject only)", out)
+        self.assertNotIn("subject-only", out)
+
+    def test_the_summary_reports_the_mailboxes_it_could_not_read(self):
+        # The per-skip warning goes to stderr at the top and then scrolls off under one line
+        # per matched message. Without the summary saying so, a run that never opened half the
+        # vault's mail reads exactly like a run that opened all of it.
+        _, out, _ = self.run_sync(["a@x.com"])
+        self.assertIn("1 mailbox(es) skipped", out)
+        self.assertIn("b@x.com", out.rsplit("\n\n", 1)[-1])
+
+    def test_the_summary_reports_records_filed_from_the_preview(self):
+        # The per-message stderr warning scrolls off the same way the mailbox skip does, and
+        # a degraded record is permanent once the ledger entry lands beside it.
+        msgs = [{"id": "1", "subject": "x", "receivedDateTime": "2026-07-28T00:00:00Z",
+                 "from": {"emailAddress": {"address": "z@x.com"}}}]
+        with mock.patch.object(osync, "fetch_body", return_value=("p", "preview")):
+            _, out, _ = self.run_sync(["a@x.com"], account="a@x.com", msgs=msgs, write=True)
+        self.assertIn("1 record(s) filed from the preview", out)
+
+    def test_the_summary_stays_quiet_when_every_mailbox_was_read(self):
+        _, out, _ = self.run_sync(self.ACCOUNTS)
+        self.assertNotIn("skipped", out)
 
 
 if __name__ == "__main__":

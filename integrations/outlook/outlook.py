@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: outlook 2026.09.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 """Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph, filter for
 vault-relevant mail, and drop matches into the vault's triage/ folder.
 
@@ -61,7 +61,7 @@ Config is split by what it is:
       }
     }
 
-  Three filter settings, vault-level or per account:
+  Four filter settings, vault-level or per account:
     keywords    - matched case-insensitively (see match_body for where).
     match_all   - take every message. The explicit catch-all, because EMPTYING keywords
                   does the opposite: it leaves the contact allowlist as the only gate,
@@ -69,7 +69,24 @@ Config is split by what it is:
     match_body  - match keywords against bodyPreview as well as the subject. Default
                   TRUE: subject-only matching silently drops any message whose subject is
                   in a language the filter wasn't written in, and a dropped message leaves
-                  no trace. Set false for subject-only, accepting that blind spot.
+                  no trace. Set false for subject-only, accepting that blind spot, for
+                  EVERY keyword on that account.
+    subject_only_keywords - the same trade, scoped to specific keywords instead of the
+                  whole account: a keyword that is also a street name doubling as someone's
+                  home/delivery address (a Stationsstraat tenant's parcel, a Kerkstraat
+                  resident's takeout order) will keep matching shipping and marketing
+                  bodies that happen to print the address, forever, with match_body left on.
+                  List such a keyword here and it is checked against the subject only, while
+                  every other keyword on the same account keeps matching subject AND body.
+                  Case-insensitive, same as keywords; a keyword listed here that isn't also
+                  in keywords is inert.
+
+  FILTERING reads bodyPreview, which Graph caps at 255 characters. FILING does not: the
+  triage file gets the message's full body, fetched per message by fetch_body. Keep the two
+  apart. A record written from the preview stops mid-sentence with no ellipsis and no marker,
+  under a header that still reads as complete, so nothing in the file tells its reader it is
+  partial. Records written from 2026.09.01 on say so on their own `- **Body:**` line; an
+  older one cannot be told from a complete record without opening the mail.
 
   A drafted filter is a hypothesis until it has run against real traffic. Run `sync`
   without --write against a real window before trusting one, and prefer distinguishing
@@ -102,6 +119,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import requests
 
@@ -117,7 +135,7 @@ VAULT = VAULT_ROOT.name
 PARAOS_HOME = Path(os.environ.get("PARAOS_HOME") or Path.home() / ".paraos")  # outside the vault on purpose
 CONFIG_FILE = PARAOS_HOME / "secrets" / "outlook.json"      # credentials only, machine-global
 VAULT_CONFIG = SCRIPT_DIR / "outlook.config.json"           # this vault's accounts + filters
-LEGACY_VAULT_CONFIG = SCRIPT_DIR / "outlook_sync.json"      # pre-2026.08.03 name, still read
+LEGACY_VAULT_CONFIG = SCRIPT_DIR / "outlook_sync.json"      # the superseded name, still read
 LEDGER_FILE = PARAOS_HOME / "cache" / "outlook" / "synced.json"
 
 GRAPH = "https://graph.microsoft.com/v1.0"
@@ -147,15 +165,15 @@ def load_vault_config(required=True):
     """This vault's own accounts + filters, next to this script copy. Never secret.
 
     Reads the legacy `outlook_sync.json` name when the current one is absent, and says so.
-    This script was renamed in 2026.08.03 and the config with it; a copy updated without its
-    config would otherwise start up looking correctly configured and quietly file nothing.
+    The script and its config were renamed together, so a copy updated without its config
+    would otherwise start up looking correctly configured and quietly file nothing.
     """
     if VAULT_CONFIG.exists():
         return _load_json(VAULT_CONFIG)
     if LEGACY_VAULT_CONFIG.exists():
-        print(f"! reading {LEGACY_VAULT_CONFIG.name} (pre-2026.08.03 name). "
-              f"Rename it to {VAULT_CONFIG.name} - the old name stops being read "
-              f"once this vault is on a later revision.", file=sys.stderr)
+        print(f"! reading {LEGACY_VAULT_CONFIG.name}, the superseded config name. "
+              f"Rename it to {VAULT_CONFIG.name} - the old name will stop being read "
+              f"in a future revision.", file=sys.stderr)
         return _load_json(LEGACY_VAULT_CONFIG)
     if not required:
         return {}
@@ -279,11 +297,112 @@ def access_token(cfg, email):
 
 # --- Graph read ------------------------------------------------------------------------
 
-def graph_get(token, path):
+# One keep-alive connection for the whole run. `requests.get` builds and discards a session
+# per call, so every Graph read paid a fresh DNS + TCP + TLS handshake - fine when that was a
+# few calls per sync, wasteful now that fetch_body adds one per filed message.
+SESSION = requests.Session()
+
+
+def graph_get(token, path, prefer=None):
     url = path if path.startswith("http") else f"{GRAPH}{path}"
-    r = requests.get(url, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    headers = {"Authorization": f"Bearer {token}"}
+    if prefer:
+        headers["Prefer"] = prefer
+    r = SESSION.get(url, headers=headers, timeout=30)
     r.raise_for_status()
     return r.json()
+
+
+# The leading `XX:` chain on a subject, however many links and whatever language.
+PREFIX_RE = re.compile(r"^\s*((?:[A-Za-z]{1,6}\s*:\s*)+)")
+# Forward markers by locale. English, Dutch and French are the ones this has actually been run
+# against; the rest are the prefixes those Outlook locales are believed to use, and none of them
+# has been checked against a real mailbox. They are here because the errors are asymmetric (see
+# is_forward): an extra token that never fires costs nothing, a missing one loses a message. Treat
+# the list as a starting guess, not a reference - if a locale matters to you, verify it.
+# The reply side is deliberately NOT enumerated: any token that is not a forward is stepped over,
+# so "AW:" (de) or "Antw:" (nl) in front of a forward costs nothing and no locale has to be known
+# in advance to be handled correctly.
+FORWARD_TOKENS = frozenset((
+    "fw", "fwd",     # English
+    "tr",            # French  (transfert)
+    "wg",            # German  (weitergeleitet)
+    "doorst",        # Dutch   (doorgestuurd)
+    "rv",            # Spanish (reenviar)
+    "enc",           # Portuguese (encaminhada)
+    "vs",            # Danish / Norwegian (videresendt)
+    "vb",            # Swedish (vidarebefordrat)
+    "i",             # Italian (inoltro)
+))
+
+
+def is_forward(subject):
+    """True if any token in `subject`'s leading `XX:` chain is a forward marker.
+
+    Distinguishing forwards from replies matters because Graph's `uniqueBody` means
+    opposite things for each: for a reply it is the new text minus quoted history (exactly
+    what a triage file wants); for a forward the entire forwarded message is itself the
+    "quoted" part, so uniqueBody for a bare forward is the covering note only - or empty,
+    for a forward with no covering note at all - and the content the forward exists to
+    deliver never reaches the triage file.
+
+    Reading the whole prefix chain rather than "Re: chain, then Fwd:" is what makes the
+    localised cases work: the marker can sit under a reply prefix in any language, in any
+    order, and no list of reply words has to be kept.
+
+    The two errors are not equally bad, which is why the marker list leans inclusive. Missing
+    a forward loses the forwarded message outright and silently. Mistaking a reply for one
+    files `body` instead of `uniqueBody`, so the record carries its quoted thread - verbose,
+    visible, and nothing is lost.
+    """
+    m = PREFIX_RE.match(subject or "")
+    if not m:
+        return False
+    return any(t.strip().lower() in FORWARD_TOKENS for t in m.group(1).split(":"))
+
+
+def fetch_body(token, msg):
+    """(text, source) for ONE message's body, for filing. Falls back to bodyPreview.
+
+    Deliberately a second round trip rather than another $select on the collection, for two
+    reasons. `uniqueBody` - the part of the message that is NOT quoted reply history - is not
+    returned on a collection query at all, only on a single-message GET; and `body` on a
+    collection would drag the entire quoted thread into every page of the sync, for messages
+    that mostly will not pass the filter anyway. So the listing stays cheap and this runs
+    only for messages actually being written.
+
+    `Prefer: outlook.body-content-type="text"` makes Graph do the HTML-to-text conversion
+    server-side, so nothing here has to parse HTML.
+
+    uniqueBody first, because a triage file for the fifth reply in a thread should hold that
+    reply, not five copies of the thread. It can come back empty (Graph cannot always work
+    out the boundary), so `body` is the fallback and bodyPreview the last resort - a filed
+    message with a truncated body is bad, one with no body at all is worse.
+
+    That ordering is backwards for a forward: see `is_forward`. There, `body` (the whole
+    message, forwarded content included) goes first and `uniqueBody` (the covering note,
+    or nothing) is the fallback instead.
+
+    `source` is "uniqueBody", "body", or "preview". The caller needs the distinction, not just
+    the text: "preview" means the message body never arrived and the 255-character preview is
+    standing in for it, which write_triage has to say in the file. A record presenting a
+    preview as the whole message is the failure this function exists to end, and this fallback
+    is the one path where it can still happen.
+    """
+    try:
+        # quote the id: it is base64-derived and can carry "+", "/" and "=", and an unescaped
+        # "/" would silently become another path segment. Graph percent-decodes it back.
+        m = graph_get(token, f"/me/messages/{quote(msg['id'], safe='')}?$select=body,uniqueBody",
+                      prefer='outlook.body-content-type="text"')
+    except Exception as e:                       # one unreadable message must not kill a sync
+        print(f"    ! body fetch failed ({e}); filing the preview instead", file=sys.stderr)
+        return (msg.get("bodyPreview") or "").strip(), "preview"
+    keys = ("body", "uniqueBody") if is_forward(msg.get("subject")) else ("uniqueBody", "body")
+    for key in keys:
+        content = ((m.get(key) or {}).get("content") or "").strip()
+        if content:
+            return content, key
+    return (msg.get("bodyPreview") or "").strip(), "preview"
 
 
 def fetch_messages(token, days):
@@ -309,7 +428,6 @@ def search_messages(token, query, limit=200):
     walks a day window (fine for a sync, hopeless across years), while this hits the
     server index and returns in seconds however far back the match is.
     """
-    from urllib.parse import quote
     path = ("/me/messages?$select=id,receivedDateTime,subject,from,toRecipients,ccRecipients,"
             f"bodyPreview,webLink&$top=50&$search={quote(chr(34) + query + chr(34))}")
     out = []
@@ -347,7 +465,7 @@ def vault_accounts(vc):
 
 
 def account_filter(vc, email):
-    """The filter serving ONE mailbox, as (keywords, match_all, match_body).
+    """The filter serving ONE mailbox, as (keywords, match_all, match_body, subject_only).
 
     Per account, not per vault, because one vault can be fed by mailboxes of opposite shapes.
     A dedicated engagement mailbox IS the filter: everything in it is in scope, and keywords
@@ -375,10 +493,12 @@ def account_filter(vc, email):
         [k.lower() for k in setting("keywords", [])],
         bool(setting("match_all", False)),
         bool(setting("match_body", True)),
+        {k.lower() for k in setting("subject_only_keywords", [])},
     )
 
 
-def is_relevant(msg, allow, keywords, self_addrs=frozenset(), match_all=False, match_body=True):
+def is_relevant(msg, allow, keywords, self_addrs=frozenset(), match_all=False, match_body=True,
+                subject_only=frozenset()):
     # Match a COUNTERPARTY who is a known contact, not the mailbox owner. The owner's own
     # addresses are in the vault's contacts and every message in their box is to/from them,
     # so leaving them in would match everything (incl. the owner's other addresses, e.g.
@@ -401,6 +521,8 @@ def is_relevant(msg, allow, keywords, self_addrs=frozenset(), match_all=False, m
     if match_body:
         body = (msg.get("bodyPreview") or "").lower()
         for kw in keywords:
+            if kw in subject_only:     # this keyword's body side is opted out - see docstring
+                continue
             if kw in body:
                 return f"body:{kw}"
     return None
@@ -428,7 +550,7 @@ def safe_title(text):
     return re.sub(r"\s+", " ", text).strip(" .")[:60].strip(" .") or "no subject"
 
 
-def write_triage(vault_root, account, msg, reason):
+def write_triage(vault_root, account, msg, reason, body, source):
     received = (msg.get("receivedDateTime") or "")[:10].replace("-", "")
     frm = (msg.get("from") or {}).get("emailAddress") or {}
     subject = msg.get("subject") or "(no subject)"
@@ -437,14 +559,22 @@ def write_triage(vault_root, account, msg, reason):
     fname = " ".join(p for p in (received, safe_title(subject), mid) if p) + ".md"
     dest = vault_root / "triage" / fname
     dest.parent.mkdir(parents=True, exist_ok=True)
+    # A preview standing in for the message is qualified in the file itself. The ledger entry
+    # written straight after this one means no later run revisits the record, so its reader is
+    # the only one left who can act on it, and an unmarked preview reads as the whole message.
+    # Above the Link line on purpose: everything after Link is the message body verbatim, so a
+    # header note placed below it would read as part of the message to anything measuring it.
+    note = ("- **Body:** preview only - Graph's 255-character bodyPreview, not the full "
+            "message. Open the link below to read it.\n") if source == "preview" else ""
     dest.write_text(
         f"# {subject}\n\n"
         f"- **Source:** Outlook ({account})\n"
         f"- **From:** {frm.get('name', '')} <{frm.get('address', '')}>\n"
         f"- **Received:** {msg.get('receivedDateTime') or ''}\n"
         f"- **Matched:** {reason}\n"
+        f"{note}"
         f"- **Link:** {msg.get('webLink') or ''}\n\n"
-        f"{(msg.get('bodyPreview') or '').strip()}\n",
+        f"{body}\n",
         encoding="utf-8")
     return dest
 
@@ -494,23 +624,40 @@ def cmd_sync(cfg, args):
     feeds = vault_accounts(vc)
     if not feeds:
         sys.exit(f"{VAULT_CONFIG} lists no accounts - add the mailbox(es) that feed '{VAULT}'.")
+    known = cfg.get("accounts", {})   # logged in on THIS machine
+    missing = []                      # mailboxes it cannot read; named in the summary
     if args.account:
         if args.account not in feeds:
             sys.exit(f"{args.account} does not feed vault '{VAULT}' "
                      f"(its accounts per {VAULT_CONFIG.name}: {', '.join(feeds)}).")
+        # A named account is a specific ask: if THIS one is not logged in, that is the
+        # whole answer, not something to skip past silently.
+        if args.account not in known:
+            sys.exit(f"Not logged in on this machine: {args.account}. "
+                     f"Run:  outlook.py login {args.account}")
         feeds = [args.account]
-    # Narrow first: an account this run will not touch must not block it.
-    missing = [e for e in feeds if e not in cfg.get("accounts", {})]
-    if missing:
-        sys.exit(f"Not logged in on this machine: {', '.join(missing)}. "
-                 f"Run:  outlook.py login <email>")
+    else:
+        # Default "sync everyone this vault is configured for" must not let one teammate's
+        # account - logged in only on THEIR machine, per account_app's own design - block
+        # every other account on this one. Run what this machine actually can, and say what
+        # it skipped, rather than exiting before touching a single mailbox.
+        missing = [e for e in feeds if e not in known]
+        if missing:
+            print(f"! not logged in on this machine, skipping: {', '.join(missing)} "
+                  f"(run:  outlook.py login <email>  on the machine that owns it)",
+                  file=sys.stderr)
+        if len(missing) == len(feeds):
+            sys.exit(f"None of this vault's accounts ({', '.join(feeds)}) are logged in on "
+                     f"this machine. Run:  outlook.py login <email>")
+        feeds = [e for e in feeds if e in known]
 
     ledger = load_ledger()
     allow = build_allowlist(VAULT_ROOT)
 
     total_new = 0
+    degraded = 0                  # filed from the preview because the body fetch failed
     for email in feeds:
-        keywords, match_all, match_body = account_filter(vc, email)
+        keywords, match_all, match_body, subject_only = account_filter(vc, email)
         if not allow and not keywords and not match_all:
             print(f"! {email} -> '{VAULT}': no contact emails, no keywords, and match_all is "
                   f"off, so nothing can match. Add keywords, or set \"match_all\": true on "
@@ -521,15 +668,21 @@ def cmd_sync(cfg, args):
         msgs = fetch_messages(token, args.days)
         # Name the filter actually in force per account: with per-account overrides, "which
         # filter ran against this mailbox" is no longer answerable from the config at a glance.
+        # Only when match_body is on: with it off the body loop never runs, so a subject-only
+        # opt-out is inert and naming a count for it reports a filter that is not in force.
+        subj_only_note = (f", {len(subject_only)} subject-only"
+                          if match_body and subject_only else "")
         scope = "match_all" if match_all else \
-            f"{len(keywords)} keywords ({'subject+body' if match_body else 'subject only'})"
+            f"{len(keywords)} keywords ({'subject+body' if match_body else 'subject only'}"\
+            f"{subj_only_note})"
         print(f"\n{email}  scanned {len(msgs)} msgs -> {VAULT}  "
               f"({len(allow)} allowlisted senders, {scope})")
 
         for msg in msgs:
             if VAULT in ledger.get(msg["id"], {}).get("filed", []):   # already filed here
                 continue
-            reason = is_relevant(msg, allow, keywords, self_addrs, match_all, match_body)
+            reason = is_relevant(msg, allow, keywords, self_addrs, match_all, match_body,
+                                 subject_only)
             if not reason:
                 continue
             total_new += 1
@@ -539,7 +692,10 @@ def cmd_sync(cfg, args):
             print(f"  [{tag}] {(msg.get('receivedDateTime') or '')[:10]}  {reason:16s}  "
                   f"{frm:30s}  {subject[:50]}")
             if args.write:
-                write_triage(VAULT_ROOT, email, msg, reason)
+                body, source = fetch_body(token, msg)
+                if source == "preview":
+                    degraded += 1
+                write_triage(VAULT_ROOT, email, msg, reason, body, source)
                 entry = ledger.setdefault(msg["id"], {"date": msg.get("receivedDateTime") or "",
                                                       "subject": subject, "account": email,
                                                       "filed": []})
@@ -547,8 +703,18 @@ def cmd_sync(cfg, args):
                 # Save per write, not at the end: a crash between the file and the ledger
                 # resurrects mail the user has already triaged and moved out of triage/.
                 save_ledger(ledger)
+    # Both caveats belong on the closing line, not only in a warning that scrolled off the top
+    # under one line per matched message: a run that never opened half the vault's mail, or
+    # that filed records the body never reached, must not read like a clean one.
+    caveats = ""
+    if missing:
+        caveats += f"  {len(missing)} mailbox(es) skipped (not logged in here): {', '.join(missing)}."
+    if degraded:
+        caveats += (f"  {degraded} record(s) filed from the preview because the body fetch "
+                    f"failed; each says so on its own Body line.")
     print(f"\n{'Wrote' if args.write else 'Would file'} {total_new} new item(s) into {VAULT}/triage."
-          + ("" if args.write else "  Re-run with --write to create the triage files."))
+          + ("" if args.write else "  Re-run with --write to create the triage files.")
+          + caveats)
 
 
 def cmd_raw(cfg, args):

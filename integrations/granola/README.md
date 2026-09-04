@@ -68,10 +68,12 @@ Run several vaults and want one Granola account fanned out across them? Prefix y
 ```json
 {
   "meetings_subdir": "triage",
-  "route": { "Acme": "acme-client", "Home": "family", "Side": "side-project" }
+  "route": { "Acme": "acme-client", "Home": "family", "Side": "side-project", "Client": "." }
 }
 ```
 
-With `route` set, each copy of the script writes only its own vault's meetings by default; `--vault X` targets another, `--all` writes every routed vault in one pass. The vaults must be sibling folders under one parent. Prefixes match case-insensitively, so `ACME - Steering` routes on an `Acme` key. Omit the file entirely - or leave `route` empty - and every meeting simply goes to the local vault, which is all a single-vault user needs.
+**`"."` means the vault this copy lives in**, and it is the value to reach for whenever a route target is this vault. Never write the folder's own name: a folder name is machine-local - the OneDrive client names a synced SharePoint library in *its own display language*, so one library is `Client Site - Documents` on an English machine and `Client Site - Documenten` on a Dutch one - while `granola.config.json` is version-controlled and syncs to everybody. A literal name is therefore right on at most one machine, and wrong in the worst way on the rest: an unmatched target is treated as another vault's meeting and skipped in silence, so the run still reports success while every meeting is dropped. `"."` is also the shape a single-tenant client vault needs, where the alternative - no `route` at all - takes *every* meeting and would file other clients' calls into that client's library. A target that names neither this vault nor an existing sibling now warns once at startup rather than disappearing per meeting.
+
+With `route` set, each copy of the script writes only its own vault's meetings by default; `--vault X` targets another (and stops the run if nothing routes to `X`, rather than skipping every meeting and reporting success), `--all` writes every routed vault in one pass. The vaults must be sibling folders under one parent. Prefixes match case-insensitively, so `ACME - Steering` routes on an `Acme` key. Omit the file entirely - or leave `route` empty - and every meeting simply goes to the local vault, which is all a single-vault user needs.
 
 **The config is a separate file on purpose.** With the table in `granola.config.json`, `granola.js` holds nothing vault-specific, so re-syncing an installed copy is a straight file copy that leaves the routing untouched. Keep it that way: configure the vault in the JSON, never in the script - an edit to the script is what the next resync silently discards.

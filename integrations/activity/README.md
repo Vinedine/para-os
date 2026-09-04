@@ -31,21 +31,23 @@ It earns nothing on a vault nobody else touches and nobody is improving. Skip it
 
 1. Copy `activity.py` into the vault at `resources/scripts/`. The vault root is derived from the script's own path, so there is nothing to configure and no machine-specific path in a file that syncs.
 
-2. Wire the hooks in the vault's `.claude/settings.json`. Hooks run with the vault folder as their working directory, so the relative path below is enough:
+2. Wire the hooks in the vault's `.claude/settings.json`. Every command is anchored to `$CLAUDE_PROJECT_DIR`, the vault root, and the quotes around it are not optional - a vault path usually contains spaces:
 
    ```json
    {
      "hooks": {
-       "SessionStart":      [{ "hooks": [{ "type": "command", "command": "py resources/scripts/activity.py" }] }],
-       "UserPromptSubmit":  [{ "hooks": [{ "type": "command", "command": "py resources/scripts/activity.py" }] }],
-       "UserPromptExpansion": [{ "hooks": [{ "type": "command", "command": "py resources/scripts/activity.py" }] }],
-       "PostToolUse":       [{ "hooks": [{ "type": "command", "command": "py resources/scripts/activity.py" }] }],
-       "PostToolUseFailure":[{ "hooks": [{ "type": "command", "command": "py resources/scripts/activity.py" }] }],
-       "PermissionDenied":  [{ "hooks": [{ "type": "command", "command": "py resources/scripts/activity.py" }] }],
-       "SessionEnd":        [{ "hooks": [{ "type": "command", "command": "py resources/scripts/activity.py" }] }]
+       "SessionStart":      [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
+       "UserPromptSubmit":  [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
+       "UserPromptExpansion": [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
+       "PostToolUse":       [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
+       "PostToolUseFailure":[{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
+       "PermissionDenied":  [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
+       "SessionEnd":        [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }]
      }
    }
    ```
+
+   **Not a bare relative path.** A hook inherits the calling session's working directory, not the vault root, and that directory moves: `cd` inside a Bash tool call persists for the rest of the session, so the moment a session steps into a subfolder every later hook fails to locate the script - `can't open file ... No such file or directory` - until something `cd`s back. Nothing surfaces the gap; the ledger simply stops recording, and a usage review reads the silence as an idle session rather than a broken hook.
 
    One command serves one platform. A mixed Windows and macOS team needs `py` on one and `python3` on the other, and settings.json has no branch for that: pick the majority platform and install the minority's copy at user level.
 
