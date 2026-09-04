@@ -146,7 +146,7 @@ class TestConfig(unittest.TestCase):
 
 class TestPaths(unittest.TestCase):
     def test_user_slug_is_filename_safe(self):
-        self.assertEqual(ledger.user_slug({"USERNAME": "Adriaan Ghijs"}), "adriaan-ghijs")
+        self.assertEqual(ledger.user_slug({"USERNAME": "Sofie Vermeulen"}), "sofie-vermeulen")
 
     def test_user_slug_falls_back_rather_than_failing(self):
         self.assertEqual(ledger.user_slug({}), "unknown")

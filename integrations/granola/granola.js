@@ -1,5 +1,5 @@
 // granola.js - pull recent Granola meetings (enhanced notes + transcript) into a vault's triage/.
-// para-os-integration: granola 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: granola 2026.09.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 // Drop this file in <vault>/resources/scripts/ and run it there. By default every recent meeting is
 // written to THIS vault's triage/ as a dated Markdown note, ready for /para-triage to file.
 //   node granola.js            # DRY RUN: shows what it would write, touches nothing
@@ -39,6 +39,11 @@ const PARENT = path.dirname(VAULT_ROOT); // shared parent of sibling vaults (mul
 // `route` fans meetings out across sibling vaults by title prefix - a meeting titled
 // "Acme - Kickoff" goes to the sibling "acme-client" vault. Sibling vaults must share one
 // parent directory. Prefixes match case-insensitively, so "ACME - Kickoff" routes on "Acme".
+//
+// Use "." for THIS vault:  { "route": { "Client": "." } }  - one vault, but only these prefixes.
+// That is the third shape, and the one a client-tenant vault needs: single-vault mode takes
+// EVERY meeting, which would put other clients' calls in this library, while naming this
+// vault's own folder is machine-local and breaks on the next machine (see resolveSelf below).
 const VAULT_CONFIG = path.join(__dirname, "granola.config.json");
 const CONFIG = (() => {
   if (!fs.existsSync(VAULT_CONFIG)) return {};
@@ -66,8 +71,49 @@ const CONFIG = (() => {
 const MEETINGS_SUBDIR = CONFIG.meetings_subdir || "triage";
 const ROUTE = CONFIG.route || {};
 const MULTI = Object.keys(ROUTE).length > 0;
-const ROUTE_CI = Object.fromEntries(Object.entries(ROUTE).map(([k, v]) => [k.toLowerCase(), v]));
-const ONLY_VAULT = VAULT_ARG || (ALL ? null : VAULT_NAME); // in multi-vault mode, default to this vault
+// "." resolves to the vault this copy lives in, so no route value has to name it literally.
+// A vault's folder name is machine-local: the OneDrive client names a synced library in ITS
+// OWN display language, so one library is "Client Site - Documents" here and
+// "Client Site - Documenten" on a Dutch machine. granola.config.json is version-controlled and
+// syncs to the whole team, so a literal name is correct on at most one machine and, worse,
+// fails by silent skip on the rest (resolveDest returns {skip:true}, which prints nothing).
+// Name a folder only for a genuine sibling vault; use "." for this one.
+const SELF = ".";
+const resolveSelf = v => (v === SELF ? VAULT_NAME : v);
+const ROUTE_CI = Object.fromEntries(Object.entries(ROUTE).map(([k, v]) => [k.toLowerCase(), resolveSelf(v)]));
+const ONLY_VAULT = resolveSelf(VAULT_ARG) || (ALL ? null : VAULT_NAME); // in multi-vault mode, default to this vault
+
+// A target naming neither this vault nor an existing sibling is a typo or another machine's
+// folder name. Those meetings then vanish through the silent multi-vault skip, which is right
+// for another vault's meeting and wrong here: it is indistinguishable from having none. Warn
+// once at startup instead. Not fatal - a sibling vault may legitimately not be synced here.
+// Iterates ROUTE, not ROUTE_CI: the lowercased key is an internal detail, and quoting it back
+// would name a string the user cannot find in the file they are being asked to edit.
+for (const [prefix, target] of Object.entries(ROUTE)) {
+  const vault = ROUTE_CI[prefix.toLowerCase()];
+  if (vault === VAULT_NAME || fs.existsSync(path.join(PARENT, vault))) continue;
+  console.error(`! route "${prefix}" -> "${target}": no vault of that name beside this one, and it is `
+    + `not this vault ("${VAULT_NAME}"). Meetings with that prefix will be skipped silently. `
+    + `Use "." to mean this vault; a literal folder name only works on a machine that spells it that way.`);
+}
+
+// `--vault X` fails the same silent way when nothing routes to X: every meeting takes the skip
+// above, the summary files them under "other vaults", and the run reports success having
+// written nothing. A named target is an explicit ask, so it gets an explicit answer rather
+// than a no-op - the call outlook.py makes for --account, and why this exits where an
+// unresolvable route only warns (a route may name a sibling this machine has not synced;
+// a typed-out --vault cannot).
+if (VAULT_ARG) {
+  const targets = [...new Set([VAULT_NAME, ...Object.values(ROUTE_CI)])].sort();
+  if (!MULTI) {
+    console.error(`! --vault "${VAULT_ARG}" ignored: granola.config.json has no "route", so every `
+      + `meeting goes to this vault ("${VAULT_NAME}").`);
+  } else if (!targets.includes(ONLY_VAULT)) {
+    console.error(`! --vault "${VAULT_ARG}": nothing routes there, so the run would write nothing. `
+      + `This config routes to: ${targets.join(", ")}. Use "." for this vault ("${VAULT_NAME}").`);
+    process.exit(1);
+  }
+}
 
 const H = t => ({ "Authorization": "Bearer " + t, "Content-Type": "application/json", "User-Agent": "Granola/6.0.0", "X-Client-Version": "6.0.0" });
 const exp = t => JSON.parse(Buffer.from(t.split(".")[1], "base64").toString()).exp;
@@ -159,6 +205,8 @@ function resolveDest(d) {
   if (!vault) return { unrouted: true, prefix: prefix || "none" };
   if (ONLY_VAULT && vault !== ONLY_VAULT) return { skip: true };
   const desc = sanitize(String(d.title).replace(/^\s*[A-Za-z0-9]+\s*-\s*/, "")) || sanitize(d.title);
+  // One join serves this vault and every sibling: PARENT is dirname(VAULT_ROOT) and VAULT_NAME
+  // is basename(VAULT_ROOT), so joining them back is VAULT_ROOT, and a rename moves both.
   return { vault, dir: path.join(PARENT, vault, MEETINGS_SUBDIR), date, desc };
 }
 
@@ -177,12 +225,17 @@ async function main() {
   const recent = docs.filter(d => new Date(d.created_at).getTime() >= cutoff && !d.deleted_at);
   console.log(`${WRITE ? "WRITE" : "DRY RUN"} · last ${DAYS} days · ${recent.length} meetings${MULTI ? ` · routing ${ONLY_VAULT ? "-> " + ONLY_VAULT : "all vaults"}` : ""}\n`);
 
-  let written = 0, skipped = 0, unrouted = 0;
+  let written = 0, skipped = 0, unrouted = 0, elsewhere = 0;
   for (const d of recent.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
     const r = resolveDest(d);
     const label = `${d.created_at.slice(0, 10)}  ${String(d.title || "(untitled)").slice(0, 34).padEnd(35)}`;
 
-    if (r.skip) continue; // multi-vault filter: another vault's meeting, skip silently
+    // Multi-vault filter: another vault's meeting. Still silent per meeting - naming
+    // them one by one is noise - but counted, so the closing line adds up to the
+    // header's meeting count. Without that, a run that dropped everything reads
+    // exactly like a run that had nothing to do, which is how a misrouted config
+    // hides: 30 meetings scanned, 0 written, 0 unrouted, success.
+    if (r.skip) { elsewhere++; continue; }
     if (r.unrouted) { console.log("  ??  " + label + "-> UNROUTED (prefix: " + r.prefix + ")"); unrouted++; continue; }
 
     const fname = `${r.date.replace(/-/g, "")} ${r.desc}.md`;
@@ -234,7 +287,7 @@ async function main() {
   }
 
   if (WRITE) { fs.mkdirSync(path.dirname(STATE), { recursive: true }); fs.writeFileSync(STATE, JSON.stringify(state, null, 2)); }
-  console.log(`\n${WRITE ? "wrote" : "would write"}: ${written} · skipped(exists): ${skipped}${MULTI ? ` · unrouted: ${unrouted}` : ""}`);
+  console.log(`\n${WRITE ? "wrote" : "would write"}: ${written} · skipped(exists): ${skipped}${MULTI ? ` · unrouted: ${unrouted} · other vaults: ${elsewhere}` : ""}`);
   if (!WRITE) console.log("Re-run with --write to create the files.");
 }
 // Run only when invoked directly, so the test suite can require() the pure helpers below

@@ -22,8 +22,8 @@ The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a hom
 | Integration | Version | Pulls in | Stack | Platform |
 |---|---|---|---|---|
 | [`activity/`](activity/) | 2026.08.03 | How the vault is used, into `resources/logs/` for `/para-activity-review` | Python 3.9+ | any |
-| [`granola/`](granola/) | 2026.08.03 | Granola meeting notes + transcripts into `triage/` | Node 18+ | Windows |
-| [`outlook/`](outlook/) | 2026.08.03 | Outlook / Hotmail / Microsoft 365 mail into `triage/`, plus ad-hoc mailbox search | Python 3.9+ | any |
+| [`granola/`](granola/) | 2026.09.01 | Granola meeting notes + transcripts into `triage/` | Node 18+ | Windows |
+| [`outlook/`](outlook/) | 2026.09.01 | Outlook / Hotmail / Microsoft 365 mail into `triage/`, plus ad-hoc mailbox search | Python 3.9+ | any |
 
 One of these runs the other way. `activity` pulls nothing in: it records how the vault itself gets used, for `/para-activity-review` to read. It sits here rather than in `base/` for the same reason as the rest - it carries a prerequisite not everyone has, and in its case a decision not everyone should make, since a vault that logs its readers has to say so to them first.
 

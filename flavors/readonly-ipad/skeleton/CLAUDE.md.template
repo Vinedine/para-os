@@ -1,6 +1,6 @@
 # {{Vault Name}} Vault Conventions
 
-<!-- para-os-template: 2026.08.03 -->
+<!-- para-os-template: 2026.09.01 -->
 **Type:** {{vault-type}}
 
 {{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.

@@ -29,7 +29,7 @@ In order:
 2. **Retense the brief** to the vault's project shape. Facts are preserved verbatim: the concept becomes the goal, the reasoning becomes why it matters, open questions that are still open stay open questions. Idea-only anchors that the vault's conventions define (a stage line, a promotion-criteria section) are removed, because they now describe a state the entity has left. Nothing is silently dropped: anything that no longer fits the project shape is surfaced, not deleted.
 3. **Create `actions.md`** with the single next step from Step 2, and a `📅` only where the date is real. Everything else the brief proposed stays prose.
 4. **Repoint every inbound link** from Step 3.
-5. **Re-depth the links *inside* the moved folder.** A relative link written from `resources/ideas/<name>/` is three levels from the vault root; from `projects/<name>/` it is two, so every `../../../` in the brief now points one level too high. These break silently and none of them appears in the Step 3 scan, which looks for references *to* the entity, not *from* it. Rewrite each to the new depth and confirm the target resolves.
+5. **Re-depth the links *inside* the moved folder** ([operating-discipline.md](../../para-shared/operating-discipline.md#moving-an-entity-folder)). This move is `resources/ideas/<name>/` to `projects/<name>/`: three levels to two, so each link **loses one** `../`.
 
 ## Step 5 - Verify
 

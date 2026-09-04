@@ -10,7 +10,9 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
-
+const fs = require("fs");
+const os = require("os");
+const { spawnSync } = require("child_process");
 const { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest } = require("./granola.js");
 
 // The vault convention, from base/CLAUDE.md.template: `YYYYMMDD Description.ext`. Both shipped
@@ -232,7 +234,7 @@ test("the filename this integration writes matches the vault convention", () => 
 // a two-line diff looked trivial while silently zeroing it and dropping the script out of
 // multi-vault mode.
 
-const SOURCE = require("fs").readFileSync(path.join(__dirname, "granola.js"), "utf8");
+const SOURCE = fs.readFileSync(path.join(__dirname, "granola.js"), "utf8");
 
 test("the script declares no routing table of its own", () => {
   // `const ROUTE = { Acme: ... }` in the body is the old, dangerous shape. ROUTE must be
@@ -274,4 +276,169 @@ test("a config that parses but is not an object also stops the run", () => {
     "the config loader must reject a parsed value that is not an object");
   assert.match(SOURCE, /Array\.isArray\(parsed\)/,
     "an array is valid JSON but not a valid config shape, and must be rejected explicitly");
+});
+
+test("a silently skipped meeting is counted, not just dropped", () => {
+  // The skip stays silent per meeting - naming another vault's meetings one by one is noise -
+  // but it must reach a counter, or the closing line cannot add up to the header's count.
+  const at = SOURCE.indexOf("if (r.skip)");
+  assert.notEqual(at, -1, "the multi-vault skip must still exist");
+  const stmt = SOURCE.slice(at, SOURCE.indexOf("\n", at));
+  assert.match(stmt, /\+\+/, "a skipped meeting must increment a counter before `continue`");
+});
+
+test("the closing summary accounts for meetings routed to other vaults", () => {
+  // Without this, a run that dropped every meeting through a misrouted config prints
+  // `wrote: 0 · skipped(exists): 0 · unrouted: 0` against a header saying 30 meetings -
+  // indistinguishable from a run that genuinely had nothing to do.
+  const at = SOURCE.lastIndexOf("skipped(exists)");
+  assert.notEqual(at, -1);
+  const line = SOURCE.slice(at, SOURCE.indexOf("\n", at));
+  assert.match(line, /other vaults/, "the summary must report the other-vaults count");
+  assert.match(line, /MULTI \?/, "and only in multi-vault mode, where the number means something");
+});
+
+
+// --- route targets ----------------------------------------------------------------------
+// Routing resolves against folder NAMES, and a folder name is machine-local: the OneDrive
+// client names a synced SharePoint library in its own display language, so one library is
+// "Client Site - Documents" here and "Client Site - Documenten" on a Dutch machine. The
+// config is version-controlled and syncs to everyone, so a literal name is right on at most
+// one machine - and wrong in the worst way on the rest, since an unmatched target is treated
+// as another vault's meeting and dropped in silence while the run still reports success.
+//
+// These run granola.js inside a throwaway vault, one child process per config, because the
+// config is read once at module load and Node caches the module.
+
+
+// Each case runs granola.js in a throwaway vault; without this they accumulate in the OS temp
+// directory, one tree per call, every run. Cleared on exit rather than per test so a failing
+// case can still be inspected while the process is alive.
+const TEMP_VAULTS = [];
+process.on("exit", () => {
+  for (const d of TEMP_VAULTS) { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} }
+});
+
+function inVault(config, expr, { vaultName = "myvault", siblings = [], argv = [], allowFailure = false } = {}) {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "granola-"));
+  TEMP_VAULTS.push(parent);
+  const scripts = path.join(parent, vaultName, "resources", "scripts");
+  fs.mkdirSync(scripts, { recursive: true });
+  fs.copyFileSync(path.join(__dirname, "granola.js"), path.join(scripts, "granola.js"));
+  if (config) fs.writeFileSync(path.join(scripts, "granola.config.json"), JSON.stringify(config));
+  for (const sib of siblings) fs.mkdirSync(path.join(parent, sib, "triage"), { recursive: true });
+
+  const runner = path.join(parent, "run.js");
+  fs.writeFileSync(runner,
+    `const { resolveDest } = require(${JSON.stringify(path.join(scripts, "granola.js"))});\n`
+    + `console.log("<<" + JSON.stringify(${expr}) + ">>");\n`);
+  const r = spawnSync(process.execPath, [runner, ...argv], { encoding: "utf8" });
+  const vaultRoot = path.join(parent, vaultName);
+  if (allowFailure && r.status !== 0) return { status: r.status, stderr: r.stderr, vaultRoot };
+  assert.equal(r.status, 0, `child exited ${r.status}: ${r.stderr}`);
+  const out = /<<([\s\S]*)>>/.exec(r.stdout);
+  assert.ok(out, `no result printed. stdout=${r.stdout} stderr=${r.stderr}`);
+  return { status: 0, result: JSON.parse(out[1]), stderr: r.stderr, vaultRoot };
+}
+
+const meeting = title => `resolveDest({ created_at: "2026-07-28T09:11:00Z", title: ${JSON.stringify(title)} })`;
+
+test('route "." means the vault this copy lives in', () => {
+  const { result, stderr } = inVault({ route: { Client: "." } }, meeting("Client - Kickoff"));
+  assert.ok(!result.skip, 'a "." route must not be treated as another vault');
+  assert.equal(path.basename(result.dir), "triage");
+  assert.equal(path.basename(path.dirname(result.dir)), "myvault");
+  assert.equal(stderr, "", `"." must not warn: ${stderr}`);
+});
+
+test('route "." still leaves other prefixes unrouted, unlike single-vault mode', () => {
+  // This is the whole point of "." over an absent config: a client-tenant vault wants THIS
+  // client's meetings, not every meeting on the account.
+  const { result } = inVault({ route: { Client: "." } }, meeting("Acme - Kickoff"));
+  assert.ok(result.unrouted, "an unlisted prefix must stay unrouted, not fall into this vault");
+});
+
+test('"." and this vault\'s own name resolve to the same directory', () => {
+  // Why resolveDest needs no special case for this vault: PARENT is dirname(VAULT_ROOT) and
+  // VAULT_NAME is basename(VAULT_ROOT), so joining them back is VAULT_ROOT by construction,
+  // and a rename moves both at once. One join covers this vault and every sibling.
+  const dot = inVault({ route: { Client: "." } }, meeting("Client - Kickoff"));
+  const named = inVault({ route: { Client: "myvault" } }, meeting("Client - Kickoff"));
+  assert.equal(dot.result.dir, path.join(dot.vaultRoot, "triage"));
+  assert.equal(named.result.dir, path.join(named.vaultRoot, "triage"));
+});
+
+test("a literal name for this vault still resolves, on the machine that spells it that way", () => {
+  const { result, stderr } = inVault({ route: { Client: "myvault" } }, meeting("Client - Kickoff"));
+  assert.ok(!result.skip);
+  assert.equal(stderr, "", `an existing target must not warn: ${stderr}`);
+});
+
+test("a route target that is neither this vault nor a sibling warns once, at startup", () => {
+  // The Dutch-machine config, read on an English machine. Before this warning the meeting
+  // vanished through the silent multi-vault skip and the run still reported success.
+  const { result, stderr } = inVault({ route: { Client: "Client Site - Documenten" } },
+                                     meeting("Client - Kickoff"));
+  assert.ok(result.skip, "an unresolvable target still skips - the warning is the fix, not a route");
+  assert.match(stderr, /Client Site - Documenten/);
+  assert.match(stderr, /route "Client"/,
+    "the prefix must be quoted as the config spells it - a lowercased key is not findable there");
+  assert.match(stderr, /skipped silently/);
+  assert.match(stderr, /Use "\."/, "the warning must name the fix");
+});
+
+test("the warning is not fatal: a sibling vault may simply not be synced on this machine", () => {
+  const { result } = inVault({ route: { Client: ".", Acme: "acme-client" } }, meeting("Client - Kickoff"));
+  assert.ok(!result.skip, "an unresolvable OTHER route must not stop this one from resolving");
+});
+
+test("genuine sibling routing is unregressed", () => {
+  const { result, stderr } = inVault(
+    { route: { Acme: "acme-client" } }, meeting("Acme - Kickoff"),
+    { siblings: ["acme-client"], argv: ["--vault", "acme-client"] });
+  assert.ok(!result.skip && !result.unrouted, `sibling routing broke: ${JSON.stringify(result)}`);
+  assert.equal(path.basename(path.dirname(result.dir)), "acme-client");
+  assert.equal(stderr, "", `an existing sibling must not warn: ${stderr}`);
+});
+
+test('--vault "." targets this vault', () => {
+  const { result, vaultRoot } = inVault(
+    { route: { Client: ".", Acme: "acme-client" } }, meeting("Client - Kickoff"),
+    { siblings: ["acme-client"], argv: ["--vault", "."] });
+  assert.equal(result.dir, path.join(vaultRoot, "triage"));
+});
+
+test("--vault naming something no route points to stops the run", () => {
+  // The config half of this was already guarded; the CLI half was not, and it fails the same
+  // way: every meeting takes the silent multi-vault skip, the summary counts them under
+  // "other vaults", and the run reports success having written nothing. A named target is an
+  // explicit ask, so it gets an explicit answer - the same call outlook.py makes for
+  // --account, and the reason this exits where an unresolvable route only warns.
+  const r = inVault({ route: { Client: ".", Acme: "acme-client" } }, meeting("Client - Kickoff"),
+                    { siblings: ["acme-client"], argv: ["--vault", "Client Site - Documenten"],
+                      allowFailure: true });
+  assert.notEqual(r.status, 0, "a --vault nothing routes to must not report success");
+  assert.match(r.stderr, /nothing routes there/);
+  assert.match(r.stderr, /acme-client/, "the message must list the targets that do work");
+});
+
+test("--vault naming a real route target is unaffected", () => {
+  const r = inVault({ route: { Client: ".", Acme: "acme-client" } }, meeting("Acme - Kickoff"),
+                    { siblings: ["acme-client"], argv: ["--vault", "acme-client"] });
+  assert.ok(!r.result.skip && !r.result.unrouted, JSON.stringify(r.result));
+});
+
+test("--vault in single-vault mode says it is being ignored rather than pretending", () => {
+  // With no route table resolveDest never consults ONLY_VAULT, so the flag silently does
+  // nothing. Not fatal - the run is still correct - but it must not look like it applied.
+  const r = inVault({}, meeting("Anything at all"), { argv: ["--vault", "elsewhere"] });
+  assert.equal(r.status, 0);
+  assert.match(r.stderr, /ignored/);
+  assert.equal(path.basename(path.dirname(r.result.dir)), "myvault");
+});
+
+test("the shipped config template is valid JSON and demonstrates the \".\" shape", () => {
+  const tpl = JSON.parse(fs.readFileSync(path.join(__dirname, "granola.config.json.template"), "utf8"));
+  assert.ok(Object.values(tpl.route).includes("."),
+    'the template must show "." - it is the shape most adopters need and the one nobody guesses');
 });

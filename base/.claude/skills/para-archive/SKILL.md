@@ -46,13 +46,13 @@ Split the actions into done and open and get a disposition for each open one; va
 
 ### Steps 6 to 8 - Scan links, execute, verify
 
-Grep the whole vault for inbound references and classify each before anything moves; execute the moves with `git mv`; then re-run the grep and assert zero stale references. **Full procedure: [references/move.md](references/move.md).**
+Grep the whole vault for inbound references and classify each before anything moves; execute the moves with `git mv`, re-depthing the relative links *inside* whatever moved; then re-run the grep and resolve the outbound links, asserting zero dangling references in either direction. **Full procedure: [references/move.md](references/move.md).**
 
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **Zero dangling links is the bar.** Archiving that leaves broken inbound references is a failed run - the link reconciliation (Steps 6 and 8) is not optional.
+- **Zero dangling links is the bar, in both directions.** Inbound references and the links written *from* inside the entity are two different scans; leaving either broken is a failed run, and the reconciliation (Steps 6 to 8) is not optional.
 - **Ask, don't assume, for surviving actions.** Don't auto-scaffold a successor; the user may want the work in an existing project, an area, or dropped.
 - **Don't archive live work.** If a project's open actions are still genuinely live (not routable out), the project isn't done - stop and say so rather than burying live work. Likewise, don't archive an idea that's still under active exploration.
 - **Version logic is for projects only.** Never apply a `-vN` suffix to an idea; ideas archive under their own name in `archive/ideas/`.

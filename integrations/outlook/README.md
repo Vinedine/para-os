@@ -42,6 +42,10 @@ Personal Microsoft accounts no longer accept Basic Auth or app passwords, so OAu
 
 `sync` is the default command, so a bare `outlook.py --write` still runs a sync and the `/para-triage` sync-script convention works unchanged.
 
+### An account not logged in on this machine
+
+A refresh token lives only on the machine it was granted on, by design. So on a vault fed by several mailboxes, **no single machine ever holds every account** - not even the machine of whoever added the second one. A plain `sync` therefore treats a not-logged-in account as absent rather than fatal: it warns one line per skip on stderr and syncs whatever this machine does have, exiting only when *none* of the vault's accounts are logged in here. Naming one explicitly with `--account <email>` still exits, because a direct ask deserves a direct answer rather than a skip.
+
 ### `sync` vs `search`
 
 They answer different questions and deliberately use different Graph paths.
@@ -85,12 +89,18 @@ Give `accounts` an object to filter per mailbox instead. Each setting falls back
 | `keywords` | `[]` | Words matched case-insensitively against the message |
 | `match_all` | `false` | Take every message. The explicit catch-all |
 | `match_body` | `true` | Match keywords against `bodyPreview` as well as the subject |
+| `subject_only_keywords` | `[]` | Keywords exempted from body matching, while the rest keep it |
 
-Three things worth knowing before you write one:
+Four things worth knowing before you write one:
 
 - **Emptying `keywords` does not mean "file everything".** It leaves the contact allowlist as the only gate, which is *stricter*, not looser. Use `"match_all": true`, which is also the right setting for a dedicated mailbox and for calibrating a new one.
 - **Subject-only matching has a systematic blind spot.** It drops any message whose subject is in a language your keywords are not written in - and a dropped message leaves no trace, so you never find out. That is why `match_body` defaults to on.
+- **A keyword that is also somebody's address needs `subject_only_keywords`, not `match_body: false`.** A street name that is both a property you hold and a home or delivery address keeps matching the bodies of parcel notifications and marketing mail, which print the address, forever. Turning `match_body` off for the account closes that at the price of every *other* keyword's body side, which is the blind spot above. Listing the one keyword here is the narrow fix: it is checked against the subject only, everything else on that account is untouched, and the `sync` scope line reports the count (`10 keywords (subject+body, 1 subject-only)`) so the active filter stays legible. A keyword listed here but not in `keywords` is inert.
 - **A drafted filter is a hypothesis until it has run against real traffic.** Run `sync` without `--write` over a real window and read what it catches. Prefer distinguishing words: a company's own name matches nearly everything in that company's mailbox, so it is noise dressed as precision.
+
+**Filtering reads the preview; filing does not.** `match_body` matches against Graph's `bodyPreview`, which is capped at 255 characters, and that is fine for deciding whether a message is interesting. The triage file gets the **full body**, fetched per message once the message has passed the filter. Two different jobs on two different fields, and worth keeping apart: a record written from the preview stops mid-sentence with no ellipsis and no marker, under a header that still reads as complete, so nothing in the file tells its reader it is partial. **Records filed by an older copy of this script are previews, not the mail** - filing the full body is forward-only, it does not repair what is already on disk, and truncation is invisible in those files. Going forward it is not: when a body fetch fails mid-sync the preview is filed as a stand-in and the record says so on its own `- **Body:**` line, so a degraded record written today cannot be mistaken for a complete one.
+
+**A forward is filed the other way round.** Filing prefers Graph's `uniqueBody` - the message without its quoted history, so the fifth mail in a thread is not five copies of the thread - and falls back to `body`. For a `Fwd:` that ordering is exactly wrong: the forwarded message *is* what Graph treats as quoted, so `uniqueBody` holds the covering note alone, or nothing at all when there is no covering note. The subject decides which order to try, since it is the only signal available before the body is fetched. A `Re:` chain in front of the `Fwd:` does not change the answer.
 
 The filter shapes **only what `sync` files unasked**. `search` ignores it entirely and queries the whole mailbox, which is the point of a search.
 
@@ -102,7 +112,7 @@ The script is code, so it lives in the vault. Its runtime state does not - a sec
 |---|---|
 | `~/.paraos/secrets/outlook.json` | client id + per-account OAuth refresh tokens, rewritten each run (the provider rotates them); written atomically, one account at a time, so parallel runs don't clobber each other |
 | `~/.paraos/cache/outlook/synced.json` | dedup ledger, keyed by message id → the vaults it has already been filed to |
-| `<vault>/resources/scripts/outlook.config.json` | that vault's accounts + filters. Version-controlled with the vault; no secret ever lives here. The pre-2026.08.03 name `outlook_sync.json` is still read, with a notice |
+| `<vault>/resources/scripts/outlook.config.json` | that vault's accounts + filters. Version-controlled with the vault; no secret ever lives here. The superseded name `outlook_sync.json` is still read, with a notice |
 
 Both `~/.paraos` paths honour the `PARAOS_HOME` environment variable.
 

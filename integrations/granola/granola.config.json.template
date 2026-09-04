@@ -3,6 +3,7 @@
   "route": {
     "Acme": "acme-client",
     "Home": "family",
-    "Side": "side-project"
+    "Side": "side-project",
+    "Client": "."
   }
 }
