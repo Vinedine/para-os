@@ -51,6 +51,7 @@ Deliberately NOT checked: anything requiring judgement (privacy, bloat, whether 
 its words). Those are review, not a script.
 """
 import hashlib
+import os
 import re
 import shutil
 import subprocess
@@ -233,6 +234,29 @@ def check_template_revisions():
             ok(f"{rel(f)} at {current}")
 
 
+TEMPLATE_MAX_LINES = 120   # a starting point; worst today is base at 117
+FINISHED_MAX_LINES = 200   # a populated vault's own CLAUDE.md, at the adherence target
+
+
+def check_template_size():
+    """A vault starts at a template's length and adds its own sections on top.
+
+    The adherence target for a CLAUDE.md is 200 lines. A **template** - base, and every flavor
+    skeleton - becomes an adopter's vault CLAUDE.md and is then extended, so it has to leave
+    room below that target for what the vault adds. A **finished** vault CLAUDE.md, which is
+    what the example is, is held to the target itself: an example over 200 lines contradicts
+    the rule it ships. Rules only: procedure belongs to the script or skill that runs it,
+    rationale to git history.
+    """
+    for f in template_files():
+        cap = TEMPLATE_MAX_LINES if f.suffix == ".template" else FINISHED_MAX_LINES
+        n = len(f.read_text(encoding="utf-8", errors="ignore").splitlines())
+        if n > cap:
+            bad(f"{rel(f)}: {n} lines, cap is {cap}. Cut procedure and rationale, not rules.")
+        else:
+            ok(f"{rel(f)} at {n} lines (cap {cap})")
+
+
 # --- style -----------------------------------------------------------------------------
 
 DASHES = ("\u2014", "\u2013")  # em, en: escaped so this file passes its own check.
@@ -240,16 +264,30 @@ FENCE = re.compile(r"^\s*```")
 CODE_SPAN = re.compile(r"`[^`]*`")
 
 
+WALK_SKIP_DIRS = {".git", "node_modules", "__pycache__"}
+PROSE_SUFFIXES = {".md", ".template", ".py", ".js", ".json", ".ps1"}
+
+
+def prose_files():
+    """Every file in the repo this script may read, with the noise pruned at descent.
+
+    `.git` alone holds roughly eight times as many files as the repo does, so an rglob that
+    enumerates it and filters afterwards spends most of its stats on objects no check reads.
+    """
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in WALK_SKIP_DIRS]
+        for name in filenames:
+            p = Path(dirpath) / name
+            if p.suffix in PROSE_SUFFIXES:
+                yield p
+
+
 def check_dashes():
     """The rule is about *prose*, so code is out of scope: a regex that matches an en dash in
     someone's calendar entry, inside a regex character class, is parsing data,
     not writing prose."""
     hits = []
-    for p in ROOT.rglob("*"):
-        if not p.is_file() or ".git" in p.parts or "node_modules" in p.parts:
-            continue
-        if p.suffix not in {".md", ".template", ".py", ".js", ".json", ".ps1"}:
-            continue
+    for p in prose_files():
         try:
             text = p.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
@@ -320,9 +358,15 @@ def check_tests():
 # --- skill masters ---------------------------------------------------------------------
 
 SKILLS_DIR = ROOT / "base" / ".claude" / "skills"
+MODULE_DIRS = (ROOT / "multi-vault",)   # optional modules that ship a skill of their own
 SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "arg-hint")
 SPINE_MAX_LINES = 130      # current worst is 113; the cap catches regrowth, not today's shape
 DESCRIPTION_MAX_CHARS = 600
+
+
+def skill_dirs(parent):
+    """The skill folders directly under `parent` - a folder holding a SKILL.md is a skill."""
+    return sorted(d for d in parent.iterdir() if (d / "SKILL.md").exists())
 
 
 def check_skills():
@@ -330,10 +374,25 @@ def check_skills():
         bad("base/.claude/skills/ is missing")
         return
 
-    masters = sorted(d for d in SKILLS_DIR.iterdir() if (d / "SKILL.md").exists())
+    masters = skill_dirs(SKILLS_DIR)
     if not masters:
         bad("base/.claude/skills/ ships no SKILL.md")
         return
+
+    # An optional module ships a skill too, and it is the likeliest one to rot: it sits outside
+    # base/, so without this nothing in this file ever looks at it. Same contract, same caps -
+    # a skill an adopter installs beside the bundled ones is held to what they are held to.
+    # A listed module that is not there FAILS rather than being skipped: a rename would
+    # otherwise degrade to a clean pass over a skill nothing looked at.
+    # The vendor validator below is deliberately NOT pointed here: it picks its mode from the
+    # path, and a skills folder outside .claude/ is read as a plugin directory and fails for
+    # having no manifest. That is a tool constraint, not a reason to leave the module unchecked.
+    for module in MODULE_DIRS:
+        if module.is_dir():
+            masters += skill_dirs(module)
+        else:
+            bad(f"{rel(module)}/ is in MODULE_DIRS but does not exist. Drop the entry, or "
+                f"restore the folder - as it stands its skill is checked by nothing.")
 
     for d in masters:
         sk = d / "SKILL.md"
@@ -391,7 +450,7 @@ def check_skills():
 # adopter's vault CLAUDE.md, read every session, and a repo-maintenance hash has no business
 # being a permanent line in it. Add a row when a flavor gains a file that derives from base.
 FLAVOR_TRACKING = {
-    "flavors/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "d864e4f2d18c"),
+    "flavors/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "984951188550"),
     "flavors/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
     "flavors/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "92d77ba2543f"),
 }
@@ -502,6 +561,7 @@ def main():
     verbose = "-v" in sys.argv or "--verbose" in sys.argv
     check_integrations()
     check_template_revisions()
+    check_template_size()
     check_dashes()
     check_flavor_tracking()
     check_skills()

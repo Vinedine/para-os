@@ -44,6 +44,42 @@ The 📊 Vault state rows (top 10 entities by open count, remainder aggregated t
 
 **Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>` so the entity is visible without opening the file; relative link targets from CWD.
 
+## The entity scope
+
+A different layout, not the vault brief with rows removed. The question is "where does this one thing stand", so the buckets lead and nothing is capped.
+
+````
+# <entity> - <YYYY-MM-DD>
+
+**[P] projects/<entity>** · N open · N 🔴 overdue · N undated · actions.md touched <YYYY-MM-DD>
+
+## 🔴 Overdue (N)
+1. 🔺 <task text> - [<entity>:<line>](<relative/path>#L<line>) · 📅 <date> (<Nd> ago)
+
+## 🟠 Today (N)
+## 🟡 This week (N)
+## 🔵 Next 30 days (N) · ⚪ Later (N) · 🔁 Recurring (N) · ⏳ Waiting (N)
+## ❓ Undated (N)
+
+## 🔗 Mentioned elsewhere (N)
+- <task text> - [<other-scope>:<line>](<relative/path>#L<line>) · *lives in <other entity>*
+
+## 🚩 Health flags
+- <flag lines, this entity only>
+
+---
+**Next action:** <exactly one concrete step>
+````
+
+Rules specific to this scope:
+
+- **Every open item renders**, in the same one-line format as Now. The five-item cap is a vault-wide device and does not apply.
+- **Empty buckets are omitted**, like everywhere else. The four low-urgency buckets share one heading line when each is small; give any of them its own section once it exceeds five items.
+- **The header line replaces 📊 Vault state.** One entity does not need a bar chart of itself.
+- **`🔗 Mentioned elsewhere` is not this entity's work.** It is the second grep from task-scan.md, rendered so an item filed on a contact or in `areas/business/` is visible from here. Its counts never join the header totals, and each line names the file that owns it.
+- **Health flags are filtered to this entity** (over-threshold, stale, falsely-overdue, over-grown brief). The vault-wide ones - misplaced checkboxes, undated majority - are not computed.
+- **The Next action still closes it**, chosen from this entity's own items only, never from `🔗 Mentioned elsewhere`.
+
 **The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. One - never a list, never a question.
 
 ## Example fragment

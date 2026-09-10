@@ -4,7 +4,7 @@ Cross-skill rules for *how a skill behaves* when it changes files. This is not a
 
 ## Approval discipline
 
-- **Show before you change.** Build a proposal (a table of what will change and where) and surface it *before* applying anything. Wait for explicit user approval. A pre-emptive "just do it" in the opening message does not skip the proposal; the proposal is the audit trail.
+- **Show before you change.** Build a proposal saying what will change and where - a table, or a question per item - and surface it *before* applying anything. Wait for explicit user approval. A pre-emptive "just do it" in the opening message does not skip the proposal; the proposal is the audit trail. A skill that asks item by item still leaves that trail in writing: what it proposed, and what was decided.
 - **Non-destructive normalizations may batch.** Renames, link repoints, casing/naming fixes, and moves between folders can be approved as a group.
 - **Destructive operations require individual approval.** Deletions - and, per some vaults, moves between PARA buckets - are approved one by one. No batching, no exceptions.
 - **Never delete a file without comparing its actual contents first.** Matching filenames, sizes, or "looks redundant" is not proof. Read both, confirm the survivor truly supersedes, then ask.

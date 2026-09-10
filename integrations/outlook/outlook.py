@@ -1,125 +1,113 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.09.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
-"""Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph, filter for
-vault-relevant mail, and drop matches into the vault's triage/ folder.
+# para-os-integration: outlook 2026.09.02 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+"""Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph and hand the
+messages to a caller that decides what they mean. Writes nothing, anywhere, ever.
+
+That last part is the design, not a caveat. This script used to have a `sync` subcommand
+that decided relevance from a static config - keywords, a catch-all switch, a contact
+allowlist - and wrote every match into the vault's triage/ folder. Two things were wrong
+with it. The filters were guesses maintained by hand, and being wrong cost a folder full
+of files to delete; and on a live personal inbox the honest setting was "take everything",
+which meant four figures a week. `fetch` reads the same mailbox and prints the candidates
+instead, so a skill can judge them against the vault's own rules and write only what
+survives. Removed: nothing here files mail any more.
 
 Microsoft accounts no longer accept Basic Auth or app passwords: the ONLY way in is
-OAuth2. This script uses the OAuth2 device-code flow against an Entra app registration
-(delegated Graph Mail.Read), with no client secret (public client). Read-only: it never
-sends, deletes, or marks mail read (a Graph GET does not change is-read state).
+OAuth2, against an Entra app registration (delegated Graph Mail.Read) with no client
+secret (public client). Read-only in the strict sense: it never sends, deletes, or marks
+mail read (a Graph GET does not change is-read state).
+
+`login` signs in through the browser - authorization code + PKCE on a loopback redirect -
+because device code flow is being closed off: security defaults block it, and since
+1 July 2026 that is the shipped default on every NEW tenant. `login --device-code` still
+runs the old flow for an app with no http://localhost redirect URI registered, and on a
+tenant predating that change nothing here is affected either way. Which flow minted a
+refresh token is not recorded in it and not asked about when it is redeemed, so a mailbox
+already logged in keeps working untouched - the flow only decides what `login` does.
 
 One app cannot serve every mailbox. A personal-accounts app is registered against the
 "consumers" authority, which refuses work/school accounts outright, so a Microsoft 365
 mailbox needs its own registration in its own tenant. Both the app and the authority
 therefore resolve PER ACCOUNT, falling back to the machine-wide pair (see account_app).
 
-Per-vault copy, shared state (the granola pattern): this script is COPIED into each
-vault it serves and syncs ONLY the vault it lives in, auto-detected from its own path.
-One mailbox can still feed many vaults: each vault's own config lists the accounts
-that feed it. All copies share one secret file and one dedup ledger; the ledger tracks
-per-vault filing, so the same message can land in several vaults but never twice in
-the same one.
+Per-vault copy, shared secret (the granola pattern): this script is COPIED into each vault
+it serves and reads only the mailboxes that vault declares, auto-detected from its own
+path. One mailbox can still feed many vaults, each vault's config naming the accounts that
+feed it. There is no longer a shared dedup ledger, because nothing is filed to deduplicate:
+whatever consumes `fetch` keeps its own record of what it has already dealt with.
 
 Config is split by what it is:
 
-  SECRETS - machine-global, ~/.paraos/secrets/outlook.json (outside the vault on
-  purpose: a secret inside it leaks when the vault syncs). Credentials only, nothing vault-specific. Rewritten every run because MSA
-  rotates the refresh token on each refresh. "self" lists the owner's other addresses
-  (see is_relevant).
+  SECRETS - machine-global, ~/.paraos/secrets/outlook.json (outside the vault on purpose:
+  a secret inside it leaks when the vault syncs). Credentials only, nothing vault-specific.
+  Rewritten every run because MSA rotates the refresh token on each refresh.
     {
       "client_id": "00000000-0000-...",       # default Entra app (client) id
       "authority": "consumers",               # default: "consumers", "common", or a tenant id
       "accounts": {
-        "someone@hotmail.com": { "refresh_token": "...", "self": ["someone@icloud.com"] },
+        "someone@hotmail.com": { "refresh_token": "..." },
 
         # A work/school mailbox overrides both, pointing at its own tenant's app.
         # Seed them at login:  outlook.py login someone@company.com \
         #                        --client-id <app> --authority <tenant-id>
         "someone@company.com": { "refresh_token": "...",
                                  "client_id": "11111111-1111-...",
-                                 "authority": "22222222-2222-..." }
+                                 "authority": "22222222-2222-..." },
+
+        # A SHARED mailbox has no sign-in and no password, so it is never a `login`. It is
+        # read through a user holding Full Access on it, named by `via`. No token of its
+        # own. Needs delegated Mail.Read.Shared on that user's app - which account_scope()
+        # asks for on THAT user alone, from this `via` line. Every other account is asked
+        # for Mail.Read only, because a scope an account never consented to fails its
+        # refresh outright rather than degrading.
+        "info@company.com":     { "via": "someone@company.com" },
+
+        # `shared: true` asks for Mail.Read.Shared on an account no `via` line points at
+        # yet, so the consent is in place before the shared entry is added. Set by
+        # `login --shared`; unnecessary once the `via` line above exists.
+        "reader@company.com":   { "refresh_token": "...", "shared": true }
       }
     }
 
   VAULT CONFIG - this vault's resources/scripts/outlook.config.json, next to this copy,
-  version-controlled with the vault. Which mailboxes feed THIS vault plus their filters;
-  edit it freely in a vault session, no secret ever lives here. NOT named outlook.json:
-  that is the machine-global secret above, and two files sharing one name across opposite
-  trust zones is how a credential ends up inside a synced vault.
-    { "accounts": ["someone@hotmail.com"], "keywords": ["invoice", "contract"] }
+  version-controlled with the vault. Which mailboxes feed THIS vault, and nothing else now
+  that there are no filters to configure. NOT named outlook.json: that is the machine-global
+  secret above, and two files sharing one name across opposite trust zones is how a
+  credential ends up inside a synced vault.
+    { "accounts": ["someone@hotmail.com"] }
 
-  One list per vault only works while every mailbox feeding it has the same shape. Give
-  `accounts` an object instead to filter per mailbox, each key falling back independently
-  to the vault-level default (see account_filter):
-    {
-      "keywords": ["invoice", "contract"],      # vault-level default
-      "accounts": {
-        # A dedicated mailbox IS the filter - take everything, keywords only subtract.
-        "engagement@company.com": { "match_all": true },
-        # A shared funnel needs its own tight list; four figures a week otherwise.
-        "info@company.com": { "keywords": ["offerte", "bestelling"] }
-      }
-    }
+  `accounts` may also be an object keyed by address. That shape existed to hang a per-mailbox
+  filter off each key and is now equivalent to the list; both are read, so no vault has to be
+  edited, and any filter keys left in place are inert.
 
-  Four filter settings, vault-level or per account:
-    keywords    - matched case-insensitively (see match_body for where).
-    match_all   - take every message. The explicit catch-all, because EMPTYING keywords
-                  does the opposite: it leaves the contact allowlist as the only gate,
-                  which is stricter, not looser. Default false.
-    match_body  - match keywords against bodyPreview as well as the subject. Default
-                  TRUE: subject-only matching silently drops any message whose subject is
-                  in a language the filter wasn't written in, and a dropped message leaves
-                  no trace. Set false for subject-only, accepting that blind spot, for
-                  EVERY keyword on that account.
-    subject_only_keywords - the same trade, scoped to specific keywords instead of the
-                  whole account: a keyword that is also a street name doubling as someone's
-                  home/delivery address (a Stationsstraat tenant's parcel, a Kerkstraat
-                  resident's takeout order) will keep matching shipping and marketing
-                  bodies that happen to print the address, forever, with match_body left on.
-                  List such a keyword here and it is checked against the subject only, while
-                  every other keyword on the same account keeps matching subject AND body.
-                  Case-insensitive, same as keywords; a keyword listed here that isn't also
-                  in keywords is inert.
-
-  FILTERING reads bodyPreview, which Graph caps at 255 characters. FILING does not: the
-  triage file gets the message's full body, fetched per message by fetch_body. Keep the two
-  apart. A record written from the preview stops mid-sentence with no ellipsis and no marker,
-  under a header that still reads as complete, so nothing in the file tells its reader it is
-  partial. Records written from 2026.09.01 on say so on their own `- **Body:**` line; an
-  older one cannot be told from a complete record without opening the mail.
-
-  A drafted filter is a hypothesis until it has run against real traffic. Run `sync`
-  without --write against a real window before trusting one, and prefer distinguishing
-  words: a company's own name matches almost everything in that company's mailbox, so it
-  is noise dressed as precision.
-
-Per vault, the sender allowlist is NOT stored anywhere: it is rebuilt from
-<vault>/areas/network/*.md on every run, so adding a contact automatically widens what
-gets through.
-
-`sync` is one of five subcommands, and the filter above shapes ONLY what `sync` files
-unasked. `search` deliberately ignores it and queries the whole mailbox: the point of a
-search is to ask a question the filter would not have surfaced.
+Bulk mail is dropped before the caller sees it, on the RFC 2369 List-Unsubscribe header and
+nothing else (see has_unsubscribe). It is a cost-saver, not a relevance filter: everything
+else is judged, and --include-bulk turns it off. There is deliberately no noreply-style
+sender-name backstop - that is the exclusion para-shared/connectors.md forbids by default,
+because the transactional mail a vault most wants is nearly always sent from one. What
+survives is real correspondence mixed with the spam that declines to identify itself, and
+telling those apart is judgment rather than a rule.
 
 Usage (on Windows, `py` works in place of `python3`):
   python3 outlook.py accounts                   # login state + which accounts feed this vault
-  python3 outlook.py login someone@outlook.com  # one-time device-code login (machine-global)
-  python3 outlook.py sync                       # dry run: what WOULD be filed into THIS vault
-  python3 outlook.py sync --write               # actually write matches into this vault's triage/
-  python3 outlook.py sync --account someone@hotmail.com --days 14 --write
+  python3 outlook.py login someone@outlook.com  # one-time browser login (machine-global)
+  python3 outlook.py fetch --days 30            # candidates as JSON on stdout, counts on stderr
   python3 outlook.py search "contract renewal"  # search the mailboxes feeding this vault
   python3 outlook.py raw '/me/messages?$top=1'  # any Graph path, prints JSON (debug)
 """
 import argparse
+import base64
 import hashlib
 import json
 import os
-import re
+import secrets
 import sys
 import time
+import webbrowser
 from datetime import datetime, timedelta, timezone
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 import requests
 
@@ -136,14 +124,31 @@ PARAOS_HOME = Path(os.environ.get("PARAOS_HOME") or Path.home() / ".paraos")  # 
 CONFIG_FILE = PARAOS_HOME / "secrets" / "outlook.json"      # credentials only, machine-global
 VAULT_CONFIG = SCRIPT_DIR / "outlook.config.json"           # this vault's accounts + filters
 LEGACY_VAULT_CONFIG = SCRIPT_DIR / "outlook_sync.json"      # the superseded name, still read
-LEDGER_FILE = PARAOS_HOME / "cache" / "outlook" / "synced.json"
 
 GRAPH = "https://graph.microsoft.com/v1.0"
-SCOPE = "https://graph.microsoft.com/Mail.Read offline_access"
-EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+# Scope is resolved PER ACCOUNT by account_scope(), never as one constant for every mailbox:
+# a refresh may narrow the consented scope but never widen it, so asking every account for
+# Mail.Read.Shared fails the refresh (AADSTS65001) on every account that never consented to
+# it. The `consumers` endpoint drops the extra silently, so only work tenants show it.
+READ_SCOPE = "https://graph.microsoft.com/Mail.Read"
+SHARED_SCOPE = "https://graph.microsoft.com/Mail.Read.Shared"
+OFFLINE_SCOPE = "offline_access"
+
+# The fields a record is built from. One list, because `fetch` and `search` must emit the
+# same record shape - the last field added had to be pasted into both, and a field added to
+# only one is a record the caller cannot group.
+SELECT_FIELDS = ("id,internetMessageId,conversationId,receivedDateTime,subject,from,"
+                 "toRecipients,ccRecipients,bodyPreview,webLink")
+
+# One keep-alive connection for the whole run, token endpoint included. Through a bare
+# `requests.post`/`requests.get` every call builds and discards its own session, paying a
+# fresh DNS + TCP + TLS handshake - once per mailbox for the tokens, and once per page for
+# a fetch that walks a whole window.
+SESSION = requests.Session()
 
 
-# --- config + ledger -------------------------------------------------------------------
+# --- config ---------------------------------------------------------------------------
 
 def _load_json(path):
     """Parse a JSON file, or exit cleanly rather than let a malformed one surface as a raw
@@ -178,7 +183,7 @@ def load_vault_config(required=True):
     if not required:
         return {}
     sys.exit(f"No vault config at {VAULT_CONFIG}. Create it with: "
-             '{"accounts": ["someone@hotmail.com"], "keywords": []}')
+             '{"accounts": ["someone@hotmail.com"]}')
 
 
 def write_json_atomic(path, data):
@@ -203,16 +208,6 @@ def save_account(cfg, email, **fields):
     write_json_atomic(CONFIG_FILE, on_disk)
 
 
-def load_ledger():
-    if LEDGER_FILE.exists():
-        return json.loads(LEDGER_FILE.read_text(encoding="utf-8"))
-    return {}
-
-
-def save_ledger(ledger):
-    write_json_atomic(LEDGER_FILE, ledger)
-
-
 def account_app(cfg, email):
     """The Entra app and authority serving ONE mailbox, as (client_id, authority).
 
@@ -231,18 +226,210 @@ def account_app(cfg, email):
     return client_id, authority
 
 
+def account_scope(cfg, email):
+    """The delegated scope ONE account is asked for, as a space-separated string.
+
+    Mail.Read for everyone, plus Mail.Read.Shared only for an account that actually reads a
+    shared mailbox - a mailbox somewhere in this config names it as its `via`, or a `login
+    --shared` set the flag on it ahead of that entry existing.
+
+    Narrow by default because the token endpoint is asymmetric: a refresh may ask for LESS
+    than was consented but never more, so a scope the account never consented to does not
+    degrade, it fails the refresh outright and takes an already-working mailbox offline. The
+    account that needs the wider scope is the exception (one, here), and it is the one that
+    gets prompted to consent to it.
+    """
+    accts = cfg.get("accounts") or {}
+    entry = accts.get(email) or {}
+    reads_shared = bool(entry.get("shared")) or any(
+        (a or {}).get("via") == email for a in accts.values())
+    parts = [READ_SCOPE] + ([SHARED_SCOPE] if reads_shared else []) + [OFFLINE_SCOPE]
+    return " ".join(parts)
+
+
+def mailbox_route(cfg, email):
+    """Which account's token reads ONE feed address, and where Graph is addressed, as
+    (token_account, graph_root).
+
+    A shared mailbox has no sign-in and no password - that is what makes it free and
+    unlicensed - so it can never be a `login`. It is read THROUGH a user who holds Full
+    Access on it: the account entry carries `via` naming that user, the token comes from
+    them, and Graph is addressed at /users/<shared> rather than /me. Needs delegated
+    Mail.Read.Shared on the app, which plain Mail.Read does not cover.
+
+    Everything without `via` resolves to itself and /me, so every existing config on every
+    machine behaves exactly as it did before this existed.
+    """
+    acct = (cfg.get("accounts") or {}).get(email) or {}
+    via = acct.get("via")
+    if not via:
+        return email, "/me"
+    if via not in (cfg.get("accounts") or {}):
+        sys.exit(f"{email} is read via {via}, which has no entry on this machine. "
+                 f"Run:  outlook.py login {via}")
+    return via, f"/users/{email}"
+
+
 def token_url(authority):
     return f"https://login.microsoftonline.com/{authority}/oauth2/v2.0"
 
 
 # --- OAuth2 device-code flow -----------------------------------------------------------
 
-def device_login(cfg, email):
-    """Interactive: user opens a URL, types a code, consents once. Returns a refresh token."""
+def _b64url(raw):
+    """base64url, unpadded - what RFC 7636 wants for both PKCE values."""
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _callback_handler():
+    """A one-shot loopback handler, built fresh per login so two logins in one process
+    cannot see each other's authorization code."""
+
+    class Handler(BaseHTTPRequestHandler):
+        result = None
+
+        def do_GET(self):
+            q = parse_qs(urlparse(self.path).query)
+            if "code" not in q and "error" not in q:
+                self.send_response(404)       # a browser asking for /favicon.ico is not the
+                self.end_headers()            # callback; answer it without consuming the wait
+                return
+            Handler.result = q
+            body = ("<!doctype html><meta charset=utf-8>"
+                    "<body style='font-family:system-ui;padding:3rem;max-width:32rem'>"
+                    "<h3>Signed in.</h3><p>Close this tab and return to the terminal.</p>"
+                    ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args):
+            pass                              # the default logs every hit to stderr
+
+    return Handler
+
+
+def pkce_login(cfg, email):
+    """Interactive: authorization code + PKCE on a loopback redirect. Returns a refresh token.
+
+    The default, because device code flow is being closed off. Security defaults block it,
+    and **since 1 July 2026 that is the shipped default for every new Entra tenant**, so a
+    tenant created from then on refuses a device-code sign-in outright (`AADSTS530035`)
+    while a browser sign-in is untouched.
+
+    Nothing about an existing account changes. Which flow minted a refresh token is not
+    recorded in it and not asked about when it is redeemed, so every mailbox already logged
+    in keeps working untouched; the flow only decides what happens during `login`.
+
+    Needs `http://localhost` registered as a redirect URI on the app, under the "Mobile and
+    desktop applications" platform. Register it without a port: the port is ignored when
+    Entra matches a loopback redirect, so one entry covers whatever ephemeral port the OS
+    hands us here. An app that has no such entry cannot use this flow at all, which is what
+    `login --device-code` is still there for.
+    """
     client_id, authority = account_app(cfg, email)
+    scope = account_scope(cfg, email)
     base = token_url(authority)
-    r = requests.post(f"{base}/devicecode",
-                      data={"client_id": client_id, "scope": SCOPE}, timeout=30)
+
+    verifier = _b64url(os.urandom(32))
+    challenge = _b64url(hashlib.sha256(verifier.encode("ascii")).digest())
+    state = secrets.token_urlsafe(16)
+
+    # Port 0 asks the OS for a free one. Bound before the URL is built, because the port is
+    # part of the redirect the authorize request has to commit to.
+    Handler = _callback_handler()
+    try:
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+    except OSError as e:
+        sys.exit(f"Could not open a loopback port for the sign-in redirect ({e}). "
+                 f"Use:  outlook.py login {email} --device-code")
+    server.timeout = 1
+    redirect_uri = f"http://localhost:{server.server_port}"
+
+    url = f"{base}/authorize?" + urlencode({
+        "client_id": client_id,
+        "response_type": "code",
+        "redirect_uri": redirect_uri,
+        "response_mode": "query",
+        "scope": scope,
+        "state": state,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+        "login_hint": email,          # preselects the account; the user can still switch
+    })
+
+    print(f"\n  Opening a browser to sign in as {email}.")
+    print(f"  If nothing opens, paste this into a browser on THIS machine:\n\n  {url}\n")
+    try:
+        webbrowser.open(url)
+    except Exception:
+        pass                          # headless is fine: the URL is printed above
+    # Printed every time, because the failure it warns about lands in the BROWSER and
+    # never reaches this process: an app with no reply address shows AADSTS500113 on
+    # Microsoft's own error page, no redirect is ever sent, and all this side sees is
+    # silence until the timeout. Naming it up front costs a line and saves five minutes.
+    print(f"  App {client_id} must have  http://localhost  registered as a redirect URI")
+    print("  (Entra > App registrations > Authentication > Mobile and desktop applications).")
+    print("  Waiting for the redirect...", flush=True)
+
+    deadline = time.monotonic() + 300
+    while Handler.result is None and time.monotonic() < deadline:
+        server.handle_request()
+    server.server_close()
+
+    if Handler.result is None:
+        # The likely cause is not that the operator was slow. If the browser showed an
+        # error instead of redirecting, this process was never told: the authorize step
+        # fails at Microsoft, and the commonest reason by far is a missing reply address.
+        sys.exit(
+            "No redirect arrived within 5 minutes." + chr(10) +
+            '  If the browser showed AADSTS500113 ("No reply address is registered for '
+            'the application"), that is this, and it is a one-time fix:' + chr(10) +
+            "    Entra admin center > App registrations > the app with client id" + chr(10) +
+            f"    {client_id} > Authentication > Add a platform >" + chr(10) +
+            "    Mobile and desktop applications, then type  http://localhost  into" + chr(10) +
+            "    the free-text field (it is NOT one of the tick-boxes) > Configure" + chr(10) +
+            "  Register it WITHOUT a port; Entra ignores the port on a loopback redirect."
+            + chr(10) +
+            f"  Then re-run:  outlook.py login {email}" + chr(10) +
+            f"  Or where the tenant still permits it:  outlook.py login {email} --device-code")
+    q = Handler.result
+    if "error" in q:
+        sys.exit(f"Sign-in failed: {q['error'][0]}: "
+                 f"{(q.get('error_description') or [''])[0][:300]}")
+    # A mismatched state means the code came back from a request that was not the one this
+    # process started. Refusing is the whole point of sending it.
+    if (q.get("state") or [None])[0] != state:
+        sys.exit("Sign-in rejected: the redirect carried the wrong state value.")
+
+    r = SESSION.post(f"{base}/token", data={
+        "grant_type": "authorization_code",
+        "client_id": client_id,
+        "code": q["code"][0],
+        "redirect_uri": redirect_uri,
+        "code_verifier": verifier,
+        "scope": scope,
+    }, timeout=30)
+    body = r.json()
+    if r.status_code != 200:
+        sys.exit(auth_failure(email, scope, authority, client_id, body, what="Sign-in"))
+    return body["refresh_token"]
+
+
+def device_login(cfg, email):
+    """Interactive: user opens a URL, types a code, consents once. Returns a refresh token.
+
+    No longer the default. Kept because it is the only flow that needs nothing registered
+    on the app, so it still logs in a mailbox whose app has no loopback redirect URI - and
+    because a tenant predating the 1 July 2026 change is not affected by any of this.
+    """
+    client_id, authority = account_app(cfg, email)
+    scope = account_scope(cfg, email)
+    base = token_url(authority)
+    r = SESSION.post(f"{base}/devicecode",
+                      data={"client_id": client_id, "scope": scope}, timeout=30)
     r.raise_for_status()
     dc = r.json()
     print(f"\n  To sign in as {email}:")
@@ -254,7 +441,7 @@ def device_login(cfg, email):
     deadline = time.monotonic() + dc.get("expires_in", 900)
     while time.monotonic() < deadline:
         time.sleep(interval)
-        p = requests.post(f"{base}/token", data={
+        p = SESSION.post(f"{base}/token", data={
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
             "client_id": client_id,
             "device_code": dc["device_code"],
@@ -272,164 +459,217 @@ def device_login(cfg, email):
     sys.exit("Login timed out (code expired). Run login again.")
 
 
+def auth_failure(email, scope, authority, client_id, body, what="Token refresh"):
+    """The message a failed token exchange exits with.
+
+    Microsoft says exactly what is wrong in `error_description`, keyed by an AADSTS code,
+    and this used to print neither - just the OAuth error class (`invalid_grant`,
+    `invalid_request`, both of which cover a dozen unrelated causes) followed by "re-run
+    login". That advice is wrong more often than it is right: a consent gap needs a login
+    with a different scope, and a tenant policy block cannot be fixed by logging in at all,
+    so the one instruction offered sent you round a loop that could not terminate. The code
+    is the diagnosis, so it is quoted, and the remedy follows from it.
+    """
+    codes = set(body.get("error_codes") or [])
+    # `.splitlines()[0]` on a response that carried no description is an IndexError inside
+    # the error path - a crash reporting a crash, hiding the failure it was called about.
+    desc = next(iter((body.get("error_description") or "").splitlines()), "").strip()
+    lines = [f"{what} for {email} failed ({body.get('error')})."]
+    if desc:
+        lines.append(f"  {desc}")
+
+    if 65001 in codes:                      # consented scope does not cover what was asked
+        if SHARED_SCOPE in scope:
+            lines.append(f"  This account was asked for Mail.Read.Shared, which its consent "
+                         f"does not cover. It is asked because a shared mailbox in "
+                         f"{CONFIG_FILE.name} names it as `via`.")
+            lines.append(f"  Fix:  outlook.py login {email} --shared   "
+                         f"(or have a tenant admin grant Mail.Read.Shared to app {client_id})")
+        else:
+            lines.append(f"  Consent was never granted, or has been revoked.")
+            lines.append(f"  Fix:  outlook.py login {email}")
+    elif 530035 in codes:                   # security defaults blocking the sign-in itself
+        # Almost always device code flow: security defaults block it, and since 1 July 2026
+        # that is the shipped default on every NEW tenant. A new tenant enforces them after a
+        # 24-hour grace period, so this arrives as "it worked for a day and then stopped".
+        lines.append(f"  Tenant {authority} blocks this sign-in by policy, and security "
+                     f"defaults are on or off with no per-app exception.")
+        lines.append(f"  Most likely fix, and it needs no admin:  outlook.py login {email}")
+        lines.append(f"    The default login is a browser sign-in (auth code + PKCE), which "
+                     f"security defaults do not block. Device code flow is what they block. "
+                     f"Needs http://localhost on app {client_id} as a redirect URI.")
+        lines.append(f"  Otherwise a tenant admin either turns security defaults off "
+                     f"(losing the MFA baseline unless Entra ID P1 + a Conditional Access "
+                     f"policy replaces it), or adds P1 and writes a policy whose "
+                     f"'Authentication flows' condition permits this app.")
+    elif 53003 in codes:                    # a real Conditional Access policy
+        lines.append(f"  A Conditional Access policy in tenant {authority} blocks this "
+                     f"sign-in. A re-login cannot get past it; the policy has to change.")
+        lines.append(f"  The sign-in log names the policy: Entra ID > Monitoring & health > "
+                     f"Sign-in logs, filter on app {client_id}, then the Conditional access "
+                     f"tab of the failed record.")
+    elif codes & {70008, 700082, 50173}:     # refresh token expired or invalidated
+        lines.append(f"  The stored refresh token has expired or was invalidated "
+                     f"(a password change and a revoked session both do this).")
+        lines.append(f"  Fix:  outlook.py login {email}")
+    elif codes & {50076, 50079, 50158}:      # MFA / CA challenge the refresh path cannot answer
+        lines.append(f"  The tenant wants an interactive challenge (MFA or a Conditional "
+                     f"Access grant) that a refresh cannot answer.")
+        lines.append(f"  Fix:  outlook.py login {email}")
+    else:
+        lines.append(f"  Fix, if the code above does not say otherwise:  "
+                     f"outlook.py login {email}")
+    return "\n".join(lines)
+
+
+_TOKENS = {}    # account -> access token, for this run only. Never persisted.
+
+
 def access_token(cfg, email):
-    """Trade the stored refresh token for an access token; persist the rotated refresh token."""
+    """Trade the stored refresh token for an access token; persist the rotated refresh token.
+
+    Cached per run, because `mailbox_route` maps every shared mailbox back to the one user
+    holding Full Access on it: a vault feeding an owner plus two of their shared mailboxes
+    asks for the same account's token three times. Each ask is a network round-trip plus a
+    read and an atomic rewrite of the secrets file, and each rotation invalidates the
+    refresh token the previous one just stored.
+    """
+    if email in _TOKENS:
+        return _TOKENS[email]
     acct = cfg["accounts"][email]
     if not acct.get("refresh_token"):
         sys.exit(f"{email} has no token yet. Run:  outlook.py login {email}")
     client_id, authority = account_app(cfg, email)
+    scope = account_scope(cfg, email)
     base = token_url(authority)
-    r = requests.post(f"{base}/token", data={
+    r = SESSION.post(f"{base}/token", data={
         "grant_type": "refresh_token",
         "client_id": client_id,
         "refresh_token": acct["refresh_token"],
-        "scope": SCOPE,
+        "scope": scope,
     }, timeout=30)
     body = r.json()
     if r.status_code != 200:
-        sys.exit(f"Token refresh for {email} failed ({body.get('error')}). "
-                 f"Re-run:  outlook.py login {email}")
+        sys.exit(auth_failure(email, scope, authority, client_id, body))
     if body.get("refresh_token"):           # MSA rotates refresh tokens: write the new one back
         acct["refresh_token"] = body["refresh_token"]
         save_account(cfg, email, refresh_token=body["refresh_token"])
-    return body["access_token"]
+    _TOKENS[email] = body["access_token"]
+    return _TOKENS[email]
 
 
 # --- Graph read ------------------------------------------------------------------------
 
-# One keep-alive connection for the whole run. `requests.get` builds and discards a session
-# per call, so every Graph read paid a fresh DNS + TCP + TLS handshake - fine when that was a
-# few calls per sync, wasteful now that fetch_body adds one per filed message.
-SESSION = requests.Session()
+THROTTLE_RETRIES = 3        # a fetch pages hard enough to be throttled; a search does not
+THROTTLE_MAX_WAIT = 60      # cap the server's Retry-After: a long one is worse than failing
 
 
 def graph_get(token, path, prefer=None):
+    """One Graph read, retried on a throttle.
+
+    Graph answers a caller that pages hard with 429 and a `Retry-After`, and without this
+    that lands as an unhandled HTTPError partway through a run - discarding every message
+    already fetched, since nothing is emitted until the end. Retried here rather than at the
+    call sites so the search path gets it too, and bounded so a throttled mailbox fails
+    loudly rather than hanging.
+    """
     url = path if path.startswith("http") else f"{GRAPH}{path}"
     headers = {"Authorization": f"Bearer {token}"}
     if prefer:
         headers["Prefer"] = prefer
-    r = SESSION.get(url, headers=headers, timeout=30)
+    for attempt in range(THROTTLE_RETRIES + 1):
+        r = SESSION.get(url, headers=headers, timeout=30)
+        if r.status_code not in (429, 503) or attempt == THROTTLE_RETRIES:
+            break
+        try:
+            wait = int(r.headers.get("Retry-After", ""))
+        except ValueError:
+            wait = 5 * (attempt + 1)
+        wait = min(max(wait, 1), THROTTLE_MAX_WAIT)
+        print(f"! throttled by Graph, waiting {wait}s "
+              f"({attempt + 1}/{THROTTLE_RETRIES})", file=sys.stderr)
+        time.sleep(wait)
     r.raise_for_status()
     return r.json()
 
 
-# The leading `XX:` chain on a subject, however many links and whatever language.
-PREFIX_RE = re.compile(r"^\s*((?:[A-Za-z]{1,6}\s*:\s*)+)")
-# Forward markers by locale. English, Dutch and French are the ones this has actually been run
-# against; the rest are the prefixes those Outlook locales are believed to use, and none of them
-# has been checked against a real mailbox. They are here because the errors are asymmetric (see
-# is_forward): an extra token that never fires costs nothing, a missing one loses a message. Treat
-# the list as a starting guess, not a reference - if a locale matters to you, verify it.
-# The reply side is deliberately NOT enumerated: any token that is not a forward is stepped over,
-# so "AW:" (de) or "Antw:" (nl) in front of a forward costs nothing and no locale has to be known
-# in advance to be handled correctly.
-FORWARD_TOKENS = frozenset((
-    "fw", "fwd",     # English
-    "tr",            # French  (transfert)
-    "wg",            # German  (weitergeleitet)
-    "doorst",        # Dutch   (doorgestuurd)
-    "rv",            # Spanish (reenviar)
-    "enc",           # Portuguese (encaminhada)
-    "vs",            # Danish / Norwegian (videresendt)
-    "vb",            # Swedish (vidarebefordrat)
-    "i",             # Italian (inoltro)
-))
+# Folders a fetch reads, as Graph well-known names rather than display names, which are
+# localized ("Junk Email" is "Ongewenste e-mail" on a Dutch mailbox) and so cannot be
+# matched on. An allowlist, because the folders worth reading are few and the ones worth
+# skipping are not: Junk and Deleted Items are disposals the operator or the spam filter
+# has already made, and re-surfacing them undoes that decision.
+FETCH_FOLDERS = ("inbox", "archive")
+
+# A ceiling on one mailbox's fetch. `search` has always had `--limit`; this is the same bound
+# for the path that pages a whole window, because a busy inbox over 30 days is thousands of
+# messages, each carrying its full header block, and a run that dies of its own size has
+# fetched everything and emitted nothing. Truncation is reported, never silent.
+FETCH_MAX_MESSAGES = 1000
+
+# Messages per request. The payload is dominated by the header block either way, so a
+# bigger page buys fewer sequential round-trips for the same bytes - and a full window is
+# all latency, not bandwidth.
+PAGE_SIZE = 100
 
 
-def is_forward(subject):
-    """True if any token in `subject`'s leading `XX:` chain is a forward marker.
+def fetch_messages(token, days, root="/me", limit=FETCH_MAX_MESSAGES):
+    """Recent messages from the inbox and the archive, newest first, within the day window.
 
-    Distinguishing forwards from replies matters because Graph's `uniqueBody` means
-    opposite things for each: for a reply it is the new text minus quoted history (exactly
-    what a triage file wants); for a forward the entire forwarded message is itself the
-    "quoted" part, so uniqueBody for a bare forward is the covering note only - or empty,
-    for a forward with no covering note at all - and the content the forward exists to
-    deliver never reaches the triage file.
+    Pulls internetMessageHeaders along with the rest, which is how the caller sees
+    List-Unsubscribe and therefore knows bulk mail for what it is. The header block is
+    large and never leaves this script, so it costs time rather than tokens.
 
-    Reading the whole prefix chain rather than "Re: chain, then Fwd:" is what makes the
-    localised cases work: the marker can sit under a reply prefix in any language, in any
-    order, and no list of reply words has to be kept.
+    Scoped to FETCH_FOLDERS rather than /me/messages, which is the whole mailbox. That
+    earlier scope read Junk Email, Deleted Items and Sent Items too, so a run re-surfaced
+    mail the spam filter had caught and mail the operator had thrown away, and offered it
+    back as a candidate (README.md has the measurements). The archive stays in scope
+    because a fast archiver can file a real message between two runs, and it is cheap.
 
-    The two errors are not equally bad, which is why the marker list leans inclusive. Missing
-    a forward loses the forwarded message outright and silently. Mistaking a reply for one
-    files `body` instead of `uniqueBody`, so the record carries its quoted thread - verbose,
-    visible, and nothing is lost.
+    Stops at `limit` messages across all folders and says so on stderr, so a mailbox too big
+    for one window truncates visibly instead of running until something breaks.
     """
-    m = PREFIX_RE.match(subject or "")
-    if not m:
-        return False
-    return any(t.strip().lower() in FORWARD_TOKENS for t in m.group(1).split(":"))
-
-
-def fetch_body(token, msg):
-    """(text, source) for ONE message's body, for filing. Falls back to bodyPreview.
-
-    Deliberately a second round trip rather than another $select on the collection, for two
-    reasons. `uniqueBody` - the part of the message that is NOT quoted reply history - is not
-    returned on a collection query at all, only on a single-message GET; and `body` on a
-    collection would drag the entire quoted thread into every page of the sync, for messages
-    that mostly will not pass the filter anyway. So the listing stays cheap and this runs
-    only for messages actually being written.
-
-    `Prefer: outlook.body-content-type="text"` makes Graph do the HTML-to-text conversion
-    server-side, so nothing here has to parse HTML.
-
-    uniqueBody first, because a triage file for the fifth reply in a thread should hold that
-    reply, not five copies of the thread. It can come back empty (Graph cannot always work
-    out the boundary), so `body` is the fallback and bodyPreview the last resort - a filed
-    message with a truncated body is bad, one with no body at all is worse.
-
-    That ordering is backwards for a forward: see `is_forward`. There, `body` (the whole
-    message, forwarded content included) goes first and `uniqueBody` (the covering note,
-    or nothing) is the fallback instead.
-
-    `source` is "uniqueBody", "body", or "preview". The caller needs the distinction, not just
-    the text: "preview" means the message body never arrived and the 255-character preview is
-    standing in for it, which write_triage has to say in the file. A record presenting a
-    preview as the whole message is the failure this function exists to end, and this fallback
-    is the one path where it can still happen.
-    """
-    try:
-        # quote the id: it is base64-derived and can carry "+", "/" and "=", and an unescaped
-        # "/" would silently become another path segment. Graph percent-decodes it back.
-        m = graph_get(token, f"/me/messages/{quote(msg['id'], safe='')}?$select=body,uniqueBody",
-                      prefer='outlook.body-content-type="text"')
-    except Exception as e:                       # one unreadable message must not kill a sync
-        print(f"    ! body fetch failed ({e}); filing the preview instead", file=sys.stderr)
-        return (msg.get("bodyPreview") or "").strip(), "preview"
-    keys = ("body", "uniqueBody") if is_forward(msg.get("subject")) else ("uniqueBody", "body")
-    for key in keys:
-        content = ((m.get(key) or {}).get("content") or "").strip()
-        if content:
-            return content, key
-    return (msg.get("bodyPreview") or "").strip(), "preview"
-
-
-def fetch_messages(token, days):
-    """Recent messages across all folders, newest first, within the day window."""
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    path = ("/me/messages?$select=id,receivedDateTime,subject,from,toRecipients,ccRecipients,"
-            "bodyPreview,webLink&$orderby=receivedDateTime desc&$top=50"
-            f"&$filter=receivedDateTime ge {since}")
-    out = []
-    while path:
-        page = graph_get(token, path)
-        out.extend(page.get("value", []))
-        path = page.get("@odata.nextLink")
+    out, seen = [], set()
+    for folder in FETCH_FOLDERS:
+        if len(out) >= limit:
+            break
+        path = (f"{root}/mailFolders/{folder}/messages"
+                f"?$select={SELECT_FIELDS},internetMessageHeaders"
+                f"&$orderby=receivedDateTime desc&$top={PAGE_SIZE}"
+                f"&$filter=receivedDateTime ge {since}")
+        while path:
+            try:
+                page = graph_get(token, path)
+            except requests.HTTPError as e:
+                # A mailbox without this folder must not cost the run the folders it does
+                # have; anything else is still fatal.
+                if e.response is not None and e.response.status_code == 404:
+                    break
+                raise
+            for m in page.get("value", []):
+                if m["id"] not in seen:
+                    seen.add(m["id"])
+                    out.append(m)
+            path = page.get("@odata.nextLink")
+            if len(out) >= limit:
+                print(f"! {root} {folder}: stopped at {limit} messages, window not fully "
+                      f"covered. Narrow --days, or raise FETCH_MAX_MESSAGES.", file=sys.stderr)
+                break
+    out.sort(key=lambda m: m.get("receivedDateTime") or "", reverse=True)
     return out
 
 
-def search_messages(token, query, limit=200):
+def search_messages(token, query, limit=200, root="/me"):
     """Server-side keyword search across the whole mailbox, at any depth.
 
     Deliberately a SEPARATE path from fetch_messages: Graph rejects $search combined
     with $filter or $orderby, so there is no date window here and results come back
     ranked by relevance rather than newest-first. That is the point - fetch_messages
-    walks a day window (fine for a sync, hopeless across years), while this hits the
+    walks a day window (fine for a fetch, hopeless across years), while this hits the
     server index and returns in seconds however far back the match is.
     """
-    path = ("/me/messages?$select=id,receivedDateTime,subject,from,toRecipients,ccRecipients,"
-            f"bodyPreview,webLink&$top=50&$search={quote(chr(34) + query + chr(34))}")
+    path = (f"{root}/messages?$select={SELECT_FIELDS}"
+            f"&$top={PAGE_SIZE}&$search={quote(chr(34) + query + chr(34))}")
     out = []
     while path and len(out) < limit:
         page = graph_get(token, path)
@@ -438,24 +678,7 @@ def search_messages(token, query, limit=200):
     return out[:limit]
 
 
-# --- vault-derived relevance filter ----------------------------------------------------
-
-def build_allowlist(vault_root):
-    """Every email address mentioned in the vault's contact files (self-maintaining)."""
-    network = vault_root / "areas" / "network"
-    allow = set()
-    if network.is_dir():
-        for md in network.glob("*.md"):
-            for m in EMAIL_RE.findall(md.read_text(encoding="utf-8", errors="ignore")):
-                allow.add(m.lower())
-    return allow
-
-
-def addrs(msg):
-    people = [msg.get("from")] + (msg.get("toRecipients") or []) + (msg.get("ccRecipients") or [])
-    return {p["emailAddress"]["address"].lower()
-            for p in people if p and p.get("emailAddress", {}).get("address")}
-
+# --- vault config -----------------------------------------------------------------------
 
 def vault_accounts(vc):
     """The mailboxes feeding this vault, from either config shape: `accounts` is a list of
@@ -464,75 +687,12 @@ def vault_accounts(vc):
     return list(vc.get("accounts") or [])
 
 
-def account_filter(vc, email):
-    """The filter serving ONE mailbox, as (keywords, match_all, match_body, subject_only).
-
-    Per account, not per vault, because one vault can be fed by mailboxes of opposite shapes.
-    A dedicated engagement mailbox IS the filter: everything in it is in scope, and keywords
-    there only subtract, adding silent-drop risk for nothing. A shared info@ funnel is the
-    reverse: a week can be four figures of mail, and the filter is the only thing between it
-    and a triage/ folder abandoned in its first week. One vault-level list can serve either
-    one, never both.
-
-    Each setting falls back independently to the vault-level default, so a per-account block
-    that only tightens `keywords` keeps the vault's body-matching choice rather than silently
-    reverting it. A setting explicitly written as JSON `null` falls back too - `.get(key, ...)`
-    only defaults on a MISSING key, and a null override is indistinguishable from "no opinion",
-    not from "the empty/false value".
-    """
-    accts = vc.get("accounts") or []
-    over = (accts.get(email) or {}) if isinstance(accts, dict) else {}
-
-    def setting(key, default):
-        value = over.get(key)          # a null (or missing) override defers to the vault level
-        if value is None:
-            value = vc.get(key)        # a null (or missing) vault default falls to `default`
-        return default if value is None else value
-
-    return (
-        [k.lower() for k in setting("keywords", [])],
-        bool(setting("match_all", False)),
-        bool(setting("match_body", True)),
-        {k.lower() for k in setting("subject_only_keywords", [])},
-    )
-
-
-def is_relevant(msg, allow, keywords, self_addrs=frozenset(), match_all=False, match_body=True,
-                subject_only=frozenset()):
-    # Match a COUNTERPARTY who is a known contact, not the mailbox owner. The owner's own
-    # addresses are in the vault's contacts and every message in their box is to/from them,
-    # so leaving them in would match everything (incl. the owner's other addresses, e.g.
-    # hotmail <-> icloud self-mail). self_addrs lists every address that IS the owner.
-    others = addrs(msg) - self_addrs
-    if others & allow:
-        return "contact"
-    # match_all is the explicit catch-all. It exists because emptying `keywords` - the obvious
-    # guess for "file everything" - does the opposite: it leaves the contact allowlist as the
-    # only gate, which is STRICTER, not looser.
-    if match_all:
-        return "all"
-    subject = (msg.get("subject") or "").lower()
-    for kw in keywords:
-        if kw in subject:
-            return f"keyword:{kw}"
-    # Subject-only matching is a systematic blind spot, not an occasional miss: it drops any
-    # message whose subject is in a language the filter wasn't written in, and a dropped
-    # message leaves no trace. bodyPreview is already fetched, so this costs nothing.
-    if match_body:
-        body = (msg.get("bodyPreview") or "").lower()
-        for kw in keywords:
-            if kw in subject_only:     # this keyword's body side is opted out - see docstring
-                continue
-            if kw in body:
-                return f"body:{kw}"
-    return None
-
-
-# --- triage output ---------------------------------------------------------------------
+# --- vault guard ------------------------------------------------------------------------
 
 def require_vault():
-    """Refuse to write outside a vault. Run in place from the integrations folder, the
-    two-levels-up guess resolves to the para-os repo and files real mail into it."""
+    """Refuse to run outside a vault. This copy resolves the vault from its own path, so run
+    in place from the integrations folder that guess lands on the para-os repo, and the script
+    would read a mailbox on behalf of a 'vault' that is really a source tree."""
     claude_md = VAULT_ROOT / "CLAUDE.md"
     marked = claude_md.exists() and "para-os-template:" in claude_md.read_text(
         encoding="utf-8", errors="ignore")
@@ -540,43 +700,6 @@ def require_vault():
         sys.exit(f"{VAULT_ROOT} does not look like a vault (its CLAUDE.md carries no "
                  f"para-os-template marker and there is no triage/). Copy this script to "
                  f"<vault>/resources/scripts/ and run it from there.")
-
-
-def safe_title(text):
-    """Keep the vault's `YYYYMMDD Description.ext` shape: real words and spaces, minus
-    the characters a filesystem rejects. Illegal characters become a space rather than
-    nothing, so `Q3/Q4 plan` stays two words instead of welding into `Q3Q4`."""
-    text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', " ", text or "")
-    return re.sub(r"\s+", " ", text).strip(" .")[:60].strip(" .") or "no subject"
-
-
-def write_triage(vault_root, account, msg, reason, body, source):
-    received = (msg.get("receivedDateTime") or "")[:10].replace("-", "")
-    frm = (msg.get("from") or {}).get("emailAddress") or {}
-    subject = msg.get("subject") or "(no subject)"
-    mid = hashlib.sha1(msg["id"].encode("utf-8")).hexdigest()[:6]  # unique per message: thread replies share date+subject
-    # Join non-empty parts: a message with no receivedDateTime must not yield " Title.md".
-    fname = " ".join(p for p in (received, safe_title(subject), mid) if p) + ".md"
-    dest = vault_root / "triage" / fname
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    # A preview standing in for the message is qualified in the file itself. The ledger entry
-    # written straight after this one means no later run revisits the record, so its reader is
-    # the only one left who can act on it, and an unmarked preview reads as the whole message.
-    # Above the Link line on purpose: everything after Link is the message body verbatim, so a
-    # header note placed below it would read as part of the message to anything measuring it.
-    note = ("- **Body:** preview only - Graph's 255-character bodyPreview, not the full "
-            "message. Open the link below to read it.\n") if source == "preview" else ""
-    dest.write_text(
-        f"# {subject}\n\n"
-        f"- **Source:** Outlook ({account})\n"
-        f"- **From:** {frm.get('name', '')} <{frm.get('address', '')}>\n"
-        f"- **Received:** {msg.get('receivedDateTime') or ''}\n"
-        f"- **Matched:** {reason}\n"
-        f"{note}"
-        f"- **Link:** {msg.get('webLink') or ''}\n\n"
-        f"{body}\n",
-        encoding="utf-8")
-    return dest
 
 
 # --- commands --------------------------------------------------------------------------
@@ -588,7 +711,12 @@ def cmd_accounts(cfg, _args):
         return
     feeds = vault_accounts(load_vault_config(required=False))
     for email, a in accts.items():
-        state = "logged in" if a.get("refresh_token") else "NOT logged in (run login)"
+        # A shared mailbox has no sign-in of its own, so "NOT logged in" would read as a
+        # setup step that will never be done. Say what it actually is instead.
+        if a.get("via"):
+            state = f"shared, read via {a['via']}"
+        else:
+            state = "logged in" if a.get("refresh_token") else "NOT logged in (run login)"
         mark = "*" if email in feeds else " "
         # Show the authority when it is not the machine-wide one: a work mailbox silently
         # falling back to the personal app is otherwise invisible until the token fails.
@@ -599,122 +727,65 @@ def cmd_accounts(cfg, _args):
             own = f"  via {authority}" if authority != cfg.get("authority", "consumers") else ""
         except SystemExit:
             own = "  [no client_id configured]"
+        # The one account carrying the wider consent is worth seeing here. It is the only
+        # one that can fail on a scope the others never ask for, and a listing that hides
+        # which account that is makes AADSTS65001 look like it came from nowhere.
+        if SHARED_SCOPE in account_scope(cfg, email):
+            own += "  +Mail.Read.Shared"
         print(f" {mark} {email:40s} [{state}]{own}")
     print(f"\n(* = feeds this vault: {VAULT}, per {VAULT_CONFIG.name})")
 
 
 def cmd_login(cfg, args):
     entry = cfg.setdefault("accounts", {}).setdefault(args.email, {})
-    # Seed the app pointers BEFORE the flow runs: device_login resolves them per account.
+    # Seed the app pointers BEFORE the flow runs: device_login resolves them per account,
+    # and `shared` is one of them - account_scope reads it off this entry to decide what
+    # consent to ask for, so setting it afterwards would consent to the narrow scope and
+    # then request the wide one on every refresh after that.
     seeded = {k: v for k, v in (("client_id", args.client_id),
-                                ("authority", args.authority)) if v}
+                                ("authority", args.authority),
+                                ("shared", args.shared or None)) if v}
     entry.update(seeded)
-    # The device-code wait can run for minutes, and another vault's sync can rotate a token
+    # The device-code wait can run for minutes, and another vault's run can rotate a token
     # meanwhile. Merge this one account rather than writing the cfg we read before the wait.
-    entry["refresh_token"] = device_login(cfg, args.email)
+    flow = device_login if getattr(args, "device_code", False) else pkce_login
+    entry["refresh_token"] = flow(cfg, args.email)
     save_account(cfg, args.email, refresh_token=entry["refresh_token"], **seeded)
     print(f"Logged in (machine-global). Token stored in {CONFIG_FILE}.\n"
           f"A vault pulls this mailbox when its own {VAULT_CONFIG.name} lists it under \"accounts\".")
 
 
-def cmd_sync(cfg, args):
-    # This copy syncs ONLY its own vault: the accounts its vault config declares.
+def resolve_feeds(cfg, account_arg):
+    """The accounts this copy may read: its vault's declared feeds, minus what this machine
+    is not logged in to."""
     require_vault()
-    vc = load_vault_config()
-    feeds = vault_accounts(vc)
+    feeds = vault_accounts(load_vault_config())
     if not feeds:
         sys.exit(f"{VAULT_CONFIG} lists no accounts - add the mailbox(es) that feed '{VAULT}'.")
     known = cfg.get("accounts", {})   # logged in on THIS machine
-    missing = []                      # mailboxes it cannot read; named in the summary
-    if args.account:
-        if args.account not in feeds:
-            sys.exit(f"{args.account} does not feed vault '{VAULT}' "
+    if account_arg:
+        if account_arg not in feeds:
+            sys.exit(f"{account_arg} does not feed vault '{VAULT}' "
                      f"(its accounts per {VAULT_CONFIG.name}: {', '.join(feeds)}).")
         # A named account is a specific ask: if THIS one is not logged in, that is the
         # whole answer, not something to skip past silently.
-        if args.account not in known:
-            sys.exit(f"Not logged in on this machine: {args.account}. "
-                     f"Run:  outlook.py login {args.account}")
-        feeds = [args.account]
-    else:
-        # Default "sync everyone this vault is configured for" must not let one teammate's
-        # account - logged in only on THEIR machine, per account_app's own design - block
-        # every other account on this one. Run what this machine actually can, and say what
-        # it skipped, rather than exiting before touching a single mailbox.
-        missing = [e for e in feeds if e not in known]
-        if missing:
-            print(f"! not logged in on this machine, skipping: {', '.join(missing)} "
-                  f"(run:  outlook.py login <email>  on the machine that owns it)",
-                  file=sys.stderr)
-        if len(missing) == len(feeds):
-            sys.exit(f"None of this vault's accounts ({', '.join(feeds)}) are logged in on "
-                     f"this machine. Run:  outlook.py login <email>")
-        feeds = [e for e in feeds if e in known]
-
-    ledger = load_ledger()
-    allow = build_allowlist(VAULT_ROOT)
-
-    total_new = 0
-    degraded = 0                  # filed from the preview because the body fetch failed
-    for email in feeds:
-        keywords, match_all, match_body, subject_only = account_filter(vc, email)
-        if not allow and not keywords and not match_all:
-            print(f"! {email} -> '{VAULT}': no contact emails, no keywords, and match_all is "
-                  f"off, so nothing can match. Add keywords, or set \"match_all\": true on "
-                  f"this account in {VAULT_CONFIG.name} to file everything it receives.")
-        acct = cfg["accounts"][email]
-        self_addrs = {email.lower()} | {a.lower() for a in acct.get("self", [])}
-        token = access_token(cfg, email)
-        msgs = fetch_messages(token, args.days)
-        # Name the filter actually in force per account: with per-account overrides, "which
-        # filter ran against this mailbox" is no longer answerable from the config at a glance.
-        # Only when match_body is on: with it off the body loop never runs, so a subject-only
-        # opt-out is inert and naming a count for it reports a filter that is not in force.
-        subj_only_note = (f", {len(subject_only)} subject-only"
-                          if match_body and subject_only else "")
-        scope = "match_all" if match_all else \
-            f"{len(keywords)} keywords ({'subject+body' if match_body else 'subject only'}"\
-            f"{subj_only_note})"
-        print(f"\n{email}  scanned {len(msgs)} msgs -> {VAULT}  "
-              f"({len(allow)} allowlisted senders, {scope})")
-
-        for msg in msgs:
-            if VAULT in ledger.get(msg["id"], {}).get("filed", []):   # already filed here
-                continue
-            reason = is_relevant(msg, allow, keywords, self_addrs, match_all, match_body,
-                                 subject_only)
-            if not reason:
-                continue
-            total_new += 1
-            subject = msg.get("subject") or "(no subject)"
-            frm = ((msg.get("from") or {}).get("emailAddress") or {}).get("address", "")
-            tag = "WRITE" if args.write else "dry "
-            print(f"  [{tag}] {(msg.get('receivedDateTime') or '')[:10]}  {reason:16s}  "
-                  f"{frm:30s}  {subject[:50]}")
-            if args.write:
-                body, source = fetch_body(token, msg)
-                if source == "preview":
-                    degraded += 1
-                write_triage(VAULT_ROOT, email, msg, reason, body, source)
-                entry = ledger.setdefault(msg["id"], {"date": msg.get("receivedDateTime") or "",
-                                                      "subject": subject, "account": email,
-                                                      "filed": []})
-                entry["filed"].append(VAULT)
-                # Save per write, not at the end: a crash between the file and the ledger
-                # resurrects mail the user has already triaged and moved out of triage/.
-                save_ledger(ledger)
-    # Both caveats belong on the closing line, not only in a warning that scrolled off the top
-    # under one line per matched message: a run that never opened half the vault's mail, or
-    # that filed records the body never reached, must not read like a clean one.
-    caveats = ""
+        if account_arg not in known:
+            sys.exit(f"Not logged in on this machine: {account_arg}. "
+                     f"Run:  outlook.py login {account_arg}")
+        return [account_arg], []
+    # Default "everyone this vault is configured for" must not let one teammate's account -
+    # logged in only on THEIR machine, per account_app's own design - block every other
+    # account on this one. Run what this machine actually can, and say what it skipped,
+    # rather than exiting before touching a single mailbox.
+    missing = [e for e in feeds if e not in known]
     if missing:
-        caveats += f"  {len(missing)} mailbox(es) skipped (not logged in here): {', '.join(missing)}."
-    if degraded:
-        caveats += (f"  {degraded} record(s) filed from the preview because the body fetch "
-                    f"failed; each says so on its own Body line.")
-    print(f"\n{'Wrote' if args.write else 'Would file'} {total_new} new item(s) into {VAULT}/triage."
-          + ("" if args.write else "  Re-run with --write to create the triage files.")
-          + caveats)
+        print(f"! not logged in on this machine, skipping: {', '.join(missing)} "
+              f"(run:  outlook.py login <email>  on the machine that owns it)",
+              file=sys.stderr)
+    if len(missing) == len(feeds):
+        sys.exit(f"None of this vault's accounts ({', '.join(feeds)}) are logged in on "
+                 f"this machine. Run:  outlook.py login <email>")
+    return [e for e in feeds if e in known], missing
 
 
 def cmd_raw(cfg, args):
@@ -725,13 +796,148 @@ def cmd_raw(cfg, args):
     print(json.dumps(graph_get(token, args.path), indent=2, ensure_ascii=False))
 
 
+def has_unsubscribe(msg):
+    """The one bulk signal this script cuts on: RFC 2369 List-Unsubscribe, which every
+    legitimate marketing sender sets and ordinary correspondence does not.
+
+    It does nearly all of the bulk cut on its own (README.md has the measurement). It is a
+    cost-saver rather than a relevance filter - anything it misses is judged, and
+    `--include-bulk` turns it off.
+
+    **There is deliberately no sender-name backstop.** Matching `noreply`, `notification`
+    and the like on the local part is the exact exclusion `para-shared/connectors.md`
+    forbids by default for every mailbox source, this one included: the transactional mail
+    a vault most wants - a domain or DNS action-required notice, a tax filing alert, an
+    invoice, a payment receipt, a booking confirmation - is nearly always sent from a
+    `noreply@` address, so the pattern drops precisely what the vault exists to catch, and
+    drops it invisibly, while earning little, because the shops write from `hello@` and
+    `news@`. A mailbox that is
+    measurably mostly bot mail is narrowed by naming that application's own domain in the
+    vault's own rules, where the narrowing stays visible, never by a blanket rule here.
+    """
+    for h in msg.get("internetMessageHeaders") or []:
+        if (h.get("name") or "").lower() in ("list-unsubscribe", "list-unsubscribe-post"):
+            return True
+    return False
+
+
+def cmd_fetch(cfg, args):
+    """Emit candidates as JSON on stdout and write NOTHING.
+
+    The point of the whole script, and since the removal of `sync` the only way mail leaves
+    it. The candidates go to a skill, which judges them against the vault's own `Relevant
+    when` rules exactly as it judges mail from a Gmail connector, and writes only what
+    survives. The reading happens here; the decision happens where the context is.
+
+    stdout is pure JSON so a caller can parse it; every human-readable line goes to stderr.
+    """
+    feeds, missing = resolve_feeds(cfg, args.account)
+
+    records, scanned_total, bulk_total, msg_total = [], 0, 0, 0
+    failed = []
+    for email in feeds:
+        try:
+            # The owner's own addresses, so a caller can tell a counterparty from the person
+            # whose mailbox this is. Every message here is to or from them, so a rule that
+            # matches on contact identity matches ALL of it unless it knows to skip them.
+            acct = cfg["accounts"][email]
+            owner = {email.lower()} | {a.lower() for a in acct.get("self", [])}
+            token_account, root = mailbox_route(cfg, email)
+            token = access_token(cfg, token_account)
+            msgs = fetch_messages(token, args.days, root)
+        except (Exception, SystemExit) as e:
+            # One unusable mailbox must not cost the run the ones already read. Nothing is
+            # emitted until the end, so an exit here discarded every earlier mailbox and
+            # printed no JSON at all - the failure resolve_feeds is written against, one
+            # level down. mailbox_route and access_token both exit, so SystemExit is in
+            # scope, exactly as in cmd_search.
+            failed.append(email)
+            print(f"{email}  FETCH FAILED: {e}", file=sys.stderr)
+            continue
+        scanned_total += len(msgs)
+        bulk = 0
+        # Grouped by conversation, insertion-ordered, so the records come back in the order
+        # the mailbox handed them over rather than in whatever order a dict happens to hold.
+        threads = {}
+        for m in msgs:
+            # The flag first: with --include-bulk the header scan is work whose result is
+            # thrown away, and the sender fields below are built for messages about to be
+            # skipped - which, per the measurement above, is most of them.
+            if not args.include_bulk and has_unsubscribe(m):
+                bulk += 1
+                continue
+            frm = (m.get("from") or {}).get("emailAddress") or {}
+            address = (frm.get("address") or "").lower()
+            # Fall back to the message id when Graph omits conversationId, which it does
+            # often enough to matter. Keyed on the missing value instead, every such message
+            # lands in one bucket and N unrelated ones collapse into a single candidate:
+            # the same bug as ungrouped mail, inverted, and losing items rather than
+            # multiplying them.
+            key = m.get("conversationId") or m.get("id")
+            threads.setdefault(key, []).append({
+                "id": m.get("id"),
+                "message_id": m.get("internetMessageId"),
+                "received": m.get("receivedDateTime"),
+                "from_name": frm.get("name") or "",
+                "from": address,
+                "from_owner": address in owner,
+                "to": [p["emailAddress"]["address"] for p in (m.get("toRecipients") or [])
+                       if p.get("emailAddress", {}).get("address")],
+                "cc": [p["emailAddress"]["address"] for p in (m.get("ccRecipients") or [])
+                       if p.get("emailAddress", {}).get("address")],
+                "subject": m.get("subject") or "(no subject)",
+                "preview": " ".join((m.get("bodyPreview") or "").split()),
+                "link": m.get("webLink"),
+            })
+        kept = len(msgs) - bulk      # every non-bulk message lands in exactly one thread
+        msg_total += kept
+        for key, group in threads.items():
+            # Newest first, and by date rather than by arrival: Graph orders newest-first
+            # today, but a grouping that depends on that silently inverts the day a page
+            # boundary or a re-sort hands them over in another order.
+            group.sort(key=lambda x: x["received"] or "", reverse=True)
+            newest = group[0]
+            records.append({
+                "account": email,
+                **newest,
+                "thread_id": key,
+                "message_count": len(group),
+                # Everyone who WROTE on the thread, minus the mailbox owner. The caller's
+                # contact rule matches a counterparty, and reading only the newest message
+                # hides that counterparty the moment the owner replies last - the most
+                # ordinary thing a live thread does. Senders only, never recipients: routing
+                # on who received a message says nothing about whose business it is.
+                "participants": sorted({x["from"] for x in group
+                                        if x["from"] and not x["from_owner"]}),
+                "messages": group,
+            })
+        bulk_total += bulk
+        print(f"{email}  last {args.days}d: scanned {len(msgs)}, "
+              f"{bulk} bulk skipped, {kept} candidates"
+              f" in {len(threads)} thread{'' if len(threads) == 1 else 's'}", file=sys.stderr)
+
+    if missing:
+        print(f"! {len(missing)} mailbox(es) skipped (not logged in here): "
+              f"{', '.join(missing)}", file=sys.stderr)
+    if failed:
+        print(f"! {len(failed)} mailbox(es) failed and were skipped: "
+              f"{', '.join(failed)}", file=sys.stderr)
+    print(f"total: {scanned_total} scanned, {bulk_total} bulk skipped, "
+          f"{msg_total} messages in {len(records)} candidate threads. "
+          f"Read-only: nothing was written.", file=sys.stderr)
+
+    json.dump(records, sys.stdout, indent=2, ensure_ascii=False)
+    sys.stdout.write("\n")
+
+
 def cmd_search(cfg, args):
     """Ad-hoc lookup. Read-only by construction: prints, never writes.
 
-    Unlike `sync` this ignores the vault's keyword filter and contact allowlist - the whole
-    point is to ask a question the filter would not have surfaced. It does NOT ignore the
-    vault's account list: like `sync`, it reads only the mailboxes that feed this vault,
-    so a work-vault session never prints personal mail. `--all-mailboxes` widens it.
+    Distinct from `fetch` in what it is for rather than in what it writes, since neither
+    writes anything. `fetch` walks a recent window so a skill can triage it; this asks one
+    question of the whole mailbox, at any depth, and answers it on screen. It does not
+    ignore the vault's account list: it reads only the mailboxes that feed this vault, so a
+    work-vault session never prints personal mail. `--all-mailboxes` widens it.
     """
     if args.account:
         accounts = [args.account]
@@ -747,7 +953,9 @@ def cmd_search(cfg, args):
     total = 0
     for email in accounts:
         try:
-            hits = search_messages(access_token(cfg, email), args.query, limit=args.limit)
+            token_account, root = mailbox_route(cfg, email)
+            hits = search_messages(access_token(cfg, token_account), args.query,
+                                   limit=args.limit, root=root)
         except (Exception, SystemExit) as e:        # one bad mailbox must not kill the rest;
             print(f"{email}  SEARCH FAILED: {e}", file=sys.stderr)   # access_token exits, so
             continue                                                 # SystemExit is in scope
@@ -766,7 +974,7 @@ def cmd_search(cfg, args):
 
 
 def main():
-    p = argparse.ArgumentParser(description="Sync personal Outlook/Hotmail mail into a vault's triage.")
+    p = argparse.ArgumentParser(description="Read Outlook/Hotmail mail for a vault. Never writes.")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("accounts")
@@ -775,13 +983,22 @@ def main():
     lg.add_argument("email")
     lg.add_argument("--client-id", help="Entra app for THIS mailbox (default: the machine-wide one). "
                                         "A work/school mailbox needs its own tenant's app")
+    lg.add_argument("--device-code", action="store_true",
+                    help="sign in with the device-code flow instead of a browser. Needed "
+                         "where the app has no http://localhost redirect URI; refused by "
+                         "security defaults on any tenant created since 1 July 2026")
+    lg.add_argument("--shared", action="store_true",
+                    help="also consent to Mail.Read.Shared, so this account can read shared "
+                         "mailboxes that name it as their `via`. Only needed when the shared "
+                         "entry does not exist yet; once it does, the scope is derived")
     lg.add_argument("--authority", help="tenant id for THIS mailbox, or 'common' / 'consumers' "
                                         "(default: the machine-wide setting)")
 
-    sy = sub.add_parser("sync")
-    sy.add_argument("--account", help="only this account (default: all)")
-    sy.add_argument("--days", type=int, default=7, help="lookback window (default 7)")
-    sy.add_argument("--write", action="store_true", help="create triage files (default: dry run)")
+    fe = sub.add_parser("fetch", help="emit candidate messages as JSON for a skill to judge (read-only)")
+    fe.add_argument("--account", help="only this account (default: this vault's accounts)")
+    fe.add_argument("--days", type=int, default=7, help="lookback window (default 7)")
+    fe.add_argument("--include-bulk", action="store_true",
+                    help="keep messages carrying a List-Unsubscribe header instead of skipping them")
 
     se = sub.add_parser("search", help="ad-hoc keyword search across the whole mailbox (read-only)")
     se.add_argument("query", help="words to look for; quote a phrase")
@@ -795,16 +1012,13 @@ def main():
     rw.add_argument("path")
     rw.add_argument("--account")
 
-    # `sync` is the default command: bare `outlook.py` or `... --write` runs a sync, so the
-    # /para-triage sync-script convention (`<script> --write`, dry in preview) works unchanged.
-    # Anything that is a real subcommand, or asks for the top-level help, is left alone.
-    argv = sys.argv[1:]
-    if not (argv and (argv[0] in sub.choices or argv[0] in {"-h", "--help"})):
-        argv = ["sync"] + argv
-
-    args = p.parse_args(argv)
+    # No default subcommand. There used to be one, so the /para-triage sync-script convention
+    # (`<script> --write`) reached `sync`; this script is a fetch source now and that
+    # convention no longer points at it. An explicit verb beats a bare call that silently
+    # picks a behaviour, especially for a script that reads mailboxes.
+    args = p.parse_args()
     cfg = load_config()
-    {"accounts": cmd_accounts, "login": cmd_login, "sync": cmd_sync,
+    {"accounts": cmd_accounts, "login": cmd_login, "fetch": cmd_fetch,
      "search": cmd_search, "raw": cmd_raw}[args.cmd](cfg, args)
 
 

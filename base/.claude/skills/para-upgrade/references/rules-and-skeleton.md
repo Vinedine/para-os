@@ -10,7 +10,7 @@ Diff the vault's `CLAUDE.md` against the template at the ref (`base/CLAUDE.md.te
 
 **The template is a floor, not a ceiling.** Never delete a section, rule, or marker just because the template doesn't have it. Vaults legitimately carry their own: extra area definitions, per-vault operating rules, cross-vault references, a `**Type:**` label, triage-source tables. When the template restructures a section the vault has extended, keep the vault's content and move it under the new heading.
 
-**Restructure, don't rewrite.** Match the vault's existing voice and language, including a non-English one. Condensing prose to match the master's tightened wording is a *separate* pass: offer it, don't fold it in.
+**Restructure, don't rewrite.** Match the vault's existing voice and language, including a non-English one. Condensing prose to match the master's tightened wording is a *separate* pass: offer it, don't fold it in. The one exception is a changelog entry that names the condensing as its change: then the vault's copy of each section the entry lists is replaced by the template's shorter text, and only the vault's own departures from its baseline are carried forward into it.
 
 ## Phase 2 - Skeleton files
 

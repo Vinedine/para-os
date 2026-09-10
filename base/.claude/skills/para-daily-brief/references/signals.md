@@ -15,6 +15,8 @@ Standing signals, computed from what the task scan already holds. Emit each only
 
 Never fix any of these here - the read-only contract stands. `/para-deep-clean` owns the repair.
 
+**Under an entity scope**, compute the four that are properties of one entity - over-threshold, stale, falsely-overdue, over-grown brief - against that entity alone, and skip the two that are statements about the whole vault: misplaced checkboxes (the scoped scan never reaches `resources/` or `archive/`) and undated majority (a ratio that means nothing over a single file). Steps 4d, 5b and 5c are skipped entirely; Step 4e still runs, because the Vision remains the tiebreak behind the closing next action.
+
 ## Step 4d: Ideas lane
 
 If `resources/ideas/` exists, list its direct subfolders with each folder's last-modified date (mtime of the folder's newest file; one `ls -lt` per folder is fine). For each idea, Grep its `brief.md` for the first `\*\*Stage:\*\*` line and show it when present. Sort newest-touched first. Flag any idea untouched for **6+ months** as a retirement candidate (the vault's own lifecycle bar) - flag, never retire; retiring is always the operator's call.

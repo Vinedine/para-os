@@ -9,6 +9,8 @@ Read-only verification pass. Also the second half of the `audit` argument, which
 - Triage folder is empty (a `.gitkeep` is fine; a `README.md` is not)
 - No empty PARA leaf directories
 - Archive folder is clean: no loose files at the archive root, `archive/meetings/` holds only cross-cutting records and they follow the dated-naming convention, archived entities carry their minimum record
+- Every person holding a card in `areas/network/` is linked rather than merely named on first mention in each live-bucket file, and their contact details appear only on the card
+- No contradiction between live files survives unrecorded: each is corrected in the copies, or carried as an open item on the entity that owns the fact
 - No dangling relative links in live buckets. Re-run the Phase 1 Step 1.2 check here rather than citing its earlier result: anything moved in 1.2b or later broke its inbound links after that scan ran.
 - Root README passes the Step 1.1 shape check, and no `{{...}}` template placeholder survives anywhere in the vault
 - Status tables ("where do we stand" per entity: cost basis, stage, key numbers) present and current, where the vault uses them

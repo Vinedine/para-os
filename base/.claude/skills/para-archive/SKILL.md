@@ -1,7 +1,7 @@
 ---
 name: para-archive
 description: Archive a finished project or a retired idea end-to-end - reconcile its open actions, validate its brief/actions files, optionally version-suffix it (projects only), route living-reference files to resources/, then move it to archive/ and repoint every inbound link in the vault. Use when a project has shipped or an idea is being shelved and the user asks to "archive this", "close out <name>", "wrap up <name>", "shelve <idea>", or types /para-archive <name>.
-allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write
+allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion
 arg-hint: '<name> [preview]'
 ---
 
@@ -23,11 +23,11 @@ Do NOT invoke to archive areas or contacts - this skill handles projects and ide
 | Arg | Behavior |
 |---|---|
 | `<name>` | Full flow: reconcile, validate, version (projects only), route refs, move, repoint links, report. Pauses for approval at each decision. |
-| `<name> preview` | Run the analysis (open actions, file validation, inbound-link scan) and show the plan, but make NO changes. |
+| `<name> preview` | Run the analysis (open actions, file validation, inbound-link scan) and show the plan - the manifest of questions a live run would ask, then the proposal - but make NO changes. |
 
 ## Procedure
 
-Each step that changes files ends with a proposal and waits for explicit approval. Never auto-advance through a destructive step (move, delete, link rewrite) without showing what will change.
+Each step that changes files ends with a proposal and waits for explicit approval. Never auto-advance through a destructive step (move, delete, link rewrite) without showing what will change. **Per-item decisions are asked one at a time** - every open action's disposition, and the version suffix - through `AskUserQuestion`, per [para-shared/asking.md](../para-shared/asking.md); the link repoints and the moves themselves stay a single batched proposal, since they are one mechanical consequence of decisions already made.
 
 ### Step 1 - Confirm context and locate the entity
 
@@ -53,7 +53,7 @@ Grep the whole vault for inbound references and classify each before anything mo
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
 - **Zero dangling links is the bar, in both directions.** Inbound references and the links written *from* inside the entity are two different scans; leaving either broken is a failed run, and the reconciliation (Steps 6 to 8) is not optional.
-- **Ask, don't assume, for surviving actions.** Don't auto-scaffold a successor; the user may want the work in an existing project, an area, or dropped.
+- **Ask, don't assume, for surviving actions,** one question per action and never a list approved at once. Don't auto-scaffold a successor; the user may want the work in an existing project, an area, or dropped.
 - **Don't archive live work.** If a project's open actions are still genuinely live (not routable out), the project isn't done - stop and say so rather than burying live work. Likewise, don't archive an idea that's still under active exploration.
 - **Version logic is for projects only.** Never apply a `-vN` suffix to an idea; ideas archive under their own name in `archive/ideas/`.
 

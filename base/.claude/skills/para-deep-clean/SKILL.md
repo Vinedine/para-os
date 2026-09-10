@@ -1,7 +1,7 @@
 ---
 name: para-deep-clean
 description: Run a comprehensive cleanup pass on a vault - audits structural/housekeeping issues, normalizes README structure per a canonical template, closes documented open items by reading source PDFs, grooms over-grown action files back to the actionable frontier, and ensures status tables make each entity's state visible at a glance. Use when user asks for a "deep clean", "deep cleanup", "vault review", "vault cleanup", "cleanup pass", "groom my actions", or types /para-deep-clean.
-allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write
+allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion
 arg-hint: '[phase1|phase2|phase3|phase4|audit]'
 ---
 
@@ -32,7 +32,15 @@ Confirm before starting:
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
 3. Entities (properties, projects, clients) each have a `README.md` plus optional `sources/` folder.
 4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check - if any loose files (not subdirectories) are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1 rather than treating it as a loose item to file.
-5. **The vault must be on the current para-os template revision.** Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md` and compare it against the one in `base/CLAUDE.md.template` in the para-os clone. If the vault is behind, or carries no marker at all, **stop and tell the user to run `/para-upgrade` first**. This skill audits the vault against the rules its own `CLAUDE.md` states; if that contract is a revision behind, a clean bill of health here only means the vault is faithful to a stale spec. Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
+5. **The vault should be on the newest *shipped* para-os template revision.** This skill audits the vault against the rules its own `CLAUDE.md` states, so if that contract is a revision behind, a clean bill of health here only means the vault is faithful to a stale spec. Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
+
+   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref, defaulting to `origin/main`** (the flavor's skeleton template where the vault declares a flavor). **Never read the clone's working tree.** A revision in flight lives there uncommitted, so a working-tree read reports *every* vault on the machine as behind and sends them to `/para-upgrade`, which refuses uncommitted refs - the two skills then point at each other and neither can run. The only marker a vault can actually be aligned to is one that has shipped.
+
+   Then, in order:
+
+   - **Vault behind the shipped marker, or carrying none:** stop and say to run `/para-upgrade` first. This is the case the precondition exists for, and it is actionable because `/para-upgrade` can reach that ref.
+   - **Working tree ahead of the shipped marker:** a revision is in flight. Not a vault defect and not this skill's business - say so in one line and carry on.
+   - **No para-os clone on this machine:** skip the check, say the vault's revision could not be verified, and carry on. Every adopter who installed the skills without cloning the repo is in this case, and the grooming and structural work does not depend on the master. A caveat on the report is the right cost here; a hard stop would make the skill unrunnable for most of the people it ships to.
 
 If the vault uses the flip.ps1 collected/spread workflow (the para-os read-only flavor) and is currently **collected**, ask the user to run `flip.ps1 spread` first so READMEs are editable in their natural locations.
 
@@ -65,9 +73,15 @@ Final summary report covering:
 - **Remaining open items** by entity (active only)
 - **Suggestions for next-pass work** (domain-specific templates, contact-file consistency, and so on)
 
+## Approvals
+
+Findings are presented two ways, and which one a finding gets is decided by whether approving it can lose something. **Lossless changes batch** onto the issues table each phase already builds: demotions, link repoints, renames, README normalisation. **Anything that closes, removes, strips a marker or deletes is one question per item** through `AskUserQuestion`, with the manifest printed first and the 20-item gate offering the table when a batch is large. Mechanics: [para-shared/asking.md](../para-shared/asking.md).
+
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
+
+- **Never close, strip or delete on a batch approval.** The issues table is for changes that lose nothing; everything else is asked one at a time. A cleanup pass that removes text on a single `go` is indistinguishable, afterwards, from one that removed the wrong text.
 
 - **Read every README and key source PDF** before proposing changes. Assumptions waste user time.
 - **Pause for approval between phases**, and within Phase 2 do one worked example before batching the rest.
