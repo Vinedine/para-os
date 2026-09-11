@@ -6,8 +6,8 @@ Beyond the `triage/` folder, a vault may declare extra inputs in a `## Triage so
 
 **Both halves are required, and the second one is the load-bearing one.** Being listed in the registry says the layer is *supposed* to feed this vault; it does not say it has. Deferring to something that has not run is the false quiet named in the skill's Strict rules wearing a different hat: `triage/` looks clean because nothing filled it. So check the newest run log under `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/`:
 
-- **A log from the last 48 hours:** skip this file, go straight to the loose-file listing, and put its date in the summary (`ingest last staged <date>`).
-- **No log, or the newest older than that:** pull the sources here as normal, and say why in the summary (`registry lists this vault, but ingest last staged <date or never> - pulled locally`). A double-fetch is a wasted API call; a skipped fetch is a missed item, and only one of those is recoverable by noticing later.
+- **A write log from the last 48 hours:** skip the `connector` and `fetch-script` sources below (since ingest already staged them), but still process `sync-script` and `drive` sources as normal. Put the log's date in the summary (`ingest last staged <date>`).
+- **No write log, or the newest older than that (e.g. only preview logs):** pull all sources here as normal, and say why in the summary (`registry lists this vault, but ingest last staged <date or never> - pulled locally`). A double-fetch is a wasted API call; a skipped fetch is a missed item, and only one of those is recoverable by noticing later.
 
 No registry, or this root not in it: pull as normal with nothing to report, which is also the right answer on a machine that has never run the layer.
 
@@ -26,7 +26,7 @@ A script that writes new items into `triage/` (e.g. `granola.js`).
 
 A mailbox with no MCP connector, reached by a script that **prints candidates and writes nothing** (`<script> fetch --days N`, JSON on stdout, counts on stderr).
 
-**Treat it as a mailbox, not as a sync source**, which means it runs the same protocol: it is a row in the dispatch table of [../../para-shared/connectors.md](../../para-shared/connectors.md), so follow that file exactly as a connector does - the script's `fetch` is the search step, and its records arrive already grouped by `thread_id`. The dedup, the `seen_through` watermark and the resurfacing rule are the point of going through it: handled here instead, a fetch-script mailbox re-surfaces every thread already dispositioned, on every run, with nothing in the run reporting that dedup never happened. Then judge the surviving threads exactly as the connector section below does.
+**Treat it as a mailbox, not as a sync source**, which means it runs the same protocol: it is a row in the dispatch table of [../../para-shared/connectors.md](../../para-shared/connectors.md), so follow that file exactly as a connector does - the script's `fetch` is the search step, and its records arrive already grouped by `thread_id`. Then judge the surviving threads exactly as the connector section below does.
 
 **Never run such a script with `--write` or any other writing flag.** A fetch source reads and prints; if one also offers a write path, using it files mail unjudged, which is the thing fetching exists to avoid. A vault that genuinely wants wholesale import declares a `sync-script` row instead and takes what comes.
 

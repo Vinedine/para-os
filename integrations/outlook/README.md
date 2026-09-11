@@ -24,6 +24,7 @@ Personal Microsoft accounts no longer accept Basic Auth or app passwords, so OAu
    ```json
    { "accounts": ["someone@hotmail.com"] }
    ```
+   If you reply from an alias, pass an object instead to name it, so those replies don't hide the counterparty: `{ "accounts": { "someone@hotmail.com": { "self": ["alias@domain.com"] } } }`.
    Not named `outlook.json`: that is the machine-global **secret** below, and two files sharing one name across opposite trust zones is how a credential ends up inside a synced vault.
 3. Create `~/.paraos/secrets/outlook.json` with your client id:
    ```json
@@ -50,7 +51,7 @@ The default changed because device code flow is being closed off. Blocking it is
 
 So on a tenant created from that date, a device-code sign-in is refused outright with `AADSTS530035` while a browser sign-in is untouched. **This is the normal case for a new client tenant, not an edge case.**
 
-The way it presents is worth knowing, because it does not look like a policy. A new tenant gets a **24-hour grace period** before security defaults are enforced. So the first login works, the mailbox reads fine for a day, and then every refresh starts failing mid-afternoon the next day. Measured on a live tenant: created 13:41 UTC, logins at 16:35 UTC, still reading cleanly at 08:14 UTC the next morning, dead by 14:19 UTC - 38 minutes after the grace period expired. The operator's report was "it worked fine until lunchtime", which is exactly right and sounds nothing like a tenant policy.
+The way it presents is worth knowing, because it does not look like a policy. A new tenant gets a **24-hour grace period** before security defaults are enforced. So the first login works, the mailbox reads fine for a day, and then every refresh starts failing the next afternoon, which reads as "it worked until lunchtime" and sounds nothing like a tenant policy.
 
 **Nothing about an existing account changes.** Which flow minted a refresh token is not recorded in it and not asked about when it is redeemed, so every mailbox already logged in keeps working untouched, with no re-login. The flow only decides what happens during `login`.
 
@@ -92,7 +93,7 @@ The scopes differ on purpose. `fetch` asks "what has arrived that nobody has dea
 
 ### `fetch`: read now, decide before writing
 
-`fetch` reads a recent window and **writes nothing**. It prints the candidates as JSON on stdout, one object per message, and leaves the relevance decision to whatever consumes it.
+`fetch` reads a recent window and **writes nothing**. It prints the candidates as JSON on stdout, one object per thread, and leaves the relevance decision to whatever consumes it.
 
 **It reads the inbox and the archive, and nothing else.** It used to read `/me/messages`, which is the whole mailbox, so a run re-surfaced mail the spam filter had already caught and mail the operator had already thrown away, and offered it back as something to triage. Measured across two live mailboxes over one 2-day window: **233 messages, of which 171 came from Junk Email, Deleted Items or Sent Items** - one of the two had an empty inbox and returned 30 messages, all of them junk. Nothing failed while this was wrong; the run simply looked productive, which is why the scope is pinned by tests rather than left to this paragraph. The archive stays in scope because an operator who archives fast can file a real message between two runs, and it is cheap: 6 messages over 30 days on the mailbox that actually archives. The folders are named by Graph's language-independent well-known names, since display names are localized and `Junk Email` is `Ongewenste e-mail` on a Dutch mailbox.
 

@@ -45,7 +45,7 @@ Any "AI on top of my stuff" setup is three layers stacked. Naming them shows whe
 
 1. **Substrate (your files)** - the files and how they're organised. **This is para-os.**
 2. **Agent (the assistant)** - the model that reads and writes them: Claude Code, Cursor, Codex, Claude Cowork.
-3. **Interface (how you work with it)** - how you drive it: an editor, a notes app, a chat app, PDFs on an iPad.
+3. **Interface (how you work with it)** - how you drive it: the Claude desktop app, an editor like VS Code, a notes app, a chat app, PDFs on an iPad.
 
 para-os owns layer 1 and is agnostic about 2 and 3 - **bring your own agent**. Almost nobody does the layer-1 work because it feels like filing, not engineering. That's exactly why it pays off: an agent is only as good as the files you point it at, and that leverage grows as agents get better. The files are the memory - the folder on disk is the durable state, the agent reads it fresh each session, and the git diff is the audit log. No memory features, no chat-history dependence.
 
@@ -53,7 +53,9 @@ You stay the operator: you hold the goals, the assistant does the work - and whe
 
 ## You don't need to be a programmer
 
-You work in two free-to-install tools: [VS Code](https://code.visualstudio.com/), an editor, and [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant (the AI itself needs a paid Claude plan). Both were built for software work, but here they're just a window onto your folders with a chat box beside it. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.
+You work in one free app: the [Claude desktop app](https://claude.com/download), which runs [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant, in its Code tab (the AI itself needs a paid Claude plan). Point it at your vault folder and you get your files on one side and a chat box on the other. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.
+
+If you already live in a code editor, [VS Code](https://code.visualstudio.com/) runs the same assistant over the same folders, and it's the better window when you're working on code as well as documents. It's the power-user path, not the starting point: the desktop app is a nicer place to work for everyone else, which is most people.
 
 ## The vault
 

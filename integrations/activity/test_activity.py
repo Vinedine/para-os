@@ -235,9 +235,9 @@ class TestTouchScanSelection(unittest.TestCase):
         self.assertFalse(ledger.wants_touch_scan("PostToolUse", "WebFetch"))
         self.assertFalse(ledger.wants_touch_scan("PostToolUse", "ToolSearch"))
 
-    def test_a_subagent_is_scanned(self):
-        # A subagent's own writes may not reach this hook at all; the scan is the backstop.
-        self.assertTrue(ledger.wants_touch_scan("PostToolUse", "Task"))
+    def test_a_subagent_is_not_scanned(self):
+        # A subagent runs the hook for its own tools, so scanning it in the parent double-counts.
+        self.assertFalse(ledger.wants_touch_scan("PostToolUse", "Task"))
 
     def test_an_mcp_tool_is_scanned(self):
         self.assertTrue(ledger.wants_touch_scan("PostToolUse", "mcp__x__write_thing"))
@@ -406,6 +406,23 @@ class TestTouchedEndToEnd(unittest.TestCase):
 
             line = session_lines(root)[0]
             self.assertEqual(line["target"], "areas/finance/brief.md")
+            self.assertNotIn("touched", line)
+
+    def test_record_touched_false_skips_the_filesystem_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, script = scaffold_vault(tmp)
+            script.with_name("activity.config.json").write_text('{"record_touched": false}', encoding="utf-8")
+            written = root / "new.md"
+            written.write_text("content", encoding="utf-8")
+            event = {
+                "hook_event_name": "PostToolUse",
+                "session_id": "abc",
+                "tool_name": "Bash",
+                "tool_input": {"command": "echo hi"},
+                "duration_ms": 100,
+            }
+            fire(script, event)
+            line = session_lines(root)[0]
             self.assertNotIn("touched", line)
 
 
@@ -583,8 +600,15 @@ class TestSessionEndEndToEnd(unittest.TestCase):
                                 "tool_name": "Read",
                                 "tool_input": {"file_path": str(root / "a.md")},
                                 "duration_ms": 5})
-            logs = list((root / "resources" / "logs" / "sessions").glob("*.jsonl"))
-            line = json.loads(logs[0].read_text(encoding="utf-8").strip())
+            line = session_lines(root)[0]
+            self.assertNotIn("summary", line)
+
+    def test_record_summary_false_skips_summarising(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, script = scaffold_vault(tmp)
+            script.with_name("activity.config.json").write_text('{"record_summary": false}', encoding="utf-8")
+            fire(script, {"hook_event_name": "SessionEnd", "session_id": "s1", "reason": "other"})
+            line = session_lines(root)[0]
             self.assertNotIn("summary", line)
 
 

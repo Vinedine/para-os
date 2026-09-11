@@ -19,6 +19,8 @@ One line, no pipes, no reasoning column: the reasoning belongs in the option des
 
 **If the batch exceeds 20 items**, the first question asked is whether to go item by item or fall back to the written proposal. Six rounds is a chore, and a chore gets clicked through.
 
+**The manifest is for a batch, and below four questions there is none.** Count the questions first: **four or more, print it; fewer, go straight to asking.** The threshold is per run, not per skill.
+
 ## The question
 
 Batch up to **4 questions per call**, ordered so questions about the same entity or file land together.
@@ -26,6 +28,8 @@ Batch up to **4 questions per call**, ordered so questions about the same entity
 - **`header`** - the position: `Item 3/11`, `Group 5/11`, `Action 8/11`. Twelve characters is not enough for a filename, and the operator needs to know where they are in the batch.
 - **`question`** - the item by name, and the proposed target in full. The target is the thing being approved; never abbreviate it to something the operator has to reconstruct.
 - **`options`** - 2 to 4, from the calling skill's vocabulary. **The proposal goes first, labelled `(Recommended)`.** Each description carries the evidence for that disposition and the full target.
+
+  **One question shape carries no recommendation: a question of fact about the operator's own situation.** Some decisions cannot be reached until a fact only the operator holds is settled - whether feedback arrived before or after a release, whether a document is the signed copy, whether a thread was already answered by phone. That question is legitimate and often has to be asked *first*, but the skill has no proposal to make: every option is a fact it does not know, and labelling one `(Recommended)` guesses at the operator's life and lends the guess the weight of a proposal. **Ask it with no option labelled, order the options by what the vault's own evidence suggests, and say in each description what that disposition would mean for the run.** The recommendation rule governs dispositions, which are the skill's to propose; it does not govern facts, which are not.
 - **`multiSelect: false`**, always. A disposition is exclusive; splitting a group is an **Other** answer, not a multi-select.
 - **`preview`** - optional per option, and worth it where the options differ in something the operator would rather see than read: the folder scaffold a shape would produce, a line before and after grooming, a brief's opening as it would be retensed. Skip it where the option label already says everything. **A preview shows the content as it will actually be written**, never a prettier rendering of it: the selected preview comes back as the approved content, so a line wrapped for readability against a file whose rule is one line per item is a mockup that misleads at the exact moment of approval. Where the real form is genuinely unreadable in a preview, say so in the description rather than reformatting it.
 

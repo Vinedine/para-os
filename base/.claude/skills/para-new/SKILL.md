@@ -48,7 +48,7 @@ Nothing is written before the proposal is approved, so there is no preview argum
 
 ### Step 1 - Confirm context and check for a duplicate
 
-1. Verify the cwd is a vault root (`projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`). If not, stop and say so.
+1. **Resolve the vault root, then verify it** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`). A root has `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
 2. Read the vault's `CLAUDE.md` for the parameters listed above.
 3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, and `areas/network/`. Report a near-match and confirm it is genuinely a different thing. In a vault several people write, the same work gets started twice under two names, and the duplicate is only noticed once both have history.
 

@@ -9,14 +9,14 @@ Read the entity's `actions.md` (and any per-file action markers). Split into **d
 **Skip this step for ideas.** An idea carries no `actions.md` by the vault's own rule (`resources/` never holds a checkbox), so there is nothing to reconcile and no routing question to ask; its open questions retire with it.
 
 - If everything is done: note it, proceed.
-- For each **open** action, **one question**, per [../../para-shared/asking.md](../../para-shared/asking.md). Print the manifest of open actions first so the operator sees how many decisions this archive costs before making the first one. The standard dispositions:
+- For each **open** action, **one question**, per [../../para-shared/asking.md](../../para-shared/asking.md), which also sets when the manifest prints. The standard dispositions:
   - **Done already** - mark complete (the live state moved past the file).
   - **Survives** - the work continues. Where to? Step 4's routing.
   - **Drop** - no longer relevant; record as dropped, don't silently delete the intent.
 
 **Where the destination is obvious, collapse Steps 2 and 4 into that one question** by offering it concretely: `Route to areas/business/actions.md` beats `Survives` followed by a second question the operator has already answered in their head. Name the actual file. Fall back to the two-stage form only where the skill genuinely cannot tell.
 
-**`Drop` is destructive and gets the destructive treatment**: never grouped with another action, and its option description says what the record will read afterwards, since a dropped item leaves a line saying it was dropped rather than nothing at all. Where the skill is guessing that something is `Done already`, the recommended option is the one that changes nothing.
+**`Drop` is destructive and gets the destructive treatment**, and its option description says what the record will read afterwards, since a dropped item leaves a line saying it was dropped rather than nothing at all. Where the skill is guessing that something is `Done already`, recommend what the evidence supports: a closed checkbox keeps its text and its reason, so it is reversible.
 
 Never invent dates or completion stamps. Use the vault's marker syntax for any edits. Do not archive an entity with unresolved open actions still framed as live work - that's how a "closed" project or a shelved idea keeps haunting `/para-daily-brief`.
 

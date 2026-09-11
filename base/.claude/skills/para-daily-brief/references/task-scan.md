@@ -33,11 +33,13 @@ One Grep call, scoped tightly to action-bearing files. Do NOT scan the whole vau
 - `path`: `.` - the vault root, which is the CWD
 - `output_mode`: `content`, `-n`: `true`, `head_limit`: `0` (unlimited - missing a match means a wrong dashboard)
 
-ripgrep returns lines grouped by file in line-number order. **Discard any match whose path starts with `archive/` or `resources/`** (the vault's "Where a checkbox may live" rule) - but **count what you discard**, per bucket: it feeds a health flag. Post-filter, never anchor the glob to `projects/**/`: a root-anchored alternate silently matches nothing when `path` is not the vault root.
+ripgrep returns lines grouped by file in line-number order. **Discard any match whose path starts with `archive/` or `resources/`** (the vault's "Where a checkbox may live" rule). Post-filter, never anchor the glob to `projects/**/`: a root-anchored alternate silently matches nothing when `path` is not the vault root.
+
+**Count the misplaced checkboxes with their own call**, not from what the discard above dropped. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which yields the per-file counts the flag needs. Counts only; never read the lines.
 
 If the call returns zero matches, apply the SKILL.md Step 1b type check; if Type A, respond `No action-bearing files found in <cwd>.` and stop.
 
-**Handle truncated lines.** ripgrep emits `[Omitted long matching line]` past its column-width limit. For each `(file, line)` pair flagged as omitted, recover it with `Read` using `offset: <line>, limit: 1` - do not read the whole file.
+**Handle truncated lines.** ripgrep emits `[Omitted long matching line]` past its column-width limit, and a vault that writes context into its checkboxes trips it on a quarter of them. Recover each `(file, line)` pair with `Read` using `offset: <line>, limit: 1`; once **more than 10** pairs are omitted, read the affected files whole instead, one call per file rather than one per line.
 
 ### Under an entity scope
 
@@ -91,10 +93,10 @@ Let `T` be today. Let `D` be the task's effective date: its `📅` if present, e
 | ⏳ Waiting | has `🛫` AND `🛫 > T` |
 | ❓ Undated | no `D`, no `🔁`, no *future* `🛫` |
 
-A **past `🛫`** (start-gate already open) is not "waiting": ignore it and bucket by `D`, else Undated. Only a *future* `🛫` routes to Waiting. **Precedence:** Recurring > Waiting > date-based. In the `overdue` scope, overdue recurring items also appear in 🔴, tagged `🔁`.
+A **past `🛫`** (start-gate already open) is not "waiting": ignore it and bucket by `D`, else Undated. Only a *future* `🛫` routes to Waiting. **Precedence:** Recurring > Waiting > date-based, except that a recurring item whose `D` is already past **also** appears in 🔴 tagged `🔁`, in every scope rather than only in `overdue`. It is still counted once, under Recurring.
 
 ## Step 4b: Aggregate per entity
 
-Group the task records by scope label. **Aggregate all contact files into one `network` row** (with the file count) - one row per person floods the dashboard. Per entity compute: bucket (`[P]` / `[A]`), open count, overdue count, dated count (has `D` or `🔁`), undated count.
+Group the task records by scope label. **Aggregate all contact files into one `network` row** (with the file count) - one row per person floods the dashboard. Per entity compute: bucket (`[P]` / `[A]`), open count, and three counts that **partition** it: **overdue**, **upcoming** (carries a `D`, a `🔁` or a future `🛫`, and is not overdue), **undated**. They sum to the open count wherever they are reported, the dashboard's bar segments included; never report a "dated" count that also contains the overdue ones.
 
 Get each action file's last-modified date in one Bash call (`stat -c '%y' <files>` on Linux or Git Bash, `stat -f '%Sm'` on macOS; fall back to `ls -l --time-style=+%Y-%m-%d`). Filesystem mtime, not git - it works in every vault, including ones without `.git`.

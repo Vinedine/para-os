@@ -39,7 +39,7 @@ Confirm before starting:
    Then, in order:
 
    - **Vault behind the shipped marker, or carrying none:** stop and say to run `/para-upgrade` first. This is the case the precondition exists for, and it is actionable because `/para-upgrade` can reach that ref.
-   - **Working tree ahead of the shipped marker:** a revision is in flight. Not a vault defect and not this skill's business - say so in one line and carry on.
+   - **Vault ahead of the shipped marker:** it was aligned to a revision that has not shipped yet, which is what a test upgrade against an in-flight branch produces and is the normal state on the maintainer's own machine. Read it as the in-flight case: name the two markers in one line and carry on. **Never send this vault to `/para-upgrade`** - it is not behind, and that skill refuses to downgrade. The audit then runs against rules newer than `origin/main`, which is correct, because the vault's own `CLAUDE.md` is the contract this skill checks against and that file is what the vault actually obeys.
    - **No para-os clone on this machine:** skip the check, say the vault's revision could not be verified, and carry on. Every adopter who installed the skills without cloning the repo is in this case, and the grooming and structural work does not depend on the master. A caveat on the report is the right cost here; a hard stop would make the skill unrunnable for most of the people it ships to.
 
 If the vault uses the flip.ps1 collected/spread workflow (the para-os read-only flavor) and is currently **collected**, ask the user to run `flip.ps1 spread` first so READMEs are editable in their natural locations.
@@ -75,7 +75,7 @@ Final summary report covering:
 
 ## Approvals
 
-Findings are presented two ways, and which one a finding gets is decided by whether approving it can lose something. **Lossless changes batch** onto the issues table each phase already builds: demotions, link repoints, renames, README normalisation. **Anything that closes, removes, strips a marker or deletes is one question per item** through `AskUserQuestion`, with the manifest printed first and the 20-item gate offering the table when a batch is large. Mechanics: [para-shared/asking.md](../para-shared/asking.md).
+Findings are presented two ways, and which one a finding gets is decided by whether approving it can lose something. **Lossless changes batch** onto the issues table each phase already builds: demotions, link repoints, renames, README normalisation. **Anything that closes, removes, strips a marker or deletes is one question per item** through `AskUserQuestion`. Mechanics, the manifest threshold and the 20-item gate: [para-shared/asking.md](../para-shared/asking.md).
 
 ## Strict rules
 

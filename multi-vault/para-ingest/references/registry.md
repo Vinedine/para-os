@@ -34,7 +34,11 @@ It complements rather than duplicates the vault's own `Relevant when` rules. Tho
 
 - **Missing registry:** there is nothing to ingest for. Say so, point at `vaults.json.template` in the module README, stop. **Never glob a directory to guess the list** - a guessed list quietly includes things that are not vaults and quietly misses ones that are.
 - **Malformed JSON:** stop and say which entry failed. Do not proceed on a partially parsed list: the vaults that dropped out would be silently unrouted, which looks exactly like a quiet day.
-- **Path not mounted** (a network drive, an unsynced client library, an external disk): record an error row for that vault, route nothing to it, and continue the run. `active: true` with an absent path is an error, not an implicit `false`, because the difference between "nothing arrived" and "I could not look" is the whole point of saying it out loud.
+- **Path not mounted** (a network drive, an unsynced client library, an external disk): record an error row for that vault, route nothing to it, and continue the run. `active: true` with an absent path is an error, not an implicit `false`.
+
+  **Route *to* it as normal, then withhold the ledger entry.** An unmounted vault is still a routing destination: work out that a thread belongs to it, fail to deliver, and record that failure as `undelivered` rather than pretending the thread routed nowhere. The rule that keeps such a thread alive is in [staging.md](staging.md): a thread routed to a vault that could not be written gets **no ledger entry at all**, so the next run refetches it and delivers the moment the path is back. Ledgering it instead is how a routed item disappears for good, and one unmounted drive can take several vaults with it.
+
+  **A whole drive can vanish at once.** The four vaults on one shared drive are four registry rows and one failure, so report the failure as the drive and expect the count of mounted vaults to move in steps rather than by one. A run that finds noticeably fewer vaults than the previous run found is reporting an outage, not a quiet day.
 - **A path that exists but holds no `CLAUDE.md`:** same treatment. It is registered as a vault and is not one.
 
 ## Never register

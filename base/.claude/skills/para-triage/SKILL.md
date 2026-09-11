@@ -27,7 +27,7 @@ Do NOT invoke for files outside `triage/`. Files already filed are stable; don't
 
 ### Step 1: Confirm vault context
 
-Verify the cwd is a vault root by checking for `triage/` and at least one of `projects/` `areas/` `archive/`. If it is not, respond `Not a vault root: <cwd>.` and stop. **That is this step's only job**; an empty `triage/` is not a reason to stop, since Step 2's sync sources write into it.
+**Resolve the vault root, then verify it** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`) - by checking for `triage/` and at least one of `projects/` `areas/` `archive/`. If it is not one, respond `Not a vault root: <the path you checked>.` and stop. **That is this step's only job**; an empty `triage/` is not a reason to stop, since Step 2's sync sources write into it.
 
 Read the vault's `CLAUDE.md` and extract: the **filing rules** (the per-folder naming convention for source documents - quote it back verbatim in the proposal, so the user can sanity-check it), any **language** rules, any **do-not-add** rules, and whether the vault uses the **flip/render** workflow (`flip.ps1`, `render.ps1`, `render.mjs` in the vault root).
 
@@ -43,7 +43,7 @@ Also read the root `README.md`'s `## Operating model` section (Grep with `-A` co
 
 `triage/` holds a `.gitkeep` so the empty folder survives in git; ignore it. It never holds a `README.md` - every file here is by definition unprocessed, so a permanent one is indistinguishable from a real item and would inflate the loose-file count on every future run. **Never create one**, whatever a folder-placeholder convention elsewhere in the vault suggests; if you find one left by an older skeleton, propose deleting it rather than filing it.
 
-**Only now, check for emptiness.** If the source pull yielded nothing - or no sources are declared - and `triage/` holds nothing but `.gitkeep`, respond `Nothing to triage in <cwd>.` and stop. A source declared but unreachable is not nothing: name it per the edge case below rather than reporting a clean run.
+**Only now, check for emptiness.** If the source pull yielded nothing - or no sources are declared - and `triage/` holds nothing but `.gitkeep`, respond `Nothing to triage in <the path you checked>.` and stop. A source declared but unreachable is not nothing: name it per the edge case below rather than reporting a clean run.
 
 If `triage/` holds only subdirectories, list them and stop with `Only subdirectories in triage/; nothing to file at top level. Subdirectories listed for your review.`.
 
@@ -53,7 +53,7 @@ Read each loose file, check it against the rest of the vault for duplicates and 
 
 ### Steps 5 and 6: Propose, then approve item by item
 
-Group the linked items, print the manifest (one line per question, so the batch shape and the number of rounds are visible up front), then ask **one `AskUserQuestion` per item or linked group**, four questions to a call, the proposal first and labelled `(Recommended)`. **Full procedure, the action vocabulary, and the grouping and delete rules: [references/approval.md](references/approval.md).**
+Group the linked items, print the manifest, then ask **one `AskUserQuestion` per item or linked group**, per [para-shared/asking.md](../para-shared/asking.md). **Full procedure, the action vocabulary, and the grouping and delete rules: [references/approval.md](references/approval.md).**
 
 **On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** Build the markdown proposal table instead - `| # | Source item | Action | Why | Destination |` - and gate it on a single "Reply **go** to execute, or tell me what to change." Same vocabulary, same follow-on edits, one approval instead of N. `preview` prints the manifest first and stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
@@ -63,14 +63,14 @@ Moves, deletes, rotations, connector writes, README follow-ons, and the optional
 
 ### Step 10: Summarize
 
-One line per category: N files moved (each linked to its new path), N deleted with the reason, N READMEs updated, and whatever is left in `triage/`. **Name the deferrals too** - every item answered `Leave in triage`, `Note to triage` or `Skip`, and every amendment made through Other, per [para-shared/asking.md](../para-shared/asking.md).
+One line per category: N files moved (each linked to its new path), N deleted with the reason, N READMEs updated, and whatever is left in `triage/`. **Name the deferrals too** - every item answered `Leave in triage`, `Note to triage` or `Leave thread`, and every amendment made through Other, per [para-shared/asking.md](../para-shared/asking.md).
 
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **Every deletion is approved on its own** - its own question, or its own Delete row on the table path - never a verbal go-ahead alone, and never folded into a grouped question with something else.
-- **Never ask a question nobody is there to answer.** `AskUserQuestion` is for an interactive run only; on `preview`, `apply`, `convert`, `table`, a scheduled task or a subagent, fall back to the table. Where it is unclear whether an operator is present, **fail toward the table**: a stalled question produces nothing, an unread table is still a proposal.
+- **Every deletion is approved on its own** - its own question, or its own Delete row on the table path - never a verbal go-ahead alone.
+- **Never ask a question nobody is there to answer.** On the no-ask paths of Step 5, a scheduled task or a subagent, and wherever it is unclear whether an operator is present, **fail toward the table**.
 - **Never invent new top-level PARA folders** without asking. Sub-folders inside an existing entity are fine when the convention supports them (`sources/photos/`).
 - **Don't touch `_*` prefixed subdirectories in triage** without explicit direction. Underscore-prefix means a handoff batch the maintainer is managing manually.
 - **Never search Drive unscoped.** An exact-name query without a `drive_id` answers "No files found" while the document sits in the folder. That is a **false quiet**: on an unattended run the scanner reports triage clear while items accumulate, which is the exact failure a scanner exists to prevent. Always scope to the drive id declared in the vault's `drive` row; if no row is declared, say the drive is undeclared - never infer an id and never report "nothing found" from an unscoped query.

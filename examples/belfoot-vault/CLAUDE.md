@@ -118,7 +118,7 @@ A persistent script the agent writes for this vault lives at `resources/scripts/
 - **Templates** before a second instance proves the shape.
 - **Derived outputs as standalone files**: decks, reports, one-pager text regenerate from `README.md`.
 - **Content rewrites during reorganization**: structure changes preserve copy verbatim; fix wording in a later pass.
-- **Procedure and rationale in this file.** A rule governing a script lives in that script's README or docstring, the mechanics of a skill live in the skill, and the reason behind a rule lives in git history. This file states rules, and stays under 200 lines with everything the vault adds to it.
+- **Procedure and rationale in this file.** A rule governing a script lives in that script's README or docstring, the mechanics of a skill live in the skill, and the reason behind a rule lives in git history. This file states rules. 200 lines including everything the vault adds is the **target**; past it the lever is extracting procedure - to `.claude/rules/`, to the owning script or skill - never cutting the rules the vault itself needs.
 
 ## Skills wired to this vault
 

@@ -26,25 +26,25 @@ That boundary is the whole design. It never classifies an item, drafts an action
 2. **Install the skill.** Copy `para-ingest/` next to your other `para-*` skills, wherever those live for you. It reads `para-shared/connectors.md` from beside itself, so `para-shared/` has to be installed too; if you run any other `para-*` skill it already is.
 3. **Run it by hand, in preview, and read the run log.** Do this before anything else.
 
-## The three kinds of source, and why it matters here
+## The three kinds of source
 
-A vault's `## Triage sources` block declares three kinds of thing, and this layer treats them very differently. The distinction is not bookkeeping: it decides whether an item is judged before it lands or after.
+A vault's `## Triage sources` block declares three kinds of thing.
 
 | Kind | What it is | What this layer does with it |
 |---|---|---|
 | `connector: <name>` | a mailbox read over MCP | fetched **once per mailbox**, however many vaults declare it, then routed |
 | `fetch-script` | a mailbox with no connector, read by a script that prints candidates and writes nothing | the same: **once per mailbox**, then routed. A mailbox, not a writer |
-| `sync-script` | a script that writes into `triage/` itself | run per vault, and **not routed**, because the script already knows where its items go |
+| `sync-script` | a script that writes into `triage/` itself | run per vault, and **not routed** |
 
-**The last row is the one to be careful about.** A sync script writes straight into `triage/`, so nothing this layer decides applies to what it puts there. That is right for a script with a routing rule of its own, like a meeting sync that files by title prefix. It is a hole for one that imports an inbox wholesale, because such a script has no gate at all and the layer cannot add one.
+**The last row is the one to be careful about.** A sync script writes straight into `triage/`, so nothing this layer decides applies to what it puts there.
 
-So there is a **volume gate**: every script is dry-run first, in both modes, and only a source whose dry run would add **20 items or fewer to one vault** is ever passed `--write`. Above that the count is reported and the import is left to a person. Someone running an importer by hand reads that count and decides; a scheduled run has nobody to read it, and this is the one place an unattended run has to be more cautious than a person.
+So there is a **volume gate**: every script is dry-run first, in both modes, and only a source whose dry run would add **20 items or fewer to one vault** is ever passed `--write`. Above that the count is reported and the import is left to a person.
 
-If you are wiring up a mailbox that has no MCP connector, prefer a `fetch-script` over a `sync-script`. Reading costs the same either way, and only one of them lets you be wrong for free.
+If you are wiring up a mailbox that has no MCP connector, prefer a `fetch-script` over a `sync-script`.
 
 ## How `/para-triage` reacts
 
-It notices, and no vault needs editing for it to. When the registry lists a vault root as `active`, `/para-triage` in that vault skips its own source pull, because this layer has already staged those sources as loose files there. It reports when the layer last staged, so a layer that has stopped running shows up as a date rather than as a quiet `triage/` folder.
+It notices, and no vault needs editing for it to. When the registry lists a vault root as `active` *and the ingest layer has run recently*, `/para-triage` in that vault skips its own connector and fetch-script pull, because this layer has already staged those sources as loose files there. It still processes sync scripts, drive sources, and conversions locally. It reports when the layer last staged, so a layer that has stopped running shows up as a date rather than as a quiet `triage/` folder.
 
 On a machine with no registry, or for a vault not in it, `/para-triage` pulls its own sources exactly as it always did. That fallback is automatic and is why the check is a registry lookup rather than a marker written into each vault.
 
@@ -54,7 +54,7 @@ On a machine with no registry, or for a vault not in it, `/para-triage` pulls it
 
 Two things to look for in the run logs. The first is the same thread routing to **different vaults on different runs**, which means an ambiguous `Relevant when` rule to tighten before anything writes. A thread reappearing every run is expected, since preview ledgers nothing.
 
-The second is **a vault whose routed count looks too good**. On the first real run of this layer one vault matched a hundred items and every single one was wrong: the router was matching the mailbox owner's own address, which sits in the contact files of every vault its owner works in, so it matched most of the mailbox at once. A rule keyed on who someone is will do this by default, and it does not look like a bug, it looks like a productive run. `/para-ingest` excludes the owner now; the general lesson is that a suspiciously strong result deserves the same look as an empty one.
+The second is **a vault whose routed count looks too good**. A router that matches most of a mailbox at once is matching the mailbox owner's own address, which sits in the contact files of every vault its owner works in. A rule keyed on who someone is will do this by default, and it does not look like a bug, it looks like a productive run. `/para-ingest` excludes the owner now; the general lesson is that a suspiciously strong result deserves the same look as an empty one.
 
 Then run `write` by hand once, immediately run it again to confirm it stages zero the second time, and only then consider scheduling it.
 
@@ -76,4 +76,4 @@ Nothing else, in any mode. It never edits an existing file anywhere, and it neve
 
 - **A script that writes still runs per vault copy.** A mailbox does not: both connector and `fetch-script` sources are read once however many vaults declare them, which is the saving this layer exists for. Consolidating the writers is a change to those scripts, not to this layer.
 - **It runs while your client is open.** Reading a mailbox is one thing, judging what is in it is another, and the second needs a model. So this is a routine you run, not a daemon.
-- **A mailbox with no server-side categories is noisier.** Gmail applies its promotions and social filters before you see anything; Graph has no equivalent, so a `fetch-script` mailbox arrives raw. What the script can cut mechanically it does, on the RFC 2369 `List-Unsubscribe` header and nothing else - a noreply-style sender name is the one exclusion the fetch protocol forbids by default, since the transactional mail a vault most wants comes from exactly there. Measured on a live personal inbox that is 3005 messages down to 619 over thirty days, and 177 down to 18 over two. This is why the window turns on the mode: preview reaches back thirty days because breadth is how you judge a router and nothing is written, while write mode reaches back two whatever the state of the ledger, because a wide first *write* would reach back furthest exactly where it can filter least.
+- **A mailbox with no server-side categories is noisier.** Gmail applies its promotions and social filters before you see anything; Graph has no equivalent, so a `fetch-script` mailbox arrives raw. What the script can cut mechanically it does, on the RFC 2369 `List-Unsubscribe` header and nothing else (the exclusions the fetch protocol forbids are in `para-shared/connectors.md`). This is why the window turns on the mode: preview reaches back thirty days because breadth is how you judge a router and nothing is written, while write mode reaches back two whatever the state of the ledger, because a wide first *write* would reach back furthest exactly where it can filter least.

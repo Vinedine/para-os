@@ -12,7 +12,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 [A] network (17 files)              ███░░░░░░░  4 open · 1 🔴 ·  2 undated
 (+N more entities · M open)
 ```
-**Totals:** N open · N 🔴 overdue · N dated · N% undated
+**Totals:** N open · N 🔴 overdue · N upcoming · N undated (N%)
 
 ## 🗓 Agenda
 **Today**
@@ -42,7 +42,9 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 
 The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block so the columns align. Bar rows: width 10, `round(10 x open / max_open)` filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append the full bucket sections (🔴 🟠 🟡 🔵 ⚪ 🔁 ⏳ ❓, each a complete list in the Now line format) after Health flags.
 
-**Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>` so the entity is visible without opening the file; relative link targets from CWD.
+**Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>` so the entity is visible without opening the file; relative link targets from CWD. **A heading's `(N)` count must match the number of items rendered under it**, which means an overdue recurring item increments both the `🔴 Overdue` heading count and the `🔁 Recurring` heading count, even though the `Totals:` line counts it strictly once under Recurring.
+
+**Percent-encode every link target.** Vault filenames carry spaces, commas, `#`, `&` and brackets - `triage/` worst of all, since its names come from mail subjects - and a raw one produces a link that looks right and resolves nowhere. Encode the path, never the link text: `triage/20260909 Nieuw e-Box bericht.md` is written `[20260909 Nieuw e-Box bericht.md](triage/20260909%20Nieuw%20e-Box%20bericht.md)`. A `#` in a filename must be encoded as `%23` or it truncates the target at the fragment.
 
 ## The entity scope
 
@@ -51,7 +53,7 @@ A different layout, not the vault brief with rows removed. The question is "wher
 ````
 # <entity> - <YYYY-MM-DD>
 
-**[P] projects/<entity>** · N open · N 🔴 overdue · N undated · actions.md touched <YYYY-MM-DD>
+**[P] projects/<entity>** · N open · N 🔴 overdue · N upcoming · N undated · actions.md touched <YYYY-MM-DD>
 
 ## 🔴 Overdue (N)
 1. 🔺 <task text> - [<entity>:<line>](<relative/path>#L<line>) · 📅 <date> (<Nd> ago)
@@ -77,7 +79,7 @@ Rules specific to this scope:
 - **Empty buckets are omitted**, like everywhere else. The four low-urgency buckets share one heading line when each is small; give any of them its own section once it exceeds five items.
 - **The header line replaces 📊 Vault state.** One entity does not need a bar chart of itself.
 - **`🔗 Mentioned elsewhere` is not this entity's work.** It is the second grep from task-scan.md, rendered so an item filed on a contact or in `areas/business/` is visible from here. Its counts never join the header totals, and each line names the file that owns it.
-- **Health flags are filtered to this entity** (over-threshold, stale, falsely-overdue, over-grown brief). The vault-wide ones - misplaced checkboxes, undated majority - are not computed.
+- **Health flags are filtered to this entity** (over-threshold, stale, falsely-overdue, stale recurrence, over-grown brief). The vault-wide ones - misplaced checkboxes, undated majority - are not computed.
 - **The Next action still closes it**, chosen from this entity's own items only, never from `🔗 Mentioned elsewhere`.
 
 **The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. One - never a list, never a question.

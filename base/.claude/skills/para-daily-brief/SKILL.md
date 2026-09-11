@@ -79,13 +79,13 @@ Exact layout, line rules, and the single Next action close. **Full spec: [refere
 
 Default and `all` scopes only (never an entity scope), and **only when an Artifact tool is available in the harness** - if it is not, skip this step silently; the terminal output above is complete on its own.
 
-Read [references/dashboard.md](references/dashboard.md) for the page spec. Build the self-contained HTML from the data already collected (no new scanning), write it to the harness's scratchpad or temp directory - **never inside the vault**; it is a derived output and would sync - and publish it. **Update in place across days:** list existing artifacts first and, if one titled `<Vault name> Dashboard` exists, publish with its `url`; otherwise create it. Give the user the link on one line.
+Read [references/dashboard.md](references/dashboard.md) for the page spec, which owns the title, the favicon and the match rule that updates yesterday's page in place instead of forking it. Build the self-contained HTML from the data already collected (no new scanning), write it to the harness's scratchpad or temp directory - **never inside the vault**; it is a derived output and would sync - and publish it. Give the user the link on one line.
 
 ## Strict rules
 
 - **Do NOT parse completed items (`- [x]`)** - they're history.
 - **Do NOT rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`; this skill never applies them.
-- **Do NOT follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, and idea `**Stage:**` lines.)
+- **Do NOT follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, and an idea brief's stage line.)
 - **Do NOT add commentary or recommendations** beyond the Health flags and the single Next action. Decisions are the operator's.
 - **Do NOT dedupe cross-referenced items** (same task in two files). Show both.
 - **Meetings: today and future only, never invented.** Render only what the calendar or `meetings.md` line contains - never fabricate a meeting, time, or attendee. Calendars are read-only.

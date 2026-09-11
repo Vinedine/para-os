@@ -33,20 +33,16 @@ Then say the plan out loud before acting on it: **N vaults, N mailboxes, N scrip
 - They dedupe against their own ledgers outside the vault, so running one twice is harmless and running one after a manual invocation is harmless too.
 - **An error is recorded and skipped.** An expired auth on one script must never cost the rest of the run, and the report names it rather than letting the run read clean.
 
-**A `fetch-script` row is not subject to the volume gate below**, because the gate exists for scripts that write and this one cannot. Its candidates go through the router like connector mail, so volume costs judgment rather than files, and 800 unwanted messages become 800 unrouted decisions instead of 800 notes in someone's `triage/`.
+**A `fetch-script` row is not subject to the volume gate below**. Its candidates go through the router like connector mail.
 
 ### The volume gate: a script writes only if its dry run is small
 
-**Script output bypasses the router entirely.** A sync script writes into `triage/` itself, so nothing this skill decides applies to what it puts there. That is correct for a script with a routing rule of its own, like a meeting sync that files by title prefix and reports the rest as unrouted. It is a hole for a script that imports an inbox wholesale, because such a script has no gate at all and this skill cannot add one.
+**Script output bypasses the router entirely.** A sync script writes into `triage/` itself, so nothing this skill decides applies to what it puts there.
 
 The two kinds are indistinguishable from the manifest, and asking each vault to declare which it is would be a new configuration field that goes stale. Use the dry-run count instead, which measures the thing that actually matters:
 
 > **In write mode, pass `--write` only to a source whose dry run would add 20 items or fewer to one vault. Above that, do not write. Report the count, name the source, and leave the import to a person.**
 
-Twenty is not a tuned number. It is roughly where a count stops being something a person would scroll past and starts being something they would want to look at first, and the gate exists so that a human sees any such number before it lands rather than after.
-
-**This is the one place an unattended run must be more cautious than a person.** Someone running a wholesale importer by hand reads the dry-run count and decides; a scheduled run has nobody to read it. The failure this prevents is not hypothetical: an inbox importer configured to match everything will report four figures on a busy mailbox, and filing that into a shared `triage/` costs more to undo than the whole layer saves.
-
-- **Their output is not routed by this skill.** A sync script already knows where its items go, which is the whole reason it exists. Its files land as loose files in that vault's `triage/` and are the operator's on their next `/para-triage`.
+- **Their output is not routed by this skill.** A sync script already knows where its items go.  Its files land as loose files in that vault's `triage/` and are the operator's on their next `/para-triage`.
 
 **A script that fans out to sibling vaults** (some accept a flag to write every vault its own config routes to, not only its own) writes into those vaults directly. That is the script's business and not the router's. Where such a script exists, running the one copy that fans out is cheaper than running each vault's copy in turn, and the shared dedupe ledger makes it safe to do either.

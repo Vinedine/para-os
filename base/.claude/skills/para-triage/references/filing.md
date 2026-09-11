@@ -45,8 +45,8 @@ Illustrative fragment - the vault's `CLAUDE.md` gives the real naming convention
 ```
 | # | Source item | Action | Why | Destination |
 |---|---|---|---|---|
-| 1 | `Factuur Lockwerk.pdf` | Delete | Byte-identical duplicate (MD5 10d9edcc...) of the filed copy. | (deleted) |
-| 2 | `Tax Bank 2011.JPG` | Move + rename + rotate 180 | Bank 2011 repayment certificate (upside down), contract 726-1234567-89. | [.../sources/20111231 Bank Betalingsattest 726-1234567-89.jpg](path) |
+| 1 | `Factuur Lockwerk.pdf` | Delete (duplicate) | Byte-identical duplicate (MD5 10d9edcc...) of the filed copy. | (deleted) |
+| 2 | `Tax Bank 2011.JPG` | File it + rotate 180 | Bank 2011 repayment certificate (upside down), contract 726-1234567-89. | [.../sources/20111231 Bank Betalingsattest 726-1234567-89.jpg](path) |
 | 3 | "RE: quote" - supplier, 14 Jul (email) | Update existing | Reply on an open thread; annotate the tracked action rather than duplicate it. | [projects/<x>/actions.md](path) |
 ```
 

@@ -31,7 +31,7 @@ Each step that changes files ends with a proposal and waits for explicit approva
 
 ### Step 1 - Confirm context and locate the entity
 
-1. Verify the cwd is a vault root (has `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`). If not, stop and say so.
+1. **Resolve the vault root, then verify it** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`). A root has `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
 2. Read the vault's `CLAUDE.md` for: PARA layout, action-marker syntax, naming convention, the ideas-vs-projects bar, the archive subfolder layout (`archive/projects/`, `archive/ideas/`, `archive/meetings/`), and "do not add" rules.
 3. **Determine whether `<name>` is a project or an idea:**
    - `projects/<name>/` exists: it's a **project**; source = `projects/<name>/`, destination = `archive/projects/<name>[-vN]/`.

@@ -6,15 +6,15 @@ The candidate set for a thread is **the vaults that declared the mailbox it came
 
 ## Rules, in order
 
-1. **A contact hit decides, on a counterparty and never on the mailbox owner.** If the sender's address appears in a candidate vault, route there.
+1. **A contact hit decides, on a counterparty and never on the mailbox owner.** If any participant's address appears in a candidate vault, route there.
 
-   **Skip the owner's own addresses before anything else.** Every message in a mailbox is to or from the person who owns it, and their address is in the contact files of every vault they work in, so a rule matching on contact identity matches *the entire mailbox* unless it knows to step over them. It is not a rare edge: measured on a real personal inbox, **126 of 220 contact hits were the owner writing**, and one vault's every single hit was that. The owner is the mailbox's own address plus any other addresses the source declares for them (a `fetch-script` marks these per record; for a connector it is the endpoint address). This is the oldest known trap in filtering a personal mailbox and it is invisible when it fires, because the run looks productive.
+   **Skip the owner's own addresses before anything else.** The owner is the mailbox's own address plus any other addresses the source declares for them (a `fetch-script` marks these per record; for a connector it is the endpoint address).
 
    Past that, contacts are the strongest signal a vault owns a correspondent, and they are cheap to check: one grep for the address per candidate vault. If the address hits in more than one, route to all of them, since two vaults genuinely both know this person. **Where to grep, and it is not only `areas/network/`:**
 
    - **`areas/network/` and `resources/mds/`, both, always.** A read-only-flavor vault runs a flip pipeline that moves every `.md` out of the browsable tree into `resources/mds/` under flattened names (`areas__network__someone.md`) and leaves rendered PDFs behind in `areas/network/`. Grepping only the obvious folder finds nothing at all in such a vault, and finds it silently: the run reports clean routing while the strongest rule never fired once.
-   - **Take a hit anywhere under those two roots, not only in a contact file.** An address often lives in the README of the entity it concerns rather than in a card of its own, and that is a *better* signal, not a worse one, because it names the thing the correspondence is about.
-   - **Do not count a match inside a PDF.** `grep` will sometimes find an address in a PDF's uncompressed byte stream and sometimes not, for reasons that have nothing to do with whether the vault knows the person. A rule that fires on luck is worse than one that does not fire, because it looks like it is working.
+   - **Take a hit anywhere under those two roots, not only in a contact file.** An address often lives in the README of the entity it concerns rather than in a card of its own.
+   - **Do not count a match inside a PDF.** `grep` will sometimes find an address in a PDF's uncompressed byte stream and sometimes not.
 2. **Otherwise judge subject and snippet** against each candidate vault's `Relevant when` text and its `purpose` from the registry, with the `## Operating model` as the tiebreak on what the vault's business actually is. Read the snippet, not the body: routing is a coarse decision and does not earn a full fetch.
 3. **The result is zero to many vaults.** Not one. Both ends are normal, and most threads route to none.
 

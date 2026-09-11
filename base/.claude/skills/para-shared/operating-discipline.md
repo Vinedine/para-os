@@ -23,6 +23,7 @@ Cross-skill rules for *how a skill behaves* when it changes files. This is not a
 
 ## Defer to the vault
 
+- **Resolve the vault root once, and address every file through it. Never trust the shell's working directory.** A `cd` inside one command persists into the next, so a session that stepped into a clone, a subfolder, or a sibling vault carries that directory into the skill's first check, which then reads the wrong tree. It fails in the worst available way: the marker folders are absent, so the skill reports `Not a vault root` and stops, naming a directory the operator never pointed it at and describing a healthy vault as broken. Establish the root at the start (`pwd` before anything else has run, or the path the operator named), hold it in a variable, and build absolute paths from it. Anything that resolves relative to the current directory - a bare `ls projects/`, a `git status`, a `find`, a script invoked by relative path - is reading wherever the shell happens to be, not the vault. This is the same defect as a hook anchored to a relative path, and it reappears every time a run touches two directories.
 - **Read the vault's `CLAUDE.md` first** for naming conventions, language rules, the action-marker syntax, the PARA/archive layout, and the "do not add" list. The skill brings *procedure*; the vault brings *parameters*.
 - **Never invent dates or completion markers.** Use the vault's marker syntax; leave externally-gated items undated.
 - **Never commit.** Stop after staging; the user commits manually.

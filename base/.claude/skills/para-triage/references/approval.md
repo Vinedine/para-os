@@ -17,6 +17,7 @@ What a question may offer as an option, and what the `Action` column holds on th
 - **Note to triage** - worth keeping; filed on a later pass, never straight into `projects/`.
 - **Dismiss (noise)** - never action-worthy in any vault (newsletter, notification, bot, promo); ledgered so it does not resurface. Destination "(ledger only)".
 - **Dismiss (other vault)** - real correspondence belonging to a different vault; **not** ledgered. Destination "(belongs to \<vault\>)".
+- **Leave thread** - do nothing; it stays un-dispositioned and will resurface on the next run.
 
 **Filing is not the default.** An item is in `triage/` because something arrived, not because it earned a place in the vault. Scheduling chatter whose meeting already has a record, a notification whose fact now lives in the file it belongs to, a staged note that is a truncated snippet of a mail still sitting in the mailbox: filing these grows the vault by exactly the amount that makes it slower to read, which is the content inflation the vault's own rules name, arriving through the front door instead of accumulating quietly. Where the value is already captured somewhere, **Delete (no lasting value)** is the honest recommendation and goes first, with the surviving record named as its evidence. **An empty `triage/` reached by filing everything is not a clean vault**, and the count going to zero will not tell you which one you did.
 
@@ -48,4 +49,4 @@ After it, list any **follow-on edits** to README files (new rows, new source-lis
 
 ## The table path
 
-Triage's own list of arguments that do not ask, per the shared rule: **`preview`** (prints the manifest, then stops at the proposal), **`apply`** (runs on an approval already given), the unattended **`convert`** (no judgment calls to approve), and **`table`**, the explicit escape. On those paths Step 5 builds the markdown table it always did - `| # | Source item | Action | Why | Destination |` - and Step 6 is the single "reply **go**" gate, or nothing at all.
+Triage's own list of arguments that do not ask, per the shared rule: **`preview`** (prints the manifest, then stops at the proposal), **`apply`** (runs on an approval already given), the unattended **`convert`** (no judgment calls to approve), and **`table`**, the explicit escape. On those paths the step builds the markdown table it always did - `| # | Source item | Action | Why | Destination |` - gated on a single "reply **go**", or nothing at all.

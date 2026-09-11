@@ -166,7 +166,7 @@ def wants_touch_scan(event_name, tool_name):
         return False
     if not tool_name:
         return False
-    return tool_name not in PATH_NAMING_TOOLS and tool_name not in READ_ONLY_TOOLS
+    return tool_name not in PATH_NAMING_TOOLS and tool_name not in READ_ONLY_TOOLS and tool_name not in NAME_KEYS
 
 
 def touched_paths(root, since_epoch, limit):

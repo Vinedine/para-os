@@ -78,11 +78,11 @@ One JSONL line per event: timestamp, event name, session id, prompt id, the prom
 
 ### `touched`: the files a script wrote
 
-Keeping only a command's first token leaves a wide gap. A script run through Bash writes files the hook never sees, so a run that wrote sixty files is recorded as `py`, and a review then reports those files as never having been written. In one real vault, **52 of 63 changed files had no write event at all**.
+Keeping only a command's first token leaves a wide gap. A script run through Bash writes files the hook never sees, so a run that wrote sixty files is recorded as `py`, and a review then reports those files as never having been written.
 
-So on any completed tool call that does not already name its own path, the hook asks the filesystem which vault files moved while the tool was running, and records them as `touched` (with `touched_total` when the list is capped). `Write` and `Edit` are skipped: they already name their file, and scanning them would make one edit look like two.
+So on any completed tool call that does not already name its own path, the hook asks the filesystem which vault files moved while the tool was running, and records them as `touched` (with `touched_total` when the list is capped). The tools in `PATH_NAMING_TOOLS` are skipped: they already name their file, and scanning them would make one edit look like two.
 
-This stays inside the privacy rule - a path, never content, and only inside the vault - and it costs one directory walk per scanned tool call, about 25 ms on a 330-file vault. Tools that cannot write (`Read`, `Grep`, `Glob`, `WebFetch`, ...) are skipped as well, which is not an optimisation: on a synced library something lands a file every few seconds, so scanning a read is a machine for attributing other people's writes to whoever was reading at the time.
+This stays inside the privacy rule - a path, never content, and only inside the vault - and it costs one directory walk per scanned tool call, about 25 ms on a 330-file vault. The tools in `READ_ONLY_TOOLS` are skipped as well, which is not an optimisation: on a synced library something lands a file every few seconds, so scanning a read is a machine for attributing other people's writes to whoever was reading at the time.
 
 **It is inferred, not observed, and the field name says so.** The window is the tool's own duration widened by `touched_slack_ms`, so on a synced library a file that another person's sync client landed inside that window looks exactly like one this call wrote, and a long-running command widens the window further. Read `touched` as evidence of what changed, never as proof of who changed it. `resources/logs/` is excluded, or the hook would report its own log on every call.
 
@@ -101,7 +101,7 @@ No amount of care here makes that field vary, and inventing a livelier value wou
 | `duration_s` | First event to session end |
 | `last_prompt_tools` | Tool calls after the final prompt |
 
-`prompts: 0` is the one that matters most in practice. In one real vault, **72% of sessions contained no prompt at all**, so every session count computed from file names was roughly three times the number of sessions anyone actually worked in. Stated as a field, a review can exclude them by reading one number instead of inferring it.
+`prompts: 0` is the one that matters most in practice: a client opens a session per window or tile, so a session count computed from file names is a multiple of the sessions anyone worked in. Stated as a field, a review can exclude them by reading one number instead of inferring it.
 
 `last_prompt_tools: 0` says the final request produced no tool call. That is a fact and not a verdict: a question answered in prose looks identical here to one abandoned, and the review is told to read it that way.
 

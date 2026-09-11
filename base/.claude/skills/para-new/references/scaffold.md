@@ -4,7 +4,9 @@ Nothing is written until the proposal is approved. The proposal is short: the fo
 
 ## Resolve the brief shape first
 
-- **If the vault's `CLAUDE.md` declares a shape** (usually under `## README structures`), use it verbatim, in its section order. A declared section that this entity has no answer for gets whatever the vault says to do with it, typically an explicit `_n/a_` so the gap stays visible rather than disappearing.
+- **If the vault's `CLAUDE.md` declares a shape**, use it. **Find it by what it says, not by its heading**: vaults word this section differently (`## README structures`, `### Brief structure`, `## Entity shapes`), so a lookup keyed on one heading name reads a vault that declares a shape under any other name as declaring none, and silently scaffolds the generic spine into a vault that had told it exactly what to write. Read `CLAUDE.md` for whatever section describes what a brief contains, whatever it is called.
+
+  **Follow the order only where the vault fixes one.** A declared shape may state its sections as an ordered contract, or may say explicitly that order varies by entity and is not enforced. Honour whichever it does, and never impose an order on a vault that declined to give one. A declared section this entity has no answer for gets whatever the vault says to do with it, typically an explicit `_n/a_` so the gap stays visible rather than disappearing.
 - **If it declares none**, use the minimal spine below and **do not add a template file to the vault**. A vault templates an entity shape once a second instance has proved it, which is a decision the operator makes later, not a side effect of creating the first one.
 
 Minimal project brief: a title, `## Goal` (what it produces), `## Why it matters` (what it unblocks), and `## Source` (where this came from - the meeting, the mail, the conversation) when there is one. Nothing else earns a heading on day one.

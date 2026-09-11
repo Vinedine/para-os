@@ -253,6 +253,7 @@ class CommandRouting(unittest.TestCase):
         out = self.run_cli("login", "--help").stdout
         self.assertIn("--client-id", out)
         self.assertIn("--authority", out)
+        self.assertIn("--shared", out)
 
 
 class AccountApp(unittest.TestCase):
@@ -815,6 +816,7 @@ class CmdFetch(unittest.TestCase):
         records, err = self.run_fetch()
         self.assertIsInstance(records, list)
         self.assertIn("scanned", err)
+        self.assertIn("thread", err)
         self.assertIn("nothing was written", err)
 
     def test_bulk_is_skipped_by_default_and_counted_out_loud(self):

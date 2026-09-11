@@ -450,7 +450,7 @@ def check_skills():
 # adopter's vault CLAUDE.md, read every session, and a repo-maintenance hash has no business
 # being a permanent line in it. Add a row when a flavor gains a file that derives from base.
 FLAVOR_TRACKING = {
-    "flavors/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "984951188550"),
+    "flavors/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "37e3954d43f4"),
     "flavors/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
     "flavors/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "92d77ba2543f"),
 }

@@ -314,10 +314,8 @@ def _callback_handler():
 def pkce_login(cfg, email):
     """Interactive: authorization code + PKCE on a loopback redirect. Returns a refresh token.
 
-    The default, because device code flow is being closed off. Security defaults block it,
-    and **since 1 July 2026 that is the shipped default for every new Entra tenant**, so a
-    tenant created from then on refuses a device-code sign-in outright (`AADSTS530035`)
-    while a browser sign-in is untouched.
+    The default now that device code flow is being closed off (why: module docstring).
+    Untouched by that shift either way.
 
     Nothing about an existing account changes. Which flow minted a refresh token is not
     recorded in it and not asked about when it is redeemed, so every mailbox already logged
@@ -421,9 +419,9 @@ def pkce_login(cfg, email):
 def device_login(cfg, email):
     """Interactive: user opens a URL, types a code, consents once. Returns a refresh token.
 
-    No longer the default. Kept because it is the only flow that needs nothing registered
-    on the app, so it still logs in a mailbox whose app has no loopback redirect URI - and
-    because a tenant predating the 1 July 2026 change is not affected by any of this.
+    No longer the default (why: module docstring). Kept because it is the only flow that
+    needs nothing registered on the app, so it still logs in a mailbox whose app has no
+    loopback redirect URI.
     """
     client_id, authority = account_app(cfg, email)
     scope = account_scope(cfg, email)
@@ -489,9 +487,9 @@ def auth_failure(email, scope, authority, client_id, body, what="Token refresh")
             lines.append(f"  Consent was never granted, or has been revoked.")
             lines.append(f"  Fix:  outlook.py login {email}")
     elif 530035 in codes:                   # security defaults blocking the sign-in itself
-        # Almost always device code flow: security defaults block it, and since 1 July 2026
-        # that is the shipped default on every NEW tenant. A new tenant enforces them after a
-        # 24-hour grace period, so this arrives as "it worked for a day and then stopped".
+        # Almost always device code flow (why: module docstring). A new tenant enforces
+        # security defaults after a 24-hour grace period, so this arrives as "it worked
+        # for a day and then stopped".
         lines.append(f"  Tenant {authority} blocks this sign-in by policy, and security "
                      f"defaults are on or off with no per-app exception.")
         lines.append(f"  Most likely fix, and it needs no admin:  outlook.py login {email}")
@@ -652,8 +650,9 @@ def fetch_messages(token, days, root="/me", limit=FETCH_MAX_MESSAGES):
                     out.append(m)
             path = page.get("@odata.nextLink")
             if len(out) >= limit:
-                print(f"! {root} {folder}: stopped at {limit} messages, window not fully "
-                      f"covered. Narrow --days, or raise FETCH_MAX_MESSAGES.", file=sys.stderr)
+                if path:
+                    print(f"! {root} {folder}: stopped at {limit} messages, window not fully "
+                          f"covered. Narrow --days, or raise FETCH_MAX_MESSAGES.", file=sys.stderr)
                 break
     out.sort(key=lambda m: m.get("receivedDateTime") or "", reverse=True)
     return out
@@ -986,7 +985,7 @@ def main():
     lg.add_argument("--device-code", action="store_true",
                     help="sign in with the device-code flow instead of a browser. Needed "
                          "where the app has no http://localhost redirect URI; refused by "
-                         "security defaults on any tenant created since 1 July 2026")
+                         "security defaults on newer tenants")
     lg.add_argument("--shared", action="store_true",
                     help="also consent to Mail.Read.Shared, so this account can read shared "
                          "mailboxes that name it as their `via`. Only needed when the shared "
