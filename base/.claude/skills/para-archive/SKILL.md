@@ -2,7 +2,7 @@
 name: para-archive
 description: Archive a finished project or a retired idea end-to-end - reconcile its open actions, validate its brief/actions files, optionally version-suffix it (projects only), route living-reference files to resources/, then move it to archive/ and repoint every inbound link in the vault. Use when a project has shipped or an idea is being shelved and the user asks to "archive this", "close out <name>", "wrap up <name>", "shelve <idea>", or types /para-archive <name>.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion
-arg-hint: '<name> [preview]'
+arg-hint: '<name> [preview|table]'
 ---
 
 # Para archive
@@ -20,10 +20,13 @@ Do NOT invoke to archive areas or contacts - this skill handles projects and ide
 
 ## Arguments
 
+**The entity name is the part of the argument that reads like one, not the whole string.** An invocation collects operator prose around it ("on project saillart using the 2026.09.02 branch, and flag any bugs you hit"): take the one to three words that could name a folder, or a `projects/<name>` / `resources/ideas/<name>` path, drop a leading `project`, `idea` or `on`, and treat everything else as an instruction for this run rather than as part of the name. Resolve what is left by Step 1's rules. Never match the whole sentence against a folder, and never stop to ask which entity a trailing sentence names: ask only where the extracted name genuinely matches none or several.
+
 | Arg | Behavior |
 |---|---|
 | `<name>` | Full flow: reconcile, validate, version (projects only), route refs, move, repoint links, report. Pauses for approval at each decision. |
 | `<name> preview` | Run the analysis (open actions, file validation, inbound-link scan) and show the plan - the manifest of questions a live run would ask, then the proposal - but make NO changes. |
+| `<name> table` | The batch proposal flow: one markdown proposal table, one `go`, then execute. The explicit escape from item-by-item questions that [para-shared/asking.md](../para-shared/asking.md) requires every asking skill to name, for an operator who would rather read the batch than click through it. |
 
 ## Procedure
 
@@ -38,7 +41,7 @@ Each step that changes files ends with a proposal and waits for explicit approva
    - `resources/ideas/<name>/` exists: it's an **idea**; source = `resources/ideas/<name>/`, destination = `archive/ideas/<name>/`.
    - If both exist, ask which one. If neither exists, list the `projects/` and `resources/ideas/` folders and ask which one.
    - Carry this **kind** through the rest of the flow - it selects the buckets and whether the versioning step runs.
-4. Confirm with the user in one line that the entity is actually done: a project's deliverable is shipped (don't archive live work), or an idea is genuinely being shelved (don't archive an idea still under active exploration).
+4. **Confirm the entity is actually done, and keep that question two-way.** A project's deliverable is shipped (don't archive live work), or an idea is genuinely being shelved (don't archive an idea still under active exploration). Where the vault's own record disagrees - an open dated action, a brief saying it archives after some event still ahead - say so in one line and put it to the operator as **proceed or stop**, nothing else. It is the one question in the run whose answer is a fact about their situation rather than a disposition, so it carries no recommendation (`asking.md`). **Never offer a blanket disposition for what is still open.** A "drop what's left" option at the gate approves every destructive item in the run on a single click, which is the batching `asking.md` exists to forbid; what happens to each open item is Step 2's question, asked one at a time, once the gate says proceed.
 
 ### Steps 2 to 5 - Reconcile, validate, route, version
 

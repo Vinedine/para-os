@@ -25,7 +25,7 @@ One line, no pipes, no reasoning column: the reasoning belongs in the option des
 
 Batch up to **4 questions per call**, ordered so questions about the same entity or file land together.
 
-- **`header`** - the position: `Item 3/11`, `Group 5/11`, `Action 8/11`. Twelve characters is not enough for a filename, and the operator needs to know where they are in the batch.
+- **`header`** - the position: `Item 3/11`, `Group 5/11`, `Action 8/11`. Twelve characters is not enough for a filename, and the operator needs to know where they are in the batch. **A skill that asks exactly one question spends that budget on a label instead**, because `1/1` tells the operator nothing the question does not: name the decision - `Shape`, `Disposition` - and let the calling skill say which word it wants.
 - **`question`** - the item by name, and the proposed target in full. The target is the thing being approved; never abbreviate it to something the operator has to reconstruct.
 - **`options`** - 2 to 4, from the calling skill's vocabulary. **The proposal goes first, labelled `(Recommended)`.** Each description carries the evidence for that disposition and the full target.
 

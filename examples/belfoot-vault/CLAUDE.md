@@ -11,7 +11,7 @@ Both lines above are machine-read (the comment by `/para-upgrade`, the type by y
 
 BelFoot internal data (financials, employee records, contracts) is confidential to this engagement. This vault is the consultant's working copy; outputs that leave it (decks, reports, emails) are reviewed before send. Never reference another client engagement here - cross-client context violates the engagement letter.
 
-**This is a synthetic example vault with a frozen reference date of 2026-06-24** (see the top of `README.md`). Every date in it is internally consistent as of that day and anchored to real match days. Do not "refresh" dates to the current calendar, do not mark items overdue relative to today, and do not treat the gap as drift to clean up - judge the vault against 2026-06-24.
+**This is a synthetic example vault with a frozen reference date of 2026-06-24** (see the top of `README.md`). Every date in it is internally consistent as of that day and anchored to real match days. Do not "refresh" dates to the current calendar and do not treat the gap as drift to clean up. A brief reporting them overdue against today is correct, not a misread: judge the vault's *content* against 2026-06-24.
 
 ## PARA layout
 

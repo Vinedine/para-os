@@ -52,7 +52,7 @@ One dated Markdown file, findings ranked by what they would change, each tied to
 
 ### Step 5 - Propose pruning, never perform it
 
-Reported lines have done their work, and a log that grows forever becomes the clutter this skill exists to find. But this step deletes, and the vault's own rule is that pruning is *"proposed and ruled on, one item at a time"* - so it is **one question per ledger file**, never one yes over a list, per [para-shared/asking.md](../para-shared/asking.md).Each question names the file, its size and the window it covers, and says what the report took from it. **Recommend the delete only where the report actually consumed the file**; a ledger the run skipped, or one whose window the report describes as blind, keeps `Keep it` as the recommended option, because a file nothing read is not a file that has done its work. Every question carries `Keep it`, so declining costs nothing.
+Reported lines have done their work, and a log that grows forever becomes the clutter this skill exists to find. But this step deletes, and the vault's own rule is that pruning is *"proposed and ruled on, one item at a time"* - so it is **one question per ledger file**, never one yes over a list, per [para-shared/asking.md](../para-shared/asking.md). Each question names the file, its size and the window it covers, and says what the report took from it. **Recommend the delete only where the report actually consumed the file**; a ledger the run skipped, or one whose window the report describes as blind, keeps `Keep it` as the recommended option, because a file nothing read is not a file that has done its work. Every question carries `Keep it`, so declining costs nothing.
 
 ## Strict rules
 

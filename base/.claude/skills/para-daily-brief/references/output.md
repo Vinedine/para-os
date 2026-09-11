@@ -46,6 +46,12 @@ The 📊 Vault state rows (top 10 entities by open count, remainder aggregated t
 
 **Percent-encode every link target.** Vault filenames carry spaces, commas, `#`, `&` and brackets - `triage/` worst of all, since its names come from mail subjects - and a raw one produces a link that looks right and resolves nowhere. Encode the path, never the link text: `triage/20260909 Nieuw e-Box bericht.md` is written `[20260909 Nieuw e-Box bericht.md](triage/20260909%20Nieuw%20e-Box%20bericht.md)`. A `#` in a filename must be encoded as `%23` or it truncates the target at the fragment.
 
+## The Type B vault
+
+Same layout, minus the sections the task scan feeds (SKILL.md Step 1b). Keep the H1, then 🗓 Agenda, 🚩 Health flags (the over-grown-brief flag only, when it fires), 💡 Ideas, 📥 Triage and the **Next action** close, in that order. One italic line under the H1 says why the task sections are absent - action tracking is absent by design, not missing - and that line is the only place it is mentioned; do not repeat it per section.
+
+The triage heading keeps its canonical form, `## 📥 Triage (N to process)`. It is not retitled for this vault type, and it does not carry "run /para-triage": the Next action close says what to do, which is its job in every scope.
+
 ## The entity scope
 
 A different layout, not the vault brief with rows removed. The question is "where does this one thing stand", so the buckets lead and nothing is capped.

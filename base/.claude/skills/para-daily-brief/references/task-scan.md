@@ -4,7 +4,7 @@ Everything between "the vault is a folder of markdown" and "a set of bucketed, p
 
 ## Step 1c: Resolve an entity scope
 
-Runs only when the argument is not one of the four reserved scope words (`today`, `week`, `overdue`, `all`). Those win on a collision, so an entity genuinely named `all` is reached by its path (`/para-daily-brief projects/all`) - a case worth handling correctly and not worth a word of output.
+Runs only when the argument is not one of the four reserved scope words (`today`, `week`, `overdue`, `all`) **and reads like an entity name** - one to three words or a `projects/<name>` / `areas/<name>` path, with no sentence punctuation (SKILL.md, Arguments). The scope words win on a collision, so an entity genuinely named `all` is reached by its path (`/para-daily-brief projects/all`) - a case worth handling correctly and not worth a word of output. Prose never reaches this step: it takes the default scope and rides along as an instruction, so the "never guess, never widen" rule below applies to a name that failed to resolve, not to a sentence that was never a name.
 
 Build the candidate list from the direct subfolders of `projects/` and `areas/`, one Bash call:
 
@@ -35,7 +35,11 @@ One Grep call, scoped tightly to action-bearing files. Do NOT scan the whole vau
 
 ripgrep returns lines grouped by file in line-number order. **Discard any match whose path starts with `archive/` or `resources/`** (the vault's "Where a checkbox may live" rule). Post-filter, never anchor the glob to `projects/**/`: a root-anchored alternate silently matches nothing when `path` is not the vault root.
 
-**Count the misplaced checkboxes with their own call**, not from what the discard above dropped. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which yields the per-file counts the flag needs. Counts only; never read the lines.
+**`resources/mds/` is exempt from that discard, and must be decoded instead** (SKILL.md Step 1b). It is the flip pipeline's store, not a reference bucket: in a collected vault it holds *every* `.md` the vault has, so discarding it drops the entire scan and the brief reports a vault with no open work. Decode each filename back to its vault path (`projects__x__actions.md` is `projects/x/actions.md`) and apply the `archive/` / `resources/` test to that. The glob above only reaches it through the `**/actions.md` alternate when the vault is spread, so in a collected vault add `**/*__actions.md` and the matching contact-file alternates.
+
+**Both calls below are raw `Grep` patterns and therefore count fence content** - a deck or a README showing a sample `actions.md` is indistinguishable from real work to a pattern match, and on one real vault that was 8 phantom items under `archive/`. Per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md): where a bucket's count is non-zero, read the matched files before reporting the number, or say in the output that it includes samples. A file carrying a frozen-record note is already skipped; a fenced sample is not the same thing and needs this check.
+
+**Count the misplaced checkboxes with their own call**, not from what the discard above dropped - the glob above reaches only `actions.md` and contact files, so it cannot see an open checkbox in an archived meeting note or action plan, which is exactly where they collect. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which yields the per-file counts the flag needs. Counts only; never read the lines.
 
 If the call returns zero matches, apply the SKILL.md Step 1b type check; if Type A, respond `No action-bearing files found in <cwd>.` and stop.
 

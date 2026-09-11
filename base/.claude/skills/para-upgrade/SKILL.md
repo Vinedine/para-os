@@ -53,10 +53,11 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 
 ## Phase 5 - Stamp and verify
 
-1. **Write the new revision marker** into the vault's `CLAUDE.md`. Only after the phases above actually applied: a marker claiming a revision the vault doesn't implement is worse than no marker, because the next run will skip the work.
+1. **Write the new revision marker** into the vault's `CLAUDE.md`, and write it *here* - Phase 1 holds the vault's existing marker even while it replaces the section around it. Only after the phases above actually applied: a marker claiming a revision the vault doesn't implement is worse than no marker, because the next run will skip the work.
 2. **Run the vault's own skills as a smoke test.** At minimum `/para-daily-brief`. Nothing else in this skill proves the vault still parses; greps confirm the files say the right words, not that the tooling can read them. If a skill errors or renders an obviously wrong count, that's a regression from this migration and it gets fixed here, not reported as a future issue.
 3. **Re-run the link check.** Zero dangling relative links in live buckets.
-4. **Report.** What changed per phase, what was proposed and declined, what was routed where, and what you did **not** verify.
+4. **Restore the vault's resting state, and only now.** Where a flavor's editing state differs from the state it sits in (readonly-ipad is collected at rest and spread for editing), every check that resolves a path against disk - this link check, Phase 3's self-claims sweep, the skeleton-presence check - reads the editing state. Run them first, restore afterwards. Reversed, the link check reports the whole vault dangling and the sweep reports every file missing, because the files are no longer at the paths being claimed; both are spectacular, both are false, and nothing in the output says which state produced it.
+5. **Report.** What changed per phase, what was proposed and declined, what was routed where, and what you did **not** verify.
 
 ## Strict rules
 
@@ -76,7 +77,7 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 - **The vault was migrated by hand and only lacks the marker.** Run the full pass anyway; it is the only thing that actually verifies the hand migration landed. Expect Phases 1 to 3 to come back near-empty and Phase 4 to re-derive proposals the earlier migration already settled. Present those as re-proposals, not discoveries, and take a "we looked at this and decided otherwise" as final - an agent with no memory of the first pass must not re-argue a closed decision.
 - **A changelog entry doesn't apply to this vault.** Say so and skip it. A vault with no `resources/ideas/` has nothing to migrate from a checkbox-placement rule.
 - **The vault runs a flavor** (readonly-ipad or similar). Read the flavor's skeleton template as the master, not `base/`. If the vault is in collected state, ask for a spread first.
-- **A link checker is wrong in two directions.** Bare-relative paths, parentheses and fenced code produce a false clean; percent-escaped filenames produce false alarms. The check, with its decode and two-way validation, is owned by `/para-deep-clean` Phase 1, Step 1.2 (its `phase1-structural.md`); run it as written there.
+- **A link checker is wrong in two directions.** Bare-relative paths, parentheses and fenced code produce a false clean; percent-escaped filenames and links quoted inside inline code spans produce false alarms. The check, with its decode and two-way validation, is owned by `/para-deep-clean` Phase 1, Step 1.2 (its `phase1-structural.md`); run it as written there.
 - **A file is locked mid-pass.** Vaults commonly sit on a syncing drive, whose client can hold a file open so an edit fails or half-lands. Stop on the first write error instead of continuing. A partially applied phase is the one state this skill cannot detect on a later run, because the marker is written last and so still reads as the old revision. Report which files landed, have the user pause syncing, and resume from the failed phase.
 - **The user wants out.** There is no automatic rollback. Name the vault's undo path before Phase 1 (git, the drive's version history, or none, per Precondition 5). If a pass goes wrong mid-flight, stop, list every file touched so far, and hand the user that path. Never reconstruct original content from memory.
 

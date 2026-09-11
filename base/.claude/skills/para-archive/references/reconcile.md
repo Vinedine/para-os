@@ -6,6 +6,8 @@ Everything that has to be settled before anything moves. Each step ends with a p
 
 Read the entity's `actions.md` (and any per-file action markers). Split into **done** vs **open**.
 
+**A checkbox inside a fenced code block is not an open action**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md): a brief or plan illustrating what an `actions.md` looks like must not block an archive or be reconciled item by item.
+
 **Skip this step for ideas.** An idea carries no `actions.md` by the vault's own rule (`resources/` never holds a checkbox), so there is nothing to reconcile and no routing question to ask; its open questions retire with it.
 
 - If everything is done: note it, proceed.

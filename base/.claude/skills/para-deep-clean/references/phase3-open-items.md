@@ -4,7 +4,9 @@ Goal: every "Open items" section reflects real outstanding work, every action fi
 
 **Precondition:** verify pypdf is installed - `py -c "import pypdf"`. If the import fails, either `pip install pypdf` or skip Step 3.1 and go straight to Steps 3.2 onward, which don't need it.
 
-## Step 3.1 - Read source PDFs to close items
+## Step 3.1 - Read source documents to close items
+
+**Skip this step where the vault has no such documents**, and say so rather than reporting it as done. The examples below are a property vault's, because that is where a brief routinely states a figure some PDF on file already settles; a vault whose open items are decisions, drafts and conversations has nothing here and the step is a no-op. Check first: an item worth this step names a *value* it does not have, not a judgment nobody has made.
 
 Many "missing data" items are answerable from documents already on file:
 
@@ -22,14 +24,22 @@ For active entities: keep open items that represent real work to do; only remove
 
 ## Step 3.3 - Surface time-sensitive items
 
-Payments due in the next 30 days, indexation anniversaries, insurance renewals, inspection deadlines (boiler, electrical, asbestos). Move these to the top of the Open items list with clear deadline labels.
+Anything dated inside the next 30 days, plus anything already overdue. What those are is the vault's own domain: a property vault's are payments, indexation anniversaries, insurance renewals and inspection deadlines (boiler, electrical, asbestos); another vault's are renewals, filing dates and booked calls. Report them as a dated list.
+
+**Reorder the file only where the vault declares an order.** The instruction to move these to the top of Open items assumes a file whose order carries meaning. Where `CLAUDE.md` prescribes none, moving them churns the file to duplicate what `/para-daily-brief` already does from the markers - so list them in the phase summary and leave the file alone.
 
 ## Step 3.4 - Action grooming
 
-The repair half of the actionable-frontier rule in `CLAUDE.md` (`/para-daily-brief` flags these same conditions but never fixes them). For every `actions.md` under `projects/` and `areas/`, and every contact file's `## Next actions`:
+The repair half of the actionable-frontier rule in `CLAUDE.md` (`/para-daily-brief` flags these same conditions but never fixes them). For every `actions.md` under `projects/` and `areas/`, every contact file's `## Next actions`, **and every other file in `projects/` or `areas/` that carries open checkboxes**:
+
+**That last group is the one nothing else in the product can see.** The vault's "Where a checkbox may live" rule permits a checkbox anywhere in `projects/` and `areas/`, so a log, a plan or a review file may legitimately hold dozens - and `/para-daily-brief` globs `**/actions.md` for its counts and flags misplaced checkboxes only under `archive/` and `resources/`, so those items are counted by nothing and groomed by nothing. Found on one real vault: a daily upstream log holding **56 open checkboxes against 8 closed**, accumulating for three weeks, invisible to every check in the system. Such a file is **not** a filing error where it declares its own contract (this one said its entries *propose* actions and never write to `actions.md`, and a separate recurring action pruned it). Read the file's own header before judging it: where it declares the shape, report the count and check that something retires what is never promoted; where it does not, the items belong in that entity's `actions.md` and the move is the proposal.
 
 - **Over-threshold files** - more than 12 open items. Propose restoring the frontier: keep as checkboxes only the steps actionable now or on their marked date; demote everything gated on an unfinished predecessor to plain bullets under a `## Backlog` heading in the same file, **text preserved verbatim** - only the `- [ ]` syntax and any date or priority markers change. A demoted item promotes back to a checkbox when its gate opens.
-- **Stale undated items** - open, undated, in a file untouched for 60+ days. Ask per item, never in bulk: close it (done untracked, or dead), date it (a real deadline exists), or demote it to backlog prose.
+
+  **A file can exceed the count with nothing demotable, and that is a legitimate state.** The threshold is a count; the demotion test is a gate, and the two do not have to agree. Where every open item really is actionable now - several explicitly marked unblocked - there is nothing to demote and forcing the count down means demoting work that is ready, which is worse than being one over. Say so, propose any *closes* the evidence supports, and report the file as deliberately over rather than as unfixed.
+- **Stale undated items** - open, undated, and untouched for 60+ days. Ask per item, never in bulk: close it (done untracked, or dead), date it (a real deadline exists), or demote it to backlog prose.
+
+  **Measure staleness on the item's own line, not on the file.** A para-os vault gets fleet-wide template sweeps by design, and one sweep resets every file's age at once: on one real vault two bulk commits touched 95 and 54 files on a single day, so nothing in it could read as 60+ days untouched for another three weeks, and this check could not fire at all. Use `git log -L <line>,<line>:<file>` for the last commit that changed the item itself, or the last commit touching the file that was not a sweep (judge by how many files it touched). **An untracked file is not stale** - it is new, and has no history precisely because nobody has committed it yet; fall back to mtime there, and remember mtime is unreliable in a synced vault because the sync client touches files nobody edited. Where no measure is trustworthy, say the check could not run rather than reporting zero findings, which reads identically to a clean vault.
 - **Aspirational dates** - items overdue by more than 30 days. A real deadline blown by a month was usually never a real date (`📅` records a real-world deadline, never an aspiration). Offer stripping the `📅` and leaving the item undated or demoted, against keeping it because the deadline was real and genuinely missed.
 
 **Both open on a question of fact, which carries no `(Recommended)`.** Whether a dormant item was quietly finished or abandoned, and whether a blown date was ever real, are things only the operator knows: the file looks identical either way, and the age that surfaced the item says nothing about which happened. Per the recommendation carve-out in [para-shared/asking.md](../../para-shared/asking.md), ask the fact first with no option labelled, ordered by what the file's own evidence suggests, and say in each description what that answer does to the item; the disposition that follows (close, date or demote; strip or keep) is the skill's to propose and takes a recommendation as usual. Guessing at the fact is worse than elsewhere, because both answers are irreversible in the sense that matters: the text that said what the item was is gone, and a recommendation the operator clicks through takes a real commitment with it.

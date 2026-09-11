@@ -7,7 +7,7 @@ arg-hint: '[project|area|idea|contact|promote] <name>'
 
 # Para new
 
-Creates **one entity** and nothing else: a project, an area, an idea, or a contact. It also runs the one promotion the lifecycle defines, `resources/ideas/<name>/` to `projects/<name>/`, because a promoted idea is a created project whose brief already exists.
+Creates **one entity**: a project, an area, an idea, or a contact. Nothing else, with a single exception - a project or idea *for* a person the vault does not know yet also gets that person's contact file, because otherwise the new entity has nothing pointing at it ([references/scaffold.md](references/scaffold.md)). It also runs the one promotion the lifecycle defines, `resources/ideas/<name>/` to `projects/<name>/`, because a promoted idea is a created project whose brief already exists.
 
 The first job is **classification, not scaffolding.** Most requests to "start a project" turn out to be an area, an idea, or a document that needs filing, and a vault that lets all of them land in `projects/` stops being readable. The sorting test runs before any question about the work itself.
 
@@ -29,7 +29,7 @@ This skill's contract, and the vault's own rule: *committed and dated → projec
 
 **The deadline separates the first two.** A project needs a clear goal *and* a real-world date someone is actually waiting on; work that simply continues is an area. An invented date does not make an idea into a project, it makes a deliberation that will surface as falsely overdue.
 
-**Put the test to the operator; do not announce its answer.** Where more than one shape is defensible - which is every project / area / idea call, and the great majority of runs - ask it as a single `AskUserQuestion` with the candidate shapes as options and the row of the table above as each option's description, per [para-shared/asking.md](../para-shared/asking.md). Two things make this the right question to ask rather than one more prompt: it is the decision the whole skill turns on, and a wrong answer is expensive in a way the operator feels later, since a deliberation scaffolded as a project inflates the action count and `/para-daily-brief` believes it. **Give each shape a `preview`** showing the scaffold it would produce - a project's `brief.md` plus `actions.md` with one next step, an idea's `brief.md` alone - because the difference between the shapes *is* what gets written, and that is easier to see than to read.
+**Put the test to the operator; do not announce its answer.** Where more than one shape is defensible - which is every project / area / idea call, and the great majority of runs - ask it as a single `AskUserQuestion` with the candidate shapes as options and the row of the table above as each option's description, per [para-shared/asking.md](../para-shared/asking.md). Its `header` is `Shape`, not a batch position: this skill asks one question, so the `n/n` would only ever read `1/1`. Two things make this the right question to ask rather than one more prompt: it is the decision the whole skill turns on, and a wrong answer is expensive in a way the operator feels later, since a deliberation scaffolded as a project inflates the action count and `/para-daily-brief` believes it. **Give each shape a `preview`** showing the scaffold it would produce - a project's `brief.md` plus `actions.md` with one next step, an idea's `brief.md` alone - because the difference between the shapes *is* what gets written, and that is easier to see than to read.
 
 Ask only where the answer is not forced. "Add Jan Smith as a contact" is a person and asking is noise; a declared shape that the test contradicts is exactly when to ask, with the declared shape offered second and the reason it fails in its description.
 
@@ -50,7 +50,7 @@ Nothing is written before the proposal is approved, so there is no preview argum
 
 1. **Resolve the vault root, then verify it** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`). A root has `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
 2. Read the vault's `CLAUDE.md` for the parameters listed above.
-3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, and `areas/network/`. Report a near-match and confirm it is genuinely a different thing. In a vault several people write, the same work gets started twice under two names, and the duplicate is only noticed once both have history.
+3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, `areas/network/`, and `archive/`. Report a near-match and confirm it is genuinely a different thing. In a vault several people write, the same work gets started twice under two names, and the duplicate is only noticed once both have history. **An archived match never stops the run** - reusing a finished entity's name is allowed - but it is named, so the operator can choose a distinct slug if this is a successor rather than a repeat. Leave the archive out of the scan and [references/scaffold.md](references/scaffold.md)'s archived-collision edge case is unreachable.
 
 ### Steps 2 and 3 - Classify, then interview
 

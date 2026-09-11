@@ -23,6 +23,7 @@ Also invoke after a large content migration, or periodically (every 3-6 months) 
 | `phase3` | Open items audit only (assumes Phase 2 done) |
 | `phase4` | Final audit only |
 | `audit` | Read-only summary: runs Phase 1 plus Phase 4 in observe-only mode. Skips destructive Phases 2 and 3. Never modifies files. |
+| `ref=<git-ref>` | The committed para-os ref precondition 5 compares the vault's template marker against, instead of `origin/main`. Combines with any of the above. Use it while a revision is in flight (`ref=origin/feat/revision-2026.09.02`), which is the normal state on the maintainer's machine. A working-tree path is refused for the reason precondition 5 gives. |
 
 ## Preconditions
 
@@ -30,11 +31,11 @@ Confirm before starting:
 
 1. Vault has a `CLAUDE.md` documenting structure, naming conventions, and "do not add" rules. If missing, stop and ask the user to create one.
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
-3. Entities (properties, projects, clients) each have a `README.md` plus optional `sources/` folder.
+3. Entities each carry the main document their `CLAUDE.md` prescribes (`brief.md` by default) plus optional `sources/`.
 4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check - if any loose files (not subdirectories) are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1 rather than treating it as a loose item to file.
 5. **The vault should be on the newest *shipped* para-os template revision.** This skill audits the vault against the rules its own `CLAUDE.md` states, so if that contract is a revision behind, a clean bill of health here only means the vault is faithful to a stale spec. Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
-   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref, defaulting to `origin/main`** (the flavor's skeleton template where the vault declares a flavor). **Never read the clone's working tree.** A revision in flight lives there uncommitted, so a working-tree read reports *every* vault on the machine as behind and sends them to `/para-upgrade`, which refuses uncommitted refs - the two skills then point at each other and neither can run. The only marker a vault can actually be aligned to is one that has shipped.
+   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/main`** (the flavor's skeleton template where the vault declares a flavor). **Never read the clone's working tree.** A revision in flight lives there uncommitted, so a working-tree read reports *every* vault on the machine as behind and sends them to `/para-upgrade`, which refuses uncommitted refs - the two skills then point at each other and neither can run. The only marker a vault can actually be aligned to is one that has shipped.
 
    Then, in order:
 

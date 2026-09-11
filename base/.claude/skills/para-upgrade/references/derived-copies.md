@@ -20,11 +20,14 @@ It is also the one phase Phase 0 runs when the template revisions already match,
   | Claim shape | How it reads | The check |
   |---|---|---|
   | A path exists | "proposals live in `projects/ticketing-platform-replacement/sources/`" | `test -e` on the path |
+  | A path *shape* | "`areas/properties/*/sources/`", "`projects/<property>/brief.md`", "`archive/meetings/YYYYMMDD Description.ext`" | glob it; **one match is the claim met**. Never `test -e` a pattern |
   | A script is installed | "`scripts/` = `granola.py`, `outlook.py`..." | `ls` the folder; every name in the prose must be on disk, **and every script on disk must be in the prose** |
   | A config holds a key or value | "`outlook.config.json` carries `\"match_all\": true`" | read the file and compare the literal value |
   | A file carries a snippet | "`.claude/settings.json` holds `autoMemoryEnabled: false`" | grep the file for it |
   | A count or inventory | "4 vendor responses", "3 vendor calls" | count the folders and compare |
   | A named skill or command exists | "emptied via `/para-triage`" | the skill must resolve; a renamed one is repointed, a removed one dropped |
+
+  **Split the literals from the shapes before running anything.** A mature vault states most of its paths as globs (`areas/properties/*/sources/`), placeholders (`projects/<property>/brief.md`) or naming conventions (`YYYYMMDD <Who> <Description>.<ext>`), and `test -e` calls every one of them missing. Measured on a live vault: 28 of 52 path candidates reported MISSING on the first pass, every one of them a false alarm. That is the same phantom-drift failure as a byte-exact skill diff on Windows or an undecoded link check - a list that is mostly noise teaches the reader to discount the real rows in it, and this sweep is the third place it has appeared.
 
   **Quoted literals are the ones that rot fastest**, because a config key outlives the sentence that describes it: `match_all` survived a revision in a live vault after the key itself had been deleted, and nothing read it as wrong because nobody opened the config. Any backticked value in the prose is a claim - treat it as one. The check runs **in both directions** for inventories: prose naming something absent is stale, and disk holding something the prose never names is undocumented, which reads as "not installed" to the next session.
 

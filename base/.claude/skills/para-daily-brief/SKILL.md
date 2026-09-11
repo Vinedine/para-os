@@ -17,7 +17,9 @@ A single-pass, date-aware picture of **where the vault stands**: which projects 
 
 ## Arguments
 
-Optional single scope argument. The four scope words are reserved; **anything else is read as an entity name**.
+Optional single scope argument. The four scope words are reserved.
+
+**A leftover argument is an entity name only when it reads like one:** one to three words, or a `projects/<name>` / `areas/<name>` path, carrying no sentence punctuation (`.`, `,`, `?`, `!`). Anything longer is prose the operator wrapped around the invocation ("using the 2026.09.02 branch, and flag any bugs you hit"): take the **default** scope and treat the prose as an instruction for this run, never as a name to resolve. Step 1c's refusal to guess is there to stop a wrong-entity brief, not to stop a brief - a run that halts to ask which project "if you notice any bugs please raise them" names has failed at the one thing it was asked for.
 
 | Arg | Renders |
 |---|---|
@@ -42,14 +44,23 @@ Use the Bash tool. **Do NOT substitute a cached date from memory or context** - 
 
 ### Step 1b: Identify the vault type
 
-- **Type B (read-only consumer vault)** - no `actions.md` anywhere **and** a `flip.ps1` or `render.ps1` at the vault root. Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one. Skip everything except 📥 Triage (Step 5b), titled `## 📥 Triage - loose files (N · run /para-triage)`, plus a one-line note that this is a read-only vault.
+- **Type B (read-only consumer vault)** - no `actions.md` anywhere **and** a `flip.ps1` or `render.ps1` at the vault root. Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one.
 - **Type A (PARA vault with action tracking)** otherwise - the full flow.
 
 Fold the detection into Step 2: only if the grep returns zero `actions.md` matches, Glob for `flip.ps1` / `render.ps1` to decide Type B vs. a genuinely empty Type A vault.
 
+**Type B skips only what the task scan feeds:** 📊 Vault state, 🎯 Now, the Later counts, and the five task-derived health flags. Everything computed from the filesystem rather than from checkboxes still runs - 💡 Ideas (4d), the Vision read (4e), the over-grown-brief flag, 📥 Triage (5b), 🗓 Agenda (5c), the **Next action** close, and the dashboard (Step 7) with its task panels omitted - plus one line saying action tracking is absent by design. The list is written as an allowlist on purpose: a "skip the rest" branch rendered a vault holding a dozen live property ideas as nine filenames, which is the failure this step shipped with.
+
+**Then read the flip state, because it moves every `.md` in the vault.** A Type B vault is normally *collected*: `flip.ps1 collect` puts every `.md` under `resources/mds/` with its vault path encoded in the filename - `resources/ideas/wipstraat-51/brief.md` becomes `resources/mds/resources__ideas__wipstraat-51__brief.md` - leaving only `.pdf` siblings in the PARA folders. One Glob settles it: a non-empty `resources/mds/*.md` means collected. While collected, two rules hold everywhere in this skill and in both reference files:
+
+- **Resolve every markdown path through the map, never the PARA path** (`<a>/<b>/<c>.md` reads as `resources/mds/<a>__<b>__<c>.md`). A grep at the PARA path finds nothing, and finds it *silently* - a missing stage line and an unreadable file render identically, so twelve failed lookups look exactly like twelve ideas that state no stage.
+- **Take every mtime from the collected `.md`, never from a folder or a `.pdf`.** A PDF's mtime is the last `render.ps1` run, so one render resets the clock on every entity at once and no staleness signal - a dormant idea, a stale file - can fire again. Measured on a live vault: four ideas last edited in May and June all reported as touched on the September render date.
+
+`resources/mds/` is the pipeline's store, not a reference bucket. Wherever this skill tests a path against `archive/` or `resources/`, test the **decoded** path, or a collected vault discards its whole scan and reports its whole backlog as misplaced.
+
 ### Step 1c: Resolve an entity scope
 
-Only when the argument is not one of the four scope words. Resolve it to exactly **one** `projects/<name>/` or `areas/<name>/` folder, then run the rest of the brief over that entity alone. **Never guess between candidates and never silently widen to the vault** - an unresolved name stops the run and asks. **Full procedure: [references/task-scan.md](references/task-scan.md).**
+Only when the argument is not one of the four scope words **and reads like an entity name** by the test in Arguments above. Resolve it to exactly **one** `projects/<name>/` or `areas/<name>/` folder, then run the rest of the brief over that entity alone. **Never guess between candidates and never silently widen to the vault** - an unresolved name stops the run and asks. **Full procedure: [references/task-scan.md](references/task-scan.md).**
 
 ### Steps 2 to 4b: Scan, parse, bucket, aggregate
 
@@ -77,7 +88,7 @@ Exact layout, line rules, and the single Next action close. **Full spec: [refere
 
 ### Step 7: The visual dashboard
 
-Default and `all` scopes only (never an entity scope), and **only when an Artifact tool is available in the harness** - if it is not, skip this step silently; the terminal output above is complete on its own.
+Default and `all` scopes only (never an entity scope), and **only when an Artifact tool is available in the harness** - if it is not, skip this step silently; the terminal output above is complete on its own. **A Type B vault publishes one too**, with the task-derived panels omitted (Step 1b); `dashboard.md` says which survive.
 
 Read [references/dashboard.md](references/dashboard.md) for the page spec, which owns the title, the favicon and the match rule that updates yesterday's page in place instead of forking it. Build the self-contained HTML from the data already collected (no new scanning), write it to the harness's scratchpad or temp directory - **never inside the vault**; it is a derived output and would sync - and publish it. Give the user the link on one line.
 
@@ -95,7 +106,8 @@ Read [references/dashboard.md](references/dashboard.md) for the page spec, which
 
 ## Edge cases
 
-- **Vault with no actions.md files:** apply Step 1b. Type B gives the Triage-only output. Type A with empty or absent `triage/` gives `No actions.md files found in <cwd>.` and stops; with a populated triage, render only 📥 Triage.
+- **Vault with no actions.md files:** apply Step 1b. Type B gives the reduced brief described there - ideas, agenda, triage, over-grown-brief flag, next action - not a bare file listing. Type A with empty or absent `triage/` gives `No actions.md files found in <cwd>.` and stops; with a populated triage, render only 📥 Triage.
+- **`## Status` is a table, which is the normal case in a property vault:** the stage line is a *row*, never the header. See Step 4d - `| Detail | Value |` is not a stage.
 - **Item with both future `🛫` AND `📅`:** Waiting (not actionable yet). **Past `🛫`:** ignore the gate, bucket by `D`, else Undated - a past `🛫` never hides a task.
 - **Item with `⏳` but no `📅`:** the `⏳` date is `D`. Not Undated.
 - **Recurring item without a date:** counts in Recurring; in `all`, show "next: -".
