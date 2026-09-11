@@ -20,7 +20,7 @@ Do NOT invoke to archive areas or contacts - this skill handles projects and ide
 
 ## Arguments
 
-**The entity name is the part of the argument that reads like one, not the whole string.** An invocation collects operator prose around it ("on project saillart using the 2026.09.02 branch, and flag any bugs you hit"): take the one to three words that could name a folder, or a `projects/<name>` / `resources/ideas/<name>` path, drop a leading `project`, `idea` or `on`, and treat everything else as an instruction for this run rather than as part of the name. Resolve what is left by Step 1's rules. Never match the whole sentence against a folder, and never stop to ask which entity a trailing sentence names: ask only where the extracted name genuinely matches none or several.
+**The entity name is the part of the argument that reads like one, not the whole string.** An invocation collects operator prose around it ("on project acme-website using the 2026.09.02 branch, and flag any bugs you hit"): take the one to three words that could name a folder, or a `projects/<name>` / `resources/ideas/<name>` path, drop a leading `project`, `idea` or `on`, and treat everything else as an instruction for this run rather than as part of the name. Resolve what is left by Step 1's rules. Never match the whole sentence against a folder, and never stop to ask which entity a trailing sentence names: ask only where the extracted name genuinely matches none or several.
 
 | Arg | Behavior |
 |---|---|
