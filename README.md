@@ -45,7 +45,7 @@ Any "AI on top of my stuff" setup is three layers stacked. Naming them shows whe
 
 1. **Substrate (your files)** - the files and how they're organised. **This is para-os.**
 2. **Agent (the assistant)** - the model that reads and writes them: Claude Code, Cursor, Codex, Claude Cowork.
-3. **Interface (how you work with it)** - how you drive it: an editor, a notes app, a chat app, PDFs on an iPad.
+3. **Interface (how you work with it)** - how you drive it: the Claude desktop app, an editor like VS Code, a notes app, a chat app, PDFs on an iPad.
 
 para-os owns layer 1 and is agnostic about 2 and 3 - **bring your own agent**. Almost nobody does the layer-1 work because it feels like filing, not engineering. That's exactly why it pays off: an agent is only as good as the files you point it at, and that leverage grows as agents get better. The files are the memory - the folder on disk is the durable state, the agent reads it fresh each session, and the git diff is the audit log. No memory features, no chat-history dependence.
 
@@ -53,7 +53,9 @@ You stay the operator: you hold the goals, the assistant does the work - and whe
 
 ## You don't need to be a programmer
 
-You work in two free-to-install tools: [VS Code](https://code.visualstudio.com/), an editor, and [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant (the AI itself needs a paid Claude plan). Both were built for software work, but here they're just a window onto your folders with a chat box beside it. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.
+You work in one free app: the [Claude desktop app](https://claude.com/download), which runs [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant, in its Code tab (the AI itself needs a paid Claude plan). Point it at your vault folder and you get your files on one side and a chat box on the other. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.
+
+If you already live in a code editor, [VS Code](https://code.visualstudio.com/) runs the same assistant over the same folders, and it's the better window when you're working on code as well as documents. It's the power-user path, not the starting point: the desktop app is a nicer place to work for everyone else, which is most people.
 
 ## The vault
 
@@ -92,6 +94,8 @@ The conventions the templates encode:
 3. **Run `/para-daily-brief`.** The vault answers from day one - and richer as you feed it your braindump.
 
 > **Running several vaults?** The bundled copy works, but you'll carry one skills copy per vault. To keep a single source, move the skills to `~/.claude/skills/` (Claude Code loads them there for every vault) and delete the per-vault `.claude/skills/`.
+>
+> If those vaults also draw on the same inboxes, [`multi-vault/`](multi-vault/) is an optional layer that reads each source once and routes what arrives to the vault it belongs to.
 
 To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/): a fictional consulting engagement with projects, contacts, actions, and meeting records. Copy `base/.claude/skills/` into `examples/belfoot-vault/.claude/`, then run `/para-daily-brief` from the vault root. Its dates are frozen at the reference date in its README, so expect a mostly-overdue dashboard.
 
@@ -160,6 +164,7 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 - [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, bootstrap prompt, the skills (`.claude/skills/`), agent settings (`.claude/settings.json`, which turns off auto memory since the files are the memory), and editor settings (`.vscode/settings.json`) that open `.md` in rendered preview.
 - [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - render pipeline for the read-only model.
 - [`integrations/`](integrations/) - drop-in scripts that pull an outside system into a vault (e.g. `granola/` for meeting sync).
+- [`multi-vault/`](multi-vault/) - optional layer for running several vaults off the same inboxes: a registry outside the vaults, and `/para-ingest`, which reads each source once and stages what arrives in the vault it belongs to.
 - [`examples/belfoot-vault/`](examples/belfoot-vault/) - a fictional, fully populated vault to poke at.
 - [`tools/check.py`](tools/check.py) - the repo's contract checks. Run it before shipping a revision; it is the gate that catches a marker, a skill spine or a manifest drifting out of line with the rest.
 

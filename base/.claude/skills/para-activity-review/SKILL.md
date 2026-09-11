@@ -1,7 +1,7 @@
 ---
 name: para-activity-review
 description: Read a vault's activity ledger and report how the vault is actually being used - which skills get invoked and which never, where sessions stall or fail, which parts of the structure nobody touches, and where use contradicts the vault's own rules. Every finding names a change to make. Use when the user asks "how are they using the vault", "is anyone actually using this", "what should I fix about the vault", "review the usage log", "which skills does nobody use", or types /para-activity-review.
-allowed-tools: Bash, Glob, Grep, Read, Write
+allowed-tools: Bash, Glob, Grep, Read, Write, AskUserQuestion
 arg-hint: '[<vault-path>] [days]'
 ---
 
@@ -52,13 +52,14 @@ One dated Markdown file, findings ranked by what they would change, each tied to
 
 ### Step 5 - Propose pruning, never perform it
 
-List the ledger files the report has now consumed and offer to delete them. Wait for a yes. Reported lines have done their work, and a log that grows forever becomes the clutter this skill exists to find.
+Reported lines have done their work, and a log that grows forever becomes the clutter this skill exists to find. But this step deletes, and the vault's own rule is that pruning is *"proposed and ruled on, one item at a time"* - so it is **one question per ledger file**, never one yes over a list, per [para-shared/asking.md](../para-shared/asking.md). Each question names the file, its size and the window it covers, and says what the report took from it. **Recommend the delete only where the report actually consumed the file**; a ledger the run skipped, or one whose window the report describes as blind, keeps `Keep it` as the recommended option, because a file nothing read is not a file that has done its work. Every question carries `Keep it`, so declining costs nothing.
 
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
 - **The report never goes in the reviewed vault when that vault belongs to someone else.** It is a critique of how their tools failed them, written for whoever maintains those tools. Write it where the review was invoked, and if that is ambiguous, ask.
+- **Never delete a ledger file on a batch approval.** One question each, and the delete is recommended only for a file the report demonstrably read. This skill's whole output is an argument that silent, confident wrongness is the failure mode to fear; deleting the evidence on a shrug would be it.
 - **Findings name defects, never people.** Per-person counts exist to distinguish "nobody uses this" from "one person uses this", which are different problems with different fixes. They are a means, and they do not go in the report as a ranking.
 - **Absence is the primary signal, so look for it deliberately.** A log shows what happened; the valuable finding is usually what never did. Enumerate the vault's declared capabilities and folders **first**, then mark which the ledger never touched. A report assembled only from what appears in the log will systematically miss the biggest problem.
 - **Every finding carries the change it implies.** "People rarely run triage" is an observation. "Triage is never invoked and `triage/` holds 40 files, so the walkthrough should open with it rather than mention it at step 9" is a finding. Observations without a proposed change get cut.

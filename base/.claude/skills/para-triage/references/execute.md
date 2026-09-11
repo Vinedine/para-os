@@ -1,6 +1,8 @@
-# Executing an approved table (Steps 7 to 9)
+# Executing an approved batch (Steps 7 to 9)
 
-Nothing here runs before the proposal table has been shown and explicitly approved. The table was approved as a unit, so a failure anywhere stops the whole batch.
+Nothing here runs before every item has been put to the operator and approved - one question each, or one table approved as a unit on the paths that do not ask ([approval.md](approval.md)). Only approved items execute; a deferral is a no-op, not a delayed yes.
+
+**A failure anywhere still stops the whole batch**, however the approvals were collected. Per-item approval makes the *decisions* independent, not the execution: a half-applied batch needs a person to look at it, and continuing past a failed move is how one collision becomes ten.
 
 ## Loose files
 
@@ -8,8 +10,8 @@ In a single batched operation where possible:
 
 - **Moves with rename**: before each move, **check that the destination does not already exist** (`test -e "<dst>" && echo EXISTS`). If it exists, stop the whole batch, report the collision, and ask how to resolve. Never overwrite silently: `mv` clobbers by default and there is no undo. Once clear: `mv "<src>" "<dst>"`, absolute paths, quote spaces.
 - **On any move failure**: **stop the batch immediately**, report which moves succeeded and which failed, and wait for direction.
-- **Deletions**: `rm "<path>"`. Only delete files explicitly marked Delete in the approved table.
-- **Mkdir** only for destinations approved in the table. Never silently create new folders.
+- **Deletions**: `rm "<path>"`. Only delete a file whose own Delete disposition was approved - its own question, or its own Delete row on the table path.
+- **Mkdir** only for destinations named in an approved disposition. Never silently create new folders.
 - **Image rotation**: on Windows, PowerShell plus System.Drawing. **Preserve the source format**: `Save($dst)` with no format argument lets GDI+ pick the encoder from the destination extension. Write to a temp path first, because `FromFile` holds an open handle on `$src`:
 
   ```powershell

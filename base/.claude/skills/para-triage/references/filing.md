@@ -14,7 +14,7 @@ For each loose file, gather enough context to propose a destination:
 Then check for **duplicates and redundancies** against the rest of the vault:
 
 - Same filename elsewhere in the vault? Compare with `md5sum` on both paths.
-- Different filename but plausibly the same content (a scan of a digital PDF, a "copy" / "copy 2" variant)? Open both and compare key fields. Don't auto-delete on a hunch - flag and ask in the proposal table.
+- Different filename but plausibly the same content (a scan of a digital PDF, a "copy" / "copy 2" variant)? Open both and compare key fields. Don't auto-delete on a hunch - flag it and put it to the operator as its own question.
 
 Detect **orientation issues** for image files (`.jpg` / `.jpeg` / `.png` / `.gif`): when you Read the image, the rendered preview shows the orientation. If text is upside down (180 degrees) or sideways (90 or 270), note the required rotation. PDFs with scanned pages can also be wrong-way; PDF rotation is harder, so flag and ask before attempting.
 
@@ -45,16 +45,16 @@ Illustrative fragment - the vault's `CLAUDE.md` gives the real naming convention
 ```
 | # | Source item | Action | Why | Destination |
 |---|---|---|---|---|
-| 1 | `Factuur Lockwerk.pdf` | Delete | Byte-identical duplicate (MD5 10d9edcc...) of the filed copy. | (deleted) |
-| 2 | `Tax Bank 2011.JPG` | Move + rename + rotate 180 | Bank 2011 repayment certificate (upside down), contract 726-1234567-89. | [.../sources/20111231 Bank Betalingsattest 726-1234567-89.jpg](path) |
+| 1 | `Factuur Lockwerk.pdf` | Delete (duplicate) | Byte-identical duplicate (MD5 10d9edcc...) of the filed copy. | (deleted) |
+| 2 | `Tax Bank 2011.JPG` | File it + rotate 180 | Bank 2011 repayment certificate (upside down), contract 726-1234567-89. | [.../sources/20111231 Bank Betalingsattest 726-1234567-89.jpg](path) |
 | 3 | "RE: quote" - supplier, 14 Jul (email) | Update existing | Reply on an open thread; annotate the tracked action rather than duplicate it. | [projects/<x>/actions.md](path) |
 ```
 
 ## Edge cases
 
-- **File is an encrypted or locked PDF**: skip content inspection, propose destination from filename plus file mod date only, and flag in the Why column as "(content not readable - name-only inference)".
-- **File modification date is wildly different from the document date** (a 2024 mod date on a 2013 invoice): use the document date. Mention the discrepancy in the Why column.
-- **Two triage files describe the same event** (a scanned and a digital version of the same letter): keep the digital, delete the scan. Show both in the table; mark the scan as Delete (redundant scan) with a Why pointing to the digital version's path.
+- **File is an encrypted or locked PDF**: skip content inspection, propose destination from filename plus file mod date only, and say so where the evidence goes - the option description, or the Why cell on the table path: "(content not readable - name-only inference)".
+- **File modification date is wildly different from the document date** (a 2024 mod date on a 2013 invoice): use the document date, and name the discrepancy in the same place.
+- **Two triage files describe the same event** (a scanned and a digital version of the same letter): keep the digital, delete the scan. Name both in the disposition; mark the scan as Delete (redundant scan), with the digital version's path as the evidence.
 - **File references a person not yet in `areas/network/`**: propose creating the contact file via `/para-new`, with a one-line bio (parties, date first encountered, source-doc reference) to seed it. Only execute after approval; don't auto-create.
 - **File references a property or project not yet in the vault**: propose either (a) leaving it in triage with a note about what's needed, or (b) routing to `/para-new` to create it properly. Default to (a).
 - **Image with an EXIF orientation tag**: still inspect visually after Reading. EXIF orientation is widely ignored by renderers, so a "correct" EXIF tag with rotated pixels still needs the pixels rotated.

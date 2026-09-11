@@ -6,11 +6,13 @@ Diff the vault's `CLAUDE.md` against the template at the ref (`base/CLAUDE.md.te
 
 **Read the template at the vault's own marker too, as a baseline.** Diffing against the new template alone cannot tell a section the vault never had from one it deliberately rewrote. Diffing against both can: where the vault departs from its *own* baseline, that departure is a decision. Carry it forward rather than flattening it back to the template. A vault with no marker has no baseline: diff against the new template alone and say so, rather than treating the oldest changelog revision as one.
 
+**The marker line is never part of the text you carry over.** It is line 3 of the template, so a section-by-section replacement picks it up for free and stamps the new revision in Phase 1 - which is exactly what Phase 5 exists to prevent, since a marker claiming a revision the vault does not yet implement makes the next run skip the work. Hold the vault's existing marker through every phase and let Phase 5 write the new one. This bites hardest in a revision that condenses, where replacing whole sections is the entry's own instruction.
+
 **Contradictions rank first.** A vault carrying the superseded version of a rule is worse than one that's merely silent: the agent reads it at runtime and acts on it, so the vault actively fights its own skills until fixed. Report those separately from the merely-missing.
 
 **The template is a floor, not a ceiling.** Never delete a section, rule, or marker just because the template doesn't have it. Vaults legitimately carry their own: extra area definitions, per-vault operating rules, cross-vault references, a `**Type:**` label, triage-source tables. When the template restructures a section the vault has extended, keep the vault's content and move it under the new heading.
 
-**Restructure, don't rewrite.** Match the vault's existing voice and language, including a non-English one. Condensing prose to match the master's tightened wording is a *separate* pass: offer it, don't fold it in.
+**Restructure, don't rewrite.** Match the vault's existing voice and language, including a non-English one. Condensing prose to match the master's tightened wording is a *separate* pass: offer it, don't fold it in. The one exception is a changelog entry that names the condensing as its change: then the vault's copy of each section the entry lists is replaced by the template's shorter text, and only the vault's own departures from its baseline are carried forward into it.
 
 ## Phase 2 - Skeleton files
 

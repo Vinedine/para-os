@@ -13,6 +13,18 @@ Two things that are never automatic:
 
 **Every move repoints inbound links in the same pass.** A migration that skips this leaves references pointing at nothing, and the rot only surfaces months later in whatever reads them.
 
+## A CLAUDE.md over the 200-line target
+
+Check the line count at the end of every run. A condensing revision can leave a vault over target and **Phase 1 is not allowed to close the gap**: the template's sections are the only ones it may rewrite, and a mature vault's own sections are usually most of the file. Left there, the migration installs a target the vault fails on arrival, with no phase permitted to reach it - which teaches the operator the number is decorative.
+
+So when the file is over target after Phase 1, **propose extraction, one candidate at a time, and apply nothing without a yes.** The candidates, in the order they usually pay:
+
+- **Procedure** - an ordered list of steps, a section structure, a naming scheme with more than about five rules. It moves to `.claude/rules/<topic>.md`, which the agent loads when it opens the file that needs it, leaving a one-line pointer behind. This is the highest-yield move and the least lossy: nothing is deleted and the rule still reaches the session that needs it.
+- **Rationale** - the paragraph explaining why a rule exists. It belongs to git history, and the rule survives without it.
+- **A description of a script's behaviour** - it belongs in that script's README or docstring, which is also where it will actually be kept true.
+
+Never propose cutting a vault's own operating rules to reach the number, and never cut a rule that exists because something once went wrong. **Being over target is a finding, not a failure**: report the count, name the candidates with their line savings, and let the operator rule. A vault that stays at 240 lines because every line earns its place is correct, and saying so is a better outcome than a file trimmed to 199 by deleting something load-bearing.
+
 ## Edge case
 
 - **Counting characters in a normalization pass.** `grep -c` counts matching *lines*, not occurrences, and byte-wise matching in a non-UTF-8 locale makes multi-byte patterns match fragments of unrelated characters. Use a UTF-8-aware codepoint scan for any before/after count, and re-verify with one after applying.

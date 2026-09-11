@@ -67,10 +67,43 @@ Optional `resources/scripts/activity.config.json`, beside the script:
 |---|---|---|
 | `record_prompts` | `true` | Record what people typed. Setting it `false` keeps the structural signal - which skills, which files, what failed - and drops the words: a prompt that opens with a slash command still records that command alone, since `/para-triage` is an invocation rather than something someone said. The report gets thinner but stays useful |
 | `prompt_max_chars` | `500` | Truncation. A prompt's first lines carry the intent |
+| `record_touched` | `true` | The `touched` scan below. Set `false` to drop it and get the un-scanned behaviour |
+| `touched_max_files` | `40` | Cap on paths listed in one line. The uncapped count survives as `touched_total` |
+| `touched_slack_ms` | `2000` | How far before the tool's own start the window reaches, covering this hook's start-up. Raise it on a slow machine; every extra second widens the window for a false positive |
+| `record_summary` | `true` | The `SessionEnd` summary below. Set `false` to drop it |
 
 ## What it records, and what it refuses to
 
 One JSONL line per event: timestamp, event name, session id, prompt id, the prompt, the tool name, what the tool was pointed at, duration, permission mode, and how the session ended. For a skill or a subagent, "what it was pointed at" is the skill or agent **name** - the signal `/para-activity-review` builds adoption from, since `Skill` alone says a skill ran but never which.
+
+### `touched`: the files a script wrote
+
+Keeping only a command's first token leaves a wide gap. A script run through Bash writes files the hook never sees, so a run that wrote sixty files is recorded as `py`, and a review then reports those files as never having been written.
+
+So on any completed tool call that does not already name its own path, the hook asks the filesystem which vault files moved while the tool was running, and records them as `touched` (with `touched_total` when the list is capped). The tools in `PATH_NAMING_TOOLS` are skipped: they already name their file, and scanning them would make one edit look like two.
+
+This stays inside the privacy rule - a path, never content, and only inside the vault - and it costs one directory walk per scanned tool call, about 25 ms on a 330-file vault. The tools in `READ_ONLY_TOOLS` are skipped as well, which is not an optimisation: on a synced library something lands a file every few seconds, so scanning a read is a machine for attributing other people's writes to whoever was reading at the time.
+
+**It is inferred, not observed, and the field name says so.** The window is the tool's own duration widened by `touched_slack_ms`, so on a synced library a file that another person's sync client landed inside that window looks exactly like one this call wrote, and a long-running command widens the window further. Read `touched` as evidence of what changed, never as proof of who changed it. `resources/logs/` is excluded, or the hook would report its own log on every call.
+
+### `summary`: what the session did, because `reason` cannot say
+
+`SessionEnd` carries a `reason`, and it belongs to the harness, not to this script. Its documented values are `clear`, `resume`, `logout`, `prompt_input_exit` and `other`, and **a client is free to report `other` for every ending** - one did, for every session in a real ledger, which left the "how did sessions end" signal `/para-activity-review` is specified to compute simply nonexistent.
+
+No amount of care here makes that field vary, and inventing a livelier value would be fabricating data. So `reason` is still recorded exactly as received, and alongside it the `SessionEnd` line now carries a `summary` counted from the session's own ledger file:
+
+| Field | Meaning |
+|---|---|
+| `prompts` | Distinct requests, counted **per `prompt_id`** - a slash command fires both a `UserPromptExpansion` and a `UserPromptSubmit` under one id, and counting the pair would double every skill invocation |
+| `tools` | Tool calls, failures included |
+| `writes` | Calls that changed a file, `touched` included, so a script's work still counts |
+| `failures`, `denials` | `PostToolUseFailure` and `PermissionDenied` counts |
+| `duration_s` | First event to session end |
+| `last_prompt_tools` | Tool calls after the final prompt |
+
+`prompts: 0` is the one that matters most in practice: a client opens a session per window or tile, so a session count computed from file names is a multiple of the sessions anyone worked in. Stated as a field, a review can exclude them by reading one number instead of inferring it.
+
+`last_prompt_tools: 0` says the final request produced no tool call. That is a fact and not a verdict: a question answered in prose looks identical here to one abandoned, and the review is told to read it that way.
 
 A prompt is recorded as typed, so a credential pasted into one is recorded too. The Bash redaction below does not cover that, and nothing can: switch `record_prompts` off in a vault where that is a real risk.
 

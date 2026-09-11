@@ -1,0 +1,30 @@
+[
+  {
+    "name": "acme-client",
+    "path": "C:/Users/<you>/Documents/acme-client",
+    "kind": "engagement",
+    "purpose": "The Acme engagement: delivery workstreams, their stakeholders, invoices against the statement of work, and anything the client is waiting on.",
+    "active": true
+  },
+  {
+    "name": "household",
+    "path": "C:/Users/<you>/Documents/household",
+    "kind": "personal",
+    "purpose": "Home and family logistics: the house, the car, insurers, utilities, schools, and the paperwork any of them generate.",
+    "active": true
+  },
+  {
+    "name": "side-business",
+    "path": "C:/Users/<you>/Documents/side-business",
+    "kind": "business",
+    "purpose": "The side business: prospects and leads, supplier correspondence, and the two products it sells.",
+    "active": true
+  },
+  {
+    "name": "old-engagement",
+    "path": "C:/Users/<you>/Documents/old-engagement",
+    "kind": "engagement",
+    "purpose": "A finished engagement, kept for reference. Nothing new should route here, which is what active:false says.",
+    "active": false
+  }
+]
