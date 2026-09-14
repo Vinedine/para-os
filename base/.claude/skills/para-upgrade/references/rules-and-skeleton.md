@@ -2,13 +2,13 @@
 
 ## Phase 1 - CLAUDE.md structure
 
-Diff the vault's `CLAUDE.md` against the template at the ref (`base/CLAUDE.md.template`, or the flavor's skeleton template if the vault declares a flavor). For each changelog entry, check whether the vault's file states the new rule, states the old one, or is silent.
+Diff the vault's `CLAUDE.md` against the template at the ref ([resolved per delta.md](delta.md#resolving-the-master)), plus `flavors/<name>/CLAUDE.md.sections` for a declared flavor, diffed the same way. For each changelog entry, check whether the vault's file states the new rule, states the old one, or is silent.
 
-**Read the template at the vault's own marker too, as a baseline.** Diffing against the new template alone cannot tell a section the vault never had from one it deliberately rewrote. Diffing against both can: where the vault departs from its *own* baseline, that departure is a decision. Carry it forward rather than flattening it back to the template. A vault with no marker has no baseline: diff against the new template alone and say so, rather than treating the oldest changelog revision as one.
+**Read the template at the vault's own marker too, as a baseline.** Where the vault departs from its *own* baseline, that departure is a decision: carry it forward rather than flattening it back to the template. **The baseline commit** is the newest commit whose template carries the vault's marker, always read from commits, even where the master itself is read from the working tree: the ref's committed tip where `git show <ref>:<template>` still carries it, else the parent of the newest commit `git log -S"para-os-template: <rev>" -- <template>` lists. A vault with no marker, or one never committed, has no baseline: diff against the new template alone and say so. Normalise line endings on both sides of both diffs.
 
-**The marker line is never part of the text you carry over.** It is line 3 of the template, so a section-by-section replacement picks it up for free and stamps the new revision in Phase 1 - which is exactly what Phase 5 exists to prevent, since a marker claiming a revision the vault does not yet implement makes the next run skip the work. Hold the vault's existing marker through every phase and let Phase 5 write the new one. This bites hardest in a revision that condenses, where replacing whole sections is the entry's own instruction.
+**The marker line is never part of the text you carry over.** It is line 3 of the template, so a section-by-section replacement picks it up. Hold the vault's existing marker through every phase and let Phase 5 write the new one.
 
-**Contradictions rank first.** A vault carrying the superseded version of a rule is worse than one that's merely silent: the agent reads it at runtime and acts on it, so the vault actively fights its own skills until fixed. Report those separately from the merely-missing.
+**Contradictions rank first.** A vault carrying the superseded version of a rule fights its own skills until fixed. Report those separately from the merely-missing.
 
 **The template is a floor, not a ceiling.** Never delete a section, rule, or marker just because the template doesn't have it. Vaults legitimately carry their own: extra area definitions, per-vault operating rules, cross-vault references, a `**Type:**` label, triage-source tables. When the template restructures a section the vault has extended, keep the vault's content and move it under the new heading.
 
@@ -16,12 +16,14 @@ Diff the vault's `CLAUDE.md` against the template at the ref (`base/CLAUDE.md.te
 
 ## Phase 2 - Skeleton files
 
-For each file the skeleton ships at the ref, check whether the vault has an equivalent. Create only what's genuinely missing, and only after checking whether the vault already gets the same effect another way.
+For each file the [resolved master](delta.md#resolving-the-master) ships at the ref, and for a declared flavor each file under `flavors/<name>/.claude/rules/` and `flavors/<name>/skeleton/`, check whether the vault has an equivalent. Create only what's genuinely missing, and only after checking whether the vault already gets the same effect another way.
 
-**`.claude/settings.json` - check effective settings before creating.** The skeleton ships it for adopters with no user-level Claude settings. If the user's `~/.claude/settings.json` already sets every key the skeleton would set, **do not create a vault-level file**: it is a redundant copy of a setting that is already in force, and it drifts the moment the user changes their global. Read the user-level file first, compare key by key, and create or extend the vault-level file only for keys not already effective there. If the vault already has one for its own reasons (project-specific hooks, for instance), merge the missing keys into it rather than overwriting.
+**Adding a rule file**, grep the vault's `CLAUDE.md` for sentences stating the rule the file states, and propose trimming them to the pointer.
 
-**`triage/README.md` - never create one.** Every file in `triage/` is by definition unprocessed, so a permanent README is indistinguishable from a real item: it inflates `/para-daily-brief`'s loose-file count forever and trips `/para-deep-clean`'s "triage must be empty" precondition on every run. Use `.gitkeep` to hold the empty folder in git. If the vault has a `triage/README.md` from an older skeleton, propose deleting it.
+**`.claude/settings.json` - check effective settings before creating.** The skeleton ships it for adopters with no user-level Claude settings. Read the user's `~/.claude/settings.json` first, compare key by key, and create or extend the vault-level file only for keys not already effective there. If the vault already has one for its own reasons (project-specific hooks, for instance), merge the missing keys into it rather than overwriting.
 
-Other skeleton files (`resources/scripts/README.md`, folder placeholders) are created when absent, populated from what's actually on disk in that vault. Never invent inventory.
+**`triage/README.md` - never create one.** Every file in `triage/` reads as an unprocessed item. Use `.gitkeep` to hold the empty folder in git. If the vault has a `triage/README.md` from an older skeleton, propose deleting it.
+
+Other skeleton files (`resources/scripts/README.md`, folder placeholders) are created when absent, populated from what's actually on disk in that vault. Never invent inventory. A placeholder whose own text says to delete it once content lands is satisfied by a folder that already has content.
 
 **A skeleton file the vault already has is still in scope when a changelog entry says so.** Where an entry names a rule the file must now carry, add that to the vault's existing copy in the vault's own words. Only what the entry names: re-flowing the whole file to match the skeleton is the rewrite Phase 1 already forbids.

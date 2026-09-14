@@ -2,7 +2,7 @@
 
 Small, self-contained connectors that pull an outside system into a vault. Each drops a script into a vault's `resources/scripts/` and lands real Markdown (or files) where the assistant can read it alongside everything else.
 
-An integration is **not** a [flavor](../flavors/). A flavor changes how a whole vault is consumed (e.g. `readonly-ipad` adds a render pipeline). An integration is an optional add-on that works with *any* vault regardless of flavor, and carries prerequisites (an app, an account, a platform) that not everyone has - which is why these live here and not in [`base/`](../base/), the dependency-free core everyone copies.
+An integration is **not** a [delivery](../delivery/). A delivery changes how a whole vault is consumed (e.g. `readonly-ipad` adds a render pipeline). An integration is an optional add-on that works with *any* vault regardless of delivery, and carries prerequisites (an app, an account, a platform) that not everyone has - which is why these live here and not in [`base/`](../base/), the dependency-free core everyone copies.
 
 ## The contract every integration follows
 
@@ -22,8 +22,9 @@ The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a hom
 | Integration | Version | Pulls in | Stack | Platform |
 |---|---|---|---|---|
 | [`activity/`](activity/) | 2026.09.02 | How the vault is used, into `resources/logs/` for `/para-activity-review` | Python 3.9+ | any |
-| [`granola/`](granola/) | 2026.09.01 | Granola meeting notes + transcripts into `triage/` | Node 18+ | Windows |
-| [`outlook/`](outlook/) | 2026.09.02 | Outlook / Hotmail / Microsoft 365 mail as candidates for a skill to judge, plus ad-hoc mailbox search | Python 3.9+ | any |
+| [`granola/`](granola/) | 2026.09.03 | Granola meeting notes + transcripts into `triage/` | Node 18+ | Windows |
+| [`outlook/`](outlook/) | 2026.09.03 | Outlook / Hotmail / Microsoft 365 mail as candidates for a skill to judge, plus ad-hoc mailbox search | Python 3.9+ | any |
+| [`pocket/`](pocket/) | 2026.09.03 | Pocket recorder summaries + transcripts into `triage/` | Python 3.9+ | any |
 
 One of these runs the other way. `activity` pulls nothing in: it records how the vault itself gets used, for `/para-activity-review` to read. It sits here rather than in `base/` for the same reason as the rest - it carries a prerequisite not everyone has, and in its case a decision not everyone should make, since a vault that logs its readers has to say so to them first.
 
@@ -37,7 +38,7 @@ para-os-integration: granola 2026.08.02
 
 The version is **per integration, not per file**: every script in the folder carries the same one, stamped with the revision that folder's *code* last changed in. Bump it when a change is something an already-installed copy has to react to (a fixed API call, a new argument, a changed output path), and note the change under that revision's **Integrations** line in the changelog. A README rewording is not a bump.
 
-`/para-upgrade` reads the marker in each script under a vault's `resources/scripts/`, compares it against the master's, and **reports** anything behind. It never overwrites a vault's copy: these scripts are meant to be edited in place (granola's routing table is an explicit "edit this block" section), so re-syncing one is a hand-merge with the changelog entry in front of you, not a file copy. A script with no marker is left alone and named as skipped.
+`/para-upgrade` reads the marker in each script under a vault's `resources/scripts/`, compares it against the master's, and **reports** anything behind. It never overwrites a vault's copy unprompted, since a copy can carry a local fix. The scripts themselves hold nothing vault-specific (routing lives in a `<name>.config.json` beside the script, secrets under `~/.paraos/secrets/`), so re-syncing one is a straight file copy plus whatever one-time migration the changelog entry names. A script with no marker is left alone and named as skipped.
 
 ## Adding one
 

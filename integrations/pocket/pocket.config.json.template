@@ -1,0 +1,8 @@
+{
+  "meetings_subdir": "triage",
+  "route": {
+    "Client": ".",
+    "Home": "family",
+    "Side": "side-project"
+  }
+}

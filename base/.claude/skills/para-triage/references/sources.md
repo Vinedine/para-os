@@ -4,10 +4,10 @@ Beyond the `triage/` folder, a vault may declare extra inputs in a `## Triage so
 
 **Same when `${PARAOS_HOME:-~/.paraos}/vaults.json` lists this vault root as `active` *and the layer has actually run*.** On a machine running the cross-vault ingest layer, `/para-ingest` pulls these same sources once for every vault, stages what it routes here as notes in `triage/`, and keeps their ledger - so their output is already loose files by the time this skill runs, and pulling them again would double-fetch every mailbox and split the ledger in two.
 
-**Both halves are required, and the second one is the load-bearing one.** Being listed in the registry says the layer is *supposed* to feed this vault; it does not say it has. Deferring to something that has not run is the false quiet named in the skill's Strict rules wearing a different hat: `triage/` looks clean because nothing filled it. So check the newest run log under `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/`:
+**Both halves are required, and the second one is the load-bearing one.** Being listed in the registry says the layer is *supposed* to feed this vault; it does not say it has. Deferring to a layer that has not run is a false quiet (the skill's Strict rules). So check the newest run log under `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/`:
 
 - **A write log from the last 48 hours:** skip the `connector` and `fetch-script` sources below (since ingest already staged them), but still process `sync-script` and `drive` sources as normal. Put the log's date in the summary (`ingest last staged <date>`).
-- **No write log, or the newest older than that (e.g. only preview logs):** pull all sources here as normal, and say why in the summary (`registry lists this vault, but ingest last staged <date or never> - pulled locally`). A double-fetch is a wasted API call; a skipped fetch is a missed item, and only one of those is recoverable by noticing later.
+- **No write log, or the newest older than that (e.g. only preview logs):** pull all sources here as normal, and say why in the summary (`registry lists this vault, but ingest last staged <date or never> - pulled locally`).
 
 No registry, or this root not in it: pull as normal with nothing to report, which is also the right answer on a machine that has never run the layer.
 

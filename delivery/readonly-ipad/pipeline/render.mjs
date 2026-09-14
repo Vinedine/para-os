@@ -1,10 +1,10 @@
 // Node renderer driven by render.ps1.
-// para-os-integration: readonly-ipad 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: readonly-ipad 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 //
 // Reads a JSON array of jobs from stdin:
 //   [{ in: "<src path>", out: "<pdf path>", rel: "<display path>", type: "md" | "html" }, ...]
 // Launches one headless Chromium for the whole batch. Markdown jobs are rendered
-// to HTML with `marked` + github-markdown-css; html jobs (deal sheets) are
+// to HTML with `marked` + github-markdown-css; html jobs (designed pages) are
 // self-contained styled documents loaded as-is. Both are printed to PDF.
 //
 // Output to stdout/stderr (one line per step) is consumed by render.ps1.
@@ -83,8 +83,8 @@ const page = await browser.newPage();
 log('boot: new page created, starting render loop\n');
 
 // Render-vintage stamp: computed once, identical on every PDF in this batch, so a brief and
-// its deal sheet rendered in the same run carry the same "Updated:" value. The reader of this
-// flavor sees only PDFs and has no way to tell a fresh one from a stale one; same value on
+// a page designed from it, rendered in the same run, carry the same "Updated:" value. The reader of this
+// delivery sees only PDFs and has no way to tell a fresh one from a stale one; same value on
 // both means same vintage, which makes "are these two in sync?" an at-a-glance check.
 const pad = (n) => String(n).padStart(2, '0');
 const now = new Date();

@@ -1,0 +1,39 @@
+<!-- real-estate FLAVOR: the sections this flavor adds to a vault's CLAUDE.md. Merge them in
+     beside the sections of base (or of the vault's delivery skeleton); they never replace one.
+     Add `**Flavor:** real-estate` under the **Type:** line in the same pass. -->
+
+## Property lifecycle
+
+A property's PARA home follows its stage, and a property is **bought** on the deed: a signed purchase agreement makes it a deal in progress, not yet bought. The dossier and the deal sheet name stages only as below.
+
+| Stage | PARA home |
+|---|---|
+| **Prospecting**: considering, visiting, analysing, an offer out | `resources/ideas/<property>/` |
+| **Acquiring**, **Renovating**, **Selling**: signed agreement to deed, then a flip's permits, works and sale | `projects/<property>/` |
+| **Held**: bought and kept, let or vacant | `areas/properties/<property>/` |
+| **Sold**: bought, then sold | `archive/properties/<property>/` |
+| **Dropped**: never bought | `archive/researched-deals/<property>/` |
+
+- **A property idea promotes on a signed purchase agreement or deed**, not on a scheduled go/no-go review.
+- **A buy-and-hold purchase enters Held on the deed**, by hand, since no skill runs the move: `projects/<property>/` moves to `areas/properties/<property>/` under the move rules of `para-shared/operating-discipline.md`, its `brief.md` becomes `README.md`, and every inbound link is repointed.
+- **A property already bought when it enters the vault** is created with `/para-new area`, its proposed path corrected to `areas/properties/<property>/README.md` before approval.
+- **Works, a refinancing or a sale on a held property** is its own project, `projects/<property>-works/` or similarly suffixed, with an ordinary brief linking the dossier, which stays in the area at stage Held.
+- **Archive destinations**, via `/para-archive`, by whether the deed passed: a property bought and since sold archives to `archive/properties/<property>/`, a deal that never reached the deed (a dropped prospect, or a signed agreement that collapsed) to `archive/researched-deals/<property>/`. A works project is not a property's dossier and takes the default `archive/projects/`.
+- **A property's `sources/` is named one way at every stage.** The full convention (the `Who` ladder, unit scopes) is in [.claude/rules/property-sources.md](.claude/rules/property-sources.md), which loads on its own when a property source document is read; read it explicitly before filing one.
+- {{Which stages this vault uses. A flip business normally skips Held; a buy-and-hold one uses every stage.}}
+
+## Entity structures
+
+- **Briefs** - a property's brief follows the property dossier; any other is shaped by its work. The full shape is in [.claude/rules/brief-structure.md](.claude/rules/brief-structure.md), which loads on its own when a brief is read; read it explicitly before creating one.
+- **Entity READMEs** - a property's README follows the property dossier; any other shares three conventions. The full shape is in [.claude/rules/readme-structure.md](.claude/rules/readme-structure.md), which loads on its own when an entity README is read; read it explicitly before creating one.
+- **Property dossier** - one document per property: sixteen sections from Acquiring on, a lighter shape while Prospecting and once Dropped. The full shape is in [.claude/rules/property-dossier.md](.claude/rules/property-dossier.md), which loads on its own when a property document is read; read it explicitly before creating one.
+
+## Deal sheets
+
+A **deal sheet** is the designed rendering of a property's dossier: `<property>-dealsheet.html` beside it, built by `/property-dealsheet` from [`resources/prompts/dealsheet-template.html`](resources/prompts/dealsheet-template.html). On `**Delivery:** readonly-ipad` it is rendered to PDF with `render.ps1`; on any other delivery the HTML is the deliverable.
+
+- **The dossier is the source of truth; the sheet is derived**, and its footer says so. Never hand-type a number into a sheet: regenerate it.
+- **One format.** The design system, section skeleton and stage variants are in the template's header comment. A new component goes into the template.
+- **The pipeline** is `/para-triage` → `/property-reconcile` (verify against `sources/` and the books) → `/property-underwrite` (enrich, and analyse through the analyst persona under `resources/prompts/`) → `/property-dealsheet` (present). Each writes to the dossier except the last, and each halts on a missing fact rather than guessing.
+- **Where every property fact comes from**, what it costs, and which facts no free source settles is [`resources/property-evaluation/property-data-sources.md`](resources/property-evaluation/property-data-sources.md). Read it before any lookup.
+- **The owner's books** are {{the accounting area holding a ledger account per property, e.g. `areas/accounting/`, or delete this line}}. A property's ledger account is the authority on its cost and stage.

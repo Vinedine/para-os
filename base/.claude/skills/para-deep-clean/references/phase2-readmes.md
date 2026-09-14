@@ -10,13 +10,13 @@ Everything below this step concerns *entity* READMEs, whose shape is the vault's
 
 ## Step 2.1 - Check for canonical structure documentation
 
-Read `CLAUDE.md`. Does it already describe what an entity README or brief contains, **under any heading**? Vaults word it differently (`## README structures`, `### Brief structure`, `## Entity shapes`), so look for the section by what it says rather than by its name - the same lookup `/para-new`'s `scaffold.md` makes. A vault that has declared a shape under an unexpected heading has not declared none.
+Find the vault's declared shape for entity READMEs and briefs, per [A vault's rule files](../../para-shared/operating-discipline.md#a-vaults-rule-files).
 
-**Where one exists, audit against it and add nothing.** Drafting a second section beside it leaves the vault with two descriptions of one thing, which is the say-it-once rule broken by the skill that enforces it, in the file every session reads first. Propose extending the existing section if it is genuinely incomplete.
+**Where one exists, audit against it and add nothing.** A second description beside it breaks say-it-once. Propose extending it where it lives if it is genuinely incomplete.
 
-**Where none exists**, draft one from what the existing READMEs already share and propose adding it, naming the heading you would use and keeping it short - `CLAUDE.md` states rules and stays under 200 lines with everything the vault adds.
+**Where none exists**, draft a shape file from what the existing READMEs already share, per the rule-file contract in the vault's `CLAUDE.md` `## Do not add`, and propose adding it with its pointer.
 
-**Order is the vault's call, not this skill's.** A declared shape may fix its section order as a contract, or may say order varies by entity and is not enforced. Audit against whichever it does, and **never report a vault as non-conforming for an order it deliberately declined to fix**. A structure this skill drafts specifies that sections which don't apply get explicit `_n/a_` lines (not omission, so gaps stay visible) and includes the domain-specific sections the vault's purpose needs; whether it also fixes an order is a question for the operator.
+**Order is the vault's call, not this skill's.** A declared shape may fix its section order as a contract, or may say order varies by entity and is not enforced. Audit against whichever it does, and **never report a vault as non-conforming for an order it deliberately declined to fix**. A structure this skill drafts specifies that sections which don't apply get explicit `_n/a_` lines and includes the domain-specific sections the vault's purpose needs; whether it also fixes an order is a question for the operator.
 
 **This skill brings no default section list for entities.** The canonical structure comes from each vault's CLAUDE.md. Never invent or import a template.
 
@@ -30,7 +30,7 @@ For each entity README:
 
 - Do the **first one as a worked example** and pause for approval before batching the rest.
 - Preserve all existing facts verbatim - only reorganize and add missing sections.
-- Promote inline bolded blocks (Ownership, Notary) to `##` sections for consistency.
+- Promote inline bolded blocks (Ownership, Notary) to `##` sections for consistency, except where the declared shape uses bold labels there itself.
 - Add `_n/a_` placeholders for sections that genuinely don't apply.
 
 ## Edge case

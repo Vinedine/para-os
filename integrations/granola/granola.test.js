@@ -3,9 +3,13 @@
 //
 //   node --test integrations/granola/granola.test.js
 //
-// Scope: the ProseMirror-to-Markdown conversion, transcript grouping, filename shaping, and
-// single-vault routing. The API calls and the DPAPI token extraction are deliberately not
-// covered - mocking either would assert that the mock behaves.
+// Scope: the ProseMirror-to-Markdown conversion, transcript grouping, filename shaping, routing,
+// and the notes a sync writes, driven through a stubbed fetch. The Granola API's own behaviour and
+// the DPAPI token extraction are deliberately not covered - mocking either would assert that the
+// mock behaves.
+
+// Notes are dated in local time, so pin the zone: every date below is then the same on any machine.
+process.env.TZ = "UTC";
 
 const test = require("node:test");
 const assert = require("node:assert");
@@ -441,4 +445,110 @@ test("the shipped config template is valid JSON and demonstrates the \".\" shape
   const tpl = JSON.parse(fs.readFileSync(path.join(__dirname, "granola.config.json.template"), "utf8"));
   assert.ok(Object.values(tpl.route).includes("."),
     'the template must show "." - it is the shape most adopters need and the one nobody guesses');
+});
+
+
+// --- the notes a sync writes ------------------------------------------------------------
+// granola.js run for real in a throwaway vault with --write: only fetch is stubbed, and the
+// token, ledger and notes are real files under a temporary PARAOS_HOME and triage/.
+
+// `ledgers` seeds the ledger by bucket, e.g. { cache: {...}, data: {...} }.
+function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {} } = {}) {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "granola-"));
+  TEMP_VAULTS.push(parent);
+  const scripts = path.join(parent, "myvault", "resources", "scripts");
+  const triage = path.join(parent, "myvault", "triage");
+  fs.mkdirSync(scripts, { recursive: true });
+  fs.mkdirSync(triage, { recursive: true });
+  fs.copyFileSync(path.join(__dirname, "granola.js"), path.join(scripts, "granola.js"));
+  for (const [name, body] of Object.entries(notes)) fs.writeFileSync(path.join(triage, name), body);
+
+  const home = path.join(parent, "paraos");
+  fs.mkdirSync(path.join(home, "secrets"), { recursive: true });
+  fs.writeFileSync(path.join(home, "secrets", "granola.json"),
+    JSON.stringify({ access_token: "test", access_expires: Math.floor(Date.now() / 1000) + 3600 }));
+  const ledger = bucket => path.join(home, bucket, "granola", "synced.json");
+  for (const [bucket, entries] of Object.entries(ledgers)) {
+    fs.mkdirSync(path.dirname(ledger(bucket)), { recursive: true });
+    fs.writeFileSync(ledger(bucket), JSON.stringify(entries));
+  }
+  const stub = path.join(parent, "fetch-stub.js");
+  fs.writeFileSync(stub,
+    "const docs = JSON.parse(process.env.GRANOLA_TEST_DOCS);\n"
+    + "globalThis.fetch = async url => {\n"
+    + "  const body = String(url).endsWith(\"/get-documents\") ? { docs } : [];\n"
+    + "  return { ok: true, status: 200, text: async () => JSON.stringify(body), json: async () => body };\n"
+    + "};\n");
+
+  const r = spawnSync(process.execPath, ["--require", stub, path.join(scripts, "granola.js"), "--write"], {
+    encoding: "utf8",
+    env: { ...process.env, TZ: tz, PARAOS_HOME: home, GRANOLA_TEST_DOCS: JSON.stringify(docs) },
+  });
+  assert.equal(r.status, 0, `sync exited ${r.status}: ${r.stderr}`);
+  assert.doesNotMatch(r.stdout, /\[x\]/, `sync failed: ${r.stdout}`);
+  return {
+    files: fs.readdirSync(triage).sort(),
+    read: f => fs.readFileSync(path.join(triage, f), "utf8"),
+    ledger: bucket => fs.existsSync(ledger(bucket)) ? JSON.parse(fs.readFileSync(ledger(bucket), "utf8")) : null,
+  };
+}
+
+// Inside the default 30-day look-back, whenever the suite runs.
+const DAY = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+const NEXT_DAY = new Date(Date.parse(DAY) + 86400000).toISOString().slice(0, 10);
+const compact = iso => iso.replace(/-/g, "");
+const ID_A = "aaaaaaaa-1111-4111-8111-111111111111";
+const ID_B = "bbbbbbbb-2222-4222-8222-222222222222";
+const idsIn = (sync, files) => files.map(f => /^granola_id: (.*)$/m.exec(sync.read(f))[1]).sort();
+
+test("a meeting just after local midnight is dated and named by its local day", () => {
+  // 22:30 UTC is 00:30 the next day two hours east of UTC: the day the operator remembers.
+  const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T22:30:00.000Z` }],
+                           { tz: "Etc/GMT-2" });
+  assert.deepEqual(sync.files, [`${compact(NEXT_DAY)} Kickoff.md`]);
+  const note = sync.read(sync.files[0]);
+  assert.match(note, new RegExp(`^date: ${NEXT_DAY}$`, "m"));
+  assert.match(note, new RegExp(`^_${NEXT_DAY} 00:30_$`, "m"), "the time line must be local too");
+});
+
+test("two meetings sharing a date and title are both written", () => {
+  const sync = syncInVault([
+    { id: ID_A, title: "Standup", created_at: `${DAY}T09:00:00.000Z` },
+    { id: ID_B, title: "Standup", created_at: `${DAY}T15:00:00.000Z` },
+  ]);
+  assert.equal(sync.files.length, 2, `the second meeting was dropped: ${sync.files}`);
+  assert.deepEqual(idsIn(sync, sync.files), [ID_A, ID_B]);
+  for (const f of sync.files) assert.match(f, TRIAGE_NAME);
+});
+
+test("notes still in triage are not written again, a suffixed one included", () => {
+  // No ledger here: the existing-file check alone must recognise both notes by their id.
+  const note = id => `---\ntitle: Standup\ngranola_id: ${id}\nsource: granola\n---\nkept\n`;
+  const notes = { [`${compact(DAY)} Standup.md`]: note(ID_B), [`${compact(DAY)} Standup (aaaaaa).md`]: note(ID_A) };
+  const sync = syncInVault([
+    { id: ID_A, title: "Standup", created_at: `${DAY}T09:00:00.000Z` },
+    { id: ID_B, title: "Standup", created_at: `${DAY}T15:00:00.000Z` },
+  ], { notes });
+  assert.deepEqual(sync.files, Object.keys(notes).sort());
+  for (const f of sync.files) assert.match(sync.read(f), /kept/, `${f} was overwritten`);
+});
+
+test("the ledger is written under data/, and a ledger left in cache/ is still honoured", () => {
+  // Meeting A was filed out of triage/ long ago: only the cache/ ledger remembers it.
+  const sync = syncInVault([
+    { id: ID_A, title: "Filed", created_at: `${DAY}T09:00:00.000Z` },
+    { id: ID_B, title: "Fresh", created_at: `${DAY}T15:00:00.000Z` },
+  ], { ledgers: { cache: { [ID_A]: "filed elsewhere" } } });
+  assert.deepEqual(sync.files, [`${compact(DAY)} Fresh.md`], "a meeting in the old ledger was re-imported");
+  assert.deepEqual(Object.keys(sync.ledger("data") || {}).sort(), [ID_A, ID_B]);
+  assert.deepEqual(sync.ledger("cache"), { [ID_A]: "filed elsewhere" }, "the old ledger is read, never written");
+});
+
+test("a meeting in either ledger is skipped when both exist", () => {
+  // An older copy in another vault on this machine may still be writing the cache/ ledger.
+  const sync = syncInVault([
+    { id: ID_A, title: "Standup", created_at: `${DAY}T09:00:00.000Z` },
+    { id: ID_B, title: "Review", created_at: `${DAY}T15:00:00.000Z` },
+  ], { ledgers: { cache: { [ID_A]: "filed elsewhere" }, data: { [ID_B]: "filed elsewhere" } } });
+  assert.deepEqual(sync.files, []);
 });

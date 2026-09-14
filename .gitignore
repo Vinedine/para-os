@@ -11,7 +11,11 @@
 !base/.claude/
 !base/.claude/**
 
-# The example vault ships .claude/settings.json as product content too.
+# Flavors ship their own rules and skills
+!flavors/**/.claude/
+!flavors/**/.claude/**
+
+# The example vault ships .claude/settings.json and .claude/rules/ as product content too.
 !examples/belfoot-vault/.claude/
 !examples/belfoot-vault/.claude/**
 

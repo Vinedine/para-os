@@ -1,5 +1,5 @@
 // granola.js - pull recent Granola meetings (enhanced notes + transcript) into a vault's triage/.
-// para-os-integration: granola 2026.09.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: granola 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 // Drop this file in <vault>/resources/scripts/ and run it there. By default every recent meeting is
 // written to THIS vault's triage/ as a dated Markdown note, ready for /para-triage to file.
 //   node granola.js            # DRY RUN: shows what it would write, touches nothing
@@ -20,7 +20,11 @@ const path = require("path");
 // Integration state lives under ~/.paraos (override with PARAOS_HOME); see ~/.paraos/README.md.
 const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE, ".paraos");
 const AUTH = path.join(PARAOS_HOME, "secrets", "granola.json");
-const STATE = path.join(PARAOS_HOME, "cache", "granola", "synced.json");
+// The dedup ledger is data, not cache: once /para-triage has filed a note out of triage/ it is
+// the only record that the meeting was imported. LEGACY_STATE is where it used to live. It is
+// read, never written, and merged in, so an older copy still writing it is not lost either.
+const STATE = path.join(PARAOS_HOME, "data", "granola", "synced.json");
+const LEGACY_STATE = path.join(PARAOS_HOME, "cache", "granola", "synced.json");
 
 const WRITE = process.argv.includes("--write");
 const ALL = process.argv.includes("--all"); // multi-vault: write every routed vault, not just this one
@@ -192,10 +196,39 @@ function demote(md, base = 3) {
   return md.replace(/^(#{1,6}) /gm, (_, h) => "#".repeat(map.get(h.length)) + " ");
 }
 
+// When the meeting happened, in local time: `created_at` is UTC, so slicing it would date a
+// meeting just after local midnight by the previous day. Matches pocket.py's recorded_at.
+function localTime(iso) {
+  const t = new Date(iso);
+  const p = n => String(n).padStart(2, "0");
+  const date = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
+  return { date, stamp: `${date} ${p(t.getHours())}:${p(t.getMinutes())}` };
+}
+
+// The granola_id in a note's front-matter, or null when the file has none or cannot be read.
+function noteId(file) {
+  try {
+    const line = fs.readFileSync(file, "utf8").split("\n", 15).find(l => l.startsWith("granola_id:"));
+    return line ? line.slice("granola_id:".length).trim() : null;
+  } catch { return null; }
+}
+
+// [path, alreadyWritten]. A different meeting sharing a date and title gets its id's first six
+// characters appended, instead of the existing-file check dropping it as a duplicate.
+// Matches pocket.py's pick_path.
+function pickPath(dir, date, desc, id) {
+  const base = `${date.replace(/-/g, "")} ${desc}`;
+  const p = path.join(dir, `${base}.md`);
+  if (!fs.existsSync(p)) return [p, false];
+  if (noteId(p) === String(id)) return [p, true];
+  const alt = path.join(dir, `${base} (${String(id).slice(0, 6)}).md`);
+  return [alt, fs.existsSync(alt)];
+}
+
 // Decide which vault (and folder) a meeting belongs to.
 // Single-vault mode (ROUTE empty): everything into this vault. Multi-vault: by title prefix.
 function resolveDest(d) {
-  const date = d.created_at.slice(0, 10);
+  const { date } = localTime(d.created_at);
   if (!MULTI) {
     return { vault: VAULT_NAME, dir: path.join(VAULT_ROOT, MEETINGS_SUBDIR), date, desc: sanitize(d.title) || "untitled" };
   }
@@ -212,7 +245,8 @@ function resolveDest(d) {
 
 async function main() {
   const t = await token();
-  const state = fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, "utf8")) : {};
+  const ledger = f => fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+  const state = { ...ledger(LEGACY_STATE), ...ledger(STATE) };
   const cutoff = Date.now() - DAYS * 86400000;
 
   // recent documents
@@ -228,7 +262,8 @@ async function main() {
   let written = 0, skipped = 0, unrouted = 0, elsewhere = 0;
   for (const d of recent.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
     const r = resolveDest(d);
-    const label = `${d.created_at.slice(0, 10)}  ${String(d.title || "(untitled)").slice(0, 34).padEnd(35)}`;
+    const when = localTime(d.created_at);
+    const label = `${when.date}  ${String(d.title || "(untitled)").slice(0, 34).padEnd(35)}`;
 
     // Multi-vault filter: another vault's meeting. Still silent per meeting - naming
     // them one by one is noise - but counted, so the closing line adds up to the
@@ -238,9 +273,9 @@ async function main() {
     if (r.skip) { elsewhere++; continue; }
     if (r.unrouted) { console.log("  ??  " + label + "-> UNROUTED (prefix: " + r.prefix + ")"); unrouted++; continue; }
 
-    const fname = `${r.date.replace(/-/g, "")} ${r.desc}.md`;
-    const dest = path.join(r.dir, fname);
-    if (state[d.id] || fs.existsSync(dest)) { console.log("  ==  " + label + "-> " + r.vault + "/" + MEETINGS_SUBDIR + " (exists, skip)"); skipped++; continue; }
+    const [dest, exists] = pickPath(r.dir, r.date, r.desc, d.id);
+    const fname = path.basename(dest);
+    if (state[d.id] || exists) { console.log("  ==  " + label + "-> " + r.vault + "/" + MEETINGS_SUBDIR + " (exists, skip)"); skipped++; continue; }
 
     // enhanced notes (the "Summary" panel Granola generates)
     const pr = await post("/v1/get-document-panels", t, { document_id: d.id });
@@ -268,7 +303,7 @@ async function main() {
       "---",
       "",
       `# ${d.title}`,
-      `_${d.created_at.slice(0, 16).replace("T", " ")}_`,
+      `_${when.stamp}_`,
       "",
       "## Summary",
       minutes || "_(no enhanced notes available)_",

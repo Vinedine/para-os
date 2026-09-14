@@ -670,9 +670,9 @@ class AuthFailure(unittest.TestCase):
 
 
 class PkceLogin(unittest.TestCase):
-    """The browser sign-in flow. Device code flow is blocked by security defaults, and since
-    1 July 2026 that is the default on every new Entra tenant, so this is the flow that has
-    to work. The parts tested are the ones that fail silently or unsafely."""
+    """The browser sign-in flow. Device code flow is blocked by security defaults, which every
+    new Entra tenant now ships with, so this is the flow that has to work. The parts tested are
+    the ones that fail silently or unsafely."""
 
     def test_pkce_challenge_is_s256_of_the_verifier_unpadded(self):
         # A wrong challenge is not a crash: the authorize step succeeds and the token

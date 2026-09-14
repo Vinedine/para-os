@@ -4,7 +4,7 @@ Everything that has to be settled before anything moves. Each step ends with a p
 
 ## Step 2 - Reconcile open actions
 
-Read the entity's `actions.md` (and any per-file action markers). Split into **done** vs **open**.
+Read the entity's `actions.md` (and any per-file action markers). Split into **done** vs **open**, where open is every unchecked checkbox and every item of `## Backlog` prose.
 
 **A checkbox inside a fenced code block is not an open action**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md): a brief or plan illustrating what an `actions.md` looks like must not block an archive or be reconciled item by item.
 
@@ -15,17 +15,19 @@ Read the entity's `actions.md` (and any per-file action markers). Split into **d
   - **Done already** - mark complete (the live state moved past the file).
   - **Survives** - the work continues. Where to? Step 4's routing.
   - **Drop** - no longer relevant; record as dropped, don't silently delete the intent.
+  - A **recurring** item is never done: it survives into the recurring section of the area that takes the work over, or is dropped.
+  - A resolved `## Backlog` item stays in the closed record as a prose line stating its disposition and reason, with no date stamp.
 
 **Where the destination is obvious, collapse Steps 2 and 4 into that one question** by offering it concretely: `Route to areas/business/actions.md` beats `Survives` followed by a second question the operator has already answered in their head. Name the actual file. Fall back to the two-stage form only where the skill genuinely cannot tell.
 
 **`Drop` is destructive and gets the destructive treatment**, and its option description says what the record will read afterwards, since a dropped item leaves a line saying it was dropped rather than nothing at all. Where the skill is guessing that something is `Done already`, recommend what the evidence supports: a closed checkbox keeps its text and its reason, so it is reversible.
 
-Never invent dates or completion stamps. Use the vault's marker syntax for any edits. Do not archive an entity with unresolved open actions still framed as live work - that's how a "closed" project or a shelved idea keeps haunting `/para-daily-brief`.
+Never invent dates or completion stamps. Use the vault's marker syntax for any edits. Do not archive an entity with unresolved open actions still framed as live work.
 
 ## Step 3 - Validate brief and actions files
 
-- **brief.md**: must exist and read as a coherent record of what the entity *was* (for a project: outcome, what shipped, key decisions; for an idea: what the concept was and why it's being shelved - superseded, no traction, decided against). If missing, offer to reconstruct a short historical brief from the actions.md plus any artifacts in the folder, stating clearly it's a post-hoc reconstruction and inventing nothing. If present but stale (still written as live or future work), offer to retense it to a closed record.
-- **actions.md**: should end as a clean closed record - completed items, plus a forward pointer to wherever surviving work went. No open `[ ]` items left dangling in an archived file.
+- **brief.md** (or the README the vault's shape gives the entity): must exist and read as a coherent record of what the entity *was* (for a project: outcome, what shipped, key decisions; for an idea: what the concept was and why it's being shelved - superseded, no traction, decided against; for an area: what it held and why it ended). If missing, offer to reconstruct a short historical brief from the actions.md plus any artifacts in the folder, stating clearly it's a post-hoc reconstruction and inventing nothing. If present but stale (still written as live or future work), offer to retense it to a closed record.
+- **actions.md**: should end as a clean closed record - completed items, plus a forward pointer to wherever surviving work went. No open `[ ]` item or unresolved `## Backlog` prose left in an archived file.
 - Respect "do not add" rules (some vaults forbid `actions.md` in certain trees).
 
 ## Step 4 - Route surviving actions and living-reference files
@@ -45,7 +47,7 @@ Never invent dates or completion stamps. Use the vault's marker syntax for any e
 
 ## Step 5 - Decide the version suffix (projects only)
 
-**Skip this step entirely for ideas.** Ideas are archived under their own name at `archive/ideas/<name>/`, with no `-v1` / `-vN` suffix - they were never a versioned deliverable, so the version pairing doesn't apply.
+**Skip this step entirely for ideas and areas.** They archive under their own name, with no `-v1` / `-vN` suffix.
 
 For **projects**, ask whether the archived folder should carry a version suffix (`<name>-v1`). One question, two options, the recommendation first with its reason in the description. Recommend one when **either**:
 

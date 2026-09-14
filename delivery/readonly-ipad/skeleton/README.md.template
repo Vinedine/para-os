@@ -20,11 +20,11 @@ Master document for {{what this vault covers}}. Single source of truth for ident
 
 Everything else lives in the PARA folders: current work in `projects/`, ongoing responsibilities in `areas/`, reference in `resources/`. Each folder holds the PDFs for what it covers.
 
-<!-- readonly-ipad FLAVOR: this file exists only for its closing line. The base template's
+<!-- readonly-ipad DELIVERY: this file exists only for its closing line. The base template's
      line ("Conventions in CLAUDE.md; /para-daily-brief for what is open") cannot be reused
-     here: CLAUDE.md is on the render denylist so no PDF of it exists, and this flavor has
+     here: CLAUDE.md is on the render denylist so no PDF of it exists, and this delivery has
      no actions.md for /para-daily-brief to read, so both references would be dead ends in
      a rendered README. Everything above tracks base/README.md.template verbatim - if base
      changes, propagate here.
 
-     Changing this line means re-rendering README.pdf in every vault on this flavor. -->
+     Changing this line means re-rendering README.pdf in every vault on this delivery. -->

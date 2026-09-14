@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="{{LANG_eg_en}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- ============================================================================
+     TEMPLATE: {{COMPANY}} property deal sheet.
+
+     A deal sheet is the DESIGNED, presentation-grade rendering of a property's
+     dossier (resources/ideas/<property>/brief.md, projects/<property>/brief.md,
+     or areas/properties/<property>/README.md). The dossier is the source of
+     truth; this file is a DERIVED output and its footer says so. When the
+     dossier changes, regenerate the sheet.
+
+     HOW TO USE
+     1. Copy this file to <property folder>/<property>-dealsheet.html.
+        Copy-fill this template, never an existing sheet.
+     2. Fill every {{PLACEHOLDER}} in the dossier's language, this template's
+        own labels included, and every amount as the dossier writes it,
+        currency included. Drop a section or a row that doesn't apply rather
+        than restructuring.
+     3. Embed images as base64 data URIs so the file stays self-contained:
+        replace __HERO_IMG__ (facade photo) and __MAP_IMG__ (parcel or site
+        plan, from the plan renderer the source register names, else a photo).
+        With no facade photo, delete the url(...) layer and keep the gradient.
+     4. On **Delivery:** readonly-ipad, render.ps1 renders it to a PDF
+        sibling. On any other delivery this HTML is the deliverable.
+
+     FORMAT: one design system and section skeleton, not a per-property
+     freestyle. A new component is added here so the next sheet inherits it.
+       - Design system: the CSS custom-property palette below (ink, navy,
+         accent, gold, good, warn, grey, shadow), 920px max width, a .hero
+         (facade background + status badges + H1), a 4-card KPI .ribbon, then
+         <section>s with a .sec-h (dot + h2) header. Charts are inline
+         hand-built SVG (bars, timeline, energy scale): no JS, no chart
+         library. Keep the palette and class names verbatim across sheets.
+       - Section skeleton: 1) Deal economics. 2) Assumptions. 3) Negotiation
+         or timeline. 4) Property & location. 5) Units & rent roll, or
+         renovation scope. 6) Permits & compliance. 7) Parties & financing.
+         8) Open items. Footer: the company line + the source-of-truth file.
+       - Stage variation, not structural variation: section names and the
+         lead block shift with the stage, the skeleton stays.
+       - Every number traces to the dossier via /property-dealsheet.
+
+     VERDICT, NOT BROCHURE. The owner's tool, not a reskin of a selling
+     agent's memo. Lead with a clear verdict (KPI 4, gold) and let the numbers
+     justify it. Flag every estimate in the Assumptions block.
+
+     STAGE VARIANTS for section 1 (keep one, delete the other):
+       - FLIP: cost-basis bar + cost basis > sale > margin table + sensitivity.
+       - HOLD / EVALUATION: price vs income-value bars + one exit table per
+         exit the dossier weighs (keep and let, divide and sell, ...).
+
+     COST LINES are the dossier's, each with the local name and rate the
+     dossier took from the source register, never a rate from memory.
+
+     PAGINATION: sections FLOW to fill pages. Never put break-inside:avoid on
+     <section>. The @media print rule keeps only atomic blocks whole (charts,
+     chips, ribbon, unit tables) and lets economics tables flow between pages
+     without splitting a row. Keep any single table under about one page.
+============================================================================ -->
+<title>{{ADDRESS}} - {{COMPANY}} deal sheet</title>
+<style>
+  :root{
+    --ink:#1a2230; --ink-soft:#46536b; --line:#e7ebf1; --bg:#f4f6f9;
+    --card:#ffffff; --navy:#16243f; --accent:#c0673b; --accent-soft:#f3e4da;
+    --gold:#b8893b; --gold-soft:#fdf2dc; --good:#2f8f5b; --warn:#c98a1b; --bad:#c0392b; --grey:#9aa6b8;
+    --shadow:0 1px 2px rgba(16,32,64,.06),0 8px 24px rgba(16,32,64,.07);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;font-size:15px}
+  .wrap{max-width:920px;margin:0 auto;padding:0 18px 64px}
+
+  /* Hero. A shorter hero (240-360px) leaves room for section 1 on page 1.
+     Bottom padding clears the ribbon's negative top margin. */
+  .hero{position:relative;border-radius:0 0 20px 20px;overflow:hidden;min-height:300px;
+    display:flex;align-items:flex-end;
+    background:linear-gradient(180deg,rgba(0,0,0,.10),rgba(0,0,0,.62)),url("__HERO_IMG__");
+    background-size:cover;background-position:center 38%}
+  .hero-inner{padding:26px 22px 46px;color:#fff;width:100%}
+  .badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .badge{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:5px 11px;
+    border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28)}
+  .badge.permit{background:var(--gold);border-color:transparent;color:#fff}   /* stage */
+  .badge.warn{background:var(--accent);border-color:transparent;color:#fff}   /* deal type / flag */
+  h1{margin:0;font-size:30px;font-weight:760;letter-spacing:-.01em;line-height:1.1;text-shadow:0 2px 14px rgba(0,0,0,.4)}
+  .hero-sub{margin-top:6px;font-size:14px;opacity:.94;max-width:640px;text-shadow:0 1px 8px rgba(0,0,0,.4)}
+
+  .ribbon{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    border-radius:14px;overflow:hidden;box-shadow:var(--shadow);margin:-26px 4px 26px;position:relative;z-index:2}
+  .stat{background:var(--card);padding:15px 16px}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:650}
+  .stat .v{font-size:21px;font-weight:740;margin-top:3px;letter-spacing:-.01em}
+  .stat .v.verdict{font-size:16px;white-space:nowrap;color:var(--gold)}  /* KPI 4: keeps the verdict on one line */
+  .stat .sub{font-size:11px;color:var(--grey);margin-top:1px}
+
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-bottom:18px;box-shadow:var(--shadow)}
+  .sec-h{display:flex;align-items:center;gap:10px;margin:0 0 16px}
+  .sec-h h2{margin:0;font-size:16px;font-weight:720}
+  .sec-h .dot{width:8px;height:8px;border-radius:3px;background:var(--gold)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:680px){.grid2{grid-template-columns:1fr}.ribbon{grid-template-columns:repeat(2,1fr)}h1{font-size:25px}}
+
+  .chart-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);margin:2px 0 10px}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .note{font-size:12px;color:var(--grey);margin-top:12px;line-height:1.5}
+  .lead{color:var(--ink-soft);font-size:13.5px;margin:-4px 0 16px;line-height:1.55}
+  .lead b{color:var(--ink)}
+
+  table.econ{width:100%;border-collapse:collapse;font-size:13px}
+  table.econ th,table.econ td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+  table.econ th{color:var(--ink-soft);font-weight:650;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  table.econ td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  table.econ tr.total td{border-top:2px solid var(--ink);font-weight:740}
+  table.econ tr.win td{border-top:2px solid var(--ink);font-weight:800;color:var(--good)}
+  .econ-title{font-size:13px;font-weight:720;margin:0 0 4px}
+  .econ-title.a{color:var(--navy)} .econ-title.b{color:var(--accent)}
+  .pos{color:var(--good)} .neg{color:var(--bad)}
+
+  .units-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .units-tbl th,.units-tbl td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  .units-tbl th{color:var(--ink-soft);font-weight:650;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+  .units-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  .units-tbl tr.total td{border-top:2px solid var(--ink);font-weight:740}
+  .tiny{font-size:11px;color:var(--grey)}
+
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13.5px}
+  .kv dt{color:var(--ink-soft);white-space:nowrap}
+  .kv dd{margin:0;font-weight:600}
+  .map-wrap{border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  .map-wrap img{width:100%;display:block}
+  .cap{font-size:11px;color:var(--grey);margin-top:6px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{font-size:12.5px;padding:6px 11px;border-radius:9px;background:#f1f5f9;border:1px solid var(--line);font-weight:600}
+  .chip.warn{background:#fcf3e3;border-color:#f1ddb4}
+  .chip.warn::before{content:"\26A0 ";color:var(--warn)}
+  .chip.ok::before{content:"\2713 ";color:var(--good);font-weight:800}
+  .chip.mon::before{content:"\25C6 ";color:var(--accent)}
+
+  ul.open{list-style:none;margin:0;padding:0}
+  ul.open li{position:relative;padding:7px 0 7px 22px;border-bottom:1px solid var(--line);font-size:13.5px}
+  ul.open li:last-child{border-bottom:0}
+  ul.open li::before{content:"";position:absolute;left:4px;top:13px;width:7px;height:7px;border-radius:2px;background:var(--warn)}
+
+  footer{text-align:center;color:var(--grey);font-size:12px;padding:2px 4px 0;line-height:1.6;break-before:avoid}
+  footer b{color:var(--ink-soft)}
+
+  @media print{
+    body{background:#fff}
+    section{box-shadow:none}
+    .hero{border-radius:0}
+    /* Sections FLOW; only these atomic blocks are kept whole: */
+    .map-wrap,svg,.ribbon,.chips,ul.open,.units-tbl{break-inside:avoid}
+    /* Economics tables flow between pages but never split a row. */
+    table.econ{break-inside:auto} table.econ tr{break-inside:avoid}
+    ul.open li{break-inside:avoid}
+    .sec-h,h2{break-after:avoid}
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO: stage badge (.permit, gold) + deal-type badge (.warn, accent) + company + locality. -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="badges">
+      <span class="badge permit">{{STAGE: the dossier's stage}}</span>
+      <span class="badge warn">{{TYPE_eg_Flip|Income|Advice}}</span>
+      <span class="badge">{{COMPANY}}</span>
+      <span class="badge">{{LOCALITY}}</span>
+    </div>
+    <h1>{{ADDRESS_SHORT}}</h1>
+    <div class="hero-sub">{{ONE_LINE_THESIS: what it is, the plan, and the catch}}</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- RIBBON: 4 KPIs. KPI 4 is the verdict, in gold. -->
+  <div class="ribbon">
+    <div class="stat"><div class="k">{{KPI1_LABEL}}</div><div class="v">{{KPI1_VALUE}}</div><div class="sub">{{KPI1_SUB}}</div></div>
+    <div class="stat"><div class="k">{{KPI2_LABEL}}</div><div class="v">{{KPI2_VALUE}}</div><div class="sub">{{KPI2_SUB}}</div></div>
+    <div class="stat"><div class="k">{{KPI3_LABEL}}</div><div class="v">{{KPI3_VALUE}}</div><div class="sub">{{KPI3_SUB}}</div></div>
+    <div class="stat"><div class="k">Verdict</div><div class="v verdict">{{VERDICT_eg_Buy at or below X|Negotiate|Pass}}</div><div class="sub">{{VERDICT_SUB}}</div></div>
+  </div>
+
+  <!-- ============ SECTION 1: DEAL ECONOMICS ============ -->
+  <section>
+    <div class="sec-h"><span class="dot"></span><h2>Deal economics</h2></div>
+    <p class="lead">{{TWO_OR_THREE_SENTENCE_THESIS: why the deal, the value lever, what is uncertain, the verdict}}</p>
+
+    <!-- Cost-basis bar. Segment widths sum to about 880px = total cost
+         (scale px per 1k = 880 / total in thousands). Colours: navy purchase,
+         grey transfer tax, light fees, accent renovation, gold holding and sale. -->
+    <div class="chart-title">Cost build-up &middot; {{TOTAL}}</div>
+    <svg viewBox="0 0 900 48" role="img" aria-label="Cost build-up">
+      <rect x="10" y="9" width="{{W1}}" height="30" fill="#16243f"/>
+      <text x="24" y="29" font-size="13" font-weight="700" fill="#fff">Purchase {{PURCHASE}}</text>
+      <rect x="{{X2}}" y="9" width="{{W2}}" height="30" fill="#8c99ad"/>
+      <rect x="{{X3}}" y="9" width="{{W3}}" height="30" fill="#b9c2d0"/>
+      <rect x="{{X4}}" y="9" width="{{W4}}" height="30" fill="#c0673b"/>
+      <rect x="{{X5}}" y="9" width="{{W5}}" height="30" fill="#b8893b"/>
+    </svg>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:9px;font-size:11.5px;color:#46536b">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#16243f;vertical-align:middle"></span> Purchase {{...}}</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8c99ad;vertical-align:middle"></span> {{TRANSFER_TAX_LABEL_AND_RATE}} {{...}}</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#b9c2d0;vertical-align:middle"></span> {{FEES_LABEL_AND_RATE}} {{...}}</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#c0673b;vertical-align:middle"></span> Renovation {{...}}</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#b8893b;vertical-align:middle"></span> Holding + sale {{...}}</span>
+    </div>
+
+    <!-- ===== VARIANT A: FLIP ===== cost basis > sale > margin + sensitivity. -->
+    <div class="grid2" style="margin-top:18px">
+      <div>
+        <p class="econ-title a">Base case ({{buy}} / {{renovation}} / {{sale}})</p>
+        <table class="econ">
+          <tr><th>Item</th><th class="num">Amount</th></tr>
+          <tr><td>Purchase (target price)</td><td class="num">{{...}}</td></tr>
+          <tr><td>{{TRANSFER_TAX_LABEL_AND_RATE}}</td><td class="num">{{...}}</td></tr>
+          <tr><td>{{FEES_LABEL_AND_RATE}}</td><td class="num">{{...}}</td></tr>
+          <tr><td>Renovation</td><td class="num">{{...}}</td></tr>
+          <tr><td>Holding + sale</td><td class="num">{{...}}</td></tr>
+          <tr class="total"><td>Cost basis</td><td class="num">{{...}}</td></tr>
+          <tr><td>Sale (after-repair value)</td><td class="num">{{...}}</td></tr>
+          <tr class="total"><td>Gross margin</td><td class="num pos">{{...}}</td></tr>
+          <tr class="win"><td>After tax ({{STRUCTURE}})</td><td class="num">~{{...}}</td></tr>
+        </table>
+        <div class="tiny" style="margin-top:6px">{{realism caveat on the sale price}}</div>
+      </div>
+      <div>
+        <p class="econ-title b">Sensitivity (after tax)</p>
+        <table class="econ">
+          <tr><th>Scenario</th><th class="num">Renovation</th><th class="num">Sale</th><th class="num">Gross</th><th class="num">After tax</th></tr>
+          <tr><td>Base</td><td class="num">{{}}</td><td class="num">{{}}</td><td class="num">{{}}</td><td class="num">{{}}</td></tr>
+          <tr><td class="neg">Downside</td><td class="num">{{}}</td><td class="num">{{}}</td><td class="num">{{}}</td><td class="num neg">{{}}</td></tr>
+        </table>
+        <div class="tiny" style="margin-top:6px">{{what kills the deal}}</div>
+      </div>
+    </div>
+
+    <!-- ===== VARIANT B: HOLD / EVALUATION (delete Variant A if using this) =====
+    Replace the cost-basis bar with a "Price vs income value" bar (asking price
+    grey / income value navy / target bid gold), then one exit table per exit
+    the dossier weighs, two to a grid row, for example:
+      <div class="grid2" style="margin-top:18px">
+        <div>
+          <p class="econ-title a">Scenario A &middot; Keep and let</p>
+          <table class="econ"> ... net operating income, gross and net yield, cash flow at the loan-to-value, income value at the cap rate ... </table>
+        </div>
+        <div>
+          <p class="econ-title b">Scenario B &middot; Divide and sell</p>
+          <table class="econ"> ... per-unit sale minus costs = margin ... </table>
+        </div>
+      </div>
+    For a property already held, lead with capital deployed (booked, with its
+    as-of date) and value the exits against it.
+    -->
+  </section>
+
+  <!-- ============ ASSUMPTIONS (own section so section 1 fits page 1) ============ -->
+  <section>
+    <div class="sec-h"><span class="dot"></span><h2>Assumptions to confirm</h2></div>
+    <dl class="kv" style="font-size:13px">
+      <dt>{{TRANSFER_TAX_LABEL}}</dt><dd>{{rate and basis, as the dossier states them}}</dd>
+      <dt>Renovation</dt><dd>{{range + source, quote pending?}}</dd>
+      <dt>{{After-repair value | Cap rate / market rent}}</dt><dd>{{...}}</dd>
+      <dt>Structure / tax</dt><dd>{{the structure, as the dossier states it}}</dd>
+      <dt>Sale</dt><dd>{{agent or private sale, costs}}</dd>
+    </dl>
+    <div class="note">{{which open items confirm or replace these defaults}}</div>
+  </section>
+
+  <!-- ============ NEGOTIATION / TIMELINE ============
+       In active negotiation: a state table (Date | Move | Note) + position note.
+       Otherwise: an SVG milestone timeline (one <g> per dot, last one hollow = next). -->
+  <section>
+    <div class="sec-h"><span class="dot"></span><h2>{{Negotiation &amp; timeline | Timeline}}</h2></div>
+    <table class="units-tbl">
+      <tr><th>Date</th><th>Move</th><th>Note</th></tr>
+      <tr><td>{{}}</td><td>{{}}</td><td>{{}}</td></tr>
+    </table>
+    <div class="note"><b>Current position:</b> {{stance, walk-away, levers}}</div>
+  </section>
+
+  <!-- ============ PROPERTY & LOCATION ============ plan (or photo) + key facts.
+       Drop a row the dossier does not state. -->
+  <section>
+    <div class="sec-h"><span class="dot"></span><h2>Property &amp; location</h2></div>
+    <div class="grid2">
+      <div>
+        <div class="map-wrap"><img src="__MAP_IMG__" alt="Plan of {{ADDRESS}}"></div>
+        <div class="cap">{{plan or photo caption + source}}</div>
+      </div>
+      <dl class="kv">
+        <dt>Address</dt><dd>{{ADDRESS_FULL}}</dd>
+        <dt>Parcel</dt><dd>{{ID}}</dd>
+        <dt>Type</dt><dd>{{...}}</dd>
+        <dt>Built</dt><dd>{{...}}</dd>
+        <dt>Area</dt><dd>{{living area &middot; plot}}</dd>
+        <dt>Energy rating</dt><dd>{{label/score}}</dd>
+        <dt>Services</dt><dd>{{heating, glazing, solar}}</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============ UNITS & RENT ROLL | RENOVATION SCOPE ============
+       HOLD/EVALUATION: per-unit table (Unit | Type | Current rent | Market rent | Energy rating).
+       FLIP: renovation scope table (Zone | Main works).
+       SOLD UNIT BY UNIT: add a second units-tbl after it (Unit | Area | Sale
+       price | Price per area). -->
+  <section>
+    <div class="sec-h"><span class="dot"></span><h2>{{Units &amp; rent roll | Renovation scope}}</h2></div>
+    <table class="units-tbl">
+      <tr><th>{{col}}</th><th>{{col}}</th><th>{{col}}</th></tr>
+      <tr><td>{{}}</td><td>{{}}</td><td>{{}}</td></tr>
+    </table>
+    <div class="note">{{the value lever, or the one key caveat}}</div>
+  </section>
+
+  <!-- ============ PERMITS & COMPLIANCE ============ chips + energy rating.
+       chip.ok compliant · chip.warn open or at issue · chip.mon heritage or other flag.
+       Where the dossier records an energy rating, label one band per step of its
+       scale, best first, adding or dropping bands to match; otherwise delete the
+       chart and its title. Move the marker to the current band's centre x
+       (70 195 320 445 570 695 825). -->
+  <section>
+    <div class="sec-h"><span class="dot"></span><h2>Permits &amp; compliance</h2></div>
+    <div class="chips">
+      <span class="chip ok">{{...}}</span>
+      <span class="chip warn">{{...}}</span>
+    </div>
+    <div class="chart-title" style="margin-top:18px">Energy rating</div>
+    <svg viewBox="0 0 900 64" role="img" aria-label="Energy rating scale">
+      <g font-size="13" font-weight="800" fill="#fff" text-anchor="middle">
+        <rect x="10"  y="10" width="120" height="30" fill="#179c52"/><text x="70"  y="30">{{BAND_1}}</text>
+        <rect x="135" y="10" width="120" height="30" fill="#52b153"/><text x="195" y="30">{{BAND_2}}</text>
+        <rect x="260" y="10" width="120" height="30" fill="#a6c84f"/><text x="320" y="30">{{BAND_3}}</text>
+        <rect x="385" y="10" width="120" height="30" fill="#f3d54e"/><text x="445" y="30">{{BAND_4}}</text>
+        <rect x="510" y="10" width="120" height="30" fill="#f0a93b"/><text x="570" y="30">{{BAND_5}}</text>
+        <rect x="635" y="10" width="120" height="30" fill="#e8632b"/><text x="695" y="30">{{BAND_6}}</text>
+        <rect x="760" y="10" width="130" height="30" fill="#cf2e2e"/><text x="825" y="30">{{BAND_7}}</text>
+      </g>
+      <polygon points="{{MX}},44 {{MX-6}},52 {{MX+6}},52" fill="#16243f"/>
+      <text x="{{MX}}" y="62" font-size="10.5" fill="#1a2230" text-anchor="middle" font-weight="700">current &middot; {{LABEL/SCORE}}</text>
+    </svg>
+  </section>
+
+  <!-- ============ PARTIES & FINANCING ============ two key-value columns. -->
+  <section>
+    <div class="sec-h"><span class="dot"></span><h2>Parties &amp; financing</h2></div>
+    <div class="grid2">
+      <dl class="kv">
+        <dt>{{Buyer | Owner}}</dt><dd>{{COMPANY}}</dd>
+        <dt>Agent</dt><dd>{{agency, contact}}</dd>
+        <dt>{{...}}</dt><dd>{{...}}</dd>
+      </dl>
+      <dl class="kv">
+        <dt>Seller</dt><dd>{{...}}</dd>
+        <dt>{{whoever executes the deed, by local title}}</dt><dd>{{...}}</dd>
+        <dt>Financing</dt><dd>{{...}}</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============ OPEN ITEMS ============ what gates a bid, a signed agreement, or the next hold decision. -->
+  <section>
+    <div class="sec-h"><span class="dot"></span><h2>Open items ({{before a bid | before signing | before the next review}})</h2></div>
+    <ul class="open">
+      <li>{{...}}</li>
+      <li>{{...}}</li>
+    </ul>
+  </section>
+
+  <footer>
+    <b>{{COMPANY}}</b><br>
+    Internal deal sheet &middot; {{buy-side evaluation | hold review}} as of {{AS_OF_DATE}} &middot; figures are estimates &middot; source of truth: <b>{{brief.md | README.md}}</b>
+  </footer>
+
+</div>
+</body>
+</html>

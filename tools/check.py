@@ -13,14 +13,23 @@ What it enforces, and why each one is machinery rather than prose:
                         marker that disagrees with the table sends the wrong answer to every
                         vault, silently.
 
-  Template revisions    base/, each flavor skeleton, and each example vault all stamp a
+  Template revisions    base/, each delivery skeleton, and each example vault all stamp a
                         `<!-- para-os-template: -->` marker. They must agree with the newest
-                        CHANGELOG entry: a flavor left a revision behind means /para-upgrade
+                        CHANGELOG entry: a delivery left a revision behind means /para-upgrade
                         reads a stale master and reports "nothing to do" on a vault that
                         genuinely needs migrating.
 
   Dashes                CLAUDE.md makes this a hard rule for shipped prose, and it is the one
                         style rule a reader notices immediately.
+
+  Dates                 An ISO-style date, a month or quarter with its year in shipped prose: a
+                        document's text outside fences and code spans, and a script's comments
+                        and docstrings. A rule states what is true, not when someone learned it.
+                        examples/ is set at a frozen date by design and is not scanned.
+
+  Example skill copies  An example vault runs base's skills from an untracked copy, which
+                        nothing else notices falling behind. No copy is fine; a copy that
+                        differs from base/.claude/skills/ fails.
 
   Colocated tests       Each integration's own suite, run in place: `test_*.py` and `*.test.js`
                         next to the script they cover. Shipping a revision is one command, not
@@ -28,9 +37,9 @@ What it enforces, and why each one is machinery rather than prose:
                         than skipping: an integration nobody could verify must not report as a
                         clean bill of health.
 
-  Flavor tracking       Each flavor skeleton file is a derived copy of a base file, shipped
+  Delivery tracking     Each delivery skeleton file is a derived copy of a base file, shipped
                         whole rather than as a patch. Content cannot be compared - the deltas
-                        are the point - so FLAVOR_TRACKING stamps the digest of each base file
+                        are the point - so DELIVERY_TRACKING stamps the digest of each base file
                         and this fails when base moves, until someone has reconciled the two.
 
   Vendor validator      `claude plugin validate` over the same folder, which is a linter and
@@ -40,22 +49,41 @@ What it enforces, and why each one is machinery rather than prose:
                         cannot keep up with by hand.
 
   Skill contract        Every skill master keeps its frontmatter contract (name matching its
-                        folder, a description, allowed-tools, arg-hint), a `## Strict rules`
+                        folder, a description, allowed-tools, arg-hint offering `--test` and a
+                        link to para-shared/test-run.md), a `## Strict rules`
                         block, a spine under the line cap, and references that resolve both
-                        ways. The spine cap is the load-bearing one: a SKILL.md body loads on
+                        ways - base's skills, a module's, and each flavor's. The spine cap is
+                        the load-bearing one: a SKILL.md body loads on
                         every invoke, so a skill that regrows charges every run for procedure
                         it may never reach - which is the 1106 lines the 2026.08.03 split
                         removed, and nothing else stops them coming back.
 
-Deliberately NOT checked: anything requiring judgement (privacy, bloat, whether a rule earns
-its words). Those are review, not a script.
+  Rules contract        Every `.claude/rules/*.md` file carries a non-empty `paths:` frontmatter
+                        list, and it and its vault's CLAUDE.md point at each other, both ways -
+                        base's shipped rule files against base's template, and each delivery
+                        skeleton's template against base's rules, which its vaults inherit.
+                        A rule file with no pointer is invisible to a skill that resolves shape
+                        from CLAUDE.md alone, and a pointer to a file that was renamed or
+                        deleted sends a reader to nothing.
+
+  Never-ship terms      Every file git would ship (tracked, plus untracked and not ignored) is
+                        scanned for the terms in `$PARAOS_HOME/never-ship.txt` (default
+                        `~/.paraos/`): one term per line, `#` comments, matched case-insensitively
+                        as a whole word. The list lives outside the repo because the terms are the
+                        private data it guards. No list skips the check and says so on every run,
+                        so a contributor without one is not blocked and a lost list is not silent.
+
+Deliberately NOT checked: anything requiring judgement (privacy beyond a known term, bloat,
+whether a rule earns its words). Those are review, not a script.
 """
 import hashlib
+import io
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tokenize
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]   # repo root; this file lives in tools/
@@ -64,10 +92,15 @@ SCRIPT_SUFFIXES = {".py", ".js", ".ps1", ".sh"}
 
 failures = []
 passes = []
+skips = []
 
 
 def ok(msg):
     passes.append(msg)
+
+
+def skip(msg):
+    skips.append(msg)
 
 
 def bad(msg):
@@ -204,9 +237,13 @@ def changelog_revisions():
     return re.findall(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$", text, re.M)
 
 
+def delivery_skeleton_templates():
+    return sorted((ROOT / "delivery").glob("*/skeleton/CLAUDE.md.template"))
+
+
 def template_files():
     files = [ROOT / "base" / "CLAUDE.md.template"]
-    files += sorted((ROOT / "flavors").glob("*/skeleton/CLAUDE.md.template"))
+    files += delivery_skeleton_templates()
     files += sorted(p / "CLAUDE.md" for p in (ROOT / "examples").iterdir()
                     if p.is_dir() and (p / "CLAUDE.md").exists())
     return [f for f in files if f.exists()]
@@ -223,6 +260,10 @@ def check_template_revisions():
         bad("CHANGELOG.md: a revision heading appears twice")
     current = revisions[0]
 
+    if not delivery_skeleton_templates():
+        bad("delivery/*/skeleton/CLAUDE.md.template: none found, so every template check below "
+            "would skip the delivery skeletons without failing. Fix the glob, not this line.")
+
     for f in template_files():
         m = re.search(r"<!--\s*para-os-template:\s*(\S+)\s*-->",
                       f.read_text(encoding="utf-8", errors="ignore"))
@@ -234,14 +275,14 @@ def check_template_revisions():
             ok(f"{rel(f)} at {current}")
 
 
-TEMPLATE_MAX_LINES = 120   # a starting point; worst today is base at 117
+TEMPLATE_MAX_LINES = 120   # a starting point; worst today is base at 119
 FINISHED_MAX_LINES = 200   # a populated vault's own CLAUDE.md, at the adherence target
 
 
 def check_template_size():
     """A vault starts at a template's length and adds its own sections on top.
 
-    The adherence target for a CLAUDE.md is 200 lines. A **template** - base, and every flavor
+    The adherence target for a CLAUDE.md is 200 lines. A **template** - base, and every delivery
     skeleton - becomes an adopter's vault CLAUDE.md and is then extended, so it has to leave
     room below that target for what the vault adds. A **finished** vault CLAUDE.md, which is
     what the example is, is held to the target itself: an example over 200 lines contradicts
@@ -260,12 +301,13 @@ def check_template_size():
 # --- style -----------------------------------------------------------------------------
 
 DASHES = ("\u2014", "\u2013")  # em, en: escaped so this file passes its own check.
-FENCE = re.compile(r"^\s*```")
+FENCE = re.compile(r"^\s*(?:```|~~~)")
 CODE_SPAN = re.compile(r"`[^`]*`")
 
 
 WALK_SKIP_DIRS = {".git", "node_modules", "__pycache__"}
-PROSE_SUFFIXES = {".md", ".template", ".py", ".js", ".json", ".ps1"}
+OS_LITTER = {"desktop.ini", "Thumbs.db"}
+PROSE_SUFFIXES = {".md", ".template", ".sections", ".py", ".js", ".mjs", ".json", ".ps1"}
 
 
 def prose_files():
@@ -309,6 +351,221 @@ def check_dashes():
         ok("no em/en dashes in shipped text")
 
 
+def shippable_names(check):
+    """Every file git would ship (tracked, plus untracked and not ignored), or None once the
+    failure is reported under `check`: a scan that could not list its files has not passed."""
+    # -z and stdout alone: git quotes a non-ASCII path otherwise, and a quoted path would not
+    # open, so that file would drop out of the scan without a word.
+    try:
+        r = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                           cwd=ROOT, capture_output=True, timeout=60)
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        bad(f"{check}: could not list shippable files with git ({e})")
+        return None
+    if r.returncode != 0:
+        bad(f"{check}: git ls-files exited {r.returncode}")
+        return None
+    return list(filter(None, r.stdout.decode("utf-8").split("\0")))
+
+
+# --- dates in prose ----------------------------------------------------------------------
+
+# Case-insensitive, except a lowercase `may`, which is a verb far more often than a month.
+_MONTH = (r"(?:May|MAY|(?i:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|june?|july?"
+          r"|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?))")
+_YEAR = r"(?:19|20)\d{2}"
+_DAY = r"\d{1,2}(?:st|nd|rd|th)?"
+# An ISO-style date or month (`2026-08`, `2026/08/14`), a month with its year (`Aug. 2026`,
+# `14th August 2026`, `Aug 14th, 2026`), or a quarter or half (`Q3 2026`, `H1 2026`). A
+# revision label (2026.09.03) is none of them. The examples sit in code spans so this file
+# passes its own check.
+DATE = re.compile(rf"(?<![\w./-]){_YEAR}([-/])(?:0[1-9]|1[0-2])(?:\1[0-3]\d)?(?![\w/])"
+                  rf"|\b(?:{_DAY}\s+(?:of\s+)?)?{_MONTH}\.?\s+(?:{_DAY},?\s+)?{_YEAR}\b"
+                  rf"|\b(?:Q[1-4]|H[12])\s+{_YEAR}\b")
+DATE_DOC_SUFFIXES = {".md", ".template", ".sections"}
+DATE_SCRIPT_SUFFIXES = {".py", ".js", ".mjs", ".ps1"}
+
+
+def py_prose(text):
+    """{line: text} of a Python file's comments and docstrings, from its tokens. A string
+    standing alone as a statement is a docstring; any other string literal is data."""
+    out, statement = {}, []
+    skip = {tokenize.NL, tokenize.INDENT, tokenize.DEDENT, tokenize.ENCODING}
+    for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+        if tok.type == tokenize.COMMENT:
+            out[tok.start[0]] = out.get(tok.start[0], "") + tok.string
+        elif tok.type in (tokenize.NEWLINE, tokenize.ENDMARKER):
+            if statement and all(t.type == tokenize.STRING for t in statement):
+                for t in statement:
+                    for i, part in enumerate(t.string.splitlines(), t.start[0]):
+                        out[i] = out.get(i, "") + part
+            statement = []
+        elif tok.type not in skip:
+            statement.append(tok)
+    return out
+
+
+def script_comments(text, line, block, escapes):
+    """{line: text} of the comments in a JS or PowerShell file, skipping string literals.
+    `escapes` maps each quote character to its escape character; `'` and `"` end at a newline
+    in JS, where only a template literal spans lines."""
+    out, state, i, n = {}, None, 0, 1
+    while i < len(text):
+        c = text[i]
+        if c == "\n":
+            n += 1
+            if state == "line" or (line == "//" and state in ("'", '"')):
+                state = None
+        elif state is None:
+            if text.startswith(block[0], i) or text.startswith(line, i):
+                state = "block" if text.startswith(block[0], i) else "line"
+                i += len(block[0] if state == "block" else line)
+                continue
+            if c in escapes:
+                state = c
+        elif state == "block" and text.startswith(block[1], i):
+            state, i = None, i + len(block[1])
+            continue
+        elif state in ("line", "block"):
+            out[n] = out.get(n, "") + c
+        elif c == escapes[state] and text[i + 1:i + 2] not in ("", "\n"):
+            i += 1
+        elif c == state:
+            state = None
+        i += 1
+    return out
+
+
+def prose_lines(suffix, text):
+    """(line number, text) for each line of prose in a shipped file.
+
+    In a document: outside fences and code spans. In a script: comments and docstrings only,
+    since its string literals are test data.
+    """
+    if suffix == ".py":
+        try:
+            found = py_prose(text)
+        except (tokenize.TokenError, SyntaxError):   # unparseable: whole-line comments, and
+            found, inside = {}, False                  # anything touching a triple quote
+            for n, ln in enumerate(text.splitlines(), 1):
+                quotes = ln.count('"""') + ln.count("'''")
+                if inside or quotes or ln.strip().startswith("#"):
+                    found[n] = ln
+                inside ^= quotes % 2 == 1
+    elif suffix == ".ps1":
+        found = script_comments(text, "#", ("<#", "#>"), {"'": None, '"': "`"})
+    elif suffix in DATE_SCRIPT_SUFFIXES:
+        found = script_comments(text, "//", ("/*", "*/"), {q: "\\" for q in "'\"`"})
+    else:
+        found, in_fence = {}, False
+        for n, ln in enumerate(text.splitlines(), 1):
+            if FENCE.match(ln):
+                in_fence = not in_fence
+            elif not in_fence:
+                found[n] = ln
+    for n in sorted(found):
+        yield n, CODE_SPAN.sub("", found[n])
+
+
+def check_dates():
+    """A rule states what is true, not when someone learned it (CLAUDE.md, Never ship), so a
+    date in shipped prose is a finding. The example vaults are set at a frozen date by design
+    and are not scanned."""
+    names = shippable_names("dates in prose")
+    if names is None:
+        return
+    hits = []
+    for name in names:
+        suffix = Path(name).suffix
+        if name.startswith("examples/") or suffix not in DATE_DOC_SUFFIXES | DATE_SCRIPT_SUFFIXES:
+            continue
+        try:
+            text = (ROOT / name).read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue   # binary, or staged as deleted
+        for n, prose in prose_lines(suffix, text):
+            m = DATE.search(prose)
+            if m:
+                hits.append(f"{name}:{n} ({m.group(0)})")
+    if hits:
+        shown = ", ".join(hits[:8]) + (f" (+{len(hits) - 8} more)" if len(hits) > 8 else "")
+        bad(f"date in shipped prose: {shown}. State what is true; git records when.")
+    else:
+        ok("no dates in shipped prose")
+
+
+# --- example skill copies ---------------------------------------------------------------
+
+def check_example_skill_copies():
+    """An example vault runs base's skills from an untracked copy (examples/README.md), and
+    nothing else notices it fall behind: a demo run then exercises skills the repo no longer
+    ships. No copy is fine. A copy must match base file for file, line endings aside."""
+    master = ROOT / "base" / ".claude" / "skills"
+
+    def tree(root):
+        return {p.relative_to(root).as_posix(): p for p in root.rglob("*")
+                if p.is_file() and p.name not in OS_LITTER
+                and not WALK_SKIP_DIRS.intersection(p.relative_to(root).parts)}
+
+    def body(p):
+        return p.read_bytes().replace(b"\r\n", b"\n")
+
+    want = tree(master)
+    for copy in sorted((ROOT / "examples").glob("*/.claude/skills")):
+        have = tree(copy)
+        stale = sorted(n for n in want.keys() & have.keys() if body(want[n]) != body(have[n]))
+        missing = sorted(want.keys() - have.keys())
+        extra = sorted(have.keys() - want.keys())
+        if stale or missing or extra:
+            parts = [f"{label} {', '.join(names[:4])}{' (+%d more)' % (len(names) - 4) if len(names) > 4 else ''}"
+                     for label, names in (("differs:", stale), ("missing:", missing), ("not in base:", extra))
+                     if names]
+            bad(f"{rel(copy)}/ is not a copy of base/.claude/skills/ ({'; '.join(parts)}). "
+                f"Replace it with a fresh copy of base/.claude/skills/.")
+        else:
+            ok(f"{rel(copy)}/ matches base/.claude/skills/ ({len(have)} files)")
+
+
+# --- never-ship terms -------------------------------------------------------------------
+
+def never_ship_list():
+    return Path(os.environ.get("PARAOS_HOME") or Path.home() / ".paraos") / "never-ship.txt"
+
+
+def check_never_ship():
+    path = never_ship_list()
+    if not path.is_file():
+        skip(f"never-ship terms: no list at {path}, nothing scanned")
+        return
+    terms = [t.strip() for t in path.read_text(encoding="utf-8").splitlines()]
+    terms = [t for t in terms if t and not t.startswith("#")]
+    if not terms:
+        bad(f"never-ship terms: {path} lists no terms")
+        return
+    word = "|".join(re.escape(t) for t in terms)
+    pattern = re.compile(rf"(?<![A-Za-z0-9])(?:{word})(?![A-Za-z0-9])", re.I)
+    names = shippable_names("never-ship terms")
+    if names is None:
+        return
+    hits = []
+    for name in names:
+        try:
+            data = (ROOT / name).read_bytes()
+        except OSError:
+            continue   # staged as deleted
+        if b"\0" in data:
+            continue   # binary
+        for n, line in enumerate(data.decode("utf-8", "replace").splitlines(), 1):
+            m = pattern.search(line)
+            if m:
+                hits.append(f"{name}:{n} ({m.group(0)})")
+    if hits:
+        shown = ", ".join(hits[:8]) + (f" (+{len(hits) - 8} more)" if len(hits) > 8 else "")
+        bad(f"never-ship term in shipped text: {shown}")
+    else:
+        ok(f"no never-ship terms in shipped text ({len(terms)} terms)")
+
+
 # --- colocated test suites --------------------------------------------------------------
 
 # sys.executable, not "python": the interpreter running this file is known to exist, which
@@ -346,7 +603,7 @@ def check_tests():
 
         count = next((int(m.group(1)) for m in (c.search(combined) for c in COUNTS) if m), None)
         if returncode != 0:
-            bad(f"{rel(p)}: suite failed (exit {returncode})\n{tail(combined)}")
+            bad(f"{rel(p)}: suite failed (exit {returncode})\n{tail(combined, transform=console_safe)}")
         elif count == 0:
             bad(f"{rel(p)}: ran 0 tests - discovery found nothing to run")
         elif count is None:
@@ -358,10 +615,18 @@ def check_tests():
 # --- skill masters ---------------------------------------------------------------------
 
 SKILLS_DIR = ROOT / "base" / ".claude" / "skills"
+
+
+def flavor_skill_dirs():
+    """Each flavor's skills folder. A flavor ships skills beside base's, under .claude/ like base's."""
+    return sorted(d for d in (ROOT / "flavors").glob("*/.claude/skills") if d.is_dir())
+
+
 MODULE_DIRS = (ROOT / "multi-vault",)   # optional modules that ship a skill of their own
 SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "arg-hint")
-SPINE_MAX_LINES = 130      # current worst is 113; the cap catches regrowth, not today's shape
+SPINE_MAX_LINES = 130      # current worst is 116; the cap catches regrowth, not today's shape
 DESCRIPTION_MAX_CHARS = 600
+TEST_RUN_DOC = "para-shared/test-run.md"   # what `--test` means, stated once for every skill
 
 
 def skill_dirs(parent):
@@ -379,6 +644,9 @@ def check_skills():
         bad("base/.claude/skills/ ships no SKILL.md")
         return
 
+    if not (SKILLS_DIR / TEST_RUN_DOC).is_file():
+        bad(f"base/.claude/skills/{TEST_RUN_DOC} is missing, and every skill's `--test` points at it")
+
     # An optional module ships a skill too, and it is the likeliest one to rot: it sits outside
     # base/, so without this nothing in this file ever looks at it. Same contract, same caps -
     # a skill an adopter installs beside the bundled ones is held to what they are held to.
@@ -387,6 +655,9 @@ def check_skills():
     # The vendor validator below is deliberately NOT pointed here: it picks its mode from the
     # path, and a skills folder outside .claude/ is read as a plugin directory and fails for
     # having no manifest. That is a tool constraint, not a reason to leave the module unchecked.
+    for flavor_skills in flavor_skill_dirs():
+        masters += skill_dirs(flavor_skills)
+
     for module in MODULE_DIRS:
         if module.is_dir():
             masters += skill_dirs(module)
@@ -425,6 +696,15 @@ def check_skills():
             bad(f"{rel(sk)}: {lines} lines (cap {SPINE_MAX_LINES}). A SKILL.md is a loader "
                 f"spine; per-step procedure belongs in references/.")
 
+        # A test run is how a revision gets tried on real vaults before it ships, so a skill
+        # that does not take `--test` is one whose defects surface only when someone thinks to ask.
+        if "--test" not in fields.get("arg-hint", ""):
+            bad(f"{rel(sk)}: arg-hint does not offer `[--test]`, the test-run argument every "
+                f"skill takes")
+        if TEST_RUN_DOC not in text:
+            bad(f"{rel(sk)}: never links {TEST_RUN_DOC}, so `--test` has no definition "
+                f"this skill loads")
+
         if not re.search(r"^##\s+Strict rules\s*$", text, re.M):
             bad(f"{rel(sk)}: no `## Strict rules` section. A skill has to say what it must "
                 f"never do, not only what it does.")
@@ -442,17 +722,93 @@ def check_skills():
             ok(f"{rel(d)}/ contract holds ({lines} spine lines, {len(on_disk)} reference(s))")
 
 
-# --- flavor skeletons track base ------------------------------------------------------
+# --- .claude/rules/ contract -----------------------------------------------------------
 
-# What each flavor skeleton file is a derived copy of, and the digest of that master as of
+RULES_FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.S)
+RULES_PATHS_LIST = re.compile(r"^paths:[ \t]*\n((?:^[ \t]*-[ \t]*\S.*\n?)+)", re.M)
+RULES_POINTER = re.compile(r"\.claude/rules/([A-Za-z0-9_.-]+\.md)")
+
+
+BASE_RULES = ROOT / "base" / ".claude" / "rules"
+
+
+def vault_roots_with_rules():
+    """Every CLAUDE.md, or CLAUDE.md.template, paired with the `.claude/rules/` it points into.
+
+    `.claude/rules/` is where a vault's own CLAUDE.md extraction sends procedure
+    (base/CLAUDE.md.template `## Do not add`): a rule file, and a one-line pointer left
+    behind in CLAUDE.md. Walked rather than hardcoded, so a second example that grows a
+    rules/ folder is picked up with no edit here.
+
+    Templates count too, because base ships rule files of its own: matching only `CLAUDE.md`
+    would leave the one set every new vault receives checked by nothing. A delivery skeleton
+    ships no `.claude/` - its vaults are built by copying base whole - so its template is
+    held against base's rules, which is what its pointers resolve to once installed.
+    """
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in WALK_SKIP_DIRS]
+        here = Path(dirpath)
+        for name in ("CLAUDE.md", "CLAUDE.md.template", "CLAUDE.md.sections"):
+            if name not in filenames:
+                continue
+            rules_dir = here / ".claude" / "rules"
+            if not rules_dir.is_dir() and here.name == "skeleton" and here.parent.parent == ROOT / "delivery":
+                rules_dir = BASE_RULES
+            if rules_dir.is_dir():
+                yield here / name, rules_dir
+
+
+def check_rules_contract():
+    """A rule file and its vault's CLAUDE.md must agree, both ways, and the file itself must
+    carry the one piece of frontmatter that makes it load at all.
+
+    Mirrors check_skills()'s on_disk/linked reconciliation: an orphaned rule file is exactly
+    as invisible as an unlinked reference doc, and a dangling pointer sends a reader (human or
+    skill) to a file that is not there.
+    """
+    seen = False
+    for claude_md, rules_dir in sorted(vault_roots_with_rules()):
+        seen = True
+        before = len(failures)
+        claude_text = claude_md.read_text(encoding="utf-8", errors="ignore")
+        on_disk = {p.name for p in rules_dir.glob("*.md")}
+        linked = set(RULES_POINTER.findall(claude_text))
+
+        for orphan in sorted(on_disk - linked):
+            bad(f"{rel(rules_dir / orphan)}: on disk but not pointed at from {rel(claude_md)}, "
+                f"so a skill that reads CLAUDE.md alone will never find it")
+        for dangling in sorted(linked - on_disk):
+            bad(f"{rel(claude_md)}: points at .claude/rules/{dangling}, which does not exist")
+
+        for name in sorted(on_disk):
+            f = rules_dir / name
+            m = RULES_FRONTMATTER.match(f.read_text(encoding="utf-8", errors="ignore"))
+            if not m:
+                bad(f"{rel(f)}: no YAML frontmatter")
+                continue
+            pm = RULES_PATHS_LIST.search(m.group(1))
+            if not pm:
+                bad(f"{rel(f)}: frontmatter has no non-empty `paths:` list, so this rule "
+                    f"never auto-loads for any session")
+
+        if len(failures) == before:
+            ok(f"{rel(claude_md)}: .claude/rules/ contract holds ({len(on_disk)} file(s))")
+
+    if not seen:
+        ok("no .claude/rules/ folders shipped yet")
+
+
+# --- delivery skeletons track base ----------------------------------------------------
+
+# What each delivery skeleton file is a derived copy of, and the digest of that master as of
 # the last time a human reconciled the two. The digests live HERE rather than stamped in the
-# flavor files themselves because those files ship: the flavor CLAUDE.md.template becomes an
+# delivery files themselves because those files ship: the delivery CLAUDE.md.template becomes an
 # adopter's vault CLAUDE.md, read every session, and a repo-maintenance hash has no business
-# being a permanent line in it. Add a row when a flavor gains a file that derives from base.
-FLAVOR_TRACKING = {
-    "flavors/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "37e3954d43f4"),
-    "flavors/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
-    "flavors/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "92d77ba2543f"),
+# being a permanent line in it. Add a row when a delivery gains a file that derives from base.
+DELIVERY_TRACKING = {
+    "delivery/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "4b743bad1a14"),
+    "delivery/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
+    "delivery/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "92d77ba2543f"),
 }
 
 
@@ -463,14 +819,14 @@ def base_digest(p):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 
 
-def check_flavor_tracking():
-    """A flavor skeleton file is a derived copy of a base file, and nothing else notices it rot.
+def check_delivery_tracking():
+    """A delivery skeleton file is a derived copy of a base file, and nothing else notices it rot.
 
-    `flavors/*/skeleton/` ships whole files, not patches, so each is 39% to 67% a verbatim copy
+    `delivery/*/skeleton/` ships whole files, not patches, so each is 39% to 67% a verbatim copy
     of its base counterpart with a handful of deliberate deltas. The convention has been a
     header comment reading "if base changes, propagate here" - the same unenforced promise that
     let installed integration scripts drift for a revision, in the one place /para-upgrade reads
-    as a master. Base moves, the flavor keeps the old paragraph, and every vault on that flavor
+    as a master. Base moves, the delivery keeps the old paragraph, and every vault on that delivery
     is migrated to a rule the product no longer states.
 
     Comparing content cannot work: the deltas are the point, so a content rule either passes on
@@ -478,23 +834,23 @@ def check_flavor_tracking():
     moved since a human last looked. Re-stamping after reviewing a base diff and changing
     nothing is a legitimate outcome, and is the whole point: it records that someone looked.
     """
-    for flavor_path, (base_path, stamped) in sorted(FLAVOR_TRACKING.items()):
-        f, m = ROOT / flavor_path, ROOT / base_path
+    for skel_path, (base_path, stamped) in sorted(DELIVERY_TRACKING.items()):
+        f, m = ROOT / skel_path, ROOT / base_path
         if not f.exists():
-            bad(f"{flavor_path}: listed in FLAVOR_TRACKING but does not exist. Drop the row, "
+            bad(f"{skel_path}: listed in DELIVERY_TRACKING but does not exist. Drop the row, "
                 f"or restore the file.")
             continue
         if not m.exists():
-            bad(f"{flavor_path}: tracks `{base_path}`, which does not exist")
+            bad(f"{skel_path}: tracks `{base_path}`, which does not exist")
             continue
         want = base_digest(m)
         if stamped != want:
-            bad(f"{base_path} changed ({stamped} -> {want}); {flavor_path} derives from it and "
-                f"may now be stale. Review the diff, apply what the flavor needs, then update "
-                f"the digest in tools/check.py FLAVOR_TRACKING. Re-stamping with no edit to the "
-                f"flavor is fine - it records that someone looked.")
+            bad(f"{base_path} changed ({stamped} -> {want}); {skel_path} derives from it and "
+                f"may now be stale. Review the diff, apply what the delivery needs, then update "
+                f"the digest in tools/check.py DELIVERY_TRACKING. Re-stamping with no edit to the "
+                f"delivery is fine - it records that someone looked.")
         else:
-            ok(f"{flavor_path} reconciled against {base_path} @ {want}")
+            ok(f"{skel_path} reconciled against {base_path} @ {want}")
 
 
 def check_skill_validator():
@@ -519,8 +875,13 @@ def check_skill_validator():
         bad("`claude` is not on PATH, so the vendor's skill validator could not run. A check "
             "that could not run has not passed.")
         return
+    for skills_dir in [SKILLS_DIR] + flavor_skill_dirs():
+        validate_skills_dir(claude, skills_dir)
+
+
+def validate_skills_dir(claude, skills_dir):
     try:
-        returncode, out = run_captured([claude, "plugin", "validate", str(SKILLS_DIR)],
+        returncode, out = run_captured([claude, "plugin", "validate", str(skills_dir)],
                                         timeout=120)
     except subprocess.TimeoutExpired:
         bad("claude plugin validate: timed out after 120s")
@@ -532,7 +893,7 @@ def check_skill_validator():
         bad(f"claude plugin validate: refused, {console_safe(out.splitlines()[0])}")
         return
     if "Validating components in" not in out:
-        bad(f"claude plugin validate: did not validate {rel(SKILLS_DIR)}/ as a skills folder. "
+        bad(f"claude plugin validate: did not validate {rel(skills_dir)}/ as a skills folder. "
             f"It picks its mode from the path, so this reports on the wrong thing rather than "
             f"failing outright.\n{out_tail}")
         return
@@ -550,7 +911,7 @@ def check_skill_validator():
         bad(f"claude plugin validate: {counts or 'passed with warnings'}. It exits 0 on "
             f"warnings, so these are caught here rather than by the exit code.\n{out_tail}")
     elif "Validation passed" in out:
-        ok(f"claude plugin validate: {rel(SKILLS_DIR)}/ clean, no errors or warnings")
+        ok(f"claude plugin validate: {rel(skills_dir)}/ clean, no errors or warnings")
     else:
         bad(f"claude plugin validate: output did not match a recognized pass/fail shape "
             f"(exit {returncode}). Treating as failed rather than silently reporting "
@@ -563,14 +924,20 @@ def main():
     check_template_revisions()
     check_template_size()
     check_dashes()
-    check_flavor_tracking()
+    check_dates()
+    check_never_ship()
+    check_example_skill_copies()
+    check_delivery_tracking()
     check_skills()
+    check_rules_contract()
     check_skill_validator()
     check_tests()
 
     if verbose:
         for line in passes:
             print(f"  ok    {line}")
+    for line in skips:
+        print(f"  skip  {line}")
     for line in failures:
         print(f"  FAIL  {line}")
 

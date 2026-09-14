@@ -6,13 +6,13 @@ The hard part of AI assistance isn't the assistant. It's that everything it need
 
 **para-os is the cabinet.** A free, do-it-yourself kit for anyone whose information is scattered: a practice, a business you run, a project, a household. It's a folder you copy, not a program you install: a ready-made set of folders with one obvious place for everything (following [PARA](https://fortelabs.com/blog/para/), the filing method, hence the name), house rules in plain language that tell the assistant how to behave, and a handful of routines for the recurring chores (process the inbox, brief me each morning, tidy up, archive what's done).
 
-You bring your files and connect your systems (mail, calendar, accounting); the assistant reads across *all of it at once*, cross-referenced into one answer instead of leaving you to check each silo by hand. The questions that used to mean an afternoon of digging just get answered:
+You bring your files and connect your sources (your inbox and its archive, calendar, meeting recordings, accounting); the assistant reads across *all of it at once*, cross-referenced into one answer instead of leaving you to check each silo by hand. The questions that used to mean an afternoon of digging just get answered:
 
 - "What's the full history with this client, across email and our files?"
 - "What did we agree with the bank in March, and where's the document?"
 - "Pull every order this supplier sent and flag what's still open."
 
-And it does more than answer: it files what comes in, drafts what goes out, and writes the small throwaway tool it needs when it hits a wall.
+And it does more than answer: what arrives gets filed by the assistant, not by you, so the vault grows into a fuller picture every week; it drafts what goes out, and writes the small throwaway tool it needs when it hits a wall.
 
 Everything stays ordinary files (PDFs, scans, spreadsheets, Markdown) in ordinary folders on your own disk. No app, no database, no lock-in - the data outlives every assistant you point at it.
 
@@ -29,7 +29,7 @@ Everything stays ordinary files (PDFs, scans, spreadsheets, Markdown) in ordinar
   search, at best                     across all of it
 ```
 
-> **Want it set up for you?** The kit is free. If you'd rather have your business structured and the assistant wired in for you, that's the **AI Workspace** service I offer - [get in touch](https://trotstar.tech).
+> **Want it set up for you?** The kit is free. If you'd rather get your business working with AI without doing the setup yourself, that's the **AI Workspace** engagement I offer - [get in touch](https://trotstar.tech).
 
 ## What it looks like in practice
 
@@ -44,7 +44,7 @@ Everything stays ordinary files (PDFs, scans, spreadsheets, Markdown) in ordinar
 Any "AI on top of my stuff" setup is three layers stacked. Naming them shows where para-os sits, and why it isn't competing with the tools it gets compared to:
 
 1. **Substrate (your files)** - the files and how they're organised. **This is para-os.**
-2. **Agent (the assistant)** - the model that reads and writes them: Claude Code, Cursor, Codex, Claude Cowork.
+2. **Agent (the assistant)** - the model that reads and writes them: Claude Code, Cursor, Codex, Gemini CLI, Claude Cowork.
 3. **Interface (how you work with it)** - how you drive it: the Claude desktop app, an editor like VS Code, a notes app, a chat app, PDFs on an iPad.
 
 para-os owns layer 1 and is agnostic about 2 and 3 - **bring your own agent**. Almost nobody does the layer-1 work because it feels like filing, not engineering. That's exactly why it pays off: an agent is only as good as the files you point it at, and that leverage grows as agents get better. The files are the memory - the folder on disk is the durable state, the agent reads it fresh each session, and the git diff is the audit log. No memory features, no chat-history dependence.
@@ -145,9 +145,11 @@ A vault the agent can only read is a tidy filing cabinet. Wire in a source and t
 - **MCP servers** - wiring as a config declaration, scopeable to one vault or shared globally, for a source with no built-in connector (a self-hosted Google Workspace server, Jira, Azure DevOps). A connector is really just a pre-authorized remote MCP server - the line between the two is *authorized-in-the-agent* vs *declared-in-config*, not different plumbing.
 - **Integrations** - wiring as code: a small script in `resources/scripts/` that pulls a source into the vault as Markdown the assistant reads like everything else. This is the only tier para-os ships: [`integrations/`](integrations/) packages them as drop-in folders (e.g. [`granola/`](integrations/granola/) syncs your Granola meeting notes into `triage/`). Secrets and caches stay outside the vault under `~/.paraos/`; the [folder's README](integrations/) has the full contract. Each script carries a version marker, so `/para-upgrade` tells you when your installed copy has fallen behind the master, and leaves the merge to you.
 
-## The read-only flavor
+## Delivery and flavor
 
-The base assumes you read and write the markdown yourself. [`flavors/readonly-ipad/`](flavors/readonly-ipad/) packages a second model: you maintain the vault, a non-technical reader consumes generated PDFs on an iPad through Google Drive. A Puppeteer pipeline produces PDF siblings, a flip script keeps the markdown out of the reader's view, and `actions.md` is dropped (next steps live as prose). Setup is in the flavor's README.
+The base assumes you read and write the markdown yourself. [`delivery/readonly-ipad/`](delivery/readonly-ipad/) packages a second model: you maintain the vault, a non-technical reader consumes generated PDFs on an iPad through Google Drive. A Puppeteer pipeline produces PDF siblings, a flip script keeps the markdown out of the reader's view, and `actions.md` is dropped (next steps live as prose). Setup is in its README.
+
+That is one axis, **delivery**: how a vault is read. The other is **flavor**: what a vault is about, carried as the rule files, skills and resources a domain needs, such as [`flavors/real-estate/`](flavors/real-estate/) for buying, renovating, selling and holding property. Every vault sits on both, and one on anything but the defaults says so under its `**Type:**` line (`**Delivery:** readonly-ipad`, `**Flavor:** <name>`), which is what `/para-upgrade` reads to pick its masters.
 
 ## Data and privacy
 
@@ -157,13 +159,14 @@ For GDPR or data-sovereignty needs there's a ladder: a provider plan whose comme
 
 ## Why this exists
 
-Notion and Obsidian never stuck for me: keeping the structure current cost more than it gave back. The agent absorbs exactly that overhead, so the structure finally pays for itself. I now run a business, client engagements, and family admin this way; wired into my bookkeeping, a vault answers questions I used to pay an accountant for. The thesis underneath, for technical readers: **clean file structures are the substrate for AI.** Point an agent at `Documents/Misc` and search is all it can do; give it a predictable layout with documented conventions and it files, cross-references, audits, and briefs you reliably.
+Notion and Obsidian never stuck for me: keeping the structure current cost more than it gave back. The agent absorbs exactly that overhead, so the structure finally pays for itself. I now run a business, client engagements, and family admin this way; wired into my bookkeeping, a vault answers questions I used to take to my accountant. The thesis underneath, for technical readers: **clean file structures are the substrate for AI.** Point an agent at `Documents/Misc` and search is all it can do; give it a predictable layout with documented conventions and it files, cross-references, audits, and briefs you reliably.
 
 ## What's in the repo
 
-- [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, bootstrap prompt, the skills (`.claude/skills/`), agent settings (`.claude/settings.json`, which turns off auto memory since the files are the memory), and editor settings (`.vscode/settings.json`) that open `.md` in rendered preview.
-- [`flavors/readonly-ipad/`](flavors/readonly-ipad/) - render pipeline for the read-only model.
-- [`integrations/`](integrations/) - drop-in scripts that pull an outside system into a vault (e.g. `granola/` for meeting sync).
+- [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, bootstrap prompt, the skills (`.claude/skills/`), two convention rule files the agent loads when it reads a matching file (`.claude/rules/filing.md` for naming and filing source documents, `.claude/rules/figures.md` for where a number lives), agent settings (`.claude/settings.json`, which turns off auto memory since the files are the memory), and editor settings (`.vscode/settings.json`) that open `.md` in rendered preview.
+- [`delivery/readonly-ipad/`](delivery/readonly-ipad/) - render pipeline for the read-only model.
+- [`flavors/real-estate/`](flavors/real-estate/) - property lifecycle, dossier shape, and the reconcile, underwrite and deal-sheet skills, country-neutral.
+- [`integrations/`](integrations/) - drop-in scripts that pull an outside system into a vault (e.g. `granola/` and `pocket/` for meeting recordings).
 - [`multi-vault/`](multi-vault/) - optional layer for running several vaults off the same inboxes: a registry outside the vaults, and `/para-ingest`, which reads each source once and stages what arrives in the vault it belongs to.
 - [`examples/belfoot-vault/`](examples/belfoot-vault/) - a fictional, fully populated vault to poke at.
 - [`tools/check.py`](tools/check.py) - the repo's contract checks. Run it before shipping a revision; it is the gate that catches a marker, a skill spine or a manifest drifting out of line with the rest.
@@ -171,10 +174,10 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 ## Requirements
 
 - [Claude Code](https://claude.com/claude-code), or adapt the skills to your agent of choice; they're plain markdown instructions.
-- The core (skeleton + skills) needs nothing else. Scripts here (the read-only flavor, integrations) that need a runtime assume **[Node.js](https://nodejs.org/) 18+** (for the built-in `fetch`).
+- The core (skeleton + skills) needs nothing else. Scripts here (the read-only delivery, integrations) that need a runtime assume **[Node.js](https://nodejs.org/) 18+** (for the built-in `fetch`).
 - **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
 - **A substrate that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible.
-- Read-only flavor only: Windows PowerShell and `npm install -g puppeteer marked github-markdown-css`.
+- Read-only delivery only: Windows PowerShell and `npm install -g puppeteer marked github-markdown-css`.
 - Some integrations add their own prerequisites (an app, an account, a platform); each states them in its README.
 
 ## License
