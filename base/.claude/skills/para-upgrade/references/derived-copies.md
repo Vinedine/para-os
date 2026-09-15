@@ -39,6 +39,8 @@ Every script a para-os integration ships carries `para-os-integration: <name> <r
 diff <(git show <ref>:integrations/<name>/<file> | tr -d '\r') <(tr -d '\r' < "<vault>/<path-to-copy>")
 ```
 
+**Run this via bash (Git Bash or WSL), never PowerShell.** The `<(...)` process substitution above is a bash-only syntax; PowerShell's `diff` alias (`Compare-Object`) neither accepts it nor errors usefully - it fails as a plain parse error. Where only PowerShell is available, write both normalised sides to temp files first and diff those instead.
+
 **Resolving `<name>` to a master, in this order:** `integrations/<name>/<file>` first, then `delivery/<name>/pipeline/<file>` (`flavors/<name>/pipeline/<file>` at a ref with no `delivery/` folder), which carries the same marker. If neither path exists at the ref but the *folder* does, the file was **renamed upstream**: when that folder ships exactly one non-test script, that is the master - diff against it and report the rename as part of the verdict. If the folder ships several, name them and ask which. Only when the folder itself is absent is the marker unresolvable: report it, leave the script alone, and never match it to a folder with a similar name.
 
 Report from the line-ending-normalised diff:
@@ -63,7 +65,7 @@ A user who reads the diff may say "sync it". An overwrite needs **all four**:
 1. **The user asked**, in this session, for that script or for the integrations generally. Never infer it from a general "upgrade the vault".
 2. **Equivalence is proven mechanically, not read.** The strongest proof is a normalised copy byte-identical to the master file at a commit in its history (`git log --format=%h -- <path>`, then compare each), which also settles condition 3. For Python, identical `ast.dump` trees with docstrings stripped also prove it. Otherwise compare after normalising line endings and trailing whitespace; any other difference is drift for the user to judge, so fall back to reporting. **Print the verdict.**
 3. **The copy is not *ahead*.** Divergence means local work exists, and only the user can decide what survives.
-4. **It is verified after the write**, by re-diffing against the master and running the integration's own test suite (`integrations/<name>/test_*.py`) against the installed copy, not against the master.
+4. **It is verified after the write**, by re-diffing against the master and running the integration's own test suite (`integrations/<name>/test_*.py`) against the installed copy, not against the master - **from a scratch directory with no vault config present**, not in place. Run in place, the suite picks up whatever real config the installed copy resolves relative to itself (a multi-vault routing table, a live API key), which can fail assertions the fixture never anticipated even though the copy is provably correct. A failure that traces to config content rather than the script's own logic is inconclusive, not a failed verification - diagnose which before reporting either way.
 
 ## The prose that documents an integration
 

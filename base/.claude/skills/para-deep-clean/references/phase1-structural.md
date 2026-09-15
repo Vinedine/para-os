@@ -25,6 +25,30 @@ Triage emptiness is already enforced by the skill's preconditions - no need to r
 
   **Percent-decode the href before resolving it.** A filename with spaces is linked as `%20`, so a raw href fails on every correctly-written link. Decode with a real URL-decoder (`urllib.parse.unquote`), never a shell substitution. An href ends at the `)` that balances its opening `(`, since filenames carry parentheses. Strip any `#fragment` before resolving, and resolve relative to the **linking file's own folder**, not the vault root.
 
+  **Use this extraction, rather than drafting a fresh regex per run** - a naive `\]\(([^)]+)\)` pattern stops at the first `)`, which is wrong for any target with parentheses in its name:
+
+  ```python
+  import re
+  from urllib.parse import unquote
+
+  def extract_links(text: str) -> list[str]:
+      hrefs = []
+      i = 0
+      while (m := re.search(r'\]\(', text[i:])):
+          start = i + m.end()
+          depth, j = 1, start
+          while j < len(text) and depth:
+              depth += (text[j] == '(') - (text[j] == ')')
+              j += 1
+          href = text[start:j - 1].split('#', 1)[0].strip()
+          if href and not href.startswith(('http://', 'https://')):
+              hrefs.append(unquote(href))
+          i = j
+      return hrefs
+  ```
+
+  Balances nested `(`/`)` by depth rather than stopping at the first close, so a target like `... (NL).pdf` or `Accountant VAT (Gemini).md` resolves correctly. Strip fenced code blocks and inline code spans from `text` before calling this, per **A quoted syntax is not a used syntax** below.
+
   **Strip fenced blocks and inline code spans before extracting hrefs**, in this check and in every other scan in this phase, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md).
 
   **Validate the checker in three directions before reporting a verdict.** Point it at known-good links whose targets have spaces and parentheses and confirm they pass; point it at a link you have deliberately broken and confirm it fails; point it at a broken link **inside a fenced code block** and confirm it is skipped.

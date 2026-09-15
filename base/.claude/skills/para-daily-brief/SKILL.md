@@ -41,7 +41,7 @@ Sections with no content are omitted - no empty placeholders.
 date +%Y-%m-%d
 ```
 
-Use the Bash tool. **Do NOT substitute a cached date from memory or context** - the skill must reflect today's actual calendar date.
+Use the Bash tool. On Windows, `bash -c` routes to WSL by default, which errors (`execvpe(/bin/bash) failed`) on a machine with no WSL distro installed; where that happens, use `Get-Date -Format "yyyy-MM-dd"` via PowerShell instead. **Do NOT substitute a cached date from memory or context** - the skill must reflect today's actual calendar date.
 
 ### Step 1b: Identify the vault type
 

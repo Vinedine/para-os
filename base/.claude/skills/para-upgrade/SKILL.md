@@ -14,7 +14,7 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 | Arg | Behavior |
 |---|---|
 | *(none)* | Full flow against the default ref |
-| `--ref <git-ref>` | Read the master from this ref instead of the default (a branch, tag, or commit) |
+| `--ref <git-ref>` | Read the master from this ref instead of the default (a branch, tag, or commit). Also accepted as a bare positional argument (`/para-upgrade feat/revision-x`) or with a leading qualifier word (`local feat/revision-x`) - either resolves to `<git-ref>` in the clone, same as `--ref`. |
 | `audit` | Read-only. Reports the delta and what would change; never modifies a file |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 

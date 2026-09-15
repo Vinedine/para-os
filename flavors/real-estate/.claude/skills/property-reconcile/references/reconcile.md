@@ -8,6 +8,7 @@ Walk the dossier's factual claims against the extracted facts and classify each 
 - **Corrected** - a source contradicts it. Record the claim, the old value, the source value and the file. Follow the **cascade**: a corrected rent changes the rent roll and the yields, a corrected assessed value changes whatever is computed from it.
 - **Conflict** - sources disagree, the only evidence is a non-authoritative quote, or a primary document contradicts a listing or email figure and which is current is unclear. Never resolve it by choosing: it becomes an open item, with both values and their provenance.
 - **Unobtainable** - the register lists the fact under facts no free source settles, and it is handled as the register says.
+- **Misattributed** - the claim is presented under a specific source's heading or citation, but that source's own text does not contain it, and nothing else in `sources/` confirms or contradicts it either. This is not a Conflict (no second source disagrees) and not Unobtainable (the register doesn't say the fact is unreachable) - it is a citation error. Correct it by removing the attribution to the source that doesn't support it; keep the claim itself, flagged as unsourced pending a document that actually states it.
 
 ## Step 3b - Against the books
 

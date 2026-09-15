@@ -50,7 +50,7 @@ One document per property. From Acquiring on it carries the sixteen sections bel
 
 ### What each stage carries
 
-- **Prospecting** (`resources/ideas/`) - at least Snapshot, Deal economics, and `## Open questions` then `## Next step` in the place of Open items; `## Open questions` is its open-items list. Any other section of the shape joins, in the shape's order, once there is a fact for it. It takes the full shape on promotion.
+- **Prospecting** (`resources/ideas/`) - at least Snapshot, Deal economics, and an open-items section in the place of Open items. **Use the heading the vault's own next-steps convention already recognises** - `CLAUDE.md`'s Filing and naming section, or a vault-local pickup script such as `openstaande-punten.py`, names the exact heading text (and its language) a vault scans for; a prospect brief written under any other heading, however similar, silently drops off that pickup. Where the vault states no such convention, `## Open questions` then `## Next step` are the default. Any other section of the shape joins, in the shape's order, once there is a fact for it. It takes the full shape on promotion.
 - **Sold** (`archive/properties/`) - the shape it had, plus a financing line saying how the credit closed.
 - **Dropped** (`archive/researched-deals/`) - opens on five sections: H1 with a `(skipped)`, `(researched, not pursued)` or `(collapsed)` marker; one intro paragraph on the property and how far the research went; `## Status` (a table: address, type, asking price, source channel, stage when stopped); `## Source documents` (or `_None._`); `## Reason for skipping`. Every other section it carried follows unchanged.
 
