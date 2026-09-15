@@ -56,8 +56,10 @@
 
      PAGINATION: sections FLOW to fill pages. Never put break-inside:avoid on
      <section>. The @media print rule keeps only atomic blocks whole (charts,
-     chips, ribbon, unit tables) and lets economics tables flow between pages
-     without splitting a row. Keep any single table under about one page.
+     chips, ribbon, unit tables, notes, key-value lists), keeps each title and
+     caption with its block, and lets economics tables flow between pages
+     without splitting a row. Never hold a .grid2 whole: it strands half a
+     page. Keep any single table under about one page.
 ============================================================================ -->
 <title>{{ADDRESS}} - {{COMPANY}} deal sheet</title>
 <style>
@@ -153,11 +155,12 @@
     section{box-shadow:none}
     .hero{border-radius:0}
     /* Sections FLOW; only these atomic blocks are kept whole: */
-    .map-wrap,svg,.ribbon,.chips,ul.open,.units-tbl{break-inside:avoid}
+    .map-wrap,svg,.ribbon,.chips,ul.open,.units-tbl,.note,dl.kv{break-inside:avoid}
     /* Economics tables flow between pages but never split a row. */
     table.econ{break-inside:auto} table.econ tr{break-inside:avoid}
     ul.open li{break-inside:avoid}
-    .sec-h,h2{break-after:avoid}
+    .sec-h,h2,.econ-title,.chart-title{break-after:avoid}
+    .map-wrap + .cap{break-before:avoid}
   }
 </style>
 </head>

@@ -39,7 +39,7 @@ ripgrep returns lines grouped by file in line-number order. **Discard any match 
 
 **Both calls below are raw `Grep` patterns and therefore count fence content**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md): where a bucket's count is non-zero, read the matched files before reporting the number, or say in the output that it includes samples. A frozen-record note does not cover a fenced sample.
 
-**Count the misplaced checkboxes with their own call**, not from what the discard above dropped - the glob above reaches only `actions.md` and contact files, so it cannot see an open checkbox in an archived meeting note or action plan, which is exactly where they collect. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which yields the per-file counts the flag needs. Counts only; never read the lines.
+**Count the misplaced checkboxes with their own call**, not from what the discard above dropped - the glob above reaches only `actions.md` and contact files, so it cannot see an open checkbox in an archived meeting note or action plan, which is exactly where they collect. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which names the files and their counts. Read each file with a non-zero count and drop the checkboxes inside a fence before the number feeds the flag.
 
 If the call returns zero matches, SKILL.md Step 1b and its first edge case decide what renders.
 

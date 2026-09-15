@@ -45,6 +45,8 @@ The rates `/property-underwrite` and the deal sheet use. Tax treatment (which st
 | Transfer tax on purchase | {{...}} | {{...}} |
 | Conveyancing ({{who executes the deed}}) | {{...}} | {{...}} |
 | Agent fee on sale | {{...}} | {{...}} |
+| Other selling costs (certificates, surveys, legal division) | {{...}} | {{...}} |
+| Architect and engineering fees | {{...}} | {{...}} |
 | Annual property tax | {{...}} | {{...}} |
 
 ## Traps

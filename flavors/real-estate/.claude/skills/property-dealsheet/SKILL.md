@@ -15,6 +15,7 @@ Turns one property's dossier into the designed deal sheet a decision-maker reads
 |---|---|
 | *(none)* | Ask which property |
 | `<property-name>` | Match against `projects/`, `resources/ideas/`, then `areas/properties/` |
+| `<name> <name> ...` | Step 1 for every property, one go-ahead for all, then Steps 2 and 3 per sheet |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## What it reads

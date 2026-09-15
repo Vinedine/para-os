@@ -9,7 +9,7 @@ A property's PARA home follows its stage, and a property is **bought** on the de
 | Stage | PARA home |
 |---|---|
 | **Prospecting**: considering, visiting, analysing, an offer out | `resources/ideas/<property>/` |
-| **Acquiring**, **Renovating**, **Selling**: signed agreement to deed, then a flip's permits, works and sale | `projects/<property>/` |
+| **Acquiring**, **Permitting**, **Renovating**, **Selling**: signed agreement to deed, then a flip's permit, works and sale | `projects/<property>/` |
 | **Held**: bought and kept, let or vacant | `areas/properties/<property>/` |
 | **Sold**: bought, then sold | `archive/properties/<property>/` |
 | **Dropped**: never bought | `archive/researched-deals/<property>/` |
