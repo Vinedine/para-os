@@ -2,7 +2,7 @@
 name: para-triage
 description: Empty the current vault's triage/ folder - and any configured triage sources (mailboxes, sync scripts) - by classifying each item, proposing a destination or action, then executing after user confirmation. Use when user asks to "process triage", "clean up triage", "empty the inbox", "check my email for anything to do", or types /para-triage.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content, mcp__google-workspace__search_drive_files, mcp__google-workspace__list_drive_items, mcp__google-workspace__get_drive_file_content
-arg-hint: '[preview|apply|convert|table]'
+arg-hint: '[preview|apply|convert|table] [--test]'
 ---
 
 # Triage
@@ -21,7 +21,8 @@ Do NOT invoke for files outside `triage/`. Files already filed are stable; don't
 | `preview` | Print the manifest, then stop after the proposal table. Do not ask, do not execute. |
 | `apply` | Skip the approval step entirely. Use only when the user has already approved a previous preview in this conversation. |
 | `table` | The batch proposal flow: one markdown proposal table, one `go`. The explicit escape from item-by-item questions, for a batch an operator would rather read than click through. |
-| `convert` | **Unattended entry point.** Normalise formats only: run sync sources, convert Google-native files to real `.md` siblings, write the conversion ledger, report what arrived. No classify, no move, no file, no delete. Filing is judgment and moving or deleting is structural, so an unattended run is a strictly narrower job than the interactive one - not the same job with the prompts turned off. Safe to run on a schedule indefinitely; deletes happen on the operator's next interactive run. `triage/` does not empty on such a run, which is correct: it exists to hold unprocessed items. |
+| `convert` | **Unattended entry point.** Normalise formats only: run sync sources, convert Google-native files to real `.md` siblings, write the conversion ledger, report what arrived. No classify, no move, no file, no delete. Safe to run on a schedule indefinitely; deletes happen on the operator's next interactive run. |
+| `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## Procedure
 
@@ -29,19 +30,19 @@ Do NOT invoke for files outside `triage/`. Files already filed are stable; don't
 
 **Resolve the vault root, then verify it** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`) - by checking for `triage/` and at least one of `projects/` `areas/` `archive/`. If it is not one, respond `Not a vault root: <the path you checked>.` and stop. **That is this step's only job**; an empty `triage/` is not a reason to stop, since Step 2's sync sources write into it.
 
-Read the vault's `CLAUDE.md` and extract: the **filing rules** (the per-folder naming convention for source documents - quote it back verbatim in the proposal, so the user can sanity-check it), any **language** rules, any **do-not-add** rules, and whether the vault uses the **flip/render** workflow (`flip.ps1`, `render.ps1`, `render.mjs` in the vault root).
+Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-discipline.md#a-vaults-rule-files), and extract: the **filing rules** (the naming convention for source documents - quote the one you apply back verbatim in the proposal, so the user can sanity-check it), any **language** rules, any **do-not-add** rules, and whether the vault is on the [read-only iPad delivery](../para-shared/operating-discipline.md#the-read-only-ipad-delivery).
 
 Also read the root `README.md`'s `## Operating model` section (Grep with `-A` context is enough). `CLAUDE.md` says how this vault files; the Operating model says what its business *is*, and it is the authority for the in/out call on connector items. If the README or the section is missing, skip silently.
 
-**If `CLAUDE.md` exists but has no source-document naming convention** (action- or markdown-focused vaults that don't deal with PDFs at scale): stop and ask the user to dictate the convention before any renames execute. Do not invent one, and do not silently borrow one from another vault.
+**If the vault has no `CLAUDE.md`, or neither it nor its rule files state a source-document naming convention**: propose destinations only, and ask the user to dictate the convention before any rename executes. Do not invent one, and do not silently borrow one from another vault.
 
 ### Step 2: Gather inputs
 
 **First, pull configured triage sources** if the vault's CLAUDE.md has a `## Triage sources` block. **Full protocol: [references/sources.md](references/sources.md)** - sync scripts, mailbox connectors, the Drive lookup and Google-native conversion, and both ledgers. Sync scripts write into `triage/` and their output then files like any loose file; connectors write nothing and yield their own dispositions in Step 5. No block means skip this entirely.
 
-**Then list loose files.** Glob `triage/*` for top-level entries. Also note subdirectories with Glob `triage/*/` - list them but **do not recurse**. They are intentional sub-batches and get flagged as "subdirectory - needs separate review" rather than blindly flattened.
+**Then list loose files.** Glob `triage/*` for top-level entries, with their [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery). Also note subdirectories with Glob `triage/*/` - list them but **do not recurse**. They are intentional sub-batches and get flagged as "subdirectory - needs separate review" rather than blindly flattened.
 
-`triage/` holds a `.gitkeep` so the empty folder survives in git; ignore it. It never holds a `README.md` - every file here is by definition unprocessed, so a permanent one is indistinguishable from a real item and would inflate the loose-file count on every future run. **Never create one**, whatever a folder-placeholder convention elsewhere in the vault suggests; if you find one left by an older skeleton, propose deleting it rather than filing it.
+`triage/` holds a `.gitkeep`; ignore it. It never holds a `README.md`: **never create one**, whatever a folder-placeholder convention elsewhere suggests, and propose deleting one left by an older skeleton rather than filing it.
 
 **Only now, check for emptiness.** If the source pull yielded nothing - or no sources are declared - and `triage/` holds nothing but `.gitkeep`, respond `Nothing to triage in <the path you checked>.` and stop. A source declared but unreachable is not nothing: name it per the edge case below rather than reporting a clean run.
 
@@ -55,7 +56,7 @@ Read each loose file, check it against the rest of the vault for duplicates and 
 
 Group the linked items, print the manifest, then ask **one `AskUserQuestion` per item or linked group**, per [para-shared/asking.md](../para-shared/asking.md). **Full procedure, the action vocabulary, and the grouping and delete rules: [references/approval.md](references/approval.md).**
 
-**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** Build the markdown proposal table instead - `| # | Source item | Action | Why | Destination |` - and gate it on a single "Reply **go** to execute, or tell me what to change." Same vocabulary, same follow-on edits, one approval instead of N. `preview` prints the manifest first and stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
+**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** Build the markdown proposal table instead - `| # | Source item | Action | Why | Destination |` - and gate it on a single "Reply **go** to execute, or tell me what to change." Same vocabulary minus **Create entity**, same follow-on edits, one approval instead of N. `preview` prints the manifest first and stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
 ### Steps 7 to 9: Execute, update READMEs, re-render
 
@@ -73,16 +74,15 @@ One line per category: N files moved (each linked to its new path), N deleted wi
 - **Never ask a question nobody is there to answer.** On the no-ask paths of Step 5, a scheduled task or a subagent, and wherever it is unclear whether an operator is present, **fail toward the table**.
 - **Never invent new top-level PARA folders** without asking. Sub-folders inside an existing entity are fine when the convention supports them (`sources/photos/`).
 - **Don't touch `_*` prefixed subdirectories in triage** without explicit direction. Underscore-prefix means a handoff batch the maintainer is managing manually.
-- **Never search Drive unscoped.** An exact-name query without a `drive_id` answers "No files found" while the document sits in the folder. That is a **false quiet**: on an unattended run the scanner reports triage clear while items accumulate, which is the exact failure a scanner exists to prevent. Always scope to the drive id declared in the vault's `drive` row; if no row is declared, say the drive is undeclared - never infer an id and never report "nothing found" from an unscoped query.
+- **Never search Drive unscoped.** An exact-name query without a `drive_id` answers "No files found" while the document sits in the folder. That is a **false quiet**: triage reported clear while items accumulate. Always scope to the drive id declared in the vault's `drive` row; if no row is declared, say the drive is undeclared - never infer an id and never report "nothing found" from an unscoped query.
 - **Never auto-delete a converted Google-native stub.** It gets its own delete question, or a Delete row on the table path, like anything else. Idempotency comes from the conversion ledger, not from deleting.
 - **Mail is read-only.** Never send, reply, archive, or apply a label. Surface and draft only; the operator acts. The only writes the whole skill makes for a mailbox source are the local `triage/` note, the `actions.md` line, and the ledger.
-- **Connector items land in `triage/` or `actions.md`, never straight into `projects/` or an entity folder** (a mis-routed email must stay cheap to fix), **and never into a *different* vault** - a thread for elsewhere is **Dismiss (other vault)**, not a cross-vault write.
-- **Fuzzy-match before creating.** Check existing contacts, projects, and open `actions.md` items before proposing a new action. If a thread bears on tracked work, **Update existing** rather than adding a duplicate - an active vault already tracks most of what its mail is about.
-- **One next step per thread, and flag fat files.** A thread never yields more than one new checkbox, and appending to a file already at 12+ open items gets the WIP flag in the proposal, pointing at `/para-deep-clean` for grooming. Action inflation is the failure `/para-daily-brief`'s counts die of; triage is where most of it enters.
+- **Connector items land in `triage/` or `actions.md`, never straight into `projects/` or an entity folder**, **and never into a *different* vault** - a thread for elsewhere is **Dismiss (other vault)**, not a cross-vault write.
+- **Fuzzy-match before creating.** Check existing contacts, projects, and open `actions.md` items before proposing a new action. If a thread bears on tracked work, **Update existing** rather than adding a duplicate.
+- **One next step per thread, and flag fat files.** A thread never yields more than one new checkbox, and appending to a file already at 12+ open items gets the WIP flag in the proposal, pointing at `/para-deep-clean` for grooming.
 
 ## Edge cases
 
-- **Vault has no CLAUDE.md** (or no filing rules section): propose file destinations only, and ask the user to dictate the naming convention before any renames execute. A question cannot carry a filename the vault has no rule for.
 - **Vault declares triage sources but none are reachable**: file the loose files, and name each skipped source in the summary rather than reporting a clean run.
 
 Per-file edge cases (locked PDFs, date mismatches, EXIF orientation, cross-vault files) are in [references/filing.md](references/filing.md); Drive and connector ones in [references/sources.md](references/sources.md).

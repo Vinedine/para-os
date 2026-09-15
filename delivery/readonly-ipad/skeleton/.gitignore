@@ -1,6 +1,6 @@
-# Vault .gitignore, read-only iPad flavor.
+# Vault .gitignore, read-only iPad delivery.
 #
-# The base vault's file plus what a Drive-synced vault accumulates. This flavor lives on a
+# The base vault's file plus what a Drive-synced vault accumulates. This delivery lives on a
 # *shared* drive, which makes the secret guard at the bottom matter more, not less: a
 # credential dropped in here leaks to every reader, not just to a cloud provider.
 

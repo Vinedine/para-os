@@ -2,14 +2,16 @@
 
 Nothing here runs before every item has been put to the operator and approved - one question each, or one table approved as a unit on the paths that do not ask ([approval.md](approval.md)). Only approved items execute; a deferral is a no-op, not a delayed yes.
 
-**A failure anywhere still stops the whole batch**, however the approvals were collected. Per-item approval makes the *decisions* independent, not the execution: a half-applied batch needs a person to look at it, and continuing past a failed move is how one collision becomes ten.
+**A failure anywhere still stops the whole batch**, however the approvals were collected.
 
 ## Loose files
 
 In a single batched operation where possible:
 
+- **Read-only iPad delivery**: Steps 7 to 9 run inside [its cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).
+- **Create entity**: `/para-new` runs as a sub-step before the moves. Its questions settle the entity, not whether to create one. The item files into whatever entity it ends on (created, widened, or found to exist) under that entity's convention, which the approval covers, folder included, and the new brief cites that path. If it ends on no entity, the item stays in `triage/` and the batch carries on.
 - **Moves with rename**: before each move, **check that the destination does not already exist** (`test -e "<dst>" && echo EXISTS`). If it exists, stop the whole batch, report the collision, and ask how to resolve. Never overwrite silently: `mv` clobbers by default and there is no undo. Once clear: `mv "<src>" "<dst>"`, absolute paths, quote spaces.
-- **On any move failure**: **stop the batch immediately**, report which moves succeeded and which failed, and wait for direction.
+- **On any failure**: report which moves succeeded and which failed, and wait for direction.
 - **Deletions**: `rm "<path>"`. Only delete a file whose own Delete disposition was approved - its own question, or its own Delete row on the table path.
 - **Mkdir** only for destinations named in an approved disposition. Never silently create new folders.
 - **Image rotation**: on Windows, PowerShell plus System.Drawing. **Preserve the source format**: `Save($dst)` with no format argument lets GDI+ pick the encoder from the destination extension. Write to a temp path first, because `FromFile` holds an open handle on `$src`:
@@ -26,7 +28,7 @@ In a single batched operation where possible:
 
   Rotation values: `Rotate90FlipNone`, `Rotate180FlipNone`, `Rotate270FlipNone`. After `Dispose()` releases the handle, delete the source file if `$src` differs from `$dst` (the rotated version is already at the destination).
 
-After moves complete, re-list `triage/` and confirm only the expected residue remains (approved subdirectories, files explicitly left).
+After moves complete, re-list `triage/` and confirm only the expected residue remains (approved subdirectories, files explicitly left). A file that arrived during the run is not residue: leave it, and name it in the summary as arrived.
 
 ## Connector items
 
@@ -34,7 +36,6 @@ After moves complete, re-list `triage/` and confirm only the expected residue re
 - **Add action**: append the task line to the named `actions.md`, using that vault's markers. Never create a new `actions.md`; if the vault has none, this action was not offered.
 - **Note to triage**: write a short `.md` into `triage/` - frontmatter (`source`, `thread_id`, `date`, `link`), body a 2-3 line summary of what needs attention. Do not file it further in this pass.
 - **Ledger writes**: per the seen-ledger rules in [sources.md](sources.md#the-seen-ledger).
-- **Never** send, reply to, archive, or label a mailbox. The only writes are the `actions.md` edit, the `triage/` note, and the ledger.
 
 ## README follow-ons (Step 8)
 
@@ -49,8 +50,4 @@ For multi-paragraph headers (Background, Open items): only edit if the new file 
 
 ## Re-render PDFs (Step 9)
 
-Only if the vault has `render.ps1`:
-
-- Check whether the vault is in **spread** state (README.md sits next to README.pdf in PARA folders) or **collected** state (README.md files all live under `resources/mds/`).
-- **Spread**: run `& "<vault>\render.ps1"`. It re-renders only the MDs newer than their PDFs.
-- **Collected**: do not run render. Tell the user "Vault is in collected state; PDF re-render skipped. Run `.\flip.ps1 spread; .\render.ps1; .\flip.ps1 collect` when ready."
+Only if the vault has `render.ps1`: run it from the vault root, and on the read-only iPad delivery close [its cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).

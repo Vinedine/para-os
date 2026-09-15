@@ -45,9 +45,9 @@ node granola.js --write    # create the notes
 node granola.js --days 14  # override the look-back window
 ```
 
-Re-runs are safe: a dedup ledger (`~/.paraos/cache/granola/synced.json`) and an existing-file check mean a meeting is never written twice. Delete a synced note and it will not come back unless you also clear it from the ledger.
+Re-runs skip a meeting that is in the dedup ledger (`~/.paraos/data/granola/synced.json`) or whose note is still in `triage/`; once `/para-triage` has filed a note elsewhere the ledger is the only record of it, so a cleared ledger re-imports every meeting in the look-back window. Delete a synced note and it will not come back unless you also clear it from the ledger.
 
-Each note carries YAML front-matter (`title`, `date`, `granola_id`, `source: granola`, `attendees`), a `## Summary` (Granola's enhanced notes), and a `## Transcript` (speaker-attributed).
+Two different meetings with the same date and title both land: the second gets the first six characters of its id appended. Each note carries YAML front-matter (`title`, `date`, `granola_id`, `source: granola`, `attendees`), a `## Summary` (Granola's enhanced notes), and a `## Transcript` (speaker-attributed).
 
 ## The `~/.paraos` contract
 
@@ -57,7 +57,7 @@ This integration follows the para-os rule *scripts live in the vault, their secr
 |---|---|---|
 | The two scripts | `<vault>/resources/scripts/` | (in the vault, version-controlled) |
 | Login token | `~/.paraos/secrets/granola.json` | secret - never syncs to a cloud drive or git |
-| Dedup ledger | `~/.paraos/cache/granola/synced.json` | cache - safe to delete, rebuilds |
+| Dedup ledger | `~/.paraos/data/granola/synced.json` | data - it does not rebuild once notes have left `triage/`; an older `cache/granola/synced.json` is still read and merged in |
 
 The root is `PARAOS_HOME` (default `~/.paraos`). See [`integrations/README.md`](../README.md) and `~/.paraos/README.md`.
 

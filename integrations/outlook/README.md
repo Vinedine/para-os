@@ -45,11 +45,7 @@ It is narrow by default because the token endpoint is asymmetric. A refresh may 
 
 `login` signs in through the **browser**: authorization code + PKCE, redirected to a loopback port this script opens for the duration. `login --device-code` still runs the old flow.
 
-The default changed because device code flow is being closed off. Blocking it is one of the enforced security-defaults policies, and:
-
-> Starting July 1, 2026, all new Microsoft Entra tenants block device code flow as part of security defaults.
-
-So on a tenant created from that date, a device-code sign-in is refused outright with `AADSTS530035` while a browser sign-in is untouched. **This is the normal case for a new client tenant, not an edge case.**
+The default changed because device code flow is being closed off. New Microsoft Entra tenants now ship with security defaults that block it, so on a new tenant a device-code sign-in is refused outright with `AADSTS530035` while a browser sign-in is untouched. A tenant created before that change is unaffected. **This is the normal case for a new client tenant, not an edge case.**
 
 The way it presents is worth knowing, because it does not look like a policy. A new tenant gets a **24-hour grace period** before security defaults are enforced. So the first login works, the mailbox reads fine for a day, and then every refresh starts failing the next afternoon, which reads as "it worked until lunchtime" and sounds nothing like a tenant policy.
 
@@ -77,7 +73,7 @@ Microsoft says why in `error_description`, keyed by an `AADSTS` code, and the sc
 | `accounts` | List configured mailboxes | no |
 | `fetch [--days N] [--include-bulk]` | Candidates as JSON on stdout, for a skill to judge | **never** |
 | `search <query> [--limit N] [--body] [--all-mailboxes]` | Ad-hoc keyword search across the whole mailbox | **never** |
-| `raw <graph-path>` | Raw Graph GET, for debugging | no |
+| `raw <graph-path> [--account <email>]` | Raw Graph GET: debugging, and reading one message in full | no |
 
 There is no default command. A bare `outlook.py` asks for a subcommand: the default used to be `sync`, which is what made `outlook.py --write` do something, and nothing should quietly pick a behaviour for a script that reads mailboxes.
 
@@ -90,6 +86,8 @@ A refresh token lives only on the machine it was granted on, by design. So on a 
 Both read and neither writes; they differ in the question they answer. `fetch` walks a recent window of the inbox and the archive, for a skill to triage. `search` asks one question of the whole mailbox at any depth and prints the answer, which is what you want when the thing you are looking for is older than any window worth walking.
 
 The scopes differ on purpose. `fetch` asks "what has arrived that nobody has dealt with", so Junk Email and Deleted Items are answers someone already gave and it does not reopen them; `search` asks "where is this thing", and a thing can be anywhere, so it reads everything.
+
+Both print Graph's `bodyPreview`, a couple of hundred characters. **To read a hit in full**, `raw '/me/messages?$search="<query>"&$select=id,subject,from,receivedDateTime,body'`, then `raw /me/messages/<id>/attachments` for its files: decode an attachment's `contentBytes` (base64) to a scratch file and read that. A shared mailbox is `/users/<shared address>/...` with `--account` naming its `via` user.
 
 ### `fetch`: read now, decide before writing
 

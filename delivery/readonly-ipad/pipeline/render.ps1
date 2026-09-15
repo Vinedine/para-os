@@ -33,17 +33,13 @@
     Re-render every .md.
 
 .NOTES
-    Part of para-os (read-only iPad flavor). This script lives in the root of
-    each vault that uses this flavor. The copies are intended to be identical -
+    Part of para-os (read-only iPad delivery). This script lives in the root of
+    each vault that uses this delivery. The copies are intended to be identical -
     if you change this file, propagate the change to the other vaults. See the
     vault CLAUDE.md for context.
-
-    Version: 3.0 (2026-05-12) - Puppeteer with persistent browser via render.mjs.
-                                Replaces v2.0's md-to-pdf (per-file cold start,
-                                CDN-dependent stylesheets, prone to hangs).
 #>
 
-# para-os-integration: readonly-ipad 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: readonly-ipad 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 [CmdletBinding()]
 param(

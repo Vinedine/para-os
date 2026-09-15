@@ -2,7 +2,7 @@
 name: para-activity-review
 description: Read a vault's activity ledger and report how the vault is actually being used - which skills get invoked and which never, where sessions stall or fail, which parts of the structure nobody touches, and where use contradicts the vault's own rules. Every finding names a change to make. Use when the user asks "how are they using the vault", "is anyone actually using this", "what should I fix about the vault", "review the usage log", "which skills does nobody use", or types /para-activity-review.
 allowed-tools: Bash, Glob, Grep, Read, Write, AskUserQuestion
-arg-hint: '[<vault-path>] [days]'
+arg-hint: '[<vault-path>] [days] [--test]'
 ---
 
 # Activity review
@@ -31,6 +31,7 @@ Requires the activity integration installed in the vault being reviewed. Without
 - No arguments: the current vault, last 30 days.
 - A path: review that vault. This is the cross-vault case - a maintainer reviewing a vault somebody else uses.
 - A number: the window in days. Fewer than 7 days of ledger is a first look, not a review, and the report says so.
+- `--test`: test run, see [para-shared/test-run.md](../para-shared/test-run.md).
 
 ## Procedure
 

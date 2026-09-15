@@ -6,7 +6,7 @@
 
 The lifecycle names it: someone is waiting on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar. If the vault or the idea's own brief defines a stricter bar, that one applies.
 
-An idea that has merely become interesting again has not been promoted. Say so and leave it where it is - moving it early creates a project that `/para-daily-brief` counts and nobody works on, which is exactly the noise the idea bucket exists to keep out.
+An idea that has merely become interesting again has not been promoted. Say so and leave it where it is.
 
 ## Step 2 - Ask only what the brief cannot answer
 
@@ -23,17 +23,17 @@ Grep the whole vault for references to the idea's path and name. Classify each: 
 
 ## Step 4 - Move, retense, seed
 
-In order:
+In order, on the read-only iPad delivery inside [its edit cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery):
 
 1. Move the folder with `git mv` so history is preserved, falling back to a plain move if the vault is not a git repo.
 2. **Retense the brief** to the vault's project shape. Facts are preserved verbatim: the concept becomes the goal, the reasoning becomes why it matters, open questions that are still open stay open questions. Idea-only anchors that the vault's conventions define (a stage line, a promotion-criteria section) are removed, because they now describe a state the entity has left. Nothing is silently dropped: anything that no longer fits the project shape is surfaced, not deleted.
 3. **Create `actions.md`** with the single next step from Step 2, and a `📅` only where the date is real. Everything else the brief proposed stays prose.
 4. **Repoint every inbound link** from Step 3.
-5. **Re-depth the links *inside* the moved folder** ([operating-discipline.md](../../para-shared/operating-discipline.md#moving-an-entity-folder)). This move is `resources/ideas/<name>/` to `projects/<name>/`: three levels to two, so each link **loses one** `../`.
+5. **Rewrite the links *inside* the moved folder** per [operating-discipline.md](../../para-shared/operating-discipline.md#moving-an-entity-folder): only a link whose target lies outside what moved changes.
 
 ## Step 5 - Verify
 
-Two assertions, because one of them passes while the vault is broken. Re-run the Step 3 grep and assert zero stale references to the old path. Then resolve **every relative link inside the moved folder** against its new location and assert each target exists. The first check alone reports success on a folder full of dead links, which is exactly how this fails in practice. A promotion that leaves broken links either way is a failed run.
+Re-run the Step 3 grep and assert zero stale references to the old path. Then resolve **every relative link inside the moved folder** against its new location and assert each target exists. A promotion that leaves broken links either way is a failed run.
 
 ## Edge cases
 

@@ -1,22 +1,23 @@
 ---
 name: para-archive
-description: Archive a finished project or a retired idea end-to-end - reconcile its open actions, validate its brief/actions files, optionally version-suffix it (projects only), route living-reference files to resources/, then move it to archive/ and repoint every inbound link in the vault. Use when a project has shipped or an idea is being shelved and the user asks to "archive this", "close out <name>", "wrap up <name>", "shelve <idea>", or types /para-archive <name>.
+description: Archive a finished project, a retired idea, or an area the vault names an archive destination for, end-to-end - reconcile its open actions, validate its brief/actions files, optionally version-suffix it (projects only), route living-reference files to resources/, then move it to archive/ and repoint every inbound link in the vault. Use when a project has shipped or an idea is being shelved and the user asks to "archive this", "close out <name>", "wrap up <name>", "shelve <idea>", or types /para-archive <name>.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion
-arg-hint: '<name> [preview|table]'
+arg-hint: '<name> [preview|table] [--test]'
 ---
 
 # Para archive
 
-Performs the full lifecycle transition for **one finished project or one retired idea**, leaving no dangling links behind:
+Performs the full lifecycle transition for **one finished project, retired idea, or ended area**, leaving no dangling links behind:
 
 - A **project** moves from `projects/<name>/` (active) to `archive/projects/<name>/` (closed).
 - An **idea** moves from `resources/ideas/<name>/` (concept-stage) to `archive/ideas/<name>/` (shelved).
+- Where the vault's `CLAUDE.md` names another archive destination for the entity's kind, it goes there instead, and an **area** archives only where such a destination is named for its kind.
 
-Both follow the same flow. The only difference is the source and destination bucket, and the **version-suffix step, which applies to projects only**. Deep-clean finds archivable entities during a sweep; this skill executes the one move thoroughly.
+All follow the same flow. The only difference is the source and destination, and the **version-suffix step, which applies to projects only**. Deep-clean finds archivable entities during a sweep; this skill executes the one move thoroughly.
 
 **This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime for the PARA layout, the **Archive hygiene** conventions, the action-marker syntax, the naming convention, and any "do not add" rules. No vault-specific paths are hardcoded.
 
-Do NOT invoke to archive areas or contacts - this skill handles projects and ideas only. Do NOT invoke mid-project to "tidy up": archiving a project means the deliverable is complete, and archiving an idea means the concept is being shelved, not that it's mid-exploration.
+Do NOT invoke to archive contacts, or an area the vault names no archive destination for. Do NOT invoke mid-project to "tidy up": archiving a project means the deliverable is complete, and archiving an idea means the concept is being shelved, not that it's mid-exploration.
 
 ## Arguments
 
@@ -27,6 +28,7 @@ Do NOT invoke to archive areas or contacts - this skill handles projects and ide
 | `<name>` | Full flow: reconcile, validate, version (projects only), route refs, move, repoint links, report. Pauses for approval at each decision. |
 | `<name> preview` | Run the analysis (open actions, file validation, inbound-link scan) and show the plan - the manifest of questions a live run would ask, then the proposal - but make NO changes. |
 | `<name> table` | The batch proposal flow: one markdown proposal table, one `go`, then execute. The explicit escape from item-by-item questions that [para-shared/asking.md](../para-shared/asking.md) requires every asking skill to name, for an operator who would rather read the batch than click through it. |
+| `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## Procedure
 
@@ -35,12 +37,14 @@ Each step that changes files ends with a proposal and waits for explicit approva
 ### Step 1 - Confirm context and locate the entity
 
 1. **Resolve the vault root, then verify it** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`). A root has `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
-2. Read the vault's `CLAUDE.md` for: PARA layout, action-marker syntax, naming convention, the ideas-vs-projects bar, the archive subfolder layout (`archive/projects/`, `archive/ideas/`, `archive/meetings/`), and "do not add" rules.
-3. **Determine whether `<name>` is a project or an idea:**
+2. Read the vault's `CLAUDE.md` for: PARA layout, action-marker syntax, naming convention, the ideas-vs-projects bar, the archive subfolder layout (`archive/projects/`, `archive/ideas/`, `archive/meetings/`), any archive destination it names for a kind of entity, and "do not add" rules.
+3. **Determine whether `<name>` is a project, an idea or an area:**
    - `projects/<name>/` exists: it's a **project**; source = `projects/<name>/`, destination = `archive/projects/<name>[-vN]/`.
    - `resources/ideas/<name>/` exists: it's an **idea**; source = `resources/ideas/<name>/`, destination = `archive/ideas/<name>/`.
-   - If both exist, ask which one. If neither exists, list the `projects/` and `resources/ideas/` folders and ask which one.
-   - Carry this **kind** through the rest of the flow - it selects the buckets and whether the versioning step runs.
+   - A folder named `<name>` under `areas/` exists and the vault names an archive destination for its kind: it's an **area**; destination = that one.
+   - Where the vault names a destination for the entity's kind, it replaces the default. Tell the kind from the entity's brief or README; ask where that does not settle it.
+   - If several match, ask which one. If none does, list the `projects/` and `resources/ideas/` folders and ask which one.
+   - Carry this **kind** through the rest of the flow - it selects the source, the destination and whether the versioning step runs.
 4. **Confirm the entity is actually done, and keep that question two-way.** A project's deliverable is shipped (don't archive live work), or an idea is genuinely being shelved (don't archive an idea still under active exploration). Where the vault's own record disagrees - an open dated action, a brief saying it archives after some event still ahead - say so in one line and put it to the operator as **proceed or stop**, nothing else. It is the one question in the run whose answer is a fact about their situation rather than a disposition, so it carries no recommendation (`asking.md`). **Never offer a blanket disposition for what is still open.** A "drop what's left" option at the gate approves every destructive item in the run on a single click, which is the batching `asking.md` exists to forbid; what happens to each open item is Step 2's question, asked one at a time, once the gate says proceed.
 
 ### Steps 2 to 5 - Reconcile, validate, route, version
@@ -49,7 +53,7 @@ Split the actions into done and open and get a disposition for each open one; va
 
 ### Steps 6 to 8 - Scan links, execute, verify
 
-Grep the whole vault for inbound references and classify each before anything moves; execute the moves with `git mv`, re-depthing the relative links *inside* whatever moved; then re-run the grep and resolve the outbound links, asserting zero dangling references in either direction. **Full procedure: [references/move.md](references/move.md).**
+Grep the whole vault for inbound references and classify each before anything moves; execute the moves with `git mv`, rewriting the relative links *inside* whatever moved; then re-run the scan and resolve the outbound links, asserting zero dangling references in either direction. **Full procedure: [references/move.md](references/move.md).**
 
 ## Strict rules
 
@@ -58,7 +62,7 @@ Grep the whole vault for inbound references and classify each before anything mo
 - **Zero dangling links is the bar, in both directions.** Inbound references and the links written *from* inside the entity are two different scans; leaving either broken is a failed run, and the reconciliation (Steps 6 to 8) is not optional.
 - **Ask, don't assume, for surviving actions,** one question per action and never a list approved at once. Don't auto-scaffold a successor; the user may want the work in an existing project, an area, or dropped.
 - **Don't archive live work.** If a project's open actions are still genuinely live (not routable out), the project isn't done - stop and say so rather than burying live work. Likewise, don't archive an idea that's still under active exploration.
-- **Version logic is for projects only.** Never apply a `-vN` suffix to an idea; ideas archive under their own name in `archive/ideas/`.
+- **Version logic is for projects only.** Never apply a `-vN` suffix to an idea or an area; they archive under their own name.
 
 Archive-hygiene rules - no open actions, living-refs to resources, minimum record, zero dangling links - come from the **Archive hygiene** conventions in CLAUDE.md, whether that's the vault's own file or an inherited global one.
 

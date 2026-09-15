@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Move .md (and rendered deal-sheet .html) source files between their PARA
+    Move .md (and rendered standalone .html) source files between their PARA
     homes and a flat collected folder.
 
 .DESCRIPTION
@@ -12,7 +12,7 @@
 
     The vault's reader views it via Google Drive shortcuts into the PARA
     folders. In collected state, those folders contain only PDFs - no .md
-    clutter. PDFs never move; only .md and deal-sheet .html files flip
+    clutter. PDFs never move; only .md and rendered .html files flip
     locations.
 
     Render PDFs in spread state via render.ps1. Typical edit cycle:
@@ -42,12 +42,12 @@
     .\flip.ps1 spread -DryRun
 
 .NOTES
-    Part of para-os (read-only iPad flavor). Identical copies of flip.ps1 live
-    in each vault that uses this flavor. If you change one, propagate to the
+    Part of para-os (read-only iPad delivery). Identical copies of flip.ps1 live
+    in each vault that uses this delivery. If you change one, propagate to the
     others.
 #>
 
-# para-os-integration: readonly-ipad 2026.08.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: readonly-ipad 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 [CmdletBinding()]
 param(

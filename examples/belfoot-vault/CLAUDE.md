@@ -1,11 +1,11 @@
 # BelFoot Vault Conventions
 
-<!-- para-os-template: 2026.09.02 -->
-**Type:** vault (default flavor: plain editable markdown)
+<!-- para-os-template: 2026.09.03 -->
+**Type:** vault
 
 The consulting vault for BelFoot Royal Sporting Club ("BelFoot FC", Belgian Pro League) and its multi-stream IT modernisation programme - an external consultant engagement, started Q1 2026, running through 2027. Per-vault guidance for Claude Code sessions.
 
-Both lines above are machine-read (the comment by `/para-upgrade`, the type by your own tooling) and must survive every upgrade.
+The lines above are machine-read (the comment, and any `**Delivery:**` or `**Flavor:**` line under the type, by `/para-upgrade`; the type by your own tooling) and must survive every upgrade.
 
 ## Context
 
@@ -30,7 +30,7 @@ Root `README.md` is the master document, single source of truth for identity, op
 - `/para-new` **creates** a workstream, area, idea, or contact, settling its shape against the sorting test before scaffolding anything.
 - An idea **promotes** to `projects/` when someone waits on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar; it earns its `actions.md` then, not before. Retiring an idea is always the operator's call, never automatic: one that never happened goes to `archive/ideas/`, one where real work ran and then stopped goes to `archive/projects/`.
 - The next big, dated push on a maintained asset is a **project running alongside its area**; when it archives, surviving work returns to the area.
-- An entity **archives whole** (brief, actions, sources) via `/para-archive`, with open items routed out *first* to the owning area, a successor project, or the contact file.
+- An entity **archives whole** (brief, actions, sources) via `/para-archive`, with open items routed out *first* to the owning area, a successor project, or the contact file. Where this file names an archive destination for a kind of entity, that kind goes there instead of `archive/projects/` or `archive/ideas/`, an area included.
 - **Every move repoints inbound links in the same pass**, not just archiving. `/para-deep-clean` audits for dangling links.
 
 ### Archive hygiene
@@ -63,7 +63,7 @@ A checkbox is something you could act on now or on its marked date, not a plan. 
 
 ### The content frontier
 
-- **Say it once.** Every fact has one owning file; elsewhere it is a link, never a copy.
+- **Say it once.** Every fact has one owning file; elsewhere it is a link, never a copy. A figure is the case that bites: it is typed into the vault once, and every other place generates it, links to it, or carries a dated copy with its reason. The full convention is in [.claude/rules/figures.md](.claude/rules/figures.md), which loads on its own when a brief or an entity README is read; read it explicitly before writing a figure into one.
 - **A development log records decisions, not activity.** A decision and why, a constraint found, a route rejected. "Continued work on X" is not an entry.
 - **Superseded content leaves the live buckets** for `archive/` or git history.
 - **Never delete to satisfy this.** Pruning is proposed and ruled on one item at a time; the default is *move* or *demote*, and deletion applies only to a genuine duplicate whose contents were compared against the surviving copy. Source documents and `triage/` are never pruned.
@@ -83,8 +83,12 @@ A checkbox is something you could act on now or on its marked date, not a plan. 
 
 - **Contacts**: one file per stakeholder at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context at the top, `## Next actions` at the bottom, `_None currently._` when empty. A shared workstream is tracked in the primary stakeholder's file; the others carry a pointer line.
 - **Dated conversation records** (meeting notes, transcripts, chat/email sequences): to the `sources/` of the owning workstream or area; `archive/meetings/YYYYMMDD Description.md` only when they span several entities.
-- **Source documents**: `sources/YYYYMMDD <Who> <Description>.<ext>` - the date of the document itself (signing, issue, inspection), not the received date.
+- **Source documents**: `sources/YYYYMMDD <Who> <Description>.<ext>` - the date of the document itself (signing, issue, inspection), not the received date. The full convention (folder variants, period attestations, machine exports, executed filing rules, and where a document lives) is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on its own when a triage item or a source document is read; read it explicitly before filing one.
 - **Brief and relationship**: the contact file is the relationship summary; the workstream folder holds the brief and execution detail. Cross-link both ways.
+
+## Entity structures
+
+- **Briefs** - a workstream brief fixes its section order (`Why now` / `Scope` / `Stakeholders` / `Deadline` / optional `Vendor` / optional `Risks (live)` / `Status`); an idea brief follows its own fixed shape with a required `**Stage:**` line. The full shape is in [.claude/rules/brief-structure.md](.claude/rules/brief-structure.md), which loads on its own when a brief is read; read it explicitly before creating one.
 
 ## Authoritative sources
 
@@ -119,6 +123,7 @@ A persistent script the agent writes for this vault lives at `resources/scripts/
 - **Derived outputs as standalone files**: decks, reports, one-pager text regenerate from `README.md`.
 - **Content rewrites during reorganization**: structure changes preserve copy verbatim; fix wording in a later pass.
 - **Procedure and rationale in this file.** A rule governing a script lives in that script's README or docstring, the mechanics of a skill live in the skill, and the reason behind a rule lives in git history. This file states rules. 200 lines including everything the vault adds is the **target**; past it the lever is extracting procedure - to `.claude/rules/`, to the owning script or skill - never cutting the rules the vault itself needs.
+- **A `.claude/rules/<topic>.md` file is one of two kinds, each with a `paths:` list of the globs it governs.** A **shape** file fixes the structure of one kind of document: `brief-structure.md` and `readme-structure.md` are the floor, and a topic file takes over the documents its `paths:` name (of its kind, where those paths match others too), with the floor file saying so. It opens on an `**Order:**` line and `## The shape`, closes on `## Placeholders` stating this vault's actual convention, and its pointer under `## Entity structures` reads "The full shape is in [.claude/rules/<file>.md](.claude/rules/<file>.md), which loads on its own when a <kind> is read; read it explicitly before creating one." A **convention** file states a rule spanning documents, with no `**Order:**`, `## The shape` or `## Placeholders`; `filing.md` and `figures.md` ship with this template, and a vault extends its copy. Its pointer follows a sentence stating the rule and reads "The full convention is in [.claude/rules/<file>.md](.claude/rules/<file>.md), which loads on its own when a <kind> is read; read it explicitly before <acting on> one.", any list of what it covers going before "is in".
 
 ## Skills wired to this vault
 

@@ -1,0 +1,115 @@
+# {{Vault Name}} Vault Conventions
+
+<!-- para-os-template: 2026.09.03 -->
+**Type:** {{vault-type}}
+**Delivery:** readonly-ipad
+
+{{One-line description of what this vault covers.}} Per-vault guidance for Claude Code sessions.
+
+The lines above are machine-read (the comment, and any `**Delivery:**` or `**Flavor:**` line under the type, by `/para-upgrade`; the type by your own tooling) and must survive every upgrade.
+
+<!-- readonly-ipad DELIVERY: the operator maintains the vault in markdown; a reader consumes it
+     read-only as PDFs on an iPad via Google Drive. Every line tracks base/CLAUDE.md.template
+     verbatim except these deltas, so propagate base changes here:
+       1. The **Delivery:** line under the type.
+       2. No action tracking: "## Actions" is dropped, a "## Do not add" bullet bans actions.md,
+          and every other mention of actions.md or `## Next actions` is cut or becomes prose.
+       3. The content frontier stands as its own "## The content frontier", where "## Actions" was.
+       4. PARA layout gains `resources/mds/`; root README.md sits out of the reader's view.
+       5. Language adds the reader's language.
+       6. "## iPad access and rendering" replaces "## File formats", folding in its stub rule,
+          and carries the pipeline, the reader's access and the `.pdf`-sibling rule.
+       7. The rules bullet in "## Do not add" doubles each glob for the collected state.
+       8. The closing comment adds the "## Triage sources" override. -->
+
+## PARA layout
+
+The sorting test between buckets: **committed and dated → project. Maintained, no end date → area. Only thinking about it → idea. Over → archive.**
+
+- **triage/** - unprocessed items, emptied via `/para-triage`. Never a `README.md` here (it would count as an item forever); a `.gitkeep` holds the folder in git.
+- **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline, one folder per project, each holding a `brief.md` and, where relevant, a `sources/` subfolder.}} A project needs a clear goal **and** a deadline; a rolling improvement backlog on something you own is an area wearing a project name.
+- **areas/** - ongoing responsibilities with no end date. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset, each with its own `brief.md`; assets that gate each other (a domain, the sites on it, the subscription paying for both) form **one** area.{{ Add any other area subfolders this vault needs.}}
+- **resources/** - reusable reference, never a checkbox. `prompts/` = reusable specs and drafts. `ideas/` = one folder per concept-stage idea: a `brief.md` holding open questions plus at most one prose "revisit when X" trigger, and a `sources/` where real documents back it (it travels with the idea on promotion). `scripts/` = persistent tools; their runtime state lives *outside* the vault (see below). `mds/` = collected `.md` sources (see the flip workflow); never browsed manually.
+- **archive/** - inactive artifacts, always in a subfolder. `meetings/` = conversation records spanning several entities.{{ Add `projects/` = completed work and `ideas/` = shelved concepts, if this vault archives finished projects and retired ideas (both filled by `/para-archive`).}}
+
+Root `README.md` is the master document, single source of truth for identity, operating model, and track record. It sits above the PARA folders so the reader never sees it; derived outputs regenerate from it. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in that order and in English whatever the body language, and Vision is never a stub; vault-specific sections follow, an optional `## Principles` (standing decisions not to relitigate) among them. It carries no work state in any syntax - no checkbox, `📅` marker, status list, deadline table, Status column, or prose standing in for one (_to confirm_, _still to settle_): live state belongs in `projects/` and `areas/`. A status *fact* about the vault's subject (`| Status | Active |` beside a registration number) is not work state and stays.
+
+### Lifecycle
+
+- `/para-new` **creates** a project, area, idea, or contact, settling its shape against the sorting test before scaffolding anything.
+- An idea **promotes** to `projects/` when someone waits on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar. Retiring an idea is always the operator's call, never automatic: one that never happened goes to `archive/ideas/`, one where real work ran and then stopped goes to `archive/projects/`.
+- The next big, dated push on a maintained asset is a **project running alongside its area**; when it archives, surviving work returns to the area.
+- An entity **archives whole** (brief, sources) via `/para-archive`, with open items routed out *first* to the owning area, a successor project, or the contact file. Where this file names an archive destination for a kind of entity, that kind goes there instead of `archive/projects/` or `archive/ideas/`, an area included.
+- **Every move repoints inbound links in the same pass**, not just archiving. `/para-deep-clean` audits for dangling links.
+
+### Archive hygiene
+
+Applied on the way in, audited by `/para-deep-clean`:
+
+- **No live work in the archive.** Zero open actions: every item done, or softened to an explicit "fully closed; minor gaps not material" note.
+- **History archives; living references go to `resources/<name>/`.** Playbooks, strategy docs, templates, anything other live work links to.
+- **No loose files at the archive root.** Everything lives in a subfolder.
+- **Minimum record.** A status marker saying why it is archived, plus its `brief.md`/`README.md`.
+- **Zero dangling links.** No inbound reference still points at the pre-archive path; a historical mention *inside* the archived folder is fine.
+
+## The content frontier
+
+- **Say it once.** Every fact has one owning file; elsewhere it is a link, never a copy. A figure is the case that bites: it is typed into the vault once, and every other place generates it, links to it, or carries a dated copy with its reason. The full convention is in [.claude/rules/figures.md](.claude/rules/figures.md), which loads on its own when a brief or an entity README is read; read it explicitly before writing a figure into one.
+- **A development log records decisions, not activity.** A decision and why, a constraint found, a route rejected. "Continued work on X" is not an entry.
+- **Superseded content leaves the live buckets** for `archive/` or git history.
+- **Never delete to satisfy this.** Pruning is proposed and ruled on one item at a time; the default is *move* or *demote*, and deletion applies only to a genuine duplicate whose contents were compared against the surviving copy. Source documents and `triage/` are never pruned.
+
+## Filing and naming
+
+- **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context as prose, with open asks stated explicitly, including when there are none. A shared workstream is narrated in the primary contact's file; the others carry a pointer line.
+- **Dated conversation records** (meeting notes, transcripts, chat/email sequences): to the `sources/` of the owning project or area; `archive/meetings/YYYYMMDD Description.ext` only when they span several entities.
+- **Source documents**: {{the naming convention for filed documents, e.g. `YYYYMMDD <Who> <Description>.<ext>`. /para-triage applies it literally; left undefined, it asks before renaming anything.}} The full convention (folder variants, period attestations, machine exports, executed filing rules, and where a document lives) is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on its own when a triage item or a source document is read; read it explicitly before filing one.
+- **Brief and relationship**: the contact file is the relationship summary; the project folder holds the brief and execution detail. Cross-link both ways.
+
+## Authoritative sources
+
+Name the owning surface *before* answering. Check `triage/` before searching by date: an item waiting to be filed is usually the current one. Machine-readable exports and system-of-record data beat hand-maintained tables in briefs; when they disagree, the system wins and the brief gets corrected.
+
+{{OPTIONAL: for a vault with several competing sources, a short `Question | Authoritative source` table. Delete this line if the vault has one obvious source.}}
+
+## Language
+
+Folders and structural files in English. Content may be in any language, matching the source; don't translate stored content unless asked. The operator's language is {{operator language, e.g. English / French / Dutch}}: explain, summarize, and answer in it whatever the source document's language, quoting the original only where the exact wording is load-bearing (a legal clause, a term of art, a figure). {{If the reader's language differs, note here which language rendered PDFs are written in.}}
+
+## Memory
+
+This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files. Durable facts belong in the file they describe: conventions here, identity and operating model in `README.md`, everything else in the relevant project, idea, or contact note.
+
+## iPad access and rendering ({{Reader}})
+
+{{Reader}} reads this vault as PDFs on an iPad through Google Drive shortcuts to `triage/`, `projects/`, `areas/`, `resources/`, `archive/` and never reaches the vault root. A new top-level folder needs a matching shortcut: flag it.
+
+- **Two states, flipped with `flip.ps1`.** *Collected* (default, what the reader sees): every `.md` lives in `resources/mds/` with its vault path encoded in the filename (`projects__<entity>__brief.md`), PARA folders hold only `.pdf`. *Spread* (editing): `.md` files sit beside their `.pdf` siblings. Edit cycle: `flip.ps1 spread`, edit, `render.ps1`, `flip.ps1 collect`. If the vault is already spread, the operator may be mid-edit: don't re-collect without checking.
+- **`render.ps1` renders `.md` and standalone `.html` to `.pdf` siblings**, incrementally by mtime, except under `sources/` and `resources/mds/`; `CLAUDE.md`, `.claude/`, `.git/`, `.obsidian/`, `.vscode/` are never rendered. Setup, engine, and the byte-identical-copies rule live in the delivery's README and the scripts' own headers.
+- **A `.md` moves and is deleted together with its `.pdf` sibling**, and re-renders at its new path; never leave a `.pdf` behind.
+- **Read content ships as `.pdf`, images, video, or Office files.** `.md` and `.txt` do not open reliably on the iPad; a reader reporting a file that won't open is looking for the PDF sibling.
+- **Real files only.** Google-native Docs/Sheets/Slides sync as stubs the pipeline cannot relocate; convert them to `.docx`/`.xlsx` (or Markdown/CSV for our own content).
+
+## Integration scripts and their state
+
+A persistent script the agent writes for this vault lives at `resources/scripts/`. Its credentials, caches, and bulk data live under `~/.paraos/`, never inside a folder that syncs. `resources/scripts/README.md` carries the state buckets and the `PARAOS_HOME` resolver.
+
+## Do not add
+
+- **Action tracking**: no `actions.md` file, ever; next steps are prose in the relevant brief, area, or contact file. `/para-daily-brief` detects this delivery by their absence.
+- **Templates** before a second instance proves the shape.
+- **Derived outputs as standalone files**: web copy, deck content, one-pager text regenerate from `README.md`.
+- **Content rewrites during reorganization**: structure changes preserve copy verbatim; fix wording in a later pass.
+- **Procedure and rationale in this file.** A rule governing a script lives in that script's README or docstring, the mechanics of a skill live in the skill, and the reason behind a rule lives in git history. This file states rules. 200 lines including everything the vault adds is the **target**; past it the lever is extracting procedure - to `.claude/rules/`, to the owning script or skill - never cutting the rules the vault itself needs.
+- **A `.claude/rules/<topic>.md` file is one of two kinds, each with a `paths:` list of the globs it governs.** A **shape** file fixes the structure of one kind of document: `brief-structure.md` and `readme-structure.md` are the floor, and a topic file takes over the documents its `paths:` name (of its kind, where those paths match others too), with the floor file saying so. It opens on an `**Order:**` line and `## The shape`, closes on `## Placeholders` stating this vault's actual convention, and its pointer under `## Entity structures` reads "The full shape is in [.claude/rules/<file>.md](.claude/rules/<file>.md), which loads on its own when a <kind> is read; read it explicitly before creating one." A **convention** file states a rule spanning documents, with no `**Order:**`, `## The shape` or `## Placeholders`; `filing.md` and `figures.md` ship with this template, and a vault extends its copy. Its pointer follows a sentence stating the rule and reads "The full convention is in [.claude/rules/<file>.md](.claude/rules/<file>.md), which loads on its own when a <kind> is read; read it explicitly before <acting on> one.", any list of what it covers going before "is in". Each glob is doubled: the plain form for the spread vault, and its `resources/mds/<a>__<b>__...` form for the collected one.
+- {{Anything else that belongs in a different vault or system, e.g. "Accounting, invoicing, financial records - belong in a separate vault (one vault per life context)."}}
+
+<!-- The optional sections a mature vault grows into (## MCP integration intent,
+     ## Triage sources, ## Agenda sources, ## Operating rules, ## Cross-vault references,
+     ## Project context) are listed once, in base/bootstrap-prompt.md. Do not restate them
+     here - two copies drift. Add none of them at setup; each arrives when the vault
+     actually needs it. A proven entity shape is not one of these: it goes to
+     .claude/rules/, never to an inline CLAUDE.md section (see ## Do not add above).
+
+     On this delivery, an item a "## Triage sources" row surfaces only ever becomes a
+     `triage/` note, never an action line. -->

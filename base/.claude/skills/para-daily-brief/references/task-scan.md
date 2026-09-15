@@ -4,7 +4,7 @@ Everything between "the vault is a folder of markdown" and "a set of bucketed, p
 
 ## Step 1c: Resolve an entity scope
 
-Runs only when the argument is not one of the four reserved scope words (`today`, `week`, `overdue`, `all`) **and reads like an entity name** - one to three words or a `projects/<name>` / `areas/<name>` path, with no sentence punctuation (SKILL.md, Arguments). The scope words win on a collision, so an entity genuinely named `all` is reached by its path (`/para-daily-brief projects/all`) - a case worth handling correctly and not worth a word of output. Prose never reaches this step: it takes the default scope and rides along as an instruction, so the "never guess, never widen" rule below applies to a name that failed to resolve, not to a sentence that was never a name.
+Runs only when the argument is not one of the four reserved scope words **and reads like an entity name** (SKILL.md, Arguments). The scope words win on a collision, so an entity genuinely named `all` is reached by its path (`/para-daily-brief projects/all`).
 
 Build the candidate list from the direct subfolders of `projects/` and `areas/`, one Bash call:
 
@@ -12,7 +12,7 @@ Build the candidate list from the direct subfolders of `projects/` and `areas/`,
 ls -d projects/*/ areas/*/ 2>/dev/null
 ```
 
-Match the argument against those folder names, **case-insensitively, in this order**, and stop at the first rule that yields exactly one:
+Match the argument against those folder names, **case-insensitively and with spaces read as hyphens** (`Acme Website` is `acme-website`), **in this order**, and stop at the first rule that yields exactly one:
 
 1. **Exact** folder-name match. It wins even when the name is also a substring of others, which is what makes `acme-website` reachable in a vault that also holds `acme-website-v2`.
 2. **Unique substring** match. `ticketing` resolves when it appears in one folder name.
@@ -35,23 +35,23 @@ One Grep call, scoped tightly to action-bearing files. Do NOT scan the whole vau
 
 ripgrep returns lines grouped by file in line-number order. **Discard any match whose path starts with `archive/` or `resources/`** (the vault's "Where a checkbox may live" rule). Post-filter, never anchor the glob to `projects/**/`: a root-anchored alternate silently matches nothing when `path` is not the vault root.
 
-**`resources/mds/` is exempt from that discard, and must be decoded instead** (SKILL.md Step 1b). It is the flip pipeline's store, not a reference bucket: in a collected vault it holds *every* `.md` the vault has, so discarding it drops the entire scan and the brief reports a vault with no open work. Decode each filename back to its vault path (`projects__x__actions.md` is `projects/x/actions.md`) and apply the `archive/` / `resources/` test to that. The glob above only reaches it through the `**/actions.md` alternate when the vault is spread, so in a collected vault add `**/*__actions.md` and the matching contact-file alternates.
+**`resources/mds/` is exempt from that discard and decoded instead** (SKILL.md Step 1b): in a collected vault it holds every `.md`. Decode each filename back to its vault path (`projects__x__actions.md` is `projects/x/actions.md`) and apply the `archive/` / `resources/` test to that. Always add `**/*__actions.md` and the matching contact-file alternates to the glob, since type detection runs this grep before anything knows the vault is collected.
 
-**Both calls below are raw `Grep` patterns and therefore count fence content** - a deck or a README showing a sample `actions.md` is indistinguishable from real work to a pattern match, and on one real vault that was 8 phantom items under `archive/`. Per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md): where a bucket's count is non-zero, read the matched files before reporting the number, or say in the output that it includes samples. A file carrying a frozen-record note is already skipped; a fenced sample is not the same thing and needs this check.
+**Both calls below are raw `Grep` patterns and therefore count fence content**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md): where a bucket's count is non-zero, read the matched files before reporting the number, or say in the output that it includes samples. A frozen-record note does not cover a fenced sample.
 
-**Count the misplaced checkboxes with their own call**, not from what the discard above dropped - the glob above reaches only `actions.md` and contact files, so it cannot see an open checkbox in an archived meeting note or action plan, which is exactly where they collect. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which yields the per-file counts the flag needs. Counts only; never read the lines.
+**Count the misplaced checkboxes with their own call**, not from what the discard above dropped - the glob above reaches only `actions.md` and contact files, so it cannot see an open checkbox in an archived meeting note or action plan, which is exactly where they collect. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which names the files and their counts. Read each file with a non-zero count and drop the checkboxes inside a fence before the number feeds the flag.
 
-If the call returns zero matches, apply the SKILL.md Step 1b type check; if Type A, respond `No action-bearing files found in <cwd>.` and stop.
+If the call returns zero matches, SKILL.md Step 1b and its first edge case decide what renders.
 
-**Handle truncated lines.** ripgrep emits `[Omitted long matching line]` past its column-width limit, and a vault that writes context into its checkboxes trips it on a quarter of them. Recover each `(file, line)` pair with `Read` using `offset: <line>, limit: 1`; once **more than 10** pairs are omitted, read the affected files whole instead, one call per file rather than one per line.
+**Handle truncated lines.** ripgrep emits `[Omitted long matching line]` past its column-width limit. Recover each `(file, line)` pair with `Read` using `offset: <line>, limit: 1`; once **more than 10** pairs are omitted, read the affected files whole instead, one call per file rather than one per line.
 
 ### Under an entity scope
 
 Same call, two changes: `path` becomes the resolved entity folder (`projects/<name>` or `areas/<name>`) and `glob` narrows to `**/actions.md`. Move the scope into `path`, **not** into the glob - the anchoring trap above is exactly what a `projects/<name>/**` alternate walks into. The `archive/` and `resources/` discard no longer fires (the path cannot reach them), so the misplaced-checkbox flag is not computed under this scope.
 
-**Then one more grep, for what is filed elsewhere.** An entity's own action file is not the whole story: the vault routes person-paced follow-ups to `areas/network/<person>.md` and strategic items to `areas/business/actions.md`, so a project can be blocked by an item that does not live in it. Without this, a scoped brief can report a clean project whose blocking item sits one file away, which is the false-clear a status view exists to prevent.
+**Then one more grep, for what is filed elsewhere.** An entity's own action file is not the whole story: the vault routes person-paced follow-ups to `areas/network/<person>.md` and strategic items to `areas/business/actions.md`, so a project can be blocked by an item that does not live in it.
 
-- `pattern`: the entity name, case-insensitive (`-i`), plus the **space-separated** form when it has hyphens (`acme-website` also matches "acme website", which is how prose writes it; removing the hyphens instead gives "acmewebsite" and matches nothing). **Always the full name, never a shortened stem** - `project-2026-09-02` finds the items that mean it, while `project` finds every mention and buries them. Do not helpfully broaden a dated name to its date: `2026-09-02` matches every line that happens to mention that calendar day.
+- `pattern`: the entity name, case-insensitive (`-i`), plus the **space-separated** form when it has hyphens (`acme-website` also matches "acme website"). **Always the full name, never a shortened stem or a date inside it.**
 - `glob` and `path`: as the unscoped Step 2 call, then discard `archive/`, `resources/`, and the entity's own files
 - Keep only `- [ ]` lines
 
@@ -103,4 +103,4 @@ A **past `🛫`** (start-gate already open) is not "waiting": ignore it and buck
 
 Group the task records by scope label. **Aggregate all contact files into one `network` row** (with the file count) - one row per person floods the dashboard. Per entity compute: bucket (`[P]` / `[A]`), open count, and three counts that **partition** it: **overdue**, **upcoming** (carries a `D`, a `🔁` or a future `🛫`, and is not overdue), **undated**. They sum to the open count wherever they are reported, the dashboard's bar segments included; never report a "dated" count that also contains the overdue ones.
 
-Get each action file's last-modified date in one Bash call (`stat -c '%y' <files>` on Linux or Git Bash, `stat -f '%Sm'` on macOS; fall back to `ls -l --time-style=+%Y-%m-%d`). Filesystem mtime, not git - it works in every vault, including ones without `.git`.
+Date each action file, and each idea brief for Step 4d, by its mtime, in one Bash call (`stat -c '%y' <files>` on Linux or Git Bash, `stat -f '%Sm'` on macOS; fall back to `ls -l --time-style=+%Y-%m-%d`), never by a folder or a `.pdf`, which a render resets. **A bulk write resets mtimes too:** where a file's mtime is within 60 seconds of at least two others of its kind, a collect, checkout or sync wrote them together, so in a vault with `.git` date it by `git log -1 --follow --format=%as -- <path>` at its current path, unless `git status` shows it modified. Where git returns nothing, the mtime stands.

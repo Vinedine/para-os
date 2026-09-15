@@ -2,7 +2,7 @@
 name: para-ingest
 description: Read every vault's declared triage sources once from outside the vaults, decide only which vault each item belongs to, and stage it as a note in that vault's triage/ folder. Runs from anywhere and never judges what an item means. Use when the operator runs several vaults that declare the same mailboxes and asks to "pull everything in", "check all my vaults for new mail", "run the ingest", "route what came in", or types /para-ingest.
 allowed-tools: Bash, Glob, Grep, Read, Write, ToolSearch, mcp__*__search_threads, mcp__*__get_thread, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
-arg-hint: '[preview|write]'
+arg-hint: '[preview|write] [--test]'
 ---
 
 # Cross-vault ingest
@@ -22,8 +22,7 @@ Reads every registered vault's declared triage sources **once**, decides **only*
 | `preview` *(default)* | Read everything, route everything, write **nothing**. Sync scripts run without `--write`, no note is staged, no ledger entry made. One run log, `mode: preview`. |
 | `write` | The same run, staging notes and ledgering what it staged. The only mode that touches a vault. |
 | `--days N` | Override the window for this run only, in either mode. The one way to reach back past the write window, and it exists for two jobs: recovering the carry-over Step 3 reports, and a deliberate one-off backfill. Never scheduled, never a default, always typed by a person who has read what it would stage. |
-
-Preview is the default deliberately: a router that is quietly wrong for a month erodes trust in every vault it writes to, so it earns write mode by being read first.
+| `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## Procedure
 
@@ -52,14 +51,14 @@ These scripts dedupe against their own central ledgers, so running them is idemp
 Follow **[../para-shared/connectors.md](../para-shared/connectors.md)**, the same fetch protocol `/para-triage` uses: dispatch, query frame, thread normalisation, dedup, message list. Two differences:
 
 - **The query frame is the union of every declaring vault's `Relevant when`**, not one vault's. Fetch once, route after. A per-vault query would refetch the same mailbox N times, which is the cost this layer exists to remove.
-- **A connector this file's `allowed-tools` does not name is a setup step, not an absent mailbox.** The names there are the stable-server case; a harness that exposes the same connector under an account UUID (`mcp__<uuid>__search_threads`) is found by the shared file's tool-suffix rule and then refused, which looks identical to "not connected" and silently unroutes every vault it feeds. **Report it and carry on; never edit this file mid-run to widen your own permissions, and never let a refusal be reported as an absence.** The frontmatter carries a wildcard in the tool-name position for this reason, and the operator is the one who changes it if their harness still refuses. Editing a skill to grant itself a tool is outside the writes this skill is allowed (see Strict rules), and a run that quietly does it has made a permission decision nobody reviewed.
+- **A connector this file's `allowed-tools` does not name is a setup step, not an absent mailbox.** The names there are the stable-server case; a harness that exposes the same connector under an account UUID (`mcp__<uuid>__search_threads`) is found by the shared file's tool-suffix rule and then refused, which looks identical to "not connected" and silently unroutes every vault it feeds. **Report it and carry on; never edit this file mid-run to widen your own permissions, and never let a refusal be reported as an absence.** The frontmatter carries a wildcard in the tool-name position for this reason; the operator changes it if their harness still refuses.
 - **Dedup against this skill's own ledger**, plus the per-vault legacy ledgers named in [references/staging.md](references/staging.md). Stop at the end of step 6 of the shared file: its judgment steps are triage's, not this skill's. A thread the shared file hands back **resurfaced** has grown since it was dispositioned; route it from scratch and stage only what arrived after the watermark.
 
-Window: **30 days in preview, 2 days in write mode, including the first write run.** It turns on the mode, not on whether a ledger exists yet, and the reasoning is worth keeping: a wide sample is how you tell whether a router works, and preview stages nothing, so breadth costs only the judgment on a run you chose to make. Write mode has no such licence. **Backfilling a month of a mailbox nobody was ingesting is not this layer's job** - that mail has already been dealt with or already been ignored, by a person, and switching on write mode must not be able to drop a month of history into several `triage/` folders at once. A deliberate backfill is `--days N` by hand, once.
+Window: **30 days in preview, 2 days in write mode, including the first write run.** It turns on the mode, not on whether a ledger exists yet. **Backfilling a month of a mailbox nobody was ingesting is not this layer's job**: a deliberate backfill is `--days N` by hand, once.
 
 #### The carry-over between the two windows
 
-**The gap those two numbers leave is real, and it has to be named rather than left to be discovered.** Preview reaches 30 days and stages nothing; write reaches 2 and is the only thing that stages. Every thread a preview routed that is older than the write window falls between them: no later run fetches it again, so no ledger entry is ever made, and the preview's run log is the only trace it existed. None of this shows at the moment it happens - the first write run reports a clean small number, and the preview's work is simply gone. The failure is invisible in exactly the way the volume gate and the owner rule are: the run looks productive.
+Every thread a preview routed that is older than the write window falls between the two: no later run fetches it again, so no ledger entry is ever made, and the preview's run log is the only trace it existed.
 
 Two things close it, and both are **reporting, not staging**:
 
@@ -86,7 +85,7 @@ In write mode: one note per routed thread into that vault's `triage/`, one ledge
 
 Report as a table of vault, staged count and unrouted count, then name every source that errored, every carry-over thread Step 3 left outstanding, and every thread that routed to a vault it could not be delivered to. A run that staged nothing says so, rather than reporting nothing.
 
-**An undelivered item belongs at the top of the report, beside the errors**, with the vault that is owed it. It is the one outcome that looks like success from every angle: the thread was fetched, judged and routed correctly, and the only thing that did not happen is the part the operator cares about.
+**An undelivered item belongs at the top of the report, beside the errors**, with the vault that is owed it. An earlier run's `undelivered` list is [re-checked, never carried](references/staging.md#undelivered-is-re-checked-never-carried).
 
 ## Strict rules
 
@@ -99,7 +98,7 @@ Report as a table of vault, staged count and unrouted count, then name every sou
 - **Decide which vault, never what to do.** A staged note carrying a proposed action has already made the judgment this skill exists not to make.
 - **One source failing never aborts the run.** Record it, skip it, continue, name it in the report.
 - **Never stage into an unregistered path, an inactive vault, or a vault whose path is not mounted.** A one-way mirror or a backup copy is not a vault: staging into one writes an item the next sync destroys, and the item is then routed nowhere with nothing left to show it was lost.
-- **Never ledger a thread you could not deliver.** A thread routed to a vault whose path was not mounted gets no ledger entry, so the next run picks it up again; `by_message_id` is what stops the vaults that did receive it from receiving it twice. Ledgering it marks it handled forever, the vault that was down never gets it, and the only trace is a run log nobody re-reads. Full rule in [references/staging.md](references/staging.md).
+- **Never ledger a thread you could not deliver.** A thread routed to a vault whose path was not mounted gets no ledger entry, so the next run picks it up again; `by_message_id` stops the vaults that did receive it from receiving it twice. Full rule in [references/staging.md](references/staging.md).
 - **Preview writes nothing at all.** Not a note, not a ledger entry, not a `--write` on a sync script. The run log is the only artefact.
 - **The Step 3 reconcile reports carry-over and never stages it.** Reaching past the write window is `--days N`, typed by a person who has read the count. A scheduled run that silently recovers its own gap has removed the only thing limiting how much history can land in a `triage/` folder at once.
 - **Never `--write` a sync script whose dry run came back over the volume gate**, whatever mode the run is in and however routine the source looks. The gate is the only check standing between an unfiltered inbox importer and every `triage/` folder it feeds.

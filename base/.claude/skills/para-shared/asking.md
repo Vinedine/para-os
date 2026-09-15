@@ -2,8 +2,6 @@
 
 How a skill puts a batch of decisions to the operator through `AskUserQuestion` instead of one table and one `go`. Shared because five skills do it and the mechanics are identical; what differs per skill is only the **vocabulary** - the dispositions its questions may offer - which stays in that skill's own reference.
 
-**Why per item rather than per batch.** `operating-discipline.md` requires individual approval for anything destructive: *"Deletions are approved one by one. No batching, no exceptions."* A table approved by a single word cannot deliver individual approval.
-
 ## Before the questions: the manifest
 
 Print one line per question, numbered to match the order they will be asked, then the count and the number of rounds:
@@ -17,7 +15,7 @@ Print one line per question, numbered to match the order they will be asked, the
 
 One line, no pipes, no reasoning column: the reasoning belongs in the option description where the operator reads it at the moment of deciding. This is the overview, not the proposal. It exists so the batch shape and the number of rounds are visible before the first question, and so an abandoned run still leaves a readable trace.
 
-**If the batch exceeds 20 items**, the first question asked is whether to go item by item or fall back to the written proposal. Six rounds is a chore, and a chore gets clicked through.
+**If the batch exceeds 20 items**, the first question asked is whether to go item by item or fall back to the written proposal.
 
 **The manifest is for a batch, and below four questions there is none.** Count the questions first: **four or more, print it; fewer, go straight to asking.** The threshold is per run, not per skill.
 
@@ -30,10 +28,11 @@ Batch up to **4 questions per call**, ordered so questions about the same entity
 - **`options`** - 2 to 4, from the calling skill's vocabulary. **The proposal goes first, labelled `(Recommended)`.** Each description carries the evidence for that disposition and the full target.
 
   **One question shape carries no recommendation: a question of fact about the operator's own situation.** Some decisions cannot be reached until a fact only the operator holds is settled - whether feedback arrived before or after a release, whether a document is the signed copy, whether a thread was already answered by phone. That question is legitimate and often has to be asked *first*, but the skill has no proposal to make: every option is a fact it does not know, and labelling one `(Recommended)` guesses at the operator's life and lends the guess the weight of a proposal. **Ask it with no option labelled, order the options by what the vault's own evidence suggests, and say in each description what that disposition would mean for the run.** The recommendation rule governs dispositions, which are the skill's to propose; it does not govern facts, which are not.
+- **One decision per question**, a phase-transition confirmation included: never ask approval of a worked example and a different disposition in one question.
 - **`multiSelect: false`**, always. A disposition is exclusive; splitting a group is an **Other** answer, not a multi-select.
 - **`preview`** - optional per option, and worth it where the options differ in something the operator would rather see than read: the folder scaffold a shape would produce, a line before and after grooming, a brief's opening as it would be retensed. Skip it where the option label already says everything. **A preview shows the content as it will actually be written**, never a prettier rendering of it: the selected preview comes back as the approved content, so a line wrapped for readability against a file whose rule is one line per item is a mockup that misleads at the exact moment of approval. Where the real form is genuinely unreadable in a preview, say so in the description rather than reformatting it.
 
-**Every question carries an escape that changes nothing** - leave it, skip it, decide later. A question that forces a disposition is a question that will get a wrong one.
+**Every question carries an escape that changes nothing** - leave it, skip it, decide later.
 
 ## Grouping
 
@@ -41,7 +40,7 @@ Linked items get **one** question. Linked means one sentence can state the dispo
 
 - **Never group a destructive item with anything.** A delete, a close, a drop: its own question, always, whatever it arrived beside.
 - **Never group items whose targets differ.** A shared target is what makes one answer honest for all of them.
-- **Never group more than five.** Past that the question stops naming its members and becomes a batch approval wearing a question's clothes, which is the defect this whole pattern exists to fix, reintroduced by its own fix.
+- **Never group more than five.** Past that the question stops naming its members and becomes a batch approval.
 
 **A destructive question states its evidence in the option description**: what survives it, and where. Where the evidence is a judgment rather than a fact (content overlap rather than a hash match, "probably done"), the recommended option is the one that changes nothing - **but only where the loss would be irreversible**, a deleted file or an unrecoverable record. Where the change is reversible and leaves its own trace - a closed checkbox that keeps its text and a stated reason, a demotion that preserves every word - recommend what the evidence actually supports. A recommendation that is systematically the safe one is uninformative.
 

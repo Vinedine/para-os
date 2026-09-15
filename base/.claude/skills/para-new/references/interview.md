@@ -1,6 +1,6 @@
 # Classify, then interview (Steps 2 and 3)
 
-Two conversations that run as one. Settle *what shape this is* before asking anything about the work, because the questions differ per shape and a wrong shape wastes them all.
+Two conversations that run as one. Settle *what shape this is* before asking anything about the work.
 
 ## Step 2 - Settle the shape
 
@@ -34,14 +34,14 @@ Ask the questions in one message, numbered, and take the answers in whatever for
 1. What is it, and what does keeping it going involve?
 2. Is anything outstanding on it right now, and is a date attached to it?
 
-The second question asks for the date in the same breath because an area's outstanding work is where real deadlines hide - a contract renewal, a licence expiry, a season opener. An area that arrived through the recurring-obligation route above already stated its cadence during classification. Record it with the vault's recurring marker rather than asking a third question for something the user has said.
+An area that arrived through the recurring-obligation route above already stated its cadence during classification. Record it with the vault's recurring marker rather than asking a third question for something the user has said.
 
 **Idea - two questions.**
 
 1. What is the concept, in a sentence or two?
 2. What would have to be true for this to become a project?
 
-The second answer is the promotion trigger and the only forward-looking thing an idea brief carries. If the user has no answer, record that instead of manufacturing one: an idea with no trigger is a note, and that is allowed.
+The second answer is the promotion trigger and the only forward-looking thing an idea brief carries. **Skip the question where the vault already states the trigger** for this kind of idea (a promotion rule in `CLAUDE.md` or a rule file) and record that rule. If the user has no answer, record that rather than manufacturing one.
 
 **Contact - two questions.**
 
@@ -55,7 +55,6 @@ A "no" to the second is the common case and is recorded as the vault's empty sen
 - **The deadline for an idea.** It has none by definition; asking invites an invented one.
 - **A breakdown of the work.** Step 3's third question asks for the *next* step, singular. If the user volunteers a plan, keep it verbatim as `## Backlog` prose rather than turning it into checkboxes.
 - **Priority.** Medium carries no marker in the vault's syntax, so the default is silence. Add a marker only if the user reaches for the word themselves.
-- **Anything the answer to which changes no file.** If a question's answer would land nowhere, it is ceremony.
 
 ## Edge cases
 

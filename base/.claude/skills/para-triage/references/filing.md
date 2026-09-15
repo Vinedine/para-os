@@ -22,31 +22,24 @@ Detect **orientation issues** for image files (`.jpg` / `.jpeg` / `.png` / `.gif
 
 Walk the vault to find the best home:
 
-- **First check** existing entities. List `areas/`, `archive/`, and `projects/` subdirectories. Read the candidate's `README.md` to see whether the file's parties, dates, and reference numbers match. A file referencing a specific contract number, address, or person should land where that entity is already documented.
+- **First check** existing entities. List `areas/`, `projects/`, `resources/ideas/` and `archive/` subdirectories. Read the candidate's `brief.md` or `README.md` to see whether the file's parties, dates, and reference numbers match. A file referencing a specific contract number, address, or person should land where that entity is already documented.
 - **If the vault doesn't use the entity-with-README pattern** (a flat `areas/` with loose markdown files, or a catch-all with looser shape): fall back to asking the user where each file belongs. Don't force the entity-folder model onto a vault that uses a different shape.
-- **If the file pre-dates the entity's active window** (a document from before a property was bought, a client was signed, a case was opened), it usually still belongs in that entity's `sources/` - apply the vault's prefix convention for such files if `CLAUDE.md` documents one.
-- **If no existing entity matches**, propose either (a) routing to `/para-new` to create the entity properly (sorting test, brief, one action), or (b) leaving the file in `triage/` and asking the user where it belongs. Default to (b) - don't invent new folders without confirmation, and never hand-build one even with it ([operating-discipline.md](../../para-shared/operating-discipline.md#entity-creation)).
+- **If the file pre-dates the entity's active window** (a document from before a property was bought, a client was signed, a case was opened), it usually still belongs in that entity's `sources/`.
+- **If no existing entity matches**, the vault's rule for records with no owner decides where it has one (dated conversation records to `archive/meetings/`, say). Otherwise offer **Leave in triage** (Recommended, with what is missing) and **Create entity**, for a project, area or person the vault does not hold yet. Never hand-build the folder ([operating-discipline.md](../../para-shared/operating-discipline.md#entity-creation)).
 
-Apply the vault's naming convention, read from its `CLAUDE.md` and applied literally. A common shape is `YYYYMMDD <Who> <Description> [<scope>].<ext>`. Use:
-
-- The document's own date (signing, issue, invoice, inspection). Not the file's mod date unless that's the only signal.
-- The most identifying party, per the CLAUDE.md guidance - typically tenant for leases, contractor for work, provider for utilities, insurer for policies.
-- A short description ending with any reference number on the document.
-- The scope suffix only when relevant (per-unit docs in a multi-unit property).
-
-Drop legacy suffixes (`- FINAL.pdf`, `copy.pdf`, `(1).pdf`) on rename.
+Apply the vault's naming convention literally, judging each name against the whole of `.claude/rules/filing.md` and any topic rule file that governs the document ([operating-discipline.md](../../para-shared/operating-discipline.md#a-vaults-rule-files)), or against `CLAUDE.md` where the vault has no rule file. Drop legacy suffixes (`- FINAL.pdf`, `copy.pdf`, `(1).pdf`) on rename.
 
 ## Writing the row
 
-The **Why** cell names the specific signals used (date, contract number, address, parties), never a generic "matches Stationsstraat". The **Destination** cell is the full relative path including the new filename, written as `[<new name>](<relative-path>)` so VS Code renders it clickable.
+The **Why** cell names the specific signals used (date, contract number, address, parties), never a generic "matches the entity". The **Destination** cell is the full relative path including the new filename, written as `[<new name>](<relative-path>)` so VS Code renders it clickable.
 
 Illustrative fragment - the vault's `CLAUDE.md` gives the real naming convention and entity shape:
 
 ```
 | # | Source item | Action | Why | Destination |
 |---|---|---|---|---|
-| 1 | `Factuur Lockwerk.pdf` | Delete (duplicate) | Byte-identical duplicate (MD5 10d9edcc...) of the filed copy. | (deleted) |
-| 2 | `Tax Bank 2011.JPG` | File it + rotate 180 | Bank 2011 repayment certificate (upside down), contract 726-1234567-89. | [.../sources/20111231 Bank Betalingsattest 726-1234567-89.jpg](path) |
+| 1 | `Invoice Lockwerk copy.pdf` | Delete (duplicate) | Byte-identical duplicate (MD5 10d9edcc...) of the filed copy. | (deleted) |
+| 2 | `IMG_2011.JPG` | File it + rotate 180 | Northwind Bank loan statement dated 2011-12-31 (upside down), loan LN-40213. | [.../sources/20111231 Northwind Bank Loan statement LN-40213.jpg](path) |
 | 3 | "RE: quote" - supplier, 14 Jul (email) | Update existing | Reply on an open thread; annotate the tracked action rather than duplicate it. | [projects/<x>/actions.md](path) |
 ```
 
@@ -55,8 +48,7 @@ Illustrative fragment - the vault's `CLAUDE.md` gives the real naming convention
 - **File is an encrypted or locked PDF**: skip content inspection, propose destination from filename plus file mod date only, and say so where the evidence goes - the option description, or the Why cell on the table path: "(content not readable - name-only inference)".
 - **File modification date is wildly different from the document date** (a 2024 mod date on a 2013 invoice): use the document date, and name the discrepancy in the same place.
 - **Two triage files describe the same event** (a scanned and a digital version of the same letter): keep the digital, delete the scan. Name both in the disposition; mark the scan as Delete (redundant scan), with the digital version's path as the evidence.
-- **File references a person not yet in `areas/network/`**: propose creating the contact file via `/para-new`, with a one-line bio (parties, date first encountered, source-doc reference) to seed it. Only execute after approval; don't auto-create.
-- **File references a property or project not yet in the vault**: propose either (a) leaving it in triage with a note about what's needed, or (b) routing to `/para-new` to create it properly. Default to (a).
+- **File references a person not yet in `areas/network/`**: offer **Create entity** for the contact file, with a one-line bio (parties, date first encountered, source-doc reference) to seed it.
 - **Image with an EXIF orientation tag**: still inspect visually after Reading. EXIF orientation is widely ignored by renderers, so a "correct" EXIF tag with rotated pixels still needs the pixels rotated.
 - **PDF where one page is rotated and others aren't**: flag for the user; PDF page rotation is risky to attempt blindly.
 - **File looks like it belongs to a different vault or context** (client work in a personal vault, personal records in an engagement vault): ask before filing. One-vault-per-context only works if triage respects the boundary.

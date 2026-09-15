@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.09.02 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: outlook 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 """Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph and hand the
 messages to a caller that decides what they mean. Writes nothing, anywhere, ever.
 
@@ -18,9 +18,9 @@ secret (public client). Read-only in the strict sense: it never sends, deletes, 
 mail read (a Graph GET does not change is-read state).
 
 `login` signs in through the browser - authorization code + PKCE on a loopback redirect -
-because device code flow is being closed off: security defaults block it, and since
-1 July 2026 that is the shipped default on every NEW tenant. `login --device-code` still
-runs the old flow for an app with no http://localhost redirect URI registered, and on a
+because device code flow is being closed off: security defaults block it, and that is now
+the shipped default on every NEW tenant (see the README). `login --device-code`
+still runs the old flow for an app with no http://localhost redirect URI registered, and on a
 tenant predating that change nothing here is affected either way. Which flow minted a
 refresh token is not recorded in it and not asked about when it is redeemed, so a mailbox
 already logged in keeps working untouched - the flow only decides what `login` does.
