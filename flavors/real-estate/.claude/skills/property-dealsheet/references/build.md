@@ -4,7 +4,7 @@
 
 The dossier must carry:
 
-- **The deal's figures**: price or prices, plus a bid zone and walk-away while Prospecting or Acquiring; capital deployed as booked, with its as-of date, for a held property
+- **The deal's figures**: price or prices, plus a bid zone and walk-away while the price is open, or the cost ceiling and sale or rent floor once it is contracted; capital deployed as booked, with its as-of date, for a held property
 - **A verdict** backed by underwriting numbers (yield or margin, and the scenarios)
 - **A rent roll or a renovation scope**, per the stage variant
 - **Key facts**: parcel or title identifier, the parties (agent, seller, whoever executes the deed), financing, and the energy rating

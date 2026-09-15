@@ -11,11 +11,12 @@
    - **Keep the three kinds of number apart**: contracted, booked, projected, as `property-dossier.md` requires.
    - **Financing.** Anchor on the owner's actual facilities and capital, from the dossier and the books, not on generic rates. Show how the deal is funded.
    - **Two scenarios**, base and downside, with the sensitivity that actually threatens the deal.
-   - **Verdict.** Go, pass, or conditional, with a bid zone and a walk-away level while Prospecting or Acquiring, or a keep / act recommendation for a hold review, falling out of the numbers.
+   - **Verdict.** Go, pass, or conditional, falling out of the numbers, with a bid zone and walk-away while the price is open, the cost ceiling and sale or rent floor that still clear the persona's bar once it is contracted, or keep / act for a hold review.
+   - **A load-bearing number no source gives** (price, renovation cost, rent basis) gates only what depends on it: write the rest, flag or omit the dependent figures, and make the verdict conditional on it, first among the open items.
 3. **Write the analysis into the dossier**, and consolidate everything still unknown or assumed into its open items, phrased as what to confirm and with whom. `/property-dealsheet` prints exactly these.
 
 Present the verdict and the key figures, and get the go-ahead.
 
 ## Step 6 - Report
 
-Say which state the vault is left in. Report the verdict in one line, the dossier sections changed, the cards touched, the flagged assumptions, and the open items that still gate a bid. If the dossier is decision-ready, say "ready for /property-dealsheet".
+Say which state the vault is left in. Report the verdict in one line, the dossier sections changed, the cards touched, the flagged assumptions, and the open items that still gate the verdict. If the dossier is decision-ready, say "ready for /property-dealsheet".

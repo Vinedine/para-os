@@ -47,4 +47,4 @@ Track the phases in the harness's task list. Each phase ends with a short summar
 
 ## Stop and ask
 
-When the property match is ambiguous or absent; the dossier is an empty stub; the persona or the register is missing; a load-bearing number (price, renovation quote, rent basis) is unknown and not derivable from a real source; or anything else is genuinely uncertain.
+When the property match is ambiguous or absent; the dossier is an empty stub; the persona or the register is missing; or anything else is genuinely uncertain. A load-bearing number no source gives is not a stop: [Step 5](references/underwriting.md) handles it.
