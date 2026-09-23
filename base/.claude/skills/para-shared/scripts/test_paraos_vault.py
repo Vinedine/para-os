@@ -1277,6 +1277,22 @@ class ChangedCLI(VaultCase):
         scan_file = self.write_json("scan.json", {"other": "stuff", "snapshot": before})
         self.assertEqual(self.run_main(["changed", str(scan_file)]), 1)
 
+    def test_a_snapshot_nested_under_a_phase_key_is_read(self):
+        # clean_scan.py nests its snapshot under the phase it ran; read at the top level
+        # alone, every deep-clean run reported a false "changed".
+        target = write(self.root, "projects/x/actions.md", "# x\n")
+        scan = {"phase": "1", "vault": {"root": "."}, "phase1": {"snapshot": snapshot([target])}}
+        scan_file = self.write_json("scan.json", scan)
+        self.assertEqual(self.run_main(["changed", str(scan_file)]), 0)
+        target.write_text("# x, edited\n", encoding="utf-8")
+        self.assertEqual(self.run_main(["changed", str(scan_file)]), 1)
+
+    def test_a_document_with_no_snapshot_is_refused_not_read_as_all_changed(self):
+        scan_file = self.write_json("scan.json", {"phase": "1", "phase1": {"rows": []}})
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as exit:
+            self.run_main(["changed", str(scan_file)])
+        self.assertEqual(exit.exception.code, 2)
+
     def test_the_changed_paths_are_printed_as_a_json_list(self):
         target = write(self.root, "projects/x/actions.md", "# x\n")
         before = snapshot([target])

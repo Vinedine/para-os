@@ -30,7 +30,7 @@ from pathlib import Path
 from clean_scan import (
     CollectedVault, DEFAULT_DATED_PATTERN, DEFAULT_NEXT_STEPS_HEADINGS, scan,
 )
-from paraos_vault import STALE_FILE_DAYS, changed  # made importable by clean_scan's own guard
+from paraos_vault import STALE_FILE_DAYS, changed, scan_snapshot  # made importable by clean_scan's own guard
 
 TODAY = date(2026, 9, 22)
 
@@ -802,6 +802,16 @@ class Snapshot(VaultCase):
         before = self.run_scan("3")["phase3"]["snapshot"]
         write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n- [ ] Two\n")
         self.assertIn(str(path), changed(before))
+
+    def test_every_phase_output_carries_a_snapshot_the_changed_check_finds(self):
+        # The re-check reads the whole scan output, as para-shared/scripts.md tells a skill
+        # to pass it: an unchanged vault must read as unchanged in every phase.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n")
+        for phase in ("1", "3", "4"):
+            snap = scan_snapshot(self.run_scan(phase))
+            self.assertIsNotNone(snap, phase)
+            self.assertEqual(changed(snap), [], phase)
 
 
 # ---------------------------------------------------------------------------------- refusals

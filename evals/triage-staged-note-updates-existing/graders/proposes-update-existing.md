@@ -1,5 +1,5 @@
 ---
 type: regex
-pattern: 'Update existing[\s\S]{0,200}acme-website/actions\.md|acme-website/actions\.md[\s\S]{0,200}Update existing'
+pattern: 'Update existing[^\n]*acme-website/actions\.md|acme-website/actions\.md[^\n]*Update existing'
 flags: i
 ---

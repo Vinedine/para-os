@@ -2,7 +2,7 @@
 
 **Run your work out of one structured place, with an AI assistant on top.**
 
-> **You need** [Claude Code](https://claude.com/claude-code) (the desktop app or the CLI), on Windows, macOS or Linux. Optional: Python 3 (`py -3` on Windows), which six skills use for speed and consistency, and git for `/para-upgrade`. **Start at the [Quickstart](#quickstart).**
+> **You need** the [Claude desktop app](https://claude.com/download) and [Git](https://git-scm.com/downloads), on Windows or macOS. **Start at the [Quickstart](#quickstart).**
 
 The hard part of AI assistance isn't the assistant. It's that everything it needs is scattered across drives, inboxes, and people's heads. Point a capable assistant at a shapeless folder and you get a clever helper rummaging through a messy cabinet: it can search, at best.
 
@@ -85,9 +85,13 @@ The conventions the templates encode:
 
 ## Quickstart
 
-**1. Open a Claude Code session in an empty folder**, the one that becomes the vault (a folder in your cloud drive, a git repo, anywhere), not inside an existing vault. In a terminal: `mkdir my-vault && cd my-vault && claude`.
+**1. Install Git** if you don't have it. On Windows, download it from [git-scm.com](https://git-scm.com/downloads/win) and accept the defaults; on a Mac, macOS offers to install it the first time it is needed. The setup uses it to fetch para-os, and your vault uses it to keep its history.
 
-**2. Paste this**, with your own topic after `Context:`:
+**2. Make an empty folder** for the vault, wherever you keep your files (your cloud drive is fine), and not inside an existing vault.
+
+**3. Open it in the Claude desktop app.** In the **Code** tab, click **New** at the top of the sidebar, keep **Local**, click **Select folder** and pick the folder. Don't use the `+` beside a folder already in the sidebar: that opens the session inside *that* folder, which is how a new vault ends up inside an old one.
+
+**4. Paste this**, with your own topic after `Context:`:
 
 ```text
 Set up a new para-os vault in this folder: read https://raw.githubusercontent.com/Vinedine/para-os/main/INSTALL.md and follow it. Context: <what this vault is for>.
@@ -95,11 +99,7 @@ Set up a new para-os vault in this folder: read https://raw.githubusercontent.co
 
 It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap interview: three short questions, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. The steps are in [`INSTALL.md`](INSTALL.md): read what it will do before you paste it, or follow it by hand.
 
-**3. Run `/para-daily-brief`.** The vault answers from day one, and better as you feed it your braindump.
-
-> **Running several vaults?** The bundled copy works, but you'll carry one skills copy per vault. To keep a single source, move the skills to `~/.claude/skills/` (Claude Code loads them there for every vault, and `/para-upgrade` checks that install too) and delete the per-vault `.claude/skills/`.
->
-> If those vaults also draw on the same inboxes, see [`multi-vault/`](multi-vault/).
+**5. Run `/para-daily-brief`.** The vault answers from day one, and better as you feed it your braindump.
 
 To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/), a fictional consulting engagement; [`examples/`](examples/README.md) says how to run the skills against it.
 
@@ -186,11 +186,18 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 
 Beyond the list at the top:
 
-- **Python 3** lets `/para-daily-brief`, `/para-pipeline`, `/para-deep-clean`, `/para-archive`, `/para-triage` and `/para-upgrade` hand their mechanical half to a script beside the skill; without it they fall back to a slower by-hand procedure and say so. On Windows use `py -3`, since a bare `python` is often a Microsoft Store stub. `/para-upgrade` also needs a local clone of this repository.
+- **Claude Code in a terminal** works the same as the desktop app: start it in the empty folder and paste the same line. Linux has no desktop app, so this is the route there.
+- **Python 3 is optional** and does not come with Claude Code: install it from [python.org](https://www.python.org/downloads/) if you want it. It lets `/para-daily-brief`, `/para-pipeline`, `/para-deep-clean`, `/para-archive`, `/para-triage` and `/para-upgrade` hand their mechanical half to a script beside the skill; without it they fall back to a slower by-hand procedure and say so. On Windows use `py -3`, since a bare `python` is often a Microsoft Store stub. `/para-upgrade` also needs a local clone of this repository.
 - **Account skills come along:** Claude Code syncs the skills and plugins enabled on your claude.ai account into sessions (the document skills are what a vault needs for the files it receives); `syncClaudeAiSkills: false` and `syncClaudeAiPlugins: false` in your settings keep a vault to its own.
 - **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
 - **A substrate that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible.
 - **Add-ons and integrations bring their own:** the read-only delivery needs Windows PowerShell and Node.js 18+ ([setup](addons/readonly-ipad/README.md)), and each integration's runtime and platform are in the [integrations table](integrations/README.md#available).
+
+## Running several vaults
+
+Each vault carries its own copy of the skills, which works but means one copy per vault. To keep a single source, move the skills to `~/.claude/skills/` (Claude Code loads them there for every vault, and `/para-upgrade` checks that install too) and delete the per-vault `.claude/skills/`. Keep one or the other: a skill in `~/.claude/skills/` wins over a vault's own copy of the same name, so a vault that keeps both runs the global one, however old it is.
+
+If those vaults also draw on the same inboxes, see [`multi-vault/`](multi-vault/).
 
 ## License
 

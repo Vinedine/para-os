@@ -1534,6 +1534,24 @@ def changed(before):
     return sorted(p for p, digest in before.items() if now.get(p) != digest)
 
 
+def scan_snapshot(data):
+    """The snapshot a scan's output carries: its top-level `snapshot`, or the snapshots under
+    its phase keys merged (`clean_scan.py` nests one per phase), or the document itself where
+    it is a bare {path: digest} map. None where there is none, so a document without one is
+    never read as a snapshot and reported as all changed."""
+    if not isinstance(data, dict):
+        return None
+    if isinstance(data.get("snapshot"), dict):
+        return data["snapshot"]
+    nested = [v["snapshot"] for v in data.values()
+              if isinstance(v, dict) and isinstance(v.get("snapshot"), dict)]
+    if nested:
+        return {p: d for snap in nested for p, d in snap.items()}
+    if data and all(isinstance(v, (str, type(None))) for v in data.values()):
+        return data
+    return None
+
+
 # --- what a vault was built from -------------------------------------------------------------
 
 REVISION_PATTERN = r"\d{4}\.\d{2}(?:\.\d{2})?"
@@ -2109,7 +2127,7 @@ def main(argv=None):
         "changed", help="which paths in a snapshot no longer match it (exit 1 if any do)")
     changed_cmd.add_argument(
         "file", help="a JSON snapshot ({path: digest}), or scan output carrying a "
-                     "top-level 'snapshot' key")
+                     "'snapshot' key, top-level or under a phase key")
     sources = sub.add_parser("sources", help="the Triage sources block the vault declares")
     ingest_logs_cmd = sub.add_parser("ingest-logs", help="every /para-ingest run log, newest first")
     ingest_logs_cmd.add_argument("--paraos-home", dest="paraos_home", default=None,
@@ -2129,7 +2147,9 @@ def main(argv=None):
             data = json.loads(Path(args.file).read_text(encoding="utf-8"))
         except (OSError, ValueError) as err:
             ap.error(f"cannot read {args.file}: {err}")
-        snap = data["snapshot"] if isinstance(data, dict) and "snapshot" in data else data
+        snap = scan_snapshot(data)
+        if snap is None:
+            ap.error(f"{args.file} holds no snapshot")
         diffs = changed(snap)
         json.dump(diffs, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")

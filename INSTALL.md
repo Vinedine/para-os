@@ -2,7 +2,7 @@
 
 The steps an agent follows when an operator pastes the Quickstart prompt from [README.md](README.md#quickstart) into a Claude Code session: set up a new vault in the session's folder from this repository, then hand over to the bootstrap interview. A person can follow them by hand too.
 
-**Needs:** Claude Code; git for the kit (a zip works without it, but `/para-upgrade` needs the clone); Python 3 optional (`py -3` on Windows), each skill falling back to a by-hand procedure without it.
+**Needs:** Claude Code and git, which the README's Quickstart has the operator install first (the zip below is a fallback only, since `/para-upgrade` needs the clone); Python 3 optional (`py -3` on Windows), each skill falling back to a by-hand procedure without it.
 
 The operator's prompt ends with `Context:` and what the vault is for. Carry it into Step 4's interview rather than asking for it again.
 
