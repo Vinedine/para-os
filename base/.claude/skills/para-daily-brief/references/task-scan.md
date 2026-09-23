@@ -2,6 +2,23 @@
 
 Everything between "the vault is a folder of markdown" and "a set of bucketed, per-entity task records". Mechanical: no judgment lives here.
 
+`scripts/brief_scan.py` implements every rule below over `para-shared/scripts/paraos_vault.py`, which owns what any skill would otherwise answer its own way (where a checkbox may live, what counts as one, what a marker means, which folder a name resolves to, when a file was really last touched, the thresholds a vault's rules state), and `scripts/test_brief_scan.py` pins each rule to a case.
+
+What comes back, and what each field settles:
+
+| Field | Holds |
+|---|---|
+| `today`, `vault_type` | The date the brief is dated by, and `A` or `B` (Step 1b) |
+| `entity` | `status` of `resolved`, `ambiguous`, `elsewhere` or `unresolved`, with `match`, `candidates`, `elsewhere` and `nearest` (Step 1c) |
+| `tasks` | One record per open item: file, line, bucket, scope, section, text, markers, `lane`, `days`, `also_overdue`, `malformed_date` |
+| `entities`, `totals` | Per-entity rows with the three counts that partition the open count, and the same four numbers vault-wide |
+| `lanes` | Each lane's items, for the counts a rendered section needs |
+| `mentioned_elsewhere` | Under an entity scope only: open items naming it that live in another file |
+| `file_dates` | Each action file's date, by the rule in [Step 4b](#step-4b-aggregate-per-entity) |
+| `flags`, `ideas`, `triage`, `lifecycles` | Everything [signals.md](signals.md) computes from files |
+
+The rest of this file is the script's specification and the by-hand fallback.
+
 ## Step 1c: Resolve an entity scope
 
 Runs only when the argument is not one of the four reserved scope words **and reads like an entity name** (SKILL.md, Arguments). The scope words win on a collision, so an entity genuinely named `all` is reached by its path (`/para-daily-brief projects/all`).
@@ -12,7 +29,7 @@ Build the candidate list from the direct subfolders of `projects/` and `areas/`,
 ls -d projects/*/ areas/*/ 2>/dev/null
 ```
 
-Match the argument against those folder names, **case-insensitively and with spaces read as hyphens** (`Acme Website` is `acme-website`), **in this order**, and stop at the first rule that yields exactly one:
+Match the argument against those folder names, **case-insensitively and with every separator read as a hyphen** - a space, a dot or an underscore, so `Acme Website` is `acme-website` and a release-style name like `Para OS 2026.09.04` reaches `para-os-2026-09-04` - **in this order**, and stop at the first rule that yields exactly one:
 
 1. **Exact** folder-name match. It wins even when the name is also a substring of others, which is what makes `acme-website` reachable in a vault that also holds `acme-website-v2`.
 2. **Unique substring** match. `ticketing` resolves when it appears in one folder name.
@@ -47,13 +64,15 @@ If the call returns zero matches, SKILL.md Step 1b and its first edge case decid
 
 ### Under an entity scope
 
-Same call, two changes: `path` becomes the resolved entity folder (`projects/<name>` or `areas/<name>`) and `glob` narrows to `**/actions.md`. Move the scope into `path`, **not** into the glob - the anchoring trap above is exactly what a `projects/<name>/**` alternate walks into. The `archive/` and `resources/` discard no longer fires (the path cannot reach them), so the misplaced-checkbox flag is not computed under this scope.
+Same call, two changes: `path` becomes the resolved entity folder (`projects/<name>` or `areas/<name>`) and `glob` narrows to `**/actions.md`, or to `*.md` where the entity is a contact area (`areas/network/`, `contacts/`, `people/`), whose items live in the contact files. Move the scope into `path`, **not** into the glob - the anchoring trap above is exactly what a `projects/<name>/**` alternate walks into. The `archive/` and `resources/` discard no longer fires (the path cannot reach them), so the misplaced-checkbox flag is not computed under this scope.
 
 **Then one more grep, for what is filed elsewhere.** An entity's own action file is not the whole story: the vault routes person-paced follow-ups to `areas/network/<person>.md` and strategic items to `areas/business/actions.md`, so a project can be blocked by an item that does not live in it.
 
-- `pattern`: the entity name, case-insensitive (`-i`), plus the **space-separated** form when it has hyphens (`acme-website` also matches "acme website"). **Always the full name, never a shortened stem or a date inside it.**
+A task mentions the entity where a link on its line - the first or any further one - resolves into the entity's folder, or, only where the entity's name carries a hyphen, dot or space, where the name or its space/dot form appears as a whole word in the text; a single-token name (`network`, `quill`) is too common a word to trust and never matches by text, only by a link.
+
+- `pattern`: `]\(` to find every link on a line, plus, for a multi-token name only, the name itself case-insensitive (`-i`) and its **space-separated** and **dot-separated** forms as whole words. **Always the full name, never a shortened stem or a date inside it.**
 - `glob` and `path`: as the unscoped Step 2 call, then discard `archive/`, `resources/`, and the entity's own files
-- Keep only `- [ ]` lines
+- Keep only `- [ ]` lines, and for a link match, resolve the target from the linking file's own folder and confirm it lands inside the entity's path before counting it
 
 **Match paths separator-insensitively when discarding.** On Windows ripgrep returns `.\areas\para-os\actions.md`, so a filter written with `/` silently keeps the entity's own file and reports it as filed elsewhere. Normalise before comparing.
 
@@ -72,11 +91,13 @@ Parse markers from each task line:
 
 | Marker | Regex | Meaning |
 |---|---|---|
-| Due date | `📅 (\d{4}-\d{2}-\d{2})` | Hard deadline |
-| Start date | `🛫 (\d{4}-\d{2}-\d{2})` | Not actionable until this date |
-| Scheduled | `⏳ (\d{4}-\d{2}-\d{2})` | Planned work date - the effective date when there is no `📅` |
-| Recurring | `🔁 (every [^📅🛫⏳🔺🔼🔽⏬\n]+)` | Cadence pattern |
+| Due date | `📅️?\s*(\d{4}-\d{2}-\d{2})` | Hard deadline |
+| Start date | `🛫️?\s*(\d{4}-\d{2}-\d{2})` | Not actionable until this date |
+| Scheduled | `⏳️?\s*(\d{4}-\d{2}-\d{2})` | Planned work date - the effective date when there is no `📅` |
+| Recurring | `🔁️?\s*(every [^📅🛫⏳🔺🔼🔽⏬\n]+)` | Cadence pattern |
 | Priority | `[🔺🔼🔽⏬]` | 🔺 highest to ⏬ lowest; no marker means medium |
+
+Each date and cadence marker may carry an invisible U+FE0F variation selector, the `️?` above.
 
 Derive the **scope label** from the file path: strip the leading category folder (`projects/`, `areas/`) and the trailing `/actions.md` or `.md`, preserving an intermediate subfolder when the leaf alone is ambiguous. Record which bucket the file came from (`projects/` vs `areas/`) - the dashboard shows it.
 

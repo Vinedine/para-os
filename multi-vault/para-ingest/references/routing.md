@@ -2,7 +2,7 @@
 
 The only question this skill answers: **which vaults does this thread belong to?** Not what it means, not what to do about it, not how urgent it is. Those are `/para-triage`'s, in the vault the thread lands in, with the operator present.
 
-The candidate set for a thread is **the vaults that declared the mailbox it came from**, from the grouping in [gather.md](gather.md).
+The candidate set for a thread is **the vaults that declared the mailbox it came from**, from the grouping in [gather.md](gather.md). Declaring is the consent, and `purpose` never stands in for it: a vault opts out of a mailbox by deleting that row from its `## Triage sources` block, and out of all routed mail by deleting the block.
 
 ## Rules, in order
 
@@ -35,7 +35,7 @@ Every routed thread carries its reason into the staged note and the ledger; ever
 
 ## Never
 
-- **Never route to a vault outside the candidate set**, however well the content fits. Declaring the mailbox is the consent.
+- **Never route to a vault outside the candidate set**, however well the content fits.
 - **Never route on the recipient address alone.** A mailbox declared by six vaults says nothing about which one a given thread belongs to.
 - **Never carry a judgment into the routing decision.** Whether the thread needs a reply, whether the ball is in the operator's court, whether it is urgent: all of it is triage's.
 - **Never let routing read a vault's contents beyond its contact roots (`areas/network/` and `resources/mds/`), `CLAUDE.md` and the root `README.md`.**

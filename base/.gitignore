@@ -9,10 +9,12 @@
 !CLAUDE.md
 !.claude/
 !.claude/**
-!.mcp.json
 
 # ...but never Claude Code runtime state
 .claude/*.lock
+
+# ...and never .mcp.json, which holds live tokens: tracked wiring goes in a redacted .mcp.json.example
+.mcp.json
 
 # Python bytecode (scripts in resources/scripts/ run in place)
 __pycache__/

@@ -33,6 +33,8 @@ This skill's contract, and the vault's own rule: *committed and dated → projec
 
 Ask only where the answer is not forced. "Add Alex Rivera as a contact" is a person and asking is noise; a declared shape that the test contradicts is exactly when to ask, with the declared shape offered second and the reason it fails in its description.
 
+**A lifecycle noun does not replace the test, it answers the last question of it.** Where the vault declares a lifecycle ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), its entity noun names a *kind* of entity whose first stage already says which bucket it starts in; the test still decides whether this is that kind of thing at all, and a request that turns out to be committed work is created as the lifecycle's promoting stage rather than its first.
+
 ## Arguments
 
 | Arg | Behavior |
@@ -40,6 +42,7 @@ Ask only where the answer is not forced. "Add Alex Rivera as a contact" is a per
 | *(none)* | Ask what the user wants to create, then run the full flow. |
 | `<name>` | Full flow: classify, interview, propose, scaffold. |
 | `project` / `area` / `idea` / `contact` `<name>` | Same, with the shape declared. **The sorting test still runs** and still overrules a declared shape that is wrong. |
+| `<noun> <name>` | The noun of a lifecycle the vault declares (`deal`, `property`): create a **staged entity** at that lifecycle's first non-row stage, with its Stage line and header. **[references/scaffold.md](references/scaffold.md).** |
 | `promote <name>` | The idea-to-project path. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 

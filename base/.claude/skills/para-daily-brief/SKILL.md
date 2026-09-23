@@ -35,36 +35,45 @@ Sections with no content are omitted - no empty placeholders.
 
 ## Procedure
 
-### Step 1: Get today's date
+### Step 1: Scan the vault
+
+One call from the vault root, per [para-shared/scripts.md](../para-shared/scripts.md), which dates the run and returns every open task already parsed, bucketed and aggregated:
 
 ```bash
-date +%Y-%m-%d
+python3 "<this skill's base directory>/scripts/brief_scan.py" --vault . [--entity <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Use the Bash tool. On Windows, `bash -c` routes to WSL by default, which errors (`execvpe(/bin/bash) failed`) on a machine with no WSL distro installed; where that happens, use `Get-Date -Format "yyyy-MM-dd"` via PowerShell instead. **Do NOT substitute a cached date from memory or context** - the skill must reflect today's actual calendar date.
+Pass `--entity` only under an entity scope. Where it cannot run, fall back to [references/task-scan.md](references/task-scan.md).
+
+The rest of Step 1 reads its output: `vault_type` (Step 1b), `entity` (Step 1c), `tasks` with a `lane` each, `entities`, `totals`, `flags`, `ideas` and `triage`.
 
 ### Step 1b: Identify the vault type
 
 - **Type B (read-only consumer vault)** - no `actions.md` anywhere, on the [read-only iPad delivery](../para-shared/operating-discipline.md#the-read-only-ipad-delivery). Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one.
 - **Type A (PARA vault with action tracking)** otherwise - the full flow.
 
-Only if Step 2's grep returns zero `actions.md` matches, check the delivery to decide Type B vs. a genuinely empty Type A vault.
+The scan's `vault_type` says which. Only when it reports `B` does the delivery decide a read-only vault from a genuinely empty Type A one.
 
 **Type B skips only what the task scan feeds:** 📊 Vault state, 🎯 Now, the Later counts, and every health flag but the over-grown brief. Everything computed from the filesystem rather than from checkboxes still runs - 💡 Ideas (4d), the Vision read (4e), the over-grown-brief flag, 📥 Triage (5b), 🗓 Agenda (5c), the **Next action** close, and the dashboard (Step 7) with its task panels omitted - plus one line saying action tracking is absent by design.
 
-**While the vault is collected** (same link), this skill and its references resolve every markdown path through the path map, never the PARA path, where a miss is silent; take every date from the collected `.md` ([task-scan.md](references/task-scan.md#step-4b-aggregate-per-entity)); and test the **decoded** path wherever they test one against `archive/` or `resources/`.
+**While the vault is collected** (same link), the scan refuses with exit 2 rather than reporting a busy vault as an empty one, so the fallback runs: resolve every markdown path through the path map, never the PARA path, where a miss is silent; take every date from the collected `.md` ([task-scan.md](references/task-scan.md#step-4b-aggregate-per-entity)); and test the **decoded** path wherever they test one against `archive/` or `resources/`.
 
 ### Step 1c: Resolve an entity scope
 
-Only when the argument is not one of the four scope words **and reads like an entity name** by the test in Arguments above. Resolve it to exactly **one** `projects/<name>/` or `areas/<name>/` folder, then run the rest of the brief over that entity alone. **Full procedure: [references/task-scan.md](references/task-scan.md).**
+Only when the argument is not one of the four scope words **and reads like an entity name** by the test in Arguments above. Pass it as `--entity`; the scan answers in `entity.status`, and nothing else decides it:
+
+- `resolved` - its `match` is the one folder, and every count below is already scoped to it, with `mentioned_elsewhere` beside them.
+- `ambiguous` - list `candidates`, one per line, and ask which. **Never pick.**
+- `elsewhere` - the name is an idea or sits in `archive/`; report where it lives, with no task list.
+- `unresolved` - say so, offer `nearest`, and **never fall back to the whole vault**.
 
 ### Steps 2 to 4b: Scan, parse, bucket, aggregate
 
-One tightly scoped Grep over action-bearing files, then heading association, marker parsing, bucketing against today, and per-entity aggregation. **Full procedure: [references/task-scan.md](references/task-scan.md).**
+Done by the scan: `tasks` carries one record per open item with its markers parsed and its `lane` set against today, `entities` carries the per-entity rows, `totals` the four numbers. **What it implements, and the fallback when it cannot run: [references/task-scan.md](references/task-scan.md).**
 
-### Steps 4c to 4e: Health flags, ideas lane, Vision
+### Steps 4c to 4f: Health flags, ideas lane, Vision, lifecycle counts
 
-Standing signals computed from the task scan, plus the ideas lane and the Vision read. All read-only. **Full procedure: [references/signals.md](references/signals.md).**
+The scan's `flags`, `ideas` and `triage` hold every signal computed from files. What stays here: the Vision read (4e) and the lifecycle counts (4f), plus deciding which flags are worth a line. **Full procedure: [references/signals.md](references/signals.md).**
 
 ### Step 5: Rank and cap
 
@@ -103,10 +112,8 @@ Read [references/dashboard.md](references/dashboard.md) for the page spec, which
 ## Edge cases
 
 - **Vault with no actions.md files:** Type B gives Step 1b's reduced brief. Type A with empty or absent `triage/` gives `No action-bearing files found in <cwd>.` and stops; with a populated triage, render only 📥 Triage.
-- **Item with both future `🛫` AND `📅`:** Waiting (not actionable yet). **Past `🛫`:** ignore the gate, bucket by `D`, else Undated - a past `🛫` never hides a task.
-- **Item with `⏳` but no `📅`:** the `⏳` date is `D`. Not Undated.
+- **Every marker case is the scan's**, gate, cadence and malformed date alike: render the `lane` it returns, and a task carrying `malformed_date` reads "(malformed date)". Where the fallback is running instead, [references/task-scan.md](references/task-scan.md) holds the same rules.
 - **Recurring item without a date:** counts in Recurring; in `all`, show "next: -".
-- **Malformed date** (`📅 2026-13-45`): treat as undated, note "(malformed date)".
 - **Fewer than 5 Now candidates:** show what exists; never pad the list from Undated.
 - **`resources/ideas/` missing or empty:** omit the Ideas lane.
 - **Entity scope resolving to an entity with no open items:** say so in one line (`<entity> has no open actions.`) with its file link and last-modified date, and stop. An entity that is genuinely clear is a real answer, not an empty brief.

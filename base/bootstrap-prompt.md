@@ -4,7 +4,7 @@ Paste the block below into a Claude Code session (or any markdown-reading agent)
 
 ---
 
-You are setting up a new para-os vault. The working directory is the vault root. It already contains the PARA skeleton (`triage/`, `projects/`, `areas/{business,network}/`, `resources/{prompts,ideas,scripts}/`, `archive/meetings/`), each folder with a placeholder README except two: `triage/` carries only a `.gitkeep` and must never be given a README, and `resources/scripts/` has a real README (the state buckets and `PARAOS_HOME` resolver) that stays as shipped. Also present: the bundled `.claude/` (skills, rules, settings) and `.vscode/` folders, two template files at the root - `CLAUDE.md.template` and `README.md.template` - both full of `{{placeholders}}`, and this `bootstrap-prompt.md`.
+You are setting up a new para-os vault. The working directory is the vault root. It already contains the PARA skeleton (`triage/`, `projects/`, `areas/{business,network}/`, `resources/{prompts,ideas,scripts}/`, `archive/meetings/`), each folder with a placeholder README except two: `triage/` carries only a `.gitkeep` and must never be given a README, and `resources/scripts/` has a real README (the state buckets and `PARAOS_HOME` resolver) that stays as shipped. Also present: the bundled `.claude/` folder (skills, rules, settings), two template files at the root - `CLAUDE.md.template` and `README.md.template` - both full of `{{placeholders}}`, and this `bootstrap-prompt.md`.
 
 para-os vaults follow a fixed pattern: a PARA layout, a per-vault `CLAUDE.md` documenting the local conventions, an `actions.md` task format using Obsidian Tasks emoji markers, and the principle "don't template an entity shape until a second instance proves it."
 
@@ -15,13 +15,14 @@ Onboarding runs in three phases. **You run phase 1 now**, in this session. Phase
 Interview me with **exactly these three questions, nothing more** - keep it short, I'm new to this:
 
 1. **Vault name** and a one-line description of what it covers.
-2. **What this vault is for** - my own life admin, a business I run, a project portfolio, or a client engagement? And **which language** should the agent answer in (English, Dutch, French, ...)?
+2. **What this vault is for** - my own life admin, a business I run, a project portfolio, or a client engagement? And **which language** should the agent answer in (English, Dutch, French, ...)? And is it read here, or read-only on an iPad (the `readonly-ipad` delivery)?
 3. **Any websites or profiles you can read** to learn about it - a company site, a LinkedIn page, a listing. (Optional; I may have none.)
 
 Do **not** ask about project definitions, extra `areas/` folders, naming conventions, vault type, or README framing or ownership. Those all get sensible defaults (below); they are decisions I make later when a real need appears, not on day zero.
 
 Then fill the templates:
 
+- If I chose read-only iPad, first run steps 1 and 2 of the setup in the para-os clone's `addons/readonly-ipad/README.md` (its skeleton replaces both templates); its step 3 changes apply to everything below.
 - If I gave URLs, **read them** (WebFetch) and draft the four `README.md` sections (Identity, Operating model, Track record, Vision) from what you find. Flag anything you inferred so I can correct it. If I gave none, leave them as short, obvious stubs for the braindump (phase 2) to fill; the four headings stay exactly as the template names them.
 - Fill every `{{placeholder}}` in `CLAUDE.md.template` and `README.md.template`. Keep the invariant blocks (the PARA sorting test, Lifecycle, Archive hygiene, Actions, Filing and naming, Language, Memory, File formats, the standing "Do not add" items) exactly as written. A **delivery** skeleton's header comment lists which of these it drops; treat the rest as invariant. For the taxonomy slots, use these **defaults** verbatim unless I volunteered otherwise:
   - **project** = time-bound work with a committed deliverable and deadline.
@@ -32,7 +33,7 @@ Then fill the templates:
   - **"Do not add"** = the standing items only, plus the accounting line if this is a business or financial vault.
   - **`{{vault-type}}`** = default to `vault`. It's a stable label for telling one class of vault from another when I run several; my own tooling may key off it. Leave the `<!-- para-os-template: -->` comment above it exactly as it is - it records which template revision this vault was built from, and `/para-upgrade` reads it later.
 - **Rename each template to drop the `.template` suffix** (`CLAUDE.md`, `README.md`).
-- **Keep the skeleton's `.gitignore`** as-is. It is not a template and needs no rename. It looks redundant and is not: a machine-wide gitignore that hides `CLAUDE.md` and `.claude/` (common for anyone keeping agent config out of client repos) hides them here too, and a vault whose conventions file is untracked loses the one thing its history is for. It also carries a defensive secret guard, the last line of defence for the rule that credentials live in `~/.paraos/`, never inside a folder that syncs.
+- **Keep the skeleton's `.gitignore`** as-is, unrenamed: it re-includes `CLAUDE.md` and `.claude/` where a machine-wide gitignore hides them, and guards against committing secrets.
 - Seed `areas/business/actions.md` with the heading `# Business - Actions` and empty `## Next actions` / `## Recurring` sections (no example items, just the headings) - real strategic actions emerge from the braindump, not now.
 
 **Do not add any of the optional sections below at setup.** They are shapes a vault grows *into*, and one added early costs tokens every session to describe something that isn't there. Add a `## Context` section only if this vault needs scope boundaries or cross-vault context. The rest come later, when the need is real:
@@ -70,5 +71,5 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 - Leave the PARA placeholder READMEs in place - they self-delete as real content arrives. `triage/` is the exception: it gets a `.gitkeep`, never a README.
 - Do **not** add entity templates or a `.claude/rules/` shape file yet; those come once a second instance of an entity type exists.
 - Delete this `bootstrap-prompt.md`. Confirm the vault is clean: filled `CLAUDE.md` + `README.md`, a seeded `areas/business/actions.md`, a `projects/vault-setup/` with `brief.md` + `actions.md`, and no remaining `.template` files.
-- Tell me the skills are already bundled in this vault (`.claude/skills/`) so I can run `/para-daily-brief` right away, and that `.claude/settings.json` ships with Claude Code's auto memory turned off (the vault itself is the memory, see `## Memory` in CLAUDE.md); leave that in place. Ask whether I want the read-only / iPad delivery instead of the default editable one (see the repo's `delivery/`).
+- Tell me the skills are already bundled in this vault (`.claude/skills/`) so I can run `/para-daily-brief` right away, and that `.claude/settings.json` ships with Claude Code's auto memory turned off (the vault itself is the memory, see `## Memory` in CLAUDE.md); leave that in place. Ask whether this vault needs a **flavor** (what it is about) or a **module** (a function beside that, such as sales), both under the para-os clone's `addons/`. Each becomes one line under `**Type:**` (`**Flavor:** <name>`, `**Modules:** <name>, <name>`), as does a delivery chosen in question 2 (`**Delivery:** <name>`); a flavor or module then runs its own README's setup, which merges its `CLAUDE.md.sections` beside the vault's sections. Default to neither; they are cheap to add later and cost tokens every session when they describe something the vault does not do.
 - Offer to start the braindump (phase 2) right now if I have a few minutes. Once every action in the vault-setup project is done, I retire it - archive or delete `projects/vault-setup/`.

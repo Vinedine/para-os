@@ -1,0 +1,19 @@
+# One line ending for everything a vault copies out of this repo. An installed skill or
+# script is compared against its master by content, and a CRLF checkout on one side made a
+# byte diff report drift where none existed. LF in the working tree everywhere, so the copy
+# and the master agree without a normalising step.
+*.md    text eol=lf
+*.py    text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.json  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.sh    text eol=lf
+*.html  text eol=lf
+*.txt   text eol=lf
+*.template text eol=lf
+*.sections text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+*.ps1   text eol=crlf

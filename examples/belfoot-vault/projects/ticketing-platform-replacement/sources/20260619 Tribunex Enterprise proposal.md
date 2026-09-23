@@ -26,6 +26,7 @@ Tribunex Enterprise proposes its Connect suite with full API coverage, native dy
 - One-off implementation + migration: €420,000.
 - Annual platform fee: €180,000 + 1.2% per-ticket fee on primary sales.
 - 5-year TCO at current volumes: ~€2.1M.
+- Indicative prices hold to 2026-07-03.
 
 ## Open questions for evaluation
 

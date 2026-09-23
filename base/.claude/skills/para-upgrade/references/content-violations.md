@@ -11,11 +11,11 @@ Two things that are never automatic:
 - **Reclassification is proposed, not applied.** Bucket moves reshape how the operator thinks about their own work. Present the evidence (what the brief's own status line says) and let them rule.
 - **Retiring anything is the user's call.** No sweep for stale entities, no automatic archiving.
 
-**Every move repoints inbound links in the same pass.** A migration that skips this leaves references pointing at nothing, and the rot only surfaces months later in whatever reads them.
+**Every move repoints inbound links in the same pass.**
 
 ## A CLAUDE.md over the 200-line target
 
-Check the line count at the end of every run. A condensing revision can leave a vault over target and **Phase 1 is not allowed to close the gap**: the template's sections are the only ones it may rewrite, and a mature vault's own sections are usually most of the file. Left there, the migration installs a target the vault fails on arrival, with no phase permitted to reach it - which teaches the operator the number is decorative.
+Check the line count at the end of every run - the scan's `vault.claude_md_lines` (`wc -l` semantics, [scan.md](scan.md)), re-read after Phase 1's writes rather than trusted from the Phase 0 scan. A condensing revision can leave a vault over target and **Phase 1 is not allowed to close the gap**: the template's sections are the only ones it may rewrite, and a mature vault's own sections are usually most of the file.
 
 So when the file is over target after Phase 1, **propose extraction, one candidate at a time, and apply nothing without a yes.** The candidates, in the order they usually pay:
 
@@ -23,7 +23,9 @@ So when the file is over target after Phase 1, **propose extraction, one candida
 - **Rationale** - the paragraph explaining why a rule exists. It belongs to git history, and the rule survives without it.
 - **A description of a script's behaviour** - it belongs in that script's README or docstring, which is also where it will actually be kept true.
 
-Never propose cutting a vault's own operating rules to reach the number, and never cut a rule that exists because something once went wrong. **Being over target is a finding, not a failure**: report the count, name the candidates with their line savings, and let the operator rule. A vault that stays at 240 lines because every line earns its place is correct, and saying so is a better outcome than a file trimmed to 199 by deleting something load-bearing.
+**Measure a candidate by the lines it removes, not the words.** The target counts lines (`wc -l`), and in a vault written one unwrapped paragraph per bullet, as the template itself is, shortening a bullet into a pointer bullet saves nothing: only lines that leave the file count. Give each candidate's saving as the count before minus the count after, computed rather than estimated.
+
+Never propose cutting a vault's own operating rules to reach the number, and never cut a rule that exists because something once went wrong. **Being over target is a finding, not a failure**: report the count, name the candidates with their line savings, and let the operator rule.
 
 ## Edge case
 

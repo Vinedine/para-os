@@ -1,5 +1,7 @@
 # Phase 2 - README structure consistency
 
+This phase has no script: it is judgment start to finish.
+
 Goal: the root README matches the para-os shape, and every entity README follows a documented canonical structure for the vault.
 
 ## Step 2.0 - Root README first
@@ -18,6 +20,8 @@ Find the vault's declared shape for entity READMEs and briefs, per [A vault's ru
 
 **Order is the vault's call, not this skill's.** A declared shape may fix its section order as a contract, or may say order varies by entity and is not enforced. Audit against whichever it does, and **never report a vault as non-conforming for an order it deliberately declined to fix**. A structure this skill drafts specifies that sections which don't apply get explicit `_n/a_` lines and includes the domain-specific sections the vault's purpose needs; whether it also fixes an order is a question for the operator.
 
+**"At least" names a content contract, not a heading contract.** Where a declared shape says a document carries at least a named set of facts, the facts have to be present; the sections holding them may carry other names, and a brief that already states them under a different heading satisfies the rule as written. Restructuring it to the shape's own heading names is a separate, optional cleanup - offer it, never apply it as the default reading of "at least".
+
 **This skill brings no default section list for entities.** The canonical structure comes from each vault's CLAUDE.md. Never invent or import a template.
 
 ## Step 2.2 - Archived and dead entities
@@ -30,7 +34,7 @@ For each entity README:
 
 - Do the **first one as a worked example** and pause for approval before batching the rest.
 - Preserve all existing facts verbatim - only reorganize and add missing sections.
-- Promote inline bolded blocks (Ownership, Notary) to `##` sections for consistency, except where the declared shape uses bold labels there itself.
+- Promote inline bolded blocks (Ownership, Notary) to `##` sections for consistency, except where the declared shape uses bold labels there itself. The heading replaces the bold label; the text beneath stays verbatim.
 - Add `_n/a_` placeholders for sections that genuinely don't apply.
 
 ## Edge case

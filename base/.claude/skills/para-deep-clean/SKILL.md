@@ -1,6 +1,6 @@
 ---
 name: para-deep-clean
-description: Run a comprehensive cleanup pass on a vault - audits structural/housekeeping issues, normalizes README structure per a canonical template, closes documented open items by reading source PDFs, grooms over-grown action files back to the actionable frontier, and ensures status tables make each entity's state visible at a glance. Use when user asks for a "deep clean", "deep cleanup", "vault review", "vault cleanup", "cleanup pass", "groom my actions", or types /para-deep-clean.
+description: Run a comprehensive cleanup pass on a vault - audits structural/housekeeping issues, normalizes README structure per a canonical template, closes documented open items by reading source PDFs, grooms over-grown action files back to the actionable frontier, and ensures status tables make each entity's state visible at a glance. Use when user asks for a "deep clean", "deep cleanup", "vault review", "vault cleanup", "cleanup pass", "groom my actions", "audit this vault", "check the vault without changing anything", or types /para-deep-clean.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__*__search_threads, mcp__*__get_thread, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
 arg-hint: '[phase1|phase2|phase3|phase4|audit] [--test]'
 ---
@@ -36,7 +36,7 @@ Confirm before starting:
 4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check, covering [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) - if any loose files (not subdirectories) are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1 rather than treating it as a loose item to file.
 5. **The vault should be on the newest *shipped* para-os template revision.** This skill audits the vault against the rules its own `CLAUDE.md` states, so if that contract is a revision behind, a clean bill of health here only means the vault is faithful to a stale spec. Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
-   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/main`** (the delivery's skeleton template for a vault on one). **Never read the clone's working tree:** a revision in flight lives there uncommitted and would report every vault on the machine as behind. The only marker a vault can be aligned to is one that has shipped.
+   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/main`** (the delivery's skeleton template for a vault on a delivery, whether its `**Delivery:**` line names it or [the detection rule](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places it there: `addons/<delivery>/skeleton/`, or `delivery/<delivery>/` then `flavors/<delivery>/` at a ref with no `addons/` folder; base where the delivery has no skeleton at that ref, said so in the run). **Never read the clone's working tree:** a revision in flight lives there uncommitted and would report every vault on the machine as behind. The only marker a vault can be aligned to is one that has shipped.
 
    Then, in order:
 
@@ -45,6 +45,14 @@ Confirm before starting:
    - **No para-os clone on this machine:** skip the check, say the vault's revision could not be verified, and carry on.
 
 If the vault is on the read-only iPad delivery and **collected**, offer to run [its edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) around the phases that write.
+
+## Step 0 - Scan
+
+Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns the preconditions above plus that phase's candidate findings, never a proposal or a fix. Phase 2 has no script. Where it cannot run, fall back to that phase's own reference.
+
+```bash
+python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today YYYY-MM-DD] [--ref <git-ref>] [--clone <path>] > <scan output path>
+```
 
 ## Phased workflow
 
@@ -87,7 +95,7 @@ Findings are presented two ways, and which one a finding gets is decided by whet
 
 - **Read every README and key source PDF** before proposing changes. Assumptions waste user time.
 - **Pause for approval between phases**, and within Phase 2 do one worked example before batching the rest.
-- **Respect "do not add" rules** in CLAUDE.md. Common ones: no per-entity templates, no `actions.md`, no derived outputs that drift from a single source.
+- **Respect "do not add" rules** in CLAUDE.md. Common ones: no per-entity templates, no derived outputs that drift from a single source, and, on the read-only iPad delivery specifically, no `actions.md` at all.
 - **Match the vault's voice and style.** Read 2-3 nearby READMEs first and copy the structure and tone.
 - **Cross-vault separation**: never link from a code repo to a private vault path, and never include other-vault paths in repo-checked content. Code repos push to shared remotes; vault paths leak personal context.
 
@@ -101,7 +109,7 @@ Phase-specific edge cases live with their phase.
 ## Notes for Claude sessions
 
 - This skill produces user-visible work on most READMEs in the vault. Make sure the user has time and bandwidth before kicking it off. A typical run takes 1-3 hours of conversation.
-- Track progress in the harness's task list - there are many discrete items per phase and progress visibility matters.
+- Track progress in the harness's task list where it offers one, else in a short progress message at each phase boundary - there are many discrete items per phase and progress visibility matters.
 - When extracting data from PDFs, prefer Python plus pypdf over Bash text grepping. PDF text layout is unreliable from grep.
 - Resist the urge to rewrite content for clarity. The user knows their domain; your job is structural consistency and closing gaps, not editorial improvement.
 

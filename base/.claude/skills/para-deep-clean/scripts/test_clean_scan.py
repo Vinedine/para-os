@@ -1,0 +1,844 @@
+#!/usr/bin/env python3
+"""Tests for clean_scan.py. Each one pins a rule references/phase1-structural.md,
+phase3-open-items.md or phase4-audit.md states in prose, or a finding from one of the two
+recorded --test runs of this skill.
+
+    python3 test_clean_scan.py
+    py -3 test_clean_scan.py
+
+Standard library only, so a vault that runs the skill can run its tests. Every fixture is a
+throwaway vault in a temporary directory, with synthetic names only: nothing reads or writes
+a real vault, and nothing calls a model. The date is passed in, never taken from the clock,
+except in the one mtime-fallback test that has to measure against a real file timestamp.
+
+What paraos_vault.py itself decides (fenced-block-aware scanning, link extraction, content
+hashing) is tested beside it, in para-shared/scripts/test_paraos_vault.py. What is tested
+here is what this skill alone decides: file scope, contact-citation counting, what an
+"entity folder" is under archive/, and how a stale item's date is measured.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+from datetime import date
+from pathlib import Path
+
+from clean_scan import (
+    CollectedVault, DEFAULT_DATED_PATTERN, DEFAULT_NEXT_STEPS_HEADINGS, scan,
+)
+from paraos_vault import STALE_FILE_DAYS, changed, scan_snapshot  # made importable by clean_scan's own guard
+
+TODAY = date(2026, 9, 22)
+
+
+def write(root, rel, text):
+    path = root / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def git_init(root):
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
+
+
+def git_commit_at(root, date_str, message="commit"):
+    env = dict(os.environ, GIT_AUTHOR_DATE=f"{date_str}T00:00:00",
+              GIT_COMMITTER_DATE=f"{date_str}T00:00:00")
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", message], cwd=root, check=True, env=env)
+
+
+def marker_claude_md(marker, delivery=None):
+    lines = ["# Vault Conventions", "", f"<!-- para-os-template: {marker} -->",
+             "**Type:** vault"]
+    if delivery:
+        lines.append(f"**Delivery:** {delivery}")
+    lines.append("")
+    return "\n".join(lines) + "\n"
+
+
+def make_clone(base_marker="2026.09.05", deliveries=None, layout="addons"):
+    """A throwaway committed para-os clone, for the template-marker precondition. Not
+    cleaned up by the caller's addCleanup until it registers one; VaultCase.clone() does.
+    `layout` is the folder each delivery ships under: `addons` today, `delivery` at a ref
+    from before `addons/` existed.
+    """
+    root = Path(tempfile.mkdtemp())
+    write(root, "base/CLAUDE.md.template", marker_claude_md(base_marker))
+    for name, marker in (deliveries or {}).items():
+        write(root, f"{layout}/{name}/skeleton/CLAUDE.md.template", marker_claude_md(marker))
+    git_init(root)
+    git_commit_at(root, "2026-01-01")
+    return root
+
+
+class VaultCase(unittest.TestCase):
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+
+    def clone(self, **kwargs):
+        path = make_clone(**kwargs)
+        self.addCleanup(shutil.rmtree, path, ignore_errors=True)
+        return path
+
+    def run_scan(self, phase, today=TODAY, ref="HEAD", clone=None, templates_dirs=None,
+                dated_pattern=DEFAULT_DATED_PATTERN, headings=None):
+        report, code = scan(self.root, today, phase, ref, clone, templates_dirs or [],
+                            dated_pattern, headings or list(DEFAULT_NEXT_STEPS_HEADINGS))
+        self.assertEqual(code, 0)
+        return report
+
+
+# ------------------------------------------------------------------------------ preconditions
+
+class Preconditions(VaultCase):
+
+    def test_triage_loose_excludes_readme_and_flags_it_separately(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "triage/note.md", "x\n")
+        write(self.root, "triage/README.md", "x\n")
+        write(self.root, "triage/.gitkeep", "")
+        pre = self.run_scan("1")["preconditions"]
+        self.assertEqual(pre["triage_loose"], ["note.md"])
+        self.assertTrue(pre["triage_readme"])
+
+    def test_delivery_survives_the_template_marker_comment(self):
+        # Every real vault CLAUDE.md carries the marker comment between its title and its
+        # first bold field, which header_fields() now skips rather than stopping at.
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01", delivery="readonly-ipad"))
+        pre = self.run_scan("1")["preconditions"]
+        self.assertEqual(pre["template_marker"]["delivery"], "readonly-ipad")
+        self.assertEqual(pre["template_marker"]["delivery_source"], "declared")
+
+    def test_no_clone_is_unverified(self):
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
+        m = self.run_scan("1", clone=None)["preconditions"]["template_marker"]
+        self.assertEqual(m["verdict"], "unverified")
+        self.assertIsNone(m["master"])
+        self.assertIsNone(m["delivery_source"])
+
+    def test_equal(self):
+        clone = self.clone(base_marker="2026.09.05")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05"))
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual(m["verdict"], "equal")
+
+    def test_behind(self):
+        clone = self.clone(base_marker="2026.09.05")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual(m["verdict"], "behind")
+
+    def test_ahead(self):
+        clone = self.clone(base_marker="2026.09.05")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.10.01"))
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual(m["verdict"], "ahead")
+
+    def test_unverified_when_vault_carries_no_marker(self):
+        clone = self.clone(base_marker="2026.09.05")
+        write(self.root, "CLAUDE.md", "# Vault\n\n**Type:** x\n")
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual(m["verdict"], "unverified")
+        self.assertIsNone(m["vault"])
+        self.assertEqual(m["master"], "2026.09.05")
+
+    def test_delivery_skeleton_used_when_it_exists_at_the_ref(self):
+        clone = self.clone(base_marker="2026.09.01", deliveries={"readonly-ipad": "2026.09.05"})
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05", delivery="readonly-ipad"))
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual(m["master"], "2026.09.05")
+        self.assertEqual(m["verdict"], "equal")
+        self.assertNotIn("delivery_fallback", m)
+
+    def test_delivery_with_no_skeleton_falls_back_to_base(self):
+        # Finding 1 of the 20260916-0030 test run.
+        clone = self.clone(base_marker="2026.09.01")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.01", delivery="direct"))
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual(m["master"], "2026.09.01")
+        self.assertEqual(m["verdict"], "equal")
+        self.assertIn("delivery_fallback", m)
+
+    def test_no_delivery_line_and_flip_at_the_root_is_measured_against_the_skeleton(self):
+        # operating-discipline.md's detection rule: flip.ps1 at the root puts the vault on
+        # the read-only iPad delivery with or without the line. Measured against base, this
+        # vault read as ahead of a template it was never built from.
+        clone = self.clone(base_marker="2026.09.01", deliveries={"readonly-ipad": "2026.09.05"})
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05"))
+        write(self.root, "flip.ps1", "# flip\n")
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual((m["delivery"], m["delivery_source"]), ("readonly-ipad", "detected"))
+        self.assertEqual(m["master"], "2026.09.05")
+        self.assertEqual(m["verdict"], "equal")
+        self.assertNotIn("delivery_fallback", m)
+
+    def test_a_ref_from_before_addons_finds_the_skeleton_under_delivery(self):
+        clone = self.clone(base_marker="2026.09.01", deliveries={"readonly-ipad": "2026.09.03"},
+                           layout="delivery")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.03", delivery="readonly-ipad"))
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual(m["master"], "2026.09.03")
+        self.assertEqual(m["verdict"], "equal")
+        self.assertNotIn("delivery_fallback", m)
+
+
+# ------------------------------------------------------------------------------------- Phase 1
+
+class Phase1Map(VaultCase):
+
+    def test_map_counts_entities_and_empty_leaf_dirs(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "areas/business/brief.md", "# Business\n")
+        write(self.root, "resources/ideas/thing/brief.md", "# Thing\n")
+        (self.root / "resources/ideas/empty-one").mkdir(parents=True)
+        m = self.run_scan("1")["phase1"]["map"]
+        self.assertEqual(m["entity_counts"], {"projects": 1, "areas": 1, "resources/ideas": 2})
+        self.assertIn("resources/ideas/empty-one", m["empty_leaf_dirs"])
+
+
+class Placeholders(VaultCase):
+
+    def test_placeholder_found_in_entity_brief(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\n{{fill me in}}\n")
+        hits = self.run_scan("1")["phase1"]["placeholders"]
+        self.assertEqual([h["file"] for h in hits], ["projects/acme/brief.md"])
+
+    def test_templates_dir_argument_excludes_its_folder(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/tmpl-folder/brief.md", "# Tmpl\n\n{{x}}\n")
+        hits = self.run_scan("1", templates_dirs=["projects/tmpl-folder"])["phase1"]["placeholders"]
+        self.assertEqual(hits, [])
+
+    def test_resources_prompts_excluded_by_default(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/prompts/draft/brief.md", "# Draft\n\n{{x}}\n")
+        hits = self.run_scan("1")["phase1"]["placeholders"]
+        self.assertEqual(hits, [])
+
+
+class DanglingLinks(VaultCase):
+
+    def test_dangling_link_reported(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\n[gone](missing.md)\n")
+        hits = self.run_scan("1")["phase1"]["dangling"]
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["href"], "missing.md")
+
+    def test_excludes_schemes_and_placeholders(self):
+        # Finding 5 of the 20260915-2146 test run.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "\n".join([
+            "# Acme", "",
+            "[mail](mailto:jan@example.com)",
+            "[call](tel:+3212345678)",
+            "[local](file:///C:/nope.md)",
+            "[tmpl](<placeholder>.md)", "",
+        ]) + "\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["dangling"], [])
+
+    def test_resolves_percent_encoded_spaces(self):
+        # Finding 2 of the 20260915-2146 test run: a %20 link a plain-text grep would miss.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/ideas/the thing/brief.md", "# Thing\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n[good](../../resources/ideas/the%20thing/brief.md)\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["dangling"], [])
+
+
+class CheckerVerified(VaultCase):
+
+    def test_all_three_directions_pass(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        got = self.run_scan("1")["phase1"]["checker_verified"]
+        self.assertEqual(got, {"good_link_passes": True, "broken_link_caught": True,
+                               "fenced_link_skipped": True})
+
+
+class Wikilinks(VaultCase):
+
+    def test_resolved_and_unresolved(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nSee [[Jan Claes]] and [[Nobody Home|nobody]].\n")
+        hits = {h["target"]: h for h in self.run_scan("1")["phase1"]["wikilinks"]}
+        self.assertEqual(hits["Jan Claes"]["resolved"], "areas/network/jan-claes.md")
+        self.assertIsNone(hits["Nobody Home"]["resolved"])
+        self.assertEqual(hits["Nobody Home"]["display"], "nobody")
+
+
+class UncitedContacts(VaultCase):
+
+    def test_mention_with_no_link_is_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nNot about anyone here.\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nJan Claes flagged a risk.\n")
+        found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
+        self.assertEqual(found["areas/network/jan-claes.md"]["files"],
+                         [{"file": "projects/acme/brief.md", "mentions": 1}])
+
+    def test_mention_with_a_link_is_not_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n[Jan Claes](../../areas/network/jan-claes.md) flagged a risk.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
+    def test_name_source_is_h1_plus_aliases(self):
+        # Finding 6 of the 20260915-2146 test run.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/marten-van-oost.md",
+              "# Marten Van Oost\n\n**Aliases:** Marten Vanoost\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMarten Vanoost called.\n")
+        found = {c["card"] for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
+        self.assertIn("areas/network/marten-van-oost.md", found)
+
+    def test_archive_is_out_of_scope(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "archive/meetings/20260101 Notes.md", "# Notes\n\nJan Claes was there.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
+    def test_principal_unlinked_mention_elsewhere_is_not_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "README.md",
+              "# Vault\n\n## Identity\n\n[Jan Claes](areas/network/jan-claes.md) runs it.\n\n"
+              "## Operating model\n\nn/a\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nJan Claes signed off.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
+    def test_principal_top_level_area_readme_must_still_link(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "areas/network/README.md", "# Network\n\nJan Claes is in here.\n")
+        write(self.root, "README.md",
+              "# Vault\n\n## Identity\n\n[Jan Claes](areas/network/jan-claes.md) runs it.\n")
+        found = {c["card"] for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
+        self.assertIn("areas/network/jan-claes.md", found)
+
+    def test_a_name_inside_backticks_is_not_a_mention(self):
+        # Finding 1: a name quoted as a code sample is not a use of it.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nSee `Jan Claes` in the template.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
+    def test_a_ledger_record_is_exempt_but_named_for_override(self):
+        # Finding 3: the mechanical proxy for "analytical and ledger records that are
+        # evidence in all but folder name" - the file is dropped from the finding but
+        # still listed, so the skill can override the proxy.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "areas/claude-platform/session-usage-review.md",
+              "# Review\n\nJan Claes ran the session.\n")
+        phase1 = self.run_scan("1")["phase1"]
+        self.assertEqual(phase1["uncited_contacts"], [])
+        self.assertEqual(phase1["uncited_exempt"],
+                         ["areas/claude-platform/session-usage-review.md"])
+
+    def test_a_ledger_word_in_a_folder_segment_also_exempts(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "areas/business/transcript/20260101 Call.md",
+              "# Call\n\nJan Claes joined.\n")
+        phase1 = self.run_scan("1")["phase1"]
+        self.assertEqual(phase1["uncited_contacts"], [])
+        self.assertIn("areas/business/transcript/20260101 Call.md", phase1["uncited_exempt"])
+
+
+class InlineContactDetails(VaultCase):
+
+    def test_email_beside_a_named_contact_is_flagged_unattributed(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nReach Jan Claes at jan.claes@example.com.\n")
+        hits = self.run_scan("1")["phase1"]["inline_contact_details"]
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["names_on_line"], ["Jan Claes"])
+        self.assertEqual(hits[0]["kind"], "email")
+        self.assertEqual(hits[0]["attribution"], "unresolved")
+        self.assertNotIn("card", hits[0])
+
+    def test_every_carded_name_on_the_line_is_listed_not_just_the_nearest(self):
+        # Finding 2: a detail is never attributed by proximity, so both names sharing the
+        # line come back, and neither is picked as the owner.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "areas/network/ann-peeters.md", "# Ann Peeters\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes and Ann Peeters can both be reached at team@example.com.\n")
+        hits = self.run_scan("1")["phase1"]["inline_contact_details"]
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0]["names_on_line"], ["Ann Peeters", "Jan Claes"])
+
+    def test_sources_folder_is_excluded(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/sources/20260101 Email.md",
+              "Jan Claes wrote from jan.claes@example.com.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
+
+    def test_a_detail_inside_a_code_span_is_not_a_detail(self):
+        # Finding 1: a phone-shaped run of digits quoted in a code span is a path, not a
+        # contact detail.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes filed it at `projects/acme/2026-0470123456.md`.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
+
+    def test_leading_plus_phone_is_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nReach Jan Claes at +32 470 12 34 56.\n")
+        hits = self.run_scan("1")["phase1"]["inline_contact_details"]
+        self.assertEqual([h["kind"] for h in hits], ["phone"])
+        self.assertEqual(hits[0]["detail"], "+32 470 12 34 56")
+
+    def test_eight_digit_phone_with_only_spaces_is_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nReach Jan Claes at 03 234 56 78.\n")
+        hits = self.run_scan("1")["phase1"]["inline_contact_details"]
+        self.assertEqual([h["kind"] for h in hits], ["phone"])
+
+    def test_an_iso_date_is_not_a_phone(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes signed off on 2026-06-19.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
+
+    def test_a_compact_eight_digit_date_is_not_a_phone(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes signed off on 20260619.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
+
+    def test_digits_inside_a_percent_encoded_link_target_are_not_a_phone(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes: see [scan](Jan%20Claes%2020260619.pdf).\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
+
+
+class Duplicates(VaultCase):
+
+    def test_cross_entity_duplicate_flagged(self):
+        # Finding 7 of the 20260915-2146 test run.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        body = "x" * 250
+        write(self.root, "projects/acme/sources/plan.md", body)
+        write(self.root, "projects/other/sources/plan.md", body)
+        groups = self.run_scan("1")["phase1"]["duplicates"]["groups"]
+        self.assertEqual(len(groups), 1)
+        self.assertTrue(groups[0]["cross_entity"])
+
+    def test_skipped_folder_reported_not_dropped(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/sources/photos/a.jpg", "y" * 250)
+        skipped = self.run_scan("1")["phase1"]["duplicates"]["skipped"]
+        self.assertIn("projects/acme/sources/photos/a.jpg", skipped)
+
+
+class FigurePairs(VaultCase):
+
+    def test_rollup_figure_missing_from_brief_is_a_candidate_pair(self):
+        # Finding 2 of the 20260916-0030 test run.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMargin: EUR6,2k\n")
+        write(self.root, "README.md", "# Vault\n\nacme margin is EUR19k this year.\n")
+        pairs = self.run_scan("1")["phase1"]["figure_pairs"]
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0]["entity"], "acme")
+
+    def test_matching_figures_produce_no_finding(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMargin: EUR19k\n")
+        write(self.root, "README.md", "# Vault\n\nacme margin is EUR19k this year.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
+    def test_a_figure_shaped_run_inside_a_link_target_is_not_a_figure(self):
+        # A percent-encoded link target holding digits directly followed by "%" reads as a
+        # figure to a naive scan; stripping the href before matching drops it.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nNo figures here.\n")
+        write(self.root, "README.md",
+              "# Vault\n\nacme via [scan](sources/20260709%20Invoice.md) paid EUR10,000\n")
+        pairs = self.run_scan("1")["phase1"]["figure_pairs"]
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0]["rollup_figures"], ["EUR10,000"])
+
+    def test_an_entity_name_only_inside_a_link_target_is_not_a_mention(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/business/brief.md", "# Business\n\nEUR5k baseline.\n")
+        write(self.root, "README.md",
+              "# Vault\n\nSee [notes](areas/business/x.md) for EUR19k context.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
+    def test_the_entitys_own_brief_href_never_contributes_a_phantom_brief_figure(self):
+        # A real-vault finding: an un-decoded href inside the entity's own brief (a dated
+        # meeting record filename) produced a phantom figure. figure_pairs() runs on
+        # cleaned lines on both sides, so a reported pair's own brief_figures list never
+        # carries it.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nEUR5k baseline, see "
+              "[notes](../../archive/meetings/20260709%20Call.md).\n")
+        write(self.root, "README.md", "# Vault\n\nacme margin is EUR19k this year.\n")
+        pairs = self.run_scan("1")["phase1"]["figure_pairs"]
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0]["brief_figures"], ["EUR5k"])
+
+
+class Archive(VaultCase):
+
+    def test_loose_root_file_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/stray.md", "x\n")
+        loose = self.run_scan("1")["phase1"]["archive"]["loose_root_files"]
+        self.assertEqual(loose, ["archive/stray.md"])
+
+    def test_meetings_naming_violation_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/meetings/not-dated.md", "x\n")
+        write(self.root, "archive/meetings/20260101 Kickoff.md", "x\n")
+        naming = self.run_scan("1")["phase1"]["archive"]["meetings_naming"]
+        self.assertEqual(naming, ["archive/meetings/not-dated.md"])
+
+    def test_dated_pattern_is_overridable(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/meetings/2026-01-01 Kickoff.md", "x\n")
+        naming = self.run_scan("1", dated_pattern=r"^\d{4}-\d{2}-\d{2} ")["phase1"]["archive"]["meetings_naming"]
+        self.assertEqual(naming, [])
+
+    def test_archived_entity_missing_record_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/projects/acme/sources/note.md", "x\n")
+        missing = self.run_scan("1")["phase1"]["archive"]["missing_record"]
+        self.assertEqual(missing, ["archive/projects/acme"])
+
+
+class StaleDrafts(VaultCase):
+
+    def test_doc_beside_pdf_is_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/sources/contract.docx", "x")
+        write(self.root, "projects/acme/sources/contract.pdf", "x")
+        drafts = self.run_scan("1")["phase1"]["stale_drafts"]
+        self.assertEqual(drafts, [{"draft": "projects/acme/sources/contract.docx",
+                                   "pdf": "projects/acme/sources/contract.pdf"}])
+
+
+# ------------------------------------------------------------------------------------- Phase 3
+
+class OverThreshold(VaultCase):
+
+    def test_at_threshold_flagged(self):
+        items = "\n".join(f"- [ ] Item {i}" for i in range(12))
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", f"# Acme\n\n{items}\n")
+        rows = self.run_scan("3")["phase3"]["over_threshold"]
+        self.assertEqual(rows, [{"file": "projects/acme/actions.md", "open": 12}])
+
+    def test_under_threshold_not_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n")
+        self.assertEqual(self.run_scan("3")["phase3"]["over_threshold"], [])
+
+    def test_a_non_action_file_over_threshold_is_flagged_too(self):
+        # Finding 5: phase3-open-items.md Step 3.4 scans every checkbox-bearing file in
+        # projects/ and areas/, not only action_files().
+        items = "\n".join(f"- [ ] Item {i}" for i in range(12))
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/plan.md", f"# Plan\n\n{items}\n")
+        rows = self.run_scan("3")["phase3"]["over_threshold"]
+        self.assertEqual(rows, [{"file": "projects/acme/plan.md", "open": 12}])
+
+
+class OtherCheckboxFiles(VaultCase):
+
+    def test_a_non_action_checkbox_file_is_reported_with_a_null_contract(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/business/session-log.md", "# Log\n\n- [ ] Review last week\n")
+        rows = self.run_scan("3")["phase3"]["other_checkbox_files"]
+        self.assertEqual(rows, [{"file": "areas/business/session-log.md", "open": 1,
+                                 "declares_contract": None}])
+
+    def test_action_files_and_contact_files_are_excluded(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan\n\n- [ ] Follow up\n")
+        rows = self.run_scan("3")["phase3"]["other_checkbox_files"]
+        self.assertEqual(rows, [])
+
+    def test_a_file_with_no_open_checkbox_is_not_reported(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/notes.md", "# Notes\n\n- [x] Done already\n")
+        rows = self.run_scan("3")["phase3"]["other_checkbox_files"]
+        self.assertEqual(rows, [])
+
+    def test_resources_and_archive_are_out_of_scope(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/playbook/notes.md", "# p\n\n- [ ] Not in scope\n")
+        write(self.root, "archive/projects/old/notes.md", "# n\n\n- [ ] Not in scope\n")
+        rows = self.run_scan("3")["phase3"]["other_checkbox_files"]
+        self.assertEqual(rows, [])
+
+
+class BriefsToRead(VaultCase):
+
+    def test_an_over_grown_brief_is_listed_for_phase_3_to_read(self):
+        # Finding 6: over_grown_briefs moves from a Phase 4 pass/fail row to Phase 3's own
+        # selection list, per phase3-open-items.md Step 3.5.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/wordy/brief.md", "# wordy\n" + ("line\n" * 600))
+        rows = self.run_scan("3")["phase3"]["briefs_to_read"]
+        self.assertEqual(rows[0]["file"], "projects/wordy/brief.md")
+
+    def test_every_over_grown_brief_is_listed_not_the_first_three(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        for i in range(5):
+            write(self.root, f"projects/wordy{i}/brief.md", "# w\n" + ("line\n" * (600 + i)))
+        self.assertEqual(len(self.run_scan("3")["phase3"]["briefs_to_read"]), 5)
+
+    def test_a_normal_length_brief_is_not_listed(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nShort.\n")
+        self.assertEqual(self.run_scan("3")["phase3"]["briefs_to_read"], [])
+
+
+class StaleUndated(VaultCase):
+
+    def test_tracked_item_measured_by_git_blame_line(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Old undated item\n")
+        git_init(self.root)
+        git_commit_at(self.root, "2026-01-01")
+        rows = self.run_scan("3", today=TODAY)["phase3"]["stale_undated"]["projects/acme/actions.md"]
+        self.assertEqual(rows[0]["measured_by"], "git_blame_line")
+        self.assertGreaterEqual(rows[0]["days"], STALE_FILE_DAYS)
+
+    def test_a_line_shifted_by_a_later_edit_is_still_measured_by_its_own_last_touch(self):
+        # The finding this replaces git log -L for: a line edited recently, then shifted
+        # to a new line number by an unrelated edit, must not be measured against the
+        # older commit that first created it.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Shifted item\n")
+        git_init(self.root)
+        git_commit_at(self.root, "2026-01-01", "first")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Shifted item, edited\n")
+        git_commit_at(self.root, "2026-08-24", "second")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme\n\n- [ ] An unrelated item added above\n- [ ] Shifted item, edited\n")
+        git_commit_at(self.root, "2026-09-20", "third")
+        rows = self.run_scan("3", today=TODAY)["phase3"]["stale_undated"].get(
+            "projects/acme/actions.md", [])
+        self.assertNotIn("Shifted item, edited", [r["text"] for r in rows])
+
+    def test_an_uncommitted_edit_is_measured_by_uncommitted(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Old item\n")
+        git_init(self.root)
+        git_commit_at(self.root, "2026-01-01")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme\n\n- [ ] A brand new uncommitted item\n- [ ] Old item\n")
+        rows = self.run_scan("3", today=TODAY)["phase3"]["stale_undated"]["projects/acme/actions.md"]
+        by_text = {r["text"]: r for r in rows}
+        self.assertEqual(by_text["A brand new uncommitted item"]["measured_by"], "uncommitted")
+
+    def test_untracked_file_falls_back_to_mtime_per_file(self):
+        # Finding 3 of the 20260916-0030 test run: a git-less vault still gets a real
+        # per-file answer, not the whole check reporting "could not run".
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        path = write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Old undated item\n")
+        old = time.time() - (STALE_FILE_DAYS + 1) * 86400
+        os.utime(path, (old, old))
+        rows = self.run_scan("3", today=date.today())["phase3"]["stale_undated"]["projects/acme/actions.md"]
+        self.assertEqual(rows[0]["measured_by"], "mtime")
+
+    def test_tracked_but_uncommitted_line_is_unmeasurable(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Old undated item\n")
+        git_init(self.root)
+        subprocess.run(["git", "add", "-A"], cwd=self.root, check=True)
+        rows = self.run_scan("3", today=TODAY)["phase3"]["stale_undated"]["projects/acme/actions.md"]
+        self.assertEqual(len(rows), 1)
+        self.assertIn("unmeasurable", rows[0])
+
+    def test_dated_item_is_never_reported_here(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Dated 📅 2026-01-01\n")
+        self.assertEqual(self.run_scan("3")["phase3"]["stale_undated"], {})
+
+
+class Aspirational(VaultCase):
+
+    def test_overdue_beyond_threshold_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Blown deadline 📅 2026-01-01\n")
+        rows = self.run_scan("3", today=TODAY)["phase3"]["aspirational"]["projects/acme/actions.md"]
+        self.assertEqual(rows[0]["days_overdue"], (TODAY - date(2026, 1, 1)).days)
+
+    def test_a_checkbox_file_other_than_actions_is_groomed_too(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/plan.md", "# Plan\n\n- [ ] Blown deadline 📅 2026-01-01\n")
+        self.assertIn("projects/acme/plan.md",
+                      self.run_scan("3", today=TODAY)["phase3"]["aspirational"])
+
+    def test_recently_overdue_not_flagged(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Just missed it 📅 2026-09-10\n")
+        self.assertEqual(self.run_scan("3", today=TODAY)["phase3"]["aspirational"], {})
+
+
+class ProseNextSteps(VaultCase):
+
+    def test_not_applicable_when_an_actions_md_exists_anywhere(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Do it\n")
+        write(self.root, "projects/other/brief.md", "# Other\n\n## Next steps\n\n- A bullet\n")
+        self.assertFalse(self.run_scan("3")["phase3"]["prose_next_steps"]["applicable"])
+
+    def test_bullets_collected_under_declared_heading_only(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n## Next steps\n\n- Call the vendor\n\n## Other\n\n- Not counted\n")
+        pns = self.run_scan("3")["phase3"]["prose_next_steps"]
+        self.assertTrue(pns["applicable"])
+        self.assertEqual([i["text"] for i in pns["items"]], ["Call the vendor"])
+
+    def test_custom_heading_argument(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/business/brief.md", "# Business\n\n## Watching\n\n- Renewal date\n")
+        pns = self.run_scan("3", headings=["Watching"])["phase3"]["prose_next_steps"]
+        self.assertEqual([i["text"] for i in pns["items"]], ["Renewal date"])
+
+
+# ------------------------------------------------------------------------------------- Phase 4
+
+class Phase4Rows(VaultCase):
+
+    CANDIDATE_ROWS = {"uncited_contacts", "inline_contact_details"}
+
+    def test_clean_vault_passes_every_gate_row(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        rows = {r["check"]: r["pass"] for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
+        gates = {check: passed for check, passed in rows.items()
+                 if check not in self.CANDIDATE_ROWS}
+        self.assertTrue(all(gates.values()), gates)
+
+    def test_triage_not_empty_fails_only_that_row(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "triage/pending.md", "x\n")
+        rows = {r["check"]: r["pass"] for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
+        self.assertFalse(rows["triage_empty"])
+        self.assertTrue(rows["dangling_links"])
+
+    def test_aspirational_row_reports_detail(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Blown deadline 📅 2026-01-01\n")
+        rows = self.run_scan("4", today=TODAY)["phase4"]["rows"]
+        row = next(r for r in rows if r["check"] == "aspirational_dates")
+        self.assertFalse(row["pass"])
+        self.assertIn("projects/acme/actions.md", row["detail"])
+
+    def test_over_grown_briefs_is_no_longer_a_phase_4_row(self):
+        # Finding 6: brief length is never a Phase 4 gate; it feeds Phase 3's
+        # briefs_to_read selection instead.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/wordy/brief.md", "# wordy\n" + ("line\n" * 600))
+        checks = {r["check"] for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
+        self.assertNotIn("over_grown_briefs", checks)
+
+    def test_uncited_and_inline_rows_report_pass_none_with_a_candidate_count(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes flagged a risk, reach him at jan.claes@example.com.\n")
+        rows = {r["check"]: r for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
+        self.assertIsNone(rows["uncited_contacts"]["pass"])
+        self.assertEqual(rows["uncited_contacts"]["detail"], 1)
+        self.assertIsNone(rows["inline_contact_details"]["pass"])
+        self.assertEqual(rows["inline_contact_details"]["detail"], 1)
+
+
+# --------------------------------------------------------------------------------- snapshot
+
+class Snapshot(VaultCase):
+
+    def test_snapshot_detects_a_later_edit(self):
+        # Finding 3 of the 20260915-2146 test run: check changed() before a write.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        path = write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n")
+        before = self.run_scan("3")["phase3"]["snapshot"]
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n- [ ] Two\n")
+        self.assertIn(str(path), changed(before))
+
+    def test_every_phase_output_carries_a_snapshot_the_changed_check_finds(self):
+        # The re-check reads the whole scan output, as para-shared/scripts.md tells a skill
+        # to pass it: an unchanged vault must read as unchanged in every phase.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n")
+        for phase in ("1", "3", "4"):
+            snap = scan_snapshot(self.run_scan(phase))
+            self.assertIsNotNone(snap, phase)
+            self.assertEqual(changed(snap), [], phase)
+
+
+# ---------------------------------------------------------------------------------- refusals
+
+class Refusals(VaultCase):
+
+    def test_collected_vault_is_refused_rather_than_read_as_empty(self):
+        write(self.root, "resources/mds/projects__acme__brief.md", "# Acme\n")
+        with self.assertRaises(CollectedVault):
+            scan(self.root, TODAY, "1", "HEAD", None, [], DEFAULT_DATED_PATTERN,
+                list(DEFAULT_NEXT_STEPS_HEADINGS))
+
+
+class MissingLibrary(unittest.TestCase):
+
+    def test_missing_shared_library_exits_2(self):
+        script = Path(__file__).resolve().parent / "clean_scan.py"
+        with tempfile.TemporaryDirectory() as tmp:
+            isolated = Path(tmp) / "skills" / "para-deep-clean" / "scripts"
+            isolated.mkdir(parents=True)
+            shutil.copy(script, isolated / "clean_scan.py")
+            result = subprocess.run(
+                [sys.executable, str(isolated / "clean_scan.py"), "--vault", ".", "--phase", "1"],
+                capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("clean_scan:", result.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

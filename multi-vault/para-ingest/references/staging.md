@@ -96,7 +96,7 @@ Recompute the note's stem and look for `<vault>/triage/<stem>*.md`, covering [co
 
 One file per run at `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/YYYYMMDD-HHMMSS.json`, holding the mode, the source plan, every routing decision with its reason, every error, and the per-vault staged and unrouted counts.
 
-It is written in **both** modes, and in preview it is the only thing written. Watch it for **the same thread routing to different vaults on different runs**: an ambiguous rule to tighten before write mode is switched on.
+It is written in **both** modes. Watch it for **the same thread routing to different vaults on different runs**: an ambiguous rule to tighten before write mode is switched on.
 
 **Read these logs, and the ledger above, with `encoding="utf-8"`**, per [../../para-shared/connectors.md](../../para-shared/connectors.md).
 
@@ -109,7 +109,19 @@ Full records, never a count, each carrying mailbox, thread id, subject and route
 - Either mode records **`undelivered`**: every thread routed to a vault that could not be written, with the vaults that received it and the vaults still owed it.
 - Either mode records **`resolved`**: every earlier `undelivered` candidate this run found delivered, with the vault and the check that settled it.
 
-**Every routing decision goes in `decisions`, always under that name**, however much of the fleet the run covered; `source_plan` says what it covered.
+**Every routing decision goes in `decisions`, always under that name**, however much of the fleet the run covered; `source_plan` says what it covered, naming each mailbox's declaring vaults.
+
+### Fields `/para-triage` reads
+
+A vault's own triage run decides from the newest write log whether ingest already pulled its mailboxes and ran its sync scripts, through `paraos_vault.ingest_logs()`. It reads these fields, under exactly these names, and a field missing or misnamed makes it pull locally rather than trust a run it cannot read:
+
+- **`mode`**: `write` or `preview`.
+- **`started_at`**: when the run started, ISO-8601 with its UTC offset.
+- **`files_written`**: the absolute path of every file the run wrote, one string each and nothing appended to it, `[]` when it wrote none. A vault's triage checks that its own `triage/` appears here before it skips a pull, because a vault whose path moved still receives its name in the counts while its notes land somewhere else.
+- **`counts.per_vault`**: registry name to the number of notes staged, **`0` included** for every vault the run covered, since an explicit zero is how a run says it read a vault's mailboxes and routed nothing to it.
+- **`source_plan.declaring_vaults`**: mailbox to the vault names declaring it.
+- **`sync_runs`**: one record per sync script the run executed, `{"vault": <registry name>, "script": <Endpoint path as declared>, "written": N, "error": null | <message>}`. A script recorded here without an error is not re-run by that vault's triage inside the window.
+- **`errors`**: every error, each naming the mailbox or script it concerns.
 
 ## Idempotency
 

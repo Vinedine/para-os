@@ -2,17 +2,19 @@
 
 The health flags, the ideas lane, the Vision read, the triage count and the agenda. All read-only: this file computes signals, it never repairs anything.
 
+**What the scan already did.** `scripts/brief_scan.py` ([task-scan.md](task-scan.md)) returns the health flags in `flags`, the ideas lane in `ideas` and the triage items in `triage`, each computed from the vault's files. Steps 4c, 4d and 5b below are its specification and the fallback for a hand-run scan; read them to judge what a flag means or to change one, in the script and its test together. Step 4e, the Vision read, and Step 5c, the agenda, are not the script's: one reads the root README and the other talks to a calendar connector, so they run here on every brief.
+
 ## Step 4c: Health flags
 
 Standing signals, computed from what the task scan already holds. Emit each only when it fires:
 
-- **Over-threshold file:** an action file with **more than 12 open items** (the actionable-frontier WIP threshold, per the vault's CLAUDE.md). Flag: `<scope>: N open - decomposed plan? Groom via /para-deep-clean`.
+- **Over-threshold file:** an action file holding **12 or more open items**, which is the actionable-frontier WIP threshold a vault's CLAUDE.md states, and it fires *at* the threshold because that is where the vault's own rule bites ("before appending to a file that already holds 12 or more open items"). Flag: `<scope>: N open - decomposed plan? Groom via /para-deep-clean`.
 - **Stale file:** an action file with open items whose mtime is **60+ days ago**. Flag with the date.
 - **Falsely-overdue candidates:** items overdue by **more than 30 days** (`📅` records a real-world deadline, so the date was likely never real). Flag the count and the worst offender.
 - **Stale recurrence:** a `🔁` item whose `📅` is more than one full cadence period in the past. Flag the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
 - **Undated majority:** when undated items exceed half of all open items, one line: `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
 - **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, from the scan's own count call. **Decode `resources/mds/` before counting** (SKILL.md Step 1b). **Skip any file carrying a frozen-record note** (a blockquote in its first 15 lines, before its first checkbox, saying the boxes are a point-in-time record, not live work). Flag only what is left, one line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
-- **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender, worst first, capped at three: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`. Count with one `wc -l` over the glob, never by reading the files; in a collected vault the glob is `resources/mds/*__brief.md` and `resources/mds/*__README.md`, reported under the **decoded** path.
+- **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender, worst first, capped at three: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`. Count with one `wc -l` over the glob, never by reading the files; in a collected vault the glob is `resources/mds/*__brief.md` and `resources/mds/*__README.md`, reported under the **decoded** path. Under an entity scope, keep only the offender under that entity's own path - a long brief in an unrelated project is not this entity's problem.
 
 Never fix any of these here - the read-only contract stands. `/para-deep-clean` owns the repair.
 
@@ -37,6 +39,12 @@ Sort newest-touched first, then by name. Flag any idea untouched for **6+ months
 ## Step 4e: Read the Vision
 
 Read the root `README.md`'s `## Vision` section (Grep with `-A` context is enough; do not read the whole file). It is the ranking tiebreak and it steers the closing next action. If the README or the section is missing, skip silently - never block the brief on it.
+
+## Step 4f: Lifecycle counts
+
+The scan's `lifecycles` field, one entry per declared lifecycle with its heading and the live count at each non-terminal stage. **One line per lifecycle, in 📊 Vault state, and nothing else**: no entity names, no flags, no next steps, no metrics. The board is `/para-pipeline`'s.
+
+An empty list renders no such line. A declared lifecycle with no live entity renders its zeros, because an empty pipeline is a fact the operator wants on a morning brief.
 
 ## Step 5b: Check the triage folder
 

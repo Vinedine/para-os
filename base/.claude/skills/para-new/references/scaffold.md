@@ -37,6 +37,14 @@ Interview question 2 asks who is waiting and by when. **The answer gets written 
 
 On the read-only iPad delivery these writes run inside [its edit cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).
 
+### A staged entity
+
+Where the vault declares a lifecycle whose entity noun the operator used ([para-shared/lifecycles.md](../../para-shared/lifecycles.md)), the path comes from the lifecycle table instead of the row above: **the first stage whose `PARA home` is a folder**, with `<...>` replaced by the slug. The table's earlier row homes are a register, not a folder this skill creates: an entity that belongs at one of those is **one row appended to that register**, in the register's own column order, and nothing else. Say which of the two the run is doing before writing either.
+
+The document gets, directly under its title, the `**Stage:** <Stage> (since <today>)` line and the header lines the lifecycle's rule file declares, in that file's order, a field the interview did not settle written as that file's `## Placeholders` says. The rest of the document follows the vault's brief shape as usual.
+
+The counterparty's contact file is created with it, under the last bullet of [Cross-link before finishing](#cross-link-before-finishing): a staged entity whose champion has no contact file has no home for its next step, which is where `/para-pipeline` looks for one.
+
 **Create no empty containers.** A `sources/` folder is created when there is a document to put in it, not in advance. The same goes for headings with nothing under them.
 
 ## Seed exactly one action
@@ -45,7 +53,7 @@ A project's or area's `actions.md` carries the vault's heading shape and **one**
 
 **A date never survives as free text.** "before the contract renews in November" is a real deadline written where no skill can read it, and most vaults forbid it outright. Convert it to the vault's marker, and where the answer is a month or a quarter rather than a day, ask for the day instead of guessing one.
 
-An area whose only outstanding work is recurring gets that item under the vault's recurring heading and no open next step, which is a complete file rather than an empty one. An idea gets no `actions.md`. A contact's outstanding item, if there is one, goes under the contact file's own next-actions heading; if there is none, the vault's empty sentinel goes there instead.
+An area whose only outstanding work is recurring gets that item under the vault's recurring heading and no open next step, which is a complete file rather than an empty one. An idea gets no `actions.md`. A contact's outstanding item, if there is one, goes under the contact file's own next-actions heading; if there is none, the vault's empty sentinel goes there instead. Where the vault declares a `**Kind:**` line for contact cards, it goes directly under the file's title.
 
 Where the vault's conventions drop action tracking altogether, the next step is prose in the brief and no `actions.md` is created.
 

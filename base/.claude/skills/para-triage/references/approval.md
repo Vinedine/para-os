@@ -8,7 +8,11 @@ The classification itself is [filing.md](filing.md) for loose files and [sources
 
 What a question may offer as an option, and what the `Action` column holds on the table path. Nothing outside this list, except what the operator types into **Other**.
 
-**Loose files:** **File it** (move + rename to the convention) · **File it + rotate Nx** · **Delete (duplicate)** (byte-identical; cite the surviving path and the MD5 match) · **Delete (redundant scan)** (content overlap, not a hash match - always confirm, so the recommended option here is `Leave in triage`, not the delete) · **Delete (no lasting value)** (nothing a later reader would need, because the outcome is already recorded elsewhere - cite where) · **Create entity** (no entity fits; `/para-new` creates it and the file is filed into it, per [execute.md](execute.md)) · **Separate review** (a subdirectory) · **Leave in triage** (no good destination; say what is missing).
+**Loose files:** **File it** (move + rename to the convention) · **File it + rotate Nx** · **Extract** (an archive: each member gets its own destination and convention name, listed in the option description; the archive itself then gets its own Delete question) · **Split** (a PDF bundling several documents: one new file per document, pages copied without re-encoding, each filed like any loose file; the original stays until its own Delete question) · **Run vault script** (the vault's filing rules hand this kind of file to a script of its own: the script's dry-run verdict for the file is the evidence, and the triage copy's delete is its own question once the script has run) · **Delete (duplicate)** (byte-identical; cite the surviving path and the MD5 match) · **Delete (redundant scan)** (content overlap, not a hash match - always confirm, so the recommended option here is `Leave in triage`, not the delete) · **Delete (no lasting value)** (nothing a later reader would need, because the outcome is already recorded elsewhere - cite where) · **Create entity** (no entity fits; `/para-new` creates it and the file is filed into it, per [execute.md](execute.md)) · **Move out of vault** (the vault's own rules keep this kind of file out of every synced folder - a takeout archive, a bulk export: the operator names the target, and the move is collision-checked like any other) · **Leave in triage** (no good destination; say what is missing).
+
+**A subdirectory is listed, never asked.** It is an intentional sub-batch, and the only options a question could offer it both change nothing, so it goes in a list under the manifest (`Subdirectories, not asked: ...`) and in the summary.
+
+**A staged mail note takes the connector-thread vocabulary too.** A loose `.md` staged from a mailbox - by `/para-ingest`, or by an earlier run's **Note to triage** - stands in for the thread it came from: its header carries `Source`, `Received` and `Link` lines, or a `thread_id` in its frontmatter. Its question may offer everything above plus **Update existing**, **Add action** and **Dismiss (other vault)** from the list below, each of which also disposes of the note, and the option says how: `Update existing, note deleted` is the default shape, because the thread survives in the mailbox and the note's Link names it; filing the note as well is for a note that holds content the mailbox copy does not. **Dismiss (noise)** is **Delete (no lasting value)** here, and **Leave thread** is **Leave in triage**. The note's thread was ledgered when it was staged, so triage writes no seen-ledger entry for it.
 
 **Connector threads** (the item is named by subject, sender and date):
 
@@ -19,7 +23,9 @@ What a question may offer as an option, and what the `Action` column holds on th
 - **Dismiss (other vault)** - real correspondence belonging to a different vault; **not** ledgered. Destination "(belongs to \<vault\>)".
 - **Leave thread** - do nothing; it stays un-dispositioned and will resurface on the next run.
 
-**Filing is not the default.** An item is in `triage/` because something arrived, not because it earned a place in the vault. Scheduling chatter whose meeting already has a record, a notification whose fact now lives in the file it belongs to, a staged note that is a truncated snippet of a mail still sitting in the mailbox: filing these is content inflation. Where the value is already captured somewhere, **Delete (no lasting value)** is the honest recommendation and goes first, with the surviving record named as its evidence. **An empty `triage/` reached by filing everything is not a clean vault**, and the count going to zero will not tell you which one you did.
+**Filing is not the default.** An item is in `triage/` because something arrived, not because it earned a place in the vault. Scheduling chatter whose meeting already has a record, a notification whose fact now lives in the file it belongs to, a staged note that is a truncated snippet of a mail still sitting in the mailbox: filing these is content inflation. Where the value is already captured somewhere, **Delete (no lasting value)** is the honest recommendation and goes first, with the surviving record named as its evidence. **It leads only where that survivor can be named**: the path of the filed document or tracked line that already holds the value, or, for a staged mail note, the thread its own Link names, which stays in the mailbox and needs no re-read to be cited. Where no survivor can be named, the loss is irreversible on a judgment, so **Leave in triage** leads, per [asking.md](../../para-shared/asking.md#grouping). **An empty `triage/` reached by filing everything is not a clean vault**, and the count going to zero will not tell you which one you did.
+
+**A delete or a move names what links to the file.** The scan's inbound references for the file go in the option description, with the repoint each needs (to the survivor on a delete, to the new path on a move); a delete whose references have no survivor to point at is not recommended.
 
 ## What "linked" means here
 
@@ -30,6 +36,7 @@ Under the shared grouping limits - no destructive item grouped with anything, no
 - Several shots of one physical thing (a business card, a multi-page letter photographed).
 - Files that arrived together from one sender or event and share a destination folder.
 - A connector thread and an attachment of it that a sync script dropped into `triage/`.
+- **The notes staged from one thread**, which carry the same six-character hash in their names (a resurfaced thread stages a fresh note beside the first). They get one question whose options say what happens to every note, and this is the one group that may carry deletes: the survivor is one named record, the thread in the mailbox, so a single fact settles them all. [asking.md](../../para-shared/asking.md#grouping) names this exception.
 
 ## The manifest
 
@@ -42,10 +49,13 @@ Per the shared format, one line per question:
  2  IMG_4471.jpg + IMG_4472.jpg                → File    areas/network/ (business card)
  3  scan0031.pdf                               → Delete  duplicate of archive/meetings/20260612 ...
  4  "Re: Q3 pricing" - ops@example.com, 09-08  → Update  projects/acme-rollout/actions.md
+ 5  20260910 Re Q3 pricing 4f9c2a.md (staged)   → Update  projects/acme-rollout/actions.md, note deleted
 ...
+
+Subdirectories, not asked: triage/_handover-scans/ (12 files)
 ```
 
-After it, list any **follow-on edits** to README files (new rows, new source-list entries, new sub-sections), naming which README and where in it. They are **not** separate questions: a follow-on is a consequence of its item being filed, so it applies only for items actually approved and is skipped for the rest.
+After it, list any **follow-on edits** to the receiving entity's main document, its `README.md` or its `brief.md` (new rows, new source-list entries, new sub-sections, a stated fact the filed item changes), naming which file and where in it. They are **not** separate questions: a follow-on is a consequence of its item being filed, so it applies only for items actually approved and is skipped for the rest.
 
 ## The table path
 

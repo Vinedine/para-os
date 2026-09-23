@@ -4,12 +4,15 @@ Beyond the `triage/` folder, a vault may declare extra inputs in a `## Triage so
 
 **Same when `${PARAOS_HOME:-~/.paraos}/vaults.json` lists this vault root as `active` *and the layer has actually run*.** On a machine running the cross-vault ingest layer, `/para-ingest` pulls these same sources once for every vault, stages what it routes here as notes in `triage/`, and keeps their ledger - so their output is already loose files by the time this skill runs, and pulling them again would double-fetch every mailbox and split the ledger in two.
 
-**Both halves are required, and the second one is the load-bearing one.** Being listed in the registry says the layer is *supposed* to feed this vault; it does not say it has. Deferring to a layer that has not run is a false quiet (the skill's Strict rules). So check the newest run log under `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/`:
+**Being listed is not enough: the layer must have run.** Read the newest **write** log under `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/`, by the fields `/para-ingest` writes for this check (its `references/staging.md`, "Fields `/para-triage` reads"):
 
-- **A write log from the last 48 hours:** skip the `connector` and `fetch-script` sources below (since ingest already staged them), but still process `sync-script` and `drive` sources as normal. Put the log's date in the summary (`ingest last staged <date>`).
-- **No write log, or the newest older than that (e.g. only preview logs):** pull all sources here as normal, and say why in the summary (`registry lists this vault, but ingest last staged <date or never> - pulled locally`).
+- **It covered this vault only when every one of these holds**: `mode` is `write`; `started_at` is within the last 48 hours; and it reached *this root* - at least one `files_written` entry lies under this vault's `triage/`, or `counts.per_vault` gives this vault's registry name an explicit `0`. **A positive count with no file under this root is the opposite of coverage**: ingest staged notes for a vault of this name at another path (the vault moved and the registry lagged), and skipping on the count alone skips every pull for a vault ingest never wrote to. Per row, a mailbox that `source_plan.declaring_vaults` does not list for this vault, where that field is present, was not read for it, and neither was one an `errors` entry names.
+- **Covered:** skip the `connector` and `fetch-script` rows it covered, and put the log's date in the summary (`ingest last staged <date>`). Skip a `sync-script` row only where the log's `sync_runs` records that script for this vault without an error; with no such record the script runs here, which costs a round trip and never a duplicate, since these scripts dedup. A `drive` row is never ingest's and always stays.
+- **Not covered** - no write log, the newest older than 48 hours, only preview logs, or any condition above failing: pull every row here, and name the condition that failed in the summary (`registry lists this vault, but ingest last staged <date or never> - pulled locally`, `ingest staged N for <name> outside this root - pulled locally`).
 
 No registry, or this root not in it: pull as normal with nothing to report, which is also the right answer on a machine that has never run the layer.
+
+`scripts/triage_scan.py` computes this per row (Step 2 of [SKILL.md](../SKILL.md)): its top-level `ingest` block is the coverage verdict above (`covered`, `reason`, `newest_write`, `staged_here`, `count_for_vault`), and each `sources.rows[]` entry carries the per-row result as `plan` (`pull`/`run`/`skip`/`lookup`) with `reason` naming which condition decided it - exactly the bullets above. **Full field table: [scan.md](scan.md).**
 
 Read the block. It is a table with columns `Source | Type | Endpoint | Relevant when` (wording varies; the first three are what you dispatch on). Four source types.
 
@@ -17,7 +20,7 @@ Read the block. It is a table with columns `Source | Type | Endpoint | Relevant 
 
 A script that writes new items into `triage/` (e.g. `granola.js`).
 
-- **Real run:** run it with `--write` (resolve the path relative to the vault root; `node` for `.js`, `py`/`python` for `.py`). These scripts default to dry-run and dedup their own output, so running them is idempotent and safe.
+- **Real run:** run it with `--write` (resolve the path relative to the vault root; `node` for `.js`, and for `.py` the launcher [scripts.md](../../para-shared/scripts.md) names). These scripts default to dry-run and dedup their own output, so running them is idempotent and safe.
 - **Preview (`preview` arg):** run it **without** `--write` and list what it would add. `preview` must not touch disk - never `--write` a sync source in preview.
 - After a real run, its files are ordinary loose files in `triage/` and flow through the remaining steps like anything else - nothing more to do here.
 - If the script errors (auth expired, network), report it and continue with the other sources; do not abort the whole triage.
@@ -29,6 +32,8 @@ A mailbox with no MCP connector, reached by a script that **prints candidates an
 **Treat it as a mailbox, not as a sync source**, which means it runs the same protocol: it is a row in the dispatch table of [../../para-shared/connectors.md](../../para-shared/connectors.md), so follow that file exactly as a connector does - the script's `fetch` is the search step, and its records arrive already grouped by `thread_id`. Then judge the surviving threads exactly as the connector section below does.
 
 **Never run such a script with `--write` or any other writing flag.** A fetch source reads and prints; if one also offers a write path, using it files mail unjudged, which is the thing fetching exists to avoid. A vault that genuinely wants wholesale import declares a `sync-script` row instead and takes what comes.
+
+**Bringing one judged attachment into `triage/`**, where the operator asks for it (an invoice on a mail the run surfaced): use the script's own single-item read where it offers one (`outlook.py raw <Graph path>`, under the environment its README names), read-only, and write the file into `triage/` under the vault's naming, where it files like any loose file on this run. A script with no such read leaves the attachment in the mailbox, and the summary says so.
 
 ## connector sources
 
@@ -72,9 +77,10 @@ Separate from the seen-ledger, because it answers a different question: *has thi
 
 Mailbox dedup across runs - connector and fetch-script alike - lives outside the vault (a mailbox read must leak nothing into a synced folder):
 
-- Path: `${PARAOS_HOME:-~/.paraos}/cache/triage-email/<vault>.json`, keyed by thread ID.
+- Path: `${PARAOS_HOME:-~/.paraos}/cache/triage-email/<vault>.json`, keyed by thread ID. The scan's top-level `seen_ledger` block reads it once (`path`, `exists`, `entries`, `legacy`, `load_error`), so a ledger that fails to parse is reported rather than silently dedupping against nothing.
 - Shape: `{ "<threadId>": { "disposition": "actioned|noted|dismissed", "date": "YYYY-MM-DD", "subject": "...", "seen_through": "<RFC822 Message-ID of the newest message at disposition>", "seen_date": "<that message's received timestamp>" } }`.
 - **Read** it during dedup (step 5 of [../../para-shared/connectors.md](../../para-shared/connectors.md)) to skip threads dispositioned **through their newest message**. The `seen_through` / `seen_date` pair is what makes that comparison possible, so write it on every entry, and read an entry lacking it as watermarked at its `date`.
+- **A fetched thread already staged as a note is that note, not a second item.** After a local connector pull, write the candidate list (`{"thread_id", "newest_date"?, "newest_key"?}` per thread) to a file and re-run the scan with `--threads <file>`: its top-level `threads` block folds each one against `items.loose` by the staged-note filename's own hash (`thread_hash(thread_id)`, the derivation `/para-ingest`'s own `references/staging.md` names under "The staged note"), and carries the same-vault ledger's `watermark()` verdict (`new`/`seen`/`grown`/`carry`) so a resurfaced thread is judged once, not twice.
 - **Write** it at execute time for settled dispositions - Update existing, Add action, Note to triage, and **Dismiss (noise)**. Do **not** ledger **Dismiss (other vault)**: that thread belongs to another vault, and a permanent dismissal here would hide it if it later became relevant - re-dismissing it next run is cheap.
 - Missing file or directory: create them. It is a cache, not a system of record, so deleting it only means threads may resurface.
 - **A ledgered thread resurfaces when it grows past its watermark**, and only then, so write the entry with the thread's true message list (step 6 of the shared file) in hand: the newest message on that list is what `seen_through` records. To drop a disposition altogether, delete its entry.

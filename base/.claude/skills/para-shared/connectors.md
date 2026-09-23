@@ -10,7 +10,7 @@ This file is the **fetch protocol**, shared by every skill that reads a mailbox 
 
 | Type in manifest | Search tool | Content tool | Granularity |
 |---|---|---|---|
-| `connector: claude_ai_Gmail` | `search_threads` | `get_thread` | threads (native) |
+| `connector: claude.ai Gmail` (also written `claude_ai_Gmail`: both dispatch here, and `paraos_vault.triage_sources` reads either as `claude_ai_Gmail`) | `search_threads` | `get_thread` | threads (native) |
 | `connector: google-workspace` | `search_gmail_messages` (pass the Endpoint as `user_google_email`) | `get_gmail_messages_content_batch` | messages - **must group by `threadId`** |
 | `fetch-script` | the script's `fetch` subcommand, run from the vault root with whichever launcher runs (`py`, `python3`: a `python` reporting "not found" can be an OS stub) | the `preview` field it already returns | **threads (the script groups)** - one record is one conversation, carrying `message_count`, `messages` and `participants` |
 

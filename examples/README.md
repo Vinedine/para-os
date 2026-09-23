@@ -7,5 +7,3 @@ Synthetic worked vaults. Every person, company, property, and number in here is 
 `triage/` ships with three unfiled items so `/para-triage` has real work: one badly-named call note that belongs in a project's `sources/`, one Dutch steering-group record spanning three entities (its name stays Dutch through the rename), and one item the vault's own Operating model puts outside the engagement. Run it before `/para-deep-clean`, which stops while loose files remain - that precondition firing is the product working, not a fault.
 
 **These vaults have a frozen reference date** (BelFoot: 2026-06-24), stated at the top of each vault's `README.md`. Dates are anchored to the fiction rather than refreshed to the calendar, so a dashboard run today will read as heavily overdue. That is the example ageing, not the skill misreporting.
-
-A **readonly-ipad** example vault is planned.

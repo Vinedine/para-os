@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: triage-staged-note-updates-existing
+tags: [triage, native]
+context:
+  scaffold_script: setup.sh

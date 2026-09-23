@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: archive-gate-proceed-or-stop
+tags: [archive, native]
+context:
+  scaffold_script: setup.sh
