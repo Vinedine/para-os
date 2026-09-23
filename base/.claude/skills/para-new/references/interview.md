@@ -50,6 +50,8 @@ The second answer is the promotion trigger and the only forward-looking thing an
 
 A "no" to the second is the common case and is recorded as the vault's empty sentinel, not skipped.
 
+**Where the vault's `CLAUDE.md` gives contact cards a `**Kind:**` line** (the sales module does), the answer to the first question settles it, from the values that line names; ask only when the answer leaves it open. A `buyer` is also a person the board has to show, so name the register row, the deal or the dropped note that will cover them.
+
 ## What is never asked
 
 - **The deadline for an idea.** It has none by definition; asking invites an invented one.

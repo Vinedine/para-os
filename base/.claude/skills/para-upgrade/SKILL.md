@@ -17,6 +17,7 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 | `--ref <git-ref>` | Read the master from this ref instead of the default (a branch, tag, or commit). Also accepted as a bare positional argument (`/para-upgrade feat/revision-x`) or with a leading qualifier word (`local feat/revision-x`) - either resolves to `<git-ref>` in the clone, same as `--ref`. |
 | `audit` | Read-only. Reports the delta and what would change; never modifies a file |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
+| any other `--` argument | Stops the run: name it and show this table. Never read as a ref, bare or not. |
 
 ## Preconditions
 
@@ -25,10 +26,19 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 3. **The ref should be committed.** If the user names a working branch, check `git status --short` in the clone. Uncommitted changes can't be diffed against later or reproduced on another machine. If the master is uncommitted, say so plainly, name the files, and ask whether to proceed anyway or commit first. Do not commit on the user's behalf.
 4. **Vault has a `CLAUDE.md`.** If missing, this is a bootstrap, not an upgrade: point at `bootstrap-prompt.md` and stop.
 5. **A clean-enough vault working tree, and a way to undo.** This skill produces a large diff. If the vault already has substantial uncommitted changes, tell the user, so the migration doesn't get tangled with unrelated edits. Git undoes only what it tracks: check `CLAUDE.md` and `.claude/` with `git ls-files` and `git check-ignore`, and name any file in scope that git does not track. Where neither git nor a drive's version history covers a file, say so plainly and get an explicit go-ahead before Phase 1.
+6. **No live peer on the vault.** Another session writing the same `CLAUDE.md` mid-run is not a sync client, and nothing in the file says it happened. Where the harness lists running sessions or agents, read that listing before Phase 1 and name any working in this vault; the operator decides whether to wait. One that starts later is caught by Phase 5's re-check before the marker is written.
 
 ## Phase 0 - Establish the delta
 
-Read the vault's marker and the master's, then read `CHANGELOG.md` at the ref and collect every entry after the vault's marker, up to and including the master's. Reading and resolving the master, the Equal case and the smoke-test baseline: [references/delta.md](references/delta.md).
+**Run the scan first**, per [para-shared/scripts.md](../para-shared/scripts.md), keeping its output for Phase 5's `--unchanged`:
+
+```bash
+python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> --clone <clone path> [--ref <ref>] > <scan output path>
+```
+
+**Exit codes**: 0 answered; 2 fall back to [references/scan.md](references/scan.md)'s by-hand procedure; 3 `--vault` is not a vault root (one with no `CLAUDE.md` is Precondition 4's bootstrap stop); 4 the clone or the ref cannot be read (ask for the clone's path or a ref that resolves, never guess one).
+
+Read the `delta` block for the vault's marker, the master's, the verdict and the collected entries, and the `clone` block for the ref read, the checked-out branch and `origin/main`, each with its commit. Reading and resolving the master, the Equal case (which also reads Phase 3's `skills` and `integrations` blocks) and the smoke-test baseline: [references/delta.md](references/delta.md).
 
 - **Vault's marker**: the first `<!-- para-os-template: YYYY.MM.NN -->` comment in its `CLAUDE.md` (line 3 in the shipped template).
 - **Master's marker**: the same comment in the resolved `CLAUDE.md.template`. Read it from the template, not from `CHANGELOG.md`, which carries a lookalike inside a code fence.
@@ -46,7 +56,7 @@ Diff the vault's `CLAUDE.md` against the template at both the new ref and the va
 
 ## Phase 3 - Derived copies: rules and scripts
 
-The phase that pays for the skill: vault-local skills restating changed rules, stale skill names, bundled and user-level skill copies, and installed integration scripts diffed by **content** rather than by their marker string. Read-only - drift is reported and the user merges it. **Full procedure: [references/derived-copies.md](references/derived-copies.md).**
+The phase that pays for the skill: vault-local skills restating changed rules, stale skill names, bundled and user-level skill copies, and installed integration scripts diffed by **content** rather than by their marker string. Read the scan's `skills` and `integrations` blocks for every verdict, diff, overwrite-eligibility, `revisions_behind` and suite locator - the shared five-rule verdict is stated once in [references/scan.md](references/scan.md). Read-only - drift is reported and the user merges it. **Full procedure: [references/derived-copies.md](references/derived-copies.md).**
 
 ## Phase 4 - Rule-driven content violations
 
@@ -54,8 +64,8 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 
 ## Phase 5 - Stamp and verify
 
-1. **Write the new revision marker** into the vault's `CLAUDE.md`, and write it *here* - Phase 1 holds the vault's existing marker even while it replaces the section around it. Only after the phases above actually applied: the next run skips whatever a marker claims.
-2. **Run the vault's own skills as a smoke test.** At minimum `/para-daily-brief week`, which publishes nothing, against the Phase 0 baseline. A skill that errors or renders an obviously wrong count is a regression from this migration, fixed here.
+1. **Write the new revision marker** into the vault's `CLAUDE.md`, and write it *here* - Phase 1 holds the vault's existing marker even while it replaces the section around it. Only after the phases above actually applied: the next run skips whatever a marker claims. **Immediately before writing it, re-run the scan with `--unchanged <the scan taken right after this run's own last write>`** - never the Phase 0 scan, since a digest cannot tell this run's own edits from a peer's in the same file, and comparing against Phase 0 would flag every edit this run itself made. A `since.changed` path this run did not just write stops the stamp: name it, and ask.
+2. **Run the vault's own skills as a smoke test.** Re-run the scan with `--unchanged <the Phase 0 scan>`: `since.smoke` is every count that moved since before the migration (`{count, before, after}`), and `since.changed` every file that changed, each of which should be one this run wrote. Also run at least one skill end to end (`/para-daily-brief week` publishes nothing). A skill that errors, or a count that moved for a file this migration did not write, is a regression, fixed here.
 3. **Re-run the link check** from `/para-deep-clean` Phase 1, Step 1.2 (its `phase1-structural.md`), as written there. Zero dangling relative links in live buckets.
 4. **Close the [edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) only now**, after every check that resolves a path against disk (this link check, Phase 3's self-claims sweep, the skeleton-presence check): they read the spread state.
 5. **Report.** What changed per phase, what was proposed and declined, what was routed where, and what you did **not** verify.
@@ -65,7 +75,7 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
 - **The changelog is the scope.** Drift the changelog doesn't mention belongs to `/para-deep-clean`.
-- **Never remove vault-local additions** - sections, rules, markers, or the `**Type:**`, `**Delivery:**` and `**Flavor:**` lines. The template is a floor.
+- **Never remove vault-local additions** - sections, rules, markers, or the `**Type:**`, `**Delivery:**`, `**Flavor:**` and `**Modules:**` lines. The template is a floor.
 - **Never create a redundant `.claude/settings.json`** when the user-level settings already set the same keys, and never create a `triage/README.md` at all.
 - **Never invent content.** A missing brief is written from what's on disk, or left missing with the gap stated. A missing date stays missing.
 - **Never write to an installed script without the four-condition gate** - anything carrying (or identified as needing) a `para-os-integration:` marker, wherever it sits: `resources/scripts/`, or the vault root where a delivery's render pipeline lives. The general rule is report drift and let the user merge it; the one permitted write is the marker line itself, plus the **one sanctioned overwrite** described in Phase 3 (user asked, mechanical equivalence proven, copy not ahead, verified after write).
@@ -80,7 +90,7 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 
 ## Notes for Claude sessions
 
-- Track the phases in the harness's task list. They are long and the user needs to see where the pass is.
+- Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary. They are long and the user needs to see where the pass is.
 - Phase 4 is where the session gets slow, because each item needs a routing decision. Batch the *presentation* (one table per rule) even though approval is per item.
 
 ## Related skills

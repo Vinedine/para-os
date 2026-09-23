@@ -9,9 +9,9 @@ For each active registry entry, read two things:
 1. `CLAUDE.md`, for the `## Triage sources` block.
 2. The root `README.md`, for its `## Operating model` section. Grep with context is enough. The block says what a vault *pulls*; the Operating model says what it *is*, and routing wants both. Missing section: skip it silently and route on `purpose` alone.
 
-**A vault that cannot be read is an error row, not an absence.** No `CLAUDE.md`, unreadable file, malformed block: record it, do not pull for it, and keep it as a routing destination only if `purpose` is present. Report it in the summary. A vault silently dropped from the plan looks identical to a vault with nothing to say.
+**A vault that cannot be read is an error row, not an absence.** No `CLAUDE.md`, unreadable file, malformed block: record it, do not pull for it, and keep it a candidate for the mailboxes it declared in the newest run log that read it. Report it in the summary. A vault silently dropped from the plan looks identical to a vault with nothing to say.
 
-**A vault with no `## Triage sources` block contributes no sources and stays a destination.** This is normal and common: notes-only vaults and vaults nobody has wired a mailbox to still receive routed items.
+**A vault with no `## Triage sources` block contributes no sources and receives no routed mail**, since it is in no [candidate set](routing.md).
 
 ## Inverting it
 
@@ -28,7 +28,7 @@ Then say the plan out loud before acting on it: **N vaults, N mailboxes, N scrip
 
 ## Running the sync scripts
 
-- Run each from **its own vault root**, resolving the path in the `Endpoint` cell relative to that root. `node` for `.js`, `py` or `python` for `.py`.
+- Run each from **its own vault root**, resolving the path in the `Endpoint` cell relative to that root. `node` for `.js`, and for `.py` whichever launcher runs, `py -3` or `python3` (a `python` that reports "not found" can be an OS stub).
 - **Always dry-run first, in both modes.** These scripts default to dry-run and report what they would add. That report is the input to the next rule, so there is no path where a script writes before its count has been read.
 - They dedupe against their own ledgers outside the vault, so running one twice is harmless and running one after a manual invocation is harmless too.
 - **An error is recorded and skipped.** An expired auth on one script must never cost the rest of the run, and the report names it rather than letting the run read clean.

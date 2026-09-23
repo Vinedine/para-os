@@ -1,11 +1,11 @@
 # BelFoot Vault Conventions
 
-<!-- para-os-template: 2026.09.03 -->
+<!-- para-os-template: 2026.09.04 -->
 **Type:** vault
 
 The consulting vault for BelFoot Royal Sporting Club ("BelFoot FC", Belgian Pro League) and its multi-stream IT modernisation programme - an external consultant engagement, started Q1 2026, running through 2027. Per-vault guidance for Claude Code sessions.
 
-The lines above are machine-read (the comment, and any `**Delivery:**` or `**Flavor:**` line under the type, by `/para-upgrade`; the type by your own tooling) and must survive every upgrade.
+The lines above are machine-read (the comment, and any `**Delivery:**`, `**Flavor:**` or `**Modules:**` line under the type, by `/para-upgrade`; the type by your own tooling) and must survive every upgrade.
 
 ## Context
 
@@ -90,6 +90,20 @@ A checkbox is something you could act on now or on its marked date, not a plan. 
 
 - **Briefs** - a workstream brief fixes its section order (`Why now` / `Scope` / `Stakeholders` / `Deadline` / optional `Vendor` / optional `Risks (live)` / `Status`); an idea brief follows its own fixed shape with a required `**Stage:**` line. The full shape is in [.claude/rules/brief-structure.md](.claude/rules/brief-structure.md), which loads on its own when a brief is read; read it explicitly before creating one.
 
+## Vendor lifecycle
+
+A vendor in selection is one row in [areas/stadium/vendors.md](areas/stadium/vendors.md), from RFP invitation to signed contract, whatever the workstream. It never earns a folder: once signed, the contract is a source document of its workstream.
+
+| Stage | Exit criterion | PARA home |
+|---|---|---|
+| Invited | Response received by the RFP deadline | `areas/stadium/vendors.md` (row) |
+| Responded | Scored against the workstream's evaluation matrix, and shortlisted | `areas/stadium/vendors.md` (row) |
+| Shortlisted | Demo held, two reference calls made, best-and-final price in | `areas/stadium/vendors.md` (row) |
+| Contracted | Contract signed | `areas/stadium/vendors.md` (row) |
+
+- **Columns**, in order: Vendor, Workstream, Source, Opened, Stage, Next step, Last touch, Outcome. `Stage` carries `(since <date>)`, then any dated fact that expires (a price validity) after a semicolon; `Last touch` reads `<date>, <what happened>`.
+- **A vendor leaves the board** for the register's `## Closed` table with its Outcome filled in: contracted, or not shortlisted and why. Nothing is archived for it.
+
 ## Authoritative sources
 
 Name the owning surface *before* answering. Check `triage/` before searching by date: an item waiting to be filed is usually the current one. Source documents beat hand-maintained summaries in briefs: vendor pricing and scope come from the RFP responses and the signed SOW in `sources/`, not from a comparison table typed into a brief, and when they disagree the source document wins and the brief gets corrected.
@@ -127,4 +141,4 @@ A persistent script the agent writes for this vault lives at `resources/scripts/
 
 ## Skills wired to this vault
 
-`/para-daily-brief` (bucketed action dashboard across every `actions.md`), `/para-triage` (empty the inbox by classifying then moving each item), `/para-new` (create a workstream, area, idea or contact, and promote an idea), `/para-deep-clean` (audit structural drift), `/para-archive` (close out one finished project or shelved idea).
+`/para-daily-brief` (bucketed action dashboard across every `actions.md`), `/para-triage` (empty the inbox by classifying then moving each item), `/para-new` (create a workstream, area, idea or contact, and promote an idea), `/para-deep-clean` (audit structural drift), `/para-archive` (close out one finished project or shelved idea), `/para-pipeline` (the vendor board).

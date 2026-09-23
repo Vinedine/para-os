@@ -6,6 +6,8 @@ What `--test` does. Every para-os skill accepts it, a flavor's skills included: 
 
 **`--test` is removed from the arguments before anything else reads them**, wherever it appears. It is never part of an entity name, a scope word, a property name or a ref, and it combines with every other argument: `/para-triage preview --test`, `/para-upgrade --ref feat/x --test`.
 
+**Any other argument starting with `--` that the skill's own Arguments table does not list stops the run**: name it and print the table. It is never read as a ref, an entity name or the nearest listed flag, so `--trst` is not `--test`.
+
 ## What changes, and what does not
 
 **The run does not change.** Same steps, same approvals, same writes. An operator who wants no writes combines `--test` with the skill's own read-only argument (`preview`, `audit`) where it has one.

@@ -11,7 +11,7 @@ Reads every registered vault's declared triage sources **once**, decides **only*
 
 **It never decides what an item means.** No classifying, no drafting an action, no filing into an entity, no touching a mailbox. Every judgment about meaning stays with `/para-triage`, interactively, in the vault the item landed in.
 
-- **It needs `para-shared/` beside it.** The two links below resolve once this folder is installed next to the other `para-*` skills, which is where the module README says to put it. In the repo they do not resolve.
+- **It needs `para-shared/` beside it.** The two links below resolve once this folder is installed next to the other `para-*` skills, which is where the layer README says to put it. In the repo they do not resolve.
 
 **Run it from anywhere.** Unlike every other `para-*` skill this one is not scoped to the cwd: the registry outside the vaults is what tells it they exist. The substrate stays federated and only the index is central, so no vault ever learns another vault's content.
 
@@ -30,7 +30,7 @@ Reads every registered vault's declared triage sources **once**, decides **only*
 
 `${PARAOS_HOME:-~/.paraos}/vaults.json` is the single enumeration of vaults. **Schema, the `purpose` field, and what an unmounted path does to the run: [references/registry.md](references/registry.md).**
 
-No registry means there is nothing to ingest for: say so, point at the template in the module README, and stop. Never infer the vault list by globbing a directory.
+No registry means there is nothing to ingest for: say so, point at the template in the layer README, and stop. Never infer the vault list by globbing a directory.
 
 ### Step 1: Build the source plan
 
@@ -38,7 +38,7 @@ For each **active** vault read its `CLAUDE.md` `## Triage sources` block and its
 
 Then invert it: group connector rows **by mailbox**, so each mailbox is fetched once however many vaults declare it, and keep writing script rows **per vault**, since such a script writes into the vault it belongs to. A `fetch-script` row is a mailbox rather than a writer, so it groups with the connectors. Report the plan before acting: N vaults, N mailboxes, N script runs. **[references/gather.md](references/gather.md)** has the grouping rules and what an unreadable vault does to the plan.
 
-A vault with no `## Triage sources` block contributes no sources. It stays a routing *destination*: an item can be routed to a vault that pulls nothing of its own.
+A vault with no `## Triage sources` block pulls nothing and is routed nothing: declaring a mailbox is [the consent](references/routing.md).
 
 ### Step 2: Run the sync scripts
 
@@ -105,7 +105,7 @@ Report as a table of vault, staged count and unrouted count, then name every sou
 
 ## Edge cases
 
-- **A registry path is not mounted** (a network drive, an unsynced client library): record an error row, route nothing to it, keep going. Never read "not mounted" as "no items".
+- **A registry path is not mounted** (a network drive, an unsynced client library): record an error row, stage nothing there, keep going. Never read "not mounted" as "no items".
 - **A mailbox is declared but its connector is absent from the harness:** skip it, name it in the report, do not fail the run. The fetch protocol's tool-suffix rule is what tells absent from merely renamed.
 - **A thread routes to two vaults:** stage it in both. It is one thread and two operators' business, and collapsing it to one vault silently loses it from the other.
 - **A thread routes nowhere:** ledger it as unrouted and stage nothing. Unrouted is a normal outcome rather than a failure, but a *rising* unrouted count means the `Relevant when` rules need widening, not the router rewriting.

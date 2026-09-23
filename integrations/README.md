@@ -2,7 +2,7 @@
 
 Small, self-contained connectors that pull an outside system into a vault. Each drops a script into a vault's `resources/scripts/` and lands real Markdown (or files) where the assistant can read it alongside everything else.
 
-An integration is **not** a [delivery](../delivery/). A delivery changes how a whole vault is consumed (e.g. `readonly-ipad` adds a render pipeline). An integration is an optional add-on that works with *any* vault regardless of delivery, and carries prerequisites (an app, an account, a platform) that not everyone has - which is why these live here and not in [`base/`](../base/), the dependency-free core everyone copies.
+An integration is **not** an [add-on](../addons/). An add-on changes what a vault is or how it is consumed (e.g. `readonly-ipad` adds a render pipeline). An integration is an optional script that works with *any* vault whatever it declares, and carries prerequisites (an app, an account, a platform) that not everyone has - which is why these live here and not in [`base/`](../base/), the dependency-free core everyone copies.
 
 ## The contract every integration follows
 
@@ -23,7 +23,7 @@ The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a hom
 |---|---|---|---|---|
 | [`activity/`](activity/) | 2026.09.02 | How the vault is used, into `resources/logs/` for `/para-activity-review` | Python 3.9+ | any |
 | [`granola/`](granola/) | 2026.09.03 | Granola meeting notes + transcripts into `triage/` | Node 18+ | Windows |
-| [`outlook/`](outlook/) | 2026.09.03 | Outlook / Hotmail / Microsoft 365 mail as candidates for a skill to judge, plus ad-hoc mailbox search | Python 3.9+ | any |
+| [`outlook/`](outlook/) | 2026.09.03 | Outlook / Hotmail / Microsoft 365 mail as candidates for a skill to judge, plus ad-hoc mailbox search | Python 3.9+, `requests` | any |
 | [`pocket/`](pocket/) | 2026.09.03 | Pocket recorder summaries + transcripts into `triage/` | Python 3.9+ | any |
 
 One of these runs the other way. `activity` pulls nothing in: it records how the vault itself gets used, for `/para-activity-review` to read. It sits here rather than in `base/` for the same reason as the rest - it carries a prerequisite not everyone has, and in its case a decision not everyone should make, since a vault that logs its readers has to say so to them first.
@@ -48,4 +48,4 @@ The version is **per integration, not per file**: every script in the folder car
 4. Stamp every script's header with `para-os-integration: <name> <revision>` (see **Versioning** above).
 5. Ship a folder here: the script(s) plus a `README.md` covering prerequisites, one-time setup, and usage.
 6. Add a row to the **Available** table above, and an **Integrations** line to the changelog entry for that revision.
-7. Cover the folder's pure functions with tests next to the script (`test_*.py`, `*.test.js`; no runner or dependency beyond the language's built-in one), then run `python3 tools/check.py` from the repo root - it verifies the marker, the table row, and the revision all agree, and runs every integration's suite. A folder with no suite is a failure, as is one whose runtime is missing.
+7. Cover the folder's pure functions with tests next to the script (`test_*.py`, `*.test.js`; no runner or dependency beyond the language's built-in one), then run `python3 tools/check.py` (`py -3` on Windows) from the repo root - it verifies the marker, the table row, and the revision all agree, and runs every integration's suite. A folder with no suite is a failure, as is one whose runtime is missing.

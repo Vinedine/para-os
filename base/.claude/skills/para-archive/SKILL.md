@@ -34,26 +34,31 @@ Do NOT invoke to archive contacts, or an area the vault names no archive destina
 
 Each step that changes files ends with a proposal and waits for explicit approval. Never auto-advance through a destructive step (move, delete, link rewrite) without showing what will change. **Per-item decisions are asked one at a time** - every open action's disposition, and the version suffix - through `AskUserQuestion`, per [para-shared/asking.md](../para-shared/asking.md); the link repoints and the moves themselves stay a single batched proposal, since they are one mechanical consequence of decisions already made.
 
+### Step 0 - Scan
+
+Run the plan call per [para-shared/scripts.md](../para-shared/scripts.md); it answers everything Steps 1 to 6 read, and Step 8's verify call is in [references/move.md](references/move.md):
+
+```bash
+python3 "<this skill's base directory>/scripts/archive_scan.py" --vault . --entity <name> [--destination <path>] [--today YYYY-MM-DD] [--route <file>]... > <scan output path>
+```
+
+**Exit codes**: 0 answered, an unresolved or ambiguous entity included; 2 fall back to [references/reconcile.md](references/reconcile.md) and [references/move.md](references/move.md); 3 `--vault` is not a vault root (Step 1's stop).
+
 ### Step 1 - Confirm context and locate the entity
 
-1. **Resolve the vault root, then verify it** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`). A root has `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
+1. **The vault root is Step 0's `vault` block** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`). Where `root` is false, stop and say so, naming the path checked and, where `hint` names one, which registered vault actually holds it.
 2. Read the vault's `CLAUDE.md` for: PARA layout, action-marker syntax, naming convention, the ideas-vs-projects bar, the archive subfolder layout (`archive/projects/`, `archive/ideas/`, `archive/meetings/`), any archive destination it names for a kind of entity, and "do not add" rules.
-3. **Determine whether `<name>` is a project, an idea or an area:**
-   - `projects/<name>/` exists: it's a **project**; source = `projects/<name>/`, destination = `archive/projects/<name>[-vN]/`.
-   - `resources/ideas/<name>/` exists: it's an **idea**; source = `resources/ideas/<name>/`, destination = `archive/ideas/<name>/`.
-   - A folder named `<name>` under `areas/` exists and the vault names an archive destination for its kind: it's an **area**; destination = that one.
-   - Where the vault names a destination for the entity's kind, it replaces the default. Tell the kind from the entity's brief or README; ask where that does not settle it.
-   - If several match, ask which one. If none does, list the `projects/` and `resources/ideas/` folders and ask which one.
-   - Carry this **kind** through the rest of the flow - it selects the source, the destination and whether the versioning step runs.
-4. **Confirm the entity is actually done, and keep that question two-way.** A project's deliverable is shipped (don't archive live work), or an idea is genuinely being shelved (don't archive an idea still under active exploration). Where the vault's own record disagrees - an open dated action, a brief saying it archives after some event still ahead - say so in one line and put it to the operator as **proceed or stop**, nothing else. It is the one question in the run whose answer is a fact about their situation rather than a disposition, so it carries no recommendation (`asking.md`). **Never offer a blanket disposition for what is still open.** A "drop what's left" option at the gate approves every destructive item in the run on a single click, which is the batching `asking.md` exists to forbid; what happens to each open item is Step 2's question, asked one at a time, once the gate says proceed.
+3. **`entity` and `destination` carry Step 1's resolution.** `entity.status` is `resolved` (kind and source given), `ambiguous` (ask which of `candidates`), `elsewhere` (already archived, in this same vault, at `already_archived`), or `unresolved` (nothing in this vault matches: list `this_vault`'s own folders and, from `other_vaults`, which other registered vault holds a folder of that name; ask which one, or which vault). A session that started in another vault resolves that vault's root; never run against the other vault until the operator names it. `destination.path` is the default for a project or idea; for an **area**, `needs_vault_rule: true` means the vault names no default - read its own named destination for the entity's kind and re-run with `--destination`. **An entity in a declared lifecycle archives into a stage**, not merely into a folder: `lifecycle` (null unless the Stage line names a stage of a declared table) gives every terminal stage's home made concrete for this entity, which one (if any) `destination` matches, whether the Stage line already names it, and the reason-gate's raw material - Step 3 in [references/reconcile.md](references/reconcile.md) is the gate itself, [para-shared/lifecycles.md](../para-shared/lifecycles.md) the contract behind it.
+   Carry this **kind** through the rest of the flow - it selects the source, the destination and whether the versioning step runs.
+4. **Confirm the entity is actually done, and keep that question two-way.** A project's deliverable is shipped (don't archive live work), or an idea is genuinely being shelved (don't archive an idea still under active exploration). Where `gate` disagrees - an open dated action in `open_dated`, a `future_dated_lines` entry still ahead - say so in one line and put it to the operator as **proceed or stop**, nothing else. A date sitting only in a link's own target (a filed meeting note's dated filename, an archive path) is never a `future_dated_lines` entry; the link's display text and plain prose still are. The gate reads live work only: `status_line` alone is never the evidence, since Step 3's retense exists to fix that line. It is the one question in the run whose answer is a fact about their situation rather than a disposition, so it carries no recommendation (`asking.md`). **Never offer a blanket disposition for what is still open.** A "drop what's left" option at the gate approves every destructive item in the run on a single click, which is the batching `asking.md` exists to forbid; what happens to each open item is Step 2's question, asked one at a time, once the gate says proceed.
 
 ### Steps 2 to 5 - Reconcile, validate, route, version
 
-Split the actions into done and open and get a disposition for each open one; validate that `brief.md` and `actions.md` read as a closed record; route surviving actions and living-reference files out; then decide the version suffix (projects only). **Full procedure: [references/reconcile.md](references/reconcile.md).**
+Split the actions into done and open and get a disposition for each open one; validate that `brief.md` and `actions.md` read as a closed record; route surviving actions and living-reference files out; then decide the version suffix (projects only), reading `destination.suffix_siblings` and `.next_suffix`. **Full procedure: [references/reconcile.md](references/reconcile.md).**
 
 ### Steps 6 to 8 - Scan links, execute, verify
 
-Grep the whole vault for inbound references and classify each before anything moves; execute the moves with `git mv`, rewriting the relative links *inside* whatever moved; then re-run the scan and resolve the outbound links, asserting zero dangling references in either direction. **Full procedure: [references/move.md](references/move.md).**
+Classify `inbound`'s references before anything moves, re-running the plan call with `--route` once Step 4 has decided what routes to `resources/`; execute the moves with `git mv`, rewriting the relative links *inside* whatever moved per `move_plan`; **re-check the snapshot** immediately before Step 7 writes anything; then run the verify call and resolve every count it reports, asserting zero dangling references in either direction. **Full procedure: [references/move.md](references/move.md).**
 
 ## Strict rules
 
@@ -63,6 +68,7 @@ Grep the whole vault for inbound references and classify each before anything mo
 - **Ask, don't assume, for surviving actions,** one question per action and never a list approved at once. Don't auto-scaffold a successor; the user may want the work in an existing project, an area, or dropped.
 - **Don't archive live work.** If a project's open actions are still genuinely live (not routable out), the project isn't done - stop and say so rather than burying live work. Likewise, don't archive an idea that's still under active exploration.
 - **Version logic is for projects only.** Never apply a `-vN` suffix to an idea or an area; they archive under their own name.
+- **Never move a staged entity into a terminal stage on your own.** The Stage line and the reason its rule file requires are the operator's words, written before the move. `lifecycle.reason` names the field, its current value and key, and the `allowed` list (or `null`, meaning read the rule file yourself); offer the exact lines; refuse the run until they are there.
 
 Archive-hygiene rules - no open actions, living-refs to resources, minimum record, zero dangling links - come from the **Archive hygiene** conventions in CLAUDE.md, whether that's the vault's own file or an inherited global one.
 

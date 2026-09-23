@@ -75,7 +75,7 @@ Microsoft says why in `error_description`, keyed by an `AADSTS` code, and the sc
 | `search <query> [--limit N] [--body] [--all-mailboxes]` | Ad-hoc keyword search across the whole mailbox | **never** |
 | `raw <graph-path> [--account <email>]` | Raw Graph GET: debugging, and reading one message in full | no |
 
-There is no default command. A bare `outlook.py` asks for a subcommand: the default used to be `sync`, which is what made `outlook.py --write` do something, and nothing should quietly pick a behaviour for a script that reads mailboxes.
+There is no default command: a bare `outlook.py` asks for a subcommand.
 
 ### An account not logged in on this machine
 
@@ -87,7 +87,7 @@ Both read and neither writes; they differ in the question they answer. `fetch` w
 
 The scopes differ on purpose. `fetch` asks "what has arrived that nobody has dealt with", so Junk Email and Deleted Items are answers someone already gave and it does not reopen them; `search` asks "where is this thing", and a thing can be anywhere, so it reads everything.
 
-Both print Graph's `bodyPreview`, a couple of hundred characters. **To read a hit in full**, `raw '/me/messages?$search="<query>"&$select=id,subject,from,receivedDateTime,body'`, then `raw /me/messages/<id>/attachments` for its files: decode an attachment's `contentBytes` (base64) to a scratch file and read that. A shared mailbox is `/users/<shared address>/...` with `--account` naming its `via` user.
+Both print Graph's `bodyPreview`, a couple of hundred characters. **To read a hit in full**, `raw '/me/messages?$search="<query>"&$select=id,subject,from,receivedDateTime,body'`, then `raw /me/messages/<id>/attachments` for its files: decode an attachment's `contentBytes` (base64) to a scratch file and read that. A shared mailbox is `/users/<shared address>/...` with `--account` naming its `via` user. Under Git Bash, set `MSYS_NO_PATHCONV=1` for any `raw` call, or the leading `/me/...` becomes a Windows path and Graph answers 404.
 
 ### `fetch`: read now, decide before writing
 

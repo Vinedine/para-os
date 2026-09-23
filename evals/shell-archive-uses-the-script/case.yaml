@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: shell-archive-uses-the-script
+tags: [archive, shell]
+context:
+  scaffold_script: setup.sh

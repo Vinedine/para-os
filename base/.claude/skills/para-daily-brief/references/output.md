@@ -13,6 +13,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 (+N more entities · M open)
 ```
 **Totals:** N open · N 🔴 overdue · N upcoming · N undated (N%)
+**<Lifecycle>:** <Stage> N · <Stage> N · <Stage> N - `/para-pipeline` for the board
 
 ## 🗓 Agenda
 **Today**
@@ -40,6 +41,8 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 **Next action:** <exactly one concrete step - see below>
 ````
 
+**The lifecycle line follows Totals**, one per declared lifecycle, stages in the table's own order and omitted entirely where the vault declares none. It is the only lifecycle content in the brief (Step 4f).
+
 The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block so the columns align. Bar rows: width 10, `round(10 x open / max_open)` filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append the full bucket sections (🔴 🟠 🟡 🔵 ⚪ 🔁 ⏳ ❓, each a complete list in the Now line format) after Health flags.
 
 **Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>` so the entity is visible without opening the file; relative link targets from CWD. **A heading's `(N)` count must match the number of items rendered under it**, which means an overdue recurring item increments both the `🔴 Overdue` heading count and the `🔁 Recurring` heading count, even though the `Totals:` line counts it strictly once under Recurring.
@@ -58,6 +61,8 @@ A different layout, not the vault brief with rows removed. The question is "wher
 # <entity> - <YYYY-MM-DD>
 
 **[P] projects/<entity>** · N open · N 🔴 overdue · N upcoming · N undated · actions.md touched <YYYY-MM-DD>
+
+The bucket letter and path are the resolved entity's, `[A] areas/<entity>` for an area. An entity whose open items live in several files (a contact area such as `areas/network/`) renders `N files, latest touched <YYYY-MM-DD>` in place of the `actions.md` clause.
 
 ## 🔴 Overdue (N)
 1. 🔺 <task text> - [<entity>:<line>](<relative/path>#L<line>) · 📅 <date> (<Nd> ago)

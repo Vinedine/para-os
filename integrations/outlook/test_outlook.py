@@ -288,9 +288,9 @@ class AccountApp(unittest.TestCase):
     def test_token_url_is_built_from_the_authority(self):
         self.assertEqual(osync.token_url("consumers"),
                          "https://login.microsoftonline.com/consumers/oauth2/v2.0")
-        self.assertEqual(osync.token_url("7b70908c-ae16-4dd6-9fcb-5f364b57510b"),
+        self.assertEqual(osync.token_url("11111111-2222-3333-4444-555555555555"),
                          "https://login.microsoftonline.com/"
-                         "7b70908c-ae16-4dd6-9fcb-5f364b57510b/oauth2/v2.0")
+                         "11111111-2222-3333-4444-555555555555/oauth2/v2.0")
 
 
 class CmdAccounts(unittest.TestCase):
@@ -892,17 +892,17 @@ class CmdFetch(unittest.TestCase):
         # input order passes here by luck and fails the day a page boundary reorders it.
         {"id": "t2", "internetMessageId": "<t2@x>", "receivedDateTime": "2026-09-04T09:00:00Z",
          "conversationId": "conv-9", "subject": "RE: opmeting", "bodyPreview": "second",
-         "from": {"emailAddress": {"name": "Tom", "address": "tom@partner.be"}},
+         "from": {"emailAddress": {"name": "Tom", "address": "tom@partner.example"}},
          "toRecipients": [{"emailAddress": {"address": "a@x.com"}}],
          "ccRecipients": [], "webLink": "https://example/t2"},
         {"id": "t3", "internetMessageId": "<t3@x>", "receivedDateTime": "2026-09-05T09:00:00Z",
          "conversationId": "conv-9", "subject": "RE: opmeting", "bodyPreview": "third, mine",
          "from": {"emailAddress": {"name": "Me", "address": "a@x.com"}},
-         "toRecipients": [{"emailAddress": {"address": "tom@partner.be"}}],
+         "toRecipients": [{"emailAddress": {"address": "tom@partner.example"}}],
          "ccRecipients": [], "webLink": "https://example/t3"},
         {"id": "t1", "internetMessageId": "<t1@x>", "receivedDateTime": "2026-09-03T09:00:00Z",
          "conversationId": "conv-9", "subject": "opmeting", "bodyPreview": "first",
-         "from": {"emailAddress": {"name": "Tom", "address": "tom@partner.be"}},
+         "from": {"emailAddress": {"name": "Tom", "address": "tom@partner.example"}},
          "toRecipients": [{"emailAddress": {"address": "a@x.com"}}],
          "ccRecipients": [], "webLink": "https://example/t1"},
     ]
@@ -933,7 +933,7 @@ class CmdFetch(unittest.TestCase):
         # nowhere for the most ordinary reason there is.
         r = self.run_fetch(msgs=self.THREAD)[0][0]
         self.assertIs(r["from_owner"], True)
-        self.assertEqual(r["participants"], ["tom@partner.be"])
+        self.assertEqual(r["participants"], ["tom@partner.example"])
 
     def test_a_single_message_thread_has_the_same_shape(self):
         r = self.run_fetch()[0][0]

@@ -28,13 +28,13 @@ A JSON array of entries:
 
 Everything else is bookkeeping. `purpose` is what a thread's subject and snippet are judged against when no contact hit decides, so a vague one ("work stuff") routes badly and a specific one routes well. Write it the way you would brief someone sorting your post: what belongs here, in the terms the post itself would use.
 
-It complements rather than duplicates the vault's own `Relevant when` rules. Those are per-mailbox and live in the vault; `purpose` is per-vault and lives here, and is the only thing available for a vault that declares no sources at all.
+It complements rather than duplicates the vault's own `Relevant when` rules. Those are per-mailbox and live in the vault; `purpose` is per-vault and lives here, and picks among the vaults that declared a mailbox without ever adding one.
 
 ## Reading it
 
-- **Missing registry:** there is nothing to ingest for. Say so, point at `vaults.json.template` in the module README, stop. **Never glob a directory to guess the list** - a guessed list quietly includes things that are not vaults and quietly misses ones that are.
+- **Missing registry:** there is nothing to ingest for. Say so, point at `vaults.json.template` in the layer README, stop. **Never glob a directory to guess the list** - a guessed list quietly includes things that are not vaults and quietly misses ones that are.
 - **Malformed JSON:** stop and say which entry failed. Do not proceed on a partially parsed list: the vaults that dropped out would be silently unrouted, which looks exactly like a quiet day.
-- **Path not mounted** (a network drive, an unsynced client library, an external disk): record an error row for that vault, route nothing to it, and continue the run. `active: true` with an absent path is an error, not an implicit `false`.
+- **Path not mounted** (a network drive, an unsynced client library, an external disk): record an error row for that vault, stage nothing there, and continue the run. `active: true` with an absent path is an error, not an implicit `false`.
 
   **Route *to* it as normal, then withhold the ledger entry.** An unmounted vault is still a routing destination: work out that a thread belongs to it, fail to deliver, and record that failure as `undelivered` rather than pretending the thread routed nowhere. The rule that keeps such a thread alive is in [staging.md](staging.md): a thread routed to a vault that could not be written gets **no ledger entry at all**, so the next run refetches it and delivers the moment the path is back. Ledgering it instead is how a routed item disappears for good, and one unmounted drive can take several vaults with it.
 

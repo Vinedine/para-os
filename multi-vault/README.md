@@ -1,6 +1,6 @@
 # multi-vault - the cross-vault ingest layer
 
-An **optional module**, not part of the base skeleton. Most people run one vault and need none of this.
+An **optional layer**, not part of the base skeleton. Most people run one vault and need none of this.
 
 It is for the case where you run several vaults and they draw on the same inputs. Per vault the design works: each declares its own sources in its own `## Triage sources` block and `/para-triage` pulls them. Across vaults it stops working, because the inbox is not vault-shaped. One mailbox declared by six vaults is fetched six times, a thread belonging to the seventh is dismissed six times without being recorded anywhere, and the knowledge of which vault a given item belongs to lives nowhere except in your head.
 
@@ -17,7 +17,7 @@ That boundary is the whole design. It never classifies an item, drafts an action
 ## What it does not do
 
 - It does not reduce the number of vaults you sit down with. It removes duplicated reading and the routing decision, which is a different saving, and it will make some `triage/` folders fuller than they were, because items that previously surfaced nowhere now land somewhere.
-- It does not give you one view across your vaults. That is a separate thing and this module does not ship it.
+- It does not give you one view across your vaults. That is a separate thing and this layer does not ship it.
 - It does not run unattended out of the box. See the preview week below.
 
 ## Installing
@@ -50,15 +50,15 @@ On a machine with no registry, or for a vault not in it, `/para-triage` pulls it
 
 ## The preview week
 
-**Run in preview for a week before switching to write mode.** This is not caution for its own sake. A mis-routed email costs a dismissal; a router quietly wrong for a month erodes your trust in every vault it has been writing to, and that is not recoverable by fixing the router.
+**Run in preview for a week before switching to write mode.** A mis-routed email costs a dismissal; a router quietly wrong for a month costs your trust in every vault it writes to.
 
 Two things to look for in the run logs. The first is the same thread routing to **different vaults on different runs**, which means an ambiguous `Relevant when` rule to tighten before anything writes. A thread reappearing every run is expected, since preview ledgers nothing.
 
-The second is **a vault whose routed count looks too good**. A router that matches most of a mailbox at once is matching the mailbox owner's own address, which sits in the contact files of every vault its owner works in. A rule keyed on who someone is will do this by default, and it does not look like a bug, it looks like a productive run. `/para-ingest` excludes the owner now; the general lesson is that a suspiciously strong result deserves the same look as an empty one.
+The second is **a vault whose routed count looks too good**. A router that matches most of a mailbox at once is matching the mailbox owner's own address, which sits in the contact files of every vault its owner works in. `/para-ingest` excludes the owner; a suspiciously strong result deserves the same look as an empty one.
 
 Then run `write` by hand once, immediately run it again to confirm it stages zero the second time, and only then consider scheduling it.
 
-**The switch itself drops things, and this is the moment to decide about them.** Preview reaches back thirty days; write reaches back two. Everything a preview routed that is older than two days therefore never gets staged and never gets ledgered either, because no write run will fetch it again - the preview log is the only record it existed. On a real fleet this was not a rounding error: the last preview before the switch routed 32 threads, the first write run staged 5, and 10 of the remainder were in no ledger of any kind and stayed invisible until someone went looking for one specific email a day later.
+**The switch itself drops things, and this is the moment to decide about them.** Preview reaches back thirty days; write reaches back two. Everything a preview routed that is older than two days therefore never gets staged and never gets ledgered either, because no write run will fetch it again - the preview log is the only record it existed.
 
 So a preview run tells you how many of its routed threads are about to fall off that cliff, and a write run reports what it finds still outstanding as **carry-over**, with the `--days N` command that would recover it. Neither ever stages the backfill for you: reaching past the write window stays a thing a person types, because that is the only limit on how much history can land in a `triage/` folder at once. Run it, or decide the mail is already dealt with - but decide, rather than finding out later.
 

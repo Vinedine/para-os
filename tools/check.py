@@ -52,7 +52,7 @@ What it enforces, and why each one is machinery rather than prose:
                         folder, a description, allowed-tools, arg-hint offering `--test` and a
                         link to para-shared/test-run.md), a `## Strict rules`
                         block, a spine under the line cap, and references that resolve both
-                        ways - base's skills, a module's, and each flavor's. The spine cap is
+                        ways - base's skills and each add-on's. The spine cap is
                         the load-bearing one: a SKILL.md body loads on
                         every invoke, so a skill that regrows charges every run for procedure
                         it may never reach - which is the 1106 lines the 2026.08.03 split
@@ -238,7 +238,7 @@ def changelog_revisions():
 
 
 def delivery_skeleton_templates():
-    return sorted((ROOT / "delivery").glob("*/skeleton/CLAUDE.md.template"))
+    return sorted((ROOT / "addons").glob("*/skeleton/CLAUDE.md.template"))
 
 
 def template_files():
@@ -261,7 +261,7 @@ def check_template_revisions():
     current = revisions[0]
 
     if not delivery_skeleton_templates():
-        bad("delivery/*/skeleton/CLAUDE.md.template: none found, so every template check below "
+        bad("addons/*/skeleton/CLAUDE.md.template: none found, so every template check below "
             "would skip the delivery skeletons without failing. Fix the glob, not this line.")
 
     for f in template_files():
@@ -305,7 +305,7 @@ FENCE = re.compile(r"^\s*(?:```|~~~)")
 CODE_SPAN = re.compile(r"`[^`]*`")
 
 
-WALK_SKIP_DIRS = {".git", "node_modules", "__pycache__"}
+WALK_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".pytest_cache"}
 OS_LITTER = {"desktop.ini", "Thumbs.db"}
 PROSE_SUFFIXES = {".md", ".template", ".sections", ".py", ".js", ".mjs", ".json", ".ps1"}
 
@@ -580,12 +580,21 @@ RUNNERS = {".py": lambda p: [sys.executable, str(p)],
 COUNTS = (re.compile(r"^Ran (\d+) tests?", re.M), re.compile(r"^\D*pass (\d+)$", re.M))
 
 
+def skill_script_dirs():
+    """Each skill's scripts/ folder, wherever skills ship from. A skill that hands a
+    mechanical step to a script is testable in the way prose never was, so the suite runs
+    here with the integrations rather than waiting for someone to remember it."""
+    roots = [ROOT / "base" / ".claude" / "skills"] + addon_skill_dirs()
+    return sorted(d for root in roots for d in root.glob("*/scripts") if d.is_dir())
+
+
 def check_tests():
-    suites = [p for d in integration_dirs() for p in sorted(d.iterdir())
+    suite_dirs = integration_dirs() + skill_script_dirs()
+    suites = [p for d in suite_dirs for p in sorted(d.iterdir())
               if p.suffix in RUNNERS and is_test_file(p)]
-    for d in integration_dirs():
+    for d in suite_dirs:
         if not any(p.parent == d for p in suites):
-            bad(f"integrations/{d.name}/ ships no test suite")
+            bad(f"{rel(d)}/ ships no test suite")
 
     for p in suites:
         cmd = RUNNERS[p.suffix](p)
@@ -617,12 +626,14 @@ def check_tests():
 SKILLS_DIR = ROOT / "base" / ".claude" / "skills"
 
 
-def flavor_skill_dirs():
-    """Each flavor's skills folder. A flavor ships skills beside base's, under .claude/ like base's."""
-    return sorted(d for d in (ROOT / "flavors").glob("*/.claude/skills") if d.is_dir())
+def addon_skill_dirs():
+    """Each add-on's skills folder, under .claude/ like base's. An add-on need not ship one:
+    sales ships a lifecycle and a rule file and borrows /para-pipeline from base, so a short
+    result here is the normal case rather than a miss."""
+    return sorted(d for d in (ROOT / "addons").glob("*/.claude/skills") if d.is_dir())
 
 
-MODULE_DIRS = (ROOT / "multi-vault",)   # optional modules that ship a skill of their own
+EXTRA_SKILL_DIRS = (ROOT / "multi-vault",)   # optional layers that ship a skill of their own
 SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "arg-hint")
 SPINE_MAX_LINES = 130      # current worst is 116; the cap catches regrowth, not today's shape
 DESCRIPTION_MAX_CHARS = 600
@@ -647,22 +658,22 @@ def check_skills():
     if not (SKILLS_DIR / TEST_RUN_DOC).is_file():
         bad(f"base/.claude/skills/{TEST_RUN_DOC} is missing, and every skill's `--test` points at it")
 
-    # An optional module ships a skill too, and it is the likeliest one to rot: it sits outside
-    # base/, so without this nothing in this file ever looks at it. Same contract, same caps -
-    # a skill an adopter installs beside the bundled ones is held to what they are held to.
-    # A listed module that is not there FAILS rather than being skipped: a rename would
+    # An optional layer beside base ships a skill too, and it is the likeliest one to rot: it
+    # sits outside base/, so without this nothing in this file ever looks at it. Same contract,
+    # same caps - a skill an adopter installs beside the bundled ones is held to what they are
+    # held to. A listed folder that is not there FAILS rather than being skipped: a rename would
     # otherwise degrade to a clean pass over a skill nothing looked at.
     # The vendor validator below is deliberately NOT pointed here: it picks its mode from the
     # path, and a skills folder outside .claude/ is read as a plugin directory and fails for
-    # having no manifest. That is a tool constraint, not a reason to leave the module unchecked.
-    for flavor_skills in flavor_skill_dirs():
-        masters += skill_dirs(flavor_skills)
+    # having no manifest. That is a tool constraint, not a reason to leave the add-on unchecked.
+    for extra_skills in addon_skill_dirs():
+        masters += skill_dirs(extra_skills)
 
-    for module in MODULE_DIRS:
-        if module.is_dir():
-            masters += skill_dirs(module)
+    for extra in EXTRA_SKILL_DIRS:
+        if extra.is_dir():
+            masters += skill_dirs(extra)
         else:
-            bad(f"{rel(module)}/ is in MODULE_DIRS but does not exist. Drop the entry, or "
+            bad(f"{rel(extra)}/ is in EXTRA_SKILL_DIRS but does not exist. Drop the entry, or "
                 f"restore the folder - as it stands its skill is checked by nothing.")
 
     for d in masters:
@@ -752,7 +763,7 @@ def vault_roots_with_rules():
             if name not in filenames:
                 continue
             rules_dir = here / ".claude" / "rules"
-            if not rules_dir.is_dir() and here.name == "skeleton" and here.parent.parent == ROOT / "delivery":
+            if not rules_dir.is_dir() and here.name == "skeleton" and here.parent.parent == ROOT / "addons":
                 rules_dir = BASE_RULES
             if rules_dir.is_dir():
                 yield here / name, rules_dir
@@ -806,9 +817,9 @@ def check_rules_contract():
 # adopter's vault CLAUDE.md, read every session, and a repo-maintenance hash has no business
 # being a permanent line in it. Add a row when a delivery gains a file that derives from base.
 DELIVERY_TRACKING = {
-    "delivery/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "4b743bad1a14"),
-    "delivery/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
-    "delivery/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "92d77ba2543f"),
+    "addons/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "b0c9a0eea17e"),
+    "addons/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
+    "addons/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "7ffd9b80b6e5"),
 }
 
 
@@ -822,7 +833,7 @@ def base_digest(p):
 def check_delivery_tracking():
     """A delivery skeleton file is a derived copy of a base file, and nothing else notices it rot.
 
-    `delivery/*/skeleton/` ships whole files, not patches, so each is 39% to 67% a verbatim copy
+    `addons/*/skeleton/` ships whole files, not patches, so each is 39% to 67% a verbatim copy
     of its base counterpart with a handful of deliberate deltas. The convention has been a
     header comment reading "if base changes, propagate here" - the same unenforced promise that
     let installed integration scripts drift for a revision, in the one place /para-upgrade reads
@@ -875,7 +886,7 @@ def check_skill_validator():
         bad("`claude` is not on PATH, so the vendor's skill validator could not run. A check "
             "that could not run has not passed.")
         return
-    for skills_dir in [SKILLS_DIR] + flavor_skill_dirs():
+    for skills_dir in [SKILLS_DIR] + addon_skill_dirs():
         validate_skills_dir(claude, skills_dir)
 
 
