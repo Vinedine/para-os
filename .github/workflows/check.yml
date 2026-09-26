@@ -81,4 +81,4 @@ jobs:
       # The floors sit just under what the suites reach today, so a drop fails the job.
       # Raise them when coverage rises; the report lands on the run's summary page.
       - name: Coverage
-        run: python tools/coverage_report.py --fail-under 87 --fail-under-js 45 --summary "$GITHUB_STEP_SUMMARY"
+        run: python tools/coverage_report.py --fail-under 97 --fail-under-js 95 --summary "$GITHUB_STEP_SUMMARY"
