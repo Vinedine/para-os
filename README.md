@@ -91,13 +91,13 @@ The conventions the templates encode:
 
 **3. Open it in the Claude desktop app.** In the **Code** tab, click **New** at the top of the sidebar, keep **Local**, click **Select folder** and pick the folder. Don't use the `+` beside a folder already in the sidebar: that opens the session inside *that* folder, which is how a new vault ends up inside an old one.
 
-**4. Paste this**, with your own topic after `Context:`:
+**4. Paste this**, exactly as it is:
 
 ```text
-Set up a new para-os vault in this folder: read https://raw.githubusercontent.com/Vinedine/para-os/main/INSTALL.md and follow it. Context: <what this vault is for>.
+Set up a new para-os vault in this folder: read https://raw.githubusercontent.com/Vinedine/para-os/main/INSTALL.md and follow it.
 ```
 
-It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap interview: four short choice questions, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. The steps are in [`INSTALL.md`](INSTALL.md): read what it will do before you paste it, or follow it by hand.
+It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap interview: a few short questions about the vault, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. The steps are in [`INSTALL.md`](INSTALL.md): read what it will do before you paste it, or follow it by hand.
 
 **5. Run `/para-daily-brief`.** The vault answers from day one, and better once you run the short brainstorm the `vault-setup` project starts with.
 

@@ -4,7 +4,7 @@ The steps an agent follows when an operator pastes the Quickstart prompt from [R
 
 **Needs:** Claude Code and git, which the README's Quickstart has the operator install first (the zip below is a fallback only, since `/para-upgrade` needs the clone); Python 3 optional (`py -3` on Windows), each skill falling back to a by-hand procedure without it.
 
-The operator's prompt ends with `Context:` and what the vault is for. Carry it into Step 4, where it pre-fills the interview's options rather than replacing the questions.
+The operator's prompt says nothing about the vault itself: Step 4's questions ask for it.
 
 ## 1. Check the folder
 
@@ -32,7 +32,7 @@ Copy `base/` alone. Nothing else in the repository is vault content: an add-on i
 
 ## 4. Run the bootstrap
 
-Read `bootstrap-prompt.md` in the vault root and follow the block below its `---` line, start to finish. Its first action is one `AskUserQuestion` call with four short choice questions (the vault, its purpose, the answer language, a website to read). **Call it before writing any file, and write nothing until it returns.** The prompt's `Context:` only pre-fills the options, offered as the recommended ones; it never answers a question for the operator. From the answers it fills `CLAUDE.md` and `README.md`, creates `projects/vault-setup/` for the rest of onboarding, and deletes itself when it is done.
+Read `bootstrap-prompt.md` in the vault root and follow the block below its `---` line, start to finish. Its first action is one `AskUserQuestion` call of four short choice questions (the vault's name, its purpose, the answer language, where it is read), then two open ones as a short message (what it covers, a website to read). **Ask them before writing any file, and write nothing until the answers are in.** From the answers it fills `CLAUDE.md` and `README.md`, creates `projects/vault-setup/` for the rest of onboarding, and deletes itself when it is done.
 
 ## 5. Hand over
 

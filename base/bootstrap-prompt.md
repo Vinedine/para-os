@@ -1,6 +1,6 @@
 # Bootstrap prompt - stand up a new para-os vault
 
-Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks four short choice questions, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), and cleans up after itself.
+Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks four short choice questions and two open ones, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), and cleans up after itself.
 
 ---
 
@@ -12,20 +12,23 @@ Onboarding runs in three phases. **You run phase 1 now**, in this session. Phase
 
 ## Phase 1 - Setup (now)
 
-**Ask before you write anything.** Call `AskUserQuestion` now, as your first action, and write no file until it returns. The `Context:` my install prompt ended with, and anything I said in the request, only pre-fill the options below; they never answer a question for me. Where the session has no `AskUserQuestion`, ask the same four questions as one short numbered message, your suggestions filled in for me to confirm or correct, and stop there until I reply.
+**Ask before you write anything.** Call `AskUserQuestion` now, as your first action, and write no file until my answers are in. The questions are where you learn what this vault is; the install prompt carries nothing about it. Where the session has no `AskUserQuestion`, ask all six questions below as one short numbered message and stop there until I reply.
 
-One call, four short choice questions, nothing more - I'm new to this. **Other** is always where I type my own answer. The rule behind the shapes is `.claude/skills/para-shared/asking.md` (`## A question with a suggested answer`):
+**First, one call of four short choice questions** - I'm new to this. **Other** is always where I type my own answer. The rule behind the shapes is `.claude/skills/para-shared/asking.md` (`## A question with a suggested answer`):
 
 | `header` | Question | Options |
 |---|---|---|
-| `Vault` | What should this vault be called, and what does it cover? | a name and one-line description drafted from `Context:` `(Recommended)`; with no context, the vault folder's own name as the name, description to follow |
-| `Purpose` | What is this vault for? | my own life admin · a business I run · a project portfolio · a client engagement; the one the context points to first and `(Recommended)` |
-| `Language` | Which language should the agent answer in? | English · Nederlands · Français; the one the context points to first and `(Recommended)` |
-| `Website` | Is there a website or profile to learn this vault from? | `Read these: <urls>`, every one the context names, `(Recommended)` · `None`. With none in the context: `None` `(Recommended)` · `Yes, I'll give the link` |
+| `Name` | What should this vault be called? | the vault folder's own name, tidied into a title `(Recommended)` · the same name with `Vault` after it |
+| `Purpose` | What is this vault for? | my own life admin · a business I run · a project portfolio · a client engagement |
+| `Language` | Which language should the agent answer in? | English · Nederlands · Français |
+| `Read where` | Where will this vault be read? | here, in Claude Code `(Recommended)` · read-only on an iPad as rendered PDFs (the `readonly-ipad` delivery) |
 
-Where I pick `Yes, I'll give the link`, or a name with its description still to follow, ask for just that in one line before filling anything.
+`Purpose` and `Language` carry no recommendation: they are facts only I hold. Where my request did say something about the vault, order those options by it, but still ask.
 
-**Delivery is not a phase 1 question.** A vault is read here, in Claude Code, unless my `Context:` or request says a non-technical reader will read it on an iPad. Only then ask one more question, `Read where` (here in Claude Code · read-only on an iPad as rendered PDFs, the `readonly-ipad` delivery), before filling the templates, since that delivery replaces both of them.
+**Then two open questions as one short numbered message**, since there is nothing to suggest for them:
+
+1. In one line, what does this vault cover?
+2. Is there a website or profile I can read to learn about it - a company site, a LinkedIn page, a listing? (Optional; "none" is fine.)
 
 Do **not** ask about project definitions, extra `areas/` folders, naming conventions, vault type, or README framing or ownership. Those all get sensible defaults (below); they are decisions I make later when a real need appears, not on day zero.
 
