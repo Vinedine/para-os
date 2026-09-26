@@ -47,6 +47,21 @@ jobs:
         run: python -m pip install requests
       - name: Contract checks and test suites
         run: python tools/check.py --no-vendor
+      # check.py reads the PowerShell scripts as text only. Parsing them with PowerShell's own
+      # parser catches a script that would not even load; pwsh ships on every hosted runner.
+      - name: PowerShell scripts parse
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($f in Get-ChildItem -Recurse -Filter *.ps1 -Path addons, integrations, base) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) {
+              $failed = $true
+              $errors | ForEach-Object { "$($f.FullName):$($_.Extent.StartLineNumber): $($_.Message)" }
+            } else { "ok $($f.FullName)" }
+          }
+          if ($failed) { exit 1 }
 
   coverage:
     # One platform is enough to measure: the suites are the same everywhere.
