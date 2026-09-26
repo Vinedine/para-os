@@ -47,8 +47,8 @@ try:
         CollectedVault, MIN_HASH_BYTES, WIP_THRESHOLD, abspath, action_files, hashes,
         ingest_ledger, ingest_logs, inbound_references, live_lines, log_instant, norm,
         note_name_parts, open_tasks, read_lines, refuse_if_collected, registered_vault,
-        registry, rel_posix, snapshot, thread_hash, triage_items, triage_sources, vault_root,
-        watermark, written_under,
+        registry, rel_posix, same_place, snapshot, thread_hash, triage_items, triage_sources,
+        vault_root, watermark, written_under,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"triage_scan: {missing}. The shared vault library belongs at "
@@ -60,10 +60,10 @@ except ImportError as missing:  # the skill falls back to scanning by hand
 # ------------------------------------------------------------------------------ the vault
 
 def _entry_by_path(entries, vault):
-    target = os.path.normcase(str(abspath(vault)))
+    target = same_place(vault)
     for entry in entries:
         path = entry.get("path")
-        if path and os.path.normcase(str(abspath(path))) == target:
+        if path and same_place(path) == target:
             return entry
     return None
 

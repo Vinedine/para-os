@@ -91,7 +91,10 @@ class VaultCase(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.root = Path(tmp.name)
+        # Resolved, as the scan resolves its vault: macOS's temp folder sits behind the /var
+        # symlink and Windows' behind a short RUNNER~1 name, and an absolute path the scan
+        # reports would never equal the unresolved spelling.
+        self.root = Path(tmp.name).resolve()
 
     def clone(self, **kwargs):
         path = make_clone(**kwargs)

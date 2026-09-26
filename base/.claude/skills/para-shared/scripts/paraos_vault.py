@@ -175,17 +175,17 @@ def registry(paraos_home=None):
 
 def registered_vault(entries, path):
     """The registry entry whose path is `path` itself or a parent folder of it, else None.
-    Compared on an absolute, normalised, case-folded form (`os.path.normcase`), since the
-    same Windows folder can be spelled with either slash and either case between a registry
-    entry and a session's own `pwd`. For the "not a vault root, but the registry lists it
-    at ..." stop line.
+    Compared as `same_place`, since one folder can be spelled differently between a registry
+    entry and a session's own `pwd`: either slash or case on Windows, a short `RUNNER~1`
+    name, or a symlink the caller has already resolved (macOS's `/var` is one). For the "not
+    a vault root, but the registry lists it at ..." stop line.
     """
-    target = os.path.normcase(str(abspath(path)))
+    target = same_place(path)
     for entry in entries:
         entry_path = entry.get("path")
         if not entry_path:
             continue
-        root = os.path.normcase(str(abspath(entry_path)))
+        root = same_place(entry_path)
         # A drive or filesystem root already ends in its separator: "/" + os.sep is "//".
         if target == root or target.startswith(root if root.endswith(os.sep) else root + os.sep):
             return entry
@@ -204,14 +204,14 @@ def registry_holding(entries, name, exclude=None):
     read at all. Directory names only - nothing inside another vault's files is opened.
     """
     key = norm(name)
-    exclude_root = abspath(exclude) if exclude else None
+    exclude_place = same_place(exclude) if exclude else None
     out = []
     for entry in entries:
         entry_path = entry.get("path")
         if not entry_path:
             continue
         root = abspath(entry_path)
-        if exclude_root and root == exclude_root:
+        if exclude_place and same_place(root) == exclude_place:
             continue
         try:
             hits = _entity_folders(root, key)
@@ -1210,6 +1210,14 @@ def abspath(path):
     return Path(os.path.normpath(Path(path).absolute()))
 
 
+def same_place(path):
+    """A form two spellings of one folder share, for comparing places: absolute, with
+    symlinks and Windows short names resolved as far as the path exists, then case-folded
+    where the platform ignores case. It asks the filesystem, unlike `abspath`, so it is for
+    matching only; what gets reported stays the path as written."""
+    return os.path.normcase(os.path.realpath(abspath(path)))
+
+
 def rel_posix(vault, path):
     """A path as the vault names it: relative to the root, forward slashes. A path outside
     the vault keeps its absolute form, since no vault-relative name would be honest."""
@@ -2004,12 +2012,14 @@ def written_under(entry, folder):
     staged note's own name, which always ends in its hash and extension, never in a bare
     `)`), a leading `~` for the ingest cache's own home, and either slash depending on which
     machine wrote it. Mojibake inside the filename itself is real and is compared as
-    written, since it never changes what folder the file sits in.
+    written, since it never changes what folder the file sits in. Both sides are compared
+    as `same_place`: the log spells the vault the way the registry does, and a caller has
+    usually resolved its own root, so a symlinked or short-named path must still match.
     """
     text = re.sub(r"\s+\([^)]*\)\s*$", "", str(entry).strip()).replace("\\", "/")
     if text.startswith("~"):
         text = os.path.expanduser(text)
-    return is_under(Path(text), Path(folder))
+    return is_under(Path(same_place(text)), Path(same_place(folder)))
 
 
 def thread_hash(thread_id):
