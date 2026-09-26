@@ -1,11 +1,13 @@
 // Node renderer driven by render.ps1.
-// para-os-integration: readonly-ipad 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: readonly-ipad 2026.09.05 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 //
 // Reads a JSON array of jobs from stdin:
 //   [{ in: "<src path>", out: "<pdf path>", rel: "<display path>", type: "md" | "html" }, ...]
 // Launches one headless Chromium for the whole batch. Markdown jobs are rendered
 // to HTML with `marked` + github-markdown-css; html jobs (designed pages) are
 // self-contained styled documents loaded as-is. Both are printed to PDF.
+// Both load from a file:// URL resolving to the source's own folder, so a relative
+// image or stylesheet next to the source renders instead of silently vanishing.
 //
 // Output to stdout/stderr (one line per step) is consumed by render.ps1.
 // Exits non-zero if any file failed.
@@ -14,7 +16,10 @@
 // `import` does NOT honor NODE_PATH, so we cannot import globally installed
 // packages by name with bare specifiers.
 import { createRequire } from 'node:module';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const t0 = Date.now();
 const log = (msg) => process.stdout.write(`[render.mjs +${(((Date.now() - t0) / 1000)).toFixed(1)}s] ${msg}\n`);
@@ -39,10 +44,13 @@ if (!Array.isArray(jobs) || jobs.length === 0) {
   process.exit(0);
 }
 
-const wrap = (body) => `<!DOCTYPE html>
+// <base> points relative links at the source's folder: the wrapped page itself is loaded
+// from a temp file, which is elsewhere.
+const wrap = (body, base) => `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<base href="${base}">
 <style>
 ${markdownCss}
 body {
@@ -70,6 +78,14 @@ body {
 ${body}
 </body>
 </html>`;
+
+// A leading YAML front-matter block is metadata, not content: marked would render it as a
+// rule and a paragraph of `key: value` lines at the top of the PDF.
+const FRONT_MATTER = /^\uFEFF?---\r?\n(?:[\s\S]*?\r?\n)?---[ \t]*(?:\r?\n|$)/;
+
+// Wrapped Markdown is written here and loaded by file:// URL. A page set from a string has
+// an about:blank origin, which Chromium does not let load file:// images or stylesheets.
+const tmpDir = mkdtempSync(join(tmpdir(), 'render-'));
 
 log('boot: launching Chromium (first launch can take 30-60s while AV scans the binary)...');
 const tBrowser = Date.now();
@@ -103,8 +119,7 @@ for (let i = 0; i < jobs.length; i++) {
   try {
     if (job.type === 'html') {
       log(`${prefix} ${job.rel} - loading HTML document...`);
-      const rawHtml = readFileSync(job.in, 'utf8');
-      await page.setContent(rawHtml, { waitUntil: 'load' });
+      await page.goto(pathToFileURL(job.in).href, { waitUntil: 'load' });
 
       log(`${prefix} ${job.rel} - printing PDF...`);
       await page.pdf({
@@ -123,10 +138,13 @@ for (let i = 0; i < jobs.length; i++) {
       const md = readFileSync(job.in, 'utf8');
 
       log(`${prefix} ${job.rel} - parsing markdown (${md.length} bytes)...`);
-      const html = wrap(marked.parse(md));
+      const base = pathToFileURL(dirname(job.in)).href.replace(/\/?$/, '/');
+      const html = wrap(marked.parse(md.replace(FRONT_MATTER, '')), base);
 
       log(`${prefix} ${job.rel} - loading into Chromium...`);
-      await page.setContent(html, { waitUntil: 'load' });
+      const tmpFile = join(tmpDir, `job-${i}.html`);
+      writeFileSync(tmpFile, html, 'utf8');
+      await page.goto(pathToFileURL(tmpFile).href, { waitUntil: 'load' });
 
       log(`${prefix} ${job.rel} - printing PDF...`);
       await page.pdf({
@@ -150,6 +168,7 @@ for (let i = 0; i < jobs.length; i++) {
 
 log('shutdown: closing Chromium...');
 await browser.close();
+try { rmSync(tmpDir, { recursive: true, force: true }); } catch {}
 
 log(`done: ${rendered} rendered, ${failed} failed in ${((Date.now() - t0) / 1000).toFixed(1)}s total`);
 process.exit(failed > 0 ? 1 : 0);

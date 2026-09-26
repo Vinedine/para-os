@@ -452,8 +452,10 @@ test("the shipped config template is valid JSON and demonstrates the \".\" shape
 // granola.js run for real in a throwaway vault with --write: only fetch is stubbed, and the
 // token, ledger and notes are real files under a temporary PARAOS_HOME and triage/.
 
-// `ledgers` seeds the ledger by bucket, e.g. { cache: {...}, data: {...} }.
-function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {} } = {}) {
+// `ledgers` seeds the ledger by bucket, e.g. { cache: {...}, data: {...} }. `responses` overrides
+// an endpoint by path suffix, e.g. { "/get-document-panels": { status: 429 } }. `sideEntry` is
+// added to the data/ ledger by the stub on the first notes fetch, as a concurrent run would.
+function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {}, responses = {}, sideEntry = null, expectStatus = 0 } = {}) {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), "granola-"));
   TEMP_VAULTS.push(parent);
   const scripts = path.join(parent, "myvault", "resources", "scripts");
@@ -474,19 +476,33 @@ function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {} } = {}) {
   }
   const stub = path.join(parent, "fetch-stub.js");
   fs.writeFileSync(stub,
-    "const docs = JSON.parse(process.env.GRANOLA_TEST_DOCS);\n"
+    "const fs = require(\"fs\"), path = require(\"path\");\n"
+    + "const docs = JSON.parse(process.env.GRANOLA_TEST_DOCS);\n"
+    + "const responses = JSON.parse(process.env.GRANOLA_TEST_RESPONSES);\n"
+    + "let side = JSON.parse(process.env.GRANOLA_TEST_SIDE);\n"
     + "globalThis.fetch = async url => {\n"
-    + "  const body = String(url).endsWith(\"/get-documents\") ? { docs } : [];\n"
-    + "  return { ok: true, status: 200, text: async () => JSON.stringify(body), json: async () => body };\n"
+    + "  url = String(url);\n"
+    + "  if (side && url.endsWith(\"/get-document-panels\")) {\n"
+    + "    const f = path.join(process.env.PARAOS_HOME, \"data\", \"granola\", \"synced.json\");\n"
+    + "    const l = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, \"utf8\")) : {};\n"
+    + "    fs.mkdirSync(path.dirname(f), { recursive: true });\n"
+    + "    fs.writeFileSync(f, JSON.stringify({ ...l, ...side })); side = null;\n"
+    + "  }\n"
+    + "  const hit = Object.keys(responses).find(k => url.endsWith(k));\n"
+    + "  const status = hit ? (responses[hit].status || 200) : 200;\n"
+    + "  const body = hit && \"body\" in responses[hit] ? responses[hit].body : url.endsWith(\"/get-documents\") ? { docs } : [];\n"
+    + "  return { ok: status < 300, status, text: async () => JSON.stringify(body), json: async () => body };\n"
     + "};\n");
 
   const r = spawnSync(process.execPath, ["--require", stub, path.join(scripts, "granola.js"), "--write"], {
     encoding: "utf8",
-    env: { ...process.env, TZ: tz, PARAOS_HOME: home, GRANOLA_TEST_DOCS: JSON.stringify(docs) },
+    env: { ...process.env, TZ: tz, PARAOS_HOME: home, GRANOLA_TEST_DOCS: JSON.stringify(docs),
+           GRANOLA_TEST_RESPONSES: JSON.stringify(responses), GRANOLA_TEST_SIDE: JSON.stringify(sideEntry) },
   });
-  assert.equal(r.status, 0, `sync exited ${r.status}: ${r.stderr}`);
-  assert.doesNotMatch(r.stdout, /\[x\]/, `sync failed: ${r.stdout}`);
+  assert.equal(r.status, expectStatus, `sync exited ${r.status}: ${r.stdout}${r.stderr}`);
+  if (!expectStatus) assert.doesNotMatch(r.stdout + r.stderr, /\[x\]/, `sync failed: ${r.stdout}${r.stderr}`);
   return {
+    stdout: r.stdout, stderr: r.stderr,
     files: fs.readdirSync(triage).sort(),
     read: f => fs.readFileSync(path.join(triage, f), "utf8"),
     ledger: bucket => fs.existsSync(ledger(bucket)) ? JSON.parse(fs.readFileSync(ledger(bucket), "utf8")) : null,
@@ -551,4 +567,84 @@ test("a meeting in either ledger is skipped when both exist", () => {
     { id: ID_B, title: "Review", created_at: `${DAY}T15:00:00.000Z` },
   ], { ledgers: { cache: { [ID_A]: "filed elsewhere" }, data: { [ID_B]: "filed elsewhere" } } });
   assert.deepEqual(sync.files, []);
+});
+
+// A Summary panel, for meetings recent enough that a note without one would be held.
+const PANELS = { "/get-document-panels": { body: [{ title: "Summary", content: "Agreed the plan." }] } };
+const NOW = new Date(Date.now() - 3600000).toISOString();
+
+test("a title with a colon, or none at all, still makes valid front-matter", () => {
+  const sync = syncInVault([
+    { id: ID_A, title: "Acme: Q3 plan", created_at: `${DAY}T09:00:00.000Z`, people: [{ name: "Ann: PM" }] },
+    { id: ID_B, created_at: `${DAY}T15:00:00.000Z` },
+  ]);
+  const colon = sync.read(sync.files.find(f => f.includes("Acme")));
+  assert.match(colon, /^title: "Acme: Q3 plan"$/m);
+  assert.match(colon, /^attendees: "Ann: PM"$/m);
+  assert.match(colon, /^# Acme: Q3 plan$/m);
+  const untitled = sync.read(sync.files.find(f => f.includes("untitled")));
+  assert.match(untitled, /^title: "\(untitled\)"$/m);
+  assert.doesNotMatch(untitled, /undefined/);
+});
+
+for (const [endpoint, status] of [["/get-document-panels", 429], ["/get-document-transcript", 503], ["/get-document-panels", 401]]) {
+  test(`a ${status} from ${endpoint} writes and ledgers nothing, so the next run retries`, () => {
+    const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }],
+                             { responses: { [endpoint]: { status, body: { error: "nope" } } } });
+    assert.deepEqual(sync.files, []);
+    assert.deepEqual(sync.ledger("data"), null);
+    assert.match(sync.stdout, /FAILED/);
+    assert.match(sync.stdout, /failed: 1/);
+  });
+}
+
+test("a failed listing exits non-zero instead of reporting zero meetings", () => {
+  const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }],
+                           { responses: { "/get-documents": { status: 500 } }, expectStatus: 1 });
+  assert.deepEqual(sync.files, []);
+  assert.match(sync.stderr, /could not list/);
+});
+
+test("a full page cap warns that older meetings were not listed", () => {
+  const docs = Array.from({ length: 100 }, (_, i) => ({ id: `id-${i}`, title: `M${i}`, created_at: NOW, deleted_at: "gone" }));
+  const sync = syncInVault(docs, { responses: { "/get-documents": { body: { docs } } } });
+  assert.match(sync.stderr, /listing stopped at 500/);
+});
+
+test("a recent meeting whose notes are not generated yet is held, not ledgered", () => {
+  const sync = syncInVault([{ id: ID_A, title: "Just now", created_at: NOW }]);
+  assert.deepEqual(sync.files, []);
+  assert.equal(sync.ledger("data"), null);
+  assert.match(sync.stdout, /HELD/);
+});
+
+test("a recent meeting with notes is written", () => {
+  const sync = syncInVault([{ id: ID_A, title: "Just now", created_at: NOW }], { responses: PANELS });
+  assert.equal(sync.files.length, 1);
+  assert.match(sync.read(sync.files[0]), /Agreed the plan\./);
+});
+
+test("an older meeting without notes is written rather than held forever", () => {
+  const sync = syncInVault([{ id: ID_A, title: "Old", created_at: `${DAY}T09:00:00.000Z` }]);
+  assert.equal(sync.files.length, 1);
+  assert.match(sync.read(sync.files[0]), /no enhanced notes available/);
+});
+
+test("an entry another run ledgers mid-sync is kept, not overwritten", () => {
+  const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }],
+                           { sideEntry: { [ID_B]: "written by another vault's run" } });
+  assert.deepEqual(Object.keys(sync.ledger("data")).sort(), [ID_A, ID_B]);
+});
+
+test("the module loads without USERPROFILE, so the suite runs off Windows", () => {
+  const env = { ...process.env };
+  delete env.USERPROFILE; delete env.PARAOS_HOME;
+  const r = spawnSync(process.execPath, ["-e", `require(${JSON.stringify(path.join(__dirname, "granola.js"))})`],
+                      { encoding: "utf8", env });
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test("no temp file is left beside a written note or the ledger", () => {
+  const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }]);
+  assert.ok(sync.files.every(f => !f.endsWith(".tmp")), sync.files.join(", "));
 });

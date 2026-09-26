@@ -26,8 +26,10 @@
         projects\example-project\brief.md
         <-> resources\mds\projects__example-project__brief.md
 
-    Both directions are idempotent. Filenames or folders that already contain
-    '__' will round-trip incorrectly; none currently do.
+    Both directions are idempotent. A file whose name or folder path already
+    contains '__' cannot round-trip (spread would split it at the wrong place),
+    so collect refuses it: it is left where it is and reported as [refused].
+    Rename it to collect it.
 
 .PARAMETER Mode
     collect | spread
@@ -47,7 +49,7 @@
     others.
 #>
 
-# para-os-integration: readonly-ipad 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: readonly-ipad 2026.09.05 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 [CmdletBinding()]
 param(
@@ -102,6 +104,7 @@ if ($Mode -eq 'collect') {
     $moved = 0
     $skipped = 0
     $collisions = 0
+    $refused = 0
 
     foreach ($folder in $paraFolders) {
         $base = Join-Path $VaultRoot $folder
@@ -127,6 +130,15 @@ if ($Mode -eq 'collect') {
             }
 
             $rel     = $md.FullName.Substring($VaultRoot.Length).TrimStart('\', '/')
+
+            # '__' already in the path would decode as a folder separator on spread and
+            # land the file somewhere else. Leave it in place rather than scatter it.
+            if ($rel.Contains($Separator)) {
+                Write-Host "[refused] $rel (path contains '$Separator', which spread would read as a folder separator; rename to collect)" -ForegroundColor Yellow
+                $refused++
+                continue
+            }
+
             $encoded = Get-EncodedName $rel
             $target  = Join-Path $SourcesDir $encoded
 
@@ -147,7 +159,7 @@ if ($Mode -eq 'collect') {
     }
 
     Write-Host ""
-    Write-Host "[flip.ps1] collect: $moved moved, $skipped skipped (denylist or already collected), $collisions collision(s)"
+    Write-Host "[flip.ps1] collect: $moved moved, $skipped skipped (denylist or already collected), $collisions collision(s), $refused refused ('$Separator' in path)"
     exit 0
 }
 

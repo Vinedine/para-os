@@ -39,7 +39,7 @@
     vault CLAUDE.md for context.
 #>
 
-# para-os-integration: readonly-ipad 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: readonly-ipad 2026.09.05 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 [CmdletBinding()]
 param(
@@ -51,6 +51,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# A full path, so the relative display paths below (FullName.Substring($VaultRoot.Length))
+# cut at the right place for `-VaultRoot .` or any other relative argument.
+$VaultRoot = (Resolve-Path -LiteralPath $VaultRoot).ProviderPath
 
 # Windows PowerShell 5.1 pipes native-command input as ASCII, so a non-ASCII
 # character in a job path reaches render.mjs as '?' and the file fails with ENOENT.
@@ -94,8 +98,9 @@ if ($missing.Count -gt 0) {
     exit 1
 }
 
-$renderMjs = Join-Path $VaultRoot 'render.mjs'
-if (-not (Test-Path $renderMjs)) {
+# Beside this script, wherever it is run from and whichever vault it is pointed at.
+$renderMjs = Join-Path $PSScriptRoot 'render.mjs'
+if (-not (Test-Path -LiteralPath $renderMjs)) {
     Write-Host "render.mjs not found next to render.ps1 ($renderMjs)." -ForegroundColor Red
     exit 1
 }

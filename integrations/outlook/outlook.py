@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: outlook 2026.09.05 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 """Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph and hand the
 messages to a caller that decides what they mean. Writes nothing, anywhere, ever.
 
@@ -598,10 +598,11 @@ def graph_get(token, path, prefer=None):
 # has already made, and re-surfacing them undoes that decision.
 FETCH_FOLDERS = ("inbox", "archive")
 
-# A ceiling on one mailbox's fetch. `search` has always had `--limit`; this is the same bound
+# A ceiling on one folder's fetch. `search` has always had `--limit`; this is the same bound
 # for the path that pages a whole window, because a busy inbox over 30 days is thousands of
 # messages, each carrying its full header block, and a run that dies of its own size has
-# fetched everything and emitted nothing. Truncation is reported, never silent.
+# fetched everything and emitted nothing. Per folder, not per mailbox: a shared ceiling let a
+# full inbox leave the archive unread without a word. Truncation is reported, never silent.
 FETCH_MAX_MESSAGES = 1000
 
 # Messages per request. The payload is dominated by the header block either way, so a
@@ -623,14 +624,14 @@ def fetch_messages(token, days, root="/me", limit=FETCH_MAX_MESSAGES):
     back as a candidate (README.md has the measurements). The archive stays in scope
     because a fast archiver can file a real message between two runs, and it is cheap.
 
-    Stops at `limit` messages across all folders and says so on stderr, so a mailbox too big
-    for one window truncates visibly instead of running until something breaks.
+    Stops each folder at `limit` messages and says so on stderr, so a mailbox too big for one
+    window truncates visibly instead of running until something breaks. The limit is per
+    folder so a full inbox never costs the run its archive.
     """
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     out, seen = [], set()
     for folder in FETCH_FOLDERS:
-        if len(out) >= limit:
-            break
+        count = 0
         path = (f"{root}/mailFolders/{folder}/messages"
                 f"?$select={SELECT_FIELDS},internetMessageHeaders"
                 f"&$orderby=receivedDateTime desc&$top={PAGE_SIZE}"
@@ -645,11 +646,12 @@ def fetch_messages(token, days, root="/me", limit=FETCH_MAX_MESSAGES):
                     break
                 raise
             for m in page.get("value", []):
+                count += 1
                 if m["id"] not in seen:
                     seen.add(m["id"])
                     out.append(m)
             path = page.get("@odata.nextLink")
-            if len(out) >= limit:
+            if count >= limit:
                 if path:
                     print(f"! {root} {folder}: stopped at {limit} messages, window not fully "
                           f"covered. Narrow --days, or raise FETCH_MAX_MESSAGES.", file=sys.stderr)

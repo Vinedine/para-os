@@ -46,6 +46,21 @@ class TestRedaction(unittest.TestCase):
         )
         self.assertEqual(got, "curl")
 
+    def test_bash_skips_leading_environment_assignments(self):
+        got = ledger.redact_tool_input(
+            "Bash", {"command": "OPENAI_API_KEY=sk-live-123 DEBUG=1 python run.py"}, ROOT)
+        self.assertEqual(got, "python")
+
+    def test_bash_skips_quoted_assignment_values_holding_spaces(self):
+        got = ledger.redact_tool_input(
+            "Bash", {"command": "TOKEN=\"sk live 123\" NOTE='a b' node sync.js"}, ROOT)
+        self.assertEqual(got, "node")
+
+    def test_bash_of_only_assignments_records_nothing(self):
+        for command in ("OPENAI_API_KEY=sk-live-123", "A=1 B='two words'", "TOKEN=\"unclosed sk-live"):
+            with self.subTest(command=command):
+                self.assertIsNone(ledger.redact_tool_input("Bash", {"command": command}, ROOT))
+
     def test_bash_with_an_empty_command_records_nothing(self):
         self.assertIsNone(ledger.redact_tool_input("Bash", {"command": "   "}, ROOT))
 

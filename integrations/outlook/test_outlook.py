@@ -418,8 +418,26 @@ class FetchMessagesFolderScope(unittest.TestCase):
         with mock.patch.object(osync, "graph_get", side_effect=get), \
                 contextlib.redirect_stderr(err):
             got = osync.fetch_messages("tok", 2, limit=120)
-        self.assertEqual(len(got), 150)          # the page that crossed the cap, then stop
+        self.assertEqual(len(got), 300)          # per folder: the page that crossed the cap, then stop
+        self.assertIn("inbox: stopped at 120", err.getvalue())
+        self.assertIn("archive: stopped at 120", err.getvalue())
         self.assertIn("window not fully covered", err.getvalue())
+
+    def test_a_full_inbox_does_not_cost_the_run_its_archive(self):
+        # The cap used to be shared: an inbox of exactly `limit` messages with no next page
+        # left the archive unread, and nothing was printed because the inbox was not truncated.
+        def get(_tok, path, *a, **k):
+            folder = "inbox" if "inbox" in path else "archive"
+            n = 100 if folder == "inbox" else 3
+            return {"value": [{"id": f"{folder}-{i}", "receivedDateTime": "2026-09-08T00:00:00Z"}
+                              for i in range(n)]}
+
+        err = io.StringIO()
+        with mock.patch.object(osync, "graph_get", side_effect=get), \
+                contextlib.redirect_stderr(err):
+            got = osync.fetch_messages("tok", 2, limit=100)
+        self.assertEqual(sum(m["id"].startswith("archive-") for m in got), 3)
+        self.assertEqual(err.getvalue(), "")
 
     def test_the_merged_result_is_newest_first(self):
         # Each folder is sorted on its own, so the concatenation is not.

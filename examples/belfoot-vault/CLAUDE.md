@@ -1,6 +1,6 @@
 # BelFoot Vault Conventions
 
-<!-- para-os-template: 2026.09.04 -->
+<!-- para-os-template: 2026.09.05 -->
 **Type:** vault
 
 The consulting vault for BelFoot Royal Sporting Club ("BelFoot FC", Belgian Pro League) and its multi-stream IT modernisation programme - an external consultant engagement, started Q1 2026, running through 2027. Per-vault guidance for Claude Code sessions.
