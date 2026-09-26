@@ -55,6 +55,19 @@ class VaultCase(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
 
+    def aliased_vault(self):
+        """(vault, link): a real vault folder and a symlink to it, the two spellings macOS's
+        /var and a Windows short name give one folder. Skips where no symlink can be made
+        (Windows without Developer Mode)."""
+        vault = self.root / "vault"
+        vault.mkdir()
+        link = self.root / "vault-link"
+        try:
+            os.symlink(vault, link, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("this platform cannot create a symlink here")
+        return vault.resolve(), link
+
 
 class Names(VaultCase):
 
@@ -594,6 +607,19 @@ class RegisteredVaultCheck(VaultCase):
         entries = [{"name": "BF", "path": str(self.root / "elsewhere")}]
         self.assertIsNone(registered_vault(entries, self.root))
 
+    def test_an_entry_written_through_a_symlink_matches_the_resolved_vault(self):
+        # The scan scripts resolve the vault they are pointed at; the registry keeps the
+        # spelling the operator wrote. Both name one folder, so they must match.
+        vault, link = self.aliased_vault()
+        entries = [{"name": "BF", "path": str(link)}]
+        self.assertEqual(registered_vault(entries, vault)["name"], "BF")
+        self.assertEqual(registered_vault(entries, vault / "projects" / "x")["name"], "BF")
+
+    def test_a_resolved_entry_matches_a_vault_reached_through_a_symlink(self):
+        vault, link = self.aliased_vault()
+        entries = [{"name": "BF", "path": str(vault)}]
+        self.assertEqual(registered_vault(entries, link)["name"], "BF")
+
     def test_a_vault_registered_at_the_filesystem_root_holds_everything_under_it(self):
         fs_root = Path(abspath(self.root).anchor)
         entries = [{"name": "Root", "path": str(fs_root)}]
@@ -629,6 +655,18 @@ class RegistryHolding(VaultCase):
         entries = [{"name": "Mine", "path": str(self.root)}]
         got = registry_holding(entries, "acme-website", exclude=self.root)
         self.assertEqual(got, [])
+
+    def test_the_excluded_vault_is_skipped_under_another_spelling_of_its_folder(self):
+        vault, link = self.aliased_vault()
+        write(vault, "projects/acme-website/actions.md", "# a\n")
+        entries = [{"name": "Mine", "path": str(link)}]
+        self.assertEqual(registry_holding(entries, "acme-website", exclude=vault), [])
+
+    def test_a_reported_root_keeps_the_registry_spelling(self):
+        vault, link = self.aliased_vault()
+        write(vault, "projects/acme-website/actions.md", "# a\n")
+        got = registry_holding([{"name": "Other", "path": str(link)}], "acme-website")
+        self.assertEqual(Path(got[0]["root"]), abspath(link))
 
     def test_a_vault_whose_path_no_longer_exists_is_unreadable_not_skipped(self):
         entries = [{"name": "Gone", "path": str(self.root / "does-not-exist")}]
@@ -1996,6 +2034,14 @@ class WrittenUnder(VaultCase):
         entry = str(self.root / "Home" / "triage" /
                     "20260908 Book your appointment (Ref. 100200300) a6253e.md")
         self.assertTrue(written_under(entry, folder))
+
+    def test_an_entry_logged_through_a_symlink_matches_the_resolved_folder(self):
+        # Ingest logs the path it wrote through the registry's spelling of the vault, and
+        # triage asks about its own resolved root.
+        vault, link = self.aliased_vault()
+        entry = str(link / "triage" / "20260918 Note 96cd6b.md")
+        self.assertTrue(written_under(entry, vault / "triage"))
+        self.assertFalse(written_under(entry, vault / "projects"))
 
     def test_a_backslash_entry_matches_on_any_platform(self):
         folder = self.root / "BF" / "triage"
