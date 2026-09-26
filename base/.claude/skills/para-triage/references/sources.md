@@ -1,92 +1,73 @@
 # Configured triage sources (Step 2)
 
-Beyond the `triage/` folder, a vault may declare extra inputs in a `## Triage sources` block in its CLAUDE.md. This file is the protocol for pulling them. **If the vault has no such block, do nothing here** - the skill is folder-only.
+Beyond `triage/`, a vault may declare inputs in a `## Triage sources` block in its CLAUDE.md: a table `Source | Type | Endpoint | Relevant when` (wording varies; dispatch on the first three), with the four types below. **No such block: do nothing here.**
 
-**Same when `${PARAOS_HOME:-~/.paraos}/vaults.json` lists this vault root as `active` *and the layer has actually run*.** On a machine running the cross-vault ingest layer, `/para-ingest` pulls these same sources once for every vault, stages what it routes here as notes in `triage/`, and keeps their ledger - so their output is already loose files by the time this skill runs, and pulling them again would double-fetch every mailbox and split the ledger in two.
+**Skip what `/para-ingest` already pulled.** On a machine running the cross-vault ingest layer, it pulls these sources for every vault and stages what it routes here as notes in `triage/`; pulling again would double-fetch every mailbox and split the ledger. The scan's `ingest` block and each row's `plan` and `reason` apply the rules below. By hand, read `${PARAOS_HOME:-~/.paraos}/vaults.json` and the newest **write** log under `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/`, by the fields `/para-ingest`'s `references/staging.md` names ("Fields `/para-triage` reads"):
 
-**Being listed is not enough: the layer must have run.** Read the newest **write** log under `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/`, by the fields `/para-ingest` writes for this check (its `references/staging.md`, "Fields `/para-triage` reads"):
-
-- **It covered this vault only when every one of these holds**: `mode` is `write`; `started_at` is within the last 48 hours; and it reached *this root* - at least one `files_written` entry lies under this vault's `triage/`, or `counts.per_vault` gives this vault's registry name an explicit `0`. **A positive count with no file under this root is the opposite of coverage**: ingest staged notes for a vault of this name at another path (the vault moved and the registry lagged), and skipping on the count alone skips every pull for a vault ingest never wrote to. Per row, a mailbox that `source_plan.declaring_vaults` does not list for this vault, where that field is present, was not read for it, and neither was one an `errors` entry names.
-- **Covered:** skip the `connector` and `fetch-script` rows it covered, and put the log's date in the summary (`ingest last staged <date>`). Skip a `sync-script` row only where the log's `sync_runs` records that script for this vault without an error; with no such record the script runs here, which costs a round trip and never a duplicate, since these scripts dedup. A `drive` row is never ingest's and always stays.
-- **Not covered** - no write log, the newest older than 48 hours, only preview logs, or any condition above failing: pull every row here, and name the condition that failed in the summary (`registry lists this vault, but ingest last staged <date or never> - pulled locally`, `ingest staged N for <name> outside this root - pulled locally`).
-
-No registry, or this root not in it: pull as normal with nothing to report, which is also the right answer on a machine that has never run the layer.
-
-`scripts/triage_scan.py` computes this per row (Step 2 of [SKILL.md](../SKILL.md)): its top-level `ingest` block is the coverage verdict above (`covered`, `reason`, `newest_write`, `staged_here`, `count_for_vault`), and each `sources.rows[]` entry carries the per-row result as `plan` (`pull`/`run`/`skip`/`lookup`) with `reason` naming which condition decided it - exactly the bullets above. **Full field table: [scan.md](scan.md).**
-
-Read the block. It is a table with columns `Source | Type | Endpoint | Relevant when` (wording varies; the first three are what you dispatch on). Four source types.
+- **Covered only when all hold**: the registry lists this root as `active`; the log's `mode` is `write` and `started_at` is within 48 hours; and it reached *this root*: a `files_written` entry lies under this vault's `triage/`, or `counts.per_vault` gives this vault's registry name an explicit `0`. **A positive count with no file under this root is not coverage**: the vault moved and the registry lagged, so ingest wrote elsewhere. Per row, a mailbox that `source_plan.declaring_vaults` (where present) does not list for this vault, or that an `errors` entry names, was not read for it.
+- **Covered:** skip the covered `connector` and `fetch-script` rows, and put `ingest last staged <date>` in the summary. Skip a `sync-script` row only where the log's `sync_runs` records that script for this vault without an error; otherwise run it (it dedups, so this costs a round trip, never a duplicate). A `drive` row always stays.
+- **Not covered** (no write log, older than 48 hours, preview logs only, or any condition above failing): pull every row here and name the failed condition in the summary (`registry lists this vault, but ingest last staged <date or never> - pulled locally`, `ingest staged N for <name> outside this root - pulled locally`).
+- **No registry, or this root absent from it or inactive**: pull as normal, nothing to report.
 
 ## sync-script sources
 
-A script that writes new items into `triage/` (e.g. `granola.js`).
+A script that writes new items into `triage/` (e.g. `granola.js`). It defaults to dry-run and dedups its own output.
 
-- **Real run:** run it with `--write` (resolve the path relative to the vault root; `node` for `.js`, and for `.py` the launcher [scripts.md](../../para-shared/scripts.md) names). These scripts default to dry-run and dedup their own output, so running them is idempotent and safe.
-- **Preview (`preview` arg):** run it **without** `--write` and list what it would add. `preview` must not touch disk - never `--write` a sync source in preview.
-- After a real run, its files are ordinary loose files in `triage/` and flow through the remaining steps like anything else - nothing more to do here.
-- If the script errors (auth expired, network), report it and continue with the other sources; do not abort the whole triage.
+- **Real run:** `--write`, its path resolved against the vault root (`node` for `.js`; for `.py` the launcher [scripts.md](../../para-shared/scripts.md) names).
+- **`preview`:** run it **without** `--write` and list what it would add. `preview` never touches disk.
+- **On an error** (auth expired, network), report it and continue with the other sources.
 
 ## fetch-script sources
 
-A mailbox with no MCP connector, reached by a script that **prints candidates and writes nothing** (`<script> fetch --days N`, JSON on stdout, counts on stderr).
+A mailbox with no MCP connector, reached by a script that **prints candidates and writes nothing** (`<script> fetch --days N`, JSON on stdout). **It is a mailbox, not a sync source**: follow [../../para-shared/connectors.md](../../para-shared/connectors.md) as for a connector (`fetch` is the search step; records arrive grouped by `thread_id`), then judge the surviving threads as below.
 
-**Treat it as a mailbox, not as a sync source**, which means it runs the same protocol: it is a row in the dispatch table of [../../para-shared/connectors.md](../../para-shared/connectors.md), so follow that file exactly as a connector does - the script's `fetch` is the search step, and its records arrive already grouped by `thread_id`. Then judge the surviving threads exactly as the connector section below does.
+**Never run it with `--write` or any other writing flag**: that files mail unjudged. A vault that wants wholesale import declares a `sync-script` row instead.
 
-**Never run such a script with `--write` or any other writing flag.** A fetch source reads and prints; if one also offers a write path, using it files mail unjudged, which is the thing fetching exists to avoid. A vault that genuinely wants wholesale import declares a `sync-script` row instead and takes what comes.
-
-**Bringing one judged attachment into `triage/`**, where the operator asks for it (an invoice on a mail the run surfaced): use the script's own single-item read where it offers one (`outlook.py raw <Graph path>`, under the environment its README names), read-only, and write the file into `triage/` under the vault's naming, where it files like any loose file on this run. A script with no such read leaves the attachment in the mailbox, and the summary says so.
+**One judged attachment**, where the operator asks for it: fetch it with the script's own read-only single-item read where it offers one (`outlook.py raw <Graph path>`, under the environment its README names) and write it into `triage/` under the vault's naming, to file on this run. With no such read, the attachment stays in the mailbox and the summary says so.
 
 ## connector sources
 
-A live mailbox read over MCP, read-only. **The fetch protocol - dispatch, query frame, thread normalisation, dedup and the message-list call - is [../../para-shared/connectors.md](../../para-shared/connectors.md)**, shared with `/para-ingest`. It hands back a deduped candidate set and stops. What follows is triage's own, and is where the judgment lives.
+A live mailbox read over MCP, read-only. **The fetch protocol (dispatch, query, threads, dedup, message list) is [../../para-shared/connectors.md](../../para-shared/connectors.md).** The judgment on each surviving thread is triage's own:
 
-**Per surviving thread:**
-
-1. **Judge action-worthiness** against `Relevant when` plus the root README's `## Operating model` (read in SKILL.md Step 1): `Relevant when` scopes the query, the Operating model decides whether the thread is this vault's business at all - a real thread outside it is **Dismiss (other vault)**. Read snippets/bodies only for the shortlist. Keep the threads that genuinely need a reply or a decision. Two rules that kill common false positives: (a) **if the newest message in the thread is the mailbox owner's own (SENT), the ball is usually in the other party's court** - default to Dismiss unless the content clearly leaves an open task for the owner; (b) real correspondence about a *different* vault's business is **Dismiss (other vault)**, not action-worthy here. Apply (a) only to a message list from the shared file's step 6; if that call could not run, surface the thread instead of dismissing it.
-2. **Before proposing a new action, match the thread against what the vault already tracks** - contacts (`areas/network/`), projects, ideas, and open `actions.md` items - the same entity-matching [filing.md](filing.md) does for loose files. If the thread bears on an existing item (a reply on an open thread, promised docs arriving), route it to **Update existing**, not **Add action**; only a thread with no existing home becomes **Add action**. Each surviving thread then gets its own disposition, per [approval.md](approval.md).
+1. **Judge action-worthiness.** `Relevant when` scopes the query; the root README's `## Operating model` decides whether the thread is this vault's business at all, and a different vault's business is **Dismiss (other vault)**. Read bodies only for the shortlist; keep threads that genuinely need a reply or a decision. **Where the newest message is the mailbox owner's own (SENT)**, default to Dismiss unless the content clearly leaves the owner an open task - but only on a true message list (the shared file's step 6); where that call could not run, surface the thread instead.
+2. **Match before proposing a new action**, against contacts (`areas/network/`), projects, ideas, and open `actions.md` items, as [filing.md](filing.md) does. A thread bearing on an existing item (a reply on an open thread, promised docs arriving) is **Update existing**; only one with no existing home becomes **Add action**. Each thread gets its own disposition ([approval.md](approval.md)).
 
 ## drive sources
 
-A `drive` row declares the Google Drive this vault syncs from, so Google-native stubs can be resolved. `Endpoint` is the **drive id**, declared rather than inferred - an unscoped Drive query is the false-quiet failure named in the skill's Strict rules. One row per vault; a vault that does not sync from Drive declares none, and everything below is skipped.
-
-The row enables exactly two things: the Google-native conversion branch below, and the `convert` argument. It pulls no items of its own - a `drive` source is not an inbox, it is the lookup that makes a stub already sitting in `triage/` readable.
+A `drive` row's `Endpoint` is the **drive id** of the Google Drive this vault syncs from, declared rather than inferred (Strict rules: never search Drive unscoped). At most one per vault. It pulls no items: it enables the Google-native conversion below and the `convert` argument, and without it both are skipped.
 
 ## Google-native files
 
-Only relevant where Drive is the vault's sync layer, and only when the vault declares a `drive` row. Everywhere else, skip this section entirely.
+Only where the vault declares a `drive` row. A Google-native file syncs to disk as a **pointer stub**, a name and a file id with no content, so normalise it into a real file; never file the stub unconverted.
 
-A Google-native file syncs to disk as a **pointer stub**: the name and a file id, no content. It fails the vault's own file-format rule the moment it lands, so the job here is to normalise it into a real file, not to file the stub - even though `mv`/rename works on the stub itself (a same-volume move never reads the bytes). Never file it unconverted.
+1. **Take the drive id from the `drive` row**; never infer it or search without it.
+2. **Locate the document** by listing the drive-scoped folder for the stub's name. Do not rely on reading the stub for its file id: on a streaming mount it has no readable bytes. **Exclude trashed items** (`trashed = false`): a Drive query returns them by default, and a name match would resurrect a document the operator deleted.
+3. **Export it verbatim** to text/Markdown as a real `.md` sibling in `triage/`, under the vault's source-document naming: a format conversion, not a summary.
+4. **Ledger the conversion** (below); the `.md` then flows on as an ordinary loose file.
+5. **The stub gets its own delete disposition** (Strict rules).
 
-1. **Get the drive id from the `drive` row.** Never infer it, and never search without it - see the Strict rule on unscoped Drive search, which is the failure mode that makes this dangerous rather than merely annoying.
-2. **Locate the document** by listing the drive-scoped folder and matching on the stub's name, passing the declared drive id. Scoping the call to the drive is the load-bearing part. Do **not** plan on reading the stub for its file id: on a streaming Drive mount it has no readable bytes at all. A mirroring mount does write real JSON, but no branch should depend on which mode the operator happens to run. **Exclude trashed items** (`trashed = false`): a Drive query returns trashed documents by default, so a name match will otherwise resurrect a document the operator deleted and convert it straight back into `triage/`.
-3. **Export it** to text/Markdown and **write a real `.md` sibling into `triage/`**, under the vault's source-document naming. Keep the export verbatim: this is a format conversion, not a summarisation.
-4. **Ledger the conversion** (below), then let the new `.md` flow through the remaining steps as an ordinary loose file.
-5. **The stub itself gets its own delete disposition**, approved by a human like any other delete. Never auto-delete it - see the Strict rule.
-
-**Pair the stub and its converted `.md` as one proposal row**, not two. They are one item arriving in two forms, and counting them twice inflates the loose-file count `/para-daily-brief` reads.
+**The stub and its converted `.md` are one proposal row**, one item in two forms, so the loose-file count `/para-daily-brief` reads counts it once.
 
 ## The conversion ledger
 
-Separate from the seen-ledger, because it answers a different question: *has this document already been converted, and has it changed since?*
+Answers *has this document been converted, and has it changed since?*
 
-- Path: `${PARAOS_HOME:-~/.paraos}/cache/triage-drive/<vault>.json`.
-- Keyed on **Drive file id plus `modifiedTime`**. Both halves matter: the id alone would never re-convert a document that was edited after conversion, and the pair makes an edited document correctly re-convert while an untouched one never does.
+- Path: `${PARAOS_HOME:-~/.paraos}/cache/triage-drive/<vault>.json`, keyed on **Drive file id plus `modifiedTime`**, so an edited document re-converts and an untouched one never does.
 - Shape: `{ "<fileId>": { "modifiedTime": "...", "converted_to": "<filename>.md", "date": "YYYY-MM-DD" } }`.
-- Missing file or directory: create them. It is a cache, so deleting it only means documents re-convert.
+- Missing: create it. It is a cache; deleting it only means documents re-convert.
 
 ## The seen-ledger
 
-Mailbox dedup across runs - connector and fetch-script alike - lives outside the vault (a mailbox read must leak nothing into a synced folder):
+Mailbox dedup across runs, connector and fetch-script alike, kept outside the vault so a mailbox read leaks nothing into a synced folder.
 
-- Path: `${PARAOS_HOME:-~/.paraos}/cache/triage-email/<vault>.json`, keyed by thread ID. The scan's top-level `seen_ledger` block reads it once (`path`, `exists`, `entries`, `legacy`, `load_error`), so a ledger that fails to parse is reported rather than silently dedupping against nothing.
+- Path: `${PARAOS_HOME:-~/.paraos}/cache/triage-email/<vault>.json`, keyed by thread ID. Missing: create it; it is a cache, and deleting it only lets threads resurface. One that fails to parse is reported (the scan's `seen_ledger.load_error`), never silently dedupped against nothing.
 - Shape: `{ "<threadId>": { "disposition": "actioned|noted|dismissed", "date": "YYYY-MM-DD", "subject": "...", "seen_through": "<RFC822 Message-ID of the newest message at disposition>", "seen_date": "<that message's received timestamp>" } }`.
-- **Read** it during dedup (step 5 of [../../para-shared/connectors.md](../../para-shared/connectors.md)) to skip threads dispositioned **through their newest message**. The `seen_through` / `seen_date` pair is what makes that comparison possible, so write it on every entry, and read an entry lacking it as watermarked at its `date`.
-- **A fetched thread already staged as a note is that note, not a second item.** After a local connector pull, write the candidate list (`{"thread_id", "newest_date"?, "newest_key"?}` per thread) to a file and re-run the scan with `--threads <file>`: its top-level `threads` block folds each one against `items.loose` by the staged-note filename's own hash (`thread_hash(thread_id)`, the derivation `/para-ingest`'s own `references/staging.md` names under "The staged note"), and carries the same-vault ledger's `watermark()` verdict (`new`/`seen`/`grown`/`carry`) so a resurfaced thread is judged once, not twice.
-- **Write** it at execute time for settled dispositions - Update existing, Add action, Note to triage, and **Dismiss (noise)**. Do **not** ledger **Dismiss (other vault)**: that thread belongs to another vault, and a permanent dismissal here would hide it if it later became relevant - re-dismissing it next run is cheap.
-- Missing file or directory: create them. It is a cache, not a system of record, so deleting it only means threads may resurface.
-- **A ledgered thread resurfaces when it grows past its watermark**, and only then, so write the entry with the thread's true message list (step 6 of the shared file) in hand: the newest message on that list is what `seen_through` records. To drop a disposition altogether, delete its entry.
-- **A resurfaced thread is judged from scratch and proposed like any other**, with its earlier disposition and date named in the option description. Never let the previous answer stand as the recommendation: it was given on a shorter thread, and treating it as a default reinstates the permanence this rule removes. Its new messages are the evidence, and a **Dismiss (noise)** that is right a second time costs one question.
+- **Read** it at step 5 of [../../para-shared/connectors.md](../../para-shared/connectors.md) and settle it at step 6, which hold the watermark rules.
+- **A fetched thread already staged as a note is that note, not a second item.** After a local pull, write the candidates (`{"thread_id", "newest_date"?, "newest_key"?}` each) to a file and re-run the scan with `--threads <file>`: its `threads` block folds each against `items.loose` by the staged note's filename hash and carries the watermark verdict (`new`/`seen`/`grown`/`carry`).
+- **Write** it at execute time for Update existing, Add action, Note to triage and **Dismiss (noise)**, with the true message list in hand: its newest message is `seen_through`, and every entry carries the `seen_through` / `seen_date` pair. **Never ledger Dismiss (other vault)**: a permanent dismissal would hide the thread if it later became relevant here. To drop a disposition, delete its entry.
+- **A thread resurfaces only when it grows past its watermark, and is then judged from scratch**, its earlier disposition and date named in the option description. Never let the earlier answer stand as the recommendation: it was given on a shorter thread.
 
 ## Edge cases
 
-- **Google-native file, but the Drive API is not enabled** on the connector's Cloud project: the API returns an explicit "not enabled" error naming the project and an enable URL. Surface that error and the URL to the operator verbatim, leave the stub in `triage/`, and do **not** fall back to name-only inference. The document becomes readable the moment the operator clicks that link, and a filing inferred from the name meanwhile would be wrong in a way nobody would catch. This is a one-click operator action, not a skill failure.
-- **Vault declares a `drive` row but no Drive connector is available** in the harness: skip the Google-native branch, leave the stubs in `triage/`, and note it in the summary the way an absent mail connector is noted (`drive` declared but not connected - Google-native files left unconverted). Never file or delete a stub you could not read.
+- **Drive API not enabled** on the connector's Cloud project: the error names the project and an enable URL. Surface both to the operator verbatim, leave the stub in `triage/`, and **never fall back to name-only inference**: the document is readable once the API is enabled, and a filing guessed from the name would be wrong in a way nobody catches.
+- **A `drive` row but no Drive connector**: skip the Google-native branch, leave the stubs, and note `drive declared but not connected - Google-native files left unconverted` in the summary. Never file or delete a stub you could not read.
