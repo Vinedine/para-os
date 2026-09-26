@@ -358,6 +358,32 @@ class UncitedContacts(VaultCase):
         write(self.root, "projects/acme/brief.md", "# Acme\n\nSee `Jan Claes` in the template.\n")
         self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
 
+    def test_a_name_inside_a_link_text_or_target_is_not_a_mention(self):
+        # Finding 2 of the 20260923-1124 test run: 8 of 33 hits named the person only in a
+        # linked source filename or a percent-encoded href.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nSee [the call](sources/20260922%20Jan%20Claes%20call.md).\n\n"
+              "Also [20260922 Jan Claes call](sources/call.md).\n")
+        write(self.root, "projects/beta/brief.md",
+              "# Beta\n\nJan Claes agreed, per [20260922 Jan Claes call](sources/call.md).\n")
+        found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
+        self.assertEqual(found["areas/network/jan-claes.md"]["files"],
+                         [{"file": "projects/beta/brief.md", "mentions": 1}])
+
+    def test_a_link_only_line_to_the_card_still_cites_a_prose_mention(self):
+        # A line naming the person only as the card link's label counts no mention, but
+        # its link still cites every prose mention elsewhere in the file.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes flagged a risk.\n\n"
+              "Contact: [Jan Claes](../../areas/network/jan-claes.md)\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
     def test_a_name_inside_a_longer_word_is_not_a_mention(self):
         # A contact "Mark" is not named by "Marketing": inbound_references() without a
         # parent is a substring find, so the name is re-matched as a whole word.
@@ -547,12 +573,20 @@ class FigurePairs(VaultCase):
         # A percent-encoded link target holding digits directly followed by "%" reads as a
         # figure to a naive scan; stripping the href before matching drops it.
         write(self.root, "CLAUDE.md", "# Vault\n")
-        write(self.root, "projects/acme/brief.md", "# Acme\n\nNo figures here.\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMargin: EUR5k.\n")
         write(self.root, "README.md",
               "# Vault\n\nacme via [scan](sources/20260709%20Invoice.md) paid EUR10,000\n")
         pairs = self.run_scan("1")["phase1"]["figure_pairs"]
         self.assertEqual(len(pairs), 1)
         self.assertEqual(pairs[0]["rollup_figures"], ["EUR10,000"])
+
+    def test_a_brief_stating_no_figure_is_not_one_side_of_a_pair(self):
+        # Finding 5 of the 20260923-1124 test run: one figure in one file is not "the
+        # same number, two files, two values".
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nNo figures here.\n")
+        write(self.root, "README.md", "# Vault\n\nacme's accountant cost €10,000 a year.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
 
     def test_an_entity_name_only_inside_a_link_target_is_not_a_mention(self):
         write(self.root, "CLAUDE.md", "# Vault\n")

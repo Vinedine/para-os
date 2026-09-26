@@ -109,6 +109,18 @@ def link_targets_stripped(line):
     return unquote("".join(out))
 
 
+def links_stripped(line):
+    """One line with every `[label](target)` blanked whole - label and target both - then
+    percent-decoded. A person named only in a link's text (a meeting record's filename) or
+    only in its target is not a prose mention of them: uncited_contacts() counts what is
+    left, per phase1-structural.md."""
+    out = list(line)
+    for start, end, label_at in link_spans(line):
+        for i in range(start - 2 if label_at is None else label_at, end + 1):
+            out[i] = " "
+    return unquote("".join(out))
+
+
 def is_ledger_exempt(rel):
     """The mechanical proxy phase1-structural.md states for "analytical and ledger records
     that are evidence in all but folder name": any path segment (a folder name or the
@@ -385,32 +397,35 @@ def uncited_contacts(vault):
                 if hit["file"] == card_rel or hit["in_sources"] or not in_live_scope(hit["file"]):
                     continue
                 # inbound_references() without a parent is a bare substring find, so the
-                # name is re-matched as a whole word and its shape taken at that match.
-                decoded = unquote(hit["text"])
-                m = pattern.search(decoded)
-                if not m:
-                    continue
-                # A name quoted inside backticks - a path, a code sample - is not a mention
-                # of the person, per "a quoted syntax is not a used syntax".
-                if reference_shape(decoded, m.start(), m.end()) == "backtick":
+                # name is re-matched as a whole word.
+                if not pattern.search(unquote(hit["text"])):
                     continue
                 if allowed is not None and hit["file"] not in allowed:
                     continue
+                # Only a prose mention counts. A name quoted inside backticks - a path, a
+                # code sample - is not a mention of the person, per "a quoted syntax is not
+                # a used syntax", and neither is one inside a link's text or target (a
+                # linked source filename, a percent-decoded href).
+                prose = links_stripped(hit["text"])
+                mentioned = any(reference_shape(prose, m.start(), m.end()) == "prose"
+                                for m in pattern.finditer(prose))
                 if is_ledger_exempt(hit["file"]):
-                    exempt.add(hit["file"])
+                    if mentioned:
+                        exempt.add(hit["file"])
                     continue
                 entry = per_file.setdefault(hit["file"], {"mentions": 0, "linked": False})
-                entry["mentions"] += 1
+                if mentioned:
+                    entry["mentions"] += 1
                 # The name's own shape on this line (label, target, prose) says nothing
                 # about whether the line links to the card - a normal citation reads
                 # [Name](path), where the name is link_text and the card path is the
-                # target - so every mention is checked for a resolving link, not only
-                # the ones where the name happens to sit inside the href.
+                # target - so every hit line is checked for a resolving link, the ones
+                # naming the person only inside a link included.
                 if mention_links_card(vault / hit["file"], hit["text"], card_target):
                     entry["linked"] = True
 
         uncited = [{"file": f, "mentions": e["mentions"]}
-                   for f, e in sorted(per_file.items()) if not e["linked"]]
+                   for f, e in sorted(per_file.items()) if e["mentions"] and not e["linked"]]
         if uncited:
             out.append({"card": card_rel, "name": names[0], "principal": principal,
                         "files": uncited})
@@ -517,8 +532,8 @@ def rollup_files(vault):
 
 def figure_pairs(vault):
     """Candidate pairs only, never resolved: a rollup line naming an entity, carrying a
-    figure the entity's own brief does not carry anywhere. Which value is right is the
-    skill's question and a source document's answer.
+    figure the entity's own brief does not carry anywhere, where that brief states a figure
+    of its own. Which value is right is the skill's question and a source document's answer.
 
     Matched on the line with every link target stripped and percent-decoded, on both
     sides - the rollup line and the entity's own brief - and the entity name matched as a
@@ -555,7 +570,9 @@ def figure_pairs(vault):
                 if not line_figs:
                     continue
                 bfigs = brief_figures(name)
-                if bfigs is None or set(line_figs) <= bfigs:
+                # No brief, or a brief stating no figure at all: one figure in one file is
+                # not two values for the same number.
+                if not bfigs or set(line_figs) <= bfigs:
                     continue
                 out.append({"entity": name, "rollup_file": path.relative_to(vault).as_posix(),
                             "rollup_line": lineno, "rollup_figures": line_figs,

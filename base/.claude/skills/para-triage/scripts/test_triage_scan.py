@@ -489,6 +489,13 @@ class NoteShapes(unittest.TestCase):
         self.assertIsNone(_extract_thread_id(
             "https://mail.google.com/mail/u/0/#inbox/1a0c35e1b79985dc", "88604c"))
 
+    def test_a_claude_ai_gmail_thread_f_link_yields_the_hex_thread_id(self):
+        # 1876969071973085308 == 0x1a0c556d2559b07c, the verified pair above in decimal
+        self.assertEqual(_extract_thread_id(
+            "https://mail.google.com/mail/?authuser=x@example.com#all/thread-f:"
+            "1876969071973085308", "88604c"),
+            "1a0c556d2559b07c")
+
 
 class ContentIncomplete(unittest.TestCase):
 

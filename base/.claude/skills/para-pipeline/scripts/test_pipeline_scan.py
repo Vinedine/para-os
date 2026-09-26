@@ -172,6 +172,18 @@ class RowEntities(VaultCase):
         self.assertEqual(e["name"], "Jan Janssen")
         self.assertEqual(e["name_from"], "contact")
 
+    def test_a_contact_fallback_name_drops_its_trailing_note(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| unknown | Jan Janssen (via a peer; no card) | outreach | 2026-09-15 | Lead | Call 2026-09-25 | 2026-09-15, x | open |",
+            "",
+        ]) + "\n")
+        e = self.deal()["entities"][0]
+        self.assertEqual(e["name"], "Jan Janssen")
+        self.assertEqual(e["name_from"], "contact")
+
     def test_row_missing_columns_is_flagged(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Open", "",
@@ -195,6 +207,18 @@ class RowEntities(VaultCase):
         self.assertEqual(e["home_mismatch"],
                          {"stage_home": "resources/ideas/<company>/",
                           "found_in": "areas/business/leads.md"})
+
+    def test_no_home_mismatch_on_a_closed_row_recording_its_move(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Closed", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| Big Co | Tom Baas | outreach | 2026-06-19 | Qualified | - | 2026-07-01, x | moved to resources/ideas/big-co/ |",
+            "",
+        ]) + "\n")
+        e = self.deal()["entities"][0]
+        self.assertTrue(e["closed"])
+        self.assertIsNone(e["home_mismatch"])
 
     def test_a_row_under_closed_is_closed_and_not_live(self):
         write(self.root, "areas/business/leads.md", "\n".join([
@@ -519,6 +543,21 @@ class Metrics(VaultCase):
         rows = {r["source"]: r for r in self.deal()["metrics"]["referrers"]}
         self.assertEqual(rows["outreach"]["entities"], 1)
         self.assertEqual(rows["unrecorded"]["entities"], 1)
+
+    def test_a_lead_opened_and_promoted_in_one_quarter_counts_once(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Closed", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| Big Co | Tom Baas | outreach | 2026-08-01 | Qualified | - | 2026-08-10, x | moved to resources/ideas/big-co/ |",
+            "",
+        ]) + "\n")
+        write(self.root, "resources/ideas/big-co/brief.md",
+              "# Big Co\n\n**Stage:** Qualified (since 2026-08-10)\n"
+              "**Opened:** 2026-08-01\n**Source:** outreach\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["opened"], 1)
+        self.assertEqual({r["source"]: r["entities"] for r in m["referrers"]}, {"outreach": 1})
 
     def test_counts_by_stage_excludes_terminal_and_closed_rows(self):
         write(self.root, "areas/business/leads.md", "\n".join([

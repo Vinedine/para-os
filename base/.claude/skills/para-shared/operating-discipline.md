@@ -1,6 +1,10 @@
 # Operating discipline (shared across skills)
 
-Cross-skill rules for *how a skill behaves* when it changes files. Vault conventions live in each vault's `CLAUDE.md`; this is the safety discipline **every file-mutating skill** follows. A read-only skill declares that contract instead and inherits nothing here.
+Cross-skill rules for *how a skill behaves* when it changes files. Vault conventions live in each vault's `CLAUDE.md`; this is the safety discipline **every file-mutating skill** follows. A read-only skill declares that contract instead and inherits only [Arguments](#arguments).
+
+## Arguments
+
+- **A leftover argument is one only when it reads like one:** a shape the skill's Arguments table names, carrying no sentence punctuation (`.`, `,`, `?`, `!`). Anything else is prose the operator wrapped around the invocation: run the default and treat the prose as an instruction for this run, never as an argument to resolve. Where it names the value of a `<key>=<value>` argument the table lists, that is the argument, as if typed.
 
 ## Approval discipline
 

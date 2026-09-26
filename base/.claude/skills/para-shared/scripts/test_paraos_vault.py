@@ -1193,6 +1193,18 @@ class FileContents(VaultCase):
         self.assertEqual(got["skipped"], ["projects/a/photos/front.txt"])
         self.assertEqual(list(got["files"]), ["projects/a/brief.md"])
 
+    def test_a_build_folder_is_set_aside_too(self):
+        # Two archived decks each carry their own styles/index.css to build: not a
+        # filing duplicate (20260923-1124 para-deep-clean TT, finding 7).
+        write(self.root, "archive/projects/a/styles/index.css", self.body("css"))
+        write(self.root, "archive/projects/b/styles/index.css", self.body("css"))
+        write(self.root, "archive/projects/b/public/logo.txt", self.body("logo"))
+        got = hashes(self.root)
+        self.assertEqual(duplicates(got), [])
+        self.assertEqual(got["skipped"], ["archive/projects/a/styles/index.css",
+                                          "archive/projects/b/public/logo.txt",
+                                          "archive/projects/b/styles/index.css"])
+
     def test_duplicates_reads_a_plain_digest_map_too(self):
         self.assertEqual(duplicates({"a.md": "x", "b.md": "x", "c.md": "y"}),
                          [["a.md", "b.md"]])

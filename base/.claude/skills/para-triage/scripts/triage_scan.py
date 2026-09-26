@@ -270,6 +270,8 @@ def kind_of(path):
 BULLET_FIELD_RE = re.compile(r"^- \*\*([^*]+?)\s*:?\s*\*\*\s*:?\s*(.*)$")
 FRONTMATTER_FIELD_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$")
 LINK_THREAD_RE = re.compile(r"#[^/]+/([0-9a-fA-F]{16})")
+# claude.ai Gmail's link form carries the same thread id in decimal: `#all/thread-f:<decimal>`.
+LINK_THREAD_F_RE = re.compile(r"#[^/]+/thread-f:(\d+)")
 
 INCOMPLETE_PHRASES = ("snippet", "preview", "opening lines", "no readable body", "cut mid",
                       "truncat", "not read", "not fetched")
@@ -399,9 +401,13 @@ def _extract_thread_id(link_value, filename_hash):
     if not link_value or not filename_hash:
         return None
     match = LINK_THREAD_RE.search(link_value)
-    if not match:
-        return None
-    candidate = match.group(1)
+    if match:
+        candidate = match.group(1)
+    else:
+        match = LINK_THREAD_F_RE.search(link_value)
+        if not match:
+            return None
+        candidate = format(int(match.group(1)), "x")
     return candidate if thread_hash(candidate) == filename_hash else None
 
 

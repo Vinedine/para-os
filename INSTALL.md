@@ -12,7 +12,7 @@ The session's working directory becomes the vault root. Look at it before writin
 
 - **Empty, or holding only files the operator just put there**: go on.
 - **It already holds a `CLAUDE.md`**: this is an existing vault, not a new one. Stop, say so, and name `/para-upgrade` as the way to bring a vault up to date.
-- **It holds anything else**: list what is there and ask whether this really is the folder for the new vault. A session started from a folder already in the Claude desktop sidebar opens *in that folder*, which is how a new vault ends up inside an old one.
+- **It holds anything else**: list what is there and ask whether this really is the folder for the new vault. A session started from a folder already in the Claude desktop sidebar opens *in that folder*.
 
 ## 2. Get the kit, outside the folder
 
@@ -26,7 +26,7 @@ Where git is not installed, download `https://github.com/Vinedine/para-os/archiv
 
 ## 3. Copy the skeleton in
 
-Copy everything inside the kit's `base/` folder into the vault root, **hidden items included**: the `.claude` folder (the `/para-*` skills, the rule files and the settings) and the `.gitignore` file. Check that `.claude/skills/para-daily-brief/SKILL.md`, `.gitignore` and `bootstrap-prompt.md` arrived.
+Copy everything inside the kit's `base/` folder into the vault root, **hidden items included**: the `.claude` folder (the `/para-*` skills, the rule files and the settings) and the `.gitignore` file. Leave out any `__pycache__` and `.pytest_cache` folders. Check that `.claude/skills/para-daily-brief/SKILL.md`, `.gitignore` and `bootstrap-prompt.md` arrived.
 
 Copy `base/` alone. Nothing else in the repository is vault content: an add-on is adopted later, by name, when the vault needs one, and the example vault is there to be read, not copied.
 

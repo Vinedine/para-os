@@ -1456,7 +1456,7 @@ def vault_path(vault, path):
 # --- file contents ---------------------------------------------------------------------------
 
 MIN_HASH_BYTES = 200        # below this, a stub matches every other stub and says nothing
-SKIP_HASH_FOLDERS = ("photos", "plans")
+SKIP_HASH_FOLDERS = ("photos", "plans", "styles", "public")  # media, and a build's own assets
 
 
 def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, within=None):

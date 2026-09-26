@@ -17,9 +17,7 @@ A single-pass, date-aware picture of **where the vault stands**: which projects 
 
 ## Arguments
 
-Optional single scope argument. The four scope words are reserved.
-
-**A leftover argument is an entity name only when it reads like one:** one to three words, or a `projects/<name>` / `areas/<name>` path, carrying no sentence punctuation (`.`, `,`, `?`, `!`). Anything longer is prose the operator wrapped around the invocation ("and flag any bugs you hit"): take the **default** scope and treat the prose as an instruction for this run, never as a name to resolve.
+Optional single scope argument. The four scope words are reserved; an `<entity>` is one to three words or a `projects/<name>` / `areas/<name>` path, and any other leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
 
 | Arg | Renders |
 |---|---|

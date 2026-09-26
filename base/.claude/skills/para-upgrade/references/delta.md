@@ -22,3 +22,7 @@ Read the scan's `skills` and `integrations` verdicts (`## Installed integration 
 **This runs on every Phase 0, whatever the Equal-markers check above decided**, including the run that stops there: a migration that does nothing still has to prove it did nothing. The scan's own `smoke` block is this baseline - [scan.md](scan.md) states what it keeps and its fallback (`/para-daily-brief week`, agenda excluded, where Python is absent or `brief_scan.py` exits non-zero).
 
 Phase 5 takes the same reading again with `--unchanged <this Phase 0 scan>`. Before calling a moved count a regression, check whether the files behind the change are ones this migration wrote.
+
+## Checkpoints
+
+The Phase 0 scan is the first checkpoint. After each of Phases 1 to 4 that writes, re-run the scan with `--unchanged <the latest checkpoint>` and save it under its own name as the next checkpoint: `since.changed` holds only files that phase wrote. Before the next phase's first write, and before Phase 5 stamps the marker, re-run it against the latest checkpoint: `since.changed` is empty. Any other path stops the run: name it, and ask. Keep the Phase 0 scan for Phase 5's smoke test.

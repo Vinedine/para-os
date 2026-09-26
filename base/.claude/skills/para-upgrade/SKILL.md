@@ -23,10 +23,10 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 
 1. **A local para-os clone.** Ask the user for its path if it isn't obvious; do not guess. Every master is read from it, per [references/delta.md](references/delta.md).
 2. **An explicit ref, defaulting to `origin/main`.** Run `git fetch` first so `origin/main` is current.
-3. **The ref should be committed.** If the user names a working branch, check `git status --short` in the clone. Uncommitted changes can't be diffed against later or reproduced on another machine. If the master is uncommitted, say so plainly, name the files, and ask whether to proceed anyway or commit first. Do not commit on the user's behalf.
+3. **The ref should be committed.** If the user names a working branch, read the Phase 0 scan's `clone.dirty_masters` (by hand: [references/scan.md](references/scan.md)). If the master is uncommitted, name the files and ask whether to proceed anyway or commit first. Never commit on the user's behalf.
 4. **Vault has a `CLAUDE.md`.** If missing, this is a bootstrap, not an upgrade: point at `bootstrap-prompt.md` and stop.
 5. **A clean-enough vault working tree, and a way to undo.** This skill produces a large diff. If the vault already has substantial uncommitted changes, tell the user, so the migration doesn't get tangled with unrelated edits. Git undoes only what it tracks: check `CLAUDE.md` and `.claude/` with `git ls-files` and `git check-ignore`, and name any file in scope that git does not track. Where neither git nor a drive's version history covers a file, say so plainly and get an explicit go-ahead before Phase 1.
-6. **No live peer on the vault.** Another session writing the same `CLAUDE.md` mid-run is not a sync client, and nothing in the file says it happened. Where the harness lists running sessions or agents, read that listing before Phase 1 and name any working in this vault; the operator decides whether to wait. One that starts later is caught by Phase 5's re-check before the marker is written.
+6. **No live peer on the vault.** Another session writing the same `CLAUDE.md` mid-run is not a sync client, and nothing in the file says it happened. Where the harness lists running sessions or agents, read that listing before Phase 1 and name any working in this vault; the operator decides whether to wait. The checkpoint scans catch one that starts later.
 
 ## Phase 0 - Establish the delta
 
@@ -50,6 +50,8 @@ Read the `delta` block for the vault's marker, the master's, the verdict and the
 
 Present the collected entries, with their size in files and items, as the migration plan before touching anything. **That list is the scope.** Do not opportunistically fix things the changelog doesn't mention: unrelated drift is `/para-deep-clean`'s job.
 
+**Take a checkpoint scan after every phase that writes, and re-check it before the next write**, per [references/delta.md](references/delta.md#checkpoints).
+
 ## Phases 1 and 2 - CLAUDE.md structure, then skeleton files
 
 Diff the vault's `CLAUDE.md` against the template at both the new ref and the vault's own marker, so a deliberate local rewrite is carried forward rather than flattened; then create only the skeleton files genuinely missing. **Full procedure: [references/rules-and-skeleton.md](references/rules-and-skeleton.md).**
@@ -64,7 +66,7 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 
 ## Phase 5 - Stamp and verify
 
-1. **Write the new revision marker** into the vault's `CLAUDE.md`, and write it *here* - Phase 1 holds the vault's existing marker even while it replaces the section around it. Only after the phases above actually applied: the next run skips whatever a marker claims. **Immediately before writing it, re-run the scan with `--unchanged <the scan taken right after this run's own last write>`** - never the Phase 0 scan, since a digest cannot tell this run's own edits from a peer's in the same file, and comparing against Phase 0 would flag every edit this run itself made. A `since.changed` path this run did not just write stops the stamp: name it, and ask.
+1. **Write the new revision marker** into the vault's `CLAUDE.md`, and write it *here* - Phase 1 holds the vault's existing marker even while it replaces the section around it. Only after the phases above actually applied: the next run skips whatever a marker claims. The checkpoint re-check comes immediately before.
 2. **Run the vault's own skills as a smoke test.** Re-run the scan with `--unchanged <the Phase 0 scan>`: `since.smoke` is every count that moved since before the migration (`{count, before, after}`), and `since.changed` every file that changed, each of which should be one this run wrote. Also run at least one skill end to end (`/para-daily-brief week` publishes nothing). A skill that errors, or a count that moved for a file this migration did not write, is a regression, fixed here.
 3. **Re-run the link check** from `/para-deep-clean` Phase 1, Step 1.2 (its `phase1-structural.md`), as written there. Zero dangling relative links in live buckets.
 4. **Close the [edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) only now**, after every check that resolves a path against disk (this link check, Phase 3's self-claims sweep, the skeleton-presence check): they read the spread state.

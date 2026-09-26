@@ -356,8 +356,13 @@ def collect_row_entities(vault, home, stage_by_name, stage_index, today):
                 contact_key = header_cols[1]
             name_val = row.get(contact_key, "") if contact_key else name_val
             name_from = "contact"
+            # A trailing note in the Contact cell is not part of the name:
+            # "Jan Janssen (via a partner)" is Jan Janssen.
+            name_val = re.sub(r"\s+\(.*\)\s*$", "", name_val) or name_val
 
         closed = matched["terminal"] or ((row.get("section") or "").strip().lower() == "closed")
+        if closed:
+            home_mismatch = None   # a closed row records where the lead went, not a filing gap
         opened_raw = field_ci(row, "Opened")
         opened_date = extract_date(opened_raw)
         since_str, since_from = info["since"], None
@@ -485,11 +490,25 @@ def referrers_metrics(entities, q_start, q_end, promoting_name):
     return rows
 
 
+def name_key(name):
+    return re.sub(r"[^a-z0-9]+", "", strip_links(name or "").lower())
+
+
+def counted_once(entities):
+    """Every entity but a closed register row whose name matches a folder entity: that row
+    records a lead's move to the folder, so one deal opened and promoted within the quarter
+    is counted once, from its folder."""
+    folders = {name_key(e["name"]) for e in entities if e["kind"] == "folder"}
+    return [e for e in entities
+            if not (e["kind"] == "row" and e["closed"] and name_key(e["name"]) in folders)]
+
+
 def compute_metrics(vault, today, lc, entities):
     q_start, q_end = quarter_bounds(today)
     stages = lc["stages"]
+    once = counted_once(entities)
 
-    opened = sum(1 for e in entities
+    opened = sum(1 for e in once
                 if e["opened"] and q_start <= parse_date(e["opened"]) <= q_end)
 
     promoting = next((s for s in stages if s["home"].startswith("projects/")), None)
@@ -549,7 +568,7 @@ def compute_metrics(vault, today, lc, entities):
         "reached_promoting": reached_promoting,
         "median_days_opened_to_promoting": median_info,
         "terminal": terminal,
-        "referrers": referrers_metrics(entities, q_start, q_end,
+        "referrers": referrers_metrics(once, q_start, q_end,
                                        promoting["name"] if promoting else None),
     }
     return metrics, terminal_this_quarter

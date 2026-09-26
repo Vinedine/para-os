@@ -26,6 +26,8 @@ Also invoke after a large content migration, or periodically (every 3-6 months) 
 | `ref=<git-ref>` | The committed para-os ref precondition 5 compares the vault's template marker against, instead of `origin/main`, such as a revision branch in flight. Combines with any of the above. A working-tree path is refused. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
+A leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
+
 ## Preconditions
 
 Confirm before starting:
@@ -93,11 +95,11 @@ Findings are presented two ways, and which one a finding gets is decided by whet
 
 - **Never close, strip or delete on a batch approval.** The issues table is for changes that lose nothing; everything else is asked one at a time.
 
-- **Read every README and key source PDF** before proposing changes. Assumptions waste user time.
+- **Read every README and key source PDF** before proposing changes.
 - **Pause for approval between phases**, and within Phase 2 do one worked example before batching the rest.
 - **Respect "do not add" rules** in CLAUDE.md. Common ones: no per-entity templates, no derived outputs that drift from a single source, and, on the read-only iPad delivery specifically, no `actions.md` at all.
 - **Match the vault's voice and style.** Read 2-3 nearby READMEs first and copy the structure and tone.
-- **Cross-vault separation**: never link from a code repo to a private vault path, and never include other-vault paths in repo-checked content. Code repos push to shared remotes; vault paths leak personal context.
+- **Cross-vault separation**: never link from a code repo to a private vault path, and never include other-vault paths in repo-checked content.
 
 ## Edge cases
 
@@ -109,9 +111,8 @@ Phase-specific edge cases live with their phase.
 ## Notes for Claude sessions
 
 - This skill produces user-visible work on most READMEs in the vault. Make sure the user has time and bandwidth before kicking it off. A typical run takes 1-3 hours of conversation.
-- Track progress in the harness's task list where it offers one, else in a short progress message at each phase boundary - there are many discrete items per phase and progress visibility matters.
+- Track progress in the harness's task list where it offers one, else in a short progress message at each phase boundary.
 - When extracting data from PDFs, prefer Python plus pypdf over Bash text grepping. PDF text layout is unreliable from grep.
-- Resist the urge to rewrite content for clarity. The user knows their domain; your job is structural consistency and closing gaps, not editorial improvement.
 
 ## Related skills
 

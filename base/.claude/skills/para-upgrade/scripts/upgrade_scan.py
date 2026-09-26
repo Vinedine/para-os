@@ -146,10 +146,27 @@ def vault_block(vault, entries):
 
 # ==================================================================== the clone block
 
-def clone_block(clone, ref_arg, worktree):
+MASTER_DIRS = ("base", "integrations", "multi-vault")  # plus CHANGELOG.md and declared addons
+
+
+def _dirty_masters(dirty, decl):
+    """The dirty paths a run reads a master from - Precondition 3's question, so a dirty
+    clone README is not read as an uncommitted master. The declared addons are matched under
+    every layout this repo has shipped, and a collapsed untracked folder (`addons/`) counts
+    when a master root lies inside it."""
+    decl = decl or {}
+    names = [n for n in [decl.get("delivery"), decl.get("flavor")] +
+             list(decl.get("modules") or []) if n]
+    roots = ([f"{d}/" for d in MASTER_DIRS] +
+             [f"{layout}/{n}/" for layout in ADDON_ROOTS for n in names])
+    return [p for p in dirty if p == "CHANGELOG.md" or
+            any(p.startswith(r) or (p.endswith("/") and r.startswith(p)) for r in roots)]
+
+
+def clone_block(clone, ref_arg, worktree, decl=None):
     block = {"path": str(clone), "ref": ref_arg, "ref_commit": None, "worktree": worktree,
              "checked_out": None, "origin_main": None, "same_commit": [], "dirty": None,
-             "ref_merged": None, "error": None}
+             "dirty_masters": None, "ref_merged": None, "error": None}
     if not _git_repo(clone):
         block["error"] = f"not a git repository: {clone}"
         return block, False, None
@@ -159,6 +176,7 @@ def clone_block(clone, ref_arg, worktree):
     head = clone_ref(clone, "HEAD")
     block["checked_out"] = {"branch": branch, "commit": head["commit"] if head else None}
     block["dirty"] = _porcelain_paths(clone) or []
+    block["dirty_masters"] = _dirty_masters(block["dirty"], decl)
 
     if worktree:
         if ref_arg is not None and ref_arg != branch:
@@ -247,7 +265,10 @@ def masters_block(clone, ref, worktree, decl):
 # ==================================================================== the delta block
 
 BOLD_LEAD_RE = re.compile(r"^(?:[-*]\s*)?\*\*([^*]+)\*\*")
-REACTION_RE = re.compile(r"(Reactions?:.*)", re.S)
+# The LAST "Reaction:" in a paragraph: prose before it may name an earlier entry's own
+# ("three points of the 2026.09.03 `.claude/rules/` Reaction: ..."), and the greedy lead
+# skips past that mention.
+REACTION_RE = re.compile(r".*(Reactions?:.*)", re.S)
 PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n|\n(?=[-*]\s)")
 
 
@@ -487,9 +508,11 @@ def _collected_glob_twin(glob):
 
 def _doubled_block(paths, decl):
     required = decl.get("delivery") == "readonly-ipad" or bool(decl.get("collected"))
+    if not required:
+        return {"required": False, "missing_twins": None}  # not applicable, never a failure
     plain = [p for p in paths if not p.startswith("resources/mds/")]
     missing = [p for p in plain if _collected_glob_twin(p) not in paths]
-    return {"required": required, "missing_twins": missing}
+    return {"required": True, "missing_twins": missing}
 
 
 def _rule_anchors(text):
@@ -556,8 +579,9 @@ def rules_block(vault, clone, ref, worktree, decl, addons_rows):
         out.append({
             "file": rel_posix(vault, path), "master": master_path,
             "paths": paths, "master_paths": master_paths,
-            "paths_missing": sorted(set(master_paths) - set(paths)),
-            "paths_extra": sorted(set(paths) - set(master_paths)),
+            # null with no master: nothing to hold the paths against, not a failed check
+            "paths_missing": sorted(set(master_paths) - set(paths)) if master_path else None,
+            "paths_extra": sorted(set(paths) - set(master_paths)) if master_path else None,
             "kind": _rule_kind(anchors), "anchors": anchors,
             "doubled": _doubled_block(paths, decl), "pointer": _pointer_info(vault, path.name),
         })
@@ -1516,7 +1540,7 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
     clone = Path(clone).resolve()
 
     v_block = vault_block(vault, entries)
-    c_block, clone_ok, ref = clone_block(clone, ref_arg, worktree)
+    c_block, clone_ok, ref = clone_block(clone, ref_arg, worktree, v_block["declarations"])
     report = {"vault": v_block, "clone": c_block}
 
     if not v_block["root"]:

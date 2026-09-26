@@ -822,7 +822,7 @@ def check_rules_contract():
 DELIVERY_TRACKING = {
     "addons/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "ce85cf2bdd62"),
     "addons/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
-    "addons/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "7ffd9b80b6e5"),
+    "addons/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "5b4d4ef01142"),
 }
 
 

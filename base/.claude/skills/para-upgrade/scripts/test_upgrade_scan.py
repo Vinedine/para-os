@@ -27,8 +27,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "para-shared" / "scripts"))
 
 from upgrade_scan import (  # noqa: E402
-    HistoryBatch, _collected_glob_twin, _doubled_block, _effective_blob, _entry_shape,
-    _frontmatter_paths,
+    HistoryBatch, _collected_glob_twin, _dirty_masters, _doubled_block, _effective_blob,
+    _entry_shape, _frontmatter_paths,
     _global_commit_order, _integration_master_path, _integration_suite,
     _mechanical_equivalence, _parse_batch_output, _root_history_map, _rule_anchors,
     _rule_kind, _sweep_root, _template_path_variants, baseline_block, build_report,
@@ -442,6 +442,13 @@ class DoubledBlockCase(unittest.TestCase):
         got = _doubled_block(["triage/**"], {"delivery": None})
         self.assertFalse(got["required"])
 
+    def test_missing_twins_is_null_when_not_required(self):
+        # A --test run found the shipped figures.md reported with missing twins on a vault
+        # that needs none, which read as a failed check.
+        got = _doubled_block(["areas/**/README.md", "projects/*/brief.md"],
+                             {"delivery": None, "collected": False})
+        self.assertIsNone(got["missing_twins"])
+
 
 class TemplatePathVariantsCase(unittest.TestCase):
 
@@ -509,6 +516,18 @@ class ChangelogEntryShapeCase(unittest.TestCase):
         shaped = _entry_shape(self.entries["2026.08.01"])
         self.assertNotIn("Six changes, before revisions carried a Reaction line.",
                          " ".join(shaped["items"]))
+
+    def test_a_reaction_named_in_earlier_prose_is_skipped_for_the_paragraph_s_own(self):
+        # The 2026.09.04 "Other skill changes" paragraph, cut down: its prose names the
+        # 2026.09.03 entry's reaction before its own closing one.
+        entry = {"revision": "2026.09.04", "line": 1, "body": (
+            "**Other skill changes.** `rules-and-skeleton.md` states three points of the "
+            "2026.09.03 `.claude/rules/` Reaction: a *richer version* is a fuller statement "
+            "of the same rule. Reaction: re-sync installed skill copies. No other vault "
+            "changes.\n")}
+        shaped = _entry_shape(entry)
+        self.assertEqual(shaped["reactions"],
+                         ["Reaction: re-sync installed skill copies. No other vault changes."])
 
 
 # ============================================== the efficiency fix: batched history reads
@@ -623,6 +642,29 @@ class CloneBlockCase(CloneCase):
         self.assertIsNotNone(block["origin_main"])
         self.assertEqual(block["origin_main"]["commit"], block["ref_commit"])
         self.assertIn(["origin_main", "ref"], block["same_commit"])
+
+    def test_dirty_masters_narrows_dirty_to_the_files_a_run_reads_a_master_from(self):
+        # A --test run found a dirty root README.md, no master, read as an uncommitted one.
+        write(self.clone, "README.md", "# para-os\n")
+        write(self.clone, "addons/sales/.claude/rules/deal-brief.md", "draft\n")
+        write(self.clone, "addons/other/README.md", "# other\n")
+        self.addCleanup(lambda: [__import__("shutil").rmtree(self.clone / d, ignore_errors=True)
+                                 for d in ("addons/sales", "addons/other")])
+        self.addCleanup(lambda: (self.clone / "README.md").unlink())
+        block, ok, _ = clone_block(self.clone, "main", False, {"modules": ["sales"]})
+        self.assertTrue(ok)
+        self.assertIn("README.md", block["dirty"])
+        self.assertEqual(block["dirty_masters"], ["addons/sales/"])
+
+    def test_dirty_masters_reads_every_master_root_and_a_collapsed_untracked_folder(self):
+        dirty = ["README.md", "CHANGELOG.md", "base/CLAUDE.md.template",
+                 "integrations/widget/widget.py", "multi-vault/para-ingest/SKILL.md",
+                 "flavors/real-estate/x.md", "addons/", "tools/x.py", "examples/y.md"]
+        got = _dirty_masters(dirty, {"flavor": "real-estate", "modules": []})
+        self.assertEqual(got, ["CHANGELOG.md", "base/CLAUDE.md.template",
+                               "integrations/widget/widget.py",
+                               "multi-vault/para-ingest/SKILL.md", "flavors/real-estate/x.md",
+                               "addons/"])
 
     def test_worktree_reads_the_checked_out_branch_and_rejects_a_conflicting_ref(self):
         block, ok, ref = clone_block(self.clone, None, True)
@@ -817,6 +859,18 @@ class RulesBlockCase(CloneCase):
         self.assertIsNone(row["master"])  # nothing named widget-shape.md ships from this clone
         self.assertEqual(row["kind"], "shape")
         self.assertEqual(row["paths"], ["projects/*/widget.md"])
+
+    def test_with_no_master_the_paths_checks_are_null_not_every_path_extra(self):
+        # A --test run found a vault-local brief-structure.md with every path under
+        # paths_extra, which read as a failed paths check.
+        vault = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
+        write(vault, ".claude/rules/brief-structure.md",
+              "---\npaths:\n  - projects/*/brief.md\n  - areas/*/brief.md\n---\nA rule.\n")
+        rows = rules_block(vault, self.clone, "main", False, {"delivery": None, "collected": False}, [])
+        self.assertIsNone(rows[0]["master"])
+        self.assertIsNone(rows[0]["paths_missing"])
+        self.assertIsNone(rows[0]["paths_extra"])
 
     def test_pointer_wording_and_section_are_read_from_claude_md(self):
         vault = Path(tempfile.mkdtemp())
