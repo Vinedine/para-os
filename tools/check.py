@@ -88,7 +88,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]   # repo root; this file lives in tools/
 REVISION = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
-SCRIPT_SUFFIXES = {".py", ".js", ".ps1", ".sh"}
+SCRIPT_SUFFIXES = {".py", ".js", ".mjs", ".ps1", ".sh"}
 
 failures = []
 passes = []
@@ -571,7 +571,8 @@ def check_never_ship():
 # sys.executable, not "python": the interpreter running this file is known to exist, which
 # `python` on a Windows PATH is not. Node has no such trick, so a missing `node` is reported.
 RUNNERS = {".py": lambda p: [sys.executable, str(p)],
-           ".js": lambda p: ["node", "--test", str(p)]}
+           ".js": lambda p: ["node", "--test", str(p)],
+           ".mjs": lambda p: ["node", "--test", str(p)]}
 
 # unittest writes "Ran 39 tests" to stderr; node --test writes "pass 35" to stdout. The count
 # is reported so a suite that quietly stopped covering anything is visible at a glance. It is

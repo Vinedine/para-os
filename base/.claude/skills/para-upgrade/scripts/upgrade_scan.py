@@ -473,7 +473,7 @@ def _frontmatter_paths(text):
 
 def _collected_glob_twin(glob):
     """The resources/mds/ name a plain glob's collected twin carries: interior '/' -> '__', a
-    leading '**/' -> '*__', a trailing '/**' or '/*' -> '__*'."""
+    leading '**/' -> '*__', an interior '/**/' -> '__*__', a trailing '/**' or '/*' -> '__*'."""
     g, prefix_add = glob, ""
     if g.startswith("**/"):
         prefix_add, g = "*__", g[3:]
@@ -481,7 +481,7 @@ def _collected_glob_twin(glob):
         g = g[:-3] + "__*"
     elif g.endswith("/*"):
         g = g[:-2] + "__*"
-    g = g.replace("/", "__")
+    g = g.replace("/**/", "/*/").replace("/", "__")
     return f"resources/mds/{prefix_add}{g}"
 
 
@@ -1286,11 +1286,22 @@ def _integration_suite(clone, ref, worktree, master_dir):
                and Path(f).name != "README.md"
                and not (f.endswith(".config.json") and not f.endswith(".template"))
                and not f.endswith(".env")]
-    stems = {Path(f).stem.replace("test_", "").replace(".test", "") for f in test_files}
+    stems = {_suite_stem(f) for f in test_files}
     covers = [s for s in scripts if Path(s).stem in stems]
     uncovered = [s for s in scripts if s not in covers]
     return {"dir": master_dir, "files": test_files, "runner": runner, "fixtures": fixtures,
             "covers": covers, "uncovered": uncovered}
+
+
+def _suite_stem(test_file):
+    """The script stem a test file covers: `test_x.py` -> `x`, `x.test.js` / `x.test.mjs` -> `x`.
+    Only the prefix or suffix is stripped - `test_latest_sync.py` covers `latest_sync`."""
+    stem = Path(test_file).stem
+    if stem.startswith("test_"):
+        stem = stem[len("test_"):]
+    if stem.endswith(".test"):
+        stem = stem[:-len(".test")]
+    return stem
 
 
 def unmarked_scripts(vault, decl, marked_files):
@@ -1389,6 +1400,10 @@ def _finish_integration_row(plan, batch):
         overwrite = _mechanical_equivalence(copy_bytes, master_bytes, history,
                                             is_python=file.endswith(".py"))
 
+    # The row's `revision` stays the copy's own marker; the history entry a behind or
+    # hand-bumped verdict matched is reported beside it, never over it.
+    if "revision" in info:
+        info["matched_revision"] = info.pop("revision")
     row.update(info)
     row.update({
         "master": master_path, "diff": "".join(diff_lines[:200]),

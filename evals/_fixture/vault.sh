@@ -8,7 +8,7 @@
 # carry no date, so the undated-majority flag fires. One item in a contact file names a
 # project without belonging to it, so a scope has something to mistake for its own work.
 set -e
-day() { date -d "$1 days" +%F 2>/dev/null || date -v"$1"d +%F; }
+day() { date -d "$1 days" +%F 2>/dev/null || { case $1 in -*) s=$1;; *) s=+$1;; esac; date -v"${s}"d +%F; }; }
 
 cat > CLAUDE.md <<'EOF'
 # Fixture Vault Conventions

@@ -418,6 +418,13 @@ class CollectedGlobTwinCase(unittest.TestCase):
         self.assertEqual(_collected_glob_twin("projects/*/brief.md"),
                          "resources/mds/projects__*__brief.md")
 
+    def test_interior_star_star_collapses_to_one_star(self):
+        # base/.claude/rules/figures.md writes areas/**/README.md's twin this way.
+        self.assertEqual(_collected_glob_twin("areas/**/README.md"),
+                         "resources/mds/areas__*__README.md")
+        self.assertEqual(_collected_glob_twin("archive/**/brief.md"),
+                         "resources/mds/archive__*__brief.md")
+
 
 class DoubledBlockCase(unittest.TestCase):
 
@@ -926,6 +933,24 @@ class IntegrationSuiteCase(CloneCase):
                 fixture_git(self.clone, "commit", "-q", "--no-verify", "-m", "remove gizmo suite")
 
 
+    def test_covers_strips_only_the_test_prefix_and_suffix(self):
+        with self.on_main():
+            write(self.clone, "integrations/syncer/latest_sync.py", "# sync\n")
+            write(self.clone, "integrations/syncer/test_latest_sync.py", "# tests\n")
+            write(self.clone, "integrations/syncer/contest_feed.mjs", "// feed\n")
+            write(self.clone, "integrations/syncer/contest_feed.test.mjs", "// test\n")
+            fixture_git(self.clone, "add", "-A")
+            fixture_git(self.clone, "commit", "-q", "--no-verify", "-m", "add syncer suite")
+            try:
+                got = _integration_suite(self.clone, "main", False, "integrations/syncer")
+                self.assertIn("integrations/syncer/latest_sync.py", got["covers"])
+                self.assertIn("integrations/syncer/contest_feed.mjs", got["covers"])
+                self.assertEqual(got["uncovered"], [])
+            finally:
+                fixture_git(self.clone, "rm", "-rq", "integrations/syncer")
+                fixture_git(self.clone, "commit", "-q", "--no-verify", "-m", "remove syncer suite")
+
+
 class IntegrationsBlockCase(CloneCase):
 
     def test_a_marked_script_is_diffed_against_its_master(self):
@@ -937,6 +962,33 @@ class IntegrationsBlockCase(CloneCase):
         row = next(r for r in got["rows"] if r["name"] == "widget")
         self.assertEqual(row["verdict"], "behind")
         self.assertEqual(row["revision"], "2026.08.02")
+        self.assertEqual(row["matched_revision"], "2026.08.02")
+
+    def test_a_hand_bumped_copy_keeps_its_own_marker_as_revision(self):
+        # V1's code under the master's 2026.09.01 header: the row's revision is the copy's
+        # own marker, and the history entry it matched is reported beside it.
+        vault = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
+        write(vault, "resources/scripts/widget.py", integration_source("2026.09.01", "V1"))
+        got = integrations_block(vault, self.clone, "main", False, {"delivery": None},
+                                 [], "2026.09.01")
+        row = next(r for r in got["rows"] if r["name"] == "widget")
+        self.assertEqual(row["verdict"], "marker-matches-content-differs")
+        self.assertEqual(row["case"], "hand-bumped")
+        self.assertEqual(row["revision"], "2026.09.01")
+        self.assertEqual(row["matched_revision"], "2026.08.01")
+
+    def test_a_behind_copy_with_an_edited_marker_keeps_its_own_marker(self):
+        vault = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
+        write(vault, "resources/scripts/widget.py", integration_source("2026.08.02", "V1"))
+        got = integrations_block(vault, self.clone, "main", False, {"delivery": None},
+                                 [], "2026.09.01")
+        row = next(r for r in got["rows"] if r["name"] == "widget")
+        self.assertEqual(row["verdict"], "behind")
+        self.assertTrue(row["marker_edited"])
+        self.assertEqual(row["revision"], "2026.08.02")
+        self.assertEqual(row["matched_revision"], "2026.08.01")
 
 
 # ================================================================================== skills

@@ -64,7 +64,7 @@ an integration's own header marker at that commit, or - for a skill file, which 
 - `base/CLAUDE.md.template`'s own marker at that commit.
 
 1. `C == M` -> `identical`.
-2. `C == H[i]`, `i > 0` -> `behind` (`commit`, `revision`, `within_revision`: that commit's
+2. `C == H[i]`, `i > 0` -> `behind` (`commit`, `revision` - `matched_revision` on an integration row -, `within_revision`: that commit's
    revision equals the master's own).
 3. `C` matches some source in O -> `ahead` (`source`: which one).
 4. Integrations only: `strip(C) == strip(H[i])` and `H[i]`'s revision differs from `C`'s own
@@ -75,7 +75,8 @@ an integration's own header marker at that commit, or - for a skill file, which 
    (`case: null`, unproven - the model decides from provenance). Otherwise `closest == M` ->
    `ahead` (`source: null`); `closest` older -> `both`.
 
-Integration rows add `diff` (unified, capped at 200 lines, `diff_truncated`), `diff_stat`,
+Integration rows keep `revision` for the copy's own header marker and report the revision a
+rule 2 or rule 4 match found as `matched_revision` instead. Integration rows add `diff` (unified, capped at 200 lines, `diff_truncated`), `diff_stat`,
 `overwrite` (`eligible`, `proof`: `history-match`\|`ast`\|`whitespace`\|`null`,
 `proof_commit` - conditions 2 and 3 of the sanctioned overwrite, never eligible when the
 verdict is `ahead`, `both` or `marker-matches-content-differs`), and `suite` (`dir`, `files`,
