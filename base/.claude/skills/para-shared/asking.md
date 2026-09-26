@@ -41,7 +41,9 @@ The rule above covers dispositions. Two other shapes reach the operator, and whi
 - **A closed choice** (purpose, language, a delivery, a shape) is always a question: the options are known before anyone answers.
 - **An open answer** (a name, a deadline, a goal, a URL) is a question **only when the skill holds a concrete suggestion for it**, from the operator's request, a `Context:` line, or the vault itself. The suggestion goes first as `(Recommended)` and **Other** is where the operator corrects it. With nothing to suggest, it stays a short numbered message in prose: options invented to fill the question would make up the operator's answer for them.
 
-A "confirm or correct" list written as prose, where a suggestion exists for every item, is the case this rule exists to stop: it is a recommended option plus Other, and belongs in the tool. The four-question batching, `multiSelect: false` and the reading rules below apply unchanged.
+- **A discovery question** (what eats your week, where your information lives) asks which of several things hold, not what to do, so it is the one shape asked with `multiSelect: true` and no option labelled `(Recommended)`: every option is a fact about the operator, and several can be true at once.
+
+A "confirm or correct" list written as prose, where a suggestion exists for every item, is the case this rule exists to stop: it is a recommended option plus Other, and belongs in the tool. The four-question batching and the reading rules below apply unchanged, and so does `multiSelect: false` everywhere but a discovery question.
 
 ## Grouping
 

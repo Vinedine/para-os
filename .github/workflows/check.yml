@@ -13,7 +13,12 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # macOS too: the README promises Windows or macOS, and nothing else runs the suites there.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:

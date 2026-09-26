@@ -97,9 +97,9 @@ The conventions the templates encode:
 Set up a new para-os vault in this folder: read https://raw.githubusercontent.com/Vinedine/para-os/main/INSTALL.md and follow it. Context: <what this vault is for>.
 ```
 
-It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap interview: three short questions, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. The steps are in [`INSTALL.md`](INSTALL.md): read what it will do before you paste it, or follow it by hand.
+It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap interview: four short choice questions, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. The steps are in [`INSTALL.md`](INSTALL.md): read what it will do before you paste it, or follow it by hand.
 
-**5. Run `/para-daily-brief`.** The vault answers from day one, and better as you feed it your braindump.
+**5. Run `/para-daily-brief`.** The vault answers from day one, and better once you run the short brainstorm the `vault-setup` project starts with.
 
 To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/), a fictional consulting engagement; [`examples/`](examples/README.md) says how to run the skills against it.
 

@@ -1,6 +1,6 @@
 # Bootstrap prompt - stand up a new para-os vault
 
-Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks three short questions, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (your braindump, then connecting your systems), and cleans up after itself.
+Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks four short choice questions, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), and cleans up after itself.
 
 ---
 
@@ -12,40 +12,38 @@ Onboarding runs in three phases. **You run phase 1 now**, in this session. Phase
 
 ## Phase 1 - Setup (now)
 
-Interview me with **exactly these three questions, nothing more** - keep it short, I'm new to this:
+**Ask before you write anything.** Call `AskUserQuestion` now, as your first action, and write no file until it returns. The `Context:` my install prompt ended with, and anything I said in the request, only pre-fill the options below; they never answer a question for me. Where the session has no `AskUserQuestion`, ask the same four questions as one short numbered message, your suggestions filled in for me to confirm or correct, and stop there until I reply.
 
-1. **Vault name** and a one-line description of what it covers.
-2. **What this vault is for** - my own life admin, a business I run, a project portfolio, or a client engagement? And **which language** should the agent answer in (English, Dutch, French, ...)? And is it read here, or read-only on an iPad (the `readonly-ipad` delivery)?
-3. **Any websites or profiles you can read** to learn about it - a company site, a LinkedIn page, a listing. (Optional; I may have none.)
+One call, four short choice questions, nothing more - I'm new to this. **Other** is always where I type my own answer. The rule behind the shapes is `.claude/skills/para-shared/asking.md` (`## A question with a suggested answer`):
 
-**Ask them through `AskUserQuestion` where the session has it**, per the rule in `.claude/skills/para-shared/asking.md` (`## A question with a suggested answer`). Question 2 is a closed choice, so it is always asked this way, as three questions of its own. Questions 1 and 3 are asked this way only when you have a real suggestion for them, typically from the `Context:` my install prompt ended with or from what I said in the request. That gives one call of up to four questions:
+| `header` | Question | Options |
+|---|---|---|
+| `Vault` | What should this vault be called, and what does it cover? | a name and one-line description drafted from `Context:` `(Recommended)`; with no context, the vault folder's own name as the name, description to follow |
+| `Purpose` | What is this vault for? | my own life admin · a business I run · a project portfolio · a client engagement; the one the context points to first and `(Recommended)` |
+| `Language` | Which language should the agent answer in? | English · Nederlands · Français; the one the context points to first and `(Recommended)` |
+| `Website` | Is there a website or profile to learn this vault from? | `Read these: <urls>`, every one the context names, `(Recommended)` · `None`. With none in the context: `None` `(Recommended)` · `Yes, I'll give the link` |
 
-| `header` | Options |
-|---|---|
-| `Name` | your suggested name and one-line description `(Recommended)`, **only** if you have one to suggest |
-| `Purpose` | life admin · a business I run · a project portfolio · a client engagement, the one the context points to first and `(Recommended)` |
-| `Language` | English · Dutch · French, the one the context points to first and `(Recommended)` |
-| `Read where` | here, in Claude Code `(Recommended)` · read-only on an iPad as rendered PDFs |
+Where I pick `Yes, I'll give the link`, or a name with its description still to follow, ask for just that in one line before filling anything.
 
-Then question 3 in a second call where you have sites to suggest (`Read these: <urls>` recommended, `None` as the other option), so that **Other** is where I add or correct. Where you have no suggestion for the name or the sites, ask for them as a short numbered message instead: offering guesses where I hold the answer is worse than asking. Where the session has no `AskUserQuestion`, ask all three as one numbered message, as before, with your suggestions filled in for me to confirm or correct.
+**Delivery is not a phase 1 question.** A vault is read here, in Claude Code, unless my `Context:` or request says a non-technical reader will read it on an iPad. Only then ask one more question, `Read where` (here in Claude Code · read-only on an iPad as rendered PDFs, the `readonly-ipad` delivery), before filling the templates, since that delivery replaces both of them.
 
 Do **not** ask about project definitions, extra `areas/` folders, naming conventions, vault type, or README framing or ownership. Those all get sensible defaults (below); they are decisions I make later when a real need appears, not on day zero.
 
 Then fill the templates:
 
 - If I chose read-only iPad, first run steps 1 and 2 of the setup in the para-os clone's `addons/readonly-ipad/README.md` (its skeleton replaces both templates); its step 3 changes apply to everything below.
-- If I gave URLs, **read them** (WebFetch) and draft the four `README.md` sections (Identity, Operating model, Track record, Vision) from what you find. Flag anything you inferred so I can correct it. If I gave none, leave them as short, obvious stubs for the braindump (phase 2) to fill; the four headings stay exactly as the template names them.
+- If I gave websites, **read them** (WebFetch) and draft the four `README.md` sections (Identity, Operating model, Track record, Vision) from what you find. Flag anything you inferred so I can correct it. If I gave none, leave them as short, obvious stubs for the brainstorm (phase 2) to fill; the four headings stay exactly as the template names them.
 - Fill every `{{placeholder}}` in `CLAUDE.md.template` and `README.md.template`. Keep the invariant blocks (the PARA sorting test, Lifecycle, Archive hygiene, Actions, Filing and naming, Language, Memory, File formats, the standing "Do not add" items) exactly as written. A **delivery** skeleton's header comment lists which of these it drops; treat the rest as invariant. For the taxonomy slots, use these **defaults** verbatim unless I volunteered otherwise:
   - **project** = time-bound work with a committed deliverable and deadline.
   - **extra `areas/` subfolders** = none. `business/` + `network/` only; more emerge later.
   - **source-document naming** = `YYYYMMDD <Who> <Description>.<ext>`, the same default `.claude/rules/filing.md` states. Leave that file and `.claude/rules/figures.md` in place: they are conventions the vault needs from its first filed document, not shapes waiting for a second instance.
   - **archive `projects/`** = omit unless I said the vault archives finished projects.
-  - **`{{operator language}}`** = the language I gave in question 2; default to English.
+  - **`{{operator language}}`** = the language I picked; default to English.
   - **"Do not add"** = the standing items only, plus the accounting line if this is a business or financial vault.
   - **`{{vault-type}}`** = default to `vault`. It's a stable label for telling one class of vault from another when I run several; my own tooling may key off it. Leave the `<!-- para-os-template: -->` comment above it exactly as it is - it records which template revision this vault was built from, and `/para-upgrade` reads it later.
 - **Rename each template to drop the `.template` suffix** (`CLAUDE.md`, `README.md`).
 - **Keep the skeleton's `.gitignore`** as-is, unrenamed: it re-includes `CLAUDE.md` and `.claude/` where a machine-wide gitignore hides them, and guards against committing secrets.
-- Seed `areas/business/actions.md` with the heading `# Business - Actions` and empty `## Next actions` / `## Recurring` sections (no example items, just the headings) - real strategic actions emerge from the braindump, not now.
+- Seed `areas/business/actions.md` with the heading `# Business - Actions` and empty `## Next actions` / `## Recurring` sections (no example items, just the headings) - real strategic actions emerge from the brainstorm, not now.
 
 **Do not add any of the optional sections below at setup.** They are shapes a vault grows *into*, and one added early costs tokens every session to describe something that isn't there. Add a `## Context` section only if this vault needs scope boundaries or cross-vault context. The rest come later, when the need is real:
 
@@ -65,14 +63,20 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 
 **`brief.md`** - a short plan covering:
 
-- **Phase 2, Braindump.** I tell you about this vault in my own words - typed, or as a voice memo / notes I drop into `triage/` for you to read. You fold it into `README.md`, every section real and Vision included (ask where this should end up if I didn't say), and spin out the first real projects, contacts, and actions from it (one `/para-new` run each, so every one gets the sorting test rather than a bare folder).
+- **Phase 2, Brainstorm.** Four short rounds, each one `AskUserQuestion` call (a numbered message where the session has none), then a plan I approve. Nothing is created until I approve it.
+  1. *Your week* (`multiSelect`): what eats the most time? Email · Paperwork and finding documents · Clients and follow-ups · Money and invoices. Feeds the areas and the first skill candidates.
+  2. *Where things live* (`multiSelect`): Mail and calendar · Cloud drives or shared folders · Accounting or business software · Paper, chat apps, or in my head. Feeds the phase 3 *Systems* table.
+  3. *The next 90 days*: what must be done or decided, what keeps slipping, and what question I wish I could just ask. Open answers with nothing to suggest, so a short numbered message rather than the tool; a voice memo or notes I drop into `triage/` answer it just as well, and you read them from there.
+  4. *One win*: which single thing would matter most this month? A choice drafted from rounds 1-3, the most pressing `(Recommended)`.
+
+  Then propose 3-5 projects and areas, the connections to set up, and one task to do today, and put them to me item by item per `.claude/skills/para-shared/asking.md`. Create only what I approve, one `/para-new` run each, so every one gets the sorting test rather than a bare folder. Fold my answers into `README.md`, every section real and Vision included (ask where this should end up if I didn't say).
 - **Phase 3, Inventory & connect.** Two tables to fill together:
   - *Systems* - one row per system my work lives in (mail, calendar, drive, accounting, tickets, ...): what it holds · how it's wired in (connector authorized in the agent · MCP server declared in config · integration script in `resources/scripts/`) · status (pending / connected). Only the integration scripts live in the vault; connectors and MCP servers are agent-side, so this table plans and tracks them.
   - *Data sources* - one row per existing folder or inbox to pull from: where it is · what to extract into the vault.
 
 **`actions.md`** (Obsidian Tasks markers) - the concrete next steps:
 
-- `- [ ] Braindump: describe this vault and where it should end up (type it, or drop a recording / notes in triage/)`
+- `- [ ] Brainstorm: four short rounds on my week, my systems, the next 90 days and one win (or drop a recording / notes in triage/)`
 - `- [ ] List the systems my work lives in`
 - `- [ ] Connect each system - plan the MCP / API wiring`
 - `- [ ] Extract existing data from each folder / inbox`
@@ -82,5 +86,5 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 - Leave the PARA placeholder READMEs in place - they self-delete as real content arrives. `triage/` is the exception: it gets a `.gitkeep`, never a README.
 - Do **not** add entity templates or a `.claude/rules/` shape file yet; those come once a second instance of an entity type exists.
 - Delete this `bootstrap-prompt.md`. Confirm the vault is clean: filled `CLAUDE.md` + `README.md`, a seeded `areas/business/actions.md`, a `projects/vault-setup/` with `brief.md` + `actions.md`, and no remaining `.template` files.
-- Tell me the skills are already bundled in this vault (`.claude/skills/`) so I can run `/para-daily-brief` right away, and that `.claude/settings.json` ships with Claude Code's auto memory turned off (the vault itself is the memory, see `## Memory` in CLAUDE.md); leave that in place. Ask whether this vault needs a **flavor** (what it is about) or a **module** (a function beside that, such as sales), both under the para-os clone's `addons/`. Each becomes one line under `**Type:**` (`**Flavor:** <name>`, `**Modules:** <name>, <name>`), as does a delivery chosen in question 2 (`**Delivery:** <name>`); a flavor or module then runs its own README's setup, which merges its `CLAUDE.md.sections` beside the vault's sections. Default to neither; they are cheap to add later and cost tokens every session when they describe something the vault does not do.
-- Offer to start the braindump (phase 2) right now if I have a few minutes. Once every action in the vault-setup project is done, I retire it - archive or delete `projects/vault-setup/`.
+- Tell me the skills are already bundled in this vault (`.claude/skills/`) so I can run `/para-daily-brief` right away, and that `.claude/settings.json` ships with Claude Code's auto memory turned off (the vault itself is the memory, see `## Memory` in CLAUDE.md); leave that in place. Ask whether this vault needs a **flavor** (what it is about) or a **module** (a function beside that, such as sales), both under the para-os clone's `addons/`. Each becomes one line under `**Type:**` (`**Flavor:** <name>`, `**Modules:** <name>, <name>`), as does the iPad delivery where I chose it (`**Delivery:** <name>`); a flavor or module then runs its own README's setup, which merges its `CLAUDE.md.sections` beside the vault's sections. Default to neither; they are cheap to add later and cost tokens every session when they describe something the vault does not do.
+- Offer to start the brainstorm (phase 2) right now if I have ten minutes. Once every action in the vault-setup project is done, I retire it - archive or delete `projects/vault-setup/`.
