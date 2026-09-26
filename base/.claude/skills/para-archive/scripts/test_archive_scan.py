@@ -20,8 +20,10 @@ how an inbound reference is classified, and what a verify pass has to re-check a
 import io
 import json
 import contextlib
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import date
@@ -29,6 +31,7 @@ from pathlib import Path
 
 from archive_scan import CollectedVault, main, plan, reason_allowed, verify
 
+SCRIPT = Path(__file__).resolve().parent / "archive_scan.py"
 TODAY = date(2026, 9, 22)
 
 DEAL_LIFECYCLE = "\n".join([
@@ -235,6 +238,37 @@ class EntityResolution(VaultCase):
         self.assertEqual(r["snapshot"], {})
 
 
+# ---------------------------------------------------------------------- the entity's record
+
+class EntityRecord(VaultCase):
+    """reconcile.md Step 3: the record is brief.md, or the README the vault's shape gives
+    the entity instead."""
+
+    def test_a_readme_stands_in_for_a_missing_brief(self):
+        write(self.root, "projects/acme/README.md",
+              "# Acme\n\n**Status:** shipped\n\n## Backlog\n- A README-side idea, still open.\n")
+        r = self.plan("acme")
+        self.assertEqual(r["gate"]["status_line"], "shipped")
+        self.assertEqual([(b["file"], b["text"]) for b in r["actions"]["backlog"]],
+                         [("projects/acme/README.md", "A README-side idea, still open.")])
+
+    def test_brief_wins_over_a_readme_when_both_exist(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n\n**Status:** shipped\n")
+        write(self.root, "projects/acme/README.md", "# Acme\n\n**Status:** open\n")
+        self.assertEqual(self.plan("acme")["gate"]["status_line"], "shipped")
+
+    def test_an_entity_with_neither_record_has_no_status_line_and_no_lifecycle(self):
+        # Step 3's "No brief.md" edge case: the scan still answers, with nothing to read.
+        self.declare_deal_lifecycle()
+        write(self.root, "projects/acme/notes.md",
+              "# Notes\n\n**Stage:** Lost (since 2026-09-15)\nRenew by 2026-10-01.\n")
+        r = self.plan("acme")
+        self.assertIsNone(r["lifecycle"])
+        self.assertEqual(r["gate"], {"status_line": None, "open_dated": [],
+                                     "future_dated_lines": []})
+        self.assertEqual(r["actions"]["backlog"], [])
+
+
 # ---------------------------------------------------------------------------- destination
 
 class Destination(VaultCase):
@@ -291,6 +325,37 @@ class Destination(VaultCase):
         self.assertNotIn("suffix_siblings", d)
         self.assertNotIn("next_suffix", d)
 
+    def test_next_suffix_is_the_lowest_free_number_not_one_past_the_highest(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "archive/projects/acme-v1/brief.md", "# v1\n")
+        write(self.root, "archive/projects/acme-v3/brief.md", "# v3\n")
+        d = self.plan("acme")["destination"]
+        self.assertEqual(d["suffix_siblings"], ["acme-v1", "acme-v3"])
+        self.assertEqual(d["next_suffix"], 2)
+
+    def test_a_file_named_like_a_suffix_sibling_is_not_one(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "archive/projects/acme-v1", "a stray file, not an archived folder\n")
+        d = self.plan("acme")["destination"]
+        self.assertEqual(d["suffix_siblings"], [])
+        self.assertEqual(d["next_suffix"], 1)
+
+    def test_a_project_override_reads_its_suffix_siblings_beside_the_override(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "archive/projects/acme-v1/brief.md", "# not beside the override\n")
+        write(self.root, "archive/clients/acme-v1/brief.md", "# v1\n")
+        d = self.plan("acme", destination="archive/clients/acme")["destination"]
+        self.assertEqual(d["suffix_siblings"], ["acme-v1"])
+        self.assertEqual(d["next_suffix"], 2)
+
+    def test_a_destination_override_is_normalised_like_every_path_argument(self):
+        write(self.root, "areas/harbor-website/brief.md", "# Harbor website\n")
+        write(self.root, "archive/websites/harbor-website/brief.md", "# Already there\n")
+        d = self.plan("harbor-website",
+                      destination=" archive\\websites\\harbor-website/ ")["destination"]
+        self.assertEqual(d["path"], "archive/websites/harbor-website")
+        self.assertTrue(d["exists"])
+
 
 # ---------------------------------------------------------------------------- lifecycle
 
@@ -324,6 +389,57 @@ class Lifecycle(VaultCase):
     def test_a_rule_file_declaring_no_reason_gives_allowed_null(self):
         write(self.root, ".claude/rules/other.md", "# Other rule\n\nNothing about reasons.\n")
         self.assertIsNone(reason_allowed(self.root, "Lost"))
+
+    def test_a_paragraph_naming_the_field_without_a_list_is_passed_over(self):
+        # Sorted first, a rule file that names the field with no "one of", or with a "one
+        # of" followed by no bold value, must not stop the search short of the real list.
+        write(self.root, ".claude/rules/a-overview.md",
+              "# Overview\n\n**Lost reason:** is required on every lost deal.\n\n"
+              "The **Lost reason:** line is one of the fields a closed deal keeps.\n")
+        write(self.root, ".claude/rules/deal-brief.md", DEAL_BRIEF_RULE)
+        self.assertEqual(reason_allowed(self.root, "lost"),
+                         ["no decision", "timing", "budget", "went elsewhere", "not a fit",
+                          "relationship only"])
+
+    def test_a_destination_matching_no_terminal_home_asks_for_no_reason(self):
+        # The default project destination is not the lifecycle's terminal home, so the
+        # skill is told the move lands outside every terminal stage.
+        self.declare_deal_lifecycle()
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n**Stage:** Goal (since 2026-09-01)\n")
+        lc = self.plan("acme")["lifecycle"]
+        self.assertEqual(lc["current_stage"], "Goal")
+        self.assertIsNone(lc["destination_matches"])
+        self.assertFalse(lc["stage_line_names_destination"])
+        self.assertIsNone(lc["reason"])
+
+    def test_an_area_with_no_destination_yet_matches_no_terminal_stage(self):
+        self.declare_deal_lifecycle()
+        write(self.root, "areas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-08-01)\n")
+        r = self.plan("acme")
+        self.assertTrue(r["destination"]["needs_vault_rule"])
+        self.assertEqual(r["lifecycle"]["current_stage"], "Qualified")
+        self.assertIsNone(r["lifecycle"]["destination_matches"])
+        self.assertIsNone(r["lifecycle"]["reason"])
+
+    def test_each_terminal_stage_is_matched_by_its_own_home(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "## Deal lifecycle", "",
+            "| Stage | PARA home |", "|---|---|",
+            "| Qualified | `resources/ideas/<company>/` |",
+            "| Won | `archive/clients/<company>/` |",
+            "| Lost | `archive/ideas/<company>/` |", "",
+        ]) + "\n")
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Lost (since 2026-09-15)\n**Lost reason:** timing, later\n")
+        lc = self.plan("acme")["lifecycle"]
+        self.assertEqual([t["name"] for t in lc["terminal_stages"]], ["Won", "Lost"])
+        self.assertEqual(lc["destination_matches"], "Lost")
+        self.assertTrue(lc["stage_line_names_destination"])
+        # No rule file under .claude/rules/: the skill reads the rule itself.
+        self.assertEqual(lc["reason"], {"field": "Lost reason", "raw": "timing, later",
+                                        "key": "timing", "allowed": None})
 
     def test_no_rules_dir_at_all_gives_allowed_null(self):
         self.assertIsNone(reason_allowed(self.root, "Lost"))
@@ -503,6 +619,13 @@ class Actions(VaultCase):
         backlog = self.plan("acme")["actions"]["backlog"]
         self.assertEqual([b["text"] for b in backlog], ["Now-ish", "Rebuild site"])
 
+    def test_a_new_top_level_heading_ends_the_backlog(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme - Actions\n\n## Backlog\n- Rebuild site\n\n# Log\n\n- Not backlog\n")
+        backlog = self.plan("acme")["actions"]["backlog"]
+        self.assertEqual([b["text"] for b in backlog], ["Rebuild site"])
+
     def test_other_checkbox_files_names_a_stray_file_and_whether_it_is_in_sources(self):
         write(self.root, "projects/acme/brief.md", "# Acme\n")
         write(self.root, "projects/acme/plan.md", "# Plan\n\n- [ ] Stray open item\n")
@@ -614,6 +737,30 @@ class Inbound(VaultCase):
         self.assertEqual(inbound["references"], [])
         self.assertEqual(len(inbound["name_only"]), 1)
         self.assertIn("acme-website-v2", inbound["name_only"][0]["text"])
+
+    def test_a_link_elsewhere_does_not_make_a_substring_hit_a_reference(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "areas/network/jan.md",
+              "# Jan\n\nWorking on acme-website-v2, see "
+              "[its brief](../../projects/acme-website-v2/brief.md).\n")
+        inbound = self.plan("acme")["inbound"]
+        self.assertEqual(inbound["references"], [])
+        self.assertEqual([h["file"] for h in inbound["name_only"]], ["areas/network/jan.md"])
+
+    def test_a_link_to_the_folder_or_a_missing_file_is_no_living_reference(self):
+        # Step 4 routes files: only a file that exists inside the entity is a candidate.
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "projects/acme/playbook.md", "# Playbook\n")
+        write(self.root, "areas/network/jan.md", "\n".join([
+            "# Jan", "",
+            "The [folder](../../projects/acme/) as a whole.",
+            "A [gone file](../../projects/acme/gone.md).",
+            "The [playbook](../../projects/acme/playbook.md).", "",
+        ]))
+        candidates = self.plan("acme")["inbound"]["living_reference_candidates"]
+        self.assertEqual(candidates, [{"file": "projects/acme/playbook.md",
+                                       "linked_from": [{"file": "areas/network/jan.md",
+                                                        "line": 5}]}])
 
     def test_hits_inside_the_entity_folder_itself_are_excluded(self):
         write(self.root, "projects/acme/brief.md", "# Acme\n\nAcme is a project.\n")
@@ -786,6 +933,48 @@ class Verify(VaultCase):
                         routed=["resources/acme/playbook.md"])
         self.assertEqual(len(v["inside"]["dangling"]), 2)
 
+    def test_installed_skill_copies_are_not_vault_content(self):
+        # move.md Step 6: installed skill copies are not vault content, before or after.
+        write(self.root, ".claude/skills/para-archive/SKILL.md", "\n".join([
+            "# Skill", "",
+            "Old [brief](../../../projects/acme/brief.md), or projects/acme in prose.",
+            "New [actions](../../../archive/projects/acme/actions.md), never written.", "",
+        ]))
+        v = self.verify("projects/acme", "archive/projects/acme")
+        self.assertEqual(v["stale_links"], [])
+        self.assertEqual(v["stale_mentions"], [])
+        self.assertEqual(v["inbound_resolved"], {"resolved": 0, "unresolved": []})
+        self.assertTrue(v["clean"])
+
+    def test_a_mention_opening_its_line_is_stale(self):
+        write(self.root, "areas/network/jan.md", "# Jan\n\nprojects/acme was the old home.\n")
+        v = self.verify("projects/acme", "archive/projects/acme")
+        self.assertEqual([(m["file"], m["line"]) for m in v["stale_mentions"]],
+                         [("areas/network/jan.md", 3)])
+
+    def test_a_longer_path_or_name_holding_the_old_one_is_not_a_mention(self):
+        write(self.root, "areas/network/jan.md", "\n".join([
+            "# Jan", "",
+            "The old-projects/acme folder is a different one.",
+            "So is projects/acme-website, and projects/acme_2.", "",
+        ]))
+        v = self.verify("projects/acme", "archive/projects/acme")
+        self.assertEqual(v["stale_mentions"], [])
+        self.assertTrue(v["clean"])
+
+    def test_inside_counts_every_link_that_resolves(self):
+        write(self.root, "areas/business/actions.md", "# Business\n")
+        write(self.root, "archive/projects/acme/actions.md",
+              "# Acme - Actions\n\nSee [brief](brief.md) and "
+              "[the area](../../../areas/business/actions.md).\n")
+        v = self.verify("projects/acme", "archive/projects/acme")
+        self.assertEqual(v["inside"], {"resolved": 2, "dangling": []})
+
+    def test_old_path_still_holding_a_file_exists_and_is_not_empty(self):
+        write(self.root, "projects/acme/left-behind.md", "# Left behind\n")
+        v = self.verify("projects/acme", "archive/projects/acme")
+        self.assertEqual(v["old_path"], {"exists": True, "empty": False})
+
     def test_old_path_still_present_and_empty_is_named(self):
         (self.root / "projects" / "acme").mkdir(parents=True)
         v = self.verify("projects/acme", "archive/projects/acme")
@@ -820,6 +1009,141 @@ class Verify(VaultCase):
                        cwd=self.root, check=True)
         v = self.verify("projects/acme", "archive/projects/acme")
         self.assertIn("archive/projects/acme/never-committed.md", v["untracked"])
+
+
+# ----------------------------------------------------------------------------- command line
+
+class CommandLine(VaultCase):
+    """SKILL.md Step 0 and move.md Step 8: the two calls the skill actually makes, their
+    exit codes, and the usage errors that stop a malformed call before it reads anything."""
+
+    def setUp(self):
+        super().setUp()
+        self.home = self.root / "paraoshome"  # never the real ~/.paraos
+
+    def run_main(self, *argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["--vault", str(self.root), "--paraos-home", str(self.home), *argv])
+        return code, out.getvalue()
+
+    def usage_error(self, *argv):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as stop:
+            self.run_main(*argv)
+        self.assertEqual(stop.exception.code, 2)
+        return err.getvalue()
+
+    def test_plan_mode_prints_one_json_document_and_exits_0(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        code, out = self.run_main("--entity", "acme", "--today", "2026-09-22", "--indent", "2")
+        self.assertEqual(code, 0)
+        self.assertTrue(out.endswith("}\n"))
+        self.assertIn('\n  "entity": {', out)  # --indent pretty-prints
+        report = json.loads(out)
+        self.assertEqual(report["entity"]["source"], "projects/acme")
+        self.assertEqual(report["destination"]["path"], "archive/projects/acme")
+
+    def test_today_is_the_date_every_check_measures_against(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nRenew by 2026-10-01.\n")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme - Actions\n\n- [ ] Wrap-up call 📅 2026-09-25\n")
+        for today, ahead, future in (("2026-09-22", True, 1), ("2026-10-01", False, 0)):
+            _, out = self.run_main("--entity", "acme", "--today", today)
+            report = json.loads(out)
+            self.assertEqual(report["actions"]["open"][0]["ahead"], ahead, today)
+            self.assertEqual(len(report["gate"]["future_dated_lines"]), future, today)
+
+    def test_route_is_repeatable_on_the_command_line(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "projects/acme/playbook.md", "# Playbook\n")
+        write(self.root, "projects/acme/pricing.md", "# Pricing\n")
+        write(self.root, "areas/network/jan.md", "# Jan\n\nCited as `pricing.md` alone.\n")
+        _, out = self.run_main("--entity", "acme", "--today", "2026-09-22",
+                               "--route", "projects/acme/playbook.md",
+                               "--route", "projects/acme/pricing.md")
+        routed = json.loads(out)["inbound"]["routed"]
+        self.assertEqual(routed["projects/acme/playbook.md"], [])
+        self.assertEqual([h["file"] for h in routed["projects/acme/pricing.md"]],
+                         ["areas/network/jan.md"])
+
+    def test_verify_mode_prints_its_report_and_exits_0(self):
+        write(self.root, "archive/projects/acme/brief.md", "# Acme\n")
+        write(self.root, "resources/acme/playbook.md", "# Playbook\n\nSee [gone](missing.md).\n")
+        code, out = self.run_main("--verify", "--moved-from", "projects/acme",
+                                  "--moved-to", "archive/projects/acme",
+                                  "--routed", "resources/acme/playbook.md")
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        self.assertEqual(report["moved_to"], "archive/projects/acme")
+        self.assertEqual(len(report["inside"]["dangling"]), 1)
+        self.assertFalse(report["clean"])
+
+    def test_a_collected_vault_exits_2_in_both_modes(self):
+        write(self.root, "resources/mds/projects__acme__brief.md", "# acme\n")
+        for argv in (("--entity", "acme", "--today", "2026-09-22"),
+                     ("--verify", "--moved-from", "projects/acme",
+                      "--moved-to", "archive/projects/acme")):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code, out = self.run_main(*argv)
+            self.assertEqual(code, 2, argv)
+            self.assertEqual(out, "")
+            self.assertIn("archive_scan: this vault is collected", err.getvalue())
+
+    def test_plan_mode_without_an_entity_is_a_usage_error(self):
+        self.assertIn("--entity is required outside --verify", self.usage_error())
+
+    def test_verify_mode_without_both_paths_is_a_usage_error(self):
+        err = self.usage_error("--verify", "--moved-from", "projects/acme")
+        self.assertIn("--verify needs --moved-from and --moved-to", err)
+
+    def test_a_today_that_names_no_real_day_is_a_usage_error(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        self.assertIn("--today wants YYYY-MM-DD",
+                      self.usage_error("--entity", "acme", "--today", "2026-13-01"))
+
+
+class RunAsAScript(unittest.TestCase):
+    """What the skill actually runs: the file itself, from whatever folder the shell is in."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.base = Path(tmp.name)
+
+    def test_run_from_another_folder_it_finds_the_library_and_writes_utf8(self):
+        # A Windows pipe defaults to a codepage that cannot encode a task marker; an ASCII
+        # stdout stands in for it on every platform.
+        vault = self.base / "vault"
+        for d in ("projects", "areas", "archive"):
+            (vault / d).mkdir(parents=True)
+        write(vault, "CLAUDE.md", "# Vault\n")
+        write(vault, "projects/acme/brief.md", "# Acme\n")
+        write(vault, "projects/acme/actions.md",
+              "# Acme - Actions\n\n- [ ] Bestel café voor de opening 📅 2026-09-25\n")
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--vault", str(vault), "--entity", "acme",
+             "--today", "2026-09-22", "--paraos-home", str(self.base / "home")],
+            cwd=self.base, capture_output=True, timeout=60,
+            env=dict(os.environ, PYTHONIOENCODING="ascii"))
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
+        report = json.loads(result.stdout.decode("utf-8"))
+        self.assertEqual(report["actions"]["open"][0]["text"], "Bestel café voor de opening")
+
+    def test_a_missing_shared_library_exits_2_and_names_the_fallback(self):
+        # scripts.md: a missing shared library is a by-hand fallback, never a traceback.
+        isolated = self.base / "skills" / "para-archive" / "scripts"
+        isolated.mkdir(parents=True)
+        shutil.copy(SCRIPT, isolated / "archive_scan.py")
+        result = subprocess.run(
+            [sys.executable, str(isolated / "archive_scan.py"), "--vault", ".",
+             "--entity", "acme"],
+            cwd=self.base, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("archive_scan:", result.stderr)
+        self.assertIn("scan by hand", result.stderr)
 
 
 if __name__ == "__main__":

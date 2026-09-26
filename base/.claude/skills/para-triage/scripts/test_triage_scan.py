@@ -20,10 +20,15 @@ a fetched thread folds against an already-staged note.
 import contextlib
 import io
 import json
+import os
+import shutil
+import subprocess
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest import mock
 
+import triage_scan
 from triage_scan import (
     build_loose, build_snapshot, ingest_block, main, note_block, over_threshold_block, plan,
     same_thread_block, seen_ledger_block, subdirectories_block, vault_block,
@@ -34,6 +39,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "para-shared" / "scripts"))
 from paraos_vault import changed, registry, thread_hash  # noqa: E402
 
+SCRIPT = Path(__file__).resolve().parent / "triage_scan.py"
 NOW = datetime(2026, 9, 22, 12, 0, 0, tzinfo=timezone.utc)
 
 
@@ -68,13 +74,19 @@ def sources_claude_md(rows):
 
 
 class VaultCase(unittest.TestCase):
-    """A throwaway vault root and a throwaway paraos_home, both removed afterwards."""
+    """A throwaway vault root and a throwaway paraos_home, both removed afterwards.
+
+    `resolved` builds both on the temp folder's resolved spelling (macOS's /var is a symlink,
+    and a Windows temp folder can carry an 8.3 short name), for a case that needs the
+    registry to list this vault without being a test of how that path is matched."""
+
+    resolved = False
 
     def setUp(self):
         import tempfile
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        base = Path(tmp.name)
+        base = Path(tmp.name).resolve() if self.resolved else Path(tmp.name)
         self.root = base / "Alpha"
         self.home = base / "paraoshome"
         for d in ("projects", "areas", "archive", "triage"):
@@ -186,6 +198,37 @@ class VaultRoot(unittest.TestCase):
         self.assertEqual(info["name"], "SomeFolder")
         self.assertFalse(info["registered"])
         self.assertFalse(info["active"])
+
+    def test_a_subfolder_of_a_registered_vault_names_that_vault_as_the_hint(self):
+        # The session started inside the vault rather than at its root.
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name) / "Alpha"
+        for d in ("projects", "areas", "archive", "triage"):
+            (root / d).mkdir(parents=True)
+        write(root, "CLAUDE.md", "# Vault\n")
+        info = vault_block(root / "projects", [
+            {"name": "Beta", "path": str(Path(tmp.name) / "Beta"), "active": True},
+            {"name": "Alpha", "path": str(root), "active": True},
+        ])
+        self.assertFalse(info["root"])
+        self.assertEqual(info["hint"], {"name": "Alpha", "path": str(root)})
+        self.assertFalse(info["registered"])  # the subfolder is not the entry's own path
+        self.assertEqual(info["name"], "projects")
+
+    def test_the_folded_name_fallback_skips_entries_that_do_not_fold_to_it(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        old_location = Path(tmp.name) / "old-drive" / "alpha vault"
+        old_location.mkdir(parents=True)
+        new_location = str(Path(tmp.name) / "new" / "Alpha Vault")
+        info = vault_block(old_location, [
+            {"name": "Beta", "path": str(Path(tmp.name) / "Beta")},
+            {"name": "Alpha.Vault", "path": new_location},
+        ])
+        self.assertEqual(info["hint"], {"name": "Alpha.Vault", "path": new_location})
 
 
 # --------------------------------------------------------------------------- ingest coverage
@@ -368,6 +411,62 @@ class RowPlanning(VaultCase):
         report = self.plan()  # nothing covers this vault at all
         self.assertEqual(report["sources"]["rows"][0]["plan"], "lookup")
 
+    def test_an_unrecognised_source_type_is_unknown_never_guessed(self):
+        write(self.root, "CLAUDE.md", sources_claude_md([
+            "| loft | carrier-pigeon | `the roof` | Whatever lands. |",
+        ]))
+        row = self.plan()["sources"]["rows"][0]
+        self.assertEqual((row["plan"], row["reason"]),
+                         ("unknown", "unrecognised source type: carrier-pigeon"))
+
+
+class RowReasons(VaultCase):
+    """The condition that decided a row, named in its `reason` (sources.md). Each case
+    needs the registry to list this vault, so it runs on the resolved temp root."""
+
+    resolved = True
+
+    def test_a_vault_not_covered_carries_its_verdict_as_every_rows_reason(self):
+        write(self.root, "CLAUDE.md", sources_claude_md([
+            "| mail | connector: google-workspace | a@example-work.com | Leads. |",
+            "| notes | sync-script | `resources/scripts/notes-sync.js` | Meetings. |",
+        ]))
+        report = self.plan()  # registered and active, but no ingest log at all
+        reason = "registry lists this vault, but ingest last staged never - pulled locally"
+        self.assertEqual(report["ingest"]["reason"], reason)
+        self.assertEqual([(r["plan"], r["reason"]) for r in report["sources"]["rows"]],
+                         [("pull", reason), ("run", reason)])
+
+    def test_a_sync_run_for_another_vault_or_another_script_does_not_count(self):
+        write(self.root, "CLAUDE.md", sources_claude_md([
+            "| notes | sync-script | `resources/scripts/notes-sync.js` | Meetings. |",
+        ]))
+        write_run(self.home, "20260922-090000.json", {
+            "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
+            "files_written": [str(self.root / "triage" / "x.md")],
+            "sync_runs": [
+                "not a record",
+                {"vault": "Beta", "script": "resources/scripts/notes-sync.js", "error": None},
+                {"vault": "Alpha", "script": "resources/scripts/other-sync.js", "error": None},
+            ],
+        })
+        row = self.plan()["sources"]["rows"][0]
+        self.assertEqual((row["plan"], row["reason"]),
+                         ("run", "log records no matching sync run for this script"))
+
+    def test_a_sync_run_matches_its_script_whatever_the_slashes_or_case(self):
+        # The log is written on whichever machine ran ingest, with that machine's slashes.
+        write(self.root, "CLAUDE.md", sources_claude_md([
+            "| notes | sync-script | `resources/scripts/notes-sync.js` | Meetings. |",
+        ]))
+        write_run(self.home, "20260922-090000.json", {
+            "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
+            "files_written": [str(self.root / "triage" / "x.md")],
+            "sync_runs": [{"vault": "Alpha", "script": "Resources\\Scripts\\Notes-Sync.js",
+                           "error": None}],
+        })
+        self.assertEqual(self.plan()["sources"]["rows"][0]["plan"], "skip")
+
 
 # --------------------------------------------------------------------------------- the note
 
@@ -425,6 +524,53 @@ class NoteShapes(unittest.TestCase):
         self.assertIsNone(note["shape"])
         self.assertFalse(note["mail_note"])
         self.assertEqual(note["fields"], {})
+
+    def test_a_quoted_frontmatter_value_is_read_without_its_quotes(self):
+        path = self.note("20260920 Note 88604c.md", "\n".join([
+            "---", 'source: "google-workspace (alex@example-work.com)"',
+            "tags:", "  - mail", "thread_id: '1a0c556d2559b07c'",
+            "link: https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c", "---", "",
+            "Short summary.", "",
+        ]))
+        note = note_block(path, [], "Alpha", {})
+        self.assertEqual(note["shape"], "frontmatter")
+        self.assertEqual(note["fields"], {
+            "source": "google-workspace (alex@example-work.com)", "tags": "",
+            "thread_id": "1a0c556d2559b07c",
+            "link": "https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c"})
+        self.assertEqual(note["mailbox"], "alex@example-work.com")
+        self.assertTrue(note["mail_note"])
+
+    def test_a_frontmatter_block_that_never_closes_is_no_shape(self):
+        path = self.note("20260920 Standup 88604c.md",
+                         "---\nsource: granola\nthread_id: 1a0c556d2559b07c\n\nNotes.\n")
+        note = note_block(path, [], "Alpha", {})
+        self.assertIsNone(note["shape"])
+        self.assertFalse(note["mail_note"])
+
+    def test_an_ingest_header_with_no_source_or_link_is_not_a_mail_note(self):
+        # Blank lines before the title do not hide the header block under it.
+        path = self.note("20260920 Forwarded 88604c.md", "\n".join([
+            "", "", "# Forwarded", "",
+            "- **From:** Alex Rivera <alex@example-work.com>",
+            "- **Content:** Snippet only, the body was not read.", "",
+            "Snippet body.", "",
+        ]))
+        note = note_block(path, [{"name": "Beta"}], "Alpha", {})
+        self.assertEqual(note["shape"], "ingest")
+        self.assertFalse(note["mail_note"])
+        self.assertIsNone(note["mailbox"])
+        self.assertEqual(note["mentioned_vaults"], [])
+        self.assertTrue(note["content_incomplete"])
+        self.assertIsNone(note["thread_id"])
+
+    def test_a_ledger_record_that_is_not_an_object_is_passed_over(self):
+        ledger_mailboxes = {"alex@example-work.com": {
+            "some-thread": "not a record",
+            "1a0c556d2559b07c": {"routed": ["Alpha", "Beta"]},
+        }}
+        self.assertEqual(_routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
+                                             "88604c", "Alpha"), (["Beta"], "ledger"))
 
     def test_mentioned_vaults_excludes_this_vault_and_matches_short_names_case_sensitively(self):
         entries = [{"name": "Beta"}, {"name": "Alpha"}, {"name": "BF"}, {"name": "QZ"}]
@@ -495,6 +641,11 @@ class NoteShapes(unittest.TestCase):
             "https://mail.google.com/mail/?authuser=x@example.com#all/thread-f:"
             "1876969071973085308", "88604c"),
             "1a0c556d2559b07c")
+
+    def test_a_link_carrying_no_thread_id_yields_none(self):
+        for link in ("https://mail.google.com/mail/u/0/",
+                     "https://outlook.office.com/mail/inbox/id/AAQkAGI2"):
+            self.assertIsNone(_extract_thread_id(link, "88604c"), link)
 
 
 class ContentIncomplete(unittest.TestCase):
@@ -653,6 +804,63 @@ class DuplicatesAndCrossVault(VaultCase):
         item = next(i for i in loose if i["name"] == "20260913 Note 91af05.md")
         self.assertEqual(item["cross_vault"], [{"vault": "Gamma", "unreadable": True}])
 
+    def mail_note(self, routed, body_word):
+        return "\n".join([
+            "# A note", "",
+            "- **Source:** connector: google-workspace (x@example-work.com)",
+            "- **From:** Someone <x@example-work.com>",
+            "- **Received:** 2026-09-13T10:00:00+02:00",
+            f"- **Routed:** {routed}", "- **Content:** Full body.",
+            "- **Link:** https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c", "",
+        ]) + self.body(body_word)
+
+    def test_a_same_size_file_with_different_bytes_is_no_cross_vault_twin(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        other_root = Path(tmp.name) / "Beta"
+        note_text = self.mail_note("also relevant to Beta", "aaaaaaaa")
+        write(self.root, "triage/20260913 Note 88604c.md", note_text)
+        # Same length, one different byte: content decides, never the size alone.
+        write(other_root, "resources/ideas/deal/sources/20260913 Other.md",
+              note_text.replace("aaaaaaaa", "aaaaaaab", 1))
+        entries = [{"name": "Alpha", "path": str(self.root)},
+                   {"name": "Beta", "path": str(other_root)}]
+        loose = build_loose(self.root, entries, "Alpha", {})
+        self.assertEqual(loose[0]["cross_vault"], [])
+
+    def test_a_mail_note_naming_no_other_vault_checks_none(self):
+        # Gamma's path is missing: a walk of it would come back unreadable, so an empty
+        # list here shows no vault was walked at all.
+        write(self.root, "triage/20260913 Note 88604c.md",
+              self.mail_note("this vault only", "solo-note-content"))
+        entries = [{"name": "Alpha", "path": str(self.root)},
+                   {"name": "Gamma", "path": str(self.root / "no-such-vault")}]
+        loose = build_loose(self.root, entries, "Alpha", {})
+        self.assertTrue(loose[0]["note"]["mail_note"])
+        self.assertEqual(loose[0]["cross_vault"], [])
+
+    def test_a_vault_whose_walk_fails_is_unreadable_not_dropped(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        other_root = Path(tmp.name) / "Beta"
+        other_root.mkdir()
+        write(self.root, "triage/20260913 Note 88604c.md",
+              self.mail_note("also relevant to Beta", "walk-fails-content"))
+        entries = [{"name": "Alpha", "path": str(self.root)},
+                   {"name": "Beta", "path": str(other_root)}]
+        real_hashes = triage_scan.hashes
+
+        def denied_in_other_vaults(root, **kwargs):
+            if Path(root) == other_root:
+                raise PermissionError("access denied")
+            return real_hashes(root, **kwargs)
+
+        with mock.patch("triage_scan.hashes", side_effect=denied_in_other_vaults):
+            loose = build_loose(self.root, entries, "Alpha", {})
+        self.assertEqual(loose[0]["cross_vault"], [{"vault": "Beta", "unreadable": True}])
+
 
 # -------------------------------------------------------------------------------- inbound
 
@@ -669,6 +877,15 @@ class Inbound(VaultCase):
         item = next(i for i in loose if i["name"] == "20260920 Some Notice.md")
         self.assertEqual(len(item["inbound"]), 1)
         self.assertEqual(item["inbound"][0]["file"], "areas/network/someone.md")
+
+    def test_a_notes_mention_of_its_own_name_is_not_inbound(self):
+        write(self.root, "triage/20260920 Some Notice.md",
+              "# Some Notice\n\nStaged as `triage/20260920 Some Notice.md`.\n" + self.padding())
+        write(self.root, "areas/network/someone.md",
+              "# Someone\n\nSee `triage/20260920 Some Notice.md` for details.\n")
+        loose = build_loose(self.root, [], "Alpha", {})
+        self.assertEqual(loose[0]["inbound"],
+                         [{"file": "areas/network/someone.md", "line": 3, "shape": "backtick"}])
 
     def padding(self):
         return "Body content well past the minimum hash size floor for this test file.\n" * 5
@@ -711,6 +928,11 @@ class LooseItemMisc(VaultCase):
         for name, expected in names.items():
             self.assertEqual(got[name], expected, name)
 
+    def test_no_triage_folder_is_no_items_rather_than_an_error(self):
+        (self.root / "triage").rmdir()
+        self.assertEqual(build_loose(self.root, [], "Alpha", {}), [])
+        self.assertEqual(subdirectories_block(self.root), [])
+
 
 # --------------------------------------------------------------------------- subdirectories
 
@@ -751,6 +973,14 @@ class SameThread(unittest.TestCase):
         got = same_thread_block(items)
         self.assertEqual(got, {"88604c": ["20260920 Subject 88604c.md",
                                           "20260921 Subject 88604c 2.md"]})
+
+    def test_only_markdown_in_the_staged_note_shape_is_grouped(self):
+        items = [
+            {"name": "20260920 Subject 88604c.md", "kind": "markdown"},
+            {"name": "20260920 Scan 88604c.pdf", "kind": "pdf"},
+            {"name": "88604c.md", "kind": "markdown"},  # no date: not the staged shape
+        ]
+        self.assertEqual(same_thread_block(items), {})
 
 
 # --------------------------------------------------------------------------- over threshold
@@ -853,6 +1083,14 @@ class SeenLedger(VaultCase):
         block = seen_ledger_block(str(self.home), "Alpha")
         self.assertIsNotNone(block["load_error"])
 
+    def test_a_ledger_that_is_not_an_object_is_reported(self):
+        path = self.home / "cache" / "triage-email" / "Alpha.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(["1a0c556d2559b07c"]), encoding="utf-8")
+        block = seen_ledger_block(str(self.home), "Alpha")
+        self.assertEqual((block["exists"], block["entries"], block["load_error"]),
+                         (True, 0, "not a JSON object"))
+
 
 # ---------------------------------------------------------------------------------- threads
 
@@ -893,6 +1131,141 @@ class ThreadsFold(VaultCase):
     def test_no_threads_argument_leaves_the_key_out(self):
         report = self.plan()
         self.assertNotIn("threads", report)
+
+    def test_an_unreadable_seen_ledger_folds_every_thread_as_new(self):
+        # The failure is reported in seen_ledger; the fold never drops a thread over it.
+        ledger_path = self.home / "cache" / "triage-email" / "Alpha.json"
+        ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        for text in ("not json", json.dumps(["1a0c556d2559b07c"])):
+            ledger_path.write_text(text, encoding="utf-8")
+            report = self.plan(threads=[{"thread_id": "1a0c556d2559b07c",
+                                         "newest_key": "<msg-1>"}])
+            self.assertIsNotNone(report["seen_ledger"]["load_error"], text)
+            self.assertIsNone(report["threads"][0]["ledger"], text)
+            self.assertEqual(report["threads"][0]["watermark"]["verdict"], "new", text)
+
+    def test_an_entry_that_is_not_an_object_is_skipped_and_one_with_no_id_kept(self):
+        write(self.root, "triage/20260920 Subject 88604c.md", "# Subject\n\nBody.\n")
+        report = self.plan(threads=["1a0c556d2559b07c", {"newest_date": "2026-09-20T10:00:00Z"}])
+        self.assertEqual(report["threads"], [{
+            "thread_id": None, "thread_hash": None, "staged_notes": [], "ledger": None,
+            "watermark": {"verdict": "new", "legacy": False, "watermark": None}}])
+
+
+# ------------------------------------------------------------------------------ command line
+
+class CommandLine(VaultCase):
+    """The call scan.md documents: exit codes, `--now`, and a `--threads` file."""
+
+    resolved = True  # main() resolves --vault before it reads the registry
+
+    def run_main(self, *argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["--vault", str(self.root), "--paraos-home", str(self.home), *argv])
+        return code, out.getvalue()
+
+    def usage_error(self, *argv):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as stop:
+            self.run_main(*argv)
+        self.assertEqual(stop.exception.code, 2)
+        return err.getvalue()
+
+    def threads_file(self, text):
+        path = self.home / "threads.json"
+        path.write_text(text, encoding="utf-8")
+        return str(path)
+
+    def test_a_vault_root_prints_the_whole_report_and_exits_0(self):
+        write(self.root, "triage/20260920 Subject 88604c.md", "# Subject\n\nBody.\n")
+        code, out = self.run_main("--now", "2026-09-22T12:00:00+00:00", "--indent", "2")
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        self.assertEqual(set(report), {"vault", "sources", "ingest", "ingest_ledger", "items",
+                                       "seen_ledger", "over_threshold", "snapshot"})
+        self.assertEqual([i["name"] for i in report["items"]["loose"]],
+                         ["20260920 Subject 88604c.md"])
+        self.assertEqual(len(report["snapshot"]), 1)
+
+    def test_now_with_a_trailing_z_is_the_instant_every_age_is_measured_from(self):
+        write_run(self.home, "20260922-110000.json", {
+            "mode": "write", "started_at": "2026-09-22T11:00:00+00:00", "files_written": [],
+            "counts": {"per_vault": {"Alpha": 0}},
+        })
+        _, out = self.run_main("--now", "2026-09-22T12:00:00Z")
+        ingest = json.loads(out)["ingest"]
+        self.assertEqual(ingest["newest_write"]["age_hours"], 1.0)
+        self.assertTrue(ingest["covered"])
+
+    def test_now_with_no_offset_is_read_as_local_time_not_rejected(self):
+        # A naive instant compared against a log's aware one would raise, not answer.
+        write_run(self.home, "20260922-110000.json", {
+            "mode": "write", "started_at": "2026-09-22T11:00:00+00:00", "files_written": [],
+        })
+        code, out = self.run_main("--now", "2026-09-22T12:00:00")
+        self.assertEqual(code, 0)
+        self.assertIsInstance(json.loads(out)["ingest"]["newest_write"]["age_hours"], float)
+
+    def test_a_now_that_is_no_instant_is_a_usage_error(self):
+        self.assertIn("--now wants an ISO-8601 instant", self.usage_error("--now", "yesterday"))
+
+    def test_a_threads_file_folds_against_the_staged_notes(self):
+        write(self.root, "triage/20260920 Subject 88604c.md", "# Subject\n\nBody.\n")
+        path = self.threads_file(json.dumps([{"thread_id": "1a0c556d2559b07c"}]))
+        _, out = self.run_main("--now", "2026-09-22T12:00:00Z", "--threads", path)
+        self.assertEqual(json.loads(out)["threads"][0]["staged_notes"],
+                         ["20260920 Subject 88604c.md"])
+
+    def test_a_threads_file_that_cannot_be_read_is_a_usage_error(self):
+        missing = str(self.home / "no-such-threads.json")
+        self.assertIn("cannot read", self.usage_error("--threads", missing))
+        broken = self.threads_file("[{not json")
+        self.assertIn("cannot read", self.usage_error("--threads", broken))
+
+    def test_a_threads_file_holding_no_list_is_a_usage_error(self):
+        path = self.threads_file(json.dumps({"thread_id": "1a0c556d2559b07c"}))
+        self.assertIn("must hold a JSON list", self.usage_error("--threads", path))
+
+
+class RunAsAScript(unittest.TestCase):
+    """What the skill actually runs: the file itself, from whatever folder the shell is in."""
+
+    def setUp(self):
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.base = Path(tmp.name)
+
+    def test_run_from_another_folder_it_finds_the_library_and_writes_utf8(self):
+        # A Windows pipe defaults to a codepage that cannot encode a vault's own names; an
+        # ASCII stdout stands in for it on every platform.
+        vault = self.base / "Alpha"
+        for d in ("projects", "areas", "archive", "triage"):
+            (vault / d).mkdir(parents=True)
+        write(vault, "CLAUDE.md", "# Vault\n")
+        write(vault, "triage/20260920 Call Øyan 88604c.md", "# Call Øyan\n\nNotes.\n")
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--vault", str(vault), "--now",
+             "2026-09-22T12:00:00Z", "--paraos-home", str(self.base / "home")],
+            cwd=self.base, capture_output=True, timeout=60,
+            env=dict(os.environ, PYTHONIOENCODING="ascii"))
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
+        report = json.loads(result.stdout.decode("utf-8"))
+        self.assertEqual([i["name"] for i in report["items"]["loose"]],
+                         ["20260920 Call Øyan 88604c.md"])
+
+    def test_a_missing_shared_library_exits_2_and_names_the_fallback(self):
+        # scripts.md: a missing shared library is a by-hand fallback, never a traceback.
+        isolated = self.base / "skills" / "para-triage" / "scripts"
+        isolated.mkdir(parents=True)
+        shutil.copy(SCRIPT, isolated / "triage_scan.py")
+        result = subprocess.run([sys.executable, str(isolated / "triage_scan.py"), "--vault", "."],
+                                cwd=self.base, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("triage_scan:", result.stderr)
+        self.assertIn("scan by hand", result.stderr)
 
 
 if __name__ == "__main__":
