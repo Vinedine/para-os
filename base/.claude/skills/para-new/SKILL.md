@@ -2,7 +2,7 @@
 name: para-new
 description: Create one new project, area, idea, or contact in the vault, or promote an existing idea to a project. Runs the sorting test first so committed work becomes a project, a maintained responsibility becomes an area, and a concept stays an idea, asks only the few questions each shape needs, then scaffolds the files and cross-links them. Use when the user says "start a project", "new project for <x>", "we've committed to <x>", "we're taking this on", "capture this idea", "add <person> as a contact", "this idea is real now", or types /para-new.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion
-arg-hint: '[project|area|idea|contact|promote] <name> [--test]'
+argument-hint: '[project|area|idea|contact|promote] <name> [--test]'
 ---
 
 # Para new

@@ -16,6 +16,12 @@ const path = require("path");
 const crypto = require("crypto");
 const { execFileSync } = require("child_process");
 
+if (process.platform !== "win32") {
+  console.error("granola-auth-init.js reads the Granola app's token store through Windows DPAPI, so it "
+    + "runs on Windows only; macOS and Linux sign-in is not supported yet. See integrations/granola/README.md.");
+  process.exit(1);
+}
+
 const DIR = path.join(process.env.APPDATA, "Granola"); // the local Granola app's encrypted store
 const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE, ".paraos");
 const AUTH_FILE = path.join(PARAOS_HOME, "secrets", "granola.json");

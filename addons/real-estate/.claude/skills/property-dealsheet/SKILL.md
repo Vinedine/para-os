@@ -2,7 +2,7 @@
 name: property-dealsheet
 description: Convert one property's decision-ready dossier into the designed deal sheet (HTML, rendered to PDF on the read-only iPad delivery). Pure derivation - reads only the dossier, fills the vault's deal-sheet template, embeds images. It gathers no new information; a missing fact stops it and points to /property-underwrite or /property-reconcile. Covers acquisitions and held properties, with a per-unit table for a building sold unit by unit. Use when asked to build or refresh a deal sheet, or on /property-dealsheet <property>.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion, TodoWrite
-arg-hint: '<property-name> [--test]'
+argument-hint: '<property-name> [--test]'
 ---
 
 # Property dealsheet

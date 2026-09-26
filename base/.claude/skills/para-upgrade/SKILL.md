@@ -2,7 +2,7 @@
 name: para-upgrade
 description: Bring a vault in line with a newer para-os template revision - reads the vault's template marker, diffs it against a para-os clone at an explicit ref, then applies the intervening changelog entries as a reviewed migration (structure, skeleton files, stale rule and integration-script copies, and rule-driven content violations). Use when the user asks to "upgrade the vault", "align this vault to para-os", "is this vault on the latest structure", "apply the new para-os structure", or types /para-upgrade.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write
-arg-hint: '[--ref <git-ref>] [audit] [--test]'
+argument-hint: '[--ref <git-ref>] [audit] [--test]'
 ---
 
 # Para upgrade

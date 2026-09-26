@@ -3,6 +3,7 @@
 
     python3 tools/check.py            # report and exit non-zero on any failure
     python3 tools/check.py -v         # also list every check that passed
+    python3 tools/check.py --no-vendor  # skip `claude plugin validate` (CI, or no CLI installed)
 
 What it enforces, and why each one is machinery rather than prose:
 
@@ -46,10 +47,11 @@ What it enforces, and why each one is machinery rather than prose:
                         not a distribution step: no manifest, no marketplace, nothing
                         published. It enforces whatever the tool currently requires of a
                         SKILL.md, which moves release to release - the part the checks above
-                        cannot keep up with by hand.
+                        cannot keep up with by hand. `--no-vendor` skips it and says so, for
+                        CI and contributors without the CLI; a release is still checked with it.
 
   Skill contract        Every skill master keeps its frontmatter contract (name matching its
-                        folder, a description, allowed-tools, arg-hint offering `--test` and a
+                        folder, a description, allowed-tools, argument-hint offering `--test` and a
                         link to para-shared/test-run.md), a `## Strict rules`
                         block, a spine under the line cap, and references that resolve both
                         ways - base's skills and each add-on's. The spine cap is
@@ -635,7 +637,7 @@ def addon_skill_dirs():
 
 
 EXTRA_SKILL_DIRS = (ROOT / "multi-vault",)   # optional layers that ship a skill of their own
-SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "arg-hint")
+SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "argument-hint")
 SPINE_MAX_LINES = 130      # current worst is 116; the cap catches regrowth, not today's shape
 DESCRIPTION_MAX_CHARS = 600
 TEST_RUN_DOC = "para-shared/test-run.md"   # what `--test` means, stated once for every skill
@@ -710,8 +712,8 @@ def check_skills():
 
         # A test run is how a revision gets tried on real vaults before it ships, so a skill
         # that does not take `--test` is one whose defects surface only when someone thinks to ask.
-        if "--test" not in fields.get("arg-hint", ""):
-            bad(f"{rel(sk)}: arg-hint does not offer `[--test]`, the test-run argument every "
+        if "--test" not in fields.get("argument-hint", ""):
+            bad(f"{rel(sk)}: argument-hint does not offer `[--test]`, the test-run argument every "
                 f"skill takes")
         if TEST_RUN_DOC not in text:
             bad(f"{rel(sk)}: never links {TEST_RUN_DOC}, so `--test` has no definition "
@@ -882,6 +884,10 @@ def check_skill_validator():
     and returns success. Keying on the exit code alone would be a check that runs, passes, and
     measures nothing.
     """
+    if "--no-vendor" in sys.argv:
+        skip("vendor skill validator: --no-vendor given, `claude plugin validate` not run. "
+             "Run without it before shipping a revision.")
+        return
     claude = shutil.which("claude")
     if not claude:
         bad("`claude` is not on PATH, so the vendor's skill validator could not run. A check "

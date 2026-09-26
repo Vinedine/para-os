@@ -15,6 +15,7 @@ Personal Microsoft accounts no longer accept Basic Auth or app passwords, so OAu
 
 - **Python 3.9+** and `requests` (`pip install requests`). Examples below use `python3`; on Windows `py` works in its place.
 - **An Entra app registration** - public client, delegated `Mail.Read` + `offline_access`, with "Accounts in any organizational directory and personal Microsoft accounts" (or personal-only) enabled. You need its **client id**; there is no secret. Add `http://localhost` as a redirect URI under the **Mobile and desktop applications** platform, which is what the browser sign-in redirects to. Add delegated `Mail.Read.Shared` only if that app serves a **shared** mailbox; see "Scope is per account" below.
+- **A Microsoft 365 mailbox needs an app registration in its own tenant** (step 4 below), made by someone allowed to register apps there. Where the tenant blocks user consent to `Mail.Read`, an admin must grant it. That is routine for an owner who administers their own tenant, and a blocker for a client's mailbox under a no-admin-consent rule: settle it with the client's IT before promising mail access.
 - One login **per mailbox**, once per machine. Auth is machine-global, so adding another vault later needs no re-login.
 
 ## Install

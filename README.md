@@ -153,7 +153,7 @@ If no calendar connector is wired in, a root `meetings.md` (one line per meeting
 
 A vault the agent can only read is a tidy filing cabinet. Wire in a source and the *same* assistant folds it into the answer: `/para-daily-brief` shows your real meetings, attachments get filed straight from mail, action lists reconcile against live tickets. Your mailbox alone is your richest untapped record - years of customers, suppliers, decisions, orders, and attachments - and the assistant mines structure out of it rather than keyword-searching it. There are three ways to wire a source in, by how much lives in the vault:
 
-- **Connectors** - authorized once in your agent (Gmail, Calendar, Drive, Slack). Nothing lands in the vault; every vault benefits automatically.
+- **Connectors** - authorized once in your agent (Gmail, Calendar, Drive, Slack). Nothing lands in the vault; every vault benefits automatically. The skills find a connector by its tool name wherever it is wired in, but pre-approve only the names they were written against: Claude's own Gmail connector (`mcp__claude_ai_Gmail__*`) and a Google Workspace server named `google-workspace`. A connector under another name works the same, and asks permission for each call.
 - **MCP servers** - wiring as a config declaration, scopeable to one vault or shared globally, for a source with no built-in connector (a self-hosted Google Workspace server, Jira, Azure DevOps).
 - **Integrations** - wiring as code: a small script in `resources/scripts/` that pulls a source into the vault as Markdown the assistant reads like everything else. This is the only tier para-os ships: [`integrations/`](integrations/README.md) packages them as drop-in folders (e.g. [`granola/`](integrations/granola/) syncs your Granola meeting notes into `triage/`).
 
@@ -165,7 +165,7 @@ The base assumes you read and write the Markdown yourself. An add-on layers on i
 
 A vault is just files on storage you already control - a local disk, a company cloud drive, or a git repo. para-os adds no server or database of its own and never copies your vault anywhere. Content leaves your storage only when the agent reads part of a file to answer a request: the same exposure as sending an email through a cloud provider, and per-request, not a standing copy.
 
-For GDPR or data-sovereignty needs there's a ladder: a provider plan whose commercial terms exclude training and minimise retention; regional processing; or the model running inside a cloud tenant you control, for a hard "data must not leave our cloud" requirement. Because the root `CLAUDE.md` is read every session, it is also where you encode data-handling rules - what to redact, retention expectations, who the data subjects are - so the agent follows them by construction.
+For GDPR or data-sovereignty needs there's a ladder: a provider plan whose commercial terms exclude training and minimise retention (for a business, a Team or Enterprise plan rather than a personal one; on a personal Pro or Max plan, turn off the setting that lets your chats be used to improve the models); regional processing; or the model running inside a cloud tenant you control, for a hard "data must not leave our cloud" requirement. Because the root `CLAUDE.md` is read every session, it is also where you encode data-handling rules - what to redact, retention expectations, who the data subjects are - so the agent follows them by construction.
 
 ## Why this exists
 
