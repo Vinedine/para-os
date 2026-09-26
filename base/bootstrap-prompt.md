@@ -18,6 +18,17 @@ Interview me with **exactly these three questions, nothing more** - keep it shor
 2. **What this vault is for** - my own life admin, a business I run, a project portfolio, or a client engagement? And **which language** should the agent answer in (English, Dutch, French, ...)? And is it read here, or read-only on an iPad (the `readonly-ipad` delivery)?
 3. **Any websites or profiles you can read** to learn about it - a company site, a LinkedIn page, a listing. (Optional; I may have none.)
 
+**Ask them through `AskUserQuestion` where the session has it**, per the rule in `.claude/skills/para-shared/asking.md` (`## A question with a suggested answer`). Question 2 is a closed choice, so it is always asked this way, as three questions of its own. Questions 1 and 3 are asked this way only when you have a real suggestion for them, typically from the `Context:` my install prompt ended with or from what I said in the request. That gives one call of up to four questions:
+
+| `header` | Options |
+|---|---|
+| `Name` | your suggested name and one-line description `(Recommended)`, **only** if you have one to suggest |
+| `Purpose` | life admin · a business I run · a project portfolio · a client engagement, the one the context points to first and `(Recommended)` |
+| `Language` | English · Dutch · French, the one the context points to first and `(Recommended)` |
+| `Read where` | here, in Claude Code `(Recommended)` · read-only on an iPad as rendered PDFs |
+
+Then question 3 in a second call where you have sites to suggest (`Read these: <urls>` recommended, `None` as the other option), so that **Other** is where I add or correct. Where you have no suggestion for the name or the sites, ask for them as a short numbered message instead: offering guesses where I hold the answer is worse than asking. Where the session has no `AskUserQuestion`, ask all three as one numbered message, as before, with your suggestions filled in for me to confirm or correct.
+
 Do **not** ask about project definitions, extra `areas/` folders, naming conventions, vault type, or README framing or ownership. Those all get sensible defaults (below); they are decisions I make later when a real need appears, not on day zero.
 
 Then fill the templates:
