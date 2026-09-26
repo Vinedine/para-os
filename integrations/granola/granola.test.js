@@ -1,12 +1,13 @@
-// Unit tests for granola.js. Pure functions only - no Granola API, no token, no writes.
+// Tests for granola.js: its pure helpers, and whole syncs run in a throwaway vault against a
+// stubbed fetch. No Granola API, no real token, nothing written outside the OS temp directory.
 // Uses node:test, built into Node 18+, which this integration already requires. Nothing to install.
 //
 //   node --test integrations/granola/granola.test.js
 //
-// Scope: the ProseMirror-to-Markdown conversion, transcript grouping, filename shaping, routing,
-// and the notes a sync writes, driven through a stubbed fetch. The Granola API's own behaviour and
-// the DPAPI token extraction are deliberately not covered - mocking either would assert that the
-// mock behaves.
+// Scope: the ProseMirror-to-Markdown conversion, transcript grouping, filename shaping, the config
+// file, routing, token refresh, and the notes a sync writes. The Granola API's own behaviour is
+// deliberately not covered - mocking it would assert that the mock behaves. Extracting the token
+// from the app is granola-auth-init.test.js's concern.
 
 // Notes are dated in local time, so pin the zone: every date below is then the same on any machine.
 process.env.TZ = "UTC";
@@ -112,6 +113,13 @@ test("pmToMd: doc collapses runs of blank lines and trims", () => {
 test("pmToMd: null node and unknown types do not throw", () => {
   assert.equal(pmToMd(null), "");
   assert.equal(pmToMd({ type: "mysteryBlock", content: [para(text("kept"))] }), "kept");
+});
+
+test("pmToMd: a node with no content array renders empty", () => {
+  // ProseMirror's JSON leaves `content` out of an empty node altogether.
+  assert.equal(pmToMd({ type: "paragraph" }), "");
+  assert.equal(pmToMd(doc({ type: "paragraph" }, para(text("after")))), "after");
+  assert.equal(inline({ type: "mention" }), "");
 });
 
 test("transcriptMd: empty or non-array input yields empty string", () => {
@@ -319,23 +327,47 @@ test("the closing summary accounts for meetings routed to other vaults", () => {
 // directory, one tree per call, every run. Cleared on exit rather than per test so a failing
 // case can still be inspected while the process is alive.
 const TEMP_VAULTS = [];
+// The OS temp folder has two spellings on macOS (/var is a link to /private/var), and Node hands
+// an installed script the resolved one as __dirname. Resolving it here too means a path the
+// script reports can be compared with one built from TMP.
+const TMP = fs.realpathSync(os.tmpdir());
 process.on("exit", () => {
   for (const d of TEMP_VAULTS) { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} }
 });
 
+// The source of a script that runs granola.js as if it were installed in `scripts`. Rather than
+// copy the file there, it compiles this folder's granola.js under its own filename, so coverage
+// is counted against it, and hands it `scripts` as __dirname: the one thing a copy would change.
+// With `asMain`, require.main is the module, so the sync runs exactly as `node granola.js` does.
+function granolaRunner(scripts, { asMain = false, then = "" } = {}) {
+  return [
+    'const fs = require("fs"), vm = require("vm");',
+    `const file = ${JSON.stringify(path.join(__dirname, "granola.js"))};`,
+    'const body = vm.compileFunction(fs.readFileSync(file, "utf8"),',
+    '  ["exports", "require", "module", "__filename", "__dirname"], { filename: file });',
+    "const mod = { exports: {} };",
+    `const req = Object.assign(id => require(id), { main: ${asMain ? "mod" : "require.main"} });`,
+    `body.call(mod.exports, mod.exports, req, mod, ${JSON.stringify(path.join(scripts, "granola.js"))}, `
+      + `${JSON.stringify(scripts)});`,
+    then,
+  ].join("\n");
+}
+
+// `config` is written as JSON, or as it is when it is a string, so a malformed file can be tested.
 function inVault(config, expr, { vaultName = "myvault", siblings = [], argv = [], allowFailure = false } = {}) {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "granola-"));
+  const parent = fs.mkdtempSync(path.join(TMP, "granola-"));
   TEMP_VAULTS.push(parent);
   const scripts = path.join(parent, vaultName, "resources", "scripts");
   fs.mkdirSync(scripts, { recursive: true });
-  fs.copyFileSync(path.join(__dirname, "granola.js"), path.join(scripts, "granola.js"));
-  if (config) fs.writeFileSync(path.join(scripts, "granola.config.json"), JSON.stringify(config));
+  if (config != null) {
+    fs.writeFileSync(path.join(scripts, "granola.config.json"),
+      typeof config === "string" ? config : JSON.stringify(config));
+  }
   for (const sib of siblings) fs.mkdirSync(path.join(parent, sib, "triage"), { recursive: true });
 
   const runner = path.join(parent, "run.js");
-  fs.writeFileSync(runner,
-    `const { resolveDest } = require(${JSON.stringify(path.join(scripts, "granola.js"))});\n`
-    + `console.log("<<" + JSON.stringify(${expr}) + ">>");\n`);
+  fs.writeFileSync(runner, granolaRunner(scripts, {
+    then: `const { resolveDest } = mod.exports;\nconsole.log("<<" + JSON.stringify(${expr}) + ">>");\n` }));
   const r = spawnSync(process.execPath, [runner, ...argv], { encoding: "utf8" });
   const vaultRoot = path.join(parent, vaultName);
   if (allowFailure && r.status !== 0) return { status: r.status, stderr: r.stderr, vaultRoot };
@@ -441,6 +473,49 @@ test("--vault in single-vault mode says it is being ignored rather than pretendi
   assert.equal(path.basename(path.dirname(r.result.dir)), "myvault");
 });
 
+test("a malformed config stops the run and names the file", () => {
+  const r = inVault('{ "route": { "Acme": ', meeting("Acme - Kickoff"), { allowFailure: true });
+  assert.equal(r.status, 1, "a malformed config must not fall back to single-vault mode");
+  assert.match(r.stderr, /present but unreadable/);
+  assert.ok(r.stderr.includes(path.join(r.vaultRoot, "resources", "scripts", "granola.config.json")),
+    `the message must name the file to fix: ${r.stderr}`);
+});
+
+test("a config that is valid JSON but not an object stops the run", () => {
+  for (const [raw, got] of [["[]", /got an array/], ['"Acme"', /got string/], ["42", /got number/], ["null", null]]) {
+    const r = inVault(raw, meeting("Acme - Kickoff"), { allowFailure: true });
+    assert.equal(r.status, 1, `config ${raw} was accepted`);
+    assert.match(r.stderr, /must be a JSON object/);
+    if (got) assert.match(r.stderr, got);
+  }
+});
+
+test("an empty route table is single-vault mode: every meeting lands here, title and all", () => {
+  const { result, stderr } = inVault({ route: {} }, meeting("Acme - Kickoff"));
+  assert.ok(!result.unrouted && !result.skip, JSON.stringify(result));
+  assert.equal(result.desc, "Acme - Kickoff");
+  assert.equal(stderr, "");
+});
+
+test("route prefixes match case-insensitively, and the prefix is dropped from the filename", () => {
+  const { result } = inVault({ route: { Acme: "." } }, meeting("ACME - Kickoff"));
+  assert.ok(!result.unrouted && !result.skip, JSON.stringify(result));
+  assert.equal(result.desc, "Kickoff");
+});
+
+test("a title that is only a routing prefix still gets a description", () => {
+  const { result } = inVault({ route: { Acme: "." } }, meeting("Acme -"));
+  assert.ok(!result.unrouted && !result.skip, JSON.stringify(result));
+  assert.equal(result.desc, "Acme -");
+});
+
+test("with routes set, an untitled meeting is unrouted rather than filed anywhere", () => {
+  for (const title of [null, ""]) {
+    const { result } = inVault({ route: { Acme: "." } }, meeting(title));
+    assert.deepEqual(result, { unrouted: true, prefix: "none" }, `title ${JSON.stringify(title)}`);
+  }
+});
+
 test("the shipped config template is valid JSON and demonstrates the \".\" shape", () => {
   const tpl = JSON.parse(fs.readFileSync(path.join(__dirname, "granola.config.json.template"), "utf8"));
   assert.ok(Object.values(tpl.route).includes("."),
@@ -452,60 +527,86 @@ test("the shipped config template is valid JSON and demonstrates the \".\" shape
 // granola.js run for real in a throwaway vault with --write: only fetch is stubbed, and the
 // token, ledger and notes are real files under a temporary PARAOS_HOME and triage/.
 
+// Serves `docs` a page at a time as the request asks, and logs every request to a file so a test
+// can see what was sent and with which token. See syncInVault for what the other variables do.
+const FETCH_STUB = `
+const fs = require("fs"), path = require("path");
+const docs = JSON.parse(process.env.GRANOLA_TEST_DOCS);
+const responses = JSON.parse(process.env.GRANOLA_TEST_RESPONSES);
+let side = JSON.parse(process.env.GRANOLA_TEST_SIDE);
+const block = process.env.GRANOLA_TEST_BLOCK;
+globalThis.fetch = async (url, init = {}) => {
+  url = String(url);
+  const sent = init.body ? JSON.parse(init.body) : {};
+  fs.appendFileSync(process.env.GRANOLA_TEST_LOG,
+    JSON.stringify({ url, auth: (init.headers || {}).Authorization || null, body: sent }) + "\\n");
+  if (side && url.endsWith("/get-document-panels")) {
+    const f = path.join(process.env.PARAOS_HOME, "data", "granola", "synced.json");
+    const l = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, JSON.stringify({ ...l, ...side })); side = null;
+  }
+  if (block && url.endsWith("/get-document-transcript")) fs.mkdirSync(block, { recursive: true });
+  const hit = Object.keys(responses).find(k => url.endsWith(k));
+  const status = hit ? (responses[hit].status || 200) : 200;
+  const body = hit && "body" in responses[hit] ? responses[hit].body
+    : url.endsWith("/get-documents") ? { docs: docs.slice(sent.offset, sent.offset + sent.limit) } : [];
+  return { ok: status < 300, status, text: async () => JSON.stringify(body), json: async () => body };
+};
+`;
+
 // `ledgers` seeds the ledger by bucket, e.g. { cache: {...}, data: {...} }. `responses` overrides
 // an endpoint by path suffix, e.g. { "/get-document-panels": { status: 429 } }. `sideEntry` is
 // added to the data/ ledger by the stub on the first notes fetch, as a concurrent run would.
-function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {}, responses = {}, sideEntry = null, expectStatus = 0 } = {}) {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "granola-"));
+// `auth` replaces the stored secret. `block` names a file in triage/ that the stub turns into a
+// folder once the note's transcript is fetched, so the note can no longer be put in place.
+function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {}, responses = {}, sideEntry = null, expectStatus = 0,
+                             argv = ["--write"], config = null, siblings = [], auth = null, block = null } = {}) {
+  const parent = fs.mkdtempSync(path.join(TMP, "granola-"));
   TEMP_VAULTS.push(parent);
   const scripts = path.join(parent, "myvault", "resources", "scripts");
   const triage = path.join(parent, "myvault", "triage");
   fs.mkdirSync(scripts, { recursive: true });
   fs.mkdirSync(triage, { recursive: true });
-  fs.copyFileSync(path.join(__dirname, "granola.js"), path.join(scripts, "granola.js"));
+  if (config) fs.writeFileSync(path.join(scripts, "granola.config.json"), JSON.stringify(config));
+  for (const sib of siblings) fs.mkdirSync(path.join(parent, sib, "triage"), { recursive: true });
   for (const [name, body] of Object.entries(notes)) fs.writeFileSync(path.join(triage, name), body);
 
   const home = path.join(parent, "paraos");
-  fs.mkdirSync(path.join(home, "secrets"), { recursive: true });
-  fs.writeFileSync(path.join(home, "secrets", "granola.json"),
-    JSON.stringify({ access_token: "test", access_expires: Math.floor(Date.now() / 1000) + 3600 }));
+  const secret = path.join(home, "secrets", "granola.json");
+  fs.mkdirSync(path.dirname(secret), { recursive: true });
+  // Owner-only, as granola-auth-init.js writes it, so a test can see a refresh keep that.
+  fs.writeFileSync(secret, JSON.stringify(auth || { access_token: "test", access_expires: Math.floor(Date.now() / 1000) + 3600 }),
+    { mode: 0o600 });
   const ledger = bucket => path.join(home, bucket, "granola", "synced.json");
   for (const [bucket, entries] of Object.entries(ledgers)) {
     fs.mkdirSync(path.dirname(ledger(bucket)), { recursive: true });
     fs.writeFileSync(ledger(bucket), JSON.stringify(entries));
   }
   const stub = path.join(parent, "fetch-stub.js");
-  fs.writeFileSync(stub,
-    "const fs = require(\"fs\"), path = require(\"path\");\n"
-    + "const docs = JSON.parse(process.env.GRANOLA_TEST_DOCS);\n"
-    + "const responses = JSON.parse(process.env.GRANOLA_TEST_RESPONSES);\n"
-    + "let side = JSON.parse(process.env.GRANOLA_TEST_SIDE);\n"
-    + "globalThis.fetch = async url => {\n"
-    + "  url = String(url);\n"
-    + "  if (side && url.endsWith(\"/get-document-panels\")) {\n"
-    + "    const f = path.join(process.env.PARAOS_HOME, \"data\", \"granola\", \"synced.json\");\n"
-    + "    const l = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, \"utf8\")) : {};\n"
-    + "    fs.mkdirSync(path.dirname(f), { recursive: true });\n"
-    + "    fs.writeFileSync(f, JSON.stringify({ ...l, ...side })); side = null;\n"
-    + "  }\n"
-    + "  const hit = Object.keys(responses).find(k => url.endsWith(k));\n"
-    + "  const status = hit ? (responses[hit].status || 200) : 200;\n"
-    + "  const body = hit && \"body\" in responses[hit] ? responses[hit].body : url.endsWith(\"/get-documents\") ? { docs } : [];\n"
-    + "  return { ok: status < 300, status, text: async () => JSON.stringify(body), json: async () => body };\n"
-    + "};\n");
+  fs.writeFileSync(stub, FETCH_STUB);
+  const runner = path.join(parent, "run.js");
+  fs.writeFileSync(runner, granolaRunner(scripts, { asMain: true }));
+  const log = path.join(parent, "requests.jsonl");
 
-  const r = spawnSync(process.execPath, ["--require", stub, path.join(scripts, "granola.js"), "--write"], {
+  const r = spawnSync(process.execPath, ["--require", stub, runner, ...argv], {
     encoding: "utf8",
     env: { ...process.env, TZ: tz, PARAOS_HOME: home, GRANOLA_TEST_DOCS: JSON.stringify(docs),
-           GRANOLA_TEST_RESPONSES: JSON.stringify(responses), GRANOLA_TEST_SIDE: JSON.stringify(sideEntry) },
+           GRANOLA_TEST_RESPONSES: JSON.stringify(responses), GRANOLA_TEST_SIDE: JSON.stringify(sideEntry),
+           GRANOLA_TEST_LOG: log, GRANOLA_TEST_BLOCK: block ? path.join(triage, block) : "" },
   });
   assert.equal(r.status, expectStatus, `sync exited ${r.status}: ${r.stdout}${r.stderr}`);
   if (!expectStatus) assert.doesNotMatch(r.stdout + r.stderr, /\[x\]/, `sync failed: ${r.stdout}${r.stderr}`);
+  const ls = dir => fs.existsSync(dir) ? fs.readdirSync(dir).sort() : [];
   return {
     stdout: r.stdout, stderr: r.stderr,
-    files: fs.readdirSync(triage).sort(),
-    read: f => fs.readFileSync(path.join(triage, f), "utf8"),
+    files: ls(triage),
+    filesIn: rel => ls(path.join(parent, rel)),
+    read: (f, rel) => fs.readFileSync(path.join(rel ? path.join(parent, rel) : triage, f), "utf8"),
     ledger: bucket => fs.existsSync(ledger(bucket)) ? JSON.parse(fs.readFileSync(ledger(bucket), "utf8")) : null,
+    secret: () => JSON.parse(fs.readFileSync(secret, "utf8")),
+    secretMode: () => fs.statSync(secret).mode & 0o777,
+    requests: fs.existsSync(log) ? fs.readFileSync(log, "utf8").trim().split("\n").map(l => JSON.parse(l)) : [],
   };
 }
 
@@ -547,6 +648,15 @@ test("notes still in triage are not written again, a suffixed one included", () 
   ], { notes });
   assert.deepEqual(sync.files, Object.keys(notes).sort());
   for (const f of sync.files) assert.match(sync.read(f), /kept/, `${f} was overwritten`);
+});
+
+test("a hand-written note that shares the name is kept, and the meeting takes a suffixed name", () => {
+  // No granola_id in it, so it cannot be this meeting's note.
+  const name = `${compact(DAY)} Standup.md`;
+  const sync = syncInVault([{ id: ID_A, title: "Standup", created_at: `${DAY}T09:00:00.000Z` }],
+                           { notes: { [name]: "# Standup\nmy own notes\n" } });
+  assert.deepEqual(sync.files, [`${compact(DAY)} Standup (aaaaaa).md`, name]);
+  assert.equal(sync.read(name), "# Standup\nmy own notes\n");
 });
 
 test("the ledger is written under data/, and a ledger left in cache/ is still honoured", () => {
@@ -647,4 +757,207 @@ test("the module loads without USERPROFILE, so the suite runs off Windows", () =
 test("no temp file is left beside a written note or the ledger", () => {
   const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }]);
   assert.ok(sync.files.every(f => !f.endsWith(".tmp")), sync.files.join(", "));
+});
+
+test("a note that cannot be moved into place leaves no temp file, is not ledgered, and fails the run", () => {
+  // Something takes the note's name while the sync is fetching it, so the final rename fails.
+  const name = `${compact(DAY)} Kickoff.md`;
+  const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }],
+                           { block: name, expectStatus: 1 });
+  assert.deepEqual(sync.files, [name], "only the folder that blocked the note may be there");
+  assert.equal(sync.ledger("data"), null, "a note that was never written must not be ledgered");
+  assert.match(sync.stderr, /\[x\]/);
+});
+
+const ID_C = "cccccccc-3333-4333-8333-333333333333";
+const OLD_MEETING = [{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }];
+const daysAgo = n => new Date(Date.now() - n * 86400000).toISOString();
+const listed = sync => sync.requests.filter(q => q.url.endsWith("/get-documents")).map(q => q.body.offset);
+
+
+// --- listing and the dry run ------------------------------------------------------------
+
+test("a dry run reports what it would write and writes nothing", () => {
+  const sync = syncInVault(OLD_MEETING, { argv: [] });
+  assert.deepEqual(sync.files, []);
+  assert.equal(sync.ledger("data"), null);
+  assert.match(sync.stdout, /^DRY RUN/m);
+  assert.ok(sync.stdout.includes(`-> myvault/triage/${compact(DAY)} Kickoff.md`), sync.stdout);
+  assert.match(sync.stdout, /would write: 1/);
+  assert.match(sync.stdout, /Re-run with --write/);
+});
+
+test("--days narrows the look-back window", () => {
+  const docs = [...OLD_MEETING, { id: ID_B, title: "Last week", created_at: daysAgo(8) }];
+  const sync = syncInVault(docs, { argv: ["--write", "--days", "5"] });
+  assert.deepEqual(sync.files, [`${compact(DAY)} Kickoff.md`]);
+  assert.match(sync.stdout, /last 5 days . 1 meetings/);
+  assert.equal(syncInVault(docs).files.length, 2, "the default 30-day window takes both");
+});
+
+test("a meeting deleted in Granola is not written", () => {
+  const sync = syncInVault([{ ...OLD_MEETING[0], deleted_at: daysAgo(1) }]);
+  assert.deepEqual(sync.files, []);
+  assert.match(sync.stdout, / 0 meetings/);
+});
+
+test("listing pages on past the first hundred until a short page", () => {
+  // The first hundred were deleted in Granola: listed, then dropped, which keeps the run small.
+  const gone = Array.from({ length: 100 }, (_, i) => ({ id: `gone-${i}`, title: `M${i}`,
+                                                       created_at: `${DAY}T10:00:00.000Z`, deleted_at: "x" }));
+  const sync = syncInVault([...gone, { id: ID_A, title: "Page two", created_at: `${DAY}T09:00:00.000Z` }]);
+  assert.deepEqual(listed(sync), [0, 100]);
+  assert.deepEqual(sync.files, [`${compact(DAY)} Page two.md`]);
+  assert.doesNotMatch(sync.stderr, /listing stopped/);
+});
+
+test("listing stops at a page that already reaches past the look-back window", () => {
+  const old = Array.from({ length: 99 }, (_, i) => ({ id: `old-${i}`, title: `Old ${i}`, created_at: daysAgo(40) }));
+  const sync = syncInVault([...OLD_MEETING, ...old]);
+  assert.deepEqual(listed(sync), [0], "a second page can only hold older meetings");
+  assert.deepEqual(sync.files, [`${compact(DAY)} Kickoff.md`], "meetings outside the window are not written");
+  assert.doesNotMatch(sync.stderr, /listing stopped/);
+});
+
+
+// --- what a note is built from ----------------------------------------------------------
+
+test("the Summary panel is picked by title, and its headings nest under ## Summary", () => {
+  const summary = doc({ type: "heading", attrs: { level: 1 }, content: [text("Decisions")] }, para(text("Ship it")));
+  const sync = syncInVault(OLD_MEETING, { responses: { "/get-document-panels": { body: { panels: [
+    { title: "Action items", content: "Not the summary" },
+    { title: "Meeting summary", content: summary },
+  ] } } } });
+  const note = sync.read(sync.files[0]);
+  assert.match(note, /^## Summary\n### Decisions\nShip it$/m);
+  assert.doesNotMatch(note, /Not the summary/);
+});
+
+test("with no Summary panel the first is used, its empty content falling back in turn", () => {
+  const sync = syncInVault(OLD_MEETING, { responses: { "/get-document-panels": { body: { document_panels: [
+    { content: null, original_content: "  ", content_json: doc(para(text("Agreed the budget."))) },
+    { title: "Other", content: "Not this one" },
+  ] } } } });
+  const note = sync.read(sync.files[0]);
+  assert.match(note, /^## Summary\nAgreed the budget\.$/m);
+  assert.doesNotMatch(note, /Not this one/);
+});
+
+test("a transcript wrapped in an object is rendered speaker by speaker", () => {
+  const sync = syncInVault(OLD_MEETING, { responses: { "/get-document-transcript": { body: { transcript: [
+    { source: "microphone", text: "Shall we start?" },
+    { detected_speaker_name: "Ann", text: "Yes." },
+  ] } } } });
+  assert.match(sync.read(sync.files[0]), /^## Transcript\n\*\*Me:\*\* Shall we start\?\n\n\*\*Ann:\*\* Yes\.$/m);
+});
+
+test("attendees are listed by name or email, and a meeting with none has no attendees line", () => {
+  const sync = syncInVault([
+    { ...OLD_MEETING[0], people: { a: { name: "Ann" }, b: { email: "bob@example.com" }, c: null, d: {} } },
+    { id: ID_B, title: "Solo", created_at: `${DAY}T15:00:00.000Z` },
+  ]);
+  assert.match(sync.read(`${compact(DAY)} Kickoff.md`), /^attendees: "Ann, bob@example\.com"$/m);
+  assert.doesNotMatch(sync.read(`${compact(DAY)} Solo.md`), /^attendees:/m);
+});
+
+
+// --- multi-vault sync -------------------------------------------------------------------
+
+const ROUTED = [
+  { id: ID_A, title: "Client - Kickoff", created_at: `${DAY}T09:00:00.000Z` },
+  { id: ID_B, title: "ACME - Steering", created_at: `${DAY}T10:00:00.000Z` },
+  { id: ID_C, title: "Dentist", created_at: `${DAY}T11:00:00.000Z` },
+];
+const ROUTING = { config: { route: { Client: ".", Acme: "acme-client" } }, siblings: ["acme-client"] };
+
+test("by default a routed copy writes only its own vault's meetings, and counts the rest", () => {
+  const sync = syncInVault(ROUTED, ROUTING);
+  assert.deepEqual(sync.files, [`${compact(DAY)} Kickoff.md`]);
+  assert.deepEqual(sync.filesIn(path.join("acme-client", "triage")), []);
+  assert.match(sync.stdout, /routing -> myvault/);
+  assert.match(sync.stdout, /Dentist.*UNROUTED \(prefix: none\)/);
+  assert.match(sync.stdout, /wrote: 1 .*unrouted: 1 . other vaults: 1/);
+});
+
+test("--all writes each routed meeting into its own vault", () => {
+  const sync = syncInVault(ROUTED, { ...ROUTING, argv: ["--write", "--all"] });
+  assert.deepEqual(sync.files, [`${compact(DAY)} Kickoff.md`]);
+  const acme = path.join("acme-client", "triage");
+  assert.deepEqual(sync.filesIn(acme), [`${compact(DAY)} Steering.md`]);
+  assert.match(sync.read(`${compact(DAY)} Steering.md`, acme), /^title: "ACME - Steering"$/m,
+    "the note keeps the full title; only the filename drops the prefix");
+  assert.match(sync.stdout, /routing all vaults/);
+  assert.match(sync.stdout, /wrote: 2 .*unrouted: 1 . other vaults: 0/);
+});
+
+test("meetings_subdir sends notes to that folder instead of triage/", () => {
+  const sync = syncInVault(OLD_MEETING, { config: { meetings_subdir: "inbox" } });
+  assert.deepEqual(sync.files, []);
+  assert.deepEqual(sync.filesIn(path.join("myvault", "inbox")), [`${compact(DAY)} Kickoff.md`]);
+  assert.ok(sync.stdout.includes("-> myvault/inbox/"), sync.stdout);
+});
+
+
+// --- token refresh ----------------------------------------------------------------------
+// The secret holds a WorkOS access token and a single-use refresh token. Only the access
+// token's payload `exp` is ever read, so these tokens carry nothing else.
+
+const NOW_S = Math.floor(Date.now() / 1000);
+const jwt = claims => `h.${Buffer.from(JSON.stringify(claims)).toString("base64")}.s`;
+const REFRESHED = jwt({ exp: NOW_S + 7200 });
+const EXPIRING = { client_id: "client_1", refresh_token: "r1", access_token: "stale", access_expires: NOW_S + 10 };
+const refreshGives = body => ({ "/authenticate": { body: { access_token: REFRESHED, ...body } } });
+const refreshed = sync => sync.requests.some(q => q.url.endsWith("/authenticate"));
+
+test("a live token is used as it is, with no refresh", () => {
+  const sync = syncInVault(OLD_MEETING);
+  assert.equal(refreshed(sync), false);
+  assert.ok(sync.requests.every(q => q.auth === "Bearer test"), JSON.stringify(sync.requests));
+});
+
+test("a token expiring within 30 seconds is refreshed first, and the rotated refresh token saved", () => {
+  const sync = syncInVault(OLD_MEETING, { auth: EXPIRING, responses: refreshGives({ refresh_token: "r2" }) });
+  const [first, ...rest] = sync.requests;
+  assert.match(first.url, /\/authenticate$/);
+  assert.deepEqual(first.body, { grant_type: "refresh_token", client_id: "client_1", refresh_token: "r1" });
+  assert.ok(rest.length && rest.every(q => q.auth === `Bearer ${REFRESHED}`), "every Granola call must use the new token");
+  assert.deepEqual(sync.secret(),
+    { client_id: "client_1", refresh_token: "r2", access_token: REFRESHED, access_expires: NOW_S + 7200 });
+  assert.equal(sync.files.length, 1);
+});
+
+test("with no stored expiry, the access token's own exp decides whether to refresh", () => {
+  for (const [exp, expected] of [[NOW_S + 3600, false], [NOW_S - 60, true]]) {
+    const sync = syncInVault(OLD_MEETING, { auth: { client_id: "c", refresh_token: "r1", access_token: jwt({ exp }) },
+                                            responses: refreshGives({}) });
+    assert.equal(refreshed(sync), expected, `a token expiring ${exp - NOW_S}s from now`);
+  }
+});
+
+test("a refresh that returns no new refresh token keeps the old one", () => {
+  const sync = syncInVault(OLD_MEETING, { auth: EXPIRING, responses: refreshGives({}) });
+  assert.equal(sync.secret().refresh_token, "r1");
+  assert.equal(sync.secret().access_token, REFRESHED);
+});
+
+test("a failed refresh stops the run before anything is listed, and leaves the secret alone", () => {
+  const sync = syncInVault(OLD_MEETING, { auth: EXPIRING, expectStatus: 1,
+    responses: { "/authenticate": { status: 401, body: { error: "invalid_grant" } } } });
+  assert.match(sync.stderr, /refresh failed 401/);
+  assert.deepEqual(sync.secret(), EXPIRING);
+  assert.deepEqual(listed(sync), []);
+  assert.deepEqual(sync.files, []);
+});
+
+test("a dry run still saves a rotated refresh token, since the old one is already spent", () => {
+  const sync = syncInVault(OLD_MEETING, { auth: EXPIRING, argv: [], responses: refreshGives({ refresh_token: "r2" }) });
+  assert.deepEqual(sync.files, []);
+  assert.equal(sync.secret().refresh_token, "r2");
+});
+
+test("a refreshed secret stays readable by its owner only",
+     { skip: process.platform === "win32" && "Windows has no POSIX file modes" }, () => {
+  const sync = syncInVault(OLD_MEETING, { auth: EXPIRING, responses: refreshGives({ refresh_token: "r2" }) });
+  assert.equal(sync.secret().refresh_token, "r2");
+  assert.equal(sync.secretMode().toString(8), "600");
 });
