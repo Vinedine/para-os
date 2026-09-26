@@ -19,8 +19,7 @@ const os = require("os");
 const path = require("path");
 
 // Integration state lives under ~/.paraos (override with PARAOS_HOME); see ~/.paraos/README.md.
-// USERPROFILE is unset off Windows, where homedir() is the same folder. Only the one-time sign-in
-// (granola-auth-init.js) is Windows-only; the sync runs anywhere once the secret exists.
+// USERPROFILE is unset off Windows, where homedir() is the same folder.
 const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE || os.homedir(), ".paraos");
 const AUTH = path.join(PARAOS_HOME, "secrets", "granola.json");
 // The dedup ledger is data, not cache: once /para-triage has filed a note out of triage/ it is

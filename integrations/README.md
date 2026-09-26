@@ -22,7 +22,7 @@ The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a hom
 | Integration | Version | Pulls in | Stack | Platform |
 |---|---|---|---|---|
 | [`activity/`](activity/) | 2026.09.05 | How the vault is used, into `resources/logs/` for `/para-activity-review` | Python 3.9+ | any |
-| [`granola/`](granola/) | 2026.09.05 | Granola meeting notes + transcripts into `triage/` | Node 18+ | any; one-time sign-in on Windows |
+| [`granola/`](granola/) | 2026.09.05 | Granola meeting notes + transcripts into `triage/` | Node 18+ | Windows, macOS |
 | [`outlook/`](outlook/) | 2026.09.05 | Outlook / Hotmail / Microsoft 365 mail as candidates for a skill to judge, plus ad-hoc mailbox search | Python 3.9+, `requests` | any |
 | [`pocket/`](pocket/) | 2026.09.03 | Pocket recorder summaries + transcripts into `triage/` | Python 3.9+ | any |
 
