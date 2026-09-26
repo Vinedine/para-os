@@ -9,6 +9,7 @@ file contents into a log and nothing downstream would ever notice.
 """
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -174,6 +175,14 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(cfg["touched_slack_ms"], ledger.DEFAULTS["touched_slack_ms"])
             self.assertEqual(cfg["touched_max_files"], 5)   # the valid one still applies
 
+    def test_a_config_that_is_not_an_object_falls_back_to_the_defaults(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "activity.py"
+            script.touch()
+            script.with_name("activity.config.json").write_text(
+                '[{"record_prompts": false}]', encoding="utf-8")
+            self.assertEqual(ledger.load_config(script), ledger.DEFAULTS)
+
 
 class TestPaths(unittest.TestCase):
     def test_user_slug_is_filename_safe(self):
@@ -260,6 +269,11 @@ class TestTouchScanSelection(unittest.TestCase):
     def test_non_tool_events_are_not_scanned(self):
         self.assertFalse(ledger.wants_touch_scan("UserPromptSubmit", None))
         self.assertFalse(ledger.wants_touch_scan("SessionEnd", None))
+
+    def test_a_tool_event_that_names_no_tool_is_not_scanned(self):
+        # Nothing to attribute the files to, so a scan would only produce noise.
+        self.assertFalse(ledger.wants_touch_scan("PostToolUse", None))
+        self.assertFalse(ledger.wants_touch_scan("PostToolUse", ""))
 
 
 class TestTouchedPaths(unittest.TestCase):
@@ -545,6 +559,22 @@ class TestSessionSummary(unittest.TestCase):
         s = ledger.summarise_session(records, "2026-09-04T10:00:02")
         self.assertEqual(s["prompts"], 1)
 
+    def test_an_expansion_and_its_submit_under_one_prompt_id_count_once(self):
+        # A slash command fires both events under one id. Counting events would double every
+        # skill invocation in the vault; counting ids keeps two real requests at two.
+        records = [
+            self._rec("UserPromptExpansion", "2026-09-04T10:00:00", prompt="/para-triage",
+                      prompt_id="p1"),
+            self._rec("UserPromptSubmit", "2026-09-04T10:00:00", prompt="/para-triage",
+                      prompt_id="p1"),
+            self._rec("PostToolUse", "2026-09-04T10:00:01", tool="Bash"),
+            self._rec("UserPromptSubmit", "2026-09-04T10:00:02", prompt="and the rest",
+                      prompt_id="p2"),
+        ]
+        s = ledger.summarise_session(records, "2026-09-04T10:00:03")
+        self.assertEqual(s["prompts"], 2)
+        self.assertEqual(s["last_prompt_tools"], 0)
+
     def test_an_unparseable_timestamp_does_not_lose_the_counts(self):
         records = [
             self._rec("UserPromptSubmit", "not-a-timestamp", prompt="x"),
@@ -566,6 +596,16 @@ class TestSessionSummary(unittest.TestCase):
                          '{"event":"PostToo', encoding="utf-8")
             records = ledger.read_session_records(p)
             self.assertEqual(len(records), 1)
+
+    def test_blank_lines_and_lines_that_are_not_records_are_skipped(self):
+        # A sync client's merge can leave blank lines, and valid JSON is not always an object.
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "s.jsonl"
+            p.write_text('\n[1, 2]\n"a string"\n'
+                         '{"event":"UserPromptSubmit","at":"2026-09-04T10:00:00"}\n\n',
+                         encoding="utf-8")
+            self.assertEqual(ledger.read_session_records(p),
+                             [{"event": "UserPromptSubmit", "at": "2026-09-04T10:00:00"}])
 
 
 class TestSessionEndEndToEnd(unittest.TestCase):
@@ -625,6 +665,100 @@ class TestSessionEndEndToEnd(unittest.TestCase):
             fire(script, {"hook_event_name": "SessionEnd", "session_id": "s1", "reason": "other"})
             line = session_lines(root)[0]
             self.assertNotIn("summary", line)
+
+
+class TestHookInProcess(unittest.TestCase):
+    """main() run in this process against an installed copy's location.
+
+    The end-to-end tests above fire a copy in a subprocess, which is the real invocation but
+    leaves the arithmetic inside main() unmeasured. These pin that arithmetic: the file a line
+    lands in, the window the scan looks back over, and the cap on what it lists.
+    """
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root, self.script = scaffold_vault(tmp.name)
+        self.age(self.script)
+
+    @staticmethod
+    def age(path, seconds=7200):
+        old = time.time() - seconds
+        os.utime(path, (old, old))
+
+    def write(self, relpath, age_s=0):
+        p = self.root / relpath
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("x", encoding="utf-8")
+        if age_s:
+            self.age(p, age_s)
+        return p
+
+    def configure(self, **settings):
+        cfg = self.script.with_name("activity.config.json")
+        cfg.write_text(json.dumps(settings), encoding="utf-8")
+        self.age(cfg)
+
+    def run_hook(self, event, user="Ann Smith"):
+        with mock.patch.object(ledger, "__file__", str(self.script)), \
+                mock.patch.object(sys, "stdin", io.StringIO(json.dumps(event))), \
+                mock.patch.dict(os.environ, {"USERNAME": user}):
+            ledger.main()
+
+    @staticmethod
+    def bash(duration_ms, session="abcdef123456"):
+        return {"hook_event_name": "PostToolUse", "session_id": session, "tool_name": "Bash",
+                "tool_input": {"command": "py export.py"}, "duration_ms": duration_ms}
+
+    def test_the_file_is_named_for_the_day_the_writer_and_the_session(self):
+        days = {time.strftime("%Y%m%d")}
+        self.run_hook({"hook_event_name": "UserPromptSubmit", "session_id": "abcdef123456",
+                       "prompt": "hi"})
+        days.add(time.strftime("%Y%m%d"))          # a run that straddles midnight
+        names = [p.name for p in (self.root / "resources" / "logs" / "sessions").iterdir()]
+        self.assertEqual(len(names), 1)
+        self.assertIn(names[0], {f"{d}-ann-smith-abcdef12.jsonl" for d in days})
+
+    def test_an_event_that_is_not_a_named_event_writes_nothing(self):
+        for event in ({"session_id": "abc", "prompt": "no hook_event_name"}, [1, 2, 3]):
+            with self.subTest(event=event):
+                self.run_hook(event)
+                self.assertFalse((self.root / "resources" / "logs").exists())
+
+    def test_the_scan_window_reaches_back_over_the_tools_own_duration(self):
+        # A ten-minute script wrote its first file long before the hook fired; the same file
+        # after a 100 ms call is somebody else's.
+        self.write("resources/customers/early.md", age_s=300)
+        self.write("areas/stale.md", age_s=3600)
+        self.run_hook(self.bash(duration_ms=600000))
+        self.run_hook(self.bash(duration_ms=100))
+        long_run, short_run = session_lines(self.root)
+        self.assertEqual(long_run["touched"], ["resources/customers/early.md"])
+        self.assertNotIn("touched_total", long_run)       # nothing was capped
+        self.assertNotIn("touched", short_run)
+
+    def test_a_capped_touched_list_keeps_the_true_count(self):
+        self.configure(touched_max_files=2)
+        for i in range(5):
+            self.write(f"resources/customers/c{i}.md")
+        self.run_hook(self.bash(duration_ms=1000))
+        line = session_lines(self.root)[0]
+        self.assertEqual(line["touched"], ["resources/customers/c0.md", "resources/customers/c1.md"])
+        self.assertEqual(line["touched_total"], 5)
+
+    def test_a_session_end_summarises_its_own_session_only(self):
+        # One file per session is what keeps concurrent sessions from reading as one.
+        for sid, prompts in (("aaaa1111", 1), ("bbbb2222", 3)):
+            for i in range(prompts):
+                self.run_hook({"hook_event_name": "UserPromptSubmit", "session_id": sid,
+                               "prompt": f"request {i}"})
+        self.run_hook({"hook_event_name": "SessionEnd", "session_id": "aaaa1111",
+                       "reason": "other"})
+        sessions = self.root / "resources" / "logs" / "sessions"
+        [own] = sessions.glob("*-aaaa1111.jsonl")
+        end = json.loads(own.read_text(encoding="utf-8").splitlines()[-1])
+        self.assertEqual(end["event"], "SessionEnd")
+        self.assertEqual(end["summary"]["prompts"], 1)
 
 
 class TestFailOpen(unittest.TestCase):

@@ -89,6 +89,14 @@ class Transcript(unittest.TestCase):
         self.assertEqual(pocket.transcript_md(["tr_123", "tr_124"]), "")
         self.assertEqual(pocket.transcript_md("processing"), "")
 
+    def test_values_of_an_unexpected_type_are_skipped_not_fatal(self):
+        # The field is untyped in Pocket's API reference; a changed shape must degrade to
+        # "unreadable", never to a crash that stops the run.
+        self.assertEqual(pocket.transcript_md(42), "")
+        self.assertEqual(pocket.transcript_md([None, 7, ["nested"], {"text": "Kept."}]), "Kept.")
+        self.assertEqual(pocket.transcript_md([{"speaker_name": ["x"], "speaker": "Alex", "text": "Hi."}]),
+                         "**Alex:** Hi.")
+
 
 class Summaries(unittest.TestCase):
     def test_id_keyed_object(self):
@@ -165,6 +173,12 @@ class LiveShape(unittest.TestCase):
         self.assertEqual(md, "- **Book a call**: Call the supplier.\n"
                              "- **Quote**: Request a quote. (for Sam, due 2030-01-20, done in Pocket)")
         self.assertNotIn("[ ]", md)
+
+    def test_an_action_with_neither_label_nor_context_is_dropped(self):
+        # An empty bullet in triage/ is a decision /para-triage would be asked to make about nothing.
+        s = {"sum-0001": {"v2": {"actionItems": {"actions": [
+            "not an object", {"label": " ", "context": ""}, {"label": "Call back", "assignee": ""}]}}}}
+        self.assertEqual(pocket.action_items_md(s), "- **Call back**")
 
     def test_note_is_written_not_held(self):
         rec = self.REC
@@ -346,6 +360,16 @@ class Config(unittest.TestCase):
             p.write_text('{"api_key": " pk_ok "}', encoding="utf-8")
             self.assertEqual(pocket.load_key(p), "pk_ok")
 
+    def test_an_unreadable_key_file_stops_naming_the_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "pocket.json"
+            for text in ("{half", '["pk_in_a_list"]'):
+                p.write_text(text, encoding="utf-8")
+                with self.assertRaises(SystemExit) as stop:
+                    pocket.load_key(p)
+                self.assertIn("unreadable", str(stop.exception.code))
+                self.assertIn(str(p), str(stop.exception.code))
+
 
 class Files(unittest.TestCase):
     def test_same_recording_is_detected_other_recording_gets_suffix(self):
@@ -384,6 +408,13 @@ class Files(unittest.TestCase):
         self.assertIn("pocket_id: x", md)
         front = md.split("---")[1]
         self.assertEqual(json.loads(front.split("title: ")[1].splitlines()[0]), 'A: "b"')
+
+    def test_blank_or_nameless_tags_are_left_out_of_the_front_matter(self):
+        rec = {"id": "x", "title": "T", "tags": [{"name": " "}, {"name": None}, {"id": 3}, "Home", {"name": "Acme "}]}
+        md = pocket.render_note(rec, datetime(2026, 9, 13, 10, 0), "t", [(None, "s")])
+        self.assertIn('tags: ["Home", "Acme"]', md)
+        self.assertNotIn("tags:", pocket.render_note({"id": "x", "tags": [{"name": ""}]},
+                                                     datetime(2026, 9, 13, 10, 0), "t", [(None, "s")]))
 
     def test_atomic_write_leaves_no_partial_file(self):
         with tempfile.TemporaryDirectory() as d:
@@ -514,6 +545,29 @@ class ApiGet(unittest.TestCase):
         with self.urlopen(http_error("u", 401)):
             with self.assertRaises(SystemExit):
                 pocket.api_get("pk_x", "/p")
+
+    def test_an_ok_response_reporting_failure_is_a_pocket_error_naming_it(self):
+        with self.urlopen(b'{"success": false, "error": "recording not found"}'):
+            with self.assertRaisesRegex(pocket.PocketError, "recording not found"):
+                pocket.api_get("pk_x", "/p")
+
+    def test_an_error_body_that_cannot_be_read_still_reports_the_status(self):
+        # Reporting the failure must not fail: the status is the part that matters.
+        class Unreadable(io.BytesIO):
+            def read(self, *a):
+                raise OSError("connection reset while reading the body")
+        with self.urlopen(urllib.error.HTTPError("u", 404, "error", {}, Unreadable())):
+            with self.assertRaises(pocket.PocketError) as err:
+                pocket.api_get("pk_x", "/p")
+        self.assertEqual(str(err.exception), "GET /p -> HTTP 404")
+
+    def test_a_listing_or_recording_of_the_wrong_shape_is_a_pocket_error(self):
+        with mock.patch.object(pocket, "api_get", return_value={"data": {"id": "not a list"}}):
+            with self.assertRaisesRegex(pocket.PocketError, "no list of recordings"):
+                pocket.list_recordings("pk_x", datetime(2030, 1, 1))
+        with mock.patch.object(pocket, "api_get", return_value={"data": [{"id": "r1"}]}):
+            with self.assertRaisesRegex(pocket.PocketError, "no recording object"):
+                pocket.get_recording("pk_x", "r1")
 
 
 class MainLoop(unittest.TestCase):
@@ -732,6 +786,63 @@ class MainLoop(unittest.TestCase):
     def test_unknown_vault_flag_stops(self):
         with self.assertRaises(SystemExit):
             self.run_main("--vault", "Other")
+
+    def test_vault_flag_without_routes_is_ignored_out_loud(self):
+        pocket.CONFIG_PATH.write_text("{}", encoding="utf-8")
+        self.list = self.list[:1]
+        out = self.run_main("--vault", "Home")
+        self.assertIn('--vault "Home" ignored', self.stderr)
+        self.assertIn("would write: 1", out)
+
+    def test_a_route_to_no_vault_warns_at_startup_and_the_run_goes_on(self):
+        pocket.CONFIG_PATH.write_text('{"route": {"Acme": ".", "Ops": "Operations"}}', encoding="utf-8")
+        out = self.run_main()
+        self.assertIn('route "Ops" -> "Operations"', self.stderr)
+        self.assertIn("would write: 1", out)
+
+    def routed_home(self):
+        """Route "Home - ..." to a sibling vault and add one such recording."""
+        (self.vault.parent / "Home").mkdir()
+        pocket.CONFIG_PATH.write_text('{"route": {"Acme": ".", "Home": "Home"}}', encoding="utf-8")
+        self.list.append({"id": "home55", "title": "HOME - Plumber", "state": "completed",
+                          "recording_at": self.list[0]["recording_at"]})
+        self.detail["home55"] = self.detail["ready1"]
+        return self.vault.parent / "Home" / "triage"
+
+    def test_another_vaults_recording_is_counted_here_and_written_by_vault_flag(self):
+        # Silent per recording but counted, so the closing line adds up to the header's count
+        # and a misrouted config cannot pass for a quiet week.
+        home = self.routed_home()
+        out = self.run_main("--write")
+        self.assertNotIn("Plumber", out)
+        self.assertIn("other vaults: 1", out)
+        self.assertFalse(home.exists())
+
+        out = self.run_main("--write", "--vault", "Home")
+        self.assertIn("routing -> Home", out)
+        self.assertEqual([p.name[9:] for p in home.iterdir()], ["Plumber.md"])
+        self.assertIn("home55@Home", self.ledger())
+
+    def test_all_writes_every_routed_vault_in_one_pass(self):
+        home = self.routed_home()
+        out = self.run_main("--write", "--all")
+        self.assertIn("routing all vaults", out)
+        self.assertIn("wrote: 2", out)
+        self.assertEqual([p.name[9:] for p in home.iterdir()], ["Plumber.md"])
+        self.assertEqual(len(self.triage()), 1)
+        self.assertEqual(self.ledger(), ["home55@Home", "ready1@Acme"])
+
+    def test_dump_prints_the_raw_recording_and_writes_nothing(self):
+        out = self.run_main("--dump", "ready1", "--write")
+        self.assertEqual(json.loads(out), {"data": self.detail["ready1"], "success": True})
+        self.assertEqual(self.triage(), [])
+        self.assertFalse(pocket.STATE.exists())
+
+    def test_dump_of_an_unknown_recording_stops_with_the_reason(self):
+        self.errors["/public/recordings/nope"] = http_error("u", 404, body=b"not found")
+        with self.assertRaises(SystemExit) as stop:
+            self.run_main("--dump", "nope")
+        self.assertIn("HTTP 404: not found", str(stop.exception.code))
 
 
 if __name__ == "__main__":
