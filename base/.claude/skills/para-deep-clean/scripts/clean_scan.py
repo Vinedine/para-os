@@ -49,7 +49,7 @@ try:
         WIP_THRESHOLD, abspath, action_files, dangling_links, declarations, duplicates,
         extract_links, git, git_blame_line_date, hashes, inbound_references, iso,
         link_files, link_spans, live_lines, master_template, misplaced_checkboxes, norm,
-        open_tasks, over_grown_briefs, parse_date, read_lines, read_text,
+        open_tasks, over_grown_briefs, parse_date, read_lines, read_text, reference_shape,
         refuse_if_collected, resolve_link, snapshot, strip_code, template_marker,
         triage_items,
     )
@@ -78,12 +78,22 @@ BULLET_RE = re.compile(r"^\s*-\s+(.*)$")
 ALIASES_RE = re.compile(r"^\*\*Aliases:\*\*\s*(.+)$", re.IGNORECASE)
 ALSO_RE = re.compile(r"^Also:\s*(.+)$", re.IGNORECASE)
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]")
-MONEY_RE = re.compile(r"(?:[€$]|EUR)\s?-?\d[\d.,]*\s?[kK]?|-?\d[\d.,]*\s?(?:%|[kK]\b)")
+# A figure ends on a digit, a `k` or a `%` - never on the space or the sentence's own
+# `.`/`,` after it - so "€1,200 total" and "€1,200." read as the same figure.
+MONEY_RE = re.compile(r"(?:[€$]|EUR)\s?-?\d(?:[\d.,]*\d)?(?:\s?[kK]\b)?"
+                      r"|-?\d(?:[\d.,]*\d)?\s?(?:%|[kK]\b)")
 LEDGER_EXEMPT_RE = re.compile(r"log|usage|review|digest|ledger|transcript", re.IGNORECASE)
-EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 PHONE_CANDIDATE_RE = re.compile(r"\+?\d[\d ./]{6,}\d")
 ISO_DATE_SHAPE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 COMPACT_DATE_SHAPE_RE = re.compile(r"^\d{8}$")
+
+
+def whole_word(name):
+    """`name` as a whole word: no letter, digit, underscore or hyphen either side, so a
+    contact "Mark" is not named by "Marketing" and an entity `acme` is not named by
+    `acme-website-v2` - the boundary brief_scan.mentions_elsewhere() uses."""
+    return re.compile(r"(?<![\w-])" + re.escape(name) + r"(?![\w-])")
 
 
 def link_targets_stripped(line):
@@ -261,6 +271,21 @@ def build_md_index(vault):
     return index
 
 
+def wikilink_matches(vault, index, target):
+    """The notes a wikilink target names. A bare name resolves by filename stem through
+    the index; a path form ([[projects/acme/brief]], with or without `.md`) is
+    vault-relative, and a partial one ([[acme/brief]]) names any note whose path ends in
+    it, the way Obsidian resolves its shortest-unique form."""
+    target = target.replace("\\", "/").strip("/")
+    stem = target[:-3] if target.lower().endswith(".md") else target
+    candidates = index.get(norm(stem.rsplit("/", 1)[-1])) or []
+    if "/" not in stem:
+        return candidates
+    tail = "/" + stem.lower() + ".md"
+    return [p for p in candidates
+            if ("/" + p.relative_to(vault).as_posix().lower()).endswith(tail)]
+
+
 def find_wikilinks(vault, roots=("projects", "areas", "resources", "triage")):
     index = build_md_index(vault)
     out = []
@@ -270,7 +295,7 @@ def find_wikilinks(vault, roots=("projects", "areas", "resources", "triage")):
             for m in WIKILINK_RE.finditer(line):
                 target = m.group(1).strip()
                 display = m.group(2).strip() if m.group(2) else None
-                matches = index.get(norm(target)) or []
+                matches = wikilink_matches(vault, index, target)
                 resolved = sorted(matches)[0].relative_to(vault).as_posix() if matches else None
                 out.append({"file": path.relative_to(vault).as_posix(), "line": lineno,
                             "target": target, "display": display, "resolved": resolved})
@@ -355,12 +380,19 @@ def uncited_contacts(vault):
 
         per_file = {}
         for name in names:
+            pattern = whole_word(name)
             for hit in inbound_references(vault, name):
                 if hit["file"] == card_rel or hit["in_sources"] or not in_live_scope(hit["file"]):
                     continue
+                # inbound_references() without a parent is a bare substring find, so the
+                # name is re-matched as a whole word and its shape taken at that match.
+                decoded = unquote(hit["text"])
+                m = pattern.search(decoded)
+                if not m:
+                    continue
                 # A name quoted inside backticks - a path, a code sample - is not a mention
                 # of the person, per "a quoted syntax is not a used syntax".
-                if hit["shape"] == "backtick":
+                if reference_shape(decoded, m.start(), m.end()) == "backtick":
                     continue
                 if allowed is not None and hit["file"] not in allowed:
                     continue
@@ -395,11 +427,12 @@ def inline_contact_details(vault):
     network_dir = vault / "areas" / "network"
     if not network_dir.is_dir():
         return []
-    names_by_card = {}
+    names_by_card, patterns = {}, {}
     for card in sorted(network_dir.glob("*.md")):
         card_rel = card.relative_to(vault).as_posix()
         for name in contact_names(card):
             names_by_card[name] = card_rel
+            patterns[name] = whole_word(name)
 
     out = []
     for path in sorted(vault.rglob("*.md")):
@@ -412,7 +445,7 @@ def inline_contact_details(vault):
             uncoded = code_stripped[lineno - 1] if lineno - 1 < len(code_stripped) else text
             clean = link_targets_stripped(uncoded)
             names_on_line = sorted({n for n, c in names_by_card.items()
-                                    if c != rel and n in clean})
+                                    if c != rel and patterns[n].search(clean)})
             if not names_on_line:
                 continue
             details = [(m.group(0), "email") for m in EMAIL_RE.finditer(clean)]
@@ -488,11 +521,11 @@ def figure_pairs(vault):
     skill's question and a source document's answer.
 
     Matched on the line with every link target stripped and percent-decoded, on both
-    sides - the rollup line and the entity's own brief - and the entity name matched on
-    word boundaries - a figure or a name that exists only inside an href, or a name that
-    is a substring of a longer word, is never a match."""
+    sides - the rollup line and the entity's own brief - and the entity name matched as a
+    whole word, hyphens included - a figure or a name that exists only inside an href, or
+    a name that is part of a longer one (`acme` in `acme-website-v2`), is never a match."""
     names = entity_names(vault)
-    name_patterns = {n: re.compile(r"\b" + re.escape(n) + r"\b") for n in names}
+    name_patterns = {n: whole_word(n) for n in names}
     brief_cache = {}
 
     def brief_figures(name):

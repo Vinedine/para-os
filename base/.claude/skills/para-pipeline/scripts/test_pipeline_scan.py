@@ -261,6 +261,18 @@ class NextStep(VaultCase):
         self.assertEqual(step["source"], "linked_checkbox")
         self.assertEqual(step["date"], "2026-09-20")
 
+    def test_linked_checkbox_found_in_a_nested_actions_file(self):
+        # scan.md Step 3 rule 2 reads any actions.md under projects/ or areas/, but the
+        # scan only globbed their direct children, so a sub-area's file was never read.
+        write(self.root, "resources/ideas/delta/brief.md",
+              "# Delta\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        write(self.root, "areas/business/clients/actions.md",
+              "# Clients\n\n- [ ] Revisit [Delta](../../../resources/ideas/delta/brief.md) "
+              "📅 2026-09-22\n")
+        step = find(self.deal()["entities"], "delta")["next_step"]
+        self.assertEqual(step["source"], "linked_checkbox")
+        self.assertEqual(step["file"], "areas/business/clients/actions.md")
+
     def test_a_champion_link_resolving_to_nothing_falls_through(self):
         write(self.root, "resources/ideas/gamma/brief.md",
               "# Gamma\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n"

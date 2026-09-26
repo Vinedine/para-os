@@ -62,6 +62,9 @@ except ImportError as missing:  # the skill falls back to scanning by hand
 
 KIND_BY_BUCKET = {"P": "project", "I": "idea", "A": "area"}
 BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
+# The full stop ending a sentence: followed by whitespace or the end, and not closing a
+# one-letter abbreviation ("e.g.", "i.e."), which would cut a reason list mid-way.
+SENTENCE_END_RE = re.compile(r"(?<!\b\w)\.(?=\s|$)")
 
 
 # ------------------------------------------------------------------------------ the vault
@@ -126,9 +129,16 @@ def pick_doc(entity_dir):
 
 # ------------------------------------------------------------------------- the destination
 
+def vault_rel_arg(arg):
+    """A vault-relative path argument in the one form every comparison here expects:
+    surrounding whitespace and slashes dropped, backslashes read as forward slashes - so
+    `projects/acme/` and `projects\\acme` name the same folder as `projects/acme`."""
+    return arg.strip().replace("\\", "/").strip("/")
+
+
 def destination_block(vault, kind, folder_name, destination_arg):
     if destination_arg:
-        path = destination_arg.strip().strip("/").replace("\\", "/")
+        path = vault_rel_arg(destination_arg)
         default = False
     else:
         if kind == "project":
@@ -194,8 +204,10 @@ def reason_allowed(vault, stage_name):
             if not m:
                 continue
             rest = para[m.end():]
-            end = rest.find(".")
-            scope = rest[:end] if end != -1 else rest
+            # A full stop inside a bold value is part of the value, never the sentence's end.
+            masked = BOLD_RE.sub(lambda b: "*" * len(b.group(0)), rest)
+            end = SENTENCE_END_RE.search(masked)
+            scope = rest[:end.start()] if end else rest
             values = [v.strip() for v in BOLD_RE.findall(scope)]
             if values:
                 return values
@@ -656,6 +668,9 @@ def old_path_block(vault, moved_from):
 def verify(vault, moved_from, moved_to, routed):
     vault = Path(vault).resolve()
     refuse_if_collected(vault)
+    # Normalised as plan mode normalises --destination: `projects/acme/` or `projects\\acme`
+    # otherwise matches no written mention and the pass reads a false clean.
+    moved_from, moved_to = vault_rel_arg(moved_from), vault_rel_arg(moved_to)
     s_links = stale_links(vault, moved_from)
     s_mentions, s_exempt = stale_mentions(vault, moved_from, moved_to)
     inbound = inbound_resolved(vault, moved_to)

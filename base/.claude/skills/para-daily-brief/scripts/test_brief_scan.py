@@ -282,6 +282,15 @@ class MentionsElsewhere(VaultCase):
         self.assertEqual([m["file"] for m in got["mentioned_elsewhere"]],
                          ["areas/business/actions.md"])
 
+    def test_a_later_link_into_a_folder_carrying_parentheses_is_read_whole(self):
+        write(self.root, "projects/plan(v2)/actions.md", "# p\n\n- [ ] Ship it\n")
+        write(self.root, "areas/business/actions.md",
+              "# business - Actions\n\n## Next actions\n"
+              "- [ ] See [x](https://example.com) and [p](../../projects/plan(v2)/actions.md)\n")
+        got = scan(self.root, TODAY, entity="plan(v2)")
+        self.assertEqual([m["file"] for m in got["mentioned_elsewhere"]],
+                         ["areas/business/actions.md"])
+
     def test_a_multi_token_name_is_matched_by_its_bare_name_in_text(self):
         write(self.root, "projects/para-os-2026-09-04/actions.md", "# rev\n\n- [ ] Ship it\n")
         write(self.root, "areas/network/jan-janssen.md",

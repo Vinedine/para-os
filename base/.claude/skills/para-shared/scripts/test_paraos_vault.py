@@ -29,10 +29,10 @@ from paraos_vault import (
     first_link, git, git_blame_line_date, git_bytes, git_modified, git_untracked, hashes, header_fields,
     inbound_references, ingest_ledger, ingest_logs, integration_markers, is_collected,
     lifecycles, live_lines, log_instant, main, master_template, misplaced_checkboxes,
-    move_plan, norm, normalised, note_name_parts, open_tasks, over_grown_briefs,
+    match_encoding, move_plan, norm, normalised, note_name_parts, open_tasks, over_grown_briefs,
     parse_markers, refuse_if_collected, register_rows, registered_vault, registry,
-    registry_holding, resolve_entity, resolve_link, scope_of, snapshot, stage_line, stage_of,
-    strip_code, template_marker, thread_hash, triage_items, triage_sources, vault_root,
+    registry_holding, resolve_entity, resolve_link, scope_of, snapshot, split_lines,
+    stage_line, stage_of, strip_code, table_cells, template_marker, thread_hash, triage_items, triage_sources, vault_root,
     watermark, written_under,
 )
 
@@ -152,6 +152,20 @@ class Reading(VaultCase):
         lines = ["```npm ci``` fails on CI", "- [ ] Fix the build", "- [ ] Tell the team"]
         self.assertEqual([t for _, t in live_lines(lines)], lines)
 
+    def test_a_fence_line_with_an_info_string_does_not_close_an_open_fence(self):
+        # CommonMark: a closing fence carries nothing but whitespace after its run.
+        lines = ["```", "```python", "- [ ] Sample inside", "```", "- [ ] Real"]
+        self.assertEqual([t for _, t in live_lines(lines)], ["- [ ] Real"])
+
+    def test_lines_break_on_newline_alone(self):
+        # \u2028 and \x0c are characters in a line, not line breaks, to git and an editor.
+        path = self.root / "actions.md"
+        path.write_bytes("Intro\u2028still intro\x0c\r\n- [ ] Task\n".encode("utf-8"))
+        self.assertEqual([t["line"] for t in open_tasks(path)], [2])
+        self.assertEqual(split_lines("a\u2028b\r\nc\n"), ["a\u2028b", "c"])
+        self.assertEqual(split_lines("a\nb"), ["a", "b"])
+        self.assertEqual(split_lines(""), [])
+
     def test_a_byte_order_mark_does_not_hide_the_first_line(self):
         path = self.root / "actions.md"
         path.write_bytes("- [ ] First\n- [ ] Second\n".encode("utf-8-sig"))
@@ -177,6 +191,16 @@ class Reading(VaultCase):
         got = parse_markers("Broken 📅 2026-13-45")
         self.assertIsNone(got["due"])
         self.assertTrue(got["malformed_date"])
+
+    def test_a_malformed_marker_beside_a_valid_one_is_still_flagged(self):
+        got = parse_markers("Call back 📅 2026-10-01 ⏳ tomorrow")
+        self.assertEqual(got["due"], "2026-10-01")
+        self.assertTrue(got["malformed_date"])
+
+    def test_a_recurrence_stops_at_a_done_created_or_cancelled_marker(self):
+        for marker in ("✅", "➕", "❌"):
+            got = parse_markers(f"Pay rent 🔁 every month {marker} 2026-09-01")
+            self.assertEqual(got["recurring"], "every month")
 
     def test_an_emoji_variation_selector_does_not_hide_the_date(self):
         got = parse_markers("Do it ⏳️ 2026-10-01 📅️ 2026-10-05")
@@ -512,6 +536,11 @@ class RegisteredVaultCheck(VaultCase):
         entries = [{"name": "BF", "path": str(self.root / "elsewhere")}]
         self.assertIsNone(registered_vault(entries, self.root))
 
+    def test_a_vault_registered_at_the_filesystem_root_holds_everything_under_it(self):
+        fs_root = Path(abspath(self.root).anchor)
+        entries = [{"name": "Root", "path": str(fs_root)}]
+        self.assertEqual(registered_vault(entries, self.root)["name"], "Root")
+
 
 class RegistryHolding(VaultCase):
 
@@ -576,6 +605,32 @@ class FileDates(VaultCase):
         got = file_dates(self.root, paths)
         self.assertEqual(len(got), 3)
         self.assertTrue(all(v for v in got.values()))
+
+    def test_an_uncommitted_edit_named_by_a_relative_path_keeps_its_mtime(self):
+        if shutil.which("git") is None:
+            self.skipTest("git is not on PATH")
+        env = dict(os.environ, GIT_AUTHOR_DATE="2020-01-01T12:00:00",
+                   GIT_COMMITTER_DATE="2020-01-01T12:00:00")
+        run = lambda *a: subprocess.run(["git", "-C", str(self.root), *a], env=env,
+                                        check=True, capture_output=True)
+        run("init", "-q")
+        run("config", "user.email", "t@example.com")
+        run("config", "user.name", "t")
+        for n in range(3):
+            write(self.root, f"projects/x/{n}.md", "# x\n")
+        run("add", "-A")
+        run("commit", "-q", "-m", "init")
+        write(self.root, "projects/x/0.md", "# x, edited\n")
+        stamped = time.time()
+        cwd = os.getcwd()
+        os.chdir(self.root)
+        self.addCleanup(os.chdir, cwd)
+        paths = [Path(f"projects/x/{n}.md") for n in range(3)]
+        for p in paths:
+            os.utime(p, (stamped, stamped))
+        got = file_dates(".", paths)
+        self.assertEqual(got[paths[0]], date.fromtimestamp(stamped).isoformat())
+        self.assertEqual(got[paths[1]], "2020-01-01")
 
 
 class EntityState(VaultCase):
@@ -790,6 +845,16 @@ class HeaderBlock(VaultCase):
     def test_a_field_with_no_link_has_no_target(self):
         self.assertIsNone(first_link("referral from a neighbour, network"))
 
+    def test_first_link_keeps_a_target_carrying_parentheses_whole(self):
+        self.assertEqual(first_link("see [w](https://en.wikipedia.org/wiki/Foo_(bar)) ok"),
+                         "https://en.wikipedia.org/wiki/Foo_(bar)")
+        self.assertEqual(first_link("[a]() then [b](b.md)"), "b.md")
+
+    def test_an_escaped_pipe_stays_inside_its_cell(self):
+        self.assertEqual(table_cells("| [[jan-janssen\\|Jan]] | lead |"),
+                         ["[[jan-janssen\\|Jan]]", "lead"])
+        self.assertEqual(table_cells("| a | b |"), ["a", "b"])
+
     def test_a_document_opening_on_prose_has_no_header(self):
         path = write(self.root, "brief.md", "# Orchard Labs\n\nProse, then nothing bold.\n")
         self.assertEqual(header_fields(path), {})
@@ -885,6 +950,13 @@ class Code(VaultCase):
 
     def test_a_double_backtick_span_closes_only_on_two(self):
         self.assertEqual(strip_code("a ``x ` y`` b"), "a           b")
+
+    def test_a_line_separator_character_does_not_start_a_line(self):
+        # "```" after a \u2028 sits mid-line to git and an editor, so it opens no fence.
+        text = "Intro\u2028```\r\n[a](a.md)\n"
+        got = strip_code(text)
+        self.assertEqual(got, text)
+        self.assertEqual([line for line, _, _ in extract_links(got)], [2])
 
 
 class Links(VaultCase):
@@ -1085,6 +1157,14 @@ class MovePlan(VaultCase):
                          "archive/projects/orchard-lane")
         self.assertEqual(plan["inside"][0]["new_href"],
                          "../../../resources/playbook.md#the-shape")
+
+    def test_a_space_the_old_href_never_had_is_encoded_in_the_new_one(self):
+        # A bare space ends a link target, so it is encoded even though the old href had
+        # none to say how; inside <...> a space is legal and stays.
+        self.assertEqual(match_encoding("../a/b.md#x", "../New Home/b.md"),
+                         "../New%20Home/b.md#x")
+        self.assertEqual(match_encoding("<../a/b.md>", "../New Home/b.md"),
+                         "<../New Home/b.md>")
 
 
 class FileContents(VaultCase):
@@ -1668,6 +1748,11 @@ class WrittenUnder(VaultCase):
                     "20260908 Book your appointment (Ref. 100200300) a6253e.md")
         self.assertTrue(written_under(entry, folder))
 
+    def test_a_backslash_entry_matches_on_any_platform(self):
+        folder = self.root / "BF" / "triage"
+        entry = str(self.root).replace(os.sep, "\\") + "\\BF\\triage\\20260918 Note 96cd6b.md"
+        self.assertTrue(written_under(entry, folder))
+
 
 class NoteNaming(VaultCase):
 
@@ -1698,6 +1783,11 @@ class NoteNaming(VaultCase):
         got = note_name_parts("20260921 Something deadbe 88604c.md")
         self.assertEqual(got["hash"], "88604c")
         self.assertEqual(got["subject"], "Something deadbe")
+
+    def test_an_all_digit_hash_is_not_read_as_a_copy_number(self):
+        got = note_name_parts("20260101 Invoice 202601 123456.md")
+        self.assertEqual(got, {"date": "20260101", "subject": "Invoice 202601",
+                               "hash": "123456", "copy": None})
 
     def test_a_non_md_file_is_not_this_shape(self):
         self.assertIsNone(note_name_parts("20260921 Accepted AI Chat 88604c.pdf"))

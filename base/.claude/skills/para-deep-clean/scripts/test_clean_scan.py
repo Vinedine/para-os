@@ -280,6 +280,21 @@ class Wikilinks(VaultCase):
         self.assertIsNone(hits["Nobody Home"]["resolved"])
         self.assertEqual(hits["Nobody Home"]["display"], "nobody")
 
+    def test_a_path_form_wikilink_resolves_vault_relative(self):
+        # The index is keyed by stem, so [[projects/acme/brief]] used to fold to one
+        # unmatchable key and report unresolved however right the path was.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "projects/other/brief.md", "# Other\n")
+        write(self.root, "areas/business/notes.md",
+              "See [[projects/acme/brief]], [[projects/acme/brief.md]], [[acme/brief]] "
+              "and [[projects/gone/brief]].\n")
+        hits = {h["target"]: h["resolved"] for h in self.run_scan("1")["phase1"]["wikilinks"]}
+        self.assertEqual(hits["projects/acme/brief"], "projects/acme/brief.md")
+        self.assertEqual(hits["projects/acme/brief.md"], "projects/acme/brief.md")
+        self.assertEqual(hits["acme/brief"], "projects/acme/brief.md")
+        self.assertIsNone(hits["projects/gone/brief"])
+
 
 class UncitedContacts(VaultCase):
 
@@ -343,6 +358,18 @@ class UncitedContacts(VaultCase):
         write(self.root, "projects/acme/brief.md", "# Acme\n\nSee `Jan Claes` in the template.\n")
         self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
 
+    def test_a_name_inside_a_longer_word_is_not_a_mention(self):
+        # A contact "Mark" is not named by "Marketing": inbound_references() without a
+        # parent is a substring find, so the name is re-matched as a whole word.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/mark.md", "# Mark\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMarketing owns `Mark` now.\n")
+        write(self.root, "projects/beta/brief.md", "# Beta\n\nMarketing said Mark agreed.\n")
+        found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
+        self.assertEqual(found["areas/network/mark.md"]["files"],
+                         [{"file": "projects/beta/brief.md", "mentions": 1}])
+
     def test_a_ledger_record_is_exempt_but_named_for_override(self):
         # Finding 3: the mechanical proxy for "analytical and ledger records that are
         # evidence in all but folder name" - the file is dropped from the finding but
@@ -382,6 +409,14 @@ class InlineContactDetails(VaultCase):
         self.assertEqual(hits[0]["attribution"], "unresolved")
         self.assertNotIn("card", hits[0])
 
+    def test_a_sentence_full_stop_is_not_part_of_the_email(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nReach Jan Claes at jan.claes@example.com.\n")
+        hits = self.run_scan("1")["phase1"]["inline_contact_details"]
+        self.assertEqual(hits[0]["detail"], "jan.claes@example.com")
+
     def test_every_carded_name_on_the_line_is_listed_not_just_the_nearest(self):
         # Finding 2: a detail is never attributed by proximity, so both names sharing the
         # line come back, and neither is picked as the owner.
@@ -393,6 +428,13 @@ class InlineContactDetails(VaultCase):
         hits = self.run_scan("1")["phase1"]["inline_contact_details"]
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0]["names_on_line"], ["Ann Peeters", "Jan Claes"])
+
+    def test_a_name_inside_a_longer_word_does_not_put_it_on_the_line(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/mark.md", "# Mark\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nMarketing is at team@example.com.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
 
     def test_sources_folder_is_excluded(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -483,6 +525,22 @@ class FigurePairs(VaultCase):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "projects/acme/brief.md", "# Acme\n\nMargin: EUR19k\n")
         write(self.root, "README.md", "# Vault\n\nacme margin is EUR19k this year.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
+    def test_trailing_space_and_punctuation_are_not_part_of_a_figure(self):
+        # MONEY_RE kept the space before "total" and the sentence's own full stop, so the
+        # same figure read as two and every matching pair was reported.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nBudget is €1,200 total.\n")
+        write(self.root, "README.md", "# Vault\n\nacme cost €1,200.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
+    def test_an_entity_name_inside_a_hyphenated_name_is_not_a_mention(self):
+        # `\b` sits between "acme" and "-", so acme matched inside acme-website-v2.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nEUR5k\n")
+        write(self.root, "projects/acme-website-v2/brief.md", "# Site\n\nEUR19k\n")
+        write(self.root, "README.md", "# Vault\n\nacme-website-v2 costs EUR19k.\n")
         self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
 
     def test_a_figure_shaped_run_inside_a_link_target_is_not_a_figure(self):

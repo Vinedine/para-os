@@ -68,7 +68,7 @@ FENCE_TOKEN_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 DUE_RE = re.compile(r"📅️?\s*(\d{4}-\d{2}-\d{2})")
 START_RE = re.compile(r"🛫️?\s*(\d{4}-\d{2}-\d{2})")
 SCHEDULED_RE = re.compile(r"⏳️?\s*(\d{4}-\d{2}-\d{2})")
-RECUR_RE = re.compile(r"🔁️?\s*(every [^📅🛫⏳🔺🔼🔽⏬\n]+)")
+RECUR_RE = re.compile(r"🔁️?\s*(every [^📅🛫⏳🔺🔼🔽⏬✅➕❌\n]+)")
 PRIORITY_RE = re.compile(r"[🔺🔼🔽⏬]")
 ANY_DATE_RE = re.compile(r"[📅🛫⏳]️?\s*(\S+)")
 MARKERS_RE = re.compile(r"\s*[📅🛫⏳🔁🔺🔼🔽⏬✅][^|]*$")
@@ -186,7 +186,8 @@ def registered_vault(entries, path):
         if not entry_path:
             continue
         root = os.path.normcase(str(abspath(entry_path)))
-        if target == root or target.startswith(root + os.sep):
+        # A drive or filesystem root already ends in its separator: "/" + os.sep is "//".
+        if target == root or target.startswith(root if root.endswith(os.sep) else root + os.sep):
             return entry
     return None
 
@@ -255,8 +256,18 @@ def read_text(path):
         return ""
 
 
+def split_lines(text):
+    """A text's lines, broken on `\n` alone with a trailing `\r` dropped - the lines git and
+    an editor number. `str.splitlines()` also breaks on `\x0c`, `\x85`, `\u2028` and the
+    like, so a note quoting one would report every later line number off by one."""
+    lines = text.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return [line.rstrip("\r") for line in lines]
+
+
 def read_lines(path):
-    return read_text(path).splitlines()
+    return split_lines(read_text(path))
 
 
 def fence_step(fence, line):
@@ -264,9 +275,11 @@ def fence_step(fence, line):
     (an opening or a closing line).
 
     Shared by every fenced-block reader, so the rule is stated once: a fence closes only
-    on a run of the character that opened it, at least as long as that opening run. A
-    four-backtick block keeps a three-backtick line inside it, never closed by the shorter
-    run - the same rule strip_code() needs to keep an inner sample's syntax from leaking.
+    on a run of the character that opened it, at least as long as that opening run, with
+    nothing but whitespace after it. A four-backtick block keeps a three-backtick line
+    inside it, never closed by the shorter run, and a ```` ```python ```` line inside a
+    block opens nothing and closes nothing - the same rule strip_code() needs to keep an
+    inner sample's syntax from leaking.
     """
     m = FENCE_TOKEN_RE.match(line)
     token = m.group(1) if m else None
@@ -274,7 +287,8 @@ def fence_step(fence, line):
         token = None  # a backtick run closed on its own line is inline code, not a fence
     if fence is None:
         return (token, True) if token else (None, False)
-    if token and token[0] == fence[0] and len(token) >= len(fence):
+    if (token and token[0] == fence[0] and len(token) >= len(fence)
+            and not line[m.end():].strip()):
         return None, True
     return fence, False
 
@@ -330,9 +344,10 @@ def strip_code(text):
     because a quoted syntax is not a used syntax.
     """
     out, fence = [], None
-    for line in text.splitlines(keepends=True):
-        body = line.rstrip("\r\n")
-        end = line[len(body):]
+    parts = text.split("\n")
+    for i, part in enumerate(parts):
+        body = part.rstrip("\r")
+        end = part[len(body):] + ("\n" if i < len(parts) - 1 else "")
         before = fence
         fence, _ = fence_step(fence, body)
         if before is None and fence is None:
@@ -369,15 +384,15 @@ def parse_markers(body):
 
     A date-shaped marker still has to be a real date: `2026-13-45` matches the shape and
     names no day, so it comes back as no date with `malformed_date` set, never silently.
+    Every date marker on the line is checked, so `⏳ tomorrow` is flagged even where a
+    valid `📅` sits beside it.
     """
-    dates, malformed = {}, False
+    dates = {}
     for field, pattern in (("due", DUE_RE), ("scheduled", SCHEDULED_RE), ("start", START_RE)):
         found = pattern.search(body)
         dates[field] = found.group(1) if found and parse_date(found.group(1)) else None
-        if found and not dates[field]:
-            malformed = True
-    if not malformed and ANY_DATE_RE.search(body) and not any(dates.values()):
-        malformed = True
+    malformed = any(not DATE_RE.match(token) or not parse_date(token[:10])
+                    for token in ANY_DATE_RE.findall(body))
     recur = RECUR_RE.search(body)
     prio = PRIORITY_RE.search(body)
     return {
@@ -392,14 +407,21 @@ def parse_markers(body):
 
 
 def first_link(text):
-    """The target of the first `[label](target)` in a string, or None."""
-    found = LINK_RE.search(str(text))
-    return found.group(1).strip() if found else None
+    """The target of the first `[label](target)` in a string, or None. Read through
+    `link_spans`, so a target carrying parentheses is kept whole."""
+    text = str(text)
+    for start, end, bracket in link_spans(text):
+        target = text[start:end].strip()
+        if bracket is not None and target:
+            return target
+    return None
 
 
 def table_cells(text):
-    """The cells of one table row, outer pipes dropped."""
-    return [c.strip() for c in text.strip().strip("|").split("|")]
+    """The cells of one table row, outer pipes dropped. An escaped `\\|` is part of its cell,
+    as in Obsidian's `[[note\\|alias]]`, and is kept as written."""
+    row = re.sub(r"(?<!\\)\|+$", "", text.strip().lstrip("|"))
+    return [c.strip() for c in re.split(r"(?<!\\)\|", row)]
 
 
 def is_separator_row(cells):
@@ -721,7 +743,9 @@ def file_dates(vault, paths):
     out = {}
     for p, t in stamps.items():
         stamp = date.fromtimestamp(t).isoformat() if t else None
-        if p in clustered and p not in modified:
+        # git_modified names each path resolved, so a relative or symlinked one is compared
+        # in that form too, or an uncommitted edit would read as its last commit's date.
+        if p in clustered and p.resolve() not in modified:
             stamp = git_last_commit_date(vault, p) or stamp
         out[p] = stamp
     return out
@@ -749,7 +773,7 @@ def stage_line(path):
             if not text.strip():
                 continue
             if text.strip().startswith("|"):
-                cells = [c.strip() for c in text.strip().strip("|").split("|")]
+                cells = table_cells(text)
                 if cells and cells[0].lower() == "stage" and len(cells) > 1:
                     return cells[1]
                 continue
@@ -1367,12 +1391,14 @@ def inbound_references(vault, name, exclude=NOT_VAULT_CONTENT, parent=None):
 
 def match_encoding(raw, new):
     """The new href written the way the old one was: its `#fragment` kept, and its spaces
-    percent-encoded where the original encoded them."""
+    percent-encoded where the original encoded them, or where the original had no space to
+    say and a bare space would end the target (never inside `<...>`, where one is legal)."""
     bracketed = raw.startswith("<") and raw.endswith(">")
     if bracketed:
         raw = raw[1:-1]
     _, sep, frag = raw.partition("#")
-    out = (new.replace(" ", "%20") if "%20" in raw else new) + sep + frag
+    encode = "%20" in raw or (not bracketed and " " not in raw)
+    out = (new.replace(" ", "%20") if encode else new) + sep + frag
     return f"<{out}>" if bracketed else out
 
 
@@ -1594,7 +1620,7 @@ def integration_markers(vault, exclude=NOT_VAULT_CONTENT):
         rel = rel_posix(vault, path)
         if any(rel == e or rel.startswith(e + "/") for e in exclude):
             continue
-        header = "\n".join(read_text(path).splitlines()[:MARKER_HEADER_LINES])
+        header = "\n".join(read_lines(path)[:MARKER_HEADER_LINES])
         m = INTEGRATION_MARKER_RE.search(header)
         if m:
             out.append({"file": rel, "name": m.group(1), "revision": m.group(2)})
@@ -1607,7 +1633,7 @@ def changelog_entries(text):
     the 1-based line of its heading in `text`, so a report can point at the entry rather
     than quote it. A heading inside a fenced block is a sample, not an entry."""
     out, body = [], None
-    for lineno, line in live_lines(text.splitlines()):
+    for lineno, line in live_lines(split_lines(text)):
         m = CHANGELOG_HEADING_RE.match(line.strip())
         if m:
             body = []
@@ -1980,7 +2006,7 @@ def written_under(entry, folder):
     machine wrote it. Mojibake inside the filename itself is real and is compared as
     written, since it never changes what folder the file sits in.
     """
-    text = re.sub(r"\s+\([^)]*\)\s*$", "", str(entry).strip())
+    text = re.sub(r"\s+\([^)]*\)\s*$", "", str(entry).strip()).replace("\\", "/")
     if text.startswith("~"):
         text = os.path.expanduser(text)
     return is_under(Path(text), Path(folder))
@@ -1995,7 +2021,7 @@ def thread_hash(thread_id):
 
 NOTE_DATE_RE = re.compile(r"^\d{8}$")
 NOTE_HEX_RE = re.compile(r"^[0-9a-f]{6}$")
-NOTE_INT_RE = re.compile(r"^\d+$")
+NOTE_COPY_RE = re.compile(r"^\d{1,3}$")  # a sync client's " 2" copy, never a 6-digit hash
 
 
 def note_name_parts(filename):
@@ -2013,7 +2039,7 @@ def note_name_parts(filename):
     if len(tokens) < 2 or not NOTE_DATE_RE.match(tokens[0]):
         return None
     date_part, rest = tokens[0], tokens[1:]
-    if len(rest) >= 2 and NOTE_INT_RE.match(rest[-1]) and NOTE_HEX_RE.match(rest[-2]):
+    if len(rest) >= 2 and NOTE_COPY_RE.match(rest[-1]) and NOTE_HEX_RE.match(rest[-2]):
         copy, subject_tokens, hash_ = int(rest[-1]), rest[:-2], rest[-2]
     elif NOTE_HEX_RE.match(rest[-1]):
         copy, subject_tokens, hash_ = None, rest[:-1], rest[-1]

@@ -312,6 +312,15 @@ class Lifecycle(VaultCase):
         self.assertEqual(allowed, ["no decision", "timing", "budget", "went elsewhere",
                                    "not a fit", "relationship only"])
 
+    def test_an_abbreviation_inside_the_list_does_not_end_it(self):
+        # The list was cut at the first ".", so "e.g." dropped every value after it.
+        write(self.root, ".claude/rules/deal-brief.md",
+              "**A lost deal** carries `**Lost reason:** <reason>`, the reason being one of "
+              "**no decision**, **price** (e.g. over budget), **timing**, **n.v.t.** or "
+              "**not a fit**. The free clause follows.\n")
+        self.assertEqual(reason_allowed(self.root, "Lost"),
+                         ["no decision", "price", "timing", "n.v.t.", "not a fit"])
+
     def test_a_rule_file_declaring_no_reason_gives_allowed_null(self):
         write(self.root, ".claude/rules/other.md", "# Other rule\n\nNothing about reasons.\n")
         self.assertIsNone(reason_allowed(self.root, "Lost"))
@@ -711,6 +720,18 @@ class Verify(VaultCase):
         self.assertTrue(all("archive/projects/acme" not in m["text"]
                             or "archive/projects/acme/brief.md](../../archive" in m["text"]
                             for m in v["stale_mentions"]))
+
+    def test_a_trailing_slash_or_backslash_path_is_normalised(self):
+        # Plan mode normalised --destination but verify took --moved-from/--moved-to as
+        # given, so `projects/acme/` matched no mention and read a false clean.
+        write(self.root, "areas/network/jan.md", "# Jan\n\nOr just projects/acme in prose.\n")
+        for moved_from, moved_to in (("projects/acme/", "archive/projects/acme/"),
+                                     ("projects\\acme", " archive\\projects\\acme ")):
+            v = self.verify(moved_from, moved_to)
+            self.assertEqual((v["moved_from"], v["moved_to"]),
+                             ("projects/acme", "archive/projects/acme"))
+            self.assertEqual(len(v["stale_mentions"]), 1)
+            self.assertFalse(v["clean"])
 
     def test_a_versioned_new_path_also_excludes_its_own_old_path_substring(self):
         write(self.root, "areas/network/jan.md",

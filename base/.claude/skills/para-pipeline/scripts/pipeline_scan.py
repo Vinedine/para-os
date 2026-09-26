@@ -107,11 +107,12 @@ def home_has_extra_segment(home):
 
 
 def other_actions_files(vault):
-    """Every actions.md a next step (rule 2) may be filed in: direct children of projects/
-    and areas/, never a contact file and never archive/ or resources/."""
+    """Every actions.md a next step (rule 2) may be filed in: any actions.md at any depth
+    under projects/ or areas/ (scan.md Step 3), so a sub-area's own file counts, never a
+    contact file and never archive/ or resources/. Sorted per bucket, projects/ first."""
     files = []
-    for pattern in ("projects/*/actions.md", "areas/*/actions.md"):
-        files += sorted(vault.glob(pattern))
+    for bucket in ("projects", "areas"):
+        files += sorted(p for p in (vault / bucket).rglob("actions.md") if p.is_file())
     return files
 
 

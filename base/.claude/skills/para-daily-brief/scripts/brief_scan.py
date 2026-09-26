@@ -40,8 +40,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, CollectedVault, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        LINK_RE, STALE_FILE_DAYS, WIP_THRESHOLD, action_files, cadence_days, field_ci,
-        file_dates, is_under, iso, lifecycles, misplaced_checkboxes, open_tasks,
+        STALE_FILE_DAYS, WIP_THRESHOLD, action_files, cadence_days, field_ci,
+        file_dates, is_under, iso, lifecycles, link_spans, misplaced_checkboxes, open_tasks,
         over_grown_briefs, parse_date, refuse_if_collected, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
     )
@@ -127,7 +127,7 @@ def mentions_elsewhere(vault, tasks, match):
             continue
         file_path = Path(vault) / t["file"]
         targets = [t["first_link"]] if t.get("first_link") else []
-        targets += [m.group(1).strip() for m in LINK_RE.finditer(t["text"])]
+        targets += [t["text"][a:b].strip() for a, b, _ in link_spans(t["text"])]
         linked = any(is_under(resolve_link(file_path, href), entity_dir)
                      for href in targets if href)
         prose = LINK_TARGET_RE.sub("]", t["text"])  # a link target is judged as a link only
