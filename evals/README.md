@@ -134,3 +134,36 @@ runs with no sandbox, so check `command -v claude` names a path under your Linux
 Linux needs `bubblewrap` and `socat` for the sandbox. And a kept run directory lives in the
 distribution's `/tmp`, which is sealed read-only by the harness and cleared when the
 distribution stops, so copy `out/trace.jsonl` out in the same session that ran the case.
+
+## The write cases
+
+Some promises are about what a skill does not write: the bootstrap writes no file before
+its questions are answered, `/para-new` writes nothing before its proposal is approved, and
+`/para-activity-review` confirms a report's path before writing it. A case grading one lists
+`Write` and `Edit` in `allowed_tools` and carries the tag `write`. The harness gates those
+tools like `Bash`: without the grant it withholds them from the model, so a "never calls
+`Write`" grader passes for want of anything to refuse, and only the text graders score. To
+make the write graders bite:
+
+```bash
+python3 tools/eval.py -- --tag write --allow-tools Write Edit
+```
+
+A run with `--max-cost-usd 0` loads and checks every selected case, graders included, and
+stops before the first model call, so a new case can be checked for shape at no cost.
+
+## The install cases
+
+The `install-*` cases read the kit as this checkout has it. `_fixture/kit/` holds symlinks
+to the repo's `INSTALL.md` and `base/`, and `tools/eval.py`'s copy of this folder follows
+them into real files, so a case tests the text under review rather than a copy of it that
+drifts. A checkout made with symlinks off, Git for Windows' default, holds a one-line text
+file there instead, and these cases stop at setup saying so: turn on git's `core.symlinks`
+and check out again, or run them under WSL2. They carry no `native` tag for that reason.
+
+No skill carries the bootstrap: both arms read the same `bootstrap-prompt.md` from the
+fixture, so both score the same and the baseline arm buys nothing. Run them on one arm:
+
+```bash
+python3 tools/eval.py --case 'install-*' -- --ablation none --allow-tools Write Edit
+```

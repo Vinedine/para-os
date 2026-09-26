@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: activity-review-no-ledger-stops
+tags: [activity-review, native, write]
+context:
+  scaffold_script: setup.sh
