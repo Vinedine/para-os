@@ -25,7 +25,8 @@ cannot:
 
 A suite lives beside the code it covers, so the copy installed in a vault carries its own
 tests and `/para-upgrade` can verify a synced script by running them. `tools/check.py`
-runs every one of them, and `tools/eval.py` runs this folder.
+runs every one of them, `tools/coverage_report.py` measures what they reach (CI
+fails when that drops), and `tools/eval.py` runs this folder.
 
 The loop that makes the suite grow: when a `--test` run finds a defect, it becomes a unit
 test if it is mechanical and an eval case if it is judgment, and only then is it fixed.
