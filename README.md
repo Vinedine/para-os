@@ -123,6 +123,8 @@ Beyond base:
 - The [real-estate](addons/real-estate/) add-on adds [`/property-reconcile`](addons/real-estate/.claude/skills/property-reconcile/SKILL.md) (checks a property dossier against its sources), [`/property-underwrite`](addons/real-estate/.claude/skills/property-underwrite/SKILL.md) (brings it to decision-ready) and [`/property-dealsheet`](addons/real-estate/.claude/skills/property-dealsheet/SKILL.md) (renders the deal sheet).
 - [`multi-vault/`](multi-vault/) adds [`/para-ingest`](multi-vault/para-ingest/SKILL.md), which reads shared sources once and stages each item in the vault it belongs to.
 
+**Your own skills.** A vault can grow skills of its own, and three rules keep them supportable. A request starts as a prompt in `resources/prompts/` and becomes a skill after its third use, the same wait-until-proven rule the vault applies to templates. It is built with Anthropic's `skill-creator` skill, so it stays well-formed. And it never takes the `para-` prefix, which belongs to para-os: `/para-upgrade` treats a skill with a name para-os ships as its own copy and replaces it.
+
 `/para-daily-brief` against the example vault (fragment):
 
 ````

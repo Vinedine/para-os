@@ -46,4 +46,4 @@ Pull the kit (`git -C ~/.paraos/para-os pull`), then run `/para-upgrade` in the 
 
 ## Uninstalling
 
-Delete the vault's `.claude/skills/para-*` folders and the rule files para-os put in `.claude/rules/` (`filing.md`, `figures.md`, and any an add-on added), and optionally `~/.paraos/`, which also holds every integration's state. The vault stays ordinary Markdown files.
+Delete the vault's `.claude/skills/para-*` folders and the rule files para-os put in `.claude/rules/` (`filing.md`, `figures.md`, `working-preferences.md` (copy its preferences out first if you want to keep them), and any an add-on added), and optionally `~/.paraos/`, which also holds every integration's state. The vault stays ordinary Markdown files.
