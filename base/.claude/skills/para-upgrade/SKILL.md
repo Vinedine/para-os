@@ -33,6 +33,7 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 **Run the scan first**, per [para-shared/scripts.md](../para-shared/scripts.md), keeping its output for Phase 5's `--unchanged`:
 
 ```bash
+# Windows: py -3
 python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> --clone <clone path> [--ref <ref>] > <scan output path>
 ```
 

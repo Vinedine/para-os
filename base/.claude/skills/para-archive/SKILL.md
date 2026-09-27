@@ -39,6 +39,7 @@ Each step that changes files ends with a proposal and waits for explicit approva
 Run the plan call per [para-shared/scripts.md](../para-shared/scripts.md); it answers everything Steps 1 to 6 read, and Step 8's verify call is in [references/move.md](references/move.md):
 
 ```bash
+# Windows: py -3
 python3 "<this skill's base directory>/scripts/archive_scan.py" --vault . --entity <name> [--destination <path>] [--today YYYY-MM-DD] [--route <file>]... > <scan output path>
 ```
 

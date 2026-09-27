@@ -12,7 +12,8 @@ judgment lives in [delta.md](delta.md), [rules-and-skeleton.md](rules-and-skelet
 `scripts/test_upgrade_scan.py` pins each rule to a case.
 
 ```bash
-py -3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> --clone <path> \
+# Windows: py -3
+python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> --clone <path> \
     [--ref origin/stable] [--worktree] [--today YYYY-MM-DD] [--user-skills DIR] \
     [--user-settings FILE] [--unchanged EARLIER_SCAN.json] [--indent N]
 ```
@@ -159,8 +160,8 @@ diff those.
    resolution order, the rename/ambiguous/unresolvable ladder, the sanctioned-overwrite
    conditions, and the suite locator. The verdict is stated once, above.
 
-10. **`smoke`** - `python3 "<skills folder>/para-daily-brief/scripts/brief_scan.py" --vault
-    <vault> --indent 2`, per [delta.md](delta.md)'s "Smoke-test baseline". Non-zero exit
+10. **`smoke`** - `python3 "<skills folder>/para-daily-brief/scripts/brief_scan.py" --vault <vault> --indent 2` (Windows: `py -3`),
+    per [delta.md](delta.md)'s "Smoke-test baseline". Non-zero exit
     (a collected vault included), or no Python: run `/para-daily-brief week` instead and
     keep the same counts, agenda excluded.
 

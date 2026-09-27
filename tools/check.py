@@ -65,6 +65,11 @@ What it enforces, and why each one is machinery rather than prose:
                         it may never reach - which is the 1106 lines the 2026.08.03 split
                         removed, and nothing else stops them coming back.
 
+  Script launchers      A `python3 ` command in a skill's markdown, fenced or in a code span,
+                        states `py -3` on its own line or the line above: on Windows `python3`
+                        is often a Store stub, and a command that hides the Windows form costs a
+                        failed call per run before the agent retries.
+
   Rules contract        Every `.claude/rules/*.md` file carries a non-empty `paths:` frontmatter
                         list, and it and its vault's CLAUDE.md point at each other, both ways -
                         base's shipped rule files against base's template, and each delivery
@@ -760,6 +765,31 @@ def check_skills():
             ok(f"{rel(d)}/ contract holds ({lines} spine lines, {len(on_disk)} reference(s))")
 
 
+# --- script launchers ------------------------------------------------------------------
+
+PY3_COMMAND = re.compile(r"`python3 ")
+
+
+def check_launchers():
+    roots = [SKILLS_DIR, *addon_skill_dirs(), *(d for d in EXTRA_SKILL_DIRS if d.is_dir())]
+    hits = []
+    for root in roots:
+        for p in sorted(root.rglob("*.md")):
+            prev, in_fence = "", False
+            for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+                if FENCE.match(line):
+                    in_fence = not in_fence
+                elif (line.lstrip().startswith("python3 ") if in_fence else PY3_COMMAND.search(line)) \
+                        and "py -3" not in line and "py -3" not in prev:
+                    hits.append(f"{rel(p)}:{n}")
+                prev = line
+    if hits:
+        bad(f"`python3` command with no Windows form (`py -3`) on its line or the line above: "
+            f"{', '.join(hits)}")
+    else:
+        ok("every skill's `python3` command states its Windows form")
+
+
 # --- .claude/rules/ contract -----------------------------------------------------------
 
 RULES_FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.S)
@@ -972,6 +1002,7 @@ def main():
     check_example_skill_copies()
     check_delivery_tracking()
     check_skills()
+    check_launchers()
     check_rules_contract()
     check_skill_validator()
     check_tests()
