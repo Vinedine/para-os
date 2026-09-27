@@ -1,0 +1,48 @@
+# Starts Claude Code from a comment containing `@claude` on an issue or pull request, typically
+# `@claude work this issue` on an `agent-ready` issue. The run follows the repository's CLAUDE.md
+# (one branch per issue, a pull request into main that says `Fixes #N`); this file adds no
+# instructions of its own. The action's defaults decide who can trigger it: people with write
+# access, never bots, so a stranger's comment cannot spend the subscription.
+name: claude
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+  actions: read
+
+# Two comments on one issue queue behind each other instead of starting two runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  claude:
+    if: contains(github.event.comment.body, '@claude')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # /para-upgrade's tests read git history
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # CLAUDE.md requires tools/check.py before every commit; outlook's tests need requests.
+      - name: Install requests
+        run: python3 -m pip install requests
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          additional_permissions: |
+            actions: read
+          claude_args: >-
+            --max-turns 80
+            --allowedTools "Bash(python3 tools/check.py:*)"
