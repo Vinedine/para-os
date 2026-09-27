@@ -34,7 +34,8 @@ python3 tools/check.py               # before a release: also runs `claude plugi
 
 Both must pass. CI runs the first on Ubuntu, macOS and Windows under Python 3.12, and on Ubuntu
 under 3.9, on every push to `main`, `stable` or a `feat/` branch and on every pull request. A
-second job fails when coverage drops below its floor. `main` merges nothing until all five pass.
+second job fails when coverage drops below its floor, and a third runs `actionlint` over
+`.github/workflows/`. `main` merges nothing until all six pass.
 
 ## Branches
 

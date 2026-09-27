@@ -18,14 +18,14 @@ permissions:
   id-token: write
   actions: read
 
-# Two comments on one issue queue behind each other instead of starting two runs.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number }}
-  cancel-in-progress: false
-
 jobs:
   claude:
     if: contains(github.event.comment.body, '@claude') && github.event.comment.user.type != 'Bot'
+    # Two comments on one issue queue behind each other instead of starting two runs. At job
+    # level, not workflow level, so a run the `if:` skips finishes at once instead of queueing.
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

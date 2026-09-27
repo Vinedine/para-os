@@ -82,3 +82,13 @@ jobs:
       # Raise them when coverage rises; the report lands on the run's summary page.
       - name: Coverage
         run: python tools/coverage_report.py --fail-under 97 --fail-under-js 95 --summary "$GITHUB_STEP_SUMMARY"
+
+  actionlint:
+    # A workflow file GitHub cannot parse fails silently: the workflow just stops running.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download actionlint
+        run: bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
+      - name: Lint .github/workflows/
+        run: ./actionlint -color
