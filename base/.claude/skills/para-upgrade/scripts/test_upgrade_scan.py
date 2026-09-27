@@ -1562,6 +1562,25 @@ class IntegrationSuiteCase(CloneCase):
                 fixture_git(self.clone, "rm", "-rq", "integrations/gizmo")
                 fixture_git(self.clone, "commit", "-q", "--no-verify", "-m", "remove gizmo suite")
 
+    def test_the_node_runner_runs_every_test_file_not_only_the_first(self):
+        # granola ships two suites; the runner named only granola-auth-init.test.js, while
+        # covers listed granola.js as tested.
+        with self.on_main():
+            write(self.clone, "integrations/gizmo/gizmo-auth.js", "// auth\n")
+            write(self.clone, "integrations/gizmo/gizmo-auth.test.js", "// test\n")
+            write(self.clone, "integrations/gizmo/gizmo.js", "// gizmo\n")
+            write(self.clone, "integrations/gizmo/gizmo.test.js", "// test\n")
+            fixture_git(self.clone, "add", "-A")
+            fixture_git(self.clone, "commit", "-q", "--no-verify", "-m", "add two node suites")
+            try:
+                got = _integration_suite(self.clone, "main", False, "integrations/gizmo")
+                self.assertEqual(got["runner"], "node --test integrations/gizmo/gizmo-auth.test.js "
+                                                "integrations/gizmo/gizmo.test.js")
+                self.assertEqual(got["uncovered"], [])
+            finally:
+                fixture_git(self.clone, "rm", "-rq", "integrations/gizmo")
+                fixture_git(self.clone, "commit", "-q", "--no-verify", "-m", "remove gizmo suites")
+
 
     def test_covers_strips_only_the_test_prefix_and_suffix(self):
         with self.on_main():

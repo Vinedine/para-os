@@ -1311,7 +1311,7 @@ def _integration_suite(clone, ref, worktree, master_dir):
     if any(f.endswith(".py") for f in test_files):
         runner = 'py -3 -m unittest discover -s . -p "test_*.py"'
     elif test_files:
-        runner = f"node --test {test_files[0]}"
+        runner = "node --test " + " ".join(test_files)
     fixtures = [f for f in files_all if f not in test_files and f not in scripts
                and Path(f).name != "README.md"
                and not (f.endswith(".config.json") and not f.endswith(".template"))
