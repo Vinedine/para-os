@@ -20,6 +20,11 @@ What it enforces, and why each one is machinery rather than prose:
                         reads a stale master and reports "nothing to do" on a vault that
                         genuinely needs migrating.
 
+  Release notes         RELEASES.md tells people what each revision changes; CHANGELOG.md
+                        tells /para-upgrade what to do. Both list the same revisions in the
+                        same order, so a revision cut without its note fails here rather than
+                        reaching an operator unexplained.
+
   Dashes                CLAUDE.md makes this a hard rule for shipped prose, and it is the one
                         style rule a reader notices immediately.
 
@@ -275,6 +280,25 @@ def check_template_revisions():
             bad(f"{rel(f)}: stamped {m.group(1)}, newest changelog revision is {current}")
         else:
             ok(f"{rel(f)} at {current}")
+
+
+def check_release_notes():
+    path = ROOT / "RELEASES.md"
+    if not path.is_file():
+        bad("RELEASES.md is missing: every CHANGELOG revision needs a note for people")
+        return
+    notes = re.findall(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$",
+                       path.read_text(encoding="utf-8"), re.M)
+    revisions = changelog_revisions()
+    if notes == revisions:
+        ok(f"RELEASES.md lists the {len(notes)} CHANGELOG revision(s), in order")
+        return
+    for missing in [r for r in revisions if r not in notes]:
+        bad(f"RELEASES.md has no `## {missing}` note; CHANGELOG.md has that revision")
+    for extra in [r for r in notes if r not in revisions]:
+        bad(f"RELEASES.md has `## {extra}`, which CHANGELOG.md does not")
+    if set(notes) == set(revisions):
+        bad("RELEASES.md lists the CHANGELOG revisions in a different order; keep both newest first")
 
 
 TEMPLATE_MAX_LINES = 120   # a starting point; worst today is base at 119
@@ -940,6 +964,7 @@ def main():
     verbose = "-v" in sys.argv or "--verbose" in sys.argv
     check_integrations()
     check_template_revisions()
+    check_release_notes()
     check_template_size()
     check_dashes()
     check_dates()

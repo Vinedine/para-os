@@ -177,7 +177,8 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 
 - [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, the bootstrap prompt, the skills and rule files under `.claude/`, and agent and editor settings.
 - [`INSTALL.md`](INSTALL.md) - the setup steps the Quickstart prompt runs.
-- [`CHANGELOG.md`](CHANGELOG.md) - releases are `YYYY.MM.NN` revisions, newest first; `/para-upgrade` applies them to a vault.
+- [`RELEASES.md`](RELEASES.md) - what each `YYYY.MM.NN` revision changes for you, in plain words, and whether you need to do anything.
+- [`CHANGELOG.md`](CHANGELOG.md) - the same revisions as step-by-step instructions `/para-upgrade` applies to a vault.
 - [`addons/`](addons/README.md) - the delivery, flavor and module add-ons.
 - [`integrations/`](integrations/README.md) - drop-in scripts that pull an outside system into a vault.
 - [`multi-vault/`](multi-vault/) - optional layer for several vaults drawing on the same inboxes.

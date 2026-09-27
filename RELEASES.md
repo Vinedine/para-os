@@ -1,0 +1,57 @@
+# Release notes
+
+What each para-os revision changes for you, in plain words, newest first. A revision is named `YYYY.MM.NN`: the year and month it shipped, then its number within that month. Your vault's `CLAUDE.md` records which revision the vault is on.
+
+**To bring a vault up to date**, pull the kit (`git -C ~/.paraos/para-os pull`) and run `/para-upgrade` in the vault. It works out which revisions the vault has missed, shows you the plan, and asks before it changes anything. A vault several revisions behind gets all of them in one run. Under each revision, "Do you need to do anything?" names only what the upgrade cannot do for you.
+
+The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHANGELOG.md). They are written for the agent, and you never need to read them.
+
+---
+
+## 2026.09.05
+
+**What changes for you.** Setting up a new vault starts with four quick multiple-choice questions, then a short guided brainstorm that proposes your first projects and areas and creates only the ones you approve. Every vault gets a file for how you like to work (tone, length, format): when you correct the assistant twice on the same thing, it offers to write the preference down, and it never changes the file without your yes. Many small fixes across the skills and the Granola, Outlook, activity and iPad scripts; Granola now also runs on a Mac.
+
+**Do you need to do anything?** Run `/para-upgrade`. It offers to move preferences your vault already states into the new file, one at a time. If you built a skill of your own whose name starts with `para-`, rename it first: the upgrade would take it for one of its own and replace it.
+
+## 2026.09.04
+
+**What changes for you.** A vault can track things that move through stages, such as deals or properties, and the new `/para-pipeline` shows them as a board with whatever has stopped moving flagged. A sales add-on is the first to use it. Six skills do their counting with a small script, so they are faster and more consistent where Python is installed; without Python they work as before. Setting up a new vault is one prompt pasted into the Claude desktop app. Many skill fixes.
+
+**Do you need to do anything?** Yes, before you upgrade: copy the new `/para-upgrade` skill from the kit into your vault (or wherever your skills live), since the old one looks in folders that were renamed. Then run it. If it reports that a file called `.mcp.json` was saved in the vault's git history, change every password and token that file ever held, because the old copies still contain them. With several vaults on `/para-ingest`, a vault now receives mail only from the mailboxes it lists, so add any it should keep receiving. To use the sales board, ask the upgrade to add the sales module.
+
+## 2026.09.03
+
+**What changes for you.** Filing and formatting rules move into small files under `.claude/rules/`, which the assistant reads before anything else. The read-only iPad setup is now called a delivery, separate from a flavor, which says what a vault is about; the first flavor is real estate, for buying, renovating, selling or holding property. You can name where finished work of a given kind gets archived. Every skill takes `--test` to report its own bugs. New: a Pocket integration for the wearable recorder, and one file listing the mail you never want to see. Granola names notes by your local day.
+
+**Do you need to do anything?** Before you upgrade, copy the new `/para-upgrade` and `/para-deep-clean` skills from the kit into place: the old ones look for a folder that moved. Then run `/para-upgrade`. If you use Granola on more than one computer, update every copy in one go.
+
+## 2026.09.02
+
+**What changes for you.** Mostly fixes for skills that gave a confident wrong answer instead of an error. Skills ask you about each deletion separately rather than taking one yes for a whole batch. `/para-daily-brief` can focus on a single project or area when you name it. The Outlook script groups mail by conversation and signs in through your browser. An optional multi-vault layer, `/para-ingest`, reads shared mailboxes once and drops each item in the right vault. The vault's `CLAUDE.md` is trimmed to its rules.
+
+**Do you need to do anything?** Run `/para-upgrade`. This is the one upgrade that shortens the standard sections of your `CLAUDE.md` to the template's wording, keeping what your vault changed on purpose, so look over that change. If you use the Outlook script, register `http://localhost` as a redirect address on your Microsoft app, or its next sign-in stops and prints the steps.
+
+## 2026.09.01
+
+**What changes for you.** An important fix to the Outlook script: every email it filed before this revision holds only the first 255 characters of each message, and nothing in the file says so. Forwarded emails lost the forwarded part. It now files whole messages. Granola routes meetings correctly on computers set to different languages, and the activity log keeps recording after a session changes folder. Skills no longer build project folders by hand or fetch templates from the internet.
+
+**Do you need to do anything?** If you used the Outlook script: yes. Treat every email record it filed before this revision as incomplete, and reread the original email behind anything you built on one, such as a brief, a summary or a decision. No upgrade can repair them. Then run `/para-upgrade`.
+
+## 2026.08.03
+
+**What changes for you.** A to-do list holds only what you could act on now; later steps wait as plain text under a Backlog heading until they are unblocked. The daily brief opens with a dashboard of where every project and area stands, and can show your calendar. The new `/para-new` creates projects, areas, ideas and contacts the right way. Vaults come with a `.gitignore` that keeps secrets out of git. Optional additions: a section for a vault several people edit, one for the code repositories a vault steers, and a usage log that `/para-activity-review` reads. Outlook can sync work mailboxes, and Google Docs in a Drive-synced vault become readable.
+
+**Do you need to do anything?** Run `/para-upgrade`, then `/para-deep-clean` once: expect long to-do lists to shrink into backlog text and made-up due dates to go. On the iPad delivery, re-render your PDFs afterwards.
+
+## 2026.08.02
+
+**What changes for you.** Revision names gained a number at the end, so a month can hold more than one. Meeting notes that belong to one project are filed with that project, not in a shared meetings folder. The vault's front-page README has four fixed headings (Identity, Operating model, Track record, Vision) and no status tables, since the daily brief is the dashboard. Integration scripts carry a version, so the upgrade can tell you when yours is behind. New: the Outlook script.
+
+**Do you need to do anything?** Run `/para-upgrade`. It reshapes the front-page README and moves status tables into the projects they describe, and asks you for a real Vision if yours is a placeholder. It also asks which shipped integration each of your scripts is.
+
+## 2026.08.01
+
+**What changes for you.** The first numbered revision. It sets where to-do checkboxes may live (never under `resources/`), how to tell a project from an area or an idea, and that a `📅` date means a real deadline. A few `CLAUDE.md` sections are renamed and shortened.
+
+**Do you need to do anything?** Run `/para-upgrade`. A vault with no revision label at all gets this revision in full. Expect it to propose turning some projects into areas and dropping invented due dates; you approve each one.

@@ -45,6 +45,11 @@ bold-led paragraph per change, each ending in `Reaction:` (what an existing vaul
 `none for an existing vault`). Add an `**Integrations.**` line when a script moved. Newest
 first, and no calendar dates or em/en dashes in the prose.
 
+Then the same revision in `RELEASES.md`, for people rather than the agent: a
+**What changes for you.** paragraph and a **Do you need to do anything?** paragraph that names
+only what `/para-upgrade` cannot do for them. Plain words, no file paths a non-programmer
+would not recognise. When folding into an open revision, update both files.
+
 ## 4. Restamp
 
 - `<!-- para-os-template: <label> -->` in `base/CLAUDE.md.template`, every

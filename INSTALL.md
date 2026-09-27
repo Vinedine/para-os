@@ -42,7 +42,7 @@ Say once where the skills live: bundled in the vault's own `.claude/skills/`. An
 
 ## Upgrading
 
-Pull the kit (`git -C ~/.paraos/para-os pull`), then run `/para-upgrade` in the vault, giving it that path.
+Pull the kit (`git -C ~/.paraos/para-os pull`), then run `/para-upgrade` in the vault, giving it that path. [RELEASES.md](RELEASES.md) says what each revision changes and whether you need to do anything first.
 
 ## Uninstalling
 

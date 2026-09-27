@@ -20,6 +20,7 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | `tools/check.py` | Contract checks plus every unit test suite |
 | `tools/coverage_report.py` | The same suites under coverage, with a floor CI enforces |
 | `CHANGELOG.md` | One entry per template revision; `/para-upgrade` executes each entry's Reaction |
+| `RELEASES.md` | The same revisions for people: what changes, and whether to do anything |
 
 ## Before every commit
 
@@ -43,7 +44,7 @@ fails when coverage drops below its floor.
   and an `argument-hint` offering `--test`; a `## Strict rules` block; every reference linked
   both ways.
 - **Revision markers agree.** Every template and the example vault carry the newest
-  `CHANGELOG.md` revision; each integration's scripts agree with its row in
+  `CHANGELOG.md` revision, and `RELEASES.md` lists the same revisions in the same order; each integration's scripts agree with its row in
   `integrations/README.md`.
 - **Delivery tracking.** Editing `base/CLAUDE.md.template`, `base/README.md.template` or
   `base/.gitignore` fails the check until the matching `addons/readonly-ipad/skeleton/` file is
