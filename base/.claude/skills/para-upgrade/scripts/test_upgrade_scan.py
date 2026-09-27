@@ -128,8 +128,9 @@ Also, both housekeeping:
 def build_clone(root, bare_dir):
     """A throwaway para-os clone: three revisions of base/CLAUDE.md.template and of
     integrations/widget/widget.py, an addons/ delivery and skill, a fake origin remote so
-    origin/main and origin/stable exist, and a feature branch left checked out at the end - so a test calling
-    baseline_block(clone, "main", ...) is genuinely reading a ref other than HEAD.
+    origin/main and origin/stable exist, and a feature branch left checked out at the end -
+    so a test calling baseline_block(clone, "main", ...) is genuinely reading a ref other
+    than HEAD.
     """
     fixture_git(root, "init", "-q", "-b", "main")
     fixture_git(root, "config", "core.autocrlf", "false")
@@ -946,9 +947,16 @@ class CloneBlockCase(CloneCase):
         self.assertFalse(named["stable_missing"])
 
     def test_a_named_ref_that_does_not_resolve_is_never_the_stable_switch(self):
-        block, ok, _ = clone_block(self.clone, "origin/nope", False)
-        self.assertFalse(ok)
-        self.assertFalse(block["stable_missing"])
+        for ref in ("origin/nope", "origin/stable"):
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = Path(tmp)
+                fixture_git(repo, "init", "-q", "-b", "main")
+                write(repo, "CHANGELOG.md", CHANGELOG_TEXT)
+                fixture_git(repo, "add", "-A")
+                fixture_git(repo, "commit", "-q", "--no-verify", "-m", "one")
+                block, ok, _ = clone_block(repo, ref, False)
+            self.assertFalse(ok)
+            self.assertFalse(block["stable_missing"], ref)
 
     def test_dirty_masters_narrows_dirty_to_the_files_a_run_reads_a_master_from(self):
         # A --test run found a dirty root README.md, no master, read as an uncommitted one.

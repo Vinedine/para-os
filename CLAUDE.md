@@ -39,10 +39,12 @@ second job fails when coverage drops below its floor. `main` merges nothing unti
 ## Branches
 
 - **`main` is where work merges**: one issue, one branch, one pull request that says `Fixes #N`.
-- **`stable` is what users get**: the Quickstart, `INSTALL.md` and `/para-upgrade` read it. Only
-  `/release` moves it, fast-forward to a tagged revision on `main`.
+- **`stable` is what users get**: the Quickstart, `INSTALL.md` and `/para-upgrade` read it.
+  `/release` moves it forward to a tagged revision on `main`; a hotfix is the one other change.
 - **Fixes land on `main` first.** A hotfix to a released revision is fixed on `main` and
-  cherry-picked onto `stable`, never the other way round.
+  cherry-picked onto `stable`, never the other way round. Then `stable` is merged into `main`
+  through a pull request, as a merge commit, not a squash, so the next `/release` can
+  fast-forward `stable` again.
 - **Branch protection is versioned** in [`.github/rulesets/`](.github/rulesets/): `main.json`
   and `stable.json`. A ruleset changed on GitHub is re-exported in the same pull request
   (`gh api repos/Vinedine/para-os/rulesets/<id>`).

@@ -46,7 +46,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, CollectedVault, FALSELY_OVERDUE_DAYS, H1_RE, STALE_FILE_DAYS,
-        WIP_THRESHOLD, abspath, action_files, dangling_links, declarations, duplicates,
+        WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links, declarations,
+        duplicates,
         extract_links, git, git_blame_line_date, hashes, inbound_references, iso,
         link_files, link_spans, live_lines, master_template, misplaced_checkboxes, norm,
         open_tasks, over_grown_briefs, parse_date, read_lines, read_text, reference_shape,
@@ -158,7 +159,8 @@ def marker_precondition(vault, clone, ref):
     that is (a declared or detected delivery's skeleton, in whichever layout the ref
     carries, else base) is the library's `declarations` and `master_template`, the same
     reading /para-upgrade makes, so the two skills never measure one vault against two
-    templates."""
+    templates. `ref_missing` is a clone given whose ref does not resolve: one made before
+    releases moved to `stable`, where the ref is the default."""
     decl = declarations(vault)
     vault_marker = template_marker(read_text(vault / "CLAUDE.md"))
     master_marker, delivery_fallback = None, None
@@ -177,8 +179,8 @@ def marker_precondition(vault, clone, ref):
         verdict = "ahead"
 
     out = {"vault": vault_marker, "master": master_marker, "verdict": verdict,
-           "ref": ref, "delivery": decl["delivery"],
-           "delivery_source": decl["delivery_source"]}
+           "ref": ref, "ref_missing": bool(clone) and clone_ref(clone, ref) is None,
+           "delivery": decl["delivery"], "delivery_source": decl["delivery_source"]}
     if delivery_fallback:
         out["delivery_fallback"] = delivery_fallback
     return out

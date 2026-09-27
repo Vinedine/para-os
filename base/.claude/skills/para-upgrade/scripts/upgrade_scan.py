@@ -200,7 +200,7 @@ def clone_block(clone, ref_arg, worktree, decl=None):
     resolved = clone_ref(clone, ref)
     if resolved is None:
         # A clone made before releases moved to stable: the skill offers the one-time switch.
-        block["stable_missing"] = ref == STABLE
+        block["stable_missing"] = ref_arg is None and not worktree
         block["error"] = f"ref does not resolve: {ref}"
         return block, False, ref
     block["ref_commit"] = resolved["commit"]

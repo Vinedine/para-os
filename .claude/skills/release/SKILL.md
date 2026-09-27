@@ -82,27 +82,32 @@ Steps 7 and 8 run once every pull request in the revision's milestone has merged
 
 ## 7. Validate `main` on real vaults
 
-The maintainer syncs the installed skills from `main`, then upgrades two vaults of different
-shapes with `/para-upgrade --ref origin/main`: one on the previous revision, one further behind
-or on an add-on. In each, run every skill the revision changed with `--test`. Every finding is
-fixed on `main` through its own issue and pull request, and the validation reruns until it is
-clean.
+Record the commit under test, `<sha>`, as `git fetch origin && git rev-parse origin/main`
+prints it. The maintainer syncs the installed skills from `<sha>`, then upgrades two vaults of
+different shapes with `/para-upgrade --ref <sha>`: one on the previous revision, one further
+behind or on an add-on. In each, run every skill the revision changed with `--test`. Every
+finding is fixed on `main` through its own issue and pull request, and the validation reruns
+from a new `<sha>` until it is clean.
 
 **Do not go on to step 8 until the maintainer has named both vaults and confirmed each ran
-clean.** Ask with `AskUserQuestion`; an answer that names fewer than two vaults is a no.
+clean at `<sha>`.** Ask with `AskUserQuestion`; an answer that names fewer than two vaults is a
+no.
 
 ## 8. Ship
 
-Propose these commands, and run them only on the maintainer's approval:
+Ship `<sha>`, the commit step 7 validated, never `main`'s head: a pull request merged since
+then goes out in the next revision. Stop if `git show <sha>:base/CLAUDE.md.template` does not
+carry `<!-- para-os-template: <label> -->`. Otherwise propose these commands, and run them only
+on the maintainer's approval:
 
 ```bash
-git fetch origin
-git tag <label> origin/main
+git tag <label> <sha>
 git push origin <label>
-git push origin origin/main:refs/heads/stable   # fast-forward only; a refusal means stable moved
+git push origin <sha>:refs/heads/stable   # fast-forward only
 gh release create <label> --verify-tag --title <label> --notes-file <notes>
 ```
 
 `<notes>` is that revision's section of `RELEASES.md`, heading excluded, written to a scratch
-file. Never force `stable`: a push it refuses means it holds a commit `main` does not, a hotfix
-to bring onto `main` first ([CLAUDE.md](../../../CLAUDE.md#branches)).
+file. Never force `stable`: a push it refuses means it holds a hotfix `<sha>` lacks. Merge
+`stable` into `main` per [CLAUDE.md](../../../CLAUDE.md#branches), then validate again from
+step 7.
