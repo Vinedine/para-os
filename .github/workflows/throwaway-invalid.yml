@@ -1,0 +1,10 @@
+name: throwaway-invalid
+
+on: workflow_dispatch
+
+jobs:
+  broken:
+    runs-on: ubuntu-latest
+      if: always()
+    steps:
+      - run: echo hello
