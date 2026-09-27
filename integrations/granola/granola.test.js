@@ -86,6 +86,32 @@ test("pmToMd: bullet list items become dashes", () => {
   assert.equal(md, "- one\n- two");
 });
 
+test("pmToMd: ordered list items keep their numbers", () => {
+  const md = pmToMd(doc({
+    type: "orderedList",
+    content: [
+      { type: "listItem", content: [para(text("one"))] },
+      { type: "listItem", content: [para(text("two"))] },
+    ],
+  }));
+  assert.equal(md, "1. one\n2. two");
+});
+
+test("pmToMd: an ordered list nested in a bullet list numbers only its own items", () => {
+  const md = pmToMd(doc({
+    type: "bulletList",
+    content: [{
+      type: "listItem",
+      content: [
+        para(text("outer")),
+        { type: "orderedList", content: [{ type: "listItem", content: [para(text("first"))] },
+                                         { type: "listItem", content: [para(text("second"))] }] },
+      ],
+    }],
+  }));
+  assert.equal(md, "- outer\n  1. first\n  2. second");
+});
+
 test("pmToMd: nested lists indent by two spaces", () => {
   const md = pmToMd(doc({
     type: "bulletList",
@@ -482,7 +508,7 @@ test("a malformed config stops the run and names the file", () => {
 });
 
 test("a config that is valid JSON but not an object stops the run", () => {
-  for (const [raw, got] of [["[]", /got an array/], ['"Acme"', /got string/], ["42", /got number/], ["null", null]]) {
+  for (const [raw, got] of [["[]", /got an array/], ['"Acme"', /got string/], ["42", /got number/], ["null", /got null/]]) {
     const r = inVault(raw, meeting("Acme - Kickoff"), { allowFailure: true });
     assert.equal(r.status, 1, `config ${raw} was accepted`);
     assert.match(r.stderr, /must be a JSON object/);
@@ -551,6 +577,11 @@ globalThis.fetch = async (url, init = {}) => {
   const status = hit ? (responses[hit].status || 200) : 200;
   const body = hit && "body" in responses[hit] ? responses[hit].body
     : url.endsWith("/get-documents") ? { docs: docs.slice(sent.offset, sent.offset + sent.limit) } : [];
+  // \`raw\` serves a body that is not JSON, as a proxy's HTML error page is.
+  if (hit && "raw" in responses[hit]) {
+    const raw = responses[hit].raw;
+    return { ok: status < 300, status, text: async () => raw, json: async () => JSON.parse(raw) };
+  }
   return { ok: status < 300, status, text: async () => JSON.stringify(body), json: async () => body };
 };
 `;
@@ -947,6 +978,22 @@ test("a failed refresh stops the run before anything is listed, and leaves the s
   assert.deepEqual(sync.secret(), EXPIRING);
   assert.deepEqual(listed(sync), []);
   assert.deepEqual(sync.files, []);
+});
+
+test("a refresh refused with a body that is not JSON still reports its status", () => {
+  // A proxy's HTML 502 used to surface as a JSON parse error, and the status was lost.
+  const sync = syncInVault(OLD_MEETING, { auth: EXPIRING, expectStatus: 1,
+    responses: { "/authenticate": { status: 502, raw: "<html>Bad gateway</html>" } } });
+  assert.match(sync.stderr, /refresh failed 502/);
+  assert.deepEqual(sync.secret(), EXPIRING);
+});
+
+test("--days that is not a whole number of days stops the run before anything is fetched", () => {
+  for (const bad of [["--days", "abc"], ["--days"], ["--days", "0"], ["--days", "2.5"]]) {
+    const sync = syncInVault(OLD_MEETING, { argv: bad, expectStatus: 1 });
+    assert.match(sync.stderr, /--days/, `${bad.join(" ")}: ${sync.stderr}`);
+    assert.deepEqual(sync.requests, [], `${bad.join(" ")} must not reach the API`);
+  }
 });
 
 test("a dry run still saves a rotated refresh token, since the old one is already spent", () => {

@@ -110,7 +110,9 @@ globalThis.fetch = async (url, init = {}) => {
   fs.appendFileSync(process.env.GRANOLA_TEST_LOG, JSON.stringify({ url, auth: (init.headers || {}).Authorization || null,
     body: init.body ? JSON.parse(init.body) : null }) + "\\n");
   const hit = Object.keys(responses).find(k => url.endsWith(k));
-  const { status = 200, body = {} } = hit ? responses[hit] : {};
+  const { status = 200, body = {}, raw } = hit ? responses[hit] : {};
+  // \`raw\` serves a body that is not JSON, as a proxy's HTML error page is.
+  if (raw !== undefined) return { ok: status < 300, status, json: async () => JSON.parse(raw), text: async () => raw };
   return { ok: status < 300, status, json: async () => body, text: async () => JSON.stringify(body) };
 };
 `);
@@ -204,6 +206,13 @@ test("a failed refresh stops with its status and the server's reason, and saves 
   const r = signIn(tokens(EXPIRED), { responses: { "/authenticate": { status: 400, body: { error: "invalid_grant" } } } });
   assert.strictEqual(r.status, 1);
   assert.match(r.stderr, /refresh failed 400 .*invalid_grant/);
+  assert.strictEqual(r.secret, null);
+});
+
+test("a refresh refused with a body that is not JSON still reports its status", () => {
+  const r = signIn(tokens(EXPIRED), { responses: { "/authenticate": { status: 502, raw: "<html>Bad gateway</html>" } } });
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stderr, /refresh failed 502 .*Bad gateway/);
   assert.strictEqual(r.secret, null);
 });
 

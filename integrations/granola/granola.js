@@ -34,7 +34,18 @@ const HOLD_HOURS = 24;
 
 const WRITE = process.argv.includes("--write");
 const ALL = process.argv.includes("--all"); // multi-vault: write every routed vault, not just this one
-const DAYS = (() => { const i = process.argv.indexOf("--days"); return i > -1 ? parseInt(process.argv[i + 1], 10) : 30; })();
+// A --days that is not a whole number of days would list nothing and still exit 0, a run that
+// reports success having looked at no meetings. Stop instead.
+const DAYS = (() => {
+  const i = process.argv.indexOf("--days");
+  if (i < 0) return 30;
+  const n = Number(process.argv[i + 1]);
+  if (!Number.isInteger(n) || n < 1) {
+    console.error(`--days needs a whole number of days (got ${JSON.stringify(process.argv[i + 1] ?? "")}).`);
+    process.exit(1);
+  }
+  return n;
+})();
 const VAULT_ARG = (() => { const i = process.argv.indexOf("--vault"); return i > -1 ? process.argv[i + 1] : null; })(); // target-vault override
 
 // This copy lives in <vault>/resources/scripts/, so the vault root is two levels up.
@@ -71,7 +82,7 @@ const CONFIG = (() => {
   // dangerous as malformed JSON: CONFIG.route would silently resolve to undefined, ROUTE
   // would fall back to {}, and every other vault's meetings would land in this one.
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    console.error(`granola.config.json must be a JSON object (got ${Array.isArray(parsed) ? "an array" : typeof parsed}).`);
+    console.error(`granola.config.json must be a JSON object (got ${parsed === null ? "null" : Array.isArray(parsed) ? "an array" : typeof parsed}).`);
     console.error(`  ${VAULT_CONFIG}`);
     process.exit(1);
   }
@@ -132,7 +143,10 @@ async function token() {
   const a = JSON.parse(fs.readFileSync(AUTH, "utf8"));
   if (a.access_token && (a.access_expires || exp(a.access_token)) > Math.floor(Date.now() / 1000) + 30) return a.access_token;
   const r = await fetch("https://api.workos.com/user_management/authenticate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ grant_type: "refresh_token", client_id: a.client_id, refresh_token: a.refresh_token }) });
-  const j = await r.json(); if (!r.ok) throw new Error("refresh failed " + r.status);
+  // Status first: a refusal need not be JSON (a proxy's HTML 502), and parsing it first
+  // would report a parse error with the status lost.
+  if (!r.ok) throw new Error("refresh failed " + r.status);
+  const j = await r.json();
   a.access_token = j.access_token; if (j.refresh_token) a.refresh_token = j.refresh_token; a.access_expires = exp(a.access_token);
   // Atomic, and with the secret's own permissions: a torn write here loses the rotated refresh
   // token, and the old one is already spent.
@@ -181,7 +195,7 @@ function inline(node) {
   if (node.type === "hardBreak") return "\n";
   return (node.content || []).map(inline).join("");
 }
-function pmToMd(node, depth = 0) {
+function pmToMd(node, depth = 0, number = null) {
   if (!node) return "";
   const kids = node.content || [];
   switch (node.type) {
@@ -191,7 +205,7 @@ function pmToMd(node, depth = 0) {
     case "bulletList": return kids.map(li => pmToMd(li, depth)).join("\n");
     case "orderedList": return kids.map((li, i) => pmToMd(li, depth, i + 1)).join("\n");
     case "listItem": {
-      const bullet = "  ".repeat(depth) + "- ";
+      const bullet = "  ".repeat(depth) + (number ? `${number}. ` : "- ");
       const parts = kids.map(k => (k.type === "bulletList" || k.type === "orderedList") ? pmToMd(k, depth + 1) : pmToMd(k, depth));
       return bullet + parts.join("\n").replace(/^\n/, "");
     }

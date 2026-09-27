@@ -87,9 +87,10 @@ async function refresh(clientId, refreshToken) {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ grant_type: "refresh_token", client_id: clientId, refresh_token: refreshToken }),
   });
-  const j = await r.json();
-  if (!r.ok) throw new Error("refresh failed " + r.status + " " + JSON.stringify(j).slice(0, 200));
-  return j;
+  // Status first: a refusal need not be JSON (a proxy's HTML 502), and parsing it first
+  // would report a parse error with the status lost.
+  if (!r.ok) throw new Error("refresh failed " + r.status + " " + (await r.text()).slice(0, 200));
+  return r.json();
 }
 
 async function main() {

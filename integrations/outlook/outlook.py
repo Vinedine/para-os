@@ -534,7 +534,7 @@ def access_token(cfg, email):
     """
     if email in _TOKENS:
         return _TOKENS[email]
-    acct = cfg["accounts"][email]
+    acct = (cfg.get("accounts") or {}).get(email) or {}
     if not acct.get("refresh_token"):
         sys.exit(f"{email} has no token yet. Run:  outlook.py login {email}")
     client_id, authority = account_app(cfg, email)
@@ -963,7 +963,7 @@ def cmd_search(cfg, args):
         print(f"\n{email}  {len(hits)} hit(s) for {args.query!r}")
         for m in hits:
             when = (m.get("receivedDateTime") or "")[:10]
-            frm = (m.get("from") or {}).get("emailAddress", {}).get("address", "?")
+            frm = ((m.get("from") or {}).get("emailAddress") or {}).get("address") or "?"
             subj = " ".join((m.get("subject") or "(no subject)").split())
             print(f"  {when}  {frm:34.34}  {subj[:72]}")
             if args.body:

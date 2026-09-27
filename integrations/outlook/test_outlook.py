@@ -1015,6 +1015,15 @@ class AccessToken(unittest.TestCase):
         self.assertIn("outlook.py login a@h.com", str(e.exception))
         self.session.post.assert_not_called()
 
+    def test_an_account_not_on_this_machine_exits_with_the_login_command(self):
+        # `raw --account <address>` for a mailbox never logged in here used to crash with a
+        # bare KeyError instead of saying how to fix it.
+        cfg = {"client_id": "X", "accounts": {"a@h.com": {"refresh_token": "t"}}}
+        with self.assertRaises(SystemExit) as e:
+            osync.access_token(cfg, "x@y.com")
+        self.assertIn("outlook.py login x@y.com", str(e.exception))
+        self.session.post.assert_not_called()
+
     def test_a_refused_refresh_exits_with_the_diagnosis_and_caches_nothing(self):
         cfg = self.seed({"client_id": "X", "accounts": {"a@h.com": {"refresh_token": "t"}}})
         before = self.secrets.read_bytes()
@@ -1650,6 +1659,19 @@ class CmdSearch(unittest.TestCase):
         self.assertEqual([p.strip() for p in previews], ["Dear team, see the attached draft"])
         self.assertIn("(no subject)", out)         # a hit missing both still prints
         self.assertIn("2 hit(s) total", out)
+
+    def test_a_hit_with_a_null_sender_prints_a_question_mark_and_the_rest_still_print(self):
+        # A null address used to reach the format string and raise, outside the per-mailbox
+        # guard, so every mailbox not yet printed was lost with it.
+        null_address = dict(self.HIT, **{"from": {"emailAddress": {"address": None}}})
+        null_email = dict(self.HIT, **{"from": {"emailAddress": None}})
+        out, err, _ = self.run_search(account=None, all_mailboxes=True,
+                                      hits={"/me": [null_address, null_email, self.HIT]})
+        self.assertEqual(err, "")
+        lines = [ln for ln in out.splitlines() if "Contract renewal 2027" in ln]
+        self.assertEqual(len(lines), 3 * 2)   # two mailboxes read /me: me@corp.com, home@h.com
+        self.assertTrue(lines[0].split()[1] == "?" and lines[1].split()[1] == "?")
+        self.assertIn("zoe@acme.be", lines[2])
 
 
 class CmdRaw(unittest.TestCase):
