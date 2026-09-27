@@ -35,7 +35,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 SHARED_DIR = Path(__file__).resolve().parents[2] / "para-shared" / "scripts"
@@ -587,6 +587,16 @@ def subdirectories_block(vault):
     return out
 
 
+def subdirectories_line(subdirectories):
+    """The manifest's line for the subdirectories, as approval.md writes it, or None when
+    there are none. Printed as it stands, so a run never words it its own way."""
+    if not subdirectories:
+        return None
+    listed = ", ".join(f"triage/{s['name']}/ ({s['files']} file{'' if s['files'] == 1 else 's'})"
+                       for s in subdirectories)
+    return f"Subdirectories, not asked: {listed}"
+
+
 def same_thread_block(items):
     groups = {}
     for item in items:
@@ -701,6 +711,7 @@ def plan(vault, paraos_home, now, threads_data):
         "loose": loose, "subdirectories": subdirectories,
         "empty": not loose and not subdirectories,
         "only_subdirectories": not loose and bool(subdirectories),
+        "subdirectories_line": subdirectories_line(subdirectories),
         "same_thread": same_thread_block(loose),
     }
 
@@ -715,6 +726,40 @@ def plan(vault, paraos_home, now, threads_data):
     if threads_data is not None:
         report["threads"] = threads_block(threads_data, Path(seen_ledger["path"]), loose)
     return report
+
+
+# ------------------------------------------------------------------------------ saved copy
+
+SAVED_KEEP_DAYS = 7
+
+
+def save_report(report, vault, paraos_home, now):
+    """Keep a copy of the report outside the vault, where `paraos_vault.py changed` reads its
+    snapshot before each delete or move, and return (path, error). Written by the scan so the
+    re-check never depends on a run remembering to redirect its output. Copies older than a
+    week are pruned; a copy that would land inside the vault is refused."""
+    folder = _paraos_home(paraos_home) / "data" / "scans"
+    name = re.sub(r"[^\w.-]+", "-", report["vault"]["name"] or "vault").strip("-") or "vault"
+    target = folder / f"triage-{name}-{now.strftime('%Y%m%dT%H%M%S')}.json"
+    try:
+        target.resolve().relative_to(Path(vault).resolve())
+        return None, f"{target} is inside the vault; not saved"
+    except ValueError:
+        pass
+    report["saved_to"], report["save_error"] = str(target), None
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(report, ensure_ascii=False) + "\n", encoding="utf-8")
+    except OSError as err:
+        return None, f"cannot write {target}: {err}"
+    cutoff = (now - timedelta(days=SAVED_KEEP_DAYS)).timestamp()
+    for old in folder.glob("triage-*.json"):
+        try:
+            if old != target and old.stat().st_mtime < cutoff:
+                old.unlink()
+        except OSError:
+            pass
+    return str(target), None
 
 
 # ------------------------------------------------------------------------------ entry point
@@ -775,6 +820,7 @@ def main(argv=None):
         return 2
 
     report = plan(root, args.paraos_home, now, threads_data)
+    report["saved_to"], report["save_error"] = save_report(report, root, args.paraos_home, now)
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     return 0

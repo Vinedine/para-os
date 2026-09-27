@@ -1,5 +1,5 @@
 ---
 type: regex
-pattern: 'note deleted|delete(?:s|d)? the (?:staged )?note'
+pattern: 'note deleted|delet(?:e|es|ed|ing) (?:the |this )?(?:staged |triage |mail )?note'
 flags: i
 ---

@@ -15,7 +15,7 @@ What a question may offer, and what the `Action` column holds on the table path.
 - **Delete (duplicate)**: byte-identical; cite the surviving path and the MD5 match.
 - **Delete (redundant scan)**: content overlap, not a hash match. Always confirm: `Leave in triage` is the recommended option.
 - **Delete (no lasting value)**: the outcome is already recorded elsewhere; cite where.
-- **Create entity**: no entity fits; `/para-new` creates it and the file files into it ([execute.md](execute.md)).
+- **Create entity**: no entity fits; `/para-new` creates it and the file files into it ([execute.md](execute.md)). **Asked, never a table row**: `/para-new` asks its own questions, which no table path can answer, so there the item is **Leave in triage**, its Why naming the entity to create.
 - **Move out of vault**: the vault's rules keep this kind of file out of every synced folder (a takeout archive, a bulk export); the operator names the target.
 - **Leave in triage**: no good destination; say what is missing.
 

@@ -21,12 +21,14 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `items.loose[].twin` | **PDF-only**: the `.md` whose stem matches a `.pdf` beside it. A Google-native stub and its converted `.md` are never paired here; the skill pairs them itself at conversion ([sources.md](sources.md#google-native-files)). |
 | `items.loose[].note` | For a `.md` item: `shape` (`ingest`/`frontmatter`/null), `fields`, `mail_note`, `mailbox`, `mentioned_vaults`, `routed_vaults`, `routed_from`, `content_incomplete`, `content_evidence`, `thread_hash`, `thread_id` |
 | `items.subdirectories` | `name`, `files`, `handoff` (`_`-prefixed) |
+| `items.subdirectories_line` | The manifest's `Subdirectories, not asked: ...` line, printed as it stands; null with no subdirectories |
 | `items.empty`, `items.only_subdirectories` | The two stop conditions Step 2 checks last |
 | `items.same_thread` | `{hash: [names]}` for every thread hash two or more notes share |
 | `seen_ledger` | `path`, `exists`, `entries`, `legacy`, `load_error` |
 | `threads` | Only with `--threads`: per fetched thread, `thread_id`, `thread_hash`, `staged_notes`, `ledger`, `watermark` |
 | `over_threshold` | `{file, open}` for every action file at `WIP_THRESHOLD` (12) or more open items |
-| `snapshot` | Read back by `paraos_vault.py changed <scan output file>` before each delete or move ([execute.md](execute.md)) |
+| `snapshot` | Read back by `paraos_vault.py changed <saved_to>` before each delete or move ([execute.md](execute.md)) |
+| `saved_to`, `save_error` | Where the scan kept its own copy of this output, under `$PARAOS_HOME/data/scans/` and never inside the vault (copies older than a week are pruned); or null, and why |
 
 The rest of this file is the script's specification and the by-hand fallback. By hand, a
 collected vault's loose items are the files in `triage/` read through their

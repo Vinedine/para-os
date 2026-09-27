@@ -76,6 +76,12 @@ were there before it:
 | `triage-staged-note-updates-existing` | 0.44 | 0.44 | The answer is right on both sides; the graders want "delete the note" and "Update existing" on the same line as the file, and the model writes "Delete the triage note" and splits the line |
 | `shell-triage-uses-the-script` | 0.53 | 0.67 | Neither side ever redirects the scan's output to a file |
 
+Each of these was then fixed where it lives rather than re-run until it passed: the scan
+prints the subdirectory line and keeps its own copy of its output, so neither depends on a
+run's wording or memory; the skill states the Create entity exclusion where filing recommends
+it; and the two staged-note graders accept the wording the model used, tested against all six
+kept traces and against wrong answers.
+
 ## What a case is
 
 One directory per case: `case.yaml` names it and points at the fixture script, `prompt.md`

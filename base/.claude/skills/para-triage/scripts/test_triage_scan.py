@@ -31,7 +31,8 @@ from unittest import mock
 import triage_scan
 from triage_scan import (
     build_loose, build_snapshot, ingest_block, main, note_block, over_threshold_block, plan,
-    same_thread_block, seen_ledger_block, subdirectories_block, vault_block,
+    same_thread_block, seen_ledger_block, subdirectories_block, subdirectories_line,
+    vault_block,
     _content_incomplete, _extract_thread_id, _mentioned_vaults, _routed_from_ledger,
 )
 
@@ -972,6 +973,20 @@ class Subdirectories(VaultCase):
         self.assertFalse(report["items"]["empty"])
         self.assertTrue(report["items"]["only_subdirectories"])
 
+    def test_the_manifest_line_names_each_subdirectory_with_its_file_count(self):
+        # approval.md's manifest line, printed as it stands: runs that worded it themselves
+        # dropped the "not asked" a reader relies on.
+        write(self.root, "triage/_handover/a.pdf", "x\n")
+        write(self.root, "triage/_handover/b.pdf", "x\n")
+        write(self.root, "triage/batch/c.pdf", "x\n")
+        self.assertEqual(self.plan()["items"]["subdirectories_line"],
+                         "Subdirectories, not asked: triage/_handover/ (2 files), "
+                         "triage/batch/ (1 file)")
+
+    def test_no_subdirectories_means_no_manifest_line(self):
+        self.assertIsNone(subdirectories_line([]))
+        self.assertIsNone(self.plan()["items"]["subdirectories_line"])
+
 
 # ------------------------------------------------------------------------------- same thread
 
@@ -1196,7 +1211,8 @@ class CommandLine(VaultCase):
         self.assertEqual(code, 0)
         report = json.loads(out)
         self.assertEqual(set(report), {"vault", "sources", "ingest", "ingest_ledger", "items",
-                                       "seen_ledger", "over_threshold", "snapshot"})
+                                       "seen_ledger", "over_threshold", "snapshot",
+                                       "saved_to", "save_error"})
         self.assertEqual([i["name"] for i in report["items"]["loose"]],
                          ["20260920 Subject 88604c.md"])
         self.assertEqual(len(report["snapshot"]), 1)
@@ -1239,6 +1255,65 @@ class CommandLine(VaultCase):
     def test_a_threads_file_holding_no_list_is_a_usage_error(self):
         path = self.threads_file(json.dumps({"thread_id": "1a0c556d2559b07c"}))
         self.assertIn("must hold a JSON list", self.usage_error("--threads", path))
+
+
+class SavedCopy(CommandLine):
+    """The copy `paraos_vault.py changed` re-checks before each delete or move, kept by the
+    scan itself: runs that were told to redirect the output to a file mostly did not."""
+
+    def test_the_report_is_kept_outside_the_vault_and_matches_what_was_printed(self):
+        write(self.root, "triage/note.md", "# Note\n")
+        code, out = self.run_main("--now", "2026-09-22T12:00:00Z")
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        saved = Path(report["saved_to"])
+        self.assertIsNone(report["save_error"])
+        self.assertEqual(saved.parent, self.home / "data" / "scans")
+        self.assertEqual(saved.name, "triage-Alpha-20260922T120000.json")
+        self.assertEqual(json.loads(saved.read_text(encoding="utf-8")), report)
+        # The re-check scripts.md names, run as the skill runs it, against the saved path.
+        library = SCRIPT.parents[2] / "para-shared" / "scripts" / "paraos_vault.py"
+        recheck = [sys.executable, str(library), "changed", str(saved)]
+        self.assertEqual(subprocess.run(recheck, capture_output=True, timeout=60).returncode, 0)
+        write(self.root, "triage/note.md", "# Note, edited\n")
+        self.assertEqual(subprocess.run(recheck, capture_output=True, timeout=60).returncode, 1)
+
+    def test_copies_older_than_a_week_are_pruned_and_newer_ones_kept(self):
+        folder = self.home / "data" / "scans"
+        old = write(folder, "triage-Alpha-20260901T000000.json", "{}\n")
+        recent = write(folder, "triage-Alpha-20260921T000000.json", "{}\n")
+        instant = datetime(2026, 9, 22, 12, 0, tzinfo=timezone.utc).timestamp()
+        os.utime(old, (instant - 10 * 86400, instant - 10 * 86400))
+        os.utime(recent, (instant - 86400, instant - 86400))
+        self.run_main("--now", "2026-09-22T12:00:00Z")
+        self.assertFalse(old.exists())
+        self.assertTrue(recent.exists())
+
+    def test_a_copy_that_would_land_inside_the_vault_is_refused(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["--vault", str(self.root), "--paraos-home", str(self.root / ".paraos"),
+                         "--now", "2026-09-22T12:00:00Z"])
+        report = json.loads(out.getvalue())
+        self.assertEqual(code, 0)
+        self.assertIsNone(report["saved_to"])
+        self.assertIn("inside the vault", report["save_error"])
+        self.assertFalse((self.root / ".paraos").exists())
+
+    def test_a_copy_that_cannot_be_written_is_reported_and_the_scan_still_answers(self):
+        write(self.home, "data/scans", "a file where the folder should be\n")
+        code, out = self.run_main("--now", "2026-09-22T12:00:00Z")
+        report = json.loads(out)
+        self.assertEqual(code, 0)
+        self.assertIsNone(report["saved_to"])
+        self.assertIn("cannot write", report["save_error"])
+
+    def test_a_prune_that_fails_leaves_the_scan_answering(self):
+        write(self.home, "data/scans/triage-Alpha-20260901T000000.json", "{}\n")
+        with mock.patch.object(Path, "unlink", side_effect=OSError("locked")):
+            code, out = self.run_main("--now", "2026-09-22T12:00:00Z")
+        self.assertEqual(code, 0)
+        self.assertIsNone(json.loads(out)["save_error"])
 
 
 class RunAsAScript(unittest.TestCase):

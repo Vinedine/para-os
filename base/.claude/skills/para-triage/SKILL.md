@@ -39,8 +39,10 @@ Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-disci
 **Run the scan**, per [para-shared/scripts.md](../para-shared/scripts.md):
 
 ```bash
-python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> > <scan output path>
+python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root>
 ```
+
+The scan keeps its own copy outside the vault and names it in `saved_to`: that path is the scan output every later re-check reads. Where `saved_to` is null, `save_error` says why; redirect the output to a file outside the vault instead.
 
 **Exit codes**: 0 answered, an empty `triage/` included; 2 fall back to [references/scan.md](references/scan.md)'s by-hand procedure, [references/sources.md](references/sources.md) and [references/filing.md](references/filing.md); 3 not a vault root (Step 1's stop). **Field table: [references/scan.md](references/scan.md).**
 
@@ -56,9 +58,9 @@ Read each loose file, weigh the scan's duplicates, cross-vault hits and orientat
 
 ### Steps 5 and 6: Propose, then approve item by item
 
-Group the linked items, **then print the manifest before anything else**: the count line (`N items, N questions (N grouped), N rounds.`), one line per question, then the subdirectories listed apart. It comes first on **every** path, the table paths included, and is skipped only below four questions, per [para-shared/asking.md](../para-shared/asking.md). Then ask **one `AskUserQuestion` per item or linked group**. **Vocabulary, grouping and delete rules: [references/approval.md](references/approval.md).**
+Group the linked items, **then print the manifest before anything else**: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. It comes first on **every** path, the table paths included, and is skipped only below four questions, per [para-shared/asking.md](../para-shared/asking.md). Then ask **one `AskUserQuestion` per item or linked group**. **Vocabulary, grouping and delete rules: [references/approval.md](references/approval.md).**
 
-**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** After the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Same vocabulary minus **Create entity**, same follow-on edits. `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
+**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** After the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Same vocabulary minus **Create entity**, whose item is **Leave in triage** with the entity to create named in its Why; same follow-on edits. `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
 ### Steps 7 to 9: Execute, update READMEs, re-render
 

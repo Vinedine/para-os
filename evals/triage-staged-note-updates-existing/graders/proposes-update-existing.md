@@ -1,5 +1,5 @@
 ---
 type: regex
-pattern: 'Update existing[^\n]*acme-website/actions\.md|acme-website/actions\.md[^\n]*Update existing'
+pattern: '^(?=[\s\S]*acme-website/actions\.md)(?=[\s\S]*(?:Propos[^\n]*Update existing|Update existing[^\n]*Recommended|\|\s*Update existing\s*\|))'
 flags: i
 ---
