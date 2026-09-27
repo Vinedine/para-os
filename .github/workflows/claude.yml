@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   claude:
-        if: contains(github.event.comment.body, '@claude') && github.event.comment.user.type != 'Bot'
+    if: contains(github.event.comment.body, '@claude') && github.event.comment.user.type != 'Bot'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
