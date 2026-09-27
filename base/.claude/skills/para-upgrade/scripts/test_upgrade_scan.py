@@ -71,8 +71,9 @@ def write_at(path, text):
 
 
 def fixture_git(root, *args):
+    # No global excludes: a maintainer ignoring .claude/ would drop fixture files silently.
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-                    "-c", "core.autocrlf=false", *args],
+                    "-c", "core.autocrlf=false", "-c", "core.excludesFile=", *args],
                    cwd=root, check=True, capture_output=True)
 
 

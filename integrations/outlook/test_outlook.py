@@ -600,8 +600,8 @@ class GraphGet(unittest.TestCase):
         # turn the second page of every fetch into a 404.
         self.assertEqual(self.get("tok", "/me/messages").get.call_args.args[0],
                          f"{osync.GRAPH}/me/messages")
-        nxt = "https://graph.microsoft.com/v1.0/me/messages?$skip=100"
-        self.assertEqual(self.get("tok", nxt).get.call_args.args[0], nxt)
+        next_link = "https://graph.microsoft.com/v1.0/me/messages?$skip=100"
+        self.assertEqual(self.get("tok", next_link).get.call_args.args[0], next_link)
 
     def test_reads_go_through_one_pooled_session(self):
         # fetch_messages makes this one call per filed message. Through `requests.get` each would

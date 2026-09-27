@@ -33,3 +33,7 @@ examples/belfoot-vault/.claude/skills/
 # Build artifacts from running the integration scripts in place.
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# MCP server config holds live tokens.
+.mcp.json
