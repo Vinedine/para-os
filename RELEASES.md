@@ -2,11 +2,17 @@
 
 What each para-os revision changes for you, in plain words, newest first. A revision is named `YYYY.MM.NN`: the year and month it shipped, then its number within that month. Your vault's `CLAUDE.md` records which revision the vault is on.
 
-**To bring a vault up to date**, pull the kit (`git -C ~/.paraos/para-os pull`) and run `/para-upgrade` in the vault. It works out which revisions the vault has missed, shows you the plan, and asks before it changes anything. A vault several revisions behind gets all of them in one run. Under each revision, "Do you need to do anything?" names only what the upgrade cannot do for you.
+**To bring a vault up to date**, pull the kit's `stable` branch (`git -C ~/.paraos/para-os pull`) and run `/para-upgrade` in the vault. It works out which revisions the vault has missed, shows you the plan, and asks before it changes anything. A vault several revisions behind gets all of them in one run. Under each revision, "Do you need to do anything?" names only what the upgrade cannot do for you.
 
 The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHANGELOG.md). They are written for the agent, and you never need to read them.
 
 ---
+
+## 2026.09.06
+
+**What changes for you.** New versions of the kit now reach you only once they have been tried on real vaults. The kit keeps finished releases on a branch called `stable`, and new vaults and upgrades read from it.
+
+**Do you need to do anything?** Once, before this upgrade: switch your copy of the kit to `stable` with `git -C ~/.paraos/para-os fetch origin`, then `git -C ~/.paraos/para-os checkout stable`. After that, pull and run `/para-upgrade` as before.
 
 ## 2026.09.05
 

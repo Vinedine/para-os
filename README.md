@@ -94,7 +94,7 @@ The conventions the templates encode:
 **4. Paste this**, exactly as it is:
 
 ```text
-Set up a new para-os vault in this folder: read https://raw.githubusercontent.com/Vinedine/para-os/main/INSTALL.md and follow it.
+Set up a new para-os vault in this folder: read https://raw.githubusercontent.com/Vinedine/para-os/stable/INSTALL.md and follow it.
 ```
 
 It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap interview: a few short questions about the vault, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. The steps are in [`INSTALL.md`](INSTALL.md): read what it will do before you paste it, or follow it by hand.

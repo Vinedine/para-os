@@ -2,7 +2,7 @@
 
 ## Reading the master
 
-The scan's `clone` block names the ref read, the clone's checked-out branch and `origin/main`, each with its commit, and `same_commit` where two are the same. Where Precondition 3 proceeds on an uncommitted master, pass `--worktree`: every master then comes from the clone's working tree, unstaged edits included, never the index, and the report says the master was uncommitted. Full field table: [scan.md](scan.md).
+The scan's `clone` block names the ref read, the clone's checked-out branch and `origin/stable`, each with its commit, and `same_commit` where two are the same. Where Precondition 3 proceeds on an uncommitted master, pass `--worktree`: every master then comes from the clone's working tree, unstaged edits included, never the index, and the report says the master was uncommitted. Full field table: [scan.md](scan.md).
 
 ## Resolving the master
 

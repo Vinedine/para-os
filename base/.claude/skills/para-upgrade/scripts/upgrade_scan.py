@@ -2,7 +2,7 @@
 """Phase 0 and Phase 3 of /para-upgrade, plus the mechanical parts of Phase 2 and the Phase 5
 re-checks, as a script instead of instructions.
 
-    py -3 upgrade_scan.py --vault <path> --clone <path> [--ref origin/main] [--worktree]
+    py -3 upgrade_scan.py --vault <path> --clone <path> [--ref origin/stable] [--worktree]
                           [--today YYYY-MM-DD] [--user-skills DIR] [--user-settings FILE]
                           [--unchanged EARLIER_SCAN.json] [--indent N]
 
@@ -163,10 +163,14 @@ def _dirty_masters(dirty, decl):
             any(p.startswith(r) or (p.endswith("/") and r.startswith(p)) for r in roots)]
 
 
+STABLE = "origin/stable"  # what users get; main is where work merges
+
+
 def clone_block(clone, ref_arg, worktree, decl=None):
     block = {"path": str(clone), "ref": ref_arg, "ref_commit": None, "worktree": worktree,
-             "checked_out": None, "origin_main": None, "same_commit": [], "dirty": None,
-             "dirty_masters": None, "ref_merged": None, "error": None}
+             "checked_out": None, "origin_stable": None, "same_commit": [], "dirty": None,
+             "dirty_masters": None, "ref_merged": None, "stable_missing": False,
+             "error": None}
     if not _git_repo(clone):
         block["error"] = f"not a git repository: {clone}"
         return block, False, None
@@ -190,28 +194,31 @@ def clone_block(clone, ref_arg, worktree, decl=None):
             return block, False, None
         ref = branch
     else:
-        ref = ref_arg if ref_arg is not None else "origin/main"
+        ref = ref_arg if ref_arg is not None else STABLE
     block["ref"] = ref
 
     resolved = clone_ref(clone, ref)
     if resolved is None:
+        # A clone made before releases moved to stable: the skill offers the one-time switch.
+        block["stable_missing"] = ref == STABLE
         block["error"] = f"ref does not resolve: {ref}"
         return block, False, ref
     block["ref_commit"] = resolved["commit"]
 
-    origin_main = clone_ref(clone, "origin/main")
-    block["origin_main"] = {"commit": origin_main["commit"]} if origin_main else None
+    stable = clone_ref(clone, STABLE)
+    block["origin_stable"] = {"commit": stable["commit"]} if stable else None
 
     names = {"ref": block["ref_commit"], "checked_out": block["checked_out"]["commit"],
-             "origin_main": block["origin_main"]["commit"] if block["origin_main"] else None}
+             "origin_stable": block["origin_stable"]["commit"] if block["origin_stable"]
+             else None}
     groups = {}
     for name, commit in names.items():
         if commit:
             groups.setdefault(commit, []).append(name)
     block["same_commit"] = sorted(sorted(g) for g in groups.values() if len(g) > 1)
 
-    if block["origin_main"]:
-        done = _git_raw(clone, ["merge-base", "--is-ancestor", block["ref_commit"], "origin/main"])
+    if block["origin_stable"]:
+        done = _git_raw(clone, ["merge-base", "--is-ancestor", block["ref_commit"], STABLE])
         block["ref_merged"] = done.returncode == 0 if done is not None and \
             done.returncode in (0, 1) else None
 
@@ -1545,7 +1552,7 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
     if not v_block["root"]:
         return report, 3
     if not clone_ok:
-        return report, 4
+        return report, 5 if c_block["stable_missing"] else 4
 
     decl = v_block["declarations"]
     masters = masters_block(clone, ref, worktree, decl)
@@ -1588,7 +1595,7 @@ def main(argv=None):
         description="Scan a vault and a para-os clone for /para-upgrade.")
     ap.add_argument("--vault", required=True, help="vault root")
     ap.add_argument("--clone", required=True, help="a local para-os clone")
-    ap.add_argument("--ref", default=None, help="default: origin/main")
+    ap.add_argument("--ref", default=None, help="default: " + STABLE)
     ap.add_argument("--worktree", action="store_true",
                     help="read every master from the clone's working tree; the ref is then "
                          "the checked-out branch")
@@ -1617,7 +1624,7 @@ def main(argv=None):
             if report["vault"].get("hint") else ""
         print(f"upgrade_scan: not a vault root: {args.vault} "
               f"(missing {', '.join(report['vault']['missing'])}){hint}", file=sys.stderr)
-    elif code == 4:
+    elif code in (4, 5):
         print(f"upgrade_scan: {report['clone'].get('error')}", file=sys.stderr)
     return code
 

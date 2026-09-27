@@ -23,7 +23,7 @@ Also invoke after a large content migration, or periodically (every 3-6 months) 
 | `phase3` | Open items audit only (assumes Phase 2 done) |
 | `phase4` | Final audit only |
 | `audit` | Read-only summary: runs Phase 1 plus Phase 4 in observe-only mode. Skips destructive Phases 2 and 3. Never modifies files. |
-| `ref=<git-ref>` | The committed para-os ref precondition 5 compares the vault's template marker against, instead of `origin/main`, such as a revision branch in flight. Combines with any of the above. A working-tree path is refused. |
+| `ref=<git-ref>` | The committed para-os ref precondition 5 compares the vault's template marker against, instead of `origin/stable`, such as `origin/main` or a revision branch in flight. Combines with any of the above. A working-tree path is refused. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 A leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
@@ -38,13 +38,13 @@ Confirm before starting:
 4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check, covering [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) - if any loose files (not subdirectories) are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1 rather than treating it as a loose item to file.
 5. **The vault should be on the newest *shipped* para-os template revision.** This skill audits the vault against the rules its own `CLAUDE.md` states, so if that contract is a revision behind, a clean bill of health here only means the vault is faithful to a stale spec. Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
-   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/main`** (the delivery's skeleton template for a vault on a delivery, whether its `**Delivery:**` line names it or [the detection rule](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places it there: `addons/<delivery>/skeleton/`, or `delivery/<delivery>/` then `flavors/<delivery>/` at a ref with no `addons/` folder; base where the delivery has no skeleton at that ref, said so in the run). **Never read the clone's working tree:** a revision in flight lives there uncommitted and would report every vault on the machine as behind. The only marker a vault can be aligned to is one that has shipped.
+   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/stable`** (the delivery's skeleton template for a vault on a delivery, whether its `**Delivery:**` line names it or [the detection rule](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places it there: `addons/<delivery>/skeleton/`, or `delivery/<delivery>/` then `flavors/<delivery>/` at a ref with no `addons/` folder; base where the delivery has no skeleton at that ref, said so in the run). **Never read the clone's working tree:** a revision in flight lives there uncommitted and would report every vault on the machine as behind. The only marker a vault can be aligned to is one that has shipped.
 
    Then, in order:
 
    - **Vault behind the shipped marker, or carrying none:** stop and say to run `/para-upgrade` first.
    - **Vault ahead of the shipped marker:** it was aligned to a revision that has not shipped yet, as a test upgrade against an in-flight branch leaves it. Name the two markers in one line and carry on, auditing against the vault's own `CLAUDE.md`. **Never send this vault to `/para-upgrade`**, which refuses to downgrade.
-   - **No para-os clone on this machine:** skip the check, say the vault's revision could not be verified, and carry on.
+   - **No para-os clone on this machine, or no `origin/stable` in it:** skip the check, say the vault's revision could not be verified, and carry on.
 
 If the vault is on the read-only iPad delivery and **collected**, offer to run [its edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) around the phases that write.
 

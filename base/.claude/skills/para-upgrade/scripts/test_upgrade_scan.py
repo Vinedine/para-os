@@ -128,7 +128,7 @@ Also, both housekeeping:
 def build_clone(root, bare_dir):
     """A throwaway para-os clone: three revisions of base/CLAUDE.md.template and of
     integrations/widget/widget.py, an addons/ delivery and skill, a fake origin remote so
-    origin/main exists, and a feature branch left checked out at the end - so a test calling
+    origin/main and origin/stable exist, and a feature branch left checked out at the end - so a test calling
     baseline_block(clone, "main", ...) is genuinely reading a ref other than HEAD.
     """
     fixture_git(root, "init", "-q", "-b", "main")
@@ -182,7 +182,7 @@ def build_clone(root, bare_dir):
     subprocess.run(["git", "init", "-q", "--bare", str(bare_dir)], check=True,
                    capture_output=True)
     fixture_git(root, "remote", "add", "origin", str(bare_dir))
-    fixture_git(root, "push", "-q", "origin", "main")
+    fixture_git(root, "push", "-q", "origin", "main", "main:stable")
     fixture_git(root, "fetch", "-q", "origin")
 
     # A feature branch ahead on one skill file only - the "synced from a feature branch"
@@ -918,12 +918,37 @@ class CloneBlockCase(CloneCase):
         self.assertFalse(ok)
         self.assertIn("does not resolve", block["error"])
 
-    def test_origin_main_and_same_commit_grouping(self):
-        block, ok, ref = clone_block(self.clone, "origin/main", False)
+    def test_the_default_ref_is_origin_stable_and_same_commit_groups_it(self):
+        block, ok, ref = clone_block(self.clone, None, False)
         self.assertTrue(ok)
-        self.assertIsNotNone(block["origin_main"])
-        self.assertEqual(block["origin_main"]["commit"], block["ref_commit"])
-        self.assertIn(["origin_main", "ref"], block["same_commit"])
+        self.assertEqual(ref, "origin/stable")
+        self.assertIsNotNone(block["origin_stable"])
+        self.assertEqual(block["origin_stable"]["commit"], block["ref_commit"])
+        self.assertIn(["origin_stable", "ref"], block["same_commit"])
+        self.assertFalse(block["stable_missing"])
+
+    def test_a_clone_with_no_origin_stable_is_reported_for_the_one_time_switch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            fixture_git(repo, "init", "-q", "-b", "main")
+            write(repo, "CHANGELOG.md", CHANGELOG_TEXT)
+            write(repo, "base/CLAUDE.md.template", fixture_template("2026.09.01"))
+            fixture_git(repo, "add", "-A")
+            fixture_git(repo, "commit", "-q", "--no-verify", "-m", "one")
+            block, ok, ref = clone_block(repo, None, False)
+            named, named_ok, _ = clone_block(repo, "main", False)
+        self.assertFalse(ok)
+        self.assertTrue(block["stable_missing"])
+        self.assertEqual(ref, "origin/stable")
+        self.assertTrue(named_ok)
+        self.assertIsNone(named["origin_stable"])
+        self.assertIsNone(named["ref_merged"])
+        self.assertFalse(named["stable_missing"])
+
+    def test_a_named_ref_that_does_not_resolve_is_never_the_stable_switch(self):
+        block, ok, _ = clone_block(self.clone, "origin/nope", False)
+        self.assertFalse(ok)
+        self.assertFalse(block["stable_missing"])
 
     def test_dirty_masters_narrows_dirty_to_the_files_a_run_reads_a_master_from(self):
         # A --test run found a dirty root README.md, no master, read as an uncommitted one.
@@ -956,7 +981,7 @@ class CloneBlockCase(CloneCase):
         self.assertFalse(ok2)
         self.assertIn("--worktree", block2["error"])
 
-    def test_ref_merged_says_whether_the_ref_is_already_on_origin_main(self):
+    def test_ref_merged_says_whether_the_ref_is_already_on_origin_stable(self):
         merged, ok, _ = clone_block(self.clone, "rev2", False)
         self.assertTrue(ok)
         self.assertTrue(merged["ref_merged"])
@@ -2307,6 +2332,26 @@ class MainCase(unittest.TestCase):
         self.assertEqual(code, 4)
         self.assertTrue(data["clone"]["error"].startswith("not a git repository"))
         self.assertIn("upgrade_scan: not a git repository", err)
+
+    def test_main_exits_5_when_the_clone_has_no_origin_stable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            vault = root / "Vault"
+            for d in ("projects", "areas"):
+                (vault / d).mkdir(parents=True)
+            write(vault, "CLAUDE.md", fixture_template("2026.09.01"))
+            clone = root / "clone"
+            clone.mkdir()
+            fixture_git(clone, "init", "-q", "-b", "main")
+            write(clone, "CHANGELOG.md", CHANGELOG_TEXT)
+            write(clone, "base/CLAUDE.md.template", fixture_template("2026.09.01"))
+            fixture_git(clone, "add", "-A")
+            fixture_git(clone, "commit", "-q", "--no-verify", "-m", "one")
+            code, data, err = self.run_main(["--vault", str(vault), "--clone", str(clone),
+                                             "--paraos-home", str(root / "home")])
+        self.assertEqual(code, 5)
+        self.assertTrue(data["clone"]["stable_missing"])
+        self.assertIn("upgrade_scan: ref does not resolve: origin/stable", err)
 
     def test_main_exit_3_names_the_registered_vault_the_folder_sits_in(self):
         with tempfile.TemporaryDirectory() as tmp:

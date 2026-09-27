@@ -900,7 +900,7 @@ def main(argv=None):
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
     ap.add_argument("--phase", required=True, choices=["1", "3", "4"], help="which phase to scan")
     ap.add_argument("--today", help="date to measure against (default: the system date)")
-    ap.add_argument("--ref", default="origin/main",
+    ap.add_argument("--ref", default="origin/stable",
                     help="committed para-os ref for the template-marker precondition")
     ap.add_argument("--clone", help="path to a local para-os clone, for the template-marker "
                                      "precondition (skipped when omitted)")
