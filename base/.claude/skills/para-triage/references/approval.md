@@ -4,7 +4,7 @@
 
 ## The action vocabulary
 
-What a question may offer, and what the `Action` column holds on the table path. Nothing else, except what the operator types into **Other**.
+What a question may offer; [the table path](#the-table-path) offers less. Nothing else, except what the operator types into **Other**.
 
 **Loose files:**
 
@@ -15,7 +15,7 @@ What a question may offer, and what the `Action` column holds on the table path.
 - **Delete (duplicate)**: byte-identical; cite the surviving path and the MD5 match.
 - **Delete (redundant scan)**: content overlap, not a hash match. Always confirm: `Leave in triage` is the recommended option.
 - **Delete (no lasting value)**: the outcome is already recorded elsewhere; cite where.
-- **Create entity**: no entity fits; `/para-new` creates it and the file files into it ([execute.md](execute.md)). **Asked, never a table row**: `/para-new` asks its own questions, which no table path can answer, so there the item is **Leave in triage**, its Why naming the entity to create.
+- **Create entity**: no entity fits; `/para-new` creates it and the file files into it ([execute.md](execute.md)). Asked only.
 - **Move out of vault**: the vault's rules keep this kind of file out of every synced folder (a takeout archive, a bulk export); the operator names the target.
 - **Leave in triage**: no good destination; say what is missing.
 
@@ -68,4 +68,9 @@ After it, list the **follow-on edits** to each receiving entity's `README.md` or
 
 ## The table path
 
-The arguments that do not ask are `preview`, `apply`, `convert` and `table`, plus any run with no interactive operator ([SKILL.md](../SKILL.md) Steps 5 and 6).
+The arguments that do not ask are `preview`, `apply`, `convert` and `table`, plus any run with no interactive operator ([SKILL.md](../SKILL.md) Steps 5 and 6). The `Action` column holds only these:
+
+- **Files**: File it, File it + rotate Nx, Extract, Split, Run vault script, Delete (duplicate), Delete (redundant scan), Delete (no lasting value), Move out of vault, Leave in triage.
+- **Threads and staged mail notes**: Update existing, Add action, Note to triage, Dismiss (noise), Dismiss (other vault), Leave thread.
+
+A file needing a new entity is **Leave in triage**, its Why naming the entity to create: `/para-new` asks questions nobody is there to answer.

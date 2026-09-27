@@ -78,8 +78,8 @@ were there before it:
 
 Each of these was then fixed where it lives rather than re-run until it passed: the scan
 prints the subdirectory line and keeps its own copy of its output, so neither depends on a
-run's wording or memory; the skill states the Create entity exclusion where filing recommends
-it, which cut that slip to one run in three rather than removing it; and the two staged-note
+run's wording or memory; the table path lists its allowed actions and `SKILL.md` links that
+list, which took the Create entity slip from three runs in three to none in six; and the two staged-note
 graders accept the wordings the model used, a table row included, tested against every kept
 trace and against wrong answers.
 
