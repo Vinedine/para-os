@@ -38,6 +38,7 @@ Sections with no content are omitted - no empty placeholders.
 One call from the vault root, per [para-shared/scripts.md](../para-shared/scripts.md), which dates the run and returns every open task already parsed, bucketed and aggregated:
 
 ```bash
+# Windows: py -3
 python3 "<this skill's base directory>/scripts/brief_scan.py" --vault . [--entity <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 

@@ -39,6 +39,7 @@ Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-disci
 **Run the scan**, per [para-shared/scripts.md](../para-shared/scripts.md):
 
 ```bash
+# Windows: py -3
 python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root>
 ```
 

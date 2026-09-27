@@ -54,6 +54,7 @@ If the vault is on the read-only iPad delivery and **collected**, offer to run [
 Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns the preconditions above plus that phase's candidate findings, never a proposal or a fix. Phase 2 has no script. Where it cannot run, fall back to that phase's own reference.
 
 ```bash
+# Windows: py -3
 python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today YYYY-MM-DD] [--ref <git-ref>] [--clone <path>] > <scan output path>
 ```
 
