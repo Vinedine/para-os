@@ -770,18 +770,20 @@ def live_briefs(vault):
 
 
 def bullets_under_headings(path, headings, vault):
+    """Every bullet in a section under one of `headings`, sub-headings included: a deeper
+    heading groups the section's bullets, and only one at the section's level or above
+    ends it."""
     wanted = {h.strip().lower() for h in headings}
-    out, active, active_level = [], False, None
+    out, active_level = [], None
     for lineno, text in live_lines(read_lines(path)):
         m = HEADING_RE.match(text.strip())
         if m:
             level, title = len(m.group(1)), m.group(2).strip().lower()
-            active = title in wanted
-            active_level = level if active else active_level
+            if active_level is not None and level > active_level:
+                continue
+            active_level = level if title in wanted else None
             continue
-        if active and HEADING_RE.match(text.strip()):
-            continue
-        bm = BULLET_RE.match(text) if active else None
+        bm = BULLET_RE.match(text) if active_level is not None else None
         if bm:
             out.append({"file": path.relative_to(vault).as_posix(), "line": lineno,
                         "text": bm.group(1).strip()})

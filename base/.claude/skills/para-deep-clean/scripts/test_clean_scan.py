@@ -973,6 +973,33 @@ class ProseNextSteps(VaultCase):
         self.assertTrue(pns["applicable"])
         self.assertEqual([i["text"] for i in pns["items"]], ["Call the vendor"])
 
+    def test_bullets_under_a_sub_heading_of_the_declared_heading_count(self):
+        # phase3-open-items.md: "each bullet under those headings". A sub-heading groups the
+        # section's bullets; it does not end the section.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n## Next steps\n\n- Top level\n\n### This week\n\n- Call vendor\n\n"
+              "#### Maybe\n\n- Deeper still\n\n## Other\n\n- Not counted\n")
+        pns = self.run_scan("3")["phase3"]["prose_next_steps"]
+        self.assertEqual([i["text"] for i in pns["items"]],
+                         ["Top level", "Call vendor", "Deeper still"])
+
+    def test_a_declared_heading_nested_in_another_does_not_cut_the_outer_short(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n## Next steps\n\n### Open items\n\n- One\n\n### Later\n\n- Two\n\n"
+              "## Background\n\n- Not counted\n")
+        pns = self.run_scan("3", headings=["Next steps", "Open items"])["phase3"]["prose_next_steps"]
+        self.assertEqual([i["text"] for i in pns["items"]], ["One", "Two"])
+
+    def test_a_same_level_heading_ends_the_section(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n### Next steps\n\n- Counted\n\n### Notes\n\n- Not counted\n\n"
+              "## Higher\n\n- Not counted either\n")
+        pns = self.run_scan("3")["phase3"]["prose_next_steps"]
+        self.assertEqual([i["text"] for i in pns["items"]], ["Counted"])
+
     def test_custom_heading_argument(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "areas/business/brief.md", "# Business\n\n## Watching\n\n- Renewal date\n")

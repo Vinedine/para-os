@@ -54,7 +54,7 @@ collected vault's loose items are the files in `triage/` read through their
   a bullet header carrying `Source` and `Link`, or frontmatter carrying a `thread_id`.
   - **`content_incomplete`**: `true` where the `Content` line contains, case-insensitively,
     any of `snippet`, `preview`, `opening lines`, `no readable body`, `cut mid`, `truncat`,
-    `not read`, `not fetched`; else `false` where it contains any of `full body`,
+    `not read`, `not fetched`, `incomplete`; else `false` where it contains any of `full body`,
     `plain-text body`, `complete`; else `null`, meaning judge the line yourself. **An
     unread attachment or linked document never makes the body incomplete**: it names
     something beside the body.

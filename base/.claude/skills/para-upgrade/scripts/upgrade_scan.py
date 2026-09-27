@@ -1113,11 +1113,10 @@ def _plan_skill_tree_row(clone, ref, worktree, name, location, copy_dir, addons_
     """Phase A for one skill copy: find its master, list files, and register every git read
     the comparison will need on `batch`. No verdict is computed here - `_finish_skill_tree_row`
     does that, after `batch.resolve()` has filled the cache this plan asked for."""
-    wins = None
-    if location == "bundled" and (user_dir / name).is_dir():
-        wins = "bundled"
-    elif location == "user" and (bundled_dir / name).is_dir():
-        wins = "user"
+    # With a copy in both places the vault's bundled one shadows the user-level install
+    # (derived-copies.md), so both rows name it: `wins` answers for the pair, not the row.
+    other_dir = user_dir if location == "bundled" else bundled_dir
+    wins = "bundled" if (other_dir / name).is_dir() else None
 
     master_root, master_files = _skill_master_root(clone, ref, worktree, name, addons_rows)
     copy_files = _tree_files(copy_dir)

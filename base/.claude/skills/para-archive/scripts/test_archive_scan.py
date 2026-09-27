@@ -968,7 +968,26 @@ class Verify(VaultCase):
               "# Acme - Actions\n\nSee [brief](brief.md) and "
               "[the area](../../../areas/business/actions.md).\n")
         v = self.verify("projects/acme", "archive/projects/acme")
-        self.assertEqual(v["inside"], {"resolved": 2, "dangling": []})
+        self.assertEqual(v["inside"], {"resolved": 2, "dangling": [], "missing": []})
+
+    def test_a_routed_path_that_names_no_file_is_missing_and_not_clean(self):
+        # A typo in --routed used to be skipped without a word, so verify read clean on a
+        # file it never opened.
+        write(self.root, "resources/acme/playbook.md", "# Playbook\n")
+        write(self.root, "archive/projects/acme/brief.md", "# Acme\n")
+        v = self.verify("projects/acme", "archive/projects/acme",
+                        routed=["resources/acme/playbook.md", "resources/acme/playbok.md"])
+        self.assertEqual(v["inside"]["missing"], ["resources/acme/playbok.md"])
+        self.assertFalse(v["clean"])
+
+    def test_a_routed_file_that_exists_is_read_not_missing(self):
+        write(self.root, "resources/acme/playbook.md", "# Playbook\n\n[gone](nowhere.md)\n")
+        write(self.root, "archive/projects/acme/brief.md", "# Acme\n")
+        v = self.verify("projects/acme", "archive/projects/acme",
+                        routed=["resources/acme/playbook.md"])
+        self.assertEqual(v["inside"]["missing"], [])
+        self.assertEqual([d["file"] for d in v["inside"]["dangling"]],
+                         ["resources/acme/playbook.md"])
 
     def test_old_path_still_holding_a_file_exists_and_is_not_empty(self):
         write(self.root, "projects/acme/left-behind.md", "# Left behind\n")

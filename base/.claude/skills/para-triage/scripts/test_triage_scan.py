@@ -686,6 +686,19 @@ class ContentIncomplete(unittest.TestCase):
         self.assertFalse(got)
         self.assertEqual(phrase, "plain-text body")
 
+    def test_the_word_incomplete_is_not_read_as_complete(self):
+        # "complete" is a held phrase and sits inside "incomplete": the line says the body
+        # is not held, so it must not read as held.
+        for line in ("The body is incomplete.", "Incompletely fetched: the thread's first reply."):
+            got, phrase = _content_incomplete(line)
+            self.assertTrue(got, line)
+            self.assertEqual(phrase, "incomplete")
+
+    def test_complete_on_its_own_still_reads_as_held(self):
+        got, phrase = _content_incomplete("Complete message body, signature dropped.")
+        self.assertFalse(got)
+        self.assertEqual(phrase, "complete")
+
     def test_no_content_line_is_null(self):
         got, phrase = _content_incomplete(None)
         self.assertIsNone(got)

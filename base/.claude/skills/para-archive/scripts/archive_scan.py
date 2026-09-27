@@ -640,13 +640,14 @@ def inbound_resolved(vault, moved_to):
 
 
 def inside_links(vault, moved_to, routed):
+    """Links inside the moved folder and each routed file. A routed path that names no file
+    is listed under `missing` rather than skipped: it was never read, so it is not clean."""
     new_dir = abspath(vault / moved_to)
     files = sorted(new_dir.rglob("*.md")) if new_dir.is_dir() else []
-    files += [vault / r for r in routed]
+    missing = [vault_rel_arg(r) for r in routed if not (vault / r).is_file()]
+    files += [vault / r for r in routed if (vault / r).is_file()]
     resolved, dangling = 0, []
     for path in files:
-        if not path.is_file():
-            continue
         rel = rel_posix(vault, path)
         for line, href, raw in extract_links(strip_code(read_text(path))):
             target = resolve_link(path, href)
@@ -655,7 +656,7 @@ def inside_links(vault, moved_to, routed):
             else:
                 dangling.append({"file": rel, "line": line, "href": href,
                                  "resolved": rel_posix(vault, target)})
-    return {"resolved": resolved, "dangling": dangling}
+    return {"resolved": resolved, "dangling": dangling, "missing": missing}
 
 
 def old_path_block(vault, moved_from):
@@ -675,7 +676,8 @@ def verify(vault, moved_from, moved_to, routed):
     s_mentions, s_exempt = stale_mentions(vault, moved_from, moved_to)
     inbound = inbound_resolved(vault, moved_to)
     inside = inside_links(vault, moved_to, routed)
-    clean = not s_links and not s_mentions and not inbound["unresolved"] and not inside["dangling"]
+    clean = (not s_links and not s_mentions and not inbound["unresolved"]
+             and not inside["dangling"] and not inside["missing"])
     return {
         "vault": vault.as_posix(), "moved_from": moved_from, "moved_to": moved_to,
         "stale_links": s_links, "stale_mentions": s_mentions,

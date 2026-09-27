@@ -1968,6 +1968,18 @@ class LayoutSkillsCase(LayoutCase):
         self.assertIsNone(row["wins"])  # no user-level copy to shadow
         self.assertIsNone(row["suite"])  # no scripts/ folder, nothing to run
 
+    def test_with_a_copy_in_both_places_both_rows_name_the_bundled_one_as_winning(self):
+        # derived-copies.md: the vault's bundled copy shadows the user-level install. Each row
+        # used to name its own location, so the two rows contradicted each other.
+        vault = self.tmp_vault()
+        write(vault, ".claude/skills/deal-skill/SKILL.md", "---\nname: deal-skill\n---\n# Deals\n")
+        user = vault.parent / "user-skills"
+        write(user, "deal-skill/SKILL.md", "---\nname: deal-skill\n---\n# Deals\n")
+        got = self.run_skills(vault, user_dir=user, modules=["sales"])
+        rows = [r for r in got["rows"] if r.get("name") == "deal-skill"]
+        self.assertEqual(sorted(r["location"] for r in rows), ["bundled", "user"])
+        self.assertEqual([r["wins"] for r in rows], ["bundled", "bundled"])
+
     def test_a_skill_of_an_addon_the_vault_does_not_declare_is_skipped_not_diffed(self):
         vault = self.tmp_vault()
         write(vault, ".claude/skills/deal-skill/SKILL.md", "---\nname: deal-skill\n---\n# Old\n")

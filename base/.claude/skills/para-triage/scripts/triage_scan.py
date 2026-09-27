@@ -273,8 +273,9 @@ LINK_THREAD_RE = re.compile(r"#[^/]+/([0-9a-fA-F]{16})")
 # claude.ai Gmail's link form carries the same thread id in decimal: `#all/thread-f:<decimal>`.
 LINK_THREAD_F_RE = re.compile(r"#[^/]+/thread-f:(\d+)")
 
+# "incomplete" is here, and checked first, because the held phrase "complete" is inside it.
 INCOMPLETE_PHRASES = ("snippet", "preview", "opening lines", "no readable body", "cut mid",
-                      "truncat", "not read", "not fetched")
+                      "truncat", "not read", "not fetched", "incomplete")
 COMPLETE_PHRASES = ("full body", "plain-text body", "complete")
 
 
