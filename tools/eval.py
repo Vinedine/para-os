@@ -155,8 +155,6 @@ def main(argv=None):
 
         cmd += args.rest
         # Grant what the selected cases list, unless the operator granted tools themselves.
-        # The grant goes last: placed before the other options, the harness's shell sandbox
-        # failed to start in every run measured, and at the end it started in every one.
         if not any(a == "--allow-tools" or a.startswith("--allow-tools=") for a in args.rest):
             cases = selected_cases(args.case, tags)
             grant = [t for t in GATED if any(t in tools for _, tools in cases.values())]
