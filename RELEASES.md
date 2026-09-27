@@ -8,6 +8,12 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ---
 
+## 2026.09.07
+
+**What changes for you.** A fix to `/para-upgrade`: when it re-checks an installed script's own tests, it now runs all of them, not just the first.
+
+**Do you need to do anything?** Run `/para-upgrade`.
+
 ## 2026.09.06
 
 **What changes for you.** New versions of the kit now reach you only once they have been tried on real vaults. The kit keeps finished releases on a branch called `stable`, and new vaults and upgrades read from it. `/para-upgrade` now also checks the two iPad scripts it used to skip.
