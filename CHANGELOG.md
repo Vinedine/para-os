@@ -28,6 +28,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **`/para-upgrade` skipped the read-only iPad delivery's PowerShell scripts.** The shared library looked for an integration's marker in a script's first 40 lines; `flip.ps1` and `render.ps1` carry theirs below a help block, so the scan listed both as unmarked and never compared them with their masters. It reads the first 80 now. Reaction: re-sync `para-shared/`.
 
+**`/para-upgrade` ran only the first of an integration's JavaScript test files.** The `suite.runner` its scan gives named one file, so granola's `granola.test.js` never ran while `granola.js` was listed as covered. The runner now names every test file. Reaction: re-sync `/para-upgrade`.
+
 ---
 
 ## 2026.09.05
