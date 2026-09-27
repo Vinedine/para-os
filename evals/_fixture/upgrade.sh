@@ -4,7 +4,7 @@
 #
 #   vault/           a real vault root, ALREADY stamped with the clone's current revision.
 #   para-os-clone/   a throwaway git clone of a fake para-os, with a bare `origin` so
-#                    `origin/main` resolves offline, three commits deep.
+#                    `origin/main` and `origin/stable` resolve offline, three commits deep.
 #
 # They are siblings on purpose, not one inside the other: `/para-upgrade`'s own script
 # walks the whole `--vault` tree for `para-os-integration:` markers (para-shared's
@@ -311,6 +311,6 @@ EOF
 
   git add -A -f  # -f: a global gitignore of .claude/ must not drop the skill
   git -c user.name=t -c user.email=t@example.invalid commit -q -m "2026.08.03"
-  git push -q origin main
+  git push -q origin main main:stable
   git fetch -q origin
 )

@@ -13,7 +13,7 @@ judgment lives in [delta.md](delta.md), [rules-and-skeleton.md](rules-and-skelet
 
 ```bash
 py -3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> --clone <path> \
-    [--ref origin/main] [--worktree] [--today YYYY-MM-DD] [--user-skills DIR] \
+    [--ref origin/stable] [--worktree] [--today YYYY-MM-DD] [--user-skills DIR] \
     [--user-settings FILE] [--unchanged EARLIER_SCAN.json] [--indent N]
 ```
 
@@ -25,6 +25,7 @@ py -3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> --c
 | 2 | The shared library is missing or fails to import | Nothing but a stderr line: run the by-hand fallback |
 | 3 | `--vault` is not a vault root (`vault_root`: `projects/` plus `areas/` or `archive/`, plus `CLAUDE.md`) | `vault` and `clone` (the clone is still checked, so both reasons print at once) |
 | 4 | `--clone` is not a git repository, `--ref` does not resolve, `--worktree` names a ref other than the checked-out branch or finds the clone's HEAD detached with no branch to read, or the ref carries no `CHANGELOG.md` or `base/CLAUDE.md.template` (not a para-os clone) | `vault` (full) and `clone` (with `error`) |
+| 5 | Neither `--ref` nor `--worktree` was given and the clone has no `origin/stable`: a clone made before releases moved to `stable` (`clone.stable_missing: true`) | As exit 4 |
 
 A collected vault is **never refused**: `CLAUDE.md` and `.claude/` are on `flip.ps1`'s
 denylist and stay in place, so the scan reports `collected: true`, resolves skeleton
@@ -36,7 +37,7 @@ refusal (exit 2) rather than refusing itself.
 | Block | Holds |
 |---|---|
 | `vault` | `path`, `root`, `missing`, `hint`; `declarations` (the library's, unchanged); `collected`; `claude_md_lines` (`wc -l` semantics - newline count, not `splitlines()` length); `git.repo`, `git.dirty`, `git.untracked_in_scope`, `git.ignored_in_scope` (files under `CLAUDE.md` and `.claude/` git does not track or does ignore - Precondition 5) |
-| `clone` | `path`, `ref`, `ref_commit`, `worktree`, `checked_out` (`branch`, `commit`), `origin_main`, `same_commit` (name groups sharing one commit), `dirty`, `dirty_masters` (the `dirty` paths a master is read from, Precondition 3), `ref_merged` (is the ref an ancestor of `origin/main`; `null` with no `origin/main`), `error` on exit 4 |
+| `clone` | `path`, `ref`, `ref_commit`, `worktree`, `checked_out` (`branch`, `commit`), `origin_stable`, `same_commit` (name groups sharing one commit), `dirty`, `dirty_masters` (the `dirty` paths a master is read from, Precondition 3), `ref_merged` (is the ref an ancestor of `origin/stable`; `null` with no `origin/stable`), `stable_missing`, `error` on exit 4 or 5 |
 | `masters` | `template` (the library's `master_template` result), `skeleton_overlay`, `addons` (one row per declared delivery/flavor/module: `name`, `kind`, `root` or `null` with `reported` or `carried_forward`) |
 | `delta` | `vault_marker`, `vault_marker_raw`, `legacy`, `master_marker`, `verdict` (`equal`\|`behind`\|`ahead`\|`no-marker`\|`unverified`), `entries` (each `{revision, line, items, reactions}`), `current` (equal only) |
 | | `unverified`: the master's own marker could not be read (`master_marker: null`: no `<!-- para-os-template: -->` comment in the resolved template, or the read failed). Report it as that, not as a vault-side problem. |
@@ -89,7 +90,7 @@ diffed - searched under whichever addon layout the ref actually carries (`addons
 older `delivery/` + `flavors/` split).
 
 **The rest of this file is that script's specification, and the fallback when it cannot run**
-(no Python, a missing file, exit 2, any non-zero exit other than 3 and 4). Read this file
+(no Python, a missing file, exit 2, any non-zero exit other than 3, 4 and 5). Read this file
 when a result looks wrong, when changing what the scan means, or when running the scan by
 hand. A hand-run scan says so in the summary, in one line.
 
@@ -106,7 +107,7 @@ diff those.
 
 2. **`clone`** - `git -C <clone> rev-parse --verify <ref>^{commit}`; `git -C <clone>
    symbolic-ref --short HEAD` for the checked-out branch; `git -C <clone> merge-base
-   --is-ancestor <ref> origin/main` (exit 0 = ancestor, 1 = not, anything else = unknown);
+   --is-ancestor <ref> origin/stable` (exit 0 = ancestor, 1 = not, anything else = unknown);
    `git -C <clone> status --porcelain` for `dirty`, and of those, `CHANGELOG.md` and the
    paths under `base/`, `integrations/`, `multi-vault/` or a declared addon's folder in any
    addon layout, a collapsed untracked folder holding one of those included, for

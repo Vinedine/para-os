@@ -33,8 +33,21 @@ python3 tools/check.py               # before a release: also runs `claude plugi
 ```
 
 Both must pass. CI runs the first on Ubuntu, macOS and Windows under Python 3.12, and on Ubuntu
-under 3.9, on every push to `main` or a `feat/` branch and on every pull request. A second job
-fails when coverage drops below its floor.
+under 3.9, on every push to `main`, `stable` or a `feat/` branch and on every pull request. A
+second job fails when coverage drops below its floor. `main` merges nothing until all five pass.
+
+## Branches
+
+- **`main` is where work merges**: one issue, one branch, one pull request that says `Fixes #N`.
+- **`stable` is what users get**: the Quickstart, `INSTALL.md` and `/para-upgrade` read it.
+  `/release` moves it forward to a tagged revision on `main`; a hotfix is the one other change.
+- **Fixes land on `main` first.** A hotfix to a released revision is fixed on `main` and
+  cherry-picked onto `stable`, never the other way round. Then `stable` is merged into `main`
+  through a pull request, as a merge commit, not a squash, so the next `/release` can
+  fast-forward `stable` again.
+- **Branch protection is versioned** in [`.github/rulesets/`](.github/rulesets/): `main.json`
+  and `stable.json`. A ruleset changed on GitHub is re-exported in the same pull request
+  (`gh api repos/Vinedine/para-os/rulesets/<id>`).
 
 ## Rules check.py enforces
 
@@ -68,6 +81,9 @@ fails when coverage drops below its floor.
 - Sections that announce their own emptiness.
 - Rationale paragraphs inside procedures.
 - Personal machine configuration in a shipped `settings.json`.
+- **Issue, pull request and commit text is as public as the files.** The same rules apply, and a
+  finding from a real vault is restated with a synthetic example. `check.py` cannot scan it, so
+  whoever opens an issue or pull request runs the never-ship list against its text first.
 
 ## How changes are made
 

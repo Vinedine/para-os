@@ -16,13 +16,15 @@ The session's working directory becomes the vault root. Look at it before writin
 
 ## 2. Get the kit, outside the folder
 
-Into `$PARAOS_HOME/para-os` (default `~/.paraos/para-os`), where it stays: the bootstrap offers add-ons from it and `/para-upgrade` reads it later. Where it is already there, `git -C ~/.paraos/para-os pull` instead.
+Into `$PARAOS_HOME/para-os` (default `~/.paraos/para-os`), where it stays: the bootstrap offers add-ons from it and `/para-upgrade` reads it later. The kit's `stable` branch is what users get.
 
 ```bash
-git clone https://github.com/Vinedine/para-os.git ~/.paraos/para-os
+git clone --branch stable https://github.com/Vinedine/para-os.git ~/.paraos/para-os
 ```
 
-Where git is not installed, download `https://github.com/Vinedine/para-os/archive/refs/heads/main.zip` and extract its `para-os-main/` folder to that path.
+Where it is already there, `git -C ~/.paraos/para-os pull` instead. A clone not on `stable` (`git -C ~/.paraos/para-os branch --show-current`) switches once first: `git -C ~/.paraos/para-os fetch origin`, then `git -C ~/.paraos/para-os checkout stable`.
+
+Where git is not installed, download `https://github.com/Vinedine/para-os/archive/refs/heads/stable.zip` and extract its `para-os-stable/` folder to that path.
 
 ## 3. Copy the skeleton in
 
@@ -42,7 +44,7 @@ Say once where the skills live: bundled in the vault's own `.claude/skills/`. An
 
 ## Upgrading
 
-Pull the kit (`git -C ~/.paraos/para-os pull`), then run `/para-upgrade` in the vault, giving it that path. [RELEASES.md](RELEASES.md) says what each revision changes and whether you need to do anything first.
+Pull the kit (`git -C ~/.paraos/para-os pull`, after the one-time switch to `stable` in [step 2](#2-get-the-kit-outside-the-folder) where the clone is not on it), then run `/para-upgrade` in the vault, giving it that path. [RELEASES.md](RELEASES.md) says what each revision changes and whether you need to do anything first.
 
 ## Uninstalling
 

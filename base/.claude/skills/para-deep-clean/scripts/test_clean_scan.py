@@ -1132,11 +1132,26 @@ class CommandLine(VaultCase):
         report = self.run_json("--phase", "4")
         self.assertIn(report["today"], {before, date.today().isoformat()})
 
-    def test_ref_defaults_to_origin_main_and_the_marker_is_unverified_without_a_clone(self):
+    def test_ref_defaults_to_origin_stable_and_the_marker_is_unverified_without_a_clone(self):
         write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05"))
         marker = self.run_json("--phase", "1")["preconditions"]["template_marker"]
-        self.assertEqual(marker["ref"], "origin/main")
+        self.assertEqual(marker["ref"], "origin/stable")
         self.assertEqual(marker["verdict"], "unverified")
+        self.assertFalse(marker["ref_missing"])
+
+    def test_the_default_ref_reads_origin_stable_and_a_clone_without_it_is_unverified(self):
+        clone = self.clone(base_marker="2026.09.05")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
+        missing = self.run_json("--phase", "1", "--clone", str(clone))
+        subprocess.run(["git", "update-ref", "refs/remotes/origin/stable", "HEAD"], cwd=clone,
+                       check=True, capture_output=True)
+        present = self.run_json("--phase", "1", "--clone", str(clone))
+        missing, present = (r["preconditions"]["template_marker"] for r in (missing, present))
+        self.assertEqual((missing["master"], missing["verdict"], missing["ref_missing"]),
+                         (None, "unverified", True))
+        self.assertEqual((present["ref"], present["master"], present["verdict"],
+                          present["ref_missing"]),
+                         ("origin/stable", "2026.09.05", "behind", False))
 
     def test_clone_and_ref_reach_the_template_marker_precondition(self):
         clone = self.clone(base_marker="2026.09.05")

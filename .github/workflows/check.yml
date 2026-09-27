@@ -1,5 +1,5 @@
-# Runs the repo's contract checks and every test suite on each pull request, on pushes to main
-# and to feat/ branches, and on demand from the Actions tab. --no-vendor skips `claude plugin
+# Runs the repo's contract checks and every test suite on each pull request, on pushes to main,
+# stable and feat/ branches, and on demand from the Actions tab. --no-vendor skips `claude plugin
 # validate`, which needs the Claude CLI and an account; run tools/check.py without it before
 # shipping a revision.
 name: check
@@ -7,7 +7,7 @@ name: check
 on:
   pull_request:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, stable, "feat/**"]
   workflow_dispatch:
 
 permissions:
