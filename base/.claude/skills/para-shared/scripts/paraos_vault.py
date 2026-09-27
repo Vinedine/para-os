@@ -1596,7 +1596,7 @@ CHANGELOG_HEADING_RE = re.compile(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$")
 RULE_RE = re.compile(r"^-{3,}$")
 LEGACY_REVISIONS = {"2026.08": "2026.08.01"}
 MARKED_SUFFIXES = (".py", ".js", ".mjs", ".ps1", ".sh")
-MARKER_HEADER_LINES = 40
+MARKER_HEADER_LINES = 80
 
 
 def template_marker(text, raw=False):

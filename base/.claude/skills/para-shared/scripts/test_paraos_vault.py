@@ -1511,6 +1511,21 @@ class Markers(VaultCase):
                          [("render.ps1", "render", "2026.09.01"),
                           ("resources/scripts/granola.py", "granola", "2026.08.02")])
 
+    def test_every_shipped_script_is_found_where_its_marker_sits(self):
+        # A read-only-iPad pipeline script carries its marker below a help block, past
+        # the first 40 lines, and was reported unmarked.
+        repo = SCRIPT.parents[5]
+        shipped = [p for d in ("integrations", "addons") if (repo / d).is_dir()
+                   for p in sorted((repo / d).rglob("*"))
+                   if p.is_file() and "para-os-integration:" in p.read_text("utf-8", "replace")
+                   and p.suffix in (".py", ".js", ".mjs", ".ps1", ".sh")]
+        if not shipped:
+            self.skipTest("not in a para-os clone")
+        for p in shipped:
+            write(self.root, p.name, p.read_text("utf-8"))
+        found = {h["file"] for h in integration_markers(self.root)}
+        self.assertEqual(sorted(p.name for p in shipped if p.name not in found), [])
+
     def test_an_installed_skill_copy_is_not_an_integration(self):
         write(self.root, ".claude/skills/para-new/scripts/granola.py",
               '"""para-os-integration: granola 2026.08.02"""\n')

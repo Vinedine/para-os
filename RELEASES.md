@@ -10,7 +10,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ## 2026.09.06
 
-**What changes for you.** New versions of the kit now reach you only once they have been tried on real vaults. The kit keeps finished releases on a branch called `stable`, and new vaults and upgrades read from it.
+**What changes for you.** New versions of the kit now reach you only once they have been tried on real vaults. The kit keeps finished releases on a branch called `stable`, and new vaults and upgrades read from it. `/para-upgrade` now also checks the two iPad scripts it used to skip.
 
 **Do you need to do anything?** Once, before this upgrade: switch your copy of the kit to `stable` with `git -C ~/.paraos/para-os fetch origin`, then `git -C ~/.paraos/para-os checkout stable`. After that, pull and run `/para-upgrade` as before.
 

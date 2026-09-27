@@ -26,6 +26,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **Releases ship through a `stable` branch.** Work merges into `main`; each revision is tagged, and `stable` moves forward to it. The Quickstart and `INSTALL.md` install from `stable`, and `/para-upgrade` and `/para-deep-clean` compare a vault against `origin/stable` unless given another ref. No template rule or section changed. Reaction: re-sync `/para-upgrade` and `/para-deep-clean`. A para-os clone not on `stable` switches once: `git -C <clone> fetch origin`, then `git -C <clone> checkout stable`. `/para-upgrade` offers that switch to a clone not on `stable`, and `/para-deep-clean` to one with no `origin/stable`.
 
+**`/para-upgrade` skipped the read-only iPad delivery's PowerShell scripts.** The shared library looked for an integration's marker in a script's first 40 lines; `flip.ps1` and `render.ps1` carry theirs below a help block, so the scan listed both as unmarked and never compared them with their masters. It reads the first 80 now. Reaction: re-sync `para-shared/`.
+
 ---
 
 ## 2026.09.05
