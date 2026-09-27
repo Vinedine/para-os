@@ -60,6 +60,10 @@
           {
             "context": "coverage",
             "integration_id": 15368
+          },
+          {
+            "context": "actionlint",
+            "integration_id": 15368
           }
         ]
       }
