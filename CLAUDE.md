@@ -83,8 +83,11 @@ second job fails when coverage drops below its floor. `main` merges nothing unti
 - Rationale paragraphs inside procedures.
 - Personal machine configuration in a shipped `settings.json`.
 - **Issue, pull request and commit text is as public as the files.** The same rules apply, and a
-  finding from a real vault is restated with a synthetic example. `check.py` cannot scan it, so
-  whoever opens an issue or pull request runs the never-ship list against its text first.
+  finding from a real vault is restated with a synthetic example. `check.py` cannot scan it. The
+  never-ship list is run against that text wherever private data can enter: an issue, comment or
+  pull request written on a machine that holds the vaults. A session without the list, such as a
+  cloud session working from this repository and its issues, has none of that data and skips the
+  scan without flagging it.
 
 ## How changes are made
 
