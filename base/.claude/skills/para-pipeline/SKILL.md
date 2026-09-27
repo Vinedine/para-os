@@ -40,6 +40,7 @@ Read the vault's `CLAUDE.md` and collect every section whose heading ends in `li
 One call per lifecycle scope, after Step 1 has the declared lifecycles, per [para-shared/scripts.md](../para-shared/scripts.md):
 
 ```bash
+# Windows: py -3
 python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault . [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 

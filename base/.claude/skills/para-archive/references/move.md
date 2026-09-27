@@ -57,6 +57,7 @@ Nothing moves when this happens. Unless the vault's `CLAUDE.md` allows a skill t
 Run the verify call:
 
 ```bash
+# Windows: py -3
 python3 "<this skill's base directory>/scripts/archive_scan.py" --vault . --verify --moved-from <old> --moved-to <new> [--routed <file>]...
 ```
 

@@ -5,6 +5,7 @@ implements every rule below over `para-shared/scripts/paraos_vault.py`, and
 `scripts/test_triage_scan.py` pins each rule to a case.
 
 ```bash
+# Windows: py -3
 python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
     [--now <ISO-8601>] [--paraos-home <dir>] [--threads <file.json>] [--indent N]
 ```
