@@ -52,13 +52,19 @@ fails when coverage drops below its floor.
 
 ## How changes are made
 
+- **Read a folder's README in full before running or changing what is in it**: `evals/`,
+  `integrations/`, `addons/`, `multi-vault/`. They hold the flags, limits and traps that are
+  not visible from the code.
+- **Before saying something is missing or undocumented, search the repo for it.**
 - **Scripts do the mechanics, prose does the judgment.** Parsing, dating, bucketing and
   counting belong in a skill's `scripts/*_scan.py`, with tests beside it. A `SKILL.md` says what
   to do with the scan's output and keeps a by-hand fallback for when the script cannot run.
 - **A defect becomes a test before it is fixed**: a unit test when it is mechanical, an eval
   case in `evals/` when it is judgment.
 - **Before adding a rule to a skill, check it is still needed.** Prose that a current model
-  follows without being told costs every run and dilutes the rules that matter.
+  follows without being told costs every run and dilutes the rules that matter. Before
+  cutting one, compare its evals on the commit before and after the change
+  ([`evals/README.md`](evals/README.md#checking-a-skill-change)).
 - **A template change that an existing vault must react to gets a revision.** Wording that
   changes no rule does not. Use `/release` to cut one.
 - **Line endings are LF** (`.gitattributes`), except `.ps1`, which is CRLF. An installed copy is
