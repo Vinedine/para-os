@@ -34,26 +34,25 @@ standing for one path segment.
   with the row's `##` section kept so a closed section can be excluded from the live board.
   **A row whose name column reads `unknown` takes its Contact column instead** (the second
   column where the table has no Contact column), and the record carries `name_from:
-  "contact"` - a nameless row is a normal state at a lead's earliest stage, not a
-  collision, and the collision check below skips every name recovered this way.
+  "contact"`; the collision check below skips every name recovered this way. A trailing
+  parenthetical in that cell is dropped: `Jan Janssen (via a partner)` reads as `Jan
+  Janssen`.
 - **A terminal home** is globbed like any other. Its entities are collected and marked
   closed, for the metrics alone.
 
 Read the Stage line and the header of every entity collected, per
 [para-shared/lifecycles.md](../../para-shared/lifecycles.md). A Stage line whose name matches
-none of the lifecycle's declared stages is dropped, silently: that is the vault's ordinary
-ideas and projects sharing a home with staged entities.
+none of the lifecycle's declared stages is dropped, silently.
 
 **A document in a declared home with no Stage line at all** is reported by path (`no_stage`)
 only when it carries one of the header fields a staged entity would (`Opened`, `Source`,
 `Champion`, `Signer`, `Value`, `Last touch`, `Won`), or when its home sits deeper than a PARA
 bucket's direct child - more than one fixed path segment before the `<placeholder>`.
-Otherwise an ordinary project or area shares the home silently, like a non-matching Stage
-name above.
+Otherwise it is skipped silently.
 
 **A row whose Stage cell names a stage declared with a folder home** is a `home_mismatch`
-too, naming that stage's own home and the register the row was found in - the row-home
-mirror of a folder sitting outside its declared directory.
+too, naming that stage's own home and the register the row was found in. A closed row
+never is.
 
 **Header fields are whatever the entity's rule file declares**, read as bold-led lines under
 the title (`**Opened:** <date>`, `**Source:** <text>`, `**Champion:** [<contact>](<path>)`).
@@ -71,12 +70,11 @@ One next step per entity, taken from the first of these that produces an open ch
    the link relative to the file that holds it and compare real paths.
 3. **The contact file its `Champion` line links to**: every open item under that file's
    next-actions heading, earliest dated first, never one filed under any other heading in
-   the same file (a History log, say). Follow the link as written; a champion line with no
+   the same file. Follow the link as written; a champion line with no
    link, or a link resolving to nothing, is the no-next-step case rather than a name to
    search for.
 4. **The row's own next-step column**, for an entity in a row home, with a date read from it
-   where it carries one in `YYYY-MM-DD` form. A next step with no date still counts as one:
-   it is the column's text, undated.
+   where it carries one in `YYYY-MM-DD` form. An undated one still counts.
 
 An entity that reaches the end of that list with nothing open **has no next step**, which is
 a flag rather than an error. Never compose one from the brief's prose, and never present a

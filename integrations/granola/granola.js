@@ -1,5 +1,5 @@
 // granola.js - pull recent Granola meetings (enhanced notes + transcript) into a vault's triage/.
-// para-os-integration: granola 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: granola 2026.09.05 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 // Drop this file in <vault>/resources/scripts/ and run it there. By default every recent meeting is
 // written to THIS vault's triage/ as a dated Markdown note, ready for /para-triage to file.
 //   node granola.js            # DRY RUN: shows what it would write, touches nothing
@@ -15,20 +15,37 @@
 // See integrations/granola/README.md for setup, prerequisites, and the multi-vault routing config.
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 
 // Integration state lives under ~/.paraos (override with PARAOS_HOME); see ~/.paraos/README.md.
-const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE, ".paraos");
+// USERPROFILE is unset off Windows, where homedir() is the same folder.
+const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE || os.homedir(), ".paraos");
 const AUTH = path.join(PARAOS_HOME, "secrets", "granola.json");
 // The dedup ledger is data, not cache: once /para-triage has filed a note out of triage/ it is
 // the only record that the meeting was imported. LEGACY_STATE is where it used to live. It is
 // read, never written, and merged in, so an older copy still writing it is not lost either.
 const STATE = path.join(PARAOS_HOME, "data", "granola", "synced.json");
 const LEGACY_STATE = path.join(PARAOS_HOME, "cache", "granola", "synced.json");
+// A meeting with no enhanced notes yet is HELD (not written, not ledgered, retried next run) while
+// it is this recent: Granola generates the notes after the call ends. Past this, no notes means
+// none are coming, and the note is written without them rather than held forever.
+const HOLD_HOURS = 24;
 
 const WRITE = process.argv.includes("--write");
 const ALL = process.argv.includes("--all"); // multi-vault: write every routed vault, not just this one
-const DAYS = (() => { const i = process.argv.indexOf("--days"); return i > -1 ? parseInt(process.argv[i + 1], 10) : 30; })();
+// A --days that is not a whole number of days would list nothing and still exit 0, a run that
+// reports success having looked at no meetings. Stop instead.
+const DAYS = (() => {
+  const i = process.argv.indexOf("--days");
+  if (i < 0) return 30;
+  const n = Number(process.argv[i + 1]);
+  if (!Number.isInteger(n) || n < 1) {
+    console.error(`--days needs a whole number of days (got ${JSON.stringify(process.argv[i + 1] ?? "")}).`);
+    process.exit(1);
+  }
+  return n;
+})();
 const VAULT_ARG = (() => { const i = process.argv.indexOf("--vault"); return i > -1 ? process.argv[i + 1] : null; })(); // target-vault override
 
 // This copy lives in <vault>/resources/scripts/, so the vault root is two levels up.
@@ -65,7 +82,7 @@ const CONFIG = (() => {
   // dangerous as malformed JSON: CONFIG.route would silently resolve to undefined, ROUTE
   // would fall back to {}, and every other vault's meetings would land in this one.
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    console.error(`granola.config.json must be a JSON object (got ${Array.isArray(parsed) ? "an array" : typeof parsed}).`);
+    console.error(`granola.config.json must be a JSON object (got ${parsed === null ? "null" : Array.isArray(parsed) ? "an array" : typeof parsed}).`);
     console.error(`  ${VAULT_CONFIG}`);
     process.exit(1);
   }
@@ -126,14 +143,44 @@ async function token() {
   const a = JSON.parse(fs.readFileSync(AUTH, "utf8"));
   if (a.access_token && (a.access_expires || exp(a.access_token)) > Math.floor(Date.now() / 1000) + 30) return a.access_token;
   const r = await fetch("https://api.workos.com/user_management/authenticate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ grant_type: "refresh_token", client_id: a.client_id, refresh_token: a.refresh_token }) });
-  const j = await r.json(); if (!r.ok) throw new Error("refresh failed " + r.status);
+  // Status first: a refusal need not be JSON (a proxy's HTML 502), and parsing it first
+  // would report a parse error with the status lost.
+  if (!r.ok) throw new Error("refresh failed " + r.status);
+  const j = await r.json();
   a.access_token = j.access_token; if (j.refresh_token) a.refresh_token = j.refresh_token; a.access_expires = exp(a.access_token);
-  fs.writeFileSync(AUTH, JSON.stringify(a, null, 2)); return a.access_token;
+  // Atomic, and with the secret's own permissions: a torn write here loses the rotated refresh
+  // token, and the old one is already spent.
+  writeAtomic(AUTH, JSON.stringify(a, null, 2), fs.statSync(AUTH).mode & 0o777); return a.access_token;
 }
 async function post(p, t, b) {
   const r = await fetch("https://api.granola.ai" + p, { method: "POST", headers: H(t), body: JSON.stringify(b || {}) });
   const txt = await r.text(); let j = null; try { j = JSON.parse(txt); } catch {}
-  return { s: r.status, j, txt };
+  return { s: r.status, ok: r.status >= 200 && r.status < 300, j, txt };
+}
+
+// Temp file beside the target, then rename: a run that dies mid-write leaves the old file or none,
+// never a partial one that the next run takes as already written. Matches pocket.py's write_atomic.
+function writeAtomic(file, text, mode) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.tmp`);
+  try {
+    fs.writeFileSync(tmp, text, mode === undefined ? undefined : { mode });
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch {}
+    throw e;
+  }
+}
+
+// The ledger at STATE, over the one an older copy kept under cache/ (read, never written).
+const readLedger = f => fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+const loadLedger = () => ({ ...readLedger(LEGACY_STATE), ...readLedger(STATE) });
+// Add one ledger entry. Every vault's copy shares the file and runs may overlap, so re-read and
+// merge rather than write back what this run loaded. Matches pocket.py's record.
+function record(id, dest) {
+  const ledger = loadLedger();
+  ledger[id] = dest;
+  writeAtomic(STATE, JSON.stringify(ledger, null, 2));
 }
 
 // ---- ProseMirror -> Markdown ----
@@ -148,7 +195,7 @@ function inline(node) {
   if (node.type === "hardBreak") return "\n";
   return (node.content || []).map(inline).join("");
 }
-function pmToMd(node, depth = 0) {
+function pmToMd(node, depth = 0, number = null) {
   if (!node) return "";
   const kids = node.content || [];
   switch (node.type) {
@@ -158,7 +205,7 @@ function pmToMd(node, depth = 0) {
     case "bulletList": return kids.map(li => pmToMd(li, depth)).join("\n");
     case "orderedList": return kids.map((li, i) => pmToMd(li, depth, i + 1)).join("\n");
     case "listItem": {
-      const bullet = "  ".repeat(depth) + "- ";
+      const bullet = "  ".repeat(depth) + (number ? `${number}. ` : "- ");
       const parts = kids.map(k => (k.type === "bulletList" || k.type === "orderedList") ? pmToMd(k, depth + 1) : pmToMd(k, depth));
       return bullet + parts.join("\n").replace(/^\n/, "");
     }
@@ -245,21 +292,25 @@ function resolveDest(d) {
 
 async function main() {
   const t = await token();
-  const ledger = f => fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
-  const state = { ...ledger(LEGACY_STATE), ...ledger(STATE) };
+  const state = loadLedger();
   const cutoff = Date.now() - DAYS * 86400000;
 
-  // recent documents
+  // recent documents. A failed page stops the run: listing nothing reads exactly like a quiet month.
   const docs = [];
-  for (let off = 0; off < 500; off += 100) {
-    const r = await post("/v2/get-documents", t, { limit: 100, offset: off });
+  const PAGE = 100, MAX_DOCS = 500;
+  let capped = true;
+  for (let off = 0; off < MAX_DOCS; off += PAGE) {
+    const r = await post("/v2/get-documents", t, { limit: PAGE, offset: off });
+    if (!r.ok) throw new Error(`could not list Granola documents (HTTP ${r.s}), nothing written`);
     const b = (r.j && r.j.docs) || []; docs.push(...b);
-    if (b.length < 100 || new Date(b[b.length - 1].created_at).getTime() < cutoff) break;
+    if (b.length < PAGE || new Date(b[b.length - 1].created_at).getTime() < cutoff) { capped = false; break; }
   }
+  if (capped) console.error(`! listing stopped at ${MAX_DOCS} documents; meetings older than the last one listed `
+    + `are not synced this run. Use a shorter --days window.`);
   const recent = docs.filter(d => new Date(d.created_at).getTime() >= cutoff && !d.deleted_at);
   console.log(`${WRITE ? "WRITE" : "DRY RUN"} · last ${DAYS} days · ${recent.length} meetings${MULTI ? ` · routing ${ONLY_VAULT ? "-> " + ONLY_VAULT : "all vaults"}` : ""}\n`);
 
-  let written = 0, skipped = 0, unrouted = 0, elsewhere = 0;
+  let written = 0, skipped = 0, unrouted = 0, elsewhere = 0, held = 0, failed = 0;
   for (const d of recent.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
     const r = resolveDest(d);
     const when = localTime(d.created_at);
@@ -277,32 +328,39 @@ async function main() {
     const fname = path.basename(dest);
     if (state[d.id] || exists) { console.log("  ==  " + label + "-> " + r.vault + "/" + MEETINGS_SUBDIR + " (exists, skip)"); skipped++; continue; }
 
-    // enhanced notes (the "Summary" panel Granola generates)
+    // enhanced notes (the "Summary" panel Granola generates). A failed fetch (429, 5xx, an expired
+    // token) is not "no notes": nothing is written or ledgered, so the next run retries it.
     const pr = await post("/v1/get-document-panels", t, { document_id: d.id });
+    if (!pr.ok) { console.log(`  xx  ${label}FAILED (notes: HTTP ${pr.s}) - retried next run`); failed++; continue; }
     const panels = Array.isArray(pr.j) ? pr.j : ((pr.j && (pr.j.panels || pr.j.document_panels)) || []);
     const summary = panels.find(p => /summary/i.test(p.title || "")) || panels[0];
     const render = c => !c ? "" : (typeof c === "string" ? c.trim() : pmToMd(c));
     let minutes = "";
     if (summary) for (const c of [summary.content, summary.original_content, summary.content_json]) { minutes = render(c); if (minutes) break; }
     if (minutes) minutes = demote(minutes);
+    if (!minutes && Date.now() - new Date(d.created_at).getTime() < HOLD_HOURS * 3600000) {
+      console.log(`  ..  ${label}HELD, no enhanced notes yet - retried next run`); held++; continue;
+    }
 
     // transcript
     const tr = await post("/v1/get-document-transcript", t, { document_id: d.id });
+    if (!tr.ok) { console.log(`  xx  ${label}FAILED (transcript: HTTP ${tr.s}) - retried next run`); failed++; continue; }
     const segs = Array.isArray(tr.j) ? tr.j : (tr.j && tr.j.transcript) || [];
     const transcript = transcriptMd(segs);
 
     const peopleArr = Array.isArray(d.people) ? d.people : (d.people && typeof d.people === "object" ? Object.values(d.people) : []);
     const people = peopleArr.map(p => (p && (p.name || p.email)) || null).filter(Boolean).join(", ");
+    const title = String(d.title || "(untitled)");
     const md = [
       "---",
-      `title: ${d.title}`,
+      `title: ${JSON.stringify(title)}`, // quoted: a colon in a title breaks YAML. Matches pocket.py.
       `date: ${r.date}`,
       `granola_id: ${d.id}`,
       `source: granola`,
-      people ? `attendees: ${people}` : null,
+      people ? `attendees: ${JSON.stringify(people)}` : null,
       "---",
       "",
-      `# ${d.title}`,
+      `# ${title.replace(/\s+/g, " ").trim()}`,
       `_${when.stamp}_`,
       "",
       "## Summary",
@@ -315,18 +373,18 @@ async function main() {
 
     console.log(`  ${WRITE ? "->" : "+ "}  ${label}-> ${r.vault}/${MEETINGS_SUBDIR}/${fname}  [min ${minutes.length}c · tr ${transcript.length}c]`);
     if (WRITE) {
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.writeFileSync(dest, md);
-      state[d.id] = dest; written++;
-    } else { written++; }
+      writeAtomic(dest, md);
+      record(d.id, dest);
+    }
+    written++;
   }
 
-  if (WRITE) { fs.mkdirSync(path.dirname(STATE), { recursive: true }); fs.writeFileSync(STATE, JSON.stringify(state, null, 2)); }
-  console.log(`\n${WRITE ? "wrote" : "would write"}: ${written} · skipped(exists): ${skipped}${MULTI ? ` · unrouted: ${unrouted} · other vaults: ${elsewhere}` : ""}`);
+  console.log(`\n${WRITE ? "wrote" : "would write"}: ${written} · skipped(exists): ${skipped} · held: ${held} · failed: ${failed}${MULTI ? ` · unrouted: ${unrouted} · other vaults: ${elsewhere}` : ""}`);
   if (!WRITE) console.log("Re-run with --write to create the files.");
 }
 // Run only when invoked directly, so the test suite can require() the pure helpers below
 // without firing a sync. Behaviour under `node granola.js` is unchanged.
-if (require.main === module) main().catch(e => console.log("[x]", e.message));
+// A failed run exits non-zero, so a scheduled run that synced nothing cannot pass for one that had nothing to do.
+if (require.main === module) main().catch(e => { console.error("[x]", e.message); process.exitCode = 1; });
 
 module.exports = { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest };

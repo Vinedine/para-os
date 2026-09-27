@@ -2,7 +2,7 @@
 name: para-new
 description: Create one new project, area, idea, or contact in the vault, or promote an existing idea to a project. Runs the sorting test first so committed work becomes a project, a maintained responsibility becomes an area, and a concept stays an idea, asks only the few questions each shape needs, then scaffolds the files and cross-links them. Use when the user says "start a project", "new project for <x>", "we've committed to <x>", "we're taking this on", "capture this idea", "add <person> as a contact", "this idea is real now", or types /para-new.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion
-arg-hint: '[project|area|idea|contact|promote] <name> [--test]'
+argument-hint: '[project|area|idea|contact|promote] <name> [--test]'
 ---
 
 # Para new
@@ -58,7 +58,7 @@ Nothing is written before the proposal is approved, so there is no preview argum
 
 ### Steps 2 and 3 - Classify, then interview
 
-Settle the shape against the sorting test above, then ask only what that shape needs: three questions for a project, two for an area, an idea, or a contact. **The interview is not an `AskUserQuestion`** - a name, a deadline and a goal are free text, and offering four guesses as options where the operator has the answer is worse than asking. The classification is the multiple-choice decision; the interview is a conversation. **Full procedure: [references/interview.md](references/interview.md).**
+Settle the shape against the sorting test above, then ask only what that shape needs: three questions for a project, two for an area, an idea, or a contact. **The interview is not an `AskUserQuestion`** - a name, a deadline and a goal are free text, and offering four guesses as options where the operator has the answer is worse than asking. The classification is the multiple-choice decision; the interview is a conversation. The one exception is an answer the request already suggests without settling it, which [para-shared/asking.md](../para-shared/asking.md) (`## A question with a suggested answer`) puts to the operator as a recommended option. **Full procedure: [references/interview.md](references/interview.md).**
 
 ### Step 4 - Propose and scaffold
 
@@ -72,7 +72,7 @@ When the entity already exists as an idea, this is a move rather than a creation
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **The sorting test is asked, not asserted**, wherever more than one shape is defensible, and the interview is not. Turning the free-text questions into options invents the operator's answer for them.
+- **The sorting test is asked, not asserted**, wherever more than one shape is defensible, and the interview is not. Turning the free-text questions into options invents the operator's answer for them, except where the request already suggests one (`asking.md`).
 - **A declared shape does not skip the sorting test.** `project <name>` states an intent, not a fact. If the work has no real deadline, say so and offer the shape that fits; creating it as a project anyway makes the skill a `mkdir` with extra steps.
 - **An area absorbs before it multiplies.** Assets that gate each other are **one** area, not several: a domain, the site on it and the subscription paying for both belong together, because split apart the dependency between them stops being visible anywhere. Check whether an existing area should widen before creating a sibling.
 - **Three questions, then stop.** The operator is starting something, not filling in a form. Everything not asked takes the vault's default or stays out of the file until it is real. A question whose answer changes no file is not asked.

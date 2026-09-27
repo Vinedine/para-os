@@ -16,9 +16,10 @@
 # ...and never .mcp.json, which holds live tokens: tracked wiring goes in a redacted .mcp.json.example
 .mcp.json
 
-# Python bytecode (scripts in resources/scripts/ run in place)
+# Python bytecode and test caches (scripts in resources/scripts/ run in place)
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Defensive: never commit a secret if one is dropped into the vault by mistake.
 # Real secrets live in ~/.paraos/secrets/, outside any synced folder - this is the last

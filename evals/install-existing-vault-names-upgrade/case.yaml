@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: install-existing-vault-names-upgrade
+tags: [install, write]
+context:
+  scaffold_script: setup.sh

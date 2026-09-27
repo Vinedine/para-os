@@ -1,8 +1,8 @@
 ---
 name: para-ingest
 description: Read every vault's declared triage sources once from outside the vaults, decide only which vault each item belongs to, and stage it as a note in that vault's triage/ folder. Runs from anywhere and never judges what an item means. Use when the operator runs several vaults that declare the same mailboxes and asks to "pull everything in", "check all my vaults for new mail", "run the ingest", "route what came in", or types /para-ingest.
-allowed-tools: Bash, Glob, Grep, Read, Write, ToolSearch, mcp__*__search_threads, mcp__*__get_thread, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
-arg-hint: '[preview|write] [--test]'
+allowed-tools: Bash, Glob, Grep, Read, Write, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
+argument-hint: '[preview|write] [--test]'
 ---
 
 # Cross-vault ingest

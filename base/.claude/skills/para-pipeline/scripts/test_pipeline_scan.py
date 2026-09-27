@@ -15,14 +15,22 @@ here is what this skill alone decides: how a lifecycle's declared homes become e
 how a next step is chosen, which flags fire, and how the quarter's metrics are counted.
 """
 
+import contextlib
+import io
+import json
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
 
-from pipeline_scan import CollectedVault, scan
+from pipeline_scan import CollectedVault, main, scan
 
 TODAY = date(2026, 9, 21)   # falls in the third calendar quarter of its year
+SCRIPT = Path(__file__).resolve().parent / "pipeline_scan.py"
 
 LIFECYCLE = "\n".join([
     "# Vault", "",
@@ -139,6 +147,10 @@ class FolderEntities(VaultCase):
         self.assertEqual(empty, {"areas/business/leads.md", "resources/ideas/<company>/",
                                  "projects/<company>/", "archive/ideas/<company>/"})
 
+    def test_a_register_holding_no_table_rows_is_an_empty_home(self):
+        write(self.root, "areas/business/leads.md", "# Leads\n\nNothing logged yet.\n")
+        self.assertIn("areas/business/leads.md", self.deal()["empty_homes"])
+
 
 class RowEntities(VaultCase):
 
@@ -172,6 +184,41 @@ class RowEntities(VaultCase):
         self.assertEqual(e["name"], "Jan Janssen")
         self.assertEqual(e["name_from"], "contact")
 
+    def test_a_contact_fallback_name_drops_its_trailing_note(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| unknown | Jan Janssen (via a peer; no card) | outreach | 2026-09-15 | Lead | Call 2026-09-25 | 2026-09-15, x | open |",
+            "",
+        ]) + "\n")
+        e = self.deal()["entities"][0]
+        self.assertEqual(e["name"], "Jan Janssen")
+        self.assertEqual(e["name_from"], "contact")
+
+    def test_unknown_name_with_no_contact_column_takes_the_second_column(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | Person | Stage | Next step |",
+            "|---|---|---|---|",
+            "| unknown | Ann Lee | Lead | Call 2026-09-25 |",
+            "",
+        ]) + "\n")
+        e = self.deal()["entities"][0]
+        self.assertEqual((e["name"], e["name_from"]), ("Ann Lee", "contact"))
+
+    def test_a_row_with_an_empty_or_undeclared_stage_is_skipped(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | Contact | Stage | Next step |",
+            "|---|---|---|---|",
+            "| Blank Co | Ray |  | Call 2026-09-25 |",
+            "| Odd Co | Ray | Prospect | Call 2026-09-25 |",
+            "| Real Co | Ray | **Lead** | Call 2026-09-25 |",
+            "",
+        ]) + "\n")
+        self.assertEqual([e["name"] for e in self.deal()["entities"]], ["Real Co"])
+
     def test_row_missing_columns_is_flagged(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Open", "",
@@ -195,6 +242,18 @@ class RowEntities(VaultCase):
         self.assertEqual(e["home_mismatch"],
                          {"stage_home": "resources/ideas/<company>/",
                           "found_in": "areas/business/leads.md"})
+
+    def test_no_home_mismatch_on_a_closed_row_recording_its_move(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Closed", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| Big Co | Tom Baas | outreach | 2026-06-19 | Qualified | - | 2026-07-01, x | moved to resources/ideas/big-co/ |",
+            "",
+        ]) + "\n")
+        e = self.deal()["entities"][0]
+        self.assertTrue(e["closed"])
+        self.assertIsNone(e["home_mismatch"])
 
     def test_a_row_under_closed_is_closed_and_not_live(self):
         write(self.root, "areas/business/leads.md", "\n".join([
@@ -261,6 +320,41 @@ class NextStep(VaultCase):
         self.assertEqual(step["source"], "linked_checkbox")
         self.assertEqual(step["date"], "2026-09-20")
 
+    def test_linked_checkbox_found_in_a_nested_actions_file(self):
+        # scan.md Step 3 rule 2 reads any actions.md under projects/ or areas/, but the
+        # scan only globbed their direct children, so a sub-area's file was never read.
+        write(self.root, "resources/ideas/delta/brief.md",
+              "# Delta\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        write(self.root, "areas/business/clients/actions.md",
+              "# Clients\n\n- [ ] Revisit [Delta](../../../resources/ideas/delta/brief.md) "
+              "📅 2026-09-22\n")
+        step = find(self.deal()["entities"], "delta")["next_step"]
+        self.assertEqual(step["source"], "linked_checkbox")
+        self.assertEqual(step["file"], "areas/business/clients/actions.md")
+
+    def test_an_own_actions_file_with_nothing_open_falls_through_to_a_linked_checkbox(self):
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n**Stage:** Goal (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        write(self.root, "projects/acme/actions.md", "# Acme - Actions\n\n- [x] Done already\n")
+        write(self.root, "areas/business/actions.md",
+              "# Business\n\n- [ ] Revisit [Acme](../../projects/acme/brief.md) 📅 2026-09-22\n")
+        step = find(self.deal()["entities"], "acme")["next_step"]
+        self.assertEqual((step["source"], step["file"]),
+                         ("linked_checkbox", "areas/business/actions.md"))
+
+    def test_a_checkbox_linking_elsewhere_or_nowhere_is_not_a_next_step(self):
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        write(self.root, "resources/ideas/beta/brief.md",
+              "# Beta\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        write(self.root, "areas/business/actions.md",
+              "# Business\n\n- [ ] Revisit [Beta](../../resources/ideas/beta/brief.md) 📅 2026-09-22\n"
+              "- [ ] Revisit acme some day 📅 2026-09-22\n")
+        entities = self.deal()["entities"]
+        self.assertIsNone(find(entities, "acme")["next_step"])
+        self.assertTrue(find(entities, "acme")["flags"]["no_next_step"])
+        self.assertEqual(find(entities, "beta")["next_step"]["source"], "linked_checkbox")
+
     def test_a_champion_link_resolving_to_nothing_falls_through(self):
         write(self.root, "resources/ideas/gamma/brief.md",
               "# Gamma\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n"
@@ -285,6 +379,37 @@ class NextStep(VaultCase):
         ]) + "\n")
         step = find(self.deal()["entities"], "acme")["next_step"]
         self.assertEqual(step["text"], "Champion task")
+
+    def test_a_champion_file_with_no_title_offers_the_tasks_under_no_heading(self):
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+              "**Champion:** [jan](../../../areas/network/jan.md)\n")
+        write(self.root, "areas/network/jan.md", "\n".join([
+            "Notes on Jan", "", "- [ ] Call back 📅 2026-09-24", "",
+            "## History", "- [ ] Old task 📅 2026-09-01", "",
+        ]) + "\n")
+        step = find(self.deal()["entities"], "acme")["next_step"]
+        self.assertEqual((step["text"], step["source"]), ("Call back", "champion"))
+
+    def test_a_malformed_champion_href_is_the_no_next_step_case_not_a_crash(self):
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+              "**Champion:** [jan](jan%00.md)\n")
+        self.assertIsNone(find(self.deal()["entities"], "acme")["next_step"])
+
+    def test_a_row_champion_comes_before_the_rows_own_next_step_column(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | Contact | Stage | Next step | Champion |",
+            "|---|---|---|---|---|",
+            "| Alpha Co | Ray | Lead | Call 2026-09-30 | [jan](../network/jan.md) |",
+            "",
+        ]) + "\n")
+        write(self.root, "areas/network/jan.md",
+              "# Jan\n\n## Next actions\n- [ ] Intro Alpha Co 📅 2026-09-24\n")
+        step = self.deal()["entities"][0]["next_step"]
+        self.assertEqual((step["source"], step["text"], step["file"]),
+                         ("champion", "Intro Alpha Co", "areas/network/jan.md"))
 
     def test_the_row_next_step_column_is_the_last_resort(self):
         write(self.root, "areas/business/leads.md", "\n".join([
@@ -331,6 +456,21 @@ class Flags(VaultCase):
               "**Last touch:** 2026-09-15, called\n")
         flags = find(self.deal()["entities"], "acme")["flags"]
         self.assertIsNone(flags["stale"])   # 6 days since last touch, well under 14
+
+    def test_an_old_last_touch_is_stale_on_its_own_basis_whatever_the_stage_date(self):
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-09-15)\n**Opened:** 2026-05-01\n"
+              "**Last touch:** 2026-08-21, emailed\n")
+        flags = find(self.deal()["entities"], "acme")["flags"]
+        self.assertEqual(flags["stale"], {"basis": "last_touch", "days": 31})
+
+    def test_a_dated_next_step_already_past_does_not_suppress_stale(self):
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n**Stage:** Goal (since 2026-08-01)\n**Opened:** 2026-07-01\n")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme - Actions\n\n- [ ] Missed call 📅 2026-09-15\n")
+        flags = find(self.deal()["entities"], "acme")["flags"]
+        self.assertEqual(flags["stale"], {"basis": "stage", "days": 51})
 
     def test_stale_falls_back_to_stage_with_no_last_touch(self):
         write(self.root, "resources/ideas/acme/brief.md",
@@ -459,6 +599,42 @@ class Metrics(VaultCase):
         self.assertEqual(m["reached_promoting"], 1)
         self.assertEqual(m["median_days_opened_to_promoting"], {"n": 1, "median": None, "values": [45]})
 
+    def test_reached_promoting_counts_by_the_quarter_it_was_reached_in(self):
+        # Reached last quarter: not this quarter's. Reached now with no Opened date:
+        # counted, but it has no duration to add to the median.
+        write(self.root, "projects/early/brief.md",
+              "# Early\n\n**Stage:** Goal (since 2026-05-01)\n**Opened:** 2026-04-01\n")
+        write(self.root, "projects/unopened/brief.md", "# Unopened\n\n**Stage:** Goal (since 2026-08-01)\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["reached_promoting"], 1)
+        self.assertEqual(m["median_days_opened_to_promoting"], {"n": 0, "median": None, "values": None})
+
+    def test_a_won_date_is_the_reach_date_over_the_stage_since_date(self):
+        write(self.root, "projects/nova/brief.md",
+              "# Nova\n\n**Stage:** Goal (since 2026-05-01)\n**Opened:** 2026-07-01\n"
+              "**Won:** 2026-08-15\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["reached_promoting"], 1)
+        self.assertEqual(m["median_days_opened_to_promoting"]["values"], [45])
+
+    def test_only_an_archived_project_folder_with_a_won_date_in_the_quarter_counts(self):
+        write(self.root, "archive/projects/loose-note.md", "**Won:** 2026-08-15\n")
+        write(self.root, "archive/projects/no-doc/sources/x.md", "**Won:** 2026-08-15\n")
+        write(self.root, "archive/projects/never-won/brief.md", "# Never\n\n**Opened:** 2026-07-01\n")
+        write(self.root, "archive/projects/last-q/brief.md",
+              "# Last\n\n**Won:** 2026-06-15\n**Opened:** 2026-05-01\n")
+        write(self.root, "archive/projects/unopened/brief.md", "# Unopened\n\n**Won:** 2026-08-15\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["reached_promoting"], 1)
+        self.assertEqual(m["median_days_opened_to_promoting"]["n"], 0)
+
+    def test_median_is_computed_from_three_values_on(self):
+        for name, since in (("p1", "2026-07-11"), ("p2", "2026-08-01"), ("p3", "2026-09-01")):
+            write(self.root, f"projects/{name}/brief.md",
+                  f"# {name}\n\n**Stage:** Goal (since {since})\n**Opened:** 2026-07-01\n")
+        info = self.deal()["metrics"]["median_days_opened_to_promoting"]
+        self.assertEqual(info, {"n": 3, "median": 31, "values": None})
+
     def test_median_reports_individual_values_below_three(self):
         write(self.root, "projects/p1/brief.md",
               "# P1\n\n**Stage:** Goal (since 2026-08-01)\n**Opened:** 2026-07-01\n")
@@ -508,6 +684,32 @@ class Metrics(VaultCase):
         self.assertEqual(rows["outreach"]["entities"], 1)
         self.assertEqual(rows["unrecorded"]["entities"], 1)
 
+    def test_a_referrer_link_is_grouped_by_its_label_and_counts_who_reached_promoting(self):
+        write(self.root, "projects/nova/brief.md",
+              "# Nova\n\n**Stage:** Goal (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+              "**Source:** referral from [Jan](../../areas/network/jan.md), at the fair\n")
+        write(self.root, "resources/ideas/vega/brief.md",
+              "# Vega\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+              "**Source:** referral from Jan\n")
+        rows = self.deal()["metrics"]["referrers"]
+        self.assertEqual(rows, [{"source": "referral from Jan", "entities": 2,
+                                 "reached_promoting": 1}])
+
+    def test_a_lead_opened_and_promoted_in_one_quarter_counts_once(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Closed", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| Big Co | Tom Baas | outreach | 2026-08-01 | Qualified | - | 2026-08-10, x | moved to resources/ideas/big-co/ |",
+            "",
+        ]) + "\n")
+        write(self.root, "resources/ideas/big-co/brief.md",
+              "# Big Co\n\n**Stage:** Qualified (since 2026-08-10)\n"
+              "**Opened:** 2026-08-01\n**Source:** outreach\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["opened"], 1)
+        self.assertEqual({r["source"]: r["entities"] for r in m["referrers"]}, {"outreach": 1})
+
     def test_counts_by_stage_excludes_terminal_and_closed_rows(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Closed", "",
@@ -555,6 +757,142 @@ class Scope(VaultCase):
         self.assertEqual(code, 0)
         self.assertEqual([lc["heading"] for lc in report["lifecycles"]],
                          ["Deal lifecycle", "Property lifecycle"])
+
+
+class CommandLine(VaultCase):
+    """main() as SKILL.md's Steps 2 and 3 call it: --vault, an optional --lifecycle and
+    --today, one JSON document on stdout and an exit code the skill reads."""
+
+    def run_main(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(["--vault", str(self.root), *args])
+        return code, out.getvalue(), err.getvalue()
+
+    def usage_error(self, *args):
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err), \
+                self.assertRaises(SystemExit) as raised:
+            main(list(args))
+        self.assertEqual(raised.exception.code, 2)
+        return err.getvalue()
+
+    def two_lifecycles(self):
+        write(self.root, "CLAUDE.md", LIFECYCLE + "\n".join([
+            "## Property lifecycle", "",
+            "| Stage | PARA home |", "|---|---|",
+            "| Viewing | `resources/ideas/<property>/` |",
+            "| Held | `archive/ideas/<property>/` |", "",
+        ]) + "\n")
+
+    def test_prints_one_document_with_every_declared_lifecycle(self):
+        self.two_lifecycles()
+        code, out, _ = self.run_main("--today", "2026-09-21")
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        self.assertEqual(set(report), {"vault", "today", "lifecycles"})
+        self.assertEqual(report["vault"], self.root.resolve().as_posix())
+        self.assertEqual(report["today"], "2026-09-21")
+        self.assertEqual([lc["heading"] for lc in report["lifecycles"]],
+                         ["Deal lifecycle", "Property lifecycle"])
+        self.assertEqual(set(report["lifecycles"][0]),
+                         {"heading", "noun", "stages", "entities", "no_stage", "empty_homes",
+                          "counts_by_stage", "terminal_this_quarter", "metrics"})
+
+    def test_lifecycle_scopes_the_document_to_the_one_it_names(self):
+        self.two_lifecycles()
+        code, out, _ = self.run_main("--lifecycle", "property", "--today", "2026-09-21")
+        self.assertEqual(code, 0)
+        self.assertEqual([lc["heading"] for lc in json.loads(out)["lifecycles"]],
+                         ["Property lifecycle"])
+
+    def test_a_lifecycle_matching_nothing_exits_3_with_the_declared_ones_as_json(self):
+        code, out, _ = self.run_main("--lifecycle", "hiring", "--today", "2026-09-21")
+        self.assertEqual(code, 3)
+        self.assertEqual(json.loads(out), {"vault": self.root.resolve().as_posix(),
+                                           "today": "2026-09-21",
+                                           "error": "no such lifecycle",
+                                           "declared": ["Deal lifecycle"]})
+
+    def test_today_defaults_to_the_system_date(self):
+        before = date.today().isoformat()
+        code, out, _ = self.run_main()
+        self.assertEqual(code, 0)
+        self.assertIn(json.loads(out)["today"], {before, date.today().isoformat()})
+
+    def test_today_measures_days_in_stage(self):
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        code, out, _ = self.run_main("--today", "2026-09-11")
+        self.assertEqual(code, 0)
+        self.assertEqual(find(json.loads(out)["lifecycles"][0]["entities"], "acme")["days_in_stage"], 10)
+
+    def test_indent_pretty_prints_the_same_document(self):
+        code, out, _ = self.run_main("--today", "2026-09-21", "--indent", "2")
+        self.assertEqual(code, 0)
+        self.assertIn('\n  "today": "2026-09-21"', out)
+        self.assertEqual(json.loads(out)["today"], "2026-09-21")
+
+    def test_a_malformed_today_is_a_usage_error(self):
+        err = self.usage_error("--vault", str(self.root), "--today", "21/09/2026")
+        self.assertIn("--today wants YYYY-MM-DD", err)
+
+    def test_a_vault_path_that_is_not_a_folder_is_a_usage_error(self):
+        err = self.usage_error("--vault", str(self.root / "missing"))
+        self.assertIn("no such vault", err)
+
+    def test_a_collected_vault_exits_2_with_the_reason_on_stderr_and_nothing_on_stdout(self):
+        write(self.root, "resources/mds/projects__acme__brief.md", "# acme\n")
+        code, out, err = self.run_main("--today", "2026-09-21")
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertTrue(err.startswith("pipeline_scan: "), err)
+
+
+class ScriptRun(VaultCase):
+    """The script as a separate process, run from the vault with `--vault .` and its stdout
+    redirected, as SKILL.md and para-shared/scripts.md run it."""
+
+    def test_output_is_utf8_json_even_where_the_pipe_defaults_to_ascii(self):
+        # A Windows pipe defaults to a codepage that cannot encode what a vault holds;
+        # PYTHONIOENCODING=ascii reproduces that on every platform.
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+              "**Source:** café owner, via the market\n")
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--vault", ".", "--lifecycle", "deal",
+             "--today", "2026-09-21"],
+            cwd=self.root, capture_output=True, timeout=120,
+            env=dict(os.environ, PYTHONIOENCODING="ascii"))
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
+        report = json.loads(result.stdout.decode("utf-8"))
+        self.assertEqual(report["vault"], self.root.resolve().as_posix())
+        self.assertEqual(find(report["lifecycles"][0]["entities"], "acme")["source"],
+                         "café owner, via the market")
+
+    def test_an_unmatched_lifecycle_exits_3_from_the_process_too(self):
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--vault", ".", "--lifecycle", "hiring"],
+            cwd=self.root, capture_output=True, timeout=120)
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(json.loads(result.stdout.decode("utf-8"))["declared"], ["Deal lifecycle"])
+
+
+class MissingLibrary(unittest.TestCase):
+
+    def test_missing_shared_library_exits_2_and_names_the_fallback(self):
+        # SKILL.md falls back to references/scan.md on exit 2; the message says so.
+        with tempfile.TemporaryDirectory() as tmp:
+            isolated = Path(tmp) / "skills" / "para-pipeline" / "scripts"
+            isolated.mkdir(parents=True)
+            shutil.copy(SCRIPT, isolated / "pipeline_scan.py")
+            result = subprocess.run(
+                [sys.executable, str(isolated / "pipeline_scan.py"), "--vault", "."],
+                capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 2)
+            self.assertTrue(result.stderr.startswith("pipeline_scan: "), result.stderr)
+            self.assertIn("references/scan.md", result.stderr)
+            self.assertEqual(result.stdout, "")
 
 
 if __name__ == "__main__":

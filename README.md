@@ -91,15 +91,15 @@ The conventions the templates encode:
 
 **3. Open it in the Claude desktop app.** In the **Code** tab, click **New** at the top of the sidebar, keep **Local**, click **Select folder** and pick the folder. Don't use the `+` beside a folder already in the sidebar: that opens the session inside *that* folder, which is how a new vault ends up inside an old one.
 
-**4. Paste this**, with your own topic after `Context:`:
+**4. Paste this**, exactly as it is:
 
 ```text
-Set up a new para-os vault in this folder: read https://raw.githubusercontent.com/Vinedine/para-os/main/INSTALL.md and follow it. Context: <what this vault is for>.
+Set up a new para-os vault in this folder: read https://raw.githubusercontent.com/Vinedine/para-os/main/INSTALL.md and follow it.
 ```
 
-It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap interview: three short questions, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. The steps are in [`INSTALL.md`](INSTALL.md): read what it will do before you paste it, or follow it by hand.
+It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap interview: a few short questions about the vault, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. The steps are in [`INSTALL.md`](INSTALL.md): read what it will do before you paste it, or follow it by hand.
 
-**5. Run `/para-daily-brief`.** The vault answers from day one, and better as you feed it your braindump.
+**5. Run `/para-daily-brief`.** The vault answers from day one, and better once you run the short brainstorm the `vault-setup` project starts with.
 
 To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/), a fictional consulting engagement; [`examples/`](examples/README.md) says how to run the skills against it.
 
@@ -122,6 +122,8 @@ Beyond base:
 
 - The [real-estate](addons/real-estate/) add-on adds [`/property-reconcile`](addons/real-estate/.claude/skills/property-reconcile/SKILL.md) (checks a property dossier against its sources), [`/property-underwrite`](addons/real-estate/.claude/skills/property-underwrite/SKILL.md) (brings it to decision-ready) and [`/property-dealsheet`](addons/real-estate/.claude/skills/property-dealsheet/SKILL.md) (renders the deal sheet).
 - [`multi-vault/`](multi-vault/) adds [`/para-ingest`](multi-vault/para-ingest/SKILL.md), which reads shared sources once and stages each item in the vault it belongs to.
+
+**Your own skills.** A vault can grow skills of its own, and three rules keep them supportable. A request starts as a prompt in `resources/prompts/` and becomes a skill after its third use, the same wait-until-proven rule the vault applies to templates. It is built with Anthropic's `skill-creator` skill, so it stays well-formed. And it never takes the `para-` prefix, which belongs to para-os: `/para-upgrade` treats a skill with a name para-os ships as its own copy and replaces it.
 
 `/para-daily-brief` against the example vault (fragment):
 
@@ -153,7 +155,7 @@ If no calendar connector is wired in, a root `meetings.md` (one line per meeting
 
 A vault the agent can only read is a tidy filing cabinet. Wire in a source and the *same* assistant folds it into the answer: `/para-daily-brief` shows your real meetings, attachments get filed straight from mail, action lists reconcile against live tickets. Your mailbox alone is your richest untapped record - years of customers, suppliers, decisions, orders, and attachments - and the assistant mines structure out of it rather than keyword-searching it. There are three ways to wire a source in, by how much lives in the vault:
 
-- **Connectors** - authorized once in your agent (Gmail, Calendar, Drive, Slack). Nothing lands in the vault; every vault benefits automatically.
+- **Connectors** - authorized once in your agent (Gmail, Calendar, Drive, Slack). Nothing lands in the vault; every vault benefits automatically. The skills find a connector by its tool name wherever it is wired in, but pre-approve only the names they were written against: Claude's own Gmail connector (`mcp__claude_ai_Gmail__*`) and a Google Workspace server named `google-workspace`. A connector under another name works the same, and asks permission for each call.
 - **MCP servers** - wiring as a config declaration, scopeable to one vault or shared globally, for a source with no built-in connector (a self-hosted Google Workspace server, Jira, Azure DevOps).
 - **Integrations** - wiring as code: a small script in `resources/scripts/` that pulls a source into the vault as Markdown the assistant reads like everything else. This is the only tier para-os ships: [`integrations/`](integrations/README.md) packages them as drop-in folders (e.g. [`granola/`](integrations/granola/) syncs your Granola meeting notes into `triage/`).
 
@@ -165,7 +167,7 @@ The base assumes you read and write the Markdown yourself. An add-on layers on i
 
 A vault is just files on storage you already control - a local disk, a company cloud drive, or a git repo. para-os adds no server or database of its own and never copies your vault anywhere. Content leaves your storage only when the agent reads part of a file to answer a request: the same exposure as sending an email through a cloud provider, and per-request, not a standing copy.
 
-For GDPR or data-sovereignty needs there's a ladder: a provider plan whose commercial terms exclude training and minimise retention; regional processing; or the model running inside a cloud tenant you control, for a hard "data must not leave our cloud" requirement. Because the root `CLAUDE.md` is read every session, it is also where you encode data-handling rules - what to redact, retention expectations, who the data subjects are - so the agent follows them by construction.
+For GDPR or data-sovereignty needs there's a ladder: a provider plan whose commercial terms exclude training and minimise retention (for a business, a Team or Enterprise plan rather than a personal one; on a personal Pro or Max plan, turn off the setting that lets your chats be used to improve the models); regional processing; or the model running inside a cloud tenant you control, for a hard "data must not leave our cloud" requirement. Because the root `CLAUDE.md` is read every session, it is also where you encode data-handling rules - what to redact, retention expectations, who the data subjects are - so the agent follows them by construction.
 
 ## Why this exists
 
@@ -175,7 +177,8 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 
 - [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, the bootstrap prompt, the skills and rule files under `.claude/`, and agent and editor settings.
 - [`INSTALL.md`](INSTALL.md) - the setup steps the Quickstart prompt runs.
-- [`CHANGELOG.md`](CHANGELOG.md) - releases are `YYYY.MM.NN` revisions, newest first; `/para-upgrade` applies them to a vault.
+- [`RELEASES.md`](RELEASES.md) - what each `YYYY.MM.NN` revision changes for you, in plain words, and whether you need to do anything.
+- [`CHANGELOG.md`](CHANGELOG.md) - the same revisions as step-by-step instructions `/para-upgrade` applies to a vault.
 - [`addons/`](addons/README.md) - the delivery, flavor and module add-ons.
 - [`integrations/`](integrations/README.md) - drop-in scripts that pull an outside system into a vault.
 - [`multi-vault/`](multi-vault/) - optional layer for several vaults drawing on the same inboxes.

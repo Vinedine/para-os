@@ -11,8 +11,8 @@ Exact terminal layout. One block per lifecycle, in the order the sections appear
 ```
 
 ### <Stage> (N)
-1. <entity> · <N>d in stage · <next step text> · 📅 <date> (<N>d ago) - [<file>:<line>](<relative/path>#L<line>) · <source>
-2. <entity> · ?d in stage · 🚩 no next step · <source>
+1. <entity> · <N>d in stage · <next step text> · 📅 <date> (<N>d ago) - [<file>:<line>](<relative/path>#L<line>) · <Source header>
+2. <entity> · ?d in stage · 🚩 no next step · <Source header>
 
 ## 🚩 Flags (N)
 - <entity> - <what is wrong, and the one edit that fixes it>
@@ -30,9 +30,9 @@ Exact terminal layout. One block per lifecycle, in the order the sections appear
 **Next action:** <exactly one concrete step>
 ````
 
-**Line rules.** One line per entity, no wraps. Stages render in the lifecycle table's own order, terminal stages excluded from the board. Within a stage, order by days in stage descending, so the one that has sat longest leads. `?d` is an unknown time in stage, never a zero. The next-step link points at the file the step actually lives in (the entity's `actions.md`, the champion's contact file, the register), so the operator sees where to edit without opening anything. **Percent-encode every link target**, never the link text.
+**Line rules.** One line per entity, no wraps. Stages render in the lifecycle table's own order, terminal stages excluded from the board. Within a stage, order by days in stage descending. `?d` is an unknown time in stage, never a zero. The next-step link points at the file the step actually lives in (the entity's `actions.md`, the champion's contact file, the register). **Percent-encode every link target**, never the link text.
 
-**A row home renders like any other stage**, with the register file as the link target and the row's own next-step column as the step. Where a stage holds more than fifteen rows, render the ten with the nearest dated next step, then one `(+N more in <register>)` line: the register is the list, and this is the board.
+**A row home renders like any other stage**, with the register file as the link target and the row's own next-step column as the step. Where a stage holds more than fifteen rows, render the ten with the nearest dated next step, then one `(+N more in <register>)` line.
 
 ## The flags
 
@@ -49,13 +49,13 @@ A flag is an observation, not an instruction: it says what the file lacks, never
 
 Per lifecycle, computed from the records already collected, this quarter only (the calendar quarter containing today's date, named in the heading):
 
-- **Opened this quarter**, from the `Opened` header field.
+- **Opened this quarter**, from the `Opened` header field. A closed register row whose name matches a folder entity is counted from the folder alone, here and in the referrers table.
 - **Reached the promoting stage**, the stage whose `PARA home` sits under `projects/`. A `Won` header date counts as reached wherever the entity now sits, including a delivery project archived outside every declared home once it ships - the script's own extra read of `archive/<promoting home>`. A vault whose lifecycle has none says so once and drops this line and the median.
-- **Reached each terminal stage**, one count per stage whose home is under `archive/`, each followed by the reasons recorded on those entities this quarter, grouped the same way as the referrers table (the text before the first comma) and counted (`reasons_this_quarter`). A terminal entity with no reason line is named instead of counted, since the reason is what the stage is for. **Where the quarter holds none, print the all-time counts instead**, one line marked as such (`all_time_reasons`).
+- **Reached each terminal stage**, one count per stage whose home is under `archive/`, each followed by the reasons recorded on those entities this quarter, grouped the same way as the referrers table (the text before the first comma) and counted (`reasons_this_quarter`). A terminal entity with no reason line is named instead of counted. **Where the quarter holds none, print the all-time counts instead**, one line marked as such (`all_time_reasons`).
 - **A referrers table** (`referrers`), grouped by the script on the phrase before the first comma of each `Source` header line (`referral from <contact>`, `inbound via <channel>`, `outreach`), a link reduced to its label, over entities opened this quarter, with how many of each group reached the promoting stage. Entities whose source line is missing are one `unrecorded` row, never dropped.
-- **Median days from `Opened` to the promoting stage** (`median_days_opened_to_promoting`), over the entities that reached it, with the count it was taken over. Fewer than three and it prints the individual numbers instead: a median over two entities is a number pretending to be a rate.
+- **Median days from `Opened` to the promoting stage** (`median_days_opened_to_promoting`), over the entities that reached it, with the count it was taken over. Fewer than three and it prints the individual numbers instead.
 
-**Nothing per stage.** No conversion rate, no funnel percentage, no weighted value, no forecast. Below twenty entities they measure noise, and the board is what the operator acts on.
+**Nothing per stage.** No conversion rate, no funnel percentage, no weighted value, no forecast.
 
 ## The close
 

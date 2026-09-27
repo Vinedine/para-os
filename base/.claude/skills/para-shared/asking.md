@@ -13,7 +13,7 @@ Print one line per question, numbered to match the order they will be asked, the
  ...
 ```
 
-One line, no pipes, no reasoning column: the reasoning belongs in the option description where the operator reads it at the moment of deciding. This is the overview, not the proposal. It exists so the batch shape and the number of rounds are visible before the first question, and so an abandoned run still leaves a readable trace.
+One line, no pipes, no reasoning column: the reasoning belongs in the option description where the operator reads it at the moment of deciding. This is the overview, not the proposal.
 
 **If the batch exceeds 20 items**, the first question asked is whether to go item by item or fall back to the written proposal.
 
@@ -23,7 +23,7 @@ One line, no pipes, no reasoning column: the reasoning belongs in the option des
 
 Batch up to **4 questions per call**, ordered so questions about the same entity or file land together.
 
-- **`header`** - the position: `Item 3/11`, `Group 5/11`, `Action 8/11`. Twelve characters is not enough for a filename, and the operator needs to know where they are in the batch. **A skill that asks exactly one question spends that budget on a label instead**, because `1/1` tells the operator nothing the question does not: name the decision - `Shape`, `Disposition` - and let the calling skill say which word it wants.
+- **`header`** - the position: `Item 3/11`, `Group 5/11`, `Action 8/11`. Twelve characters is not enough for a filename, and the operator needs to know where they are in the batch. **A skill that asks exactly one question spends that budget on a label instead**: name the decision - `Shape`, `Disposition` - and let the calling skill say which word it wants.
 - **`question`** - the item by name, and the proposed target in full. The target is the thing being approved; never abbreviate it to something the operator has to reconstruct.
 - **`options`** - 2 to 4, from the calling skill's vocabulary. **The proposal goes first, labelled `(Recommended)`.** Each description carries the evidence for that disposition and the full target.
 
@@ -34,15 +34,25 @@ Batch up to **4 questions per call**, ordered so questions about the same entity
 
 **Every question carries an escape that changes nothing** - leave it, skip it, decide later.
 
+## A question with a suggested answer
+
+The rule above covers dispositions. Three other shapes reach the operator, and which one decides whether to use the tool and how:
+
+- **A closed choice** (purpose, language, a delivery, a shape) is always a question: the options are known before anyone answers.
+- **An open answer** (a name, a deadline, a goal, a URL) is a question **only when the skill holds a concrete suggestion for it**, from the operator's request or the vault itself. The suggestion goes first as `(Recommended)` and **Other** is where the operator corrects it. With nothing to suggest, it stays a short numbered message in prose.
+- **A discovery question** (what eats your week, where your information lives) asks which of several things hold, not what to do, so it is the one shape asked with `multiSelect: true` and no option labelled `(Recommended)`.
+
+A "confirm or correct" list written as prose, where a suggestion exists for every item, is a recommended option plus Other, and belongs in the tool. The four-question batching and the reading rules below apply unchanged, and so does `multiSelect: false` everywhere but a discovery question.
+
 ## Grouping
 
 Linked items get **one** question. Linked means one sentence can state the disposition for all of them **and** the question can name every member. Three hard limits, each closing a way a group hides a decision:
 
-- **Never group a destructive item with anything.** A delete, a close, a drop: its own question, always, whatever it arrived beside. **One exception**: several copies of one record whose single survivor the question names - the notes `/para-triage` finds staged from one mail thread, all superseded by the thread still in the mailbox - share one question, since one fact settles every member. The question still names each member and what happens to it.
+- **Never group a destructive item with anything.** A delete, a close, a drop: its own question, always, whatever it arrived beside. **One exception**: several copies of one record whose single survivor the question names - the notes `/para-triage` finds staged from one mail thread, all superseded by the thread still in the mailbox - share one question. The question still names each member and what happens to it.
 - **Never group items whose targets differ.** A shared target is what makes one answer honest for all of them.
-- **Never group more than five.** Past that the question stops naming its members and becomes a batch approval.
+- **Never group more than five.**
 
-**A destructive question states its evidence in the option description**: what survives it, and where. Where the evidence is a judgment rather than a fact (content overlap rather than a hash match, "probably done"), the recommended option is the one that changes nothing - **but only where the loss would be irreversible**, a deleted file or an unrecoverable record. Where the change is reversible and leaves its own trace - a closed checkbox that keeps its text and a stated reason, a demotion that preserves every word - recommend what the evidence actually supports. A recommendation that is systematically the safe one is uninformative.
+**A destructive question states its evidence in the option description**: what survives it, and where. Where the evidence is a judgment rather than a fact (content overlap rather than a hash match, "probably done"), the recommended option is the one that changes nothing - **but only where the loss would be irreversible**, a deleted file or an unrecoverable record. Where the change is reversible and leaves its own trace - a closed checkbox that keeps its text and a stated reason, a demotion that preserves every word - recommend what the evidence actually supports.
 
 ## Reading the answers
 
@@ -57,7 +67,7 @@ Record every answer, deferrals and amendments included, and carry them into the 
 
 - On any **argument that already bypasses approval** - a preview that stops at the proposal, an apply that runs on approval already given, an unattended entry point that makes no judgment calls to approve. Each calling skill names its own.
 - On an explicit **escape argument** for an operator who would rather read a batch than click through it.
-- When **no interactive operator is present**: a scheduled task, a subagent, a non-interactive run. The skip is a property of the entry point rather than a flag anyone has to remember.
+- When **no interactive operator is present**: a scheduled task, a subagent, a non-interactive run.
 
 On those paths the skill produces the markdown proposal it always did, gated on a single "reply **go**", or nothing at all.
 

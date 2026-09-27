@@ -2,9 +2,16 @@
 # are part of the product). Un-ignore them in case your global gitignore excludes CLAUDE.md.
 !CLAUDE.md
 
-# The repo's own root CLAUDE.md is working instructions, not product. Keep it local,
-# per the global ignore. (Last matching pattern wins, so this re-ignores just the root.)
-/CLAUDE.md
+# Personal notes beside the shared root CLAUDE.md.
+/CLAUDE.local.md
+
+# Maintainer skills for working on this repo are shared from the root .claude/. Only what is
+# named here: local settings, worktrees and anything else a session writes there stay out.
+!/.claude/
+/.claude/*
+!/.claude/skills/
+/.claude/skills/*
+!/.claude/skills/release/
 
 # The base vault bundles the skills in .claude/skills/ so one copy yields a working
 # vault. Un-ignore that path in case your global gitignore excludes .claude/.
@@ -26,3 +33,7 @@ examples/belfoot-vault/.claude/skills/
 # Build artifacts from running the integration scripts in place.
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# MCP server config holds live tokens.
+.mcp.json

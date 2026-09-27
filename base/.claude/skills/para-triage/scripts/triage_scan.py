@@ -35,7 +35,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 SHARED_DIR = Path(__file__).resolve().parents[2] / "para-shared" / "scripts"
@@ -47,8 +47,8 @@ try:
         CollectedVault, MIN_HASH_BYTES, WIP_THRESHOLD, abspath, action_files, hashes,
         ingest_ledger, ingest_logs, inbound_references, live_lines, log_instant, norm,
         note_name_parts, open_tasks, read_lines, refuse_if_collected, registered_vault,
-        registry, rel_posix, snapshot, thread_hash, triage_items, triage_sources, vault_root,
-        watermark, written_under,
+        registry, rel_posix, same_place, snapshot, thread_hash, triage_items, triage_sources,
+        vault_root, watermark, written_under,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"triage_scan: {missing}. The shared vault library belongs at "
@@ -60,10 +60,10 @@ except ImportError as missing:  # the skill falls back to scanning by hand
 # ------------------------------------------------------------------------------ the vault
 
 def _entry_by_path(entries, vault):
-    target = os.path.normcase(str(abspath(vault)))
+    target = same_place(vault)
     for entry in entries:
         path = entry.get("path")
-        if path and os.path.normcase(str(abspath(path))) == target:
+        if path and same_place(path) == target:
             return entry
     return None
 
@@ -270,9 +270,12 @@ def kind_of(path):
 BULLET_FIELD_RE = re.compile(r"^- \*\*([^*]+?)\s*:?\s*\*\*\s*:?\s*(.*)$")
 FRONTMATTER_FIELD_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$")
 LINK_THREAD_RE = re.compile(r"#[^/]+/([0-9a-fA-F]{16})")
+# claude.ai Gmail's link form carries the same thread id in decimal: `#all/thread-f:<decimal>`.
+LINK_THREAD_F_RE = re.compile(r"#[^/]+/thread-f:(\d+)")
 
+# "incomplete" is here, and checked first, because the held phrase "complete" is inside it.
 INCOMPLETE_PHRASES = ("snippet", "preview", "opening lines", "no readable body", "cut mid",
-                      "truncat", "not read", "not fetched")
+                      "truncat", "not read", "not fetched", "incomplete")
 COMPLETE_PHRASES = ("full body", "plain-text body", "complete")
 
 
@@ -399,9 +402,13 @@ def _extract_thread_id(link_value, filename_hash):
     if not link_value or not filename_hash:
         return None
     match = LINK_THREAD_RE.search(link_value)
-    if not match:
-        return None
-    candidate = match.group(1)
+    if match:
+        candidate = match.group(1)
+    else:
+        match = LINK_THREAD_F_RE.search(link_value)
+        if not match:
+            return None
+        candidate = format(int(match.group(1)), "x")
     return candidate if thread_hash(candidate) == filename_hash else None
 
 
@@ -580,6 +587,16 @@ def subdirectories_block(vault):
     return out
 
 
+def subdirectories_line(subdirectories):
+    """The manifest's line for the subdirectories, as approval.md writes it, or None when
+    there are none. Printed as it stands, so a run never words it its own way."""
+    if not subdirectories:
+        return None
+    listed = ", ".join(f"triage/{s['name']}/ ({s['files']} file{'' if s['files'] == 1 else 's'})"
+                       for s in subdirectories)
+    return f"Subdirectories, not asked: {listed}"
+
+
 def same_thread_block(items):
     groups = {}
     for item in items:
@@ -694,6 +711,7 @@ def plan(vault, paraos_home, now, threads_data):
         "loose": loose, "subdirectories": subdirectories,
         "empty": not loose and not subdirectories,
         "only_subdirectories": not loose and bool(subdirectories),
+        "subdirectories_line": subdirectories_line(subdirectories),
         "same_thread": same_thread_block(loose),
     }
 
@@ -708,6 +726,40 @@ def plan(vault, paraos_home, now, threads_data):
     if threads_data is not None:
         report["threads"] = threads_block(threads_data, Path(seen_ledger["path"]), loose)
     return report
+
+
+# ------------------------------------------------------------------------------ saved copy
+
+SAVED_KEEP_DAYS = 7
+
+
+def save_report(report, vault, paraos_home, now):
+    """Keep a copy of the report outside the vault, where `paraos_vault.py changed` reads its
+    snapshot before each delete or move, and return (path, error). Written by the scan so the
+    re-check never depends on a run remembering to redirect its output. Copies older than a
+    week are pruned; a copy that would land inside the vault is refused."""
+    folder = _paraos_home(paraos_home) / "data" / "scans"
+    name = re.sub(r"[^\w.-]+", "-", report["vault"]["name"] or "vault").strip("-") or "vault"
+    target = folder / f"triage-{name}-{now.strftime('%Y%m%dT%H%M%S')}.json"
+    try:
+        target.resolve().relative_to(Path(vault).resolve())
+        return None, f"{target} is inside the vault; not saved"
+    except ValueError:
+        pass
+    report["saved_to"], report["save_error"] = str(target), None
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(report, ensure_ascii=False) + "\n", encoding="utf-8")
+    except OSError as err:
+        return None, f"cannot write {target}: {err}"
+    cutoff = (now - timedelta(days=SAVED_KEEP_DAYS)).timestamp()
+    for old in folder.glob("triage-*.json"):
+        try:
+            if old != target and old.stat().st_mtime < cutoff:
+                old.unlink()
+        except OSError:
+            pass
+    return str(target), None
 
 
 # ------------------------------------------------------------------------------ entry point
@@ -768,6 +820,7 @@ def main(argv=None):
         return 2
 
     report = plan(root, args.paraos_home, now, threads_data)
+    report["saved_to"], report["save_error"] = save_report(report, root, args.paraos_home, now)
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     return 0

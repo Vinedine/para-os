@@ -40,8 +40,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, CollectedVault, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        LINK_RE, STALE_FILE_DAYS, WIP_THRESHOLD, action_files, cadence_days, field_ci,
-        file_dates, is_under, iso, lifecycles, misplaced_checkboxes, open_tasks,
+        STALE_FILE_DAYS, WIP_THRESHOLD, action_files, cadence_days, field_ci,
+        file_dates, is_under, iso, lifecycles, link_spans, misplaced_checkboxes, open_tasks,
         over_grown_briefs, parse_date, refuse_if_collected, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
     )
@@ -52,6 +52,8 @@ except ImportError as missing:  # the skill falls back to scanning by hand
     sys.exit(2)
 
 LINK_TARGET_RE = re.compile(r"\]\([^)]*\)")
+SENTENCE_END_RE = re.compile(r"[.!?](?=\s+[^a-z\s]|\s*$)")
+UNDATED_MAJORITY_MIN = 8  # below this, a new vault's bootstrap actions are not a backlog
 
 
 # ----------------------------------------------------------- lanes, against today
@@ -127,7 +129,7 @@ def mentions_elsewhere(vault, tasks, match):
             continue
         file_path = Path(vault) / t["file"]
         targets = [t["first_link"]] if t.get("first_link") else []
-        targets += [m.group(1).strip() for m in LINK_RE.finditer(t["text"])]
+        targets += [t["text"][a:b].strip() for a, b, _ in link_spans(t["text"])]
         linked = any(is_under(resolve_link(file_path, href), entity_dir)
                      for href in targets if href)
         prose = LINK_TARGET_RE.sub("]", t["text"])  # a link target is judged as a link only
@@ -161,6 +163,24 @@ def aggregate(tasks):
 
 # --------------------------------------------------------------- signals the brief reports
 
+def short_stage(text):
+    """An idea's stage cut to what fits one line: link syntax reduced to its label (a
+    target is relative to the brief's folder and breaks when rendered from the vault root),
+    then the first sentence, a full stop inside a parenthesis not counting as its end.
+    Kept here, not in the shared `stage_line`, which other skills read uncut."""
+    if not text:
+        return text
+    for start, end, bracket in reversed(link_spans(text)):
+        if bracket is not None:
+            text = text[:bracket] + text[bracket + 1:start - 2] + text[end + 1:]
+    depth = 0
+    for i, ch in enumerate(text):
+        depth += (ch == "(") - (ch == ")")
+        if depth <= 0 and SENTENCE_END_RE.match(text, i):
+            return text[:i].strip()
+    return text.strip()
+
+
 def ideas_lane(vault, today):
     base = Path(vault) / "resources" / "ideas"
     if not base.is_dir():
@@ -174,7 +194,8 @@ def ideas_lane(vault, today):
         touched_date = parse_date(touched)
         age = (today - touched_date).days if touched_date else None
         rows.append({"name": d.name, "path": brief.relative_to(vault).as_posix(),
-                     "touched": touched, "age_days": age, "stage": stage_line(brief),
+                     "touched": touched, "age_days": age,
+                     "stage": short_stage(stage_line(brief)),
                      "dormant": bool(age is not None and age >= DORMANT_ENTITY_DAYS)})
     rows.sort(key=lambda r: r["name"])
     rows.sort(key=lambda r: r["touched"] or "", reverse=True)
@@ -265,7 +286,7 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
 
     if not scoped:
         undated = sum(1 for t in tasks if t["lane"] == "undated")
-        if tasks and undated * 2 > len(tasks):
+        if len(tasks) >= UNDATED_MAJORITY_MIN and undated * 2 > len(tasks):
             flags["undated_majority"] = {"undated": undated, "open": len(tasks)}
         flags["misplaced"] = misplaced_checkboxes(vault)
     return flags

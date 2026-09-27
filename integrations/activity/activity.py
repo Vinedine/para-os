@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Append-only record of how a vault actually gets used.
 
-para-os-integration: activity 2026.09.02
+para-os-integration: activity 2026.09.05
 
 A Claude Code hook. Reads one event as JSON on stdin, writes one JSONL line into
 `<vault>/resources/logs/sessions/`, exits 0 no matter what. `/para-activity-review`
@@ -149,9 +149,29 @@ def redact_tool_input(tool_name, tool_input, root):
             return relative_to_vault(tool_input[key], root)
     if tool_name == "Bash" and isinstance(tool_input.get("command"), str):
         # First token only. The rest of a command line is where a secret gets pasted.
-        tokens = tool_input["command"].split()
-        return tokens[0] if tokens else None
+        return command_name(tool_input["command"])
     return None
+
+
+# A leading `NAME=value` sets the command's environment: `OPENAI_API_KEY=sk-... python run.py`.
+# The value may be quoted and hold spaces, so this matches it whole rather than splitting.
+_ASSIGNMENT = re.compile(r"""\s*[A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"(?:\\.|[^"\\])*"|[^\s'"])*(?=\s|$)""")
+
+
+def command_name(command):
+    """The command a Bash line runs, past any leading environment assignments, or None. A line
+    that is only assignments - or one whose quoting defeats the match - records nothing: its
+    first token would be `NAME=` plus a value."""
+    pos = 0
+    while True:
+        m = _ASSIGNMENT.match(command, pos)
+        if not m:
+            break
+        pos = m.end()
+    tokens = command[pos:].split()
+    if not tokens or "=" in tokens[0]:
+        return None
+    return tokens[0]
 
 
 def wants_touch_scan(event_name, tool_name):

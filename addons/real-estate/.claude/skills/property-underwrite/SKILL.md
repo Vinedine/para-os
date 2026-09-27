@@ -1,8 +1,8 @@
 ---
 name: property-underwrite
 description: Bring one property's dossier to decision-ready - focused folder cleanup, enrichment from the vault's mailboxes, the lookups and portals its source register names, and comparables, then an analyst-persona pass producing structure, economics, two scenarios and a clear verdict, all written into the dossier. Covers prospects, deals in progress and held properties. Use when asked to underwrite a property, enrich a brief, run the analyst pass, refresh a held property's numbers, or on /property-underwrite <property>.
-allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, WebSearch, WebFetch, AskUserQuestion, TodoWrite, ToolSearch, mcp__*__search_threads, mcp__*__get_thread, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
-arg-hint: '<property-name> [--test]'
+allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, WebSearch, WebFetch, AskUserQuestion, TodoWrite, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
+argument-hint: '<property-name> [--test]'
 ---
 
 # Property underwrite

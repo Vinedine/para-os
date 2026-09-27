@@ -1,6 +1,6 @@
 # BelFoot Vault Conventions
 
-<!-- para-os-template: 2026.09.04 -->
+<!-- para-os-template: 2026.09.05 -->
 **Type:** vault
 
 The consulting vault for BelFoot Royal Sporting Club ("BelFoot FC", Belgian Pro League) and its multi-stream IT modernisation programme - an external consultant engagement, started Q1 2026, running through 2027. Per-vault guidance for Claude Code sessions.
@@ -120,7 +120,7 @@ Folders and structural files in English. Stakeholder notes, meeting records, and
 
 ## Memory
 
-This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files. Durable facts belong in the file they describe: conventions here, scope and stakeholders in `README.md`, everything else in the relevant workstream, idea, or contact note.
+This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files. Durable facts belong in the file they describe: conventions here, scope and stakeholders in `README.md`, everything else in the relevant workstream, idea, or contact note. How the operator likes to work (tone, format, what to lead with or leave out) is the one thing kept apart from those files: it is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. It changes only with the operator's approval.
 
 ## File formats
 

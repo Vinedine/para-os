@@ -11,6 +11,10 @@ python3 tools/eval.py -- --runs 1 --ablation none     # while iterating: one arm
 
 `py -3` on Windows. Anything after `--` goes to the vendor command unchanged.
 
+`tools/eval.py` grants the gated tools (`Bash`, `Write`, `Edit`) that the selected cases list
+in their `allowed_tools`, and says which on its first lines. Passing `--allow-tools` yourself
+replaces that grant.
+
 ## Where this sits
 
 Three layers test this repo, cheapest first, and each one catches what the layer below
@@ -25,10 +29,59 @@ cannot:
 
 A suite lives beside the code it covers, so the copy installed in a vault carries its own
 tests and `/para-upgrade` can verify a synced script by running them. `tools/check.py`
-runs every one of them, and `tools/eval.py` runs this folder.
+runs every one of them, `tools/coverage_report.py` measures what they reach (CI
+fails when that drops), and `tools/eval.py` runs this folder.
 
 The loop that makes the suite grow: when a `--test` run finds a defect, it becomes a unit
 test if it is mechanical and an eval case if it is judgment, and only then is it fixed.
+
+## Who pays, and on which model
+
+A run uses whatever Claude Code is logged in with. On a Claude subscription it counts against
+the plan's usage limits; with `ANTHROPIC_API_KEY` set it is billed to that key instead. The
+dollar figures in the report are list-price estimates either way, and `--max-cost-usd` caps
+that estimate, not plan usage. The three triage cases, three runs each on two commits, came
+to about four dollars of estimate and twenty minutes.
+
+Runs use the harness's default model unless `--model` names another, and the `llm` graders
+use Haiku unless `--judge-model` does. A cheaper model is fine while iterating on a case's
+wording or its triggers. Decide on the model operators run: a skill's prose is a bet on what
+that model does without being told, so a result on a different model answers a different
+question. Say which model produced a result when you report it.
+
+## Checking a skill change
+
+A cut or a rewrite of a skill's prose is checked by running the same cases on the commit
+before the change and on the change, three runs each, and comparing per grader. **One run
+is not a verdict**: two single runs of `triage-preview-manifest` each missed a different
+fixed phrase, on either side of the same change.
+
+```bash
+git worktree add --detach ../before <change>^
+(cd ../before && python3 tools/eval.py --case 'triage-*' -- --runs 3 --ablation none --keep-temp)
+python3 tools/eval.py --case 'triage-*' -- --runs 3 --ablation none --keep-temp
+git worktree remove ../before
+```
+
+`--ablation none` drops the no-skill arm, which answers a different question. `--keep-temp`
+keeps each run's `trace.jsonl`, which is the only way to see why a regex grader failed.
+
+Read the failures on both sides before blaming the change. The `para-triage` prose cut
+(9,088 to 6,410 words) scored the same or better on every case, and the failures it did show
+were there before it:
+
+| Case | Before | After | What the traces showed |
+|---|---|---|---|
+| `triage-preview-manifest` | 0.67 | 0.89 | Both paraphrase the fixed manifest wording now and then; both offer **Create entity** on the preview path, which the skill rules out (3 of 3 before, 2 of 3 after) |
+| `triage-staged-note-updates-existing` | 0.44 | 0.44 | The answer is right on both sides; the graders want "delete the note" and "Update existing" on the same line as the file, and the model writes "Delete the triage note" and splits the line |
+| `shell-triage-uses-the-script` | 0.53 | 0.67 | Neither side ever redirects the scan's output to a file |
+
+Each of these was then fixed where it lives rather than re-run until it passed: the scan
+prints the subdirectory line and keeps its own copy of its output, so neither depends on a
+run's wording or memory; the skill states the Create entity exclusion where filing recommends
+it, which cut that slip to one run in three rather than removing it; and the two staged-note
+graders accept the wordings the model used, a table row included, tested against every kept
+trace and against wrong answers.
 
 ## What a case is
 
@@ -121,11 +174,15 @@ and the graders fail when it is not.
 **Neither outcome is free**, which is why a case declares whether it can pass here: the
 cases that can carry `native`, these carry `shell`, and `tools/eval.py` selects `native`
 unless you pass `--shell`. Skipping them locally saves about two dollars a case. To run
-them where they work, grant the tool as well:
+them where they work:
 
 ```bash
-python3 tools/eval.py --shell -- --allow-tools Bash
+python3 tools/eval.py --shell
 ```
+
+It grants `Bash` itself. On native Windows, or on Linux without `bubblewrap` and `socat`, it
+stops before the first model call and says what is missing, rather than paying for a run
+the harness then refuses.
 
 **Under WSL2**, four things differ from a Linux runner. Name the distribution on every call (`wsl -d Ubuntu -e bash -lc '...'`): with Docker Desktop installed the default can be `docker-desktop-data`, where a bare `wsl` fails with mount errors that read like a broken WSL. Run a Linux install of Claude Code
 from inside the distribution: the Windows one is reachable through the shared PATH and
@@ -133,3 +190,37 @@ runs with no sandbox, so check `command -v claude` names a path under your Linux
 Linux needs `bubblewrap` and `socat` for the sandbox. And a kept run directory lives in the
 distribution's `/tmp`, which is sealed read-only by the harness and cleared when the
 distribution stops, so copy `out/trace.jsonl` out in the same session that ran the case.
+
+## The write cases
+
+Some promises are about what a skill does not write: the bootstrap writes no file before
+its questions are answered, `/para-new` writes nothing before its proposal is approved, and
+`/para-activity-review` confirms a report's path before writing it. A case grading one lists
+`Write` and `Edit` in `allowed_tools` and carries the tag `write`. The harness gates those
+tools like `Bash`: without the grant it withholds them from the model, so a "never calls
+`Write`" grader passes for want of anything to refuse, and only the text graders score.
+`tools/eval.py` grants both whenever a selected case lists them, so the write graders bite in
+an ordinary run. To run only these:
+
+```bash
+python3 tools/eval.py -- --tag write
+```
+
+A run with `--max-cost-usd 0` loads and checks every selected case, graders included, and
+stops before the first model call, so a new case can be checked for shape at no cost.
+
+## The install cases
+
+The `install-*` cases read the kit as this checkout has it. `_fixture/kit/` holds symlinks
+to the repo's `INSTALL.md` and `base/`, and `tools/eval.py`'s copy of this folder follows
+them into real files, so a case tests the text under review rather than a copy of it that
+drifts. A checkout made with symlinks off, Git for Windows' default, holds a one-line text
+file there instead, and these cases stop at setup saying so: turn on git's `core.symlinks`
+and check out again, or run them under WSL2. They carry no `native` tag for that reason.
+
+No skill carries the bootstrap: both arms read the same `bootstrap-prompt.md` from the
+fixture, so both score the same and the baseline arm buys nothing. Run them on one arm:
+
+```bash
+python3 tools/eval.py --case 'install-*' -- --ablation none
+```

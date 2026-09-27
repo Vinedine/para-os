@@ -181,10 +181,18 @@ class HealthFlags(VaultCase):
                          [("2026-09-13", 1)])
 
     def test_an_undated_majority_is_reported_with_both_numbers(self):
+        items = "\n".join(f"- [ ] Item {n}" for n in range(5))
         write(self.root, "projects/vague/actions.md",
-              "# vague\n\n- [ ] One\n- [ ] Two\n- [ ] Three 📅 2026-09-25\n")
+              f"# vague\n\n{items}\n- [ ] Six 📅 2026-09-25\n"
+              "- [ ] Seven 📅 2026-09-26\n- [ ] Eight 📅 2026-09-27\n")
         self.assertEqual(scan(self.root, TODAY)["flags"]["undated_majority"],
-                         {"undated": 2, "open": 3})
+                         {"undated": 5, "open": 8})
+
+    def test_a_new_vaults_bootstrap_actions_are_not_an_undated_majority(self):
+        # The bootstrap writes four undated vault-setup actions; day zero is not a backlog.
+        items = "\n".join(f"- [ ] Phase {n}" for n in range(1, 5))
+        write(self.root, "projects/vault-setup/actions.md", f"# vault-setup\n\n{items}\n")
+        self.assertIsNone(scan(self.root, TODAY)["flags"]["undated_majority"])
 
     def test_an_over_grown_brief_reaches_the_flags(self):
         write(self.root, "projects/wordy/actions.md", "# wordy\n\n- [ ] One\n")
@@ -282,6 +290,15 @@ class MentionsElsewhere(VaultCase):
         self.assertEqual([m["file"] for m in got["mentioned_elsewhere"]],
                          ["areas/business/actions.md"])
 
+    def test_a_later_link_into_a_folder_carrying_parentheses_is_read_whole(self):
+        write(self.root, "projects/plan(v2)/actions.md", "# p\n\n- [ ] Ship it\n")
+        write(self.root, "areas/business/actions.md",
+              "# business - Actions\n\n## Next actions\n"
+              "- [ ] See [x](https://example.com) and [p](../../projects/plan(v2)/actions.md)\n")
+        got = scan(self.root, TODAY, entity="plan(v2)")
+        self.assertEqual([m["file"] for m in got["mentioned_elsewhere"]],
+                         ["areas/business/actions.md"])
+
     def test_a_multi_token_name_is_matched_by_its_bare_name_in_text(self):
         write(self.root, "projects/para-os-2026-09-04/actions.md", "# rev\n\n- [ ] Ship it\n")
         write(self.root, "areas/network/jan-janssen.md",
@@ -321,6 +338,16 @@ class IdeasAndTriage(VaultCase):
         self.assertEqual(idea["name"], "orchard-labs")
         self.assertEqual(idea["stage"], "Taste")
         self.assertFalse(idea["dormant"])
+
+    def test_a_long_stage_is_cut_to_its_first_sentence_without_link_syntax(self):
+        write(self.root, "resources/ideas/jv/brief.md", "# jv\n\n**Stage:** idea (JV in "
+              "planning. Not launched). **The name** moved to [the hub](../../../areas/hub/"
+              "brief.md) on 2026-09-02.\n")
+        write(self.root, "resources/ideas/hub/brief.md", "# hub\n\n**Stage:** Proposal, "
+              "see [the offer](../../../areas/offer (v2).md) and e.g. the call\n")
+        stages = {i["name"]: i["stage"] for i in scan(self.root, TODAY)["ideas"]}
+        self.assertEqual(stages["jv"], "idea (JV in planning. Not launched)")
+        self.assertEqual(stages["hub"], "Proposal, see the offer and e.g. the call")
 
     def test_ideas_touched_the_same_day_list_by_name(self):
         for name in ("zeta", "alpha", "mid"):

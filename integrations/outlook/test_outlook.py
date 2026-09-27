@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-"""Unit tests for outlook.py. Pure functions and filesystem behaviour only - no network,
-no mailbox, no credentials, and no `requests` install needed (it is stubbed at import).
+"""Unit tests for outlook.py. No network, no mailbox, no browser, no credentials, and no
+`requests` install needed (it is stubbed at import).
 
 Run from anywhere:
     python3 integrations/outlook/test_outlook.py
 
-Scope: the parts that can be wrong without Microsoft being involved. The OAuth device-code
-flow and the Graph queries are deliberately NOT covered - mocking them would assert that the
-mock behaves, which is not the risk. Their correctness is established by running the thing.
+Scope: the parts that can be wrong without Microsoft being involved. Where a test reaches the
+OAuth flows or a Graph read, the HTTP session is a mock and the assertions are about this
+script's side of the exchange: what it sends (a PKCE verifier that hashes to the challenge it
+sent), what it keeps (a rotated refresh token that must reach disk), and how it fails (an exit
+that carries the diagnosis). Whether Microsoft accepts any of it is established by running the
+thing.
 """
 import argparse
+import base64
 import contextlib
+import hashlib
 import importlib.util
 import io
+import itertools
 import json
 import os
 import subprocess
@@ -22,6 +28,7 @@ import types
 import unittest
 from pathlib import Path
 from unittest import mock
+from urllib.parse import parse_qs, urlparse
 
 HERE = Path(__file__).resolve().parent
 SCRIPT = HERE / "outlook.py"
@@ -30,7 +37,7 @@ SCRIPT = HERE / "outlook.py"
 # test that reached the network would fail loudly on the missing attribute rather than
 # silently hitting Microsoft.
 _requests_stub = types.ModuleType("requests")
-_requests_stub.Session = lambda: None      # outlook.py builds one at import; nothing calls it
+_requests_stub.Session = lambda: None      # built at import; a test that reaches it patches SESSION
 
 
 class _HTTPError(Exception):
@@ -213,6 +220,66 @@ class LoadJson(unittest.TestCase):
                 osync._load_json(p)
 
 
+class LoadConfigFiles(unittest.TestCase):
+    """Where each config is read from. The vault config was renamed together with the script,
+    so a copy updated without its config must still find the old name, and say so: a copy
+    that silently reads no config looks configured and reads nothing."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name)
+        self.current = self.dir / "outlook.config.json"
+        self.legacy = self.dir / "outlook_sync.json"
+        for name, path in (("VAULT_CONFIG", self.current), ("LEGACY_VAULT_CONFIG", self.legacy)):
+            patcher = mock.patch.object(osync, name, path)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def load(self, **kwargs):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            vc = osync.load_vault_config(**kwargs)
+        return vc, err.getvalue()
+
+    def test_the_current_name_is_read_without_a_notice(self):
+        self.current.write_text('{"accounts": ["a@h.com"]}', encoding="utf-8")
+        self.assertEqual(self.load(), ({"accounts": ["a@h.com"]}, ""))
+
+    def test_the_legacy_name_is_read_with_a_notice_naming_both_files(self):
+        self.legacy.write_text('{"accounts": ["old@h.com"]}', encoding="utf-8")
+        vc, err = self.load()
+        self.assertEqual(vc, {"accounts": ["old@h.com"]})
+        self.assertIn("outlook_sync.json", err)
+        self.assertIn("Rename it to outlook.config.json", err)
+
+    def test_the_current_name_wins_when_both_exist(self):
+        # A rename done by copying rather than moving: the new file is the one being edited.
+        self.current.write_text('{"accounts": ["new@h.com"]}', encoding="utf-8")
+        self.legacy.write_text('{"accounts": ["old@h.com"]}', encoding="utf-8")
+        self.assertEqual(self.load(), ({"accounts": ["new@h.com"]}, ""))
+
+    def test_a_missing_config_is_empty_where_it_is_optional(self):
+        # `accounts` and `search` still have something to show without one.
+        self.assertEqual(self.load(required=False), ({}, ""))
+
+    def test_a_missing_config_exits_with_the_shape_to_create_where_it_is_required(self):
+        with self.assertRaises(SystemExit) as e:
+            self.load()
+        self.assertIn(str(self.current), str(e.exception))
+        self.assertIn('{"accounts": [', str(e.exception))
+
+    def test_the_secrets_file_is_required_and_read_as_json(self):
+        secrets = self.dir / "secrets" / "outlook.json"
+        with mock.patch.object(osync, "CONFIG_FILE", secrets):
+            with self.assertRaises(SystemExit) as e:
+                osync.load_config()
+            self.assertIn(str(secrets), str(e.exception))
+            secrets.parent.mkdir()
+            secrets.write_text('{"client_id": "X", "accounts": {}}', encoding="utf-8")
+            self.assertEqual(osync.load_config(), {"client_id": "X", "accounts": {}})
+
+
 class CommandRouting(unittest.TestCase):
     """`sync` is the default subcommand. Exercised through the real CLI, since the rewrite
     happens in main() against sys.argv."""
@@ -254,6 +321,18 @@ class CommandRouting(unittest.TestCase):
         self.assertIn("--client-id", out)
         self.assertIn("--authority", out)
         self.assertIn("--shared", out)
+
+    def test_a_subcommand_reads_the_secrets_file_under_paraos_home(self):
+        # PARAOS_HOME is how a second machine profile, and every test, keeps its hands off
+        # the real ~/.paraos. A subcommand that ignored it would read someone's live tokens.
+        home = Path(tempfile.mkdtemp()) / "state"
+        (home / "secrets").mkdir(parents=True)
+        (home / "secrets" / "outlook.json").write_text(json.dumps(
+            {"client_id": "X", "accounts": {"a@h.com": {"refresh_token": "t"}}}), encoding="utf-8")
+        r = self.run_cli("accounts", home=str(home))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("a@h.com", r.stdout)
+        self.assertIn("[logged in]", r.stdout)
 
 
 class AccountApp(unittest.TestCase):
@@ -309,6 +388,53 @@ class CmdAccounts(unittest.TestCase):
         text = out.getvalue()
         self.assertIn("a@hotmail.com", text)
         self.assertIn("stale@corp.be", text)
+
+    CFG = {"client_id": "GLOBAL", "accounts": {
+        "me@corp.com": {"refresh_token": "t", "authority": "tenant-guid"},
+        "info@corp.com": {"via": "me@corp.com"},
+        "new@h.com": {},
+        "home@h.com": {"refresh_token": "t"},
+    }}
+
+    def listing(self, cfg, feeds=()):
+        """cmd_accounts output as {email: its line}, with this vault's feeds stubbed."""
+        out = io.StringIO()
+        with mock.patch.object(osync, "load_vault_config", return_value={"accounts": list(feeds)}), \
+                contextlib.redirect_stdout(out):
+            osync.cmd_accounts(cfg, argparse.Namespace())
+        lines = {}
+        for line in out.getvalue().splitlines():
+            words = line.replace("*", " ").split()
+            if words and words[0] in cfg.get("accounts", {}):
+                lines[words[0]] = line
+        return lines, out.getvalue()
+
+    def test_an_empty_config_says_so_rather_than_printing_nothing(self):
+        _, text = self.listing({"client_id": "X", "accounts": {}})
+        self.assertIn("No accounts configured yet.", text)
+
+    def test_a_shared_mailbox_reads_as_shared_not_as_a_login_still_to_do(self):
+        # It has no sign-in of its own, so "NOT logged in" would name a step nobody can take.
+        lines, _ = self.listing(self.CFG)
+        self.assertIn("[shared, read via me@corp.com]", lines["info@corp.com"])
+        self.assertNotIn("NOT logged in", lines["info@corp.com"])
+        self.assertIn("NOT logged in (run login)", lines["new@h.com"])
+        self.assertIn("[logged in]", lines["home@h.com"])
+
+    def test_the_one_account_asking_for_the_wider_scope_is_marked(self):
+        # It is the only account that can fail with AADSTS65001; hiding which one it is makes
+        # that failure look like it came from nowhere.
+        lines, _ = self.listing(self.CFG)
+        self.assertIn("+Mail.Read.Shared", lines["me@corp.com"])
+        self.assertNotIn("+Mail.Read.Shared", lines["home@h.com"])
+
+    def test_this_vaults_feeds_are_starred_and_a_foreign_tenant_is_shown(self):
+        lines, text = self.listing(self.CFG, feeds=["me@corp.com"])
+        self.assertTrue(lines["me@corp.com"].lstrip().startswith("*"))
+        self.assertFalse(lines["home@h.com"].lstrip().startswith("*"))
+        self.assertIn("via tenant-guid", lines["me@corp.com"])
+        self.assertNotIn("via", lines["home@h.com"])
+        self.assertIn("(* = feeds this vault", text)
 
 
 class VaultConfigNaming(unittest.TestCase):
@@ -418,8 +544,26 @@ class FetchMessagesFolderScope(unittest.TestCase):
         with mock.patch.object(osync, "graph_get", side_effect=get), \
                 contextlib.redirect_stderr(err):
             got = osync.fetch_messages("tok", 2, limit=120)
-        self.assertEqual(len(got), 150)          # the page that crossed the cap, then stop
+        self.assertEqual(len(got), 300)          # per folder: the page that crossed the cap, then stop
+        self.assertIn("inbox: stopped at 120", err.getvalue())
+        self.assertIn("archive: stopped at 120", err.getvalue())
         self.assertIn("window not fully covered", err.getvalue())
+
+    def test_a_full_inbox_does_not_cost_the_run_its_archive(self):
+        # The cap used to be shared: an inbox of exactly `limit` messages with no next page
+        # left the archive unread, and nothing was printed because the inbox was not truncated.
+        def get(_tok, path, *a, **k):
+            folder = "inbox" if "inbox" in path else "archive"
+            n = 100 if folder == "inbox" else 3
+            return {"value": [{"id": f"{folder}-{i}", "receivedDateTime": "2026-09-08T00:00:00Z"}
+                              for i in range(n)]}
+
+        err = io.StringIO()
+        with mock.patch.object(osync, "graph_get", side_effect=get), \
+                contextlib.redirect_stderr(err):
+            got = osync.fetch_messages("tok", 2, limit=100)
+        self.assertEqual(sum(m["id"].startswith("archive-") for m in got), 3)
+        self.assertEqual(err.getvalue(), "")
 
     def test_the_merged_result_is_newest_first(self):
         # Each folder is sorted on its own, so the concatenation is not.
@@ -444,6 +588,20 @@ class GraphGet(unittest.TestCase):
     def test_prefer_header_is_omitted_unless_asked_for(self):
         session = self.get("tok", "/me/messages")
         self.assertNotIn("Prefer", session.get.call_args.kwargs["headers"])
+
+    def test_prefer_header_is_sent_when_asked_for(self):
+        session = self.get("tok", "/me/messages", prefer='outlook.body-content-type="text"')
+        headers = session.get.call_args.kwargs["headers"]
+        self.assertEqual(headers["Prefer"], 'outlook.body-content-type="text"')
+        self.assertEqual(headers["Authorization"], "Bearer tok")
+
+    def test_a_relative_path_is_joined_to_graph_and_a_next_link_is_used_verbatim(self):
+        # Paging hands back an absolute @odata.nextLink; prefixing it with GRAPH again would
+        # turn the second page of every fetch into a 404.
+        self.assertEqual(self.get("tok", "/me/messages").get.call_args.args[0],
+                         f"{osync.GRAPH}/me/messages")
+        next_link = "https://graph.microsoft.com/v1.0/me/messages?$skip=100"
+        self.assertEqual(self.get("tok", next_link).get.call_args.args[0], next_link)
 
     def test_reads_go_through_one_pooled_session(self):
         # fetch_messages makes this one call per filed message. Through `requests.get` each would
@@ -492,6 +650,14 @@ class GraphGet(unittest.TestCase):
         result, session, _ = self.throttle_run([stuck] * (osync.THROTTLE_RETRIES + 1))
         self.assertIsNone(result)
         self.assertEqual(session.get.call_count, osync.THROTTLE_RETRIES + 1)
+
+    def test_a_retry_after_that_is_not_seconds_backs_off_by_attempt(self):
+        # Retry-After may be an HTTP date, or absent on a 503. Neither may crash the read.
+        unavailable = mock.Mock(status_code=503, headers={})
+        _, session, slept = self.throttle_run(
+            [self._throttled("Wed, 21 Oct 2015 07:28:00 GMT"), unavailable, self._ok()])
+        self.assertEqual(session.get.call_count, 3)
+        self.assertEqual([c.args[0] for c in slept.call_args_list], [5, 10])
 
 
 class HasUnsubscribe(unittest.TestCase):
@@ -657,6 +823,11 @@ class AuthFailure(unittest.TestCase):
         m = self._msg([700082])
         self.assertIn("login v@corp.be", m)
 
+    def test_an_mfa_challenge_says_a_refresh_cannot_answer_it(self):
+        m = self._msg([50076])
+        self.assertIn("interactive challenge", m)
+        self.assertIn("login v@corp.be", m)
+
     def test_an_unrecognised_code_still_quotes_the_description(self):
         m = self._msg([999999], desc="AADSTS999999: brand new failure mode")
         self.assertIn("brand new failure mode", m)
@@ -752,6 +923,361 @@ class AuthFailureRemedies(unittest.TestCase):
 
     def test_the_message_names_what_failed_so_a_login_does_not_say_refresh(self):
         self.assertTrue(self._m([530035], what="Sign-in").startswith("Sign-in for v@corp.be"))
+
+
+def _response(status=200, body=None):
+    """A stand-in for a requests.Response from the token endpoint."""
+    return mock.Mock(status_code=status, json=lambda: body if body is not None else {},
+                     raise_for_status=lambda: None)
+
+
+class AccessToken(unittest.TestCase):
+    """Trading the stored refresh token for an access token.
+
+    MSA rotates the refresh token on every refresh and the superseded one is dead, so the
+    rotation reaching disk is what keeps the next run logged in. The token endpoint is a mock;
+    the file it rotates into is real.
+    """
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.secrets = Path(tmp.name) / "secrets" / "outlook.json"
+        self.session = mock.Mock()
+        for patcher in (mock.patch.object(osync, "CONFIG_FILE", self.secrets),
+                        mock.patch.object(osync, "SESSION", self.session),
+                        mock.patch.dict(osync._TOKENS, clear=True)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def seed(self, cfg):
+        """Put `cfg` on disk, compactly, so any rewrite of the file shows up as changed bytes."""
+        self.secrets.parent.mkdir(parents=True, exist_ok=True)
+        self.secrets.write_text(json.dumps(cfg), encoding="utf-8")
+        return json.loads(self.secrets.read_text(encoding="utf-8"))
+
+    def test_the_refresh_goes_to_the_accounts_own_tenant_and_app(self):
+        cfg = self.seed({"client_id": "GLOBAL", "accounts": {"v@corp.be": {
+            "refresh_token": "old", "client_id": "WORK", "authority": "tenant-guid"}}})
+        self.session.post.return_value = _response(body={"access_token": "AT"})
+        self.assertEqual(osync.access_token(cfg, "v@corp.be"), "AT")
+        call = self.session.post.call_args
+        self.assertEqual(call.args[0], "https://login.microsoftonline.com/tenant-guid/oauth2/v2.0/token")
+        self.assertEqual(call.kwargs["data"]["grant_type"], "refresh_token")
+        self.assertEqual(call.kwargs["data"]["client_id"], "WORK")
+        self.assertEqual(call.kwargs["data"]["refresh_token"], "old")
+
+    def test_the_refresh_asks_for_the_accounts_own_scope(self):
+        # Only the via user of a shared mailbox may ask for Mail.Read.Shared; asking any other
+        # account for it fails its refresh outright.
+        cfg = self.seed({"client_id": "X", "accounts": {
+            "me@corp.com": {"refresh_token": "t"}, "other@corp.com": {"refresh_token": "t"},
+            "info@corp.com": {"via": "me@corp.com"}}})
+        self.session.post.return_value = _response(body={"access_token": "AT"})
+        osync.access_token(cfg, "me@corp.com")
+        osync.access_token(cfg, "other@corp.com")
+        me, other = (c.kwargs["data"]["scope"] for c in self.session.post.call_args_list)
+        self.assertIn(osync.SHARED_SCOPE, me)
+        self.assertNotIn(osync.SHARED_SCOPE, other)
+        self.assertIn(osync.OFFLINE_SCOPE, other)
+
+    def test_a_rotated_refresh_token_is_written_back_to_disk(self):
+        cfg = self.seed({"client_id": "X", "accounts": {
+            "a@h.com": {"refresh_token": "a-old"}, "b@h.com": {"refresh_token": "b-old"}}})
+        self.session.post.return_value = _response(body={"access_token": "AT",
+                                                         "refresh_token": "a-NEW"})
+        osync.access_token(cfg, "a@h.com")
+        on_disk = json.loads(self.secrets.read_text(encoding="utf-8"))["accounts"]
+        self.assertEqual(on_disk["a@h.com"]["refresh_token"], "a-NEW")
+        self.assertEqual(on_disk["b@h.com"]["refresh_token"], "b-old")
+        self.assertEqual(cfg["accounts"]["a@h.com"]["refresh_token"], "a-NEW")
+
+    def test_a_refresh_that_rotates_nothing_leaves_the_secrets_file_alone(self):
+        cfg = self.seed({"client_id": "X", "accounts": {"a@h.com": {"refresh_token": "t"}}})
+        before = self.secrets.read_bytes()
+        self.session.post.return_value = _response(body={"access_token": "AT"})
+        osync.access_token(cfg, "a@h.com")
+        self.assertEqual(self.secrets.read_bytes(), before)
+
+    def test_a_second_ask_in_one_run_is_served_without_another_refresh(self):
+        # A vault fed by an owner and two shared mailboxes asks for one token three times, and
+        # each extra refresh would rotate away the token the previous one just stored.
+        cfg = self.seed({"client_id": "X", "accounts": {"a@h.com": {"refresh_token": "t"}}})
+        self.session.post.return_value = _response(body={"access_token": "AT",
+                                                         "refresh_token": "t2"})
+        self.assertEqual([osync.access_token(cfg, "a@h.com") for _ in range(3)], ["AT"] * 3)
+        self.assertEqual(self.session.post.call_count, 1)
+
+    def test_an_account_with_no_token_exits_with_the_login_command(self):
+        cfg = {"client_id": "X", "accounts": {"a@h.com": {}}}
+        with self.assertRaises(SystemExit) as e:
+            osync.access_token(cfg, "a@h.com")
+        self.assertIn("outlook.py login a@h.com", str(e.exception))
+        self.session.post.assert_not_called()
+
+    def test_an_account_not_on_this_machine_exits_with_the_login_command(self):
+        # `raw --account <address>` for a mailbox never logged in here used to crash with a
+        # bare KeyError instead of saying how to fix it.
+        cfg = {"client_id": "X", "accounts": {"a@h.com": {"refresh_token": "t"}}}
+        with self.assertRaises(SystemExit) as e:
+            osync.access_token(cfg, "x@y.com")
+        self.assertIn("outlook.py login x@y.com", str(e.exception))
+        self.session.post.assert_not_called()
+
+    def test_a_refused_refresh_exits_with_the_diagnosis_and_caches_nothing(self):
+        cfg = self.seed({"client_id": "X", "accounts": {"a@h.com": {"refresh_token": "t"}}})
+        before = self.secrets.read_bytes()
+        self.session.post.return_value = _response(400, {
+            "error": "invalid_grant", "error_codes": [700082],
+            "error_description": "AADSTS700082: The refresh token has expired."})
+        with self.assertRaises(SystemExit) as e:
+            osync.access_token(cfg, "a@h.com")
+        self.assertTrue(str(e.exception).startswith("Token refresh for a@h.com failed"))
+        self.assertIn("AADSTS700082", str(e.exception))
+        self.assertEqual(osync._TOKENS, {})
+        self.assertEqual(self.secrets.read_bytes(), before)
+
+
+class _FakeConnection:
+    """Just enough of a socket for BaseHTTPRequestHandler: it reads the raw request from
+    makefile() and answers through sendall(), so the stdlib parses the request exactly as it
+    would off the loopback port."""
+
+    def __init__(self, raw):
+        self._rfile = io.BytesIO(raw)
+        self.sent = bytearray()
+
+    def makefile(self, *_args, **_kwargs):
+        return self._rfile
+
+    def sendall(self, data):
+        self.sent += data
+
+
+class CallbackHandler(unittest.TestCase):
+    """The loopback page the browser is redirected to at the end of a sign-in."""
+
+    def hit(self, target):
+        Handler = osync._callback_handler()
+        conn = _FakeConnection(f"GET {target} HTTP/1.1\r\nHost: localhost\r\n"
+                               f"Connection: close\r\n\r\n".encode("ascii"))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            Handler(conn, ("127.0.0.1", 50000), None)
+        status = bytes(conn.sent).split(b"\r\n", 1)[0].split()[1]
+        return Handler.result, int(status), bytes(conn.sent), err.getvalue()
+
+    def test_the_redirect_carrying_a_code_is_captured_and_answered(self):
+        result, status, raw, err = self.hit("/?code=M.C5_abc&state=xyz")
+        self.assertEqual(result, {"code": ["M.C5_abc"], "state": ["xyz"]})
+        self.assertEqual(status, 200)
+        self.assertIn(b"Signed in.", raw)
+        self.assertEqual(err, "")        # the default handler logs every hit to stderr
+
+    def test_an_error_redirect_is_captured_so_the_login_can_report_it(self):
+        result, status, _, _ = self.hit("/?error=access_denied&error_description=declined")
+        self.assertEqual(result["error"], ["access_denied"])
+        self.assertEqual(status, 200)
+
+    def test_a_stray_request_is_refused_without_ending_the_wait(self):
+        # Browsers ask for /favicon.ico. Taking that as the callback would end the wait with
+        # no code in hand.
+        result, status, _, _ = self.hit("/favicon.ico")
+        self.assertIsNone(result)
+        self.assertEqual(status, 404)
+
+
+class PkceLoginFlow(unittest.TestCase):
+    """pkce_login against a fake loopback server and a mock token endpoint.
+
+    What is ours to get wrong: the verifier redeemed must hash to the challenge sent, the
+    redirect_uri must be the same in both requests, and a forged or failed redirect must stop
+    before any code is redeemed. None of those fail at the step that is wrong - they surface
+    later as an opaque invalid_grant, or not at all.
+    """
+
+    CFG = {"client_id": "APP", "accounts": {}}
+
+    def run_login(self, redirect, cfg=None, token=None, bind_error=None, browser_fails=False):
+        """pkce_login with the browser, the loopback port and the token endpoint faked.
+
+        `redirect` receives the authorize request's parameters and returns the query the
+        browser comes back with (in parse_qs shape), or None for no redirect at all.
+        Returns (refresh token or the SystemExit, authorize params, token POST mock, stdout).
+        """
+        opened, bound = [], []
+
+        def open_browser(url):
+            opened.append(url)
+            if browser_fails:
+                raise osync.webbrowser.Error("no display")
+
+        class FakeServer:
+            server_port = 53117
+
+            def __init__(self, address, handler):
+                if bind_error:
+                    raise bind_error
+                bound.append(address)
+                self.handler = handler
+
+            def handle_request(self):
+                params = {k: v[0] for k, v in parse_qs(urlparse(opened[-1]).query).items()}
+                self.handler.result = redirect(params)
+
+            def server_close(self):
+                pass
+
+        session = mock.Mock()
+        session.post.return_value = token or _response(body={"refresh_token": "RT"})
+        out = io.StringIO()
+        with mock.patch.object(osync, "HTTPServer", FakeServer), \
+                mock.patch.object(osync.webbrowser, "open", side_effect=open_browser), \
+                mock.patch.object(osync, "SESSION", session), \
+                contextlib.redirect_stdout(out):
+            try:
+                result = osync.pkce_login(cfg or self.CFG, "v@corp.be")
+            except SystemExit as e:
+                result = e
+        self.bound = bound
+        params = ({k: v[0] for k, v in parse_qs(urlparse(opened[0]).query).items()}
+                  if opened else None)
+        self.authorize_url = opened[0] if opened else None
+        return result, params, session.post, out.getvalue()
+
+    @staticmethod
+    def signed_in(params):
+        return {"code": ["CODE"], "state": [params["state"]]}
+
+    def test_the_verifier_redeemed_is_the_one_the_challenge_was_made_from(self):
+        result, params, post, _ = self.run_login(self.signed_in)
+        self.assertEqual(result, "RT")
+        sent = post.call_args.kwargs["data"]
+        self.assertEqual(sent["grant_type"], "authorization_code")
+        self.assertEqual(sent["code"], "CODE")
+        self.assertEqual(params["code_challenge_method"], "S256")
+        expect = base64.urlsafe_b64encode(
+            hashlib.sha256(sent["code_verifier"].encode("ascii")).digest()).rstrip(b"=").decode()
+        self.assertEqual(params["code_challenge"], expect)
+
+    def test_the_token_request_repeats_the_authorize_redirect_uri(self):
+        _, params, post, _ = self.run_login(self.signed_in)
+        self.assertEqual(params["redirect_uri"], "http://localhost:53117")
+        self.assertEqual(post.call_args.kwargs["data"]["redirect_uri"], params["redirect_uri"])
+        self.assertEqual(self.bound, [("127.0.0.1", 0)])   # loopback only, on a port the OS picks
+
+    def test_the_authorize_request_names_the_account_its_app_and_its_scope(self):
+        cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.be": {
+            "client_id": "WORK", "authority": "tenant-guid", "shared": True}}}
+        _, params, post, _ = self.run_login(self.signed_in, cfg=cfg)
+        base = osync.token_url("tenant-guid")
+        self.assertTrue(self.authorize_url.startswith(f"{base}/authorize?"))
+        self.assertEqual(post.call_args.args[0], f"{base}/token")
+        self.assertEqual(params["client_id"], "WORK")
+        self.assertEqual(params["login_hint"], "v@corp.be")
+        self.assertEqual(params["response_type"], "code")
+        self.assertEqual(params["scope"], osync.account_scope(cfg, "v@corp.be"))
+        self.assertEqual(post.call_args.kwargs["data"]["scope"], params["scope"])
+
+    def test_a_redirect_with_the_wrong_state_is_refused_before_any_code_is_redeemed(self):
+        result, _, post, _ = self.run_login(lambda p: {"code": ["CODE"], "state": ["forged"]})
+        self.assertIsInstance(result, SystemExit)
+        self.assertIn("wrong state", str(result))
+        post.assert_not_called()
+
+    def test_an_error_redirect_exits_with_microsofts_reason(self):
+        result, _, post, _ = self.run_login(lambda p: {
+            "error": ["access_denied"], "error_description": ["The user declined consent."]})
+        self.assertIsInstance(result, SystemExit)
+        self.assertIn("access_denied", str(result))
+        self.assertIn("The user declined consent.", str(result))
+        post.assert_not_called()
+
+    def test_a_refused_code_exchange_exits_naming_the_sign_in(self):
+        result, _, _, _ = self.run_login(self.signed_in, token=_response(400, {
+            "error": "invalid_grant", "error_codes": [65001],
+            "error_description": "AADSTS65001: consent required"}))
+        self.assertIsInstance(result, SystemExit)
+        self.assertTrue(str(result).startswith("Sign-in for v@corp.be failed"))
+        self.assertIn("AADSTS65001", str(result))
+
+    def test_no_redirect_times_out_naming_the_missing_reply_address(self):
+        # The browser shows AADSTS500113 and never redirects, so this process only ever sees
+        # silence. The timeout message is the one place the operator can learn why.
+        with mock.patch.object(osync.time, "monotonic", side_effect=itertools.count(0, 400)):
+            result, _, post, _ = self.run_login(lambda p: None)
+        self.assertIsInstance(result, SystemExit)
+        for part in ("AADSTS500113", "http://localhost", "APP", "--device-code"):
+            self.assertIn(part, str(result))
+        post.assert_not_called()
+
+    def test_a_port_that_cannot_be_opened_points_at_device_code(self):
+        result, params, _, _ = self.run_login(self.signed_in, bind_error=OSError("in use"))
+        self.assertIsInstance(result, SystemExit)
+        self.assertIn("login v@corp.be --device-code", str(result))
+        self.assertIsNone(params)        # no browser sent to a port nobody is listening on
+
+    def test_a_machine_with_no_browser_still_gets_the_url_to_paste(self):
+        result, _, _, out = self.run_login(self.signed_in, browser_fails=True)
+        self.assertEqual(result, "RT")
+        self.assertIn(self.authorize_url, out)
+
+
+class DeviceLoginFlow(unittest.TestCase):
+    """device_login's polling loop against a mock token endpoint. time.sleep is patched, so
+    the intervals are asserted rather than waited out."""
+
+    DC = {"device_code": "DC", "user_code": "ABCD-1234", "interval": 5, "expires_in": 900,
+          "verification_uri": "https://microsoft.com/devicelogin"}
+
+    def run_login(self, polls, dc=None):
+        """`polls` is the token endpoint's answers in order, as (status, body)."""
+        session = mock.Mock()
+        session.post.side_effect = [_response(body=dc or self.DC)] + [
+            _response(status, body) for status, body in polls]
+        out = io.StringIO()
+        cfg = {"client_id": "APP", "accounts": {}}
+        with mock.patch.object(osync, "SESSION", session), \
+                mock.patch.object(osync.time, "sleep") as slept, \
+                contextlib.redirect_stdout(out):
+            try:
+                result = osync.device_login(cfg, "v@corp.be")
+            except SystemExit as e:
+                result = e
+        return result, session.post, [c.args[0] for c in slept.call_args_list], out.getvalue()
+
+    PENDING = (400, {"error": "authorization_pending"})
+
+    def test_it_waits_out_pending_and_returns_the_refresh_token(self):
+        result, post, slept, out = self.run_login([self.PENDING, (200, {"refresh_token": "RT"})])
+        self.assertEqual(result, "RT")
+        self.assertEqual(slept, [5, 5])
+        first, *polls = post.call_args_list
+        self.assertTrue(first.args[0].endswith("/consumers/oauth2/v2.0/devicecode"))
+        self.assertEqual(first.kwargs["data"]["client_id"], "APP")
+        for poll in polls:
+            self.assertEqual(poll.kwargs["data"]["device_code"], "DC")
+            self.assertEqual(poll.kwargs["data"]["grant_type"],
+                             "urn:ietf:params:oauth:grant-type:device_code")
+        self.assertIn("https://microsoft.com/devicelogin", out)
+        self.assertIn("ABCD-1234", out)
+
+    def test_slow_down_lengthens_every_later_wait(self):
+        _, _, slept, _ = self.run_login([(400, {"error": "slow_down"}), self.PENDING,
+                                         (200, {"refresh_token": "RT"})])
+        self.assertEqual(slept, [5, 10, 10])
+
+    def test_a_declined_login_exits_with_the_reason(self):
+        result, _, _, _ = self.run_login([(400, {"error": "authorization_declined",
+                                                 "error_description": "The user declined."})])
+        self.assertIsInstance(result, SystemExit)
+        self.assertIn("authorization_declined: The user declined.", str(result))
+
+    def test_an_expired_code_exits_as_a_timeout_without_polling(self):
+        result, post, _, _ = self.run_login([], dc=dict(self.DC, expires_in=0))
+        self.assertIsInstance(result, SystemExit)
+        self.assertIn("timed out", str(result))
+        self.assertEqual(post.call_count, 1)
 
 
 class CmdFetch(unittest.TestCase):
@@ -965,6 +1491,17 @@ class CmdFetch(unittest.TestCase):
         records, _ = self.run_fetch(msgs=msgs)
         self.assertEqual([r["id"] for r in records], ["9"])
 
+    def test_a_feed_not_logged_in_here_is_named_in_the_closing_counts(self):
+        # Skipped rather than fatal, but never silent: the caller must be able to tell a
+        # quiet mailbox from one this machine never read.
+        tokens = []
+        records, err = self.run_fetch(feeds=("a@x.com", "b@x.com"),
+                                      token=lambda _c, e: tokens.append(e) or "tok")
+        self.assertEqual(tokens, ["a@x.com"])
+        self.assertEqual({r["account"] for r in records}, {"a@x.com"})
+        self.assertIn("1 mailbox(es) skipped (not logged in here): b@x.com", err)
+
+
 class FeedResolution(unittest.TestCase):
     """A refresh token lives only on the machine it was granted on. On a vault fed by several
     mailboxes NO machine ever holds every account - not even the machine of whoever added the
@@ -1013,6 +1550,164 @@ class FeedResolution(unittest.TestCase):
     def test_a_named_account_that_does_not_feed_this_vault_exits(self):
         with self.assertRaises(SystemExit):
             self.resolve(self.ACCOUNTS, account="stranger@x.com")
+
+    def test_a_named_account_that_is_logged_in_is_the_whole_answer(self):
+        feeds, missing, err = self.resolve(["b@x.com"], account="b@x.com")
+        self.assertEqual((feeds, missing, err), (["b@x.com"], [], ""))
+
+    def test_a_vault_config_listing_no_accounts_exits(self):
+        with mock.patch.object(osync, "require_vault"), \
+                mock.patch.object(osync, "load_vault_config", return_value={"accounts": []}):
+            with self.assertRaises(SystemExit) as e:
+                osync.resolve_feeds({"accounts": {"a@x.com": {"refresh_token": "t"}}}, None)
+        self.assertIn("lists no accounts", str(e.exception))
+
+
+class CmdSearch(unittest.TestCase):
+    """`search` asks one question of whole mailboxes. It prints and never writes, and it reads
+    only the mailboxes that feed this vault unless told otherwise, so a work-vault session
+    never prints personal mail."""
+
+    CFG = {"client_id": "X", "accounts": {
+        "me@corp.com": {"refresh_token": "t"},
+        "info@corp.com": {"via": "me@corp.com"},
+        "home@h.com": {"refresh_token": "t"}}}
+
+    HIT = {"receivedDateTime": "2026-09-01T10:00:00Z", "subject": "Contract\n   renewal  2027",
+           "bodyPreview": "  Dear  team,\n see the attached draft ",
+           "from": {"emailAddress": {"name": "Zoe", "address": "zoe@acme.be"}}}
+
+    def run_search(self, account=None, all_mailboxes=False, body=False, limit=50,
+                   feeds=("me@corp.com",), hits=None, cfg=None, broken=()):
+        """cmd_search with the token and the Graph search stubbed.
+
+        `hits` maps a Graph root to the messages found there. An account in `broken` exits
+        the way a refused refresh does. Returns (stdout, stderr, [(token, root, limit)]).
+        """
+        args = argparse.Namespace(query="contract renewal", account=account,
+                                  all_mailboxes=all_mailboxes, body=body, limit=limit)
+        calls = []
+
+        def token(_cfg, email):
+            if email in broken:
+                sys.exit(f"Token refresh for {email} failed (invalid_grant).")
+            return f"tok:{email}"
+
+        def search(tok, query, limit, root):
+            self.assertEqual(query, "contract renewal")
+            calls.append((tok, root, limit))
+            return list((hits or {}).get(root, []))
+
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(osync, "load_vault_config", return_value={"accounts": list(feeds)}), \
+                mock.patch.object(osync, "access_token", side_effect=token), \
+                mock.patch.object(osync, "search_messages", side_effect=search), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            osync.cmd_search(cfg or self.CFG, args)
+        return out.getvalue(), err.getvalue(), calls
+
+    def test_by_default_only_this_vaults_mailboxes_are_searched(self):
+        _, _, calls = self.run_search(feeds=("me@corp.com",), limit=5)
+        self.assertEqual(calls, [("tok:me@corp.com", "/me", 5)])
+
+    def test_all_mailboxes_widens_to_every_account_on_the_machine(self):
+        _, _, calls = self.run_search(all_mailboxes=True)
+        self.assertEqual(sorted((t, r) for t, r, _ in calls), [
+            ("tok:home@h.com", "/me"), ("tok:me@corp.com", "/me"),
+            ("tok:me@corp.com", "/users/info@corp.com")])
+
+    def test_a_named_account_is_searched_alone_even_outside_this_vault(self):
+        _, _, calls = self.run_search(account="home@h.com", feeds=("me@corp.com",))
+        self.assertEqual([(t, r) for t, r, _ in calls], [("tok:home@h.com", "/me")])
+
+    def test_a_shared_mailbox_is_searched_through_its_via_users_token(self):
+        _, _, calls = self.run_search(feeds=("info@corp.com",))
+        self.assertEqual([(t, r) for t, r, _ in calls],
+                         [("tok:me@corp.com", "/users/info@corp.com")])
+
+    def test_a_vault_listing_no_accounts_exits_naming_the_flags_that_widen_it(self):
+        with self.assertRaises(SystemExit) as e:
+            self.run_search(feeds=())
+        self.assertIn("--account", str(e.exception))
+        self.assertIn("--all-mailboxes", str(e.exception))
+
+    def test_all_mailboxes_on_a_machine_with_none_exits(self):
+        with self.assertRaises(SystemExit) as e:
+            self.run_search(all_mailboxes=True, cfg={"client_id": "X", "accounts": {}})
+        self.assertIn("No accounts configured", str(e.exception))
+
+    def test_one_failing_mailbox_does_not_cost_the_others(self):
+        out, err, calls = self.run_search(feeds=("home@h.com", "me@corp.com"),
+                                          hits={"/me": [self.HIT]}, broken=("home@h.com",))
+        self.assertEqual([t for t, _, _ in calls], ["tok:me@corp.com"])
+        self.assertIn("home@h.com  SEARCH FAILED", err)
+        self.assertIn("me@corp.com  1 hit(s) for 'contract renewal'", out)
+        self.assertIn("1 hit(s) total. Read-only: nothing was written.", out)
+
+    def test_a_hit_prints_its_date_sender_and_a_one_line_subject(self):
+        out, _, _ = self.run_search(hits={"/me": [self.HIT]})
+        self.assertIn("  2026-09-01  zoe@acme.be ", out)
+        self.assertIn("Contract renewal 2027", out)
+        self.assertNotIn("T10:00", out)
+        self.assertNotIn("Dear team", out)        # the preview is --body's to add
+
+    def test_body_adds_one_normalised_preview_line_per_hit_that_has_one(self):
+        bare = {"subject": None, "from": None, "bodyPreview": ""}
+        out, _, _ = self.run_search(body=True, hits={"/me": [self.HIT, bare]})
+        previews = [line for line in out.splitlines()
+                    if line.startswith(" " * 14) and line.strip()]
+        self.assertEqual([p.strip() for p in previews], ["Dear team, see the attached draft"])
+        self.assertIn("(no subject)", out)         # a hit missing both still prints
+        self.assertIn("2 hit(s) total", out)
+
+    def test_a_hit_with_a_null_sender_prints_a_question_mark_and_the_rest_still_print(self):
+        # A null address used to reach the format string and raise, outside the per-mailbox
+        # guard, so every mailbox not yet printed was lost with it.
+        null_address = dict(self.HIT, **{"from": {"emailAddress": {"address": None}}})
+        null_email = dict(self.HIT, **{"from": {"emailAddress": None}})
+        out, err, _ = self.run_search(account=None, all_mailboxes=True,
+                                      hits={"/me": [null_address, null_email, self.HIT]})
+        self.assertEqual(err, "")
+        lines = [ln for ln in out.splitlines() if "Contract renewal 2027" in ln]
+        self.assertEqual(len(lines), 3 * 2)   # two mailboxes read /me: me@corp.com, home@h.com
+        self.assertTrue(lines[0].split()[1] == "?" and lines[1].split()[1] == "?")
+        self.assertIn("zoe@acme.be", lines[2])
+
+
+class CmdRaw(unittest.TestCase):
+    """`raw` is the debugging escape hatch: any Graph path, printed as JSON."""
+
+    CFG = {"client_id": "X", "accounts": {"a@h.com": {"refresh_token": "t"},
+                                          "b@h.com": {"refresh_token": "t"}}}
+
+    def run_raw(self, path="/me/messages?$top=1", account=None, cfg=None, body=None):
+        out = io.StringIO()
+        with mock.patch.object(osync, "access_token", return_value="tok") as token, \
+                mock.patch.object(osync, "graph_get", return_value=body or {"value": []}) as get, \
+                contextlib.redirect_stdout(out):
+            osync.cmd_raw(cfg or self.CFG, argparse.Namespace(path=path, account=account))
+        return out.getvalue(), token, get
+
+    def test_the_named_account_reads_the_path_as_given(self):
+        _, token, get = self.run_raw(account="b@h.com")
+        self.assertEqual(token.call_args.args[1], "b@h.com")
+        get.assert_called_once_with("tok", "/me/messages?$top=1")
+
+    def test_without_an_account_the_first_configured_one_is_used(self):
+        _, token, _ = self.run_raw()
+        self.assertEqual(token.call_args.args[1], "a@h.com")
+
+    def test_no_account_anywhere_exits_asking_for_one(self):
+        with self.assertRaises(SystemExit) as e:
+            self.run_raw(cfg={"client_id": "X", "accounts": {}})
+        self.assertIn("--account", str(e.exception))
+
+    def test_the_answer_is_printed_as_json_with_non_ascii_intact(self):
+        body = {"value": [{"subject": "Offerte café Brussel"}]}
+        out, _, _ = self.run_raw(body=body)
+        self.assertEqual(json.loads(out), body)
+        self.assertIn("Offerte café Brussel", out)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

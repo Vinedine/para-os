@@ -1,8 +1,8 @@
 ---
 name: para-daily-brief
 description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Naming one project or area instead scopes the whole brief to it. Use when user asks "what should I work on today", "what's overdue", "where does the vault stand", "where does <project> stand", "what's open on <project>", or types /para-daily-brief [today|week|overdue|all|<entity>].
-allowed-tools: Bash, Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
-arg-hint: '[today|week|overdue|all|<entity>] [--test]'
+allowed-tools: Bash(python3 *), Bash(py *), Bash(git log *), Bash(git status *), Bash(stat *), Bash(ls *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
+argument-hint: '[today|week|overdue|all|<entity>] [--test]'
 ---
 
 # Daily Brief
@@ -17,9 +17,7 @@ A single-pass, date-aware picture of **where the vault stands**: which projects 
 
 ## Arguments
 
-Optional single scope argument. The four scope words are reserved.
-
-**A leftover argument is an entity name only when it reads like one:** one to three words, or a `projects/<name>` / `areas/<name>` path, carrying no sentence punctuation (`.`, `,`, `?`, `!`). Anything longer is prose the operator wrapped around the invocation ("and flag any bugs you hit"): take the **default** scope and treat the prose as an instruction for this run, never as a name to resolve.
+Optional single scope argument. The four scope words are reserved; an `<entity>` is one to three words or a `projects/<name>` / `areas/<name>` path, and any other leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
 
 | Arg | Renders |
 |---|---|

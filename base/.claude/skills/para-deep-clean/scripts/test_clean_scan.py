@@ -17,6 +17,9 @@ here is what this skill alone decides: file scope, contact-citation counting, wh
 "entity folder" is under archive/, and how a stale item's date is measured.
 """
 
+import contextlib
+import io
+import json
 import os
 import shutil
 import subprocess
@@ -26,13 +29,17 @@ import time
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest import mock
 
+import clean_scan
 from clean_scan import (
-    CollectedVault, DEFAULT_DATED_PATTERN, DEFAULT_NEXT_STEPS_HEADINGS, scan,
+    CollectedVault, DEFAULT_DATED_PATTERN, DEFAULT_NEXT_STEPS_HEADINGS, main, scan,
 )
 from paraos_vault import STALE_FILE_DAYS, changed, scan_snapshot  # made importable by clean_scan's own guard
 
 TODAY = date(2026, 9, 22)
+SCRIPT = Path(__file__).resolve().parent / "clean_scan.py"
+SHARED_SCRIPT = Path(__file__).resolve().parents[2] / "para-shared" / "scripts" / "paraos_vault.py"
 
 
 def write(root, rel, text):
@@ -84,7 +91,10 @@ class VaultCase(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        self.root = Path(tmp.name)
+        # Resolved, as the scan resolves its vault: macOS's temp folder sits behind the /var
+        # symlink and Windows' behind a short RUNNER~1 name, and an absolute path the scan
+        # reports would never equal the unresolved spelling.
+        self.root = Path(tmp.name).resolve()
 
     def clone(self, **kwargs):
         path = make_clone(**kwargs)
@@ -280,6 +290,21 @@ class Wikilinks(VaultCase):
         self.assertIsNone(hits["Nobody Home"]["resolved"])
         self.assertEqual(hits["Nobody Home"]["display"], "nobody")
 
+    def test_a_path_form_wikilink_resolves_vault_relative(self):
+        # The index is keyed by stem, so [[projects/acme/brief]] used to fold to one
+        # unmatchable key and report unresolved however right the path was.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "projects/other/brief.md", "# Other\n")
+        write(self.root, "areas/business/notes.md",
+              "See [[projects/acme/brief]], [[projects/acme/brief.md]], [[acme/brief]] "
+              "and [[projects/gone/brief]].\n")
+        hits = {h["target"]: h["resolved"] for h in self.run_scan("1")["phase1"]["wikilinks"]}
+        self.assertEqual(hits["projects/acme/brief"], "projects/acme/brief.md")
+        self.assertEqual(hits["projects/acme/brief.md"], "projects/acme/brief.md")
+        self.assertEqual(hits["acme/brief"], "projects/acme/brief.md")
+        self.assertIsNone(hits["projects/gone/brief"])
+
 
 class UncitedContacts(VaultCase):
 
@@ -343,6 +368,44 @@ class UncitedContacts(VaultCase):
         write(self.root, "projects/acme/brief.md", "# Acme\n\nSee `Jan Claes` in the template.\n")
         self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
 
+    def test_a_name_inside_a_link_text_or_target_is_not_a_mention(self):
+        # Finding 2 of the 20260923-1124 test run: 8 of 33 hits named the person only in a
+        # linked source filename or a percent-encoded href.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nSee [the call](sources/20260922%20Jan%20Claes%20call.md).\n\n"
+              "Also [20260922 Jan Claes call](sources/call.md).\n")
+        write(self.root, "projects/beta/brief.md",
+              "# Beta\n\nJan Claes agreed, per [20260922 Jan Claes call](sources/call.md).\n")
+        found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
+        self.assertEqual(found["areas/network/jan-claes.md"]["files"],
+                         [{"file": "projects/beta/brief.md", "mentions": 1}])
+
+    def test_a_link_only_line_to_the_card_still_cites_a_prose_mention(self):
+        # A line naming the person only as the card link's label counts no mention, but
+        # its link still cites every prose mention elsewhere in the file.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes flagged a risk.\n\n"
+              "Contact: [Jan Claes](../../areas/network/jan-claes.md)\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
+    def test_a_name_inside_a_longer_word_is_not_a_mention(self):
+        # A contact "Mark" is not named by "Marketing": inbound_references() without a
+        # parent is a substring find, so the name is re-matched as a whole word.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/mark.md", "# Mark\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMarketing owns `Mark` now.\n")
+        write(self.root, "projects/beta/brief.md", "# Beta\n\nMarketing said Mark agreed.\n")
+        found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
+        self.assertEqual(found["areas/network/mark.md"]["files"],
+                         [{"file": "projects/beta/brief.md", "mentions": 1}])
+
     def test_a_ledger_record_is_exempt_but_named_for_override(self):
         # Finding 3: the mechanical proxy for "analytical and ledger records that are
         # evidence in all but folder name" - the file is dropped from the finding but
@@ -367,6 +430,38 @@ class UncitedContacts(VaultCase):
         self.assertEqual(phase1["uncited_contacts"], [])
         self.assertIn("areas/business/transcript/20260101 Call.md", phase1["uncited_exempt"])
 
+    def test_a_ledger_record_quoting_the_name_only_in_code_is_not_named_for_override(self):
+        # uncited_exempt lists what the proxy dropped; a file with no prose mention had
+        # nothing to drop, so naming it would invite an override of a non-finding.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "areas/ops/run-log.md", "# Log\n\nMatched `Jan Claes` in the config.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_exempt"], [])
+
+    def test_a_card_with_no_h1_is_named_by_its_also_line(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan.md", "Card notes\n\nAlso: Jan C; Janneke\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nJanneke called.\n")
+        found = self.run_scan("1")["phase1"]["uncited_contacts"]
+        self.assertEqual([(c["card"], c["name"]) for c in found], [("areas/network/jan.md", "Jan C")])
+
+    def test_a_card_naming_no_one_is_skipped_rather_than_named_by_its_filename(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/stub.md", "Just notes, no title.\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nThe stub is still open.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
+    def test_a_line_before_the_title_does_not_hide_the_h1_name(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "<!-- card -->\n\n# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nJan Claes flagged a risk.\n")
+        found = self.run_scan("1")["phase1"]["uncited_contacts"]
+        self.assertEqual([c["name"] for c in found], ["Jan Claes"])
+
 
 class InlineContactDetails(VaultCase):
 
@@ -382,6 +477,14 @@ class InlineContactDetails(VaultCase):
         self.assertEqual(hits[0]["attribution"], "unresolved")
         self.assertNotIn("card", hits[0])
 
+    def test_a_sentence_full_stop_is_not_part_of_the_email(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nReach Jan Claes at jan.claes@example.com.\n")
+        hits = self.run_scan("1")["phase1"]["inline_contact_details"]
+        self.assertEqual(hits[0]["detail"], "jan.claes@example.com")
+
     def test_every_carded_name_on_the_line_is_listed_not_just_the_nearest(self):
         # Finding 2: a detail is never attributed by proximity, so both names sharing the
         # line come back, and neither is picked as the owner.
@@ -393,6 +496,13 @@ class InlineContactDetails(VaultCase):
         hits = self.run_scan("1")["phase1"]["inline_contact_details"]
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0]["names_on_line"], ["Ann Peeters", "Jan Claes"])
+
+    def test_a_name_inside_a_longer_word_does_not_put_it_on_the_line(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/mark.md", "# Mark\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nMarketing is at team@example.com.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
 
     def test_sources_folder_is_excluded(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -426,6 +536,13 @@ class InlineContactDetails(VaultCase):
               "# Acme\n\nReach Jan Claes at 03 234 56 78.\n")
         hits = self.run_scan("1")["phase1"]["inline_contact_details"]
         self.assertEqual([h["kind"] for h in hits], ["phone"])
+
+    def test_a_short_digit_run_with_no_plus_is_not_a_phone(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes is in room 12 34 56.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
 
     def test_an_iso_date_is_not_a_phone(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -461,6 +578,39 @@ class Duplicates(VaultCase):
         self.assertEqual(len(groups), 1)
         self.assertTrue(groups[0]["cross_entity"])
 
+    def test_copies_inside_one_live_entity_are_not_cross_entity(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        body = "x" * 250
+        write(self.root, "projects/acme/sources/plan.md", body)
+        write(self.root, "projects/acme/notes/plan-copy.md", body)
+        groups = self.run_scan("1")["phase1"]["duplicates"]["groups"]
+        self.assertEqual([g["cross_entity"] for g in groups], [False])
+
+    def test_an_archived_entity_is_the_folder_two_levels_below_archive(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/projects/acme/sources/a.md", "a" * 250)
+        write(self.root, "archive/projects/acme/b.md", "a" * 250)
+        write(self.root, "archive/projects/beta/c.md", "c" * 250)
+        write(self.root, "archive/projects/gamma/d.md", "c" * 250)
+        groups = {tuple(g["files"]): g["cross_entity"]
+                  for g in self.run_scan("1")["phase1"]["duplicates"]["groups"]}
+        self.assertFalse(groups[("archive/projects/acme/b.md", "archive/projects/acme/sources/a.md")])
+        self.assertTrue(groups[("archive/projects/beta/c.md", "archive/projects/gamma/d.md")])
+
+    def test_an_idea_is_the_folder_two_levels_below_resources(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/ideas/thing/a.md", "a" * 250)
+        write(self.root, "resources/ideas/thing/sources/b.md", "a" * 250)
+        groups = self.run_scan("1")["phase1"]["duplicates"]["groups"]
+        self.assertEqual([g["cross_entity"] for g in groups], [False])
+
+    def test_a_root_file_and_a_project_copy_are_cross_entity(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "notes.md", "n" * 250)
+        write(self.root, "projects/acme/notes.md", "n" * 250)
+        groups = self.run_scan("1")["phase1"]["duplicates"]["groups"]
+        self.assertEqual([g["cross_entity"] for g in groups], [True])
+
     def test_skipped_folder_reported_not_dropped(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "projects/acme/sources/photos/a.jpg", "y" * 250)
@@ -485,22 +635,83 @@ class FigurePairs(VaultCase):
         write(self.root, "README.md", "# Vault\n\nacme margin is EUR19k this year.\n")
         self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
 
+    def test_trailing_space_and_punctuation_are_not_part_of_a_figure(self):
+        # MONEY_RE kept the space before "total" and the sentence's own full stop, so the
+        # same figure read as two and every matching pair was reported.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nBudget is €1,200 total.\n")
+        write(self.root, "README.md", "# Vault\n\nacme cost €1,200.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
+    def test_an_entity_name_inside_a_hyphenated_name_is_not_a_mention(self):
+        # `\b` sits between "acme" and "-", so acme matched inside acme-website-v2.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nEUR5k\n")
+        write(self.root, "projects/acme-website-v2/brief.md", "# Site\n\nEUR19k\n")
+        write(self.root, "README.md", "# Vault\n\nacme-website-v2 costs EUR19k.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
     def test_a_figure_shaped_run_inside_a_link_target_is_not_a_figure(self):
         # A percent-encoded link target holding digits directly followed by "%" reads as a
         # figure to a naive scan; stripping the href before matching drops it.
         write(self.root, "CLAUDE.md", "# Vault\n")
-        write(self.root, "projects/acme/brief.md", "# Acme\n\nNo figures here.\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMargin: EUR5k.\n")
         write(self.root, "README.md",
               "# Vault\n\nacme via [scan](sources/20260709%20Invoice.md) paid EUR10,000\n")
         pairs = self.run_scan("1")["phase1"]["figure_pairs"]
         self.assertEqual(len(pairs), 1)
         self.assertEqual(pairs[0]["rollup_figures"], ["EUR10,000"])
 
+    def test_a_brief_stating_no_figure_is_not_one_side_of_a_pair(self):
+        # Finding 5 of the 20260923-1124 test run: one figure in one file is not "the
+        # same number, two files, two values".
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nNo figures here.\n")
+        write(self.root, "README.md", "# Vault\n\nacme's accountant cost €10,000 a year.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
     def test_an_entity_name_only_inside_a_link_target_is_not_a_mention(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "areas/business/brief.md", "# Business\n\nEUR5k baseline.\n")
         write(self.root, "README.md",
               "# Vault\n\nSee [notes](areas/business/x.md) for EUR19k context.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
+    def test_an_entitys_readme_is_read_over_its_brief(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/README.md", "# Acme\n\nMargin: EUR19k\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMargin: EUR5k\n")
+        write(self.root, "README.md", "# Vault\n\nacme margin is EUR19k this year.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
+    def test_an_entity_with_no_brief_or_readme_is_never_one_side_of_a_pair(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/sources/quote.md", "EUR5k\n")
+        write(self.root, "README.md", "# Vault\n\nacme margin is EUR19k this year.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
+
+    def test_an_area_entity_is_compared_against_its_own_brief(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/business/brief.md", "# Business\n\nRevenue: EUR5k\n")
+        write(self.root, "README.md", "# Vault\n\nbusiness revenue is EUR19k.\n")
+        pairs = self.run_scan("1")["phase1"]["figure_pairs"]
+        self.assertEqual([(p["entity"], p["rollup_figures"], p["brief_figures"]) for p in pairs],
+                         [("business", ["EUR19k"], ["EUR5k"])])
+
+    def test_bucket_readmes_and_dashboards_are_rollups_too(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMargin: EUR5k\n")
+        write(self.root, "projects/README.md", "# Projects\n\nacme: EUR19k\n")
+        write(self.root, "areas/business/Dashboard.md", "# Dash\n\nacme is at EUR20k\n")
+        write(self.root, "areas/business/notes.md", "# Notes\n\nacme is at EUR30k\n")
+        pairs = self.run_scan("1")["phase1"]["figure_pairs"]
+        self.assertEqual(sorted(p["rollup_file"] for p in pairs),
+                         ["areas/business/Dashboard.md", "projects/README.md"])
+
+    def test_a_rollup_line_naming_an_entity_with_no_figure_is_not_a_pair(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nMargin: EUR5k\n")
+        write(self.root, "README.md", "# Vault\n\nacme is going well.\n")
         self.assertEqual(self.run_scan("1")["phase1"]["figure_pairs"], [])
 
     def test_the_entitys_own_brief_href_never_contributes_a_phantom_brief_figure(self):
@@ -545,6 +756,13 @@ class Archive(VaultCase):
         missing = self.run_scan("1")["phase1"]["archive"]["missing_record"]
         self.assertEqual(missing, ["archive/projects/acme"])
 
+    def test_an_archived_entity_with_a_brief_or_readme_has_its_record(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/projects/done/brief.md", "# Done\n")
+        write(self.root, "archive/ideas/old/README.md", "# Old\n")
+        write(self.root, "archive/meetings/nested/20260101 Call.md", "x\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["archive"]["missing_record"], [])
+
 
 class StaleDrafts(VaultCase):
 
@@ -555,6 +773,14 @@ class StaleDrafts(VaultCase):
         drafts = self.run_scan("1")["phase1"]["stale_drafts"]
         self.assertEqual(drafts, [{"draft": "projects/acme/sources/contract.docx",
                                    "pdf": "projects/acme/sources/contract.pdf"}])
+
+    def test_a_draft_with_no_pdf_beside_it_is_not_stale(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/sources/proposal.docx", "x")
+        write(self.root, "projects/acme/sources/Old.DOC", "x")
+        write(self.root, "projects/acme/sources/Old.pdf", "x")
+        drafts = self.run_scan("1")["phase1"]["stale_drafts"]
+        self.assertEqual([d["draft"] for d in drafts], ["projects/acme/sources/Old.DOC"])
 
 
 # ------------------------------------------------------------------------------------- Phase 3
@@ -684,6 +910,18 @@ class StaleUndated(VaultCase):
         rows = self.run_scan("3", today=date.today())["phase3"]["stale_undated"]["projects/acme/actions.md"]
         self.assertEqual(rows[0]["measured_by"], "mtime")
 
+    def test_untracked_file_whose_mtime_cannot_be_read_is_unmeasurable_per_item(self):
+        # A synced file can vanish between the read and the stat; each item still comes
+        # back, said to be unmeasurable, rather than being dropped as fresh.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n- [ ] Two\n")
+        with mock.patch.object(clean_scan, "date") as fake_date:
+            fake_date.fromtimestamp.side_effect = OSError("gone")
+            rows = self.run_scan("3")["phase3"]["stale_undated"]["projects/acme/actions.md"]
+        self.assertEqual([r["text"] for r in rows], ["One", "Two"])
+        self.assertTrue(all(r["unmeasurable"].startswith("untracked") for r in rows))
+        self.assertTrue(all("days" not in r for r in rows))
+
     def test_tracked_but_uncommitted_line_is_unmeasurable(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Old undated item\n")
@@ -734,6 +972,33 @@ class ProseNextSteps(VaultCase):
         pns = self.run_scan("3")["phase3"]["prose_next_steps"]
         self.assertTrue(pns["applicable"])
         self.assertEqual([i["text"] for i in pns["items"]], ["Call the vendor"])
+
+    def test_bullets_under_a_sub_heading_of_the_declared_heading_count(self):
+        # phase3-open-items.md: "each bullet under those headings". A sub-heading groups the
+        # section's bullets; it does not end the section.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n## Next steps\n\n- Top level\n\n### This week\n\n- Call vendor\n\n"
+              "#### Maybe\n\n- Deeper still\n\n## Other\n\n- Not counted\n")
+        pns = self.run_scan("3")["phase3"]["prose_next_steps"]
+        self.assertEqual([i["text"] for i in pns["items"]],
+                         ["Top level", "Call vendor", "Deeper still"])
+
+    def test_a_declared_heading_nested_in_another_does_not_cut_the_outer_short(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n## Next steps\n\n### Open items\n\n- One\n\n### Later\n\n- Two\n\n"
+              "## Background\n\n- Not counted\n")
+        pns = self.run_scan("3", headings=["Next steps", "Open items"])["phase3"]["prose_next_steps"]
+        self.assertEqual([i["text"] for i in pns["items"]], ["One", "Two"])
+
+    def test_a_same_level_heading_ends_the_section(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n### Next steps\n\n- Counted\n\n### Notes\n\n- Not counted\n\n"
+              "## Higher\n\n- Not counted either\n")
+        pns = self.run_scan("3")["phase3"]["prose_next_steps"]
+        self.assertEqual([i["text"] for i in pns["items"]], ["Counted"])
 
     def test_custom_heading_argument(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -823,6 +1088,162 @@ class Refusals(VaultCase):
         with self.assertRaises(CollectedVault):
             scan(self.root, TODAY, "1", "HEAD", None, [], DEFAULT_DATED_PATTERN,
                 list(DEFAULT_NEXT_STEPS_HEADINGS))
+
+
+# ------------------------------------------------------------------------------ command line
+
+class CommandLine(VaultCase):
+    """main() as SKILL.md's Step 0 calls it: --vault, --phase and the optional flags, one
+    JSON document on stdout and an exit code the skill reads."""
+
+    def run_main(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(list(args))
+        return code, out.getvalue(), err.getvalue()
+
+    def run_json(self, *args):
+        code, out, err = self.run_main("--vault", str(self.root), *args)
+        self.assertEqual(code, 0, err)
+        return json.loads(out)
+
+    def usage_error(self, *args):
+        err = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err), \
+                self.assertRaises(SystemExit) as raised:
+            main(list(args))
+        self.assertEqual(raised.exception.code, 2)
+        return err.getvalue()
+
+    def test_each_phase_prints_one_document_carrying_only_its_own_findings(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        for phase in ("1", "3", "4"):
+            report = self.run_json("--phase", phase, "--today", "2026-09-22")
+            self.assertEqual(set(report), {"vault", "today", "phase", "preconditions",
+                                           f"phase{phase}"}, phase)
+            self.assertEqual(report["phase"], phase)
+            self.assertEqual(report["today"], "2026-09-22")
+            self.assertEqual(report["vault"], self.root.resolve().as_posix())
+            self.assertIn("snapshot", report[f"phase{phase}"])
+
+    def test_today_defaults_to_the_system_date(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        before = date.today().isoformat()
+        report = self.run_json("--phase", "4")
+        self.assertIn(report["today"], {before, date.today().isoformat()})
+
+    def test_ref_defaults_to_origin_main_and_the_marker_is_unverified_without_a_clone(self):
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05"))
+        marker = self.run_json("--phase", "1")["preconditions"]["template_marker"]
+        self.assertEqual(marker["ref"], "origin/main")
+        self.assertEqual(marker["verdict"], "unverified")
+
+    def test_clone_and_ref_reach_the_template_marker_precondition(self):
+        clone = self.clone(base_marker="2026.09.05")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
+        marker = self.run_json("--phase", "1", "--clone", str(clone),
+                               "--ref", "HEAD")["preconditions"]["template_marker"]
+        self.assertEqual((marker["ref"], marker["master"], marker["verdict"]),
+                         ("HEAD", "2026.09.05", "behind"))
+
+    def test_templates_dir_is_repeatable(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/tmpl-a/brief.md", "# A\n\n{{x}}\n")
+        write(self.root, "projects/tmpl-b/brief.md", "# B\n\n{{x}}\n")
+        write(self.root, "projects/real/brief.md", "# Real\n\n{{x}}\n")
+        report = self.run_json("--phase", "1", "--templates-dir", "projects/tmpl-a",
+                               "--templates-dir", "projects/tmpl-b")
+        self.assertEqual([h["file"] for h in report["phase1"]["placeholders"]],
+                         ["projects/real/brief.md"])
+
+    def test_dated_pattern_reaches_the_meetings_naming_check(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/meetings/2026-01-01 Kickoff.md", "x\n")
+        write(self.root, "archive/meetings/20260101 Kickoff.md", "x\n")
+        report = self.run_json("--phase", "1", "--dated-pattern", r"^\d{4}-\d{2}-\d{2} ")
+        self.assertEqual(report["phase1"]["archive"]["meetings_naming"],
+                         ["archive/meetings/20260101 Kickoff.md"])
+
+    def test_next_steps_heading_replaces_the_defaults_rather_than_adding_to_them(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n## Next steps\n\n- Default heading\n\n## Watching\n\n- Renewal\n\n"
+              "## Parked\n\n- Later\n")
+        report = self.run_json("--phase", "3", "--next-steps-heading", "Watching",
+                               "--next-steps-heading", "Parked")
+        self.assertEqual([i["text"] for i in report["phase3"]["prose_next_steps"]["items"]],
+                         ["Renewal", "Later"])
+
+    def test_indent_pretty_prints_the_same_document(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        code, out, _ = self.run_main("--vault", str(self.root), "--phase", "4",
+                                     "--today", "2026-09-22", "--indent", "2")
+        self.assertEqual(code, 0)
+        self.assertIn('\n  "phase": "4"', out)
+        self.assertEqual(json.loads(out)["phase"], "4")
+
+    def test_a_malformed_today_is_a_usage_error(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        err = self.usage_error("--vault", str(self.root), "--phase", "1", "--today", "22/09/2026")
+        self.assertIn("--today wants YYYY-MM-DD", err)
+
+    def test_a_vault_path_that_is_not_a_folder_is_a_usage_error(self):
+        err = self.usage_error("--vault", str(self.root / "missing"), "--phase", "1")
+        self.assertIn("no such vault", err)
+
+    def test_phase_is_required_and_phase_2_has_no_scan(self):
+        self.assertIn("--phase", self.usage_error("--vault", str(self.root)))
+        self.assertIn("invalid choice", self.usage_error("--vault", str(self.root), "--phase", "2"))
+
+    def test_a_collected_vault_exits_2_with_the_reason_on_stderr_and_nothing_on_stdout(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/mds/projects__acme__brief.md", "# Acme\n")
+        code, out, err = self.run_main("--vault", str(self.root), "--phase", "1")
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertTrue(err.startswith("clean_scan: "), err)
+
+
+class ScriptRun(VaultCase):
+    """The script as a separate process, run from the vault with `--vault .` and its stdout
+    redirected, as SKILL.md and para-shared/scripts.md run it."""
+
+    def run_script(self, *args, env=None):
+        return subprocess.run([sys.executable, str(SCRIPT), *args], cwd=self.root,
+                              capture_output=True, timeout=120, env=env)
+
+    def test_output_is_utf8_json_even_where_the_pipe_defaults_to_ascii(self):
+        # A Windows pipe defaults to a codepage that cannot encode what a vault holds;
+        # PYTHONIOENCODING=ascii reproduces that on every platform.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/zoe-peeters.md", "# Zoë Peeters\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nZoë Peeters called.\n")
+        result = self.run_script("--vault", ".", "--phase", "1", "--today", "2026-09-22",
+                                 env=dict(os.environ, PYTHONIOENCODING="ascii"))
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
+        report = json.loads(result.stdout.decode("utf-8"))
+        self.assertEqual(report["vault"], self.root.resolve().as_posix())
+        self.assertEqual([c["name"] for c in report["phase1"]["uncited_contacts"]],
+                         ["Zoë Peeters"])
+
+    def test_the_saved_output_feeds_the_shared_changed_check(self):
+        # scripts.md's re-check before a delete or move: the saved scan output, snapshot
+        # nested under its phase key, read back by paraos_vault.py changed.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        actions = write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] One\n")
+        result = self.run_script("--vault", ".", "--phase", "3", "--today", "2026-09-22")
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
+        with tempfile.TemporaryDirectory() as out_dir:
+            saved = Path(out_dir) / "scan.json"
+            saved.write_bytes(result.stdout)
+            check = [sys.executable, str(SHARED_SCRIPT), "changed", str(saved)]
+            unchanged = subprocess.run(check, capture_output=True, timeout=60)
+            self.assertEqual(unchanged.returncode, 0, unchanged.stdout)
+            actions.write_text("# Acme\n\n- [ ] One\n- [ ] Two\n", encoding="utf-8")
+            edited = subprocess.run(check, capture_output=True, timeout=60)
+            self.assertEqual(edited.returncode, 1)
+            self.assertEqual(json.loads(edited.stdout.decode("utf-8")), [str(actions.resolve())])
 
 
 class MissingLibrary(unittest.TestCase):

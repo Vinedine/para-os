@@ -15,6 +15,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -26,15 +27,18 @@ from paraos_vault import (
     CollectedVault, abspath, action_files, addon_root, cadence_days, changed,
     changelog_entries, clone_files, clone_read, clone_ref, closed_tasks, dangling_links,
     declarations, duplicates, entries_between, extract_links, field_ci, file_dates,
-    first_link, git, git_blame_line_date, git_bytes, git_modified, git_untracked, hashes, header_fields,
+    first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
+    git_untracked, hashes, header_fields,
     inbound_references, ingest_ledger, ingest_logs, integration_markers, is_collected,
     lifecycles, live_lines, log_instant, main, master_template, misplaced_checkboxes,
-    move_plan, norm, normalised, note_name_parts, open_tasks, over_grown_briefs,
+    match_encoding, move_plan, norm, normalised, note_name_parts, open_tasks, over_grown_briefs,
     parse_markers, refuse_if_collected, register_rows, registered_vault, registry,
-    registry_holding, resolve_entity, resolve_link, scope_of, snapshot, stage_line, stage_of,
-    strip_code, template_marker, thread_hash, triage_items, triage_sources, vault_root,
+    registry_holding, rel_posix, resolve_entity, resolve_link, scope_of, snapshot, split_lines,
+    stage_line, stage_of, strip_code, table_cells, template_marker, thread_hash, triage_items, triage_sources, vault_root,
     watermark, written_under,
 )
+
+SCRIPT = Path(__file__).resolve().parent / "paraos_vault.py"
 
 
 def write(root, rel, text):
@@ -50,6 +54,19 @@ class VaultCase(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
+
+    def aliased_vault(self):
+        """(vault, link): a real vault folder and a symlink to it, the two spellings macOS's
+        /var and a Windows short name give one folder. Skips where no symlink can be made
+        (Windows without Developer Mode)."""
+        vault = self.root / "vault"
+        vault.mkdir()
+        link = self.root / "vault-link"
+        try:
+            os.symlink(vault, link, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("this platform cannot create a symlink here")
+        return vault.resolve(), link
 
 
 class Names(VaultCase):
@@ -97,6 +114,13 @@ class Names(VaultCase):
         got = resolve_entity(self.root, "acme-webshop")
         self.assertEqual(got["status"], "unresolved")
         self.assertEqual(got["nearest"], ["projects/acme-website"])
+
+    def test_a_stray_file_in_a_bucket_is_never_an_entity(self):
+        write(self.root, "projects/acme.md", "# a loose note, not a project\n")
+        write(self.root, "projects/acme-website/actions.md", "# a\n")
+        got = resolve_entity(self.root, "acme")
+        self.assertEqual(got["status"], "resolved")
+        self.assertEqual(got["match"]["path"], "projects/acme-website")
 
 
 class IdeasInResolution(VaultCase):
@@ -152,6 +176,20 @@ class Reading(VaultCase):
         lines = ["```npm ci``` fails on CI", "- [ ] Fix the build", "- [ ] Tell the team"]
         self.assertEqual([t for _, t in live_lines(lines)], lines)
 
+    def test_a_fence_line_with_an_info_string_does_not_close_an_open_fence(self):
+        # CommonMark: a closing fence carries nothing but whitespace after its run.
+        lines = ["```", "```python", "- [ ] Sample inside", "```", "- [ ] Real"]
+        self.assertEqual([t for _, t in live_lines(lines)], ["- [ ] Real"])
+
+    def test_lines_break_on_newline_alone(self):
+        # \u2028 and \x0c are characters in a line, not line breaks, to git and an editor.
+        path = self.root / "actions.md"
+        path.write_bytes("Intro\u2028still intro\x0c\r\n- [ ] Task\n".encode("utf-8"))
+        self.assertEqual([t["line"] for t in open_tasks(path)], [2])
+        self.assertEqual(split_lines("a\u2028b\r\nc\n"), ["a\u2028b", "c"])
+        self.assertEqual(split_lines("a\nb"), ["a", "b"])
+        self.assertEqual(split_lines(""), [])
+
     def test_a_byte_order_mark_does_not_hide_the_first_line(self):
         path = self.root / "actions.md"
         path.write_bytes("- [ ] First\n- [ ] Second\n".encode("utf-8-sig"))
@@ -178,6 +216,16 @@ class Reading(VaultCase):
         self.assertIsNone(got["due"])
         self.assertTrue(got["malformed_date"])
 
+    def test_a_malformed_marker_beside_a_valid_one_is_still_flagged(self):
+        got = parse_markers("Call back 📅 2026-10-01 ⏳ tomorrow")
+        self.assertEqual(got["due"], "2026-10-01")
+        self.assertTrue(got["malformed_date"])
+
+    def test_a_recurrence_stops_at_a_done_created_or_cancelled_marker(self):
+        for marker in ("✅", "➕", "❌"):
+            got = parse_markers(f"Pay rent 🔁 every month {marker} 2026-09-01")
+            self.assertEqual(got["recurring"], "every month")
+
     def test_an_emoji_variation_selector_does_not_hide_the_date(self):
         got = parse_markers("Do it ⏳️ 2026-10-01 📅️ 2026-10-05")
         self.assertEqual(got["scheduled"], "2026-10-01")
@@ -200,6 +248,10 @@ class Reading(VaultCase):
         self.assertEqual(cadence_days("every 2 weeks"), 14)
         self.assertEqual(cadence_days("every 10 days"), 10)
         self.assertIsNone(cadence_days("every blue moon"))
+
+    def test_a_task_that_does_not_recur_has_no_cadence(self):
+        self.assertIsNone(cadence_days(parse_markers("Call Jan 📅 2026-09-22")["recurring"]))
+        self.assertIsNone(cadence_days(""))
 
 
 class ClosedTasks(VaultCase):
@@ -328,6 +380,23 @@ class GitBlameLineDate(VaultCase):
         self.assertEqual(git_blame_line_date(self.root, path, 3), "uncommitted")
 
 
+class GitDatesWithNoAnswer(VaultCase):
+    """None, never a guess, where git cannot date a file: no git needed to show it."""
+
+    def test_a_file_outside_the_vault_has_no_commit_date_and_no_line_date(self):
+        vault = self.root / "vault"
+        vault.mkdir()
+        outside = write(self.root, "elsewhere/actions.md", "# x\n\n- [ ] One\n")
+        self.assertIsNone(git_last_commit_date(vault, outside))
+        self.assertIsNone(git_blame_line_date(vault, outside, 3))
+
+    def test_a_vault_that_is_no_repository_has_no_line_date(self):
+        path = write(self.root, "projects/x/actions.md", "# x\n\n- [ ] One\n")
+        with mock.patch.dict(os.environ, {"GIT_CEILING_DIRECTORIES": str(self.root.parent)}):
+            self.assertIsNone(git_blame_line_date(self.root, path, 3))
+            self.assertIsNone(git_last_commit_date(self.root, path))
+
+
 @unittest.skipIf(shutil.which("git") is None, "git is not on PATH")
 class GitUntracked(VaultCase):
 
@@ -376,6 +445,15 @@ class GitUntracked(VaultCase):
         path.write_text("# x, edited\n", encoding="utf-8")
         self.assertEqual(git_modified(vault), {path.resolve()})
 
+    def test_a_staged_rename_is_named_by_its_new_path(self):
+        git_init(self.root)
+        write(self.root, "projects/x/notes.md", "# x\n")
+        git_commit_at(self.root, "2026-01-01")
+        subprocess.run(["git", "mv", "projects/x/notes.md", "projects/x/brief.md"],
+                       cwd=self.root, check=True)
+        self.assertEqual(git_modified(self.root),
+                         {(self.root / "projects/x/brief.md").resolve()})
+
 
 class WhereThingsLive(VaultCase):
 
@@ -394,6 +472,23 @@ class WhereThingsLive(VaultCase):
     def test_a_project_reports_its_own_folder(self):
         path = write(self.root, "projects/acme-website/actions.md", "# a\n")
         self.assertEqual(scope_of(self.root, path), ("P", "acme-website"))
+
+    def test_an_area_reports_its_own_folder_and_a_bucket_level_file_the_bucket(self):
+        self.assertEqual(scope_of(self.root, write(self.root, "areas/business/actions.md", "#\n")),
+                         ("A", "business"))
+        self.assertEqual(scope_of(self.root, write(self.root, "areas/actions.md", "#\n")),
+                         ("A", "areas"))
+
+    def test_a_contacts_or_people_file_aggregates_to_network(self):
+        for folder in ("contacts", "people"):
+            path = write(self.root, f"{folder}/jan-janssen.md", "# Jan\n")
+            self.assertEqual(scope_of(self.root, path), ("A", "network"), folder)
+
+    def test_a_file_outside_every_bucket_is_unknown_scope(self):
+        path = write(self.root, "resources/playbook/actions.md", "# p\n")
+        self.assertEqual(scope_of(self.root, path), ("?", "resources/playbook"))
+        self.assertEqual(scope_of(self.root, write(self.root, "actions.md", "# root\n")),
+                         ("?", "actions.md"))
 
     def test_a_collected_vault_is_refused_not_guessed(self):
         write(self.root, "resources/mds/projects__acme__actions.md", "# acme\n\n- [ ] One\n")
@@ -512,6 +607,24 @@ class RegisteredVaultCheck(VaultCase):
         entries = [{"name": "BF", "path": str(self.root / "elsewhere")}]
         self.assertIsNone(registered_vault(entries, self.root))
 
+    def test_an_entry_written_through_a_symlink_matches_the_resolved_vault(self):
+        # The scan scripts resolve the vault they are pointed at; the registry keeps the
+        # spelling the operator wrote. Both name one folder, so they must match.
+        vault, link = self.aliased_vault()
+        entries = [{"name": "BF", "path": str(link)}]
+        self.assertEqual(registered_vault(entries, vault)["name"], "BF")
+        self.assertEqual(registered_vault(entries, vault / "projects" / "x")["name"], "BF")
+
+    def test_a_resolved_entry_matches_a_vault_reached_through_a_symlink(self):
+        vault, link = self.aliased_vault()
+        entries = [{"name": "BF", "path": str(vault)}]
+        self.assertEqual(registered_vault(entries, link)["name"], "BF")
+
+    def test_a_vault_registered_at_the_filesystem_root_holds_everything_under_it(self):
+        fs_root = Path(abspath(self.root).anchor)
+        entries = [{"name": "Root", "path": str(fs_root)}]
+        self.assertEqual(registered_vault(entries, self.root)["name"], "Root")
+
 
 class RegistryHolding(VaultCase):
 
@@ -543,6 +656,18 @@ class RegistryHolding(VaultCase):
         got = registry_holding(entries, "acme-website", exclude=self.root)
         self.assertEqual(got, [])
 
+    def test_the_excluded_vault_is_skipped_under_another_spelling_of_its_folder(self):
+        vault, link = self.aliased_vault()
+        write(vault, "projects/acme-website/actions.md", "# a\n")
+        entries = [{"name": "Mine", "path": str(link)}]
+        self.assertEqual(registry_holding(entries, "acme-website", exclude=vault), [])
+
+    def test_a_reported_root_keeps_the_registry_spelling(self):
+        vault, link = self.aliased_vault()
+        write(vault, "projects/acme-website/actions.md", "# a\n")
+        got = registry_holding([{"name": "Other", "path": str(link)}], "acme-website")
+        self.assertEqual(Path(got[0]["root"]), abspath(link))
+
     def test_a_vault_whose_path_no_longer_exists_is_unreadable_not_skipped(self):
         entries = [{"name": "Gone", "path": str(self.root / "does-not-exist")}]
         got = registry_holding(entries, "anything")
@@ -555,6 +680,14 @@ class RegistryHolding(VaultCase):
         write(other, "projects/unrelated/actions.md", "# a\n")
         entries = [{"name": "Other", "path": str(other)}]
         self.assertEqual(registry_holding(entries, "acme-website"), [])
+
+    def test_an_entry_missing_a_path_is_skipped_not_a_crash(self):
+        other = self.root / "other-vault"
+        write(other, "projects/acme-website/actions.md", "# a\n")
+        entries = [{"name": "No path"}, {"name": "Empty", "path": ""},
+                   {"name": "Other", "path": str(other)}]
+        self.assertEqual([h["vault"] for h in registry_holding(entries, "acme-website")],
+                         ["Other"])
 
 
 class FileDates(VaultCase):
@@ -577,6 +710,50 @@ class FileDates(VaultCase):
         self.assertEqual(len(got), 3)
         self.assertTrue(all(v for v in got.values()))
 
+    def test_an_uncommitted_edit_named_by_a_relative_path_keeps_its_mtime(self):
+        if shutil.which("git") is None:
+            self.skipTest("git is not on PATH")
+        env = dict(os.environ, GIT_AUTHOR_DATE="2020-01-01T12:00:00",
+                   GIT_COMMITTER_DATE="2020-01-01T12:00:00")
+        run = lambda *a: subprocess.run(["git", "-C", str(self.root), *a], env=env,
+                                        check=True, capture_output=True)
+        run("init", "-q")
+        run("config", "user.email", "t@example.com")
+        run("config", "user.name", "t")
+        for n in range(3):
+            write(self.root, f"projects/x/{n}.md", "# x\n")
+        run("add", "-A")
+        run("commit", "-q", "-m", "init")
+        write(self.root, "projects/x/0.md", "# x, edited\n")
+        stamped = time.time()
+        cwd = os.getcwd()
+        os.chdir(self.root)
+        self.addCleanup(os.chdir, cwd)
+        paths = [Path(f"projects/x/{n}.md") for n in range(3)]
+        for p in paths:
+            os.utime(p, (stamped, stamped))
+        got = file_dates(".", paths)
+        self.assertEqual(got[paths[0]], date.fromtimestamp(stamped).isoformat())
+        self.assertEqual(got[paths[1]], "2020-01-01")
+
+    def test_a_bulk_write_followed_by_a_later_edit_dates_each_by_its_own_evidence(self):
+        if shutil.which("git") is None:
+            self.skipTest("git is not on PATH")
+        git_init(self.root)
+        paths = [write(self.root, f"projects/x/{n}.md", f"# {n}\n") for n in range(4)]
+        git_commit_at(self.root, "2020-01-01")
+        bulk, later = time.time() - 7200, time.time()
+        for p in paths[:3]:
+            os.utime(p, (bulk, bulk))
+        os.utime(paths[3], (later, later))
+        got = file_dates(self.root, paths)
+        self.assertEqual([got[p] for p in paths[:3]], ["2020-01-01"] * 3)
+        self.assertEqual(got[paths[3]], date.fromtimestamp(later).isoformat())
+
+    def test_a_path_that_does_not_exist_has_no_date(self):
+        missing = self.root / "projects/x/gone.md"
+        self.assertEqual(file_dates(self.root, [missing]), {missing: None})
+
 
 class EntityState(VaultCase):
 
@@ -593,6 +770,25 @@ class EntityState(VaultCase):
 
     def test_a_brief_with_no_stage_falls_back_to_its_first_prose_line(self):
         path = write(self.root, "brief.md", "# thing\n\nAn installer who wants a rebuild.\n")
+        self.assertEqual(stage_line(path), "An installer who wants a rebuild.")
+
+    def test_a_document_of_headings_alone_has_no_stage(self):
+        path = write(self.root, "brief.md", "# thing\n\n## Status\n\n## Notes\n")
+        self.assertIsNone(stage_line(path))
+
+    def test_prose_under_a_status_heading_wins_over_the_first_prose_line(self):
+        path = write(self.root, "brief.md", "\n".join([
+            "# thing", "", "An installer who wants a rebuild.", "",
+            "## Status", "", "Shipped, awaiting the final invoice.", "",
+        ]) + "\n")
+        self.assertEqual(stage_line(path), "Shipped, awaiting the final invoice.")
+
+    def test_a_status_section_with_no_stage_row_ends_at_the_next_heading(self):
+        path = write(self.root, "brief.md", "\n".join([
+            "# thing", "", "An installer who wants a rebuild.", "",
+            "## Status", "", "| Detail | Value |", "|---|---|", "| Owner | Alex |", "",
+            "## Next", "", "Send the quote.", "",
+        ]) + "\n")
         self.assertEqual(stage_line(path), "An installer who wants a rebuild.")
 
 
@@ -638,6 +834,19 @@ class Hygiene(VaultCase):
         got = over_grown_briefs(self.root)
         self.assertEqual(got[0]["file"], "projects/wordy/brief.md")
         self.assertEqual(got[0]["lines"], 601)
+
+    def test_a_brief_at_the_cap_is_not_over_grown(self):
+        write(self.root, "projects/wordy/brief.md", "# wordy\n" + ("line\n" * 600))
+        write(self.root, "areas/tidy/README.md", "# tidy\n" + ("line\n" * 499))
+        self.assertEqual([r["file"] for r in over_grown_briefs(self.root)],
+                         ["projects/wordy/brief.md"])
+
+    def test_a_file_under_archive_with_only_closed_checkboxes_is_not_flagged(self):
+        write(self.root, "archive/projects/old/actions.md", "# old\n\n- [x] Done\n")
+        self.assertEqual(misplaced_checkboxes(self.root), {"archive": [], "resources": []})
+
+    def test_no_triage_folder_is_no_items(self):
+        self.assertEqual(triage_items(self.root), [])
 
     def test_triage_counts_files_not_the_gitkeep(self):
         write(self.root, "triage/.gitkeep", "")
@@ -731,6 +940,14 @@ class Lifecycles(VaultCase):
         write(self.root, "CLAUDE.md", "# v\n\n## Filing\n\nProse.\n")
         self.assertEqual(lifecycles(self.root), [])
 
+    def test_a_table_under_the_next_heading_is_not_the_declaration(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# v", "", "## Deal lifecycle", "", "Declared below, some day.", "",
+            "## Filing", "", "| Stage | PARA home |", "|---|---|",
+            "| Lead | `areas/business/leads.md` (row) |", "",
+        ]) + "\n")
+        self.assertEqual(lifecycles(self.root), [])
+
 
 class StageOf(VaultCase):
 
@@ -789,6 +1006,16 @@ class HeaderBlock(VaultCase):
 
     def test_a_field_with_no_link_has_no_target(self):
         self.assertIsNone(first_link("referral from a neighbour, network"))
+
+    def test_first_link_keeps_a_target_carrying_parentheses_whole(self):
+        self.assertEqual(first_link("see [w](https://en.wikipedia.org/wiki/Foo_(bar)) ok"),
+                         "https://en.wikipedia.org/wiki/Foo_(bar)")
+        self.assertEqual(first_link("[a]() then [b](b.md)"), "b.md")
+
+    def test_an_escaped_pipe_stays_inside_its_cell(self):
+        self.assertEqual(table_cells("| [[jan-janssen\\|Jan]] | lead |"),
+                         ["[[jan-janssen\\|Jan]]", "lead"])
+        self.assertEqual(table_cells("| a | b |"), ["a", "b"])
 
     def test_a_document_opening_on_prose_has_no_header(self):
         path = write(self.root, "brief.md", "# Orchard Labs\n\nProse, then nothing bold.\n")
@@ -886,6 +1113,13 @@ class Code(VaultCase):
     def test_a_double_backtick_span_closes_only_on_two(self):
         self.assertEqual(strip_code("a ``x ` y`` b"), "a           b")
 
+    def test_a_line_separator_character_does_not_start_a_line(self):
+        # "```" after a \u2028 sits mid-line to git and an editor, so it opens no fence.
+        text = "Intro\u2028```\r\n[a](a.md)\n"
+        got = strip_code(text)
+        self.assertEqual(got, text)
+        self.assertEqual([line for line, _, _ in extract_links(got)], [2])
+
 
 class Links(VaultCase):
 
@@ -933,6 +1167,21 @@ class Links(VaultCase):
         card = write(self.root, "areas/network/jan-janssen.md", "# Jan\n")
         got = resolve_link(card, "../../projects/orchard-lane/brief.md")
         self.assertEqual(got, self.root / "projects" / "orchard-lane" / "brief.md")
+
+    def test_a_target_never_closed_is_no_link(self):
+        self.assertEqual(extract_links("[x](projects/a.md and [y](b (c).md"), [])
+
+    def test_a_target_with_no_label_before_it_is_no_first_link(self):
+        self.assertIsNone(first_link("Stray ](projects/a.md) with no label"))
+        self.assertEqual(first_link("Stray ](x.md), then [the brief](projects/a.md)"),
+                         "projects/a.md")
+
+    def test_a_path_outside_the_vault_keeps_its_absolute_form(self):
+        vault = self.root / "vault"
+        inside = self.root / "vault" / "projects" / "x" / "brief.md"
+        outside = self.root / "elsewhere" / "brief.md"
+        self.assertEqual(rel_posix(vault, inside), "projects/x/brief.md")
+        self.assertEqual(rel_posix(vault, outside), abspath(outside).as_posix())
 
 
 class Dangling(VaultCase):
@@ -1021,6 +1270,12 @@ class Inbound(VaultCase):
         got = inbound_references(self.root, "README.md", parent="triage")
         self.assertEqual([h["line"] for h in got], [2, 3])
 
+    def test_the_shape_is_read_from_the_link_that_holds_the_mention(self):
+        write(self.root, "areas/network/jan-janssen.md",
+              "See [the card](../x.md) and [the house](../../projects/orchard-lane/brief.md).\n")
+        got = inbound_references(self.root, "orchard-lane")
+        self.assertEqual([h["shape"] for h in got], ["link_target"])
+
 
 class MovePlan(VaultCase):
 
@@ -1086,6 +1341,32 @@ class MovePlan(VaultCase):
         self.assertEqual(plan["inside"][0]["new_href"],
                          "../../../resources/playbook.md#the-shape")
 
+    def test_a_link_inside_the_folder_to_itself_is_in_neither_list(self):
+        self.build()
+        write(self.root, "areas/properties/orchard-lane/actions.md",
+              "# a\n\nSee [the brief](../orchard-lane/brief.md).\n")
+        plan = move_plan(self.root, "areas/properties/orchard-lane",
+                         "archive/properties/orchard-lane")
+        self.assertNotIn("../orchard-lane/brief.md", [h["href"] for h in plan["inside"]])
+        self.assertEqual([h["file"] for h in plan["inbound"]], ["areas/network/jan-janssen.md"])
+
+    def test_a_line_naming_the_folder_but_linking_elsewhere_has_no_href_to_rewrite(self):
+        self.build()
+        write(self.root, "areas/business/notes.md", "# Notes\n")
+        write(self.root, "areas/network/piet.md",
+              "Visited orchard-lane, see [the notes](../business/notes.md).\n")
+        plan = move_plan(self.root, "areas/properties/orchard-lane",
+                         "archive/properties/orchard-lane")
+        self.assertEqual([h["file"] for h in plan["inbound"]], ["areas/network/jan-janssen.md"])
+
+    def test_a_space_the_old_href_never_had_is_encoded_in_the_new_one(self):
+        # A bare space ends a link target, so it is encoded even though the old href had
+        # none to say how; inside <...> a space is legal and stays.
+        self.assertEqual(match_encoding("../a/b.md#x", "../New Home/b.md"),
+                         "../New%20Home/b.md#x")
+        self.assertEqual(match_encoding("<../a/b.md>", "../New Home/b.md"),
+                         "<../New Home/b.md>")
+
 
 class FileContents(VaultCase):
 
@@ -1112,6 +1393,25 @@ class FileContents(VaultCase):
         got = hashes(self.root)
         self.assertEqual(got["skipped"], ["projects/a/photos/front.txt"])
         self.assertEqual(list(got["files"]), ["projects/a/brief.md"])
+
+    def test_a_build_folder_is_set_aside_too(self):
+        # Two archived decks each carry their own styles/index.css to build: not a
+        # filing duplicate (20260923-1124 para-deep-clean TT, finding 7).
+        write(self.root, "archive/projects/a/styles/index.css", self.body("css"))
+        write(self.root, "archive/projects/b/styles/index.css", self.body("css"))
+        write(self.root, "archive/projects/b/public/logo.txt", self.body("logo"))
+        got = hashes(self.root)
+        self.assertEqual(duplicates(got), [])
+        self.assertEqual(got["skipped"], ["archive/projects/a/styles/index.css",
+                                          "archive/projects/b/public/logo.txt",
+                                          "archive/projects/b/styles/index.css"])
+
+    def test_git_internals_are_never_hashed(self):
+        write(self.root, ".git/objects/pack/notes.md", self.body("one"))
+        write(self.root, "projects/a/brief.md", self.body("one"))
+        got = hashes(self.root)
+        self.assertEqual(list(got["files"]), ["projects/a/brief.md"])
+        self.assertEqual(got["skipped"], [])
 
     def test_duplicates_reads_a_plain_digest_map_too(self):
         self.assertEqual(duplicates({"a.md": "x", "b.md": "x", "c.md": "y"}),
@@ -1210,6 +1510,17 @@ class Markers(VaultCase):
         self.assertEqual([(h["file"], h["name"], h["revision"]) for h in got],
                          [("render.ps1", "render", "2026.09.01"),
                           ("resources/scripts/granola.py", "granola", "2026.08.02")])
+
+    def test_an_installed_skill_copy_is_not_an_integration(self):
+        write(self.root, ".claude/skills/para-new/scripts/granola.py",
+              '"""para-os-integration: granola 2026.08.02"""\n')
+        self.assertEqual(integration_markers(self.root), [])
+
+    def test_an_entry_ends_at_the_next_heading_that_is_no_revision(self):
+        text = "\n".join(["# Changelog", "", "## 2026.09.02", "", "Real.", "",
+                          "## How to read this file", "", "Not part of any entry.", ""])
+        self.assertEqual([(e["revision"], e["body"]) for e in changelog_entries(text)],
+                         [("2026.09.02", "Real.")])
 
     def test_each_entry_comes_back_with_its_body_in_the_order_written(self):
         got = changelog_entries(CHANGELOG)
@@ -1465,6 +1776,44 @@ class TriageSourcesTable(VaultCase):
         self.assertEqual(len(got["rows"]), 1)
         self.assertEqual(got["rows"][0]["source"], "granola")
 
+    def rows(self, *rows):
+        self.write_claude(["# V", "", "## Triage sources", "",
+                           "| Source | Type | Endpoint | Relevant when |", "|---|---|---|---|",
+                           *rows, "", "## Filing", ""])
+        return triage_sources(self.root)["rows"]
+
+    def test_a_script_path_written_bare_is_found_without_backticks(self):
+        got = self.rows(
+            "| notes | sync-script | resources/scripts/notes-sync.py --write | Meetings. |",
+            "| bold | sync-script | **resources/scripts/Notes-Sync.PS1** (writes to triage/) "
+            "| Meetings. |",
+            "| shared | fetch-script | `info@example-biz.com` via resources/scripts/outlook.py "
+            "| Shared inbox. |")
+        self.assertEqual([r["path"] for r in got],
+                         ["resources/scripts/notes-sync.py", "resources/scripts/Notes-Sync.PS1",
+                          "resources/scripts/outlook.py"])
+        self.assertEqual(got[2]["mailbox"], "info@example-biz.com")
+
+    def test_a_script_row_naming_no_script_has_no_path(self):
+        got = self.rows("| mail | fetch-script | ask Alex which script, `TBD` | Leads. |",
+                        "| notes | sync-script | | Meetings. |")
+        self.assertEqual([r["path"] for r in got], [None, None])
+
+    def test_a_drive_id_with_no_backticks_is_the_endpoints_first_word(self):
+        got = self.rows(
+            "| mirror | drive | 0AKq7pXpF123abc shared drive backing the mirror | Stubs. |",
+            "| bold | drive | **0AKq7pXpF456def** (the shared drive) | Stubs. |",
+            "| none | drive | | Stubs. |")
+        self.assertEqual([r["drive_id"] for r in got],
+                         ["0AKq7pXpF123abc", "0AKq7pXpF456def", None])
+
+    def test_another_connector_keeps_its_own_name_and_an_unknown_type_says_so(self):
+        got = self.rows("| partner | connector: outlook-mcp | partner@example-mail.com | Mail. |",
+                        "| loft | carrier pigeon | the roof | Whatever lands. |")
+        self.assertEqual([(r["kind"], r["connector"]) for r in got],
+                         [("connector", "outlook-mcp"), ("unknown", None)])
+        self.assertEqual([r["path"] for r in got], [None, None])
+
 
 class IngestLogsReading(VaultCase):
 
@@ -1508,6 +1857,24 @@ class IngestLogsReading(VaultCase):
         self.assertIsNotNone(got[0]["load_error"])
         self.assertEqual(got[0]["started_from"], "filename")
         self.assertIsNone(got[0]["mode"])
+
+    def test_a_log_holding_no_object_is_a_record_with_its_error(self):
+        self.write_run("20260906-211458.json", ["write"])
+        got = ingest_logs(self.root)
+        self.assertEqual([(r["load_error"], r["mode"], r["started_from"]) for r in got],
+                         [("not a JSON object", None, "filename")])
+
+    def test_an_unreadable_log_named_off_the_stamp_has_no_instant_and_sorts_last(self):
+        runs = self.root / "cache" / "ingest" / "runs"
+        runs.mkdir(parents=True)
+        for name in ("latest.json", "20261345-990000.json"):  # no stamp; no real instant
+            (runs / name).write_text("not json", encoding="utf-8")
+        self.write_run("20260906-211458.json",
+                       {"mode": "write", "started_at": "2026-09-06T21:14:58+02:00"})
+        got = ingest_logs(self.root)
+        self.assertEqual([(r["file"], r["started_at"]) for r in got],
+                         [("20260906-211458.json", "2026-09-06T21:14:58+02:00"),
+                          ("latest.json", None), ("20261345-990000.json", None)])
 
     def test_counts_per_vault_is_read_first(self):
         self.write_run("20260912-094319.json",
@@ -1668,6 +2035,19 @@ class WrittenUnder(VaultCase):
                     "20260908 Book your appointment (Ref. 100200300) a6253e.md")
         self.assertTrue(written_under(entry, folder))
 
+    def test_an_entry_logged_through_a_symlink_matches_the_resolved_folder(self):
+        # Ingest logs the path it wrote through the registry's spelling of the vault, and
+        # triage asks about its own resolved root.
+        vault, link = self.aliased_vault()
+        entry = str(link / "triage" / "20260918 Note 96cd6b.md")
+        self.assertTrue(written_under(entry, vault / "triage"))
+        self.assertFalse(written_under(entry, vault / "projects"))
+
+    def test_a_backslash_entry_matches_on_any_platform(self):
+        folder = self.root / "BF" / "triage"
+        entry = str(self.root).replace(os.sep, "\\") + "\\BF\\triage\\20260918 Note 96cd6b.md"
+        self.assertTrue(written_under(entry, folder))
+
 
 class NoteNaming(VaultCase):
 
@@ -1699,11 +2079,20 @@ class NoteNaming(VaultCase):
         self.assertEqual(got["hash"], "88604c")
         self.assertEqual(got["subject"], "Something deadbe")
 
+    def test_an_all_digit_hash_is_not_read_as_a_copy_number(self):
+        got = note_name_parts("20260101 Invoice 202601 123456.md")
+        self.assertEqual(got, {"date": "20260101", "subject": "Invoice 202601",
+                               "hash": "123456", "copy": None})
+
     def test_a_non_md_file_is_not_this_shape(self):
         self.assertIsNone(note_name_parts("20260921 Accepted AI Chat 88604c.pdf"))
 
     def test_a_name_with_no_date_prefix_is_not_this_shape(self):
         self.assertIsNone(note_name_parts("Accepted AI Chat 88604c.md"))
+
+    def test_a_name_with_no_subject_is_not_this_shape(self):
+        self.assertIsNone(note_name_parts("20260921 88604c.md"))
+        self.assertIsNone(note_name_parts("20260921 88604c 2.md"))
 
 
 class Watermark(VaultCase):
@@ -1853,6 +2242,112 @@ class IngestLogsCLI(VaultCase):
                          ["20260918-161013.json", "20260906-211458.json"])
 
 
+class QuestionsCLI(VaultCase):
+    """The one-off questions the module docstring lists, each answered as one JSON document
+    from the same function a skill's own scan imports."""
+
+    def setUp(self):
+        super().setUp()
+        write(self.root, "CLAUDE.md", DEAL_LIFECYCLE)
+        write(self.root, "projects/orchard-lane/brief.md",
+              "# Orchard Lane\n\nOwner [Jan](../../areas/network/jan-janssen.md).\n")
+        write(self.root, "areas/network/jan-janssen.md",
+              "# Jan\n\nBought [the house](../../projects/orchard-lane/brief.md).\n"
+              "Also [a lost page](../../projects/orchard-lane/gone.md).\n")
+        write(self.root, "archive/projects/old/brief.md", "[gone](../../../nowhere.md)\n")
+
+    def ask(self, *argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main([*argv, "--vault", str(self.root)])
+        self.assertEqual(code, 0)
+        return json.loads(out.getvalue())
+
+    def test_resolve_prints_where_one_entity_lives(self):
+        got = self.ask("resolve", "Orchard Lane")
+        self.assertEqual((got["status"], got["match"]["path"]),
+                         ("resolved", "projects/orchard-lane"))
+
+    def test_lifecycles_prints_every_declared_lifecycle(self):
+        got = self.ask("lifecycles")
+        self.assertEqual([(lc["heading"], [s["name"] for s in lc["stages"]]) for lc in got],
+                         [("Deal lifecycle", ["Lead", "Qualified", "Goal", "Lost"])])
+
+    def test_move_plan_prints_both_halves_of_the_rewrite(self):
+        got = self.ask("move-plan", "projects/orchard-lane", "archive/projects/orchard-lane")
+        self.assertEqual([h["new_href"] for h in got["inside"]],
+                         ["../../../areas/network/jan-janssen.md"])
+        self.assertEqual([h["new_href"] for h in got["inbound"]],
+                         ["../../archive/projects/orchard-lane/brief.md",
+                          "../../archive/projects/orchard-lane/gone.md"])
+
+    def test_hashes_prints_the_digests_and_what_was_skipped(self):
+        write(self.root, "projects/orchard-lane/photos/front.md", "x" * 300)
+        write(self.root, "projects/orchard-lane/notes.md", "y" * 300)
+        got = self.ask("hashes")
+        self.assertEqual(list(got["files"]), ["CLAUDE.md", "projects/orchard-lane/notes.md"])
+        self.assertEqual(got["skipped"], ["projects/orchard-lane/photos/front.md"])
+
+    def test_links_inbound_prints_every_line_naming_the_entity(self):
+        got = self.ask("links", "inbound", "orchard-lane")
+        self.assertEqual([(h["file"], h["line"]) for h in got],
+                         [("areas/network/jan-janssen.md", 3), ("areas/network/jan-janssen.md", 4)])
+
+    def test_links_dangling_reads_the_live_buckets_unless_given_roots(self):
+        self.assertEqual([h["resolved"] for h in self.ask("links", "dangling")],
+                         ["projects/orchard-lane/gone.md"])
+        got = self.ask("links", "dangling", "--root", "archive", "--root", "areas")
+        self.assertEqual([h["file"] for h in got],
+                         ["archive/projects/old/brief.md", "areas/network/jan-janssen.md"])
+
+    def test_a_vault_that_is_no_folder_is_a_usage_error(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as stop:
+            main(["resolve", "orchard-lane", "--vault", str(self.root / "no-such-vault")])
+        self.assertEqual(stop.exception.code, 2)
+        self.assertIn("no such vault", err.getvalue())
+
+    def test_a_changed_file_that_cannot_be_read_or_holds_a_list_is_a_usage_error(self):
+        listed = write(self.root, "list.json", json.dumps([str(self.root / "CLAUDE.md")]))
+        for path, message in ((self.root / "no-such-snapshot.json", "cannot read"),
+                              (write(self.root, "broken.json", "{not json"), "cannot read"),
+                              (listed, "holds no snapshot")):
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as stop:
+                main(["changed", str(path)])
+            self.assertEqual(stop.exception.code, 2, path)
+            self.assertIn(message, err.getvalue())
+
+
+class RunAsAScript(VaultCase):
+    """scripts.md's own call, `paraos_vault.py changed <scan output>`, and a question, run
+    as the file itself from a folder that is not the vault."""
+
+    def run_script(self, *argv):
+        # A Windows pipe defaults to a codepage that cannot encode a vault's own names; an
+        # ASCII stdout stands in for it on every platform.
+        return subprocess.run([sys.executable, str(SCRIPT), *argv], cwd=self.root,
+                              capture_output=True, timeout=60,
+                              env=dict(os.environ, PYTHONIOENCODING="ascii"))
+
+    def test_a_question_prints_utf8_json_whatever_the_console_encoding(self):
+        vault = self.root / "vault"
+        write(vault, "projects/Øresund-bridge/brief.md", "# Øresund\n")
+        result = self.run_script("resolve", "resund-bridge", "--vault", str(vault))
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
+        self.assertEqual(json.loads(result.stdout.decode("utf-8"))["match"]["path"],
+                         "projects/Øresund-bridge")
+
+    def test_changed_exits_1_when_a_file_in_the_scan_output_changed(self):
+        target = write(self.root, "vault/projects/x/actions.md", "# x\n")
+        scan = write(self.root, "scan.json", json.dumps({"snapshot": snapshot([target])}))
+        self.assertEqual(self.run_script("changed", str(scan)).returncode, 0)
+        target.write_text("# x, edited\n", encoding="utf-8")
+        result = self.run_script("changed", str(scan))
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(json.loads(result.stdout.decode("utf-8")), [str(target)])
+
+
 # ------------------------------------------------------------------ what a vault declares
 
 def conventions(*fields, marker="2026.09.04"):
@@ -1932,8 +2427,9 @@ class Declarations(VaultCase):
 # ------------------------------------------------------------------- a para-os clone
 
 def fixture_git(root, *args):
+    # No global excludes: a maintainer ignoring .claude/ would drop fixture files silently.
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-                    "-c", "core.autocrlf=false", *args],
+                    "-c", "core.autocrlf=false", "-c", "core.excludesFile=", *args],
                    cwd=root, check=True, capture_output=True)
 
 
@@ -2101,6 +2597,18 @@ class CloneRead(CloneCase):
         want = clone_read(self.clone, "HEAD", "addons/sales/crlf.txt")
         self.assertEqual(clone_read(self.clone, "HEAD", "./addons\\sales/crlf.txt"), want)
         self.assertEqual(clone_read(self.clone, "HEAD", Path("addons/sales/crlf.txt")), want)
+
+    def test_the_clone_root_is_no_file(self):
+        for path in ("", ".", "/", "./"):
+            self.assertIsNone(clone_read(self.clone, "HEAD", path), path)
+            self.assertIsNone(clone_read(self.clone, "HEAD", path, worktree=True), path)
+
+    def test_a_ref_opening_on_a_dash_is_never_passed_to_git_as_an_option(self):
+        with mock.patch("paraos_vault.git_bytes") as git_bytes_spy:
+            self.assertIsNone(clone_read(self.clone, "--output=x", "base/CLAUDE.md.template"))
+            self.assertIsNone(clone_files(self.clone, "--all", "addons"))
+            self.assertIsNone(addon_root(self.clone, "-h", "sales"))
+        git_bytes_spy.assert_not_called()
 
 
 class CloneFiles(CloneCase):

@@ -15,9 +15,10 @@
 # ...and never .mcp.json, which holds live tokens: tracked wiring goes in a redacted .mcp.json.example
 .mcp.json
 
-# Python bytecode (scripts in resources/scripts/ run in place)
+# Python bytecode and test caches (scripts in resources/scripts/ run in place)
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Drive for Desktop folder metadata
 desktop.ini

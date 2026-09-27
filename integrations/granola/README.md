@@ -12,7 +12,7 @@ Granola app  ──▶  granola.js  ──▶  <vault>/triage/20260709 Kickoff c
 
 - **The Granola desktop app**, signed in, on the same machine. The sync reads the app's local login token; there is no separate API key to request.
 - **[Node.js](https://nodejs.org/) 18+** (for the built-in `fetch`). No `npm install` - the scripts use only Node's standard library.
-- **Windows.** `granola-auth-init.js` extracts the token from Granola's encrypted store via Windows DPAPI. macOS/Linux aren't supported yet (the store is unlocked differently there); everything else is cross-platform.
+- **Windows or macOS, for the one-time sign-in.** `granola-auth-init.js` extracts the token from the Granola app's encrypted store: through Windows DPAPI on Windows, and through the `Granola Safe Storage` Keychain item on macOS, where macOS asks once whether `security` may read it (choose *Allow*). An older app that left a plain `supabase.json` is read as it is. `granola.js` runs anywhere Node does.
 
 ## Install
 

@@ -3,6 +3,7 @@
 
     python3 tools/check.py            # report and exit non-zero on any failure
     python3 tools/check.py -v         # also list every check that passed
+    python3 tools/check.py --no-vendor  # skip `claude plugin validate` (CI, or no CLI installed)
 
 What it enforces, and why each one is machinery rather than prose:
 
@@ -18,6 +19,11 @@ What it enforces, and why each one is machinery rather than prose:
                         CHANGELOG entry: a delivery left a revision behind means /para-upgrade
                         reads a stale master and reports "nothing to do" on a vault that
                         genuinely needs migrating.
+
+  Release notes         RELEASES.md tells people what each revision changes; CHANGELOG.md
+                        tells /para-upgrade what to do. Both list the same revisions in the
+                        same order, so a revision cut without its note fails here rather than
+                        reaching an operator unexplained.
 
   Dashes                CLAUDE.md makes this a hard rule for shipped prose, and it is the one
                         style rule a reader notices immediately.
@@ -46,10 +52,11 @@ What it enforces, and why each one is machinery rather than prose:
                         not a distribution step: no manifest, no marketplace, nothing
                         published. It enforces whatever the tool currently requires of a
                         SKILL.md, which moves release to release - the part the checks above
-                        cannot keep up with by hand.
+                        cannot keep up with by hand. `--no-vendor` skips it and says so, for
+                        CI and contributors without the CLI; a release is still checked with it.
 
   Skill contract        Every skill master keeps its frontmatter contract (name matching its
-                        folder, a description, allowed-tools, arg-hint offering `--test` and a
+                        folder, a description, allowed-tools, argument-hint offering `--test` and a
                         link to para-shared/test-run.md), a `## Strict rules`
                         block, a spine under the line cap, and references that resolve both
                         ways - base's skills and each add-on's. The spine cap is
@@ -88,7 +95,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]   # repo root; this file lives in tools/
 REVISION = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
-SCRIPT_SUFFIXES = {".py", ".js", ".ps1", ".sh"}
+SCRIPT_SUFFIXES = {".py", ".js", ".mjs", ".ps1", ".sh"}
 
 failures = []
 passes = []
@@ -273,6 +280,25 @@ def check_template_revisions():
             bad(f"{rel(f)}: stamped {m.group(1)}, newest changelog revision is {current}")
         else:
             ok(f"{rel(f)} at {current}")
+
+
+def check_release_notes():
+    path = ROOT / "RELEASES.md"
+    if not path.is_file():
+        bad("RELEASES.md is missing: every CHANGELOG revision needs a note for people")
+        return
+    notes = re.findall(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$",
+                       path.read_text(encoding="utf-8"), re.M)
+    revisions = changelog_revisions()
+    if notes == revisions:
+        ok(f"RELEASES.md lists the {len(notes)} CHANGELOG revision(s), in order")
+        return
+    for missing in [r for r in revisions if r not in notes]:
+        bad(f"RELEASES.md has no `## {missing}` note; CHANGELOG.md has that revision")
+    for extra in [r for r in notes if r not in revisions]:
+        bad(f"RELEASES.md has `## {extra}`, which CHANGELOG.md does not")
+    if set(notes) == set(revisions):
+        bad("RELEASES.md lists the CHANGELOG revisions in a different order; keep both newest first")
 
 
 TEMPLATE_MAX_LINES = 120   # a starting point; worst today is base at 119
@@ -571,7 +597,8 @@ def check_never_ship():
 # sys.executable, not "python": the interpreter running this file is known to exist, which
 # `python` on a Windows PATH is not. Node has no such trick, so a missing `node` is reported.
 RUNNERS = {".py": lambda p: [sys.executable, str(p)],
-           ".js": lambda p: ["node", "--test", str(p)]}
+           ".js": lambda p: ["node", "--test", str(p)],
+           ".mjs": lambda p: ["node", "--test", str(p)]}
 
 # unittest writes "Ran 39 tests" to stderr; node --test writes "pass 35" to stdout. The count
 # is reported so a suite that quietly stopped covering anything is visible at a glance. It is
@@ -634,7 +661,7 @@ def addon_skill_dirs():
 
 
 EXTRA_SKILL_DIRS = (ROOT / "multi-vault",)   # optional layers that ship a skill of their own
-SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "arg-hint")
+SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "argument-hint")
 SPINE_MAX_LINES = 130      # current worst is 116; the cap catches regrowth, not today's shape
 DESCRIPTION_MAX_CHARS = 600
 TEST_RUN_DOC = "para-shared/test-run.md"   # what `--test` means, stated once for every skill
@@ -709,8 +736,8 @@ def check_skills():
 
         # A test run is how a revision gets tried on real vaults before it ships, so a skill
         # that does not take `--test` is one whose defects surface only when someone thinks to ask.
-        if "--test" not in fields.get("arg-hint", ""):
-            bad(f"{rel(sk)}: arg-hint does not offer `[--test]`, the test-run argument every "
+        if "--test" not in fields.get("argument-hint", ""):
+            bad(f"{rel(sk)}: argument-hint does not offer `[--test]`, the test-run argument every "
                 f"skill takes")
         if TEST_RUN_DOC not in text:
             bad(f"{rel(sk)}: never links {TEST_RUN_DOC}, so `--test` has no definition "
@@ -817,9 +844,9 @@ def check_rules_contract():
 # adopter's vault CLAUDE.md, read every session, and a repo-maintenance hash has no business
 # being a permanent line in it. Add a row when a delivery gains a file that derives from base.
 DELIVERY_TRACKING = {
-    "addons/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "b0c9a0eea17e"),
+    "addons/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "ce85cf2bdd62"),
     "addons/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
-    "addons/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "7ffd9b80b6e5"),
+    "addons/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "5b4d4ef01142"),
 }
 
 
@@ -881,6 +908,10 @@ def check_skill_validator():
     and returns success. Keying on the exit code alone would be a check that runs, passes, and
     measures nothing.
     """
+    if "--no-vendor" in sys.argv:
+        skip("vendor skill validator: --no-vendor given, `claude plugin validate` not run. "
+             "Run without it before shipping a revision.")
+        return
     claude = shutil.which("claude")
     if not claude:
         bad("`claude` is not on PATH, so the vendor's skill validator could not run. A check "
@@ -933,6 +964,7 @@ def main():
     verbose = "-v" in sys.argv or "--verbose" in sys.argv
     check_integrations()
     check_template_revisions()
+    check_release_notes()
     check_template_size()
     check_dashes()
     check_dates()

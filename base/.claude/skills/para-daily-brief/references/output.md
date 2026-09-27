@@ -1,6 +1,6 @@
 # Rendering the brief (Step 6)
 
-Exact terminal layout, filtered to the argument's sections. Always start with the H1 title. Sections with no content are omitted - no empty placeholders.
+Exact terminal layout, filtered to the argument's sections. Always start with the H1 title. Sections with no content are omitted.
 
 ````
 # Daily Brief - <YYYY-MM-DD> - <vault name>
@@ -9,7 +9,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 ```
 [P] ticketing-platform-replacement  ██████████ 14 open · 2 🔴 · 10 undated
 [P] cashless-stadium-rollout        █████░░░░░  7 open ·         5 undated
-[A] network (17 files)              ███░░░░░░░  4 open · 1 🔴 ·  2 undated
+[A] network (3 with open items)     ███░░░░░░░  4 open · 1 🔴 ·  2 undated
 (+N more entities · M open)
 ```
 **Totals:** N open · N 🔴 overdue · N upcoming · N undated (N%)
@@ -41,21 +41,23 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 **Next action:** <exactly one concrete step - see below>
 ````
 
-**The lifecycle line follows Totals**, one per declared lifecycle, stages in the table's own order and omitted entirely where the vault declares none. It is the only lifecycle content in the brief (Step 4f).
+**When Now is empty**, the `**Later:**` line renders alone, with no `🎯 Now` heading.
 
-The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block so the columns align. Bar rows: width 10, `round(10 x open / max_open)` filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append the full bucket sections (🔴 🟠 🟡 🔵 ⚪ 🔁 ⏳ ❓, each a complete list in the Now line format) after Health flags.
+**The lifecycle line follows Totals**, one per declared lifecycle, stages in the table's own order and omitted where the vault declares none.
 
-**Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>` so the entity is visible without opening the file; relative link targets from CWD. **A heading's `(N)` count must match the number of items rendered under it**, which means an overdue recurring item increments both the `🔴 Overdue` heading count and the `🔁 Recurring` heading count, even though the `Totals:` line counts it strictly once under Recurring.
+The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block. Bar rows: width 10, `round(10 x open / max_open)` filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append the full bucket sections (🔴 🟠 🟡 🔵 ⚪ 🔁 ⏳ ❓, each a complete list in the Now line format) after Health flags.
 
-**Percent-encode every link target**, never the link text: vault filenames carry spaces, commas, `#`, `&` and brackets. `triage/Invoice #42 & receipt.md` is written `[Invoice #42 & receipt.md](triage/Invoice%20%2342%20%26%20receipt.md)`; an unencoded `#` truncates the target at the fragment.
+**Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>`, or `<person>:<line>` from the scan's `person` field for a contact item; relative link targets from CWD. **A long task text is cut, never wrapped:** to its bold lead where it has one, else to its first clause (up to the first `;`, ` - ` or sentence end), and to 100 characters at a word boundary with `…` if still longer. **A heading's `(N)` counts the items rendered under it**: an overdue recurring item counts under both `🔴 Overdue` and `🔁 Recurring`, while `Totals:` counts it once, under Recurring.
+
+**Percent-encode every link target** (spaces, commas, `#`, `&`, brackets), never the link text.
 
 ## The Type B vault
 
-Same layout, minus the sections the task scan feeds (SKILL.md Step 1b). Keep the H1, then 🗓 Agenda, 🚩 Health flags (the over-grown-brief flag only, when it fires), 💡 Ideas, 📥 Triage and the **Next action** close, in that order. One italic line under the H1 says action tracking is absent by design, not missing, and nothing repeats it per section. The triage heading keeps its canonical form, `## 📥 Triage (N to process)`, with no "run /para-triage" added.
+Same layout, minus the sections the task scan feeds (SKILL.md Step 1b). Keep the H1, then 🗓 Agenda, 🚩 Health flags (the over-grown-brief flag only, when it fires), 💡 Ideas, 📥 Triage and the **Next action** close, in that order. One italic line under the H1 says action tracking is absent by design, and nothing repeats it per section. The triage heading stays `## 📥 Triage (N to process)`.
 
 ## The entity scope
 
-A different layout, not the vault brief with rows removed. The question is "where does this one thing stand", so the buckets lead and nothing is capped.
+A different layout, not the vault brief with rows removed: the buckets lead and nothing is capped.
 
 ````
 # <entity> - <YYYY-MM-DD>
@@ -84,14 +86,14 @@ The bucket letter and path are the resolved entity's, `[A] areas/<entity>` for a
 
 Rules specific to this scope:
 
-- **Every open item renders**, in the same one-line format as Now. The five-item cap is a vault-wide device and does not apply.
+- **Every open item renders**, in the same one-line format as Now.
 - **Empty buckets are omitted.** The four low-urgency buckets share one heading line when each is small; give any of them its own section once it exceeds five items.
 - **The header line replaces 📊 Vault state.**
 - **`🔗 Mentioned elsewhere` is not this entity's work.** It is the second grep from task-scan.md. Its counts never join the header totals, and each line names the file that owns it.
-- **Health flags are filtered to this entity** (over-threshold, stale, falsely-overdue, stale recurrence, over-grown brief). The vault-wide ones - misplaced checkboxes, undated majority - are not computed.
+- **Health flags are this entity's only**, as signals.md Step 4c scopes them.
 - **The Next action still closes it**, chosen from this entity's own items only, never from `🔗 Mentioned elsewhere`.
 
-**The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item; a Type B vault, which has neither, takes the oldest triage item, else an idea brief's stated next step, Vision breaking ties). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. One - never a list, never a question.
+**The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item; a Type B vault, which has neither, takes the oldest triage item, else an idea brief's stated next step, Vision breaking ties). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. Never a question.
 
 ## Example fragment
 

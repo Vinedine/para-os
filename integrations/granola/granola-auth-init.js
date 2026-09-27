@@ -1,26 +1,35 @@
 // granola-auth-init.js  (ONE-TIME / re-login bootstrap - run this once before your first sync)
-// para-os-integration: granola 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: granola 2026.09.05 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 //   node granola-auth-init.js
 // Extracts the Granola login token from the local Granola desktop app and writes it to the paraos
 // secret (~/.paraos/secrets/granola.json), then does a quick API sanity check. Run it again only if
 // the refresh token ever dies (you logged out / back in to the Granola app). Normal syncing never
 // needs this - granola.js refreshes the token itself.
 //
-// PLATFORM: Windows only. It reads the Granola app's encrypted token store via Windows DPAPI
-// (through PowerShell). macOS/Linux are not supported by this script - see the README.
+// PLATFORM: Windows and macOS. Granola is an Electron app and encrypts its token store with the
+// OS's secret store: on Windows the key is DPAPI-protected (read through PowerShell), on macOS it
+// is the "Granola Safe Storage" Keychain item (read with `security`, which asks once for access).
+// An older app that left a plain supabase.json is read as it is. Linux has no Granola app.
 //
 // Integration state lives under ~/.paraos (override with PARAOS_HOME); see ~/.paraos/README.md.
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const crypto = require("crypto");
 const { execFileSync } = require("child_process");
 
-const DIR = path.join(process.env.APPDATA, "Granola"); // the local Granola app's encrypted store
-const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE, ".paraos");
+const WIN = process.platform === "win32", MAC = process.platform === "darwin";
+// The local Granola app's store: %APPDATA%\Granola on Windows, ~/Library/Application Support/Granola on macOS.
+const DIR = process.env.GRANOLA_APP_DIR || (WIN ? path.join(process.env.APPDATA || "", "Granola")
+  : path.join(os.homedir(), "Library", "Application Support", "Granola"));
+const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE || os.homedir(), ".paraos");
 const AUTH_FILE = path.join(PARAOS_HOME, "secrets", "granola.json");
+// Electron names the Keychain item "<app name> Safe Storage".
+const KEYCHAIN_SERVICES = ["Granola Safe Storage", "granola Safe Storage"];
 
-function masterKey() {
+// ---- Windows: Chromium os_crypt, AES-256-GCM under a DPAPI-protected key ----
+function windowsMasterKey() {
   const ls = JSON.parse(fs.readFileSync(path.join(DIR, "Local State"), "utf8"));
   const b64 = ls.os_crypt.encrypted_key;
   const ps = `Add-Type -AssemblyName System.Security
@@ -34,10 +43,43 @@ function gcm(buf, key, off) {
   const d = crypto.createDecipheriv("aes-256-gcm", key, nonce); d.setAuthTag(tag);
   return Buffer.concat([d.update(ct), d.final()]);
 }
-function decrypt(file, dek) {
-  const buf = fs.readFileSync(path.join(DIR, file));
+
+// ---- macOS: Chromium os_crypt, AES-128-CBC under a key derived from the Keychain password ----
+// The fixed salt, iteration count and all-spaces IV are Chromium's, not secrets.
+function macKey(password) {
+  return crypto.pbkdf2Sync(Buffer.from(password, "utf8"), "saltysalt", 1003, 16, "sha1");
+}
+function macDecrypt(buf, key) {
+  const prefix = buf.slice(0, 3).toString("latin1");
+  if (prefix !== "v10" && prefix !== "v11") throw new Error("not a Chromium-encrypted blob (prefix " + JSON.stringify(prefix) + ")");
+  const d = crypto.createDecipheriv("aes-128-cbc", key, Buffer.alloc(16, " "));
+  return Buffer.concat([d.update(buf.slice(3)), d.final()]);
+}
+function keychainPassword() {
+  for (const service of KEYCHAIN_SERVICES) {
+    try { return execFileSync("security", ["find-generic-password", "-w", "-s", service], { stdio: ["ignore", "pipe", "ignore"] }).toString().trim(); }
+    catch {}
+  }
+  throw new Error(`no Keychain item named ${KEYCHAIN_SERVICES.map(s => JSON.stringify(s)).join(" or ")}: `
+    + "is the Granola app installed and signed in on this Mac? If macOS asked for Keychain access, allow it and run this again.");
+}
+
+// The data key that encrypts supabase.json.enc, from storage.dek, per platform.
+function dataKey() {
+  const dek = fs.readFileSync(path.join(DIR, "storage.dek"));
+  const b64 = WIN ? gcm(dek, windowsMasterKey(), 3) : macDecrypt(dek, macKey(keychainPassword()));
+  return Buffer.from(b64.toString(), "base64");
+}
+function decrypt(buf, dek) {
   for (const off of [0, 3]) { try { return gcm(buf, dek, off); } catch {} }
-  throw new Error("could not decrypt " + file);
+  throw new Error("could not decrypt supabase.json.enc");
+}
+// Granola's token store: the encrypted one current apps write, or the plain one older apps left.
+function readStore() {
+  const enc = path.join(DIR, "supabase.json.enc"), plain = path.join(DIR, "supabase.json");
+  if (fs.existsSync(enc)) return JSON.parse(decrypt(fs.readFileSync(enc), dataKey()).toString());
+  if (fs.existsSync(plain)) return JSON.parse(fs.readFileSync(plain, "utf8"));
+  throw new Error(`no Granola token store in ${DIR}: is the Granola app installed and signed in?`);
 }
 
 async function refresh(clientId, refreshToken) {
@@ -45,16 +87,19 @@ async function refresh(clientId, refreshToken) {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ grant_type: "refresh_token", client_id: clientId, refresh_token: refreshToken }),
   });
-  const j = await r.json();
-  if (!r.ok) throw new Error("refresh failed " + r.status + " " + JSON.stringify(j).slice(0, 200));
-  return j;
+  // Status first: a refusal need not be JSON (a proxy's HTML 502), and parsing it first
+  // would report a parse error with the status lost.
+  if (!r.ok) throw new Error("refresh failed " + r.status + " " + (await r.text()).slice(0, 200));
+  return r.json();
 }
 
 async function main() {
-  const mk = masterKey();
-  const dek = Buffer.from(gcm(fs.readFileSync(path.join(DIR, "storage.dek")), mk, 3).toString(), "base64");
-  const store = JSON.parse(decrypt("supabase.json.enc", dek).toString());
-  const wt = JSON.parse(store.workos_tokens);
+  if (!WIN && !MAC) {
+    console.error("granola-auth-init.js runs on Windows and macOS, where the Granola app runs. See integrations/granola/README.md.");
+    process.exitCode = 1; return;
+  }
+  const store = readStore();
+  const wt = typeof store.workos_tokens === "string" ? JSON.parse(store.workos_tokens) : store.workos_tokens;
   const payload = JSON.parse(Buffer.from(wt.access_token.split(".")[1], "base64").toString());
   const clientId = payload.iss.split("/").pop();
   const now = Math.floor(Date.now() / 1000);
@@ -70,7 +115,7 @@ async function main() {
   }
 
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
-  fs.writeFileSync(AUTH_FILE, JSON.stringify({ client_id: clientId, refresh_token: refreshTok, access_token: access, access_expires: exp }, null, 2));
+  fs.writeFileSync(AUTH_FILE, JSON.stringify({ client_id: clientId, refresh_token: refreshTok, access_token: access, access_expires: exp }, null, 2), { mode: 0o600 });
   console.log("[ok] wrote token to:", AUTH_FILE);
 
   // quick sanity check
@@ -87,4 +132,7 @@ async function main() {
     console.log("[x] API returned HTTP", res.status, "-", (await res.text()).slice(0, 200));
   }
 }
-main().catch(e => console.log("[x]", e.message));
+// Run only when invoked directly, so the tests can require() the decryption helpers.
+if (require.main === module) main().catch(e => { console.error("[x]", e.message); process.exitCode = 1; });
+
+module.exports = { gcm, macKey, macDecrypt, decrypt, readStore };
