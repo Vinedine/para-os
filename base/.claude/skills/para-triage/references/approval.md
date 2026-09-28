@@ -21,12 +21,13 @@ What a question may offer; [the table path](#the-table-path) offers less. Nothin
 
 **A subdirectory is listed, never asked**: every option it could get changes nothing. It goes under the manifest (`Subdirectories, not asked: ...`) and in the summary.
 
-**A staged mail note takes the connector-thread vocabulary too.** A loose `.md` staged from a mailbox (by `/para-ingest` or an earlier **Note to triage**; the scan's `note.mail_note`) stands in for its thread. Its question may add **Update existing**, **Add action** and **Dismiss (other vault)**, each also disposing of the note, and the option says how: `Update existing, note deleted` is the default shape, since the thread survives in the mailbox and the note's Link names it; file the note too only where it holds content the mailbox copy does not. **Dismiss (noise)** is **Delete (no lasting value)** here, and **Leave thread** is **Leave in triage**. Its thread was ledgered when staged, so triage writes no seen-ledger entry for it.
+**A staged mail note takes the connector-thread vocabulary too.** A loose `.md` staged from a mailbox (by `/para-ingest` or an earlier **Note to triage**; the scan's `note.mail_note`) stands in for its thread. Its question may add **Update existing**, **Add action**, **Add register row** and **Dismiss (other vault)**, each also disposing of the note, and the option says how: `Update existing, note deleted` is the default shape, since the thread survives in the mailbox and the note's Link names it; file the note too only where it holds content the mailbox copy does not. **Dismiss (noise)** is **Delete (no lasting value)** here, and **Leave thread** is **Leave in triage**. Its thread was ledgered when staged, so triage writes no seen-ledger entry for it.
 
 **Connector threads** (named by subject, sender and date):
 
-- **Update existing** - bears on something the vault already tracks: annotate that `actions.md` line or contact/project note. **The default in an active vault.**
+- **Update existing** - bears on something the vault already tracks: annotate that `actions.md` line or contact/project note, or rewrite a register row's last touch and next step. **The default in an active vault.**
 - **Add action** - a genuinely new to-do with no tracked home: **one next step**, the immediately actionable move, never several checkboxes. Where the destination file holds 12 or more open items, say so in the option description (`file at N open - groom?`). **Never in notes-only vaults.**
+- **Add register row** - a counterparty new to a lifecycle whose first stage is [a row home](../../para-shared/lifecycles.md#folder-homes-and-row-homes) (a prospect's first mail, where the vault keeps a lead register), held by no row or folder of it yet. One row in the register's column order, each cell in the shape its rule file gives: that first stage, the message's date wherever the row records its opening or last touch, one next step as **Add action** words it, the rule file's placeholder only where the mail leaves a cell open, and a column kept empty while the row is open left empty. **Show the row in full before approval**: in the option description, or directly under the table on [the table path](#the-table-path). Offered only where such a lifecycle is declared and its register exists.
 - **Note to triage** - worth keeping; filed on a later pass, never straight into `projects/`.
 - **Dismiss (noise)** - never action-worthy in any vault (newsletter, notification, bot, promo); ledgered. Destination "(ledger only)".
 - **Dismiss (other vault)** - real correspondence for a different vault; **not** ledgered. Destination "(belongs to \<vault\>)".
@@ -71,6 +72,6 @@ After it, list the **follow-on edits** to each receiving entity's `README.md` or
 The arguments that do not ask are `preview`, `apply`, `convert` and `table`, plus any run with no interactive operator ([SKILL.md](../SKILL.md) Steps 5 and 6). The `Action` column holds only these:
 
 - **Files**: File it, File it + rotate Nx, Extract, Split, Run vault script, Delete (duplicate), Delete (redundant scan), Delete (no lasting value), Move out of vault, Leave in triage.
-- **Threads and staged mail notes**: Update existing, Add action, Note to triage, Dismiss (noise), Dismiss (other vault), Leave thread.
+- **Threads and staged mail notes**: Update existing, Add action, Add register row, Note to triage, Dismiss (noise), Dismiss (other vault), Leave thread.
 
 A file needing a new entity is **Leave in triage**, its Why naming the entity to create: `/para-new` asks questions nobody is there to answer.

@@ -81,9 +81,9 @@ One line per category: N files moved (each linked to its new path), N deleted wi
 - **Don't touch `_*` prefixed subdirectories in triage** without explicit direction: they are handoff batches the maintainer manages by hand.
 - **Never search Drive unscoped.** A query without the `drive_id` from the vault's `drive` row can answer "No files found" while the document sits in the folder: a **false quiet**. With no `drive` row, say the drive is undeclared. Never infer an id, and never report "nothing found" from an unscoped query.
 - **Never auto-delete a converted Google-native stub.** It gets its own delete question, or Delete row, like anything else. Idempotency comes from the conversion ledger.
-- **Mail is read-only.** Never send, reply, archive, or apply a label; surface and draft only. The only writes for a mailbox source are the local `triage/` note, the `actions.md` line, and the ledger.
-- **Connector items land in `triage/` or `actions.md`, never straight into `projects/` or an entity folder, and never into a *different* vault**: a thread for elsewhere is **Dismiss (other vault)**.
-- **Fuzzy-match before creating.** Check existing contacts, projects, and open `actions.md` items first; a thread bearing on tracked work is **Update existing**, not a duplicate.
+- **Mail is read-only.** Never send, reply, archive, or apply a label; surface and draft only. The only writes for a mailbox source are the local `triage/` note, the `actions.md` line or register row, and the ledger.
+- **Connector items land in `triage/`, `actions.md` or a register row, never straight into `projects/` or an entity folder, and never into a *different* vault**: a thread for elsewhere is **Dismiss (other vault)**.
+- **Fuzzy-match before creating.** Check existing contacts, projects, register rows and open `actions.md` items first; a thread bearing on tracked work is **Update existing**, not a duplicate.
 - **One next step per thread, and flag fat files.** A thread yields at most one new checkbox, and appending to a file at 12+ open items gets the WIP flag, pointing at `/para-deep-clean`.
 
 ## Edge cases
