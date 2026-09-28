@@ -802,6 +802,7 @@ def stage_of(path):
 def stage_parts(body, raw):
     name = re.split(r"\s+-\s+", body.split("(", 1)[0])[0].strip()
     rest = body[len(name):].strip().lstrip("-").strip()
+    name = name.rstrip(".,;:!?").strip()
     if rest.startswith("(") and rest.endswith(")"):
         rest = rest[1:-1].strip()
     since = SINCE_RE.search(rest)
