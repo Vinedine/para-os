@@ -44,7 +44,7 @@ Confirm before starting:
 
    - **Vault behind the shipped marker, or carrying none:** stop and say to run `/para-upgrade` first.
    - **Vault ahead of the shipped marker:** it was aligned to a revision that has not shipped yet, as a test upgrade against an in-flight branch leaves it. Name the two markers in one line and carry on, auditing against the vault's own `CLAUDE.md`. **Never send this vault to `/para-upgrade`**, which refuses to downgrade.
-   - **No para-os clone on this machine:** skip the check, say the vault's revision could not be verified, and carry on.
+   - **No clone found** (`verdict: no_clone`, per [para-shared/scripts.md](../para-shared/scripts.md)): skip the check, say no para-os clone was found so the vault's revision could not be verified, and carry on.
    - **A clone the scan reports `ref_missing` on the default ref:** it was made before releases moved to `stable`. Offer the one-time switch (`git -C <clone> fetch origin`, then `git -C <clone> checkout stable`) and check again; declined, carry on as with no clone.
 
 If the vault is on the read-only iPad delivery and **collected**, offer to run [its edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) around the phases that write.

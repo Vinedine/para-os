@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Extra fixture for the shell-upgrade-audit-reports-the-delta case. Builds two directory
+# Extra fixture for the shell-upgrade-* cases. Builds two directory
 # trees side by side under the run directory, neither nested inside the other:
 #
 #   vault/           a real vault root, ALREADY stamped with the clone's current revision.
