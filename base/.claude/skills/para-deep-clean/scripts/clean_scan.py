@@ -858,10 +858,18 @@ def phase4(vault, templates_dirs, dated_pattern, today):
     touched |= set(ph_files)
     rows.append({"check": "placeholders", "pass": not placeholders, "detail": placeholders})
 
+    # The files Phase 3 grooms. An action file over the threshold fails; any other checkbox
+    # file over it is pass: None, since whether it declares its own contract is the skill's.
     files = action_files(vault)
-    over_threshold = over_threshold_from(files, vault)
-    touched |= set(files)
-    rows.append({"check": "over_threshold_files", "pass": not over_threshold, "detail": over_threshold})
+    other_paths = other_checkbox_paths(vault)
+    over_threshold = over_threshold_from(files + other_paths, vault)
+    touched |= set(files) | set(other_paths)
+    action_rels = {f.relative_to(vault).as_posix() for f in files}
+    if any(r["file"] in action_rels for r in over_threshold):
+        over_pass = False
+    else:
+        over_pass = None if over_threshold else True
+    rows.append({"check": "over_threshold_files", "pass": over_pass, "detail": over_threshold})
 
     aspirational = aspirational_from(files, vault, today)
     rows.append({"check": "aspirational_dates", "pass": not aspirational, "detail": aspirational})
@@ -873,8 +881,9 @@ def phase4(vault, templates_dirs, dated_pattern, today):
     touched |= {vault / c["card"] for c in uncited}
     touched |= {vault / f["file"] for c in uncited for f in c["files"]}
     touched |= {vault / f for f in uncited_exempt}
-    uncited_count = sum(len(c["files"]) for c in uncited)
-    rows.append({"check": "uncited_contacts", "pass": None, "detail": uncited_count})
+    rows.append({"check": "uncited_contacts", "pass": None,
+                 "detail": {"cards": len(uncited),
+                            "card_files": sum(len(c["files"]) for c in uncited)}})
 
     inline_details = inline_contact_details(vault)
     touched |= {vault / d["file"] for d in inline_details}
