@@ -23,7 +23,7 @@ Triage emptiness is already enforced by the skill's preconditions - no need to r
 - **Stale draft files**: `.doc` / `.docx` drafts alongside signed `.pdf` finals. Some vaults keep them as searchable text: check the README before proposing deletion.
 - **Naming convention violations**: filenames not matching the vault's convention, judged per [A vault's rule files](../../para-shared/operating-discipline.md#a-vaults-rule-files) (legacy suffixes like ` - FINAL`, typos, wrong dates, wrong language).
 - **Cross-reference link style**: links should match the vault's mode. With collected/spread and `.pdf` siblings, links inside READMEs target `.md` so they work in both modes.
-- **Dangling links**: every relative `](path)` in a live-bucket file must resolve to a file that exists. Report each with its source file and the likely intended target. Out of scope: external URLs, and absolute paths in any form they take - a drive-letter path (`C:\...`), a UNC share (`\\host\...`), and a **`file:///` URI**. An absolute machine-local path is worth mentioning once as a portability finding, but it is not a dangling link. Nor is a template placeholder: a bare `<placeholder>` target, or `<...>` inside a path. A whole target in angle brackets (`[x](<projects/my file.md>)`) is a real link, brackets stripped, and a trailing `"title"` is never part of a target.
+- **Dangling links**: every relative `](path)` in a live-bucket file or under `archive/` must resolve to a file that exists; a path an archived record names in prose is history, not a link. Report each with its source file and the likely intended target. Out of scope: external URLs, and absolute paths in any form they take - a drive-letter path (`C:\...`), a UNC share (`\\host\...`), and a **`file:///` URI**. An absolute machine-local path is worth mentioning once as a portability finding, but it is not a dangling link. Nor is a template placeholder: a bare `<placeholder>` target, or `<...>` inside a path. A whole target in angle brackets (`[x](<projects/my file.md>)`) is a real link, brackets stripped, and a trailing `"title"` is never part of a target.
 
   **Percent-decode the href before resolving it.** Decode with a real URL-decoder (`urllib.parse.unquote`), never a shell substitution. An href ends at the `)` that balances its opening `(`. Strip any `#fragment` before resolving, and resolve relative to the **linking file's own folder**, not the vault root. Scanning by hand, apply the same rules `paraos_vault.dangling_links()` does.
 
@@ -58,11 +58,11 @@ One table, shown **before** applying anything:
 | # | Issue | Where | Proposed fix |
 |---|---|---|---|
 
-Wait for explicit approval. **Batch approval is allowed only for non-destructive normalisations** (naming-convention fixes, link-style normalisations, casing fixes). **Deletions, moves between PARA buckets, and any destructive operation require individual approval** - no batching, no exceptions, per [operating-discipline.md](../../para-shared/operating-discipline.md).
+Wait for explicit approval. **Batch approval is allowed only for non-destructive normalisations** (naming-convention fixes, link-style normalisations, casing fixes). **Deletions, moves between PARA buckets, and any destructive operation require individual approval**, per [operating-discipline.md](../../para-shared/operating-discipline.md).
 
 ## Step 1.4 - Apply
 
-In priority order: non-destructive first (link style, naming consistency), destructive last. Apply the batched normalisations from the issues table, then the deletions **one at a time, each on its own approval**.
+In priority order: non-destructive first (link style, naming consistency), destructive last. Apply the batched normalisations from the issues table, then the deletions **one at a time**, per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file).
 
 **Every approved move carries its links.** Run `move_plan` before moving a file or folder, apply its `inside` rewrites (links inside the moved content pointing out) and its `inbound` rewrites (links from the rest of the vault pointing in), per [operating-discipline.md](../../para-shared/operating-discipline.md) "Moving an entity folder". Re-run the dangling-link scan after any move in this step.
 

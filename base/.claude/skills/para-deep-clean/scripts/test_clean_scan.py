@@ -269,6 +269,25 @@ class DanglingLinks(VaultCase):
               "# Acme\n\n[good](../../resources/ideas/the%20thing/brief.md)\n")
         self.assertEqual(self.run_scan("1")["phase1"]["dangling"], [])
 
+    def test_archived_entity_outward_link_checked(self):
+        # A link written inside an archived entity is checked like a live one, decoded;
+        # the same path named in prose is a historical mention and stays exempt.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan claes.md", "# Jan Claes\n")
+        write(self.root, "archive/projects/old-shop/brief.md", "\n".join([
+            "# Old shop", "",
+            "[contact](../../../areas/network/jan%20claes.md)",
+            "[plan](../../../projects/old-shop/plan.md)",
+            "Was filed at projects/old-shop/notes.md before the move.", "",
+        ]))
+        for phase, hits in (("1", self.run_scan("1")["phase1"]["dangling"]),
+                            ("4", next(r["detail"] for r in self.run_scan("4")["phase4"]["rows"]
+                                       if r["check"] == "dangling_links"))):
+            with self.subTest(phase=phase):
+                self.assertEqual([(h["file"], h["href"]) for h in hits],
+                                 [("archive/projects/old-shop/brief.md",
+                                   "../../../projects/old-shop/plan.md")])
+
 
 class CheckerVerified(VaultCase):
 

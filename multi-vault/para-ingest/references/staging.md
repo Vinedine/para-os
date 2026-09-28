@@ -23,13 +23,15 @@ That exact derivation, not merely *a* hash: it lets any later run **recompute a 
 - **Routed:** <the reason from routing.md>
 - **Content:** <what stands in for the message, and what was left out>
 - **Link:** <permalink to the thread>
+- **Message id:** <the newest message's id as the source's read tool takes it; a fetch script's `read`>
+- **Conversation id:** <the source's conversation id, where it has one>
 
 <snippet or body>
 ```
 
 Two rules about the content:
 
-- **Whatever stands in for the message is qualified in the note itself, on the `Content` line above the `Link` line.** A note holding a 200-character snippet must say so.
+- **Whatever stands in for the message is qualified in the note itself, on the `Content` line.** A note holding a 200-character snippet must say so.
 - **No proposed action, no classification, no urgency.** The note records what arrived and why it was routed here.
 
 ### A resurfaced thread stages a fresh note

@@ -158,6 +158,9 @@ def aggregate(tasks):
         row["files"] = len(row["files"])
         out.append(row)
     out.sort(key=lambda r: (-r["open"], r["label"]))
+    top = out[0]["open"] if out else 0
+    for row in out:  # filled cells of a 10-wide bar, rounded half-up: 3 of 12 fills 3
+        row["bar"] = (20 * row["open"] + top) // (2 * top)
     return out
 
 
@@ -338,8 +341,9 @@ def scan(vault, today, entity=None):
         "undated": sum(1 for t in scoped_tasks if t["lane"] == "undated"),
     }
     report["lanes"] = {}
-    for t in scoped_tasks:
-        report["lanes"].setdefault(t["lane"], []).append({"file": t["file"], "line": t["line"]})
+    for t in scoped_tasks:  # an overdue recurring item sits in both lanes, and Now
+        for lane in [t["lane"]] + (["overdue"] if t["also_overdue"] else []):
+            report["lanes"].setdefault(lane, []).append({"file": t["file"], "line": t["line"]})
     entity_path = resolution["match"]["path"] \
         if resolution and resolution["status"] == "resolved" else None
     report["flags"] = health_flags(vault, scoped_tasks, today, dates,
