@@ -14,7 +14,7 @@ Only approved items execute, whether approved by their own question or by a tabl
 - **Repoint inbound references in the same step** as the delete or move that breaks them, to the survivor or new path the approval named, resolving each rewritten link to a file that exists.
 - **Collision check before every move**: `test -e "<dst>" && echo EXISTS`. If it exists, stop the whole batch, report it, and ask how to resolve it; `mv` clobbers silently and has no undo. Once clear: `mv "<src>" "<dst>"`, absolute paths, quoted.
 - **On any failure**: report which moves succeeded and which failed, and wait for direction.
-- **Deletions are recoverable.** A git-tracked file: `git rm "<path>"`. An untracked one goes to the system trash: Windows PowerShell `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile("<path>", 'OnlyErrorDialogs', 'SendToRecycleBin')`, macOS `osascript -e 'tell application "Finder" to delete POSIX file "<absolute path>"'`, Linux `gio trash "<path>"`. With no trash reachable, say the delete is permanent and ask before `rm`. Delete only a file whose own Delete disposition was approved, named in full in its own command, never by a glob or pattern, and say in the summary which way each went.
+- **Delete only a file whose own Delete disposition was approved**, per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file).
 - **Mkdir** only for destinations named in an approved disposition.
 - **Image rotation** (Windows, System.Drawing): `Save` with no format argument keeps the source format, and the temp path is needed because `FromFile` holds a handle on `$src`:
 
