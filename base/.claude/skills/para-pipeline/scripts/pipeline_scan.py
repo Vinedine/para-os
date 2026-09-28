@@ -199,6 +199,13 @@ def next_step_for_folder(vault, today, doc, fields, other_files):
     return champion_step(vault, today, doc.parent, fields)
 
 
+# A date the wording attaches to a register row's step: a 📅 marker, `by` or `on` before it,
+# or the date closing the cell. A date anywhere else in the prose is not the due date.
+STEP_DATE_RE = re.compile(
+    r"📅️?\s*(\d{4}-\d{2}-\d{2})|\b(?:by|on)\s+(\d{4}-\d{2}-\d{2})|(\d{4}-\d{2}-\d{2})\W*$",
+    re.IGNORECASE)
+
+
 def next_step_for_row(vault, today, reg_path, row, header_cols):
     fields = {k: row[k] for k in header_cols}
     step = champion_step(vault, today, reg_path.parent, fields)
@@ -207,10 +214,10 @@ def next_step_for_row(vault, today, reg_path, row, header_cols):
 
     next_key = next((k for k in header_cols if k.strip().lower() == "next step"), None)
     text = (row.get(next_key) or "").strip() if next_key else ""
-    if not text:
+    if text in ("", "-") or text.lower().startswith("none planned"):
         return None
-    m = DATE_RE.search(text)
-    d = parse_date(m.group(0)) if m else None
+    m = STEP_DATE_RE.search(text)
+    d = parse_date(next(g for g in m.groups() if g)) if m else None
     return {"text": text, "date": iso(d), "days": (d - today).days if d else None,
             "file": reg_path.relative_to(vault).as_posix(), "line": row.get("line"),
             "source": "register_row"}
@@ -326,6 +333,14 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
     return entities, no_stage, False
 
 
+def name_label(cell):
+    """A name cell reduced to its label: a link to its text, then a trailing note dropped.
+    "Acme NV ([acme.example](https://acme.example))" is Acme NV, "Jan Janssen (via a
+    partner)" is Jan Janssen."""
+    text = strip_links(cell or "").strip()
+    return re.sub(r"\s+\(.*\)$", "", text) or text
+
+
 def collect_row_entities(vault, home, stage_by_name, stage_index, today):
     reg_path = vault / home
     if not reg_path.is_file():
@@ -349,16 +364,13 @@ def collect_row_entities(vault, home, stage_by_name, stage_index, today):
                          {"stage_home": matched["home"],
                           "found_in": reg_path.relative_to(vault).as_posix()})
 
-        name_val, name_from = row.get("name", ""), None
+        name_val, name_from = name_label(row.get("name", "")), None
         if name_val.strip().lower() == "unknown":
             contact_key = next((k for k in header_cols if k.strip().lower() == "contact"), None)
             if contact_key is None and len(header_cols) > 1:
                 contact_key = header_cols[1]
-            name_val = row.get(contact_key, "") if contact_key else name_val
+            name_val = name_label(row.get(contact_key, "")) if contact_key else name_val
             name_from = "contact"
-            # A trailing note in the Contact cell is not part of the name:
-            # "Jan Janssen (via a partner)" is Jan Janssen.
-            name_val = re.sub(r"\s+\(.*\)\s*$", "", name_val) or name_val
 
         closed = matched["terminal"] or ((row.get("section") or "").strip().lower() == "closed")
         if closed:

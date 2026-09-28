@@ -34,9 +34,9 @@ standing for one path segment.
   with the row's `##` section kept so a closed section can be excluded from the live board.
   **A row whose name column reads `unknown` takes its Contact column instead** (the second
   column where the table has no Contact column), and the record carries `name_from:
-  "contact"`; the collision check below skips every name recovered this way. A trailing
-  parenthetical in that cell is dropped: `Jan Janssen (via a partner)` reads as `Jan
-  Janssen`.
+  "contact"`; the collision check below skips every name recovered this way. Either name
+  is reduced to its label: a link to its text, then a trailing parenthetical dropped, so
+  `Jan Janssen (via a partner)` reads as `Jan Janssen`.
 - **A terminal home** is globbed like any other. Its entities are collected and marked
   closed, for the metrics alone.
 
@@ -73,8 +73,10 @@ One next step per entity, taken from the first of these that produces an open ch
    the same file. Follow the link as written; a champion line with no
    link, or a link resolving to nothing, is the no-next-step case rather than a name to
    search for.
-4. **The row's own next-step column**, for an entity in a row home, with a date read from it
-   where it carries one in `YYYY-MM-DD` form. An undated one still counts.
+4. **The row's own next-step column**, for an entity in a row home. Its date is one the
+   wording attaches to the step: a `📅` marker, `by` or `on` before it, or the date closing
+   the cell. A date elsewhere in the prose is not the due date. An undated step still
+   counts; `None planned`, `-` and an empty cell do not.
 
 An entity that reaches the end of that list with nothing open **has no next step**, which is
 a flag rather than an error. Never compose one from the brief's prose, and never present a
