@@ -15,9 +15,9 @@ How a document is named and where it lives once it leaves `triage/`. A conventio
 Match the folder you are filing into. Never mass-rename existing files to move a folder from one convention to another.
 
 - **`YYYYMMDD <Who> <Description>.<ext>` is the default**, for one-off dated documents: invoices, letters, contracts, statements. The date is the one on the document itself (issue, signing, inspection), never the date it arrived. `<Who>` is the most identifying party; `<Description>` is the document type, ending in any reference number it carries. A vault that uses another default changes it here and in its `CLAUDE.md` one-liner together.
-- **A folder that already follows a variant keeps it.** A folder established on `YYYYMMDD_<Description>_<Ref>.<ext>` stays underscored, so its listing stays sortable and consistent. The vault's own copy of this file names each variant and the folders it holds in.
+- **A folder that already follows a variant keeps it.** A folder established on `YYYYMMDD_<Description>_<Ref>.<ext>` stays underscored. The vault's own copy of this file names each variant and the folders it holds in.
 - **A document attesting to a period files under the period it covers.** Annual attestations (tax, insurance, institutional certificates, loan interest) are `YYYY - <Issuer> - <Person>.<ext>`, one per year per person, and the year is the one covered, not the one issued: an attestation for 2019 income issued in 2020 files as `2019 - ...`.
-- **A machine-generated export keeps the name its system produced.** The filename is part of the export's identity.
+- **A machine-generated export keeps the name its system produced**; a second one of that name in the same folder takes a numeric suffix (`statement-2.csv`).
 - **An executed filing rule outranks everything above.** Where a vault script names and files a document type, run it and never file that type by hand: `/para-triage` runs the script instead of proposing a destination and a name. The vault's `CLAUDE.md` names each such script in one line.
 
 ## Where it lives
