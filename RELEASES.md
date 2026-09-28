@@ -10,9 +10,9 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ## 2026.09.07
 
-**What changes for you.** A fix to `/para-upgrade`: when it re-checks an installed script's own tests, it now runs all of them, not just the first. A fix to `/para-triage`: a file that lands in `triage/` while a triage run is going, from a mail sync for instance, is left alone and named at the end, never deleted with the files you approved.
+**What changes for you.** A fix to `/para-upgrade`: when it re-checks an installed script's own tests, it now runs all of them, not just the first. A fix to `/para-triage`: a file that lands in `triage/` while a triage run is going, from a mail sync for instance, is left alone and named at the end, never deleted with the files you approved. The daily brief puts overdue recurring items in Now. The pipeline board no longer drops a prospect over a full stop after its stage, and counts a won lead once. The deep clean checks links inside `archive/`, stops flagging names in prompts, templates, synced newsletters and sent client documents, and says which checks it does by hand. Every skill that deletes sends files to the trash or version history, one named file at a time. `/para-upgrade` finds your copy of the kit at `~/.paraos/para-os` on its own, and brings module sections you copied in by hand up to the shipped wording. Mail notes staged from two mailboxes for one conversation are paired.
 
-**Do you need to do anything?** Run `/para-upgrade`.
+**Do you need to do anything?** Run `/para-upgrade`. If your copy of the kit is not at `~/.paraos/para-os`, pass `--clone <path>`. To keep the deep clean off a sent client document, put `<!-- frozen record: sent to client -->` near its top.
 
 ## 2026.09.06
 
