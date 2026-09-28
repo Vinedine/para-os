@@ -435,6 +435,42 @@ class NextStep(VaultCase):
         self.assertEqual(step["text"], "No date yet")
         self.assertIsNone(step["date"])
 
+    def row_entity(self, next_step, company="Theta Co"):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            f"| {company} | Ray | outreach | 2026-08-01 | Lead | {next_step} | 2026-08-01, x | open |",
+            "",
+        ]) + "\n")
+        return self.deal()["entities"][0]
+
+    def test_a_date_inside_the_step_prose_is_not_its_due_date(self):
+        # Issue #34, finding 1: a date in prose read back as the step's due date.
+        step = self.row_entity("Send the deck after the 2026-09-10 board meeting")["next_step"]
+        self.assertEqual(step["text"], "Send the deck after the 2026-09-10 board meeting")
+        self.assertIsNone(step["date"])
+
+    def test_a_date_attached_to_the_step_is_its_due_date(self):
+        for cell in ("Call on 2026-09-25 about the quote", "Send the quote by 2026-09-25",
+                     "Call 📅 2026-09-25, then the deck", "Chase the reference names, 2026-09-25"):
+            with self.subTest(cell=cell):
+                self.assertEqual(self.row_entity(cell)["next_step"]["date"], "2026-09-25")
+
+    def test_a_no_step_wording_is_no_next_step(self):
+        # Issue #34, finding 2: "None planned" suppressed the no_next_step flag.
+        for cell in ("None planned: raised at the partners meeting on 2026-09-10", "none planned",
+                     "-"):
+            with self.subTest(cell=cell):
+                e = self.row_entity(cell)
+                self.assertIsNone(e["next_step"])
+                self.assertTrue(e["flags"]["no_next_step"])
+
+    def test_a_linked_name_reduces_to_its_label(self):
+        # Issue #34, finding 3: the markdown link stayed inside the entity name.
+        e = self.row_entity("Call 2026-09-25", company="Acme NV ([acme.example](https://acme.example))")
+        self.assertEqual(e["name"], "Acme NV")
+
     def test_no_next_step_when_nothing_produces_a_checkbox(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Open", "",
