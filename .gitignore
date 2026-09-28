@@ -5,10 +5,12 @@
 # Personal notes beside the shared root CLAUDE.md.
 /CLAUDE.local.md
 
-# Maintainer skills for working on this repo are shared from the root .claude/. Only what is
-# named here: local settings, worktrees and anything else a session writes there stay out.
+# Maintainer skills and settings for working on this repo are shared from the root .claude/.
+# Only what is named here: local settings, worktrees and anything else a session writes
+# there stay out.
 !/.claude/
 /.claude/*
+!/.claude/settings.json
 !/.claude/skills/
 /.claude/skills/*
 !/.claude/skills/release/
