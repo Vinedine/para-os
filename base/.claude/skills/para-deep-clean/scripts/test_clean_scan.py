@@ -1233,7 +1233,7 @@ class CommandLine(VaultCase):
                 self.assertEqual(report["phase1"]["uncited_contacts"], [])
             else:
                 rows = {r["check"]: r["detail"] for r in report["phase4"]["rows"]}
-                self.assertEqual(rows["uncited_contacts"], 0)
+                self.assertEqual(rows["uncited_contacts"], {"cards": 0, "card_files": 0})
 
     def test_today_defaults_to_the_system_date(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
