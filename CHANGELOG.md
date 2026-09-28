@@ -44,6 +44,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **`working-preferences.md` no longer copies user-level preferences into every vault.** A preference the operator's user-level instructions already carry is repeated only when it must travel with the vault. Reaction: none for an existing vault.
 
+**Three template rules no longer contradict each other.** A contact card runs relationship context, then `## Next actions`, then any `## Backlog`; an entity README is the one at an entity's root, never one in its subfolders; a second machine export of the same name in one folder takes a numeric suffix. Reaction: take the reworded `**Contacts**` bullet and shape-file sentence into the vault's `CLAUDE.md`, and the export bullet into its `.claude/rules/filing.md`. A card that ends on `## Backlog` is now correct and needs no edit.
+
 **Integrations.** Updated to 2026.09.07: `outlook` (each `fetch` record carries `read`, the ready single-message read, `/users/<address>` and the `via` account included for a shared mailbox). Reaction: straight file copy of `outlook.py` where installed.
 
 ---
