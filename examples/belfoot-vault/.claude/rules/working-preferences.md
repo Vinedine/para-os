@@ -12,7 +12,7 @@ How the operator likes to work with the agent: the one thing built-in memory is 
 **How, never what.** A preference says how the operator wants the work done: tone and register, length, format, which details to lead with or leave out, how to ask, when to stop and check. One line each.
 
 - **In:** "Lead with the answer, reasons after." "No tables in anything I forward to a client." "Ask before touching anything under `areas/business/`."
-- **Out:** a fact about a project, a person or a figure belongs in the file it describes (`## Memory` in `CLAUDE.md`). A rule every vault of this kind needs belongs in `CLAUDE.md`. A preference that holds in every vault on the machine is still written here, per vault: this vault reads only its own files.
+- **Out:** a fact about a project, a person or a figure belongs in the file it describes (`## Memory` in `CLAUDE.md`). A rule every vault of this kind needs belongs in `CLAUDE.md`. A preference user-level instructions already carry is repeated here only if it must travel with the vault: another machine, agent or team.
 
 ## How it changes
 
