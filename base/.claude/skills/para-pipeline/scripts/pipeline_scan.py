@@ -54,8 +54,8 @@ except ImportError as missing:  # the skill falls back to scanning by hand
 STALE_DAYS = 14      # no movement in this many days, by last touch or by stage
 EXPIRING_DAYS = 14   # a dated fact due within this many days, and still ahead
 
-# The header fields that make a document with no Stage line worth reporting as no_stage,
-# matched case-insensitively by field_ci - scan.md's narrowing rule.
+# The header fields that make a document with no Stage line, or one naming no declared
+# stage, worth reporting (no_stage, unknown_stage), matched case-insensitively by field_ci - scan.md's narrowing rule.
 NO_STAGE_FIELDS = ("opened", "source", "champion", "signer", "value", "last touch", "won")
 
 
@@ -276,9 +276,9 @@ def apply_name_collision(entities):
 def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files, today):
     pattern = re.sub(r"<[^>]+>", "*", home.rstrip("/"))
     dirs = sorted(p for p in vault.glob(pattern) if p.is_dir())
-    entities, no_stage = [], []
+    entities, no_stage, unknown_stage = [], [], []
     if not dirs:
-        return entities, no_stage, True
+        return entities, no_stage, unknown_stage, True
     extra_segment = home_has_extra_segment(home)
 
     for d in dirs:
@@ -286,14 +286,15 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
         if not doc:
             continue
         info = stage_of(doc)
-        if info is None:
-            if extra_segment or any(field_ci(header_fields(doc), f) is not None
-                                    for f in NO_STAGE_FIELDS):
-                no_stage.append(doc.relative_to(vault).as_posix())
-            continue
-        matched = stage_by_name.get(info["name"].strip().lower())
+        matched = info and stage_by_name.get(info["name"].strip().lower())
         if not matched:
-            continue  # a stage text matching no declared name: an ordinary idea or project
+            path = doc.relative_to(vault).as_posix()
+            fielded = any(field_ci(header_fields(doc), f) is not None for f in NO_STAGE_FIELDS)
+            if info is None and (extra_segment or fielded):
+                no_stage.append(path)
+            elif info is not None and fielded:
+                unknown_stage.append({"path": path, "stage": info["name"]})
+            continue
 
         idx = stage_index[matched["name"].lower()]
         fields = header_fields(doc)
@@ -330,7 +331,7 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
             entity["next_step"] = None
             entity["flags"] = None
         entities.append(entity)
-    return entities, no_stage, False
+    return entities, no_stage, unknown_stage, False
 
 
 def name_label(cell):
@@ -422,21 +423,23 @@ def collect_entities(vault, lc, today):
             homes.append(s)
 
     other_files = other_actions_files(vault)
-    entities, no_stage, empty_homes = [], [], []
+    entities, no_stage, unknown_stage, empty_homes = [], [], [], []
     for h in homes:
         if h["row"]:
             found, empty = collect_row_entities(vault, h["home"], stage_by_name, stage_index,
                                                 today)
         else:
-            found, missing, empty = collect_folder_entities(
+            found, missing, unknown, empty = collect_folder_entities(
                 vault, h["home"], stage_by_name, stage_index, other_files, today)
             no_stage += missing
+            unknown_stage += [u for u in unknown if u not in unknown_stage]
         entities += found
         if empty:
             empty_homes.append(h["home"])
 
     apply_name_collision(entities)
-    return entities, sorted(set(no_stage)), sorted(set(empty_homes))
+    return (entities, sorted(set(no_stage)), sorted(unknown_stage, key=lambda u: u["path"]),
+            sorted(set(empty_homes)))
 
 
 # -------------------------------------------------------------------------------- metrics
@@ -597,12 +600,13 @@ def counts_by_stage(lc, entities):
 # ------------------------------------------------------------------------------- the report
 
 def scan_lifecycle(vault, lc, today):
-    entities, no_stage, empty_homes = collect_entities(vault, lc, today)
+    entities, no_stage, unknown_stage, empty_homes = collect_entities(vault, lc, today)
     metrics, terminal_this_quarter = compute_metrics(vault, today, lc, entities)
     return {
         "heading": lc["heading"], "noun": lc["noun"],
         "stages": [s["name"] for s in lc["stages"]],
-        "entities": entities, "no_stage": no_stage, "empty_homes": empty_homes,
+        "entities": entities, "no_stage": no_stage, "unknown_stage": unknown_stage,
+        "empty_homes": empty_homes,
         "counts_by_stage": counts_by_stage(lc, entities),
         "terminal_this_quarter": terminal_this_quarter,
         "metrics": metrics,

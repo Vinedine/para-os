@@ -28,7 +28,7 @@ An entity in a folder home carries its stage **directly under the title**, on th
 **Stage:** Proposal (since YYYY-MM-DD; prices hold to YYYY-MM-DD)
 ```
 
-- **The stage name is what stands before the first `(`**, with the emphasis marks, the leading `Stage:` and any trailing ` - ` clause removed, matched case-insensitively against the declared names. An emphasised variant is the same line read the same way (`_Stage: Acquiring - <key date>_`): take the name, and for this dash form the trailing ` - ` clause is the qualifier.
+- **The stage name is what stands before the first `(`**, with the emphasis marks, the leading `Stage:`, any trailing ` - ` clause and trailing punctuation removed, matched case-insensitively against the declared names. An emphasised variant is the same line read the same way (`_Stage: Acquiring - <key date>_`): take the name, and for this dash form the trailing ` - ` clause is the qualifier.
 - **`since <date>` in the qualifier gives days in stage.** Without it, days in stage is unknown, reported as unknown and never inferred from a file's modification time.
 - **Any other date in the qualifier is a dated fact** (a proposal's validity, an option's expiry), read for the expiry flag and only while it is still ahead.
 - **An entity with no Stage line, or a stage text matching no declared name, is in no lifecycle**, which is what lets ordinary ideas and projects share a home with staged entities: an idea brief's own `**Stage:** Concept` line is not a deal at a stage called Concept.
