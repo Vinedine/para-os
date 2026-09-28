@@ -26,6 +26,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **`/para-upgrade` ran only the first of an integration's JavaScript test files.** The `suite.runner` its scan gives named one file, so granola's `granola.test.js` never ran while `granola.js` was listed as covered. The runner now names every test file. No template rule or section changed. Reaction: re-sync `/para-upgrade`.
 
+**`/para-triage` could delete files that arrived after its scan.** The re-check before a delete saw only the files the scan had snapshotted, so notes a concurrent ingest dropped into `triage/` passed it, and a delete by glob took them. The scan now lists `triage/` under `snapshot_folders`, `paraos_vault.py changed` reports a file new there under `arrived` and exits 1, and every delete names its approved file. The command's output is now `{changed, arrived}` rather than a bare list. Reaction: re-sync `para-shared/` and `/para-triage`.
+
 ---
 
 ## 2026.09.06

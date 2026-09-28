@@ -1034,13 +1034,18 @@ class Snapshot(VaultCase):
     def test_the_snapshot_is_read_back_by_the_librarys_changed(self):
         write(self.root, "triage/a.md", "original content\n")
         write(self.root, "triage/b.md", "other content\n")
-        loose = [{"name": "a.md"}, {"name": "b.md"}]
-        snap = build_snapshot(self.root, loose)
+        snap = build_snapshot(self.root)
         self.assertEqual(changed(snap), [])
         write(self.root, "triage/a.md", "edited content\n")
         diffs = changed(snap)
         self.assertEqual(len(diffs), 1)
         self.assertTrue(diffs[0].endswith("a.md") or "a.md" in diffs[0])
+
+    def test_a_pdfs_markdown_twin_is_held_although_it_is_not_its_own_item(self):
+        write(self.root, "triage/scan.pdf", "%PDF\n")
+        write(self.root, "triage/scan.md", "extracted\n")
+        self.assertEqual(sorted(Path(p).name for p in build_snapshot(self.root)),
+                         ["scan.md", "scan.pdf"])
 
 
 # ---------------------------------------------------------------------------------- ledger
@@ -1212,7 +1217,7 @@ class CommandLine(VaultCase):
         report = json.loads(out)
         self.assertEqual(set(report), {"vault", "sources", "ingest", "ingest_ledger", "items",
                                        "seen_ledger", "over_threshold", "snapshot",
-                                       "saved_to", "save_error"})
+                                       "snapshot_folders", "saved_to", "save_error"})
         self.assertEqual([i["name"] for i in report["items"]["loose"]],
                          ["20260920 Subject 88604c.md"])
         self.assertEqual(len(report["snapshot"]), 1)
@@ -1277,6 +1282,20 @@ class SavedCopy(CommandLine):
         self.assertEqual(subprocess.run(recheck, capture_output=True, timeout=60).returncode, 0)
         write(self.root, "triage/note.md", "# Note, edited\n")
         self.assertEqual(subprocess.run(recheck, capture_output=True, timeout=60).returncode, 1)
+
+    def test_a_file_arriving_in_triage_after_the_scan_fails_the_recheck(self):
+        # Six unapproved notes went to the trash once: they arrived from a concurrent ingest
+        # after the scan, and the re-check only looked at the files it had snapshotted.
+        write(self.root, "triage/note.md", "# Note\n")
+        _, out = self.run_main("--now", "2026-09-22T12:00:00Z")
+        library = SCRIPT.parents[2] / "para-shared" / "scripts" / "paraos_vault.py"
+        recheck = [sys.executable, str(library), "changed", json.loads(out)["saved_to"]]
+        late = write(self.root, "triage/20260922 Late arrival 1f2e3d.md", "# Late\n")
+        result = subprocess.run(recheck, capture_output=True, timeout=60)
+        self.assertEqual(result.returncode, 1)
+        got = json.loads(result.stdout.decode("utf-8"))
+        self.assertEqual(got["changed"], [])
+        self.assertEqual([Path(p).name for p in got["arrived"]], [late.name])
 
     def test_copies_older_than_a_week_are_pruned_and_newer_ones_kept(self):
         folder = self.home / "data" / "scans"
