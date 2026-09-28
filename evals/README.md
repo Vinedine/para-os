@@ -43,11 +43,15 @@ dollar figures in the report are list-price estimates either way, and `--max-cos
 that estimate, not plan usage. The three triage cases, three runs each on two commits, came
 to about four dollars of estimate and twenty minutes.
 
-Runs use the harness's default model unless `--model` names another, and the `llm` graders
-use Haiku unless `--judge-model` does. A cheaper model is fine while iterating on a case's
-wording or its triggers. Decide on the model operators run: a skill's prose is a bet on what
-that model does without being told, so a result on a different model answers a different
-question. Say which model produced a result when you report it.
+Runs use the harness's default model unless `--model` names another. `tools/eval.py` has the
+`llm` graders judged by Sonnet unless `--judge-model` names another. The harness's own default
+is Haiku answering in one word with no thinking, which commits on its first token: on
+`archive-preview-lists-only-open` it failed four of 19 right answers in both of two runs, where
+Sonnet passed all 19 and still failed every wrong one, for about three cents more a run. A
+cheaper model is fine while iterating on a case's wording or its triggers. Decide on the model
+operators run: a skill's prose is a bet on what that model does without being told, so a
+result on a different model answers a different question. Say which model produced a result
+when you report it.
 
 ## Checking a skill change
 
