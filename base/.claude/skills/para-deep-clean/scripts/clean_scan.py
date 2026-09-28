@@ -46,7 +46,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, CollectedVault, FALSELY_OVERDUE_DAYS, H1_RE, STALE_FILE_DAYS,
-        WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links, declarations,
+        LINK_ROOTS, WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links, declarations,
         duplicates,
         extract_links, git, git_blame_line_date, hashes, inbound_references, iso,
         link_files, link_spans, live_lines, master_template, misplaced_checkboxes, norm,
@@ -65,6 +65,8 @@ DEFAULT_DATED_PATTERN = r"^\d{8} "
 DEFAULT_NEXT_STEPS_HEADINGS = ("Next steps", "Open items")
 ENTITY_BASES = ("projects", "areas", "resources/ideas")
 LIVE_ROOTS = ("projects", "areas", "resources", "triage")  # archive/ is history, not live
+# A link target inside archive/ is still a path that must resolve; only prose there is history.
+DANGLING_ROOTS = LINK_ROOTS + ("archive",)
 
 
 def in_live_scope(rel):
@@ -628,7 +630,7 @@ def phase1(vault, templates_dirs, dated_pattern):
     placeholders = find_placeholders_in(ph_files, vault)
     touched |= set(ph_files)
 
-    dangling = dangling_links(vault)
+    dangling = dangling_links(vault, DANGLING_ROOTS)
     touched |= {vault / d["file"] for d in dangling}
 
     checker = checker_verified()
@@ -849,7 +851,7 @@ def phase4(vault, templates_dirs, dated_pattern, today):
     touched |= {vault / r["file"] for rows_ in arch["misplaced_checkboxes"].values() for r in rows_}
     rows.append({"check": "archive_clean", "pass": archive_clean, "detail": arch})
 
-    dangling = dangling_links(vault)
+    dangling = dangling_links(vault, DANGLING_ROOTS)
     touched |= {vault / d["file"] for d in dangling}
     rows.append({"check": "dangling_links", "pass": not dangling, "detail": dangling})
 
