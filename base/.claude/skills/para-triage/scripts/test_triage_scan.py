@@ -500,6 +500,27 @@ class NoteShapes(unittest.TestCase):
         # no ledger entry for this thread: routed_vaults is null, not an empty guess
         self.assertIsNone(note["routed_vaults"])
         self.assertIsNone(note["routed_from"])
+        self.assertIsNone(note["message_id"])
+        self.assertIsNone(note["conversation_id"])
+
+    def test_the_message_and_conversation_id_lines_are_read(self):
+        path = self.note("20260920 Test subject 88604c.md", "\n".join([
+            "# Test subject", "",
+            "- **Source:** fetch-script: outlook.py (info@example-work.com)",
+            "- **From:** Alex Rivera <alex.rivera@example-work.com>",
+            "- **Received:** 2026-09-20T10:00:00+02:00",
+            "- **Routed:** contact: alex.rivera@example-work.com",
+            "- **Content:** Full body.",
+            "- **Link:** https://outlook.example/owa/?ItemID=AAMk%2Fabc",
+            "- **Message id:** raw /users/info@example-work.com/messages/AAMk-abc_ "
+            "--account me@example-work.com",
+            "- **Conversation id:** AAQk-conv", "",
+            "Body.", "",
+        ]))
+        note = note_block(path, [], "Alpha", {})
+        self.assertEqual(note["message_id"], "raw /users/info@example-work.com/messages/"
+                                             "AAMk-abc_ --account me@example-work.com")
+        self.assertEqual(note["conversation_id"], "AAQk-conv")
 
     def test_a_granola_frontmatter_note_is_not_a_mail_note(self):
         path = self.note("20260920 Standup 88604c.md",
@@ -1009,6 +1030,21 @@ class SameThread(unittest.TestCase):
             {"name": "88604c.md", "kind": "markdown"},  # no date: not the staged shape
         ]
         self.assertEqual(same_thread_block(items), {})
+
+    def test_two_notes_sharing_a_conversation_id_are_grouped_across_hashes(self):
+        # One conversation staged from two mailboxes: two thread ids, so two filename
+        # hashes, and only the Conversation id line joins them.
+        conv = {"conversation_id": "conv-1"}
+        items = [
+            {"name": "20260920 Subject 88604c.md", "kind": "markdown", "note": conv},
+            {"name": "20260920 Subject 47ace9.md", "kind": "markdown", "note": dict(conv)},
+            {"name": "20260921 Subject 47ace9 2.md", "kind": "markdown", "note": None},
+            {"name": "20260921 Other 1b2c3d.md", "kind": "markdown",
+             "note": {"conversation_id": "conv-2"}},
+        ]
+        self.assertEqual(same_thread_block(items), {"conv-1": [
+            "20260920 Subject 47ace9.md", "20260920 Subject 88604c.md",
+            "20260921 Subject 47ace9 2.md"]})
 
 
 # --------------------------------------------------------------------------- over threshold
