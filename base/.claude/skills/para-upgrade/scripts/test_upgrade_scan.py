@@ -34,7 +34,8 @@ from upgrade_scan import (  # noqa: E402
     HistoryBatch, _collected_glob_twin, _dirty_masters, _doubled_block, _effective_blob,
     _entry_shape, _find_undeclared_addon_skill, _frontmatter_paths,
     _global_commit_order, _ignored_in_scope, _integration_master_path, _integration_suite,
-    _mechanical_equivalence, _parse_batch_output, _root_history_map, _rule_anchors,
+    _mechanical_equivalence, _parse_batch_output, _reaction_paths, _root_history_map,
+    _rule_anchors,
     _rule_kind, _rule_master, _scope_files, _sweep_root, _template_path_variants,
     _unmarked_matches, baseline_block, build_report,
     clone_block, compute_verdict, delta_block, integrations_block, main, masters_block,
@@ -100,7 +101,8 @@ Intro text, never a revision entry.
 **Widget integration rewritten.** New behaviour for the widget script. Reaction: re-sync
 installed widget copies.
 
-**Second change.** More text about it. Reaction: nothing to do.
+**Second change.** Base no longer ships `.editor/settings.json`. Reaction: delete the
+vault's `.editor/settings.json`, and add `.editor/` to `.gitignore`.
 
 ---
 
@@ -2244,6 +2246,23 @@ class SnapshotAndSinceCase(unittest.TestCase):
                                         {"count": "totals.open", "before": None, "after": 2},
                                         {"count": "triage", "before": None, "after": 0}])
 
+    def test_reaction_paths_are_the_backticked_vault_file_paths_of_collected_reactions(self):
+        entries = [{"reactions": [
+            "Reaction: delete `.vscode/settings.json`; in `.gitignore`, delete `!.mcp.json` "
+            "and add `.mcp.json`. Re-sync `/para-upgrade`, `para-shared/` and "
+            "`base/.gitignore` at `2026.09.05`; keep `## Do not add` and "
+            "`git rm --cached .mcp.json`, never `../other/CLAUDE.md`."]}, {"reactions": ["Reaction: none."]}]
+        self.assertEqual(_reaction_paths(entries),
+                         [".gitignore", ".mcp.json", ".vscode/settings.json"])
+
+    def test_the_snapshot_covers_reaction_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = Path(tmp).resolve()
+            write(vault, ".vscode/settings.json", "{}\n")
+            snap = snapshot_block(vault, [], [], [], [".vscode/settings.json", ".mcp.json"])
+        self.assertIsNotNone(snap[str(vault / ".vscode" / "settings.json")])
+        self.assertIsNone(snap[str(vault / ".mcp.json")])
+
     def test_an_earlier_document_with_no_snapshot_reads_every_path_as_changed(self):
         # The safe side for a checkpoint: nothing to compare against stops the next write.
         current = {"b/CLAUDE.md": "abc", "a/README.md": None}
@@ -2316,6 +2335,23 @@ class BuildReportCase(CloneCase):
         write(vault, "CLAUDE.md", fixture_template("2026.09.01") + "A phase 1 edit.\n")
         third, _ = build_report(*args, str(earlier), [])
         self.assertEqual(third["since"]["changed"], [str(vault.resolve() / "CLAUDE.md")])
+
+    def test_a_file_a_reaction_deletes_is_snapshotted_and_its_deletion_is_changed(self):
+        root = Path(tempfile.mkdtemp()).resolve()
+        self.addCleanup(shutil.rmtree, root, True)
+        vault = self.make_vault(root, fixture_template("2026.08.02"))
+        write(vault, ".editor/settings.json", "{}\n")
+        args = (vault, self.clone, "main", False, "2026-09-22", str(root / "no-user-skills"),
+                str(root / "no-user-settings"))
+        first, _ = build_report(*args, None, [])
+        target = str(vault / ".editor" / "settings.json")
+        self.assertIsNotNone(first["snapshot"][target])
+        self.assertIn(str(vault / ".gitignore"), first["snapshot"])
+        earlier = root / "phase0.json"
+        earlier.write_text(json.dumps(first), encoding="utf-8")
+        (vault / ".editor" / "settings.json").unlink()
+        second, _ = build_report(*args, str(earlier), [])
+        self.assertEqual(second["since"]["changed"], [target])
 
     def test_an_unreadable_earlier_scan_is_reported_in_since_never_raised(self):
         root, _, args = self.scan_args()
