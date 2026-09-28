@@ -4,6 +4,7 @@
     py -3 tools/eval.py                       # every case, as the vendor defaults run them
     py -3 tools/eval.py --case daily-brief-*  # one case
     py -3 tools/eval.py -- --runs 1 --ablation none   # anything after -- goes to the vendor
+    python3 tools/eval.py --summary "$GITHUB_STEP_SUMMARY"   # also append Markdown
 
 `claude plugin eval` only loads skills that belong to a plugin, and para-os deliberately
 ships no manifest: it is a template repo, not a marketplace entry, and `claude plugin
@@ -115,6 +116,43 @@ def claim_run_dir(runs):
             pass
 
 
+def summary_markdown(out_dir):
+    """The run as Markdown, one row per case in case order, so one run reads against the
+    last. Scores are counted against 1.0 rather than the run's threshold, which CI sets to 0
+    so that a score never fails the job. A run that hit a usage limit is still graded and
+    scores 0 without the suite being partial, so each case shows its errors beside its score."""
+    try:
+        result = json.loads((out_dir / "aggregate-result.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "## Evals\n\nNo result: the harness wrote no aggregate-result.json.\n"
+
+    def cell(text, width=120):
+        text = " ".join(str(text).split()).replace("|", "/")
+        return text if len(text) <= width else text[:width - 3] + "..."
+
+    suite, cases = result.get("suite", {}), result.get("cases", [])
+    scores = [c.get("aggregates", {}).get("score", 0) for c in cases]
+    lines = ["## Evals", ""]
+    if result.get("partial"):
+        lines += [f"**Partial run** ({result.get('partialReason', 'no reason given')}): "
+                  f"leave it out of any trend.", ""]
+    lines += [f"{sum(s >= 1 for s in scores)} of {len(cases)} cases scored 1.00. "
+              f"Claude Code {result.get('claudeVersion', '?')}, judge "
+              f"{suite.get('judgeModel', '?')}, ablation {suite.get('ablation', '?')}, "
+              f"{result.get('costUsd', 0):.2f} USD at list price, "
+              f"{round(result.get('durationSeconds', 0) / 60)} min.", "",
+              "| Case | Score | Delta | Runs | Errors |", "|---|---:|---:|---:|---|"]
+    for case, score in zip(cases, scores):
+        runs = case.get("arms", {}).get("with", [])
+        errors = [r["error"] for r in runs if r.get("error")]
+        delta = case.get("aggregates", {}).get("delta")
+        delta = "" if delta is None else f"{delta:+.2f}"
+        errors = cell(f"{len(errors)}: {errors[0]}") if errors else ""
+        lines.append(f"| {case.get('name', '?')} | {score:.2f} | {delta} | {len(runs)} | "
+                     f"{errors} |")
+    return "\n".join(lines) + "\n"
+
+
 def build_plugin(workdir):
     """Assemble the plugin the harness wants: skills, a manifest, and the cases."""
     plugin = workdir / "para-os"
@@ -137,6 +175,9 @@ def main(argv=None):
                     help="keep the assembled plugin directory and print its path")
     ap.add_argument("--dry-run", action="store_true",
                     help="assemble and print the command, run nothing")
+    ap.add_argument("--summary", metavar="FILE",
+                    help="append each case's score as Markdown to FILE "
+                         "(CI: $GITHUB_STEP_SUMMARY)")
     ap.add_argument("rest", nargs="*",
                     help="further options for claude plugin eval, after --")
     args = ap.parse_args(argv)
@@ -192,6 +233,9 @@ def main(argv=None):
             return 0
         done = subprocess.run(cmd, cwd=str(plugin))
         print(f"results: {out_dir}")
+        if args.summary:
+            with open(args.summary, "a", encoding="utf-8") as f:
+                f.write(summary_markdown(out_dir))
         return done.returncode
     finally:
         if args.keep:

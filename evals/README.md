@@ -30,7 +30,7 @@ cannot:
 A suite lives beside the code it covers, so the copy installed in a vault carries its own
 tests and `/para-upgrade` can verify a synced script by running them. `tools/check.py`
 runs every one of them, `tools/coverage_report.py` measures what they reach (CI
-fails when that drops), and `tools/eval.py` runs this folder.
+fails when that drops), and `tools/eval.py` runs this folder, by hand and [in CI](#in-ci).
 
 The loop that makes the suite grow: when a `--test` run finds a defect, it becomes a unit
 test if it is mechanical and an eval case if it is judgment, and only then is it fixed.
@@ -52,6 +52,21 @@ cheaper model is fine while iterating on a case's wording or its triggers. Decid
 operators run: a skill's prose is a bet on what that model does without being told, so a
 result on a different model answers a different question. Say which model produced a result
 when you report it.
+
+## In CI
+
+[`.github/workflows/evals.yml`](../.github/workflows/evals.yml) runs every case once, in both
+arms, each Friday evening and whenever it is started from the Actions tab, where a `case`
+glob narrows it. `/release` starts it before tagging. It runs on the maintainer's subscription through the
+`CLAUDE_CODE_OAUTH_TOKEN` repository secret, the one-year token `claude setup-token` prints.
+
+It reports and never gates: `--threshold 0` keeps any score from failing the job, so a red run
+means the suite did not run (no token or an expired one, the cost ceiling, a case file that did
+not load, a sandbox the runner could not provide). The run's summary page lists each case's
+score, its delta over the no-skill arm and its run errors, and the artifact holds `report.html`.
+A case with errors hit a usage limit or a timeout rather than regressing, and one week's drop
+is a reason to [check the change](#checking-a-skill-change) with three runs, not a finding.
+Raise the threshold once a few weekly runs show how far an unchanged commit's scores move.
 
 ## Checking a skill change
 
