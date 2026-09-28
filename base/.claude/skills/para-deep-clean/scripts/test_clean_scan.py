@@ -291,6 +291,25 @@ class DanglingLinks(VaultCase):
               "# Acme\n\n[good](../../resources/ideas/the%20thing/brief.md)\n")
         self.assertEqual(self.run_scan("1")["phase1"]["dangling"], [])
 
+    def test_archived_entity_outward_link_checked(self):
+        # A link written inside an archived entity is checked like a live one, decoded;
+        # the same path named in prose is a historical mention and stays exempt.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan claes.md", "# Jan Claes\n")
+        write(self.root, "archive/projects/old-shop/brief.md", "\n".join([
+            "# Old shop", "",
+            "[contact](../../../areas/network/jan%20claes.md)",
+            "[plan](../../../projects/old-shop/plan.md)",
+            "Was filed at projects/old-shop/notes.md before the move.", "",
+        ]))
+        for phase, hits in (("1", self.run_scan("1")["phase1"]["dangling"]),
+                            ("4", next(r["detail"] for r in self.run_scan("4")["phase4"]["rows"]
+                                       if r["check"] == "dangling_links"))):
+            with self.subTest(phase=phase):
+                self.assertEqual([(h["file"], h["href"]) for h in hits],
+                                 [("archive/projects/old-shop/brief.md",
+                                   "../../../projects/old-shop/plan.md")])
+
 
 class CheckerVerified(VaultCase):
 
@@ -1083,6 +1102,34 @@ class Phase4Rows(VaultCase):
         checks = {r["check"] for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
         self.assertNotIn("over_grown_briefs", checks)
 
+    def test_uncited_row_labels_cards_and_card_file_pairs(self):
+        # Issue #37: Phase 1 groups by card, so a bare pair count read as a regression.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nJan Claes called.\n")
+        write(self.root, "projects/beta/brief.md", "# Beta\n\nJan Claes called.\n")
+        rows = {r["check"]: r for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
+        self.assertEqual(rows["uncited_contacts"]["detail"], {"cards": 1, "card_files": 2})
+        phase1 = self.run_scan("1")["phase1"]["uncited_contacts"]
+        self.assertEqual((len(phase1), sum(len(c["files"]) for c in phase1)), (1, 2))
+
+    def test_over_threshold_row_counts_the_files_phase_3_grooms(self):
+        # Issue #37: a contract-less plan with 12 open items passed Phase 4 while Phase 3
+        # flagged it. Whether it declares its own contract is the skill's ruling.
+        items = "\n".join(f"- [ ] Item {i}" for i in range(12))
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/plan.md", f"# Plan\n\n{items}\n")
+        row = next(r for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]
+                   if r["check"] == "over_threshold_files")
+        self.assertIsNone(row["pass"])
+        self.assertEqual(row["detail"], self.run_scan("3")["phase3"]["over_threshold"])
+        write(self.root, "projects/acme/actions.md", f"# Acme\n\n{items}\n")
+        row = next(r for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]
+                   if r["check"] == "over_threshold_files")
+        self.assertFalse(row["pass"])
+        self.assertEqual(len(row["detail"]), 2)
+
     def test_uncited_and_inline_rows_report_pass_none_with_a_candidate_count(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
@@ -1091,7 +1138,7 @@ class Phase4Rows(VaultCase):
               "# Acme\n\nJan Claes flagged a risk, reach him at jan.claes@example.com.\n")
         rows = {r["check"]: r for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
         self.assertIsNone(rows["uncited_contacts"]["pass"])
-        self.assertEqual(rows["uncited_contacts"]["detail"], 1)
+        self.assertEqual(rows["uncited_contacts"]["detail"], {"cards": 1, "card_files": 1})
         self.assertIsNone(rows["inline_contact_details"]["pass"])
         self.assertEqual(rows["inline_contact_details"]["detail"], 1)
 

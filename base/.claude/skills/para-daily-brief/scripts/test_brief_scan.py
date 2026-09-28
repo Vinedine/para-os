@@ -121,6 +121,13 @@ class Lanes(VaultCase):
         self.assertEqual(task["lane"], "recurring")
         self.assertTrue(task["also_overdue"])
 
+    def test_an_overdue_recurring_item_joins_the_overdue_lane_but_not_its_total(self):
+        weekly = self.task(self.report, "Weekly review")["line"]
+        overdue = [(i["file"], i["line"]) for i in self.report["lanes"]["overdue"]]
+        self.assertIn(("projects/acme-website/actions.md", weekly), overdue)
+        self.assertEqual(self.report["totals"]["overdue"],
+                         len(overdue) - 1)
+
     def test_a_task_keeps_its_priority_and_its_heading(self):
         task = self.task(self.report, "Due today")
         self.assertEqual(task["priority"], "🔺")
@@ -217,7 +224,15 @@ class AggregationAndScope(VaultCase):
               "# Ann\n\n## Next actions\n- [ ] Mail Ann\n")
         self.assertEqual(scan(self.root, TODAY)["entities"],
                          [{"bucket": "A", "label": "network", "open": 2, "overdue": 0,
-                           "upcoming": 0, "undated": 2, "files": 2}])
+                           "upcoming": 0, "undated": 2, "files": 2, "bar": 10}])
+
+    def test_the_bar_width_rounds_half_up(self):
+        write(self.root, "projects/big/actions.md",
+              "# big\n\n" + "".join(f"- [ ] Item {n}\n" for n in range(12)))
+        write(self.root, "projects/small/actions.md",
+              "# small\n\n" + "".join(f"- [ ] Item {n}\n" for n in range(3)))
+        bars = {r["label"]: r["bar"] for r in scan(self.root, TODAY)["entities"]}
+        self.assertEqual(bars, {"big": 10, "small": 3})
 
     def test_the_three_counts_always_partition_the_open_count(self):
         build_vault(self.root)

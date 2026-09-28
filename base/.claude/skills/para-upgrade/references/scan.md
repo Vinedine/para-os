@@ -52,7 +52,7 @@ refusal (exit 2) rather than refusing itself.
 | | `unmarked[].matches` compares the script's bytes against `integrations/*` **at the ref's tip only**, not that folder's history nor the addon `pipeline/` folders. A script matching an older master, or a pipeline script, has to be recognised by eye. |
 | | Master resolution for both `rules` and `skills`, where more than one declared addon could carry a file of the same name, tries base first (`base/.claude/rules/`, or for a skill `base/.claude/skills/` then `multi-vault/`), then the delivery, then the flavor, then each module in the order `**Modules:**` lists them; the first match wins. |
 | `smoke` | `available`, `script`, `today`, `totals`, `entities`, `lanes` (`{lane: count}`), `flags`, `ideas` (length), `triage` (length); `reason` when `available` is false |
-| `snapshot` | `{path: digest}` over `CLAUDE.md`, `README.md`, `.claude/settings.json`, `resources/scripts/README.md`, every `.claude/rules/*.md`, every marked integration file, and every skeleton target path - `null` where a path is absent |
+| `snapshot` | `{path: digest}` over `CLAUDE.md`, `README.md`, `.claude/settings.json`, `resources/scripts/README.md`, every `.claude/rules/*.md`, every marked integration file, every skeleton target path, and every vault file path a collected entry's Reaction names in backticks (a path into the clone's own folders excluded) - `null` where a path is absent |
 | `since` | Only with `--unchanged`: `changed` (snapshot paths whose digest moved, deletions included) and `smoke` (`{count, before, after}` for every smoke count that moved) |
 
 ## The verdict (skill files and integration files alike)
@@ -167,5 +167,5 @@ diff those.
     keep the same counts, agenda excluded.
 
 11. **`snapshot`**, **`since`** - `paraos_vault.py`'s own `snapshot`/`changed` functions, or
-    by hand: a SHA-1 of each file's bytes, `null` where absent; a changed path is one whose
-    digest no longer matches.
+    by hand over the paths the `snapshot` row lists: a SHA-1 of each file's bytes, `null`
+    where absent; a changed path is one whose digest no longer matches.

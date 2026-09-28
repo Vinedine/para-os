@@ -462,6 +462,8 @@ def note_block(path, entries, vault_name, ledger_mailboxes):
         "routed_from": routed_from, "content_incomplete": incomplete,
         "content_evidence": evidence, "thread_hash": filename_hash,
         "thread_id": _extract_thread_id(link_value, filename_hash),
+        "message_id": fields.get("Message id") if shape == "ingest" else None,
+        "conversation_id": fields.get("Conversation id") if shape == "ingest" else None,
     }
 
 
@@ -598,14 +600,42 @@ def subdirectories_line(subdirectories):
 
 
 def same_thread_block(items):
-    groups = {}
+    """Staged notes of one thread: joined by the filename hash, or by a shared `Conversation
+    id`, which pairs one conversation staged from two mailboxes. A group a conversation id
+    joins is keyed by it, any other by its hash."""
+    parent, first, keys = {}, {}, {}
+
+    def root(name):
+        while parent[name] != name:
+            name = parent[name]
+        return name
+
     for item in items:
-        if item["kind"] != "markdown":
+        parts = note_name_parts(item["name"]) if item["kind"] == "markdown" else None
+        if not parts:
             continue
-        parts = note_name_parts(item["name"])
-        if parts:
-            groups.setdefault(parts["hash"], []).append(item["name"])
-    return {h: sorted(names) for h, names in groups.items() if len(names) >= 2}
+        name = item["name"]
+        parent[name] = name
+        conversation = (item.get("note") or {}).get("conversation_id")
+        keys[name] = (conversation, parts["hash"])
+        for key in (parts["hash"], ("conversation", conversation)):
+            if key == ("conversation", None):
+                continue
+            if key in first:
+                parent[root(name)] = root(first[key])
+            else:
+                first[key] = name
+
+    groups = {}
+    for name in parent:
+        groups.setdefault(root(name), []).append(name)
+    out = {}
+    for names in groups.values():
+        if len(names) < 2:
+            continue
+        conversations = sorted(keys[n][0] for n in names if keys[n][0])
+        out[conversations[0] if conversations else keys[names[0]][1]] = sorted(names)
+    return out
 
 
 # ------------------------------------------------------------------------------ seen ledger

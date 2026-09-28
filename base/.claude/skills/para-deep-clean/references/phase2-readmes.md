@@ -1,14 +1,10 @@
 # Phase 2 - README structure consistency
 
-This phase has no script: it is judgment start to finish.
-
 Goal: the root README matches the para-os shape, and every entity README follows a documented canonical structure for the vault.
 
 ## Step 2.0 - Root README first
 
 Its shape is not per-vault: every para-os `CLAUDE.md` fixes the same four opening headings, checked in Phase 1 Step 1.1. Fix those findings here, facts preserved verbatim: rename or translate headings to the four; fold numbered or renamed opening sections under them (an inventory or brand list becomes a `###` under Track record); write Vision from what the vault already says and flag it as inferred; reduce a "Working in this vault" section to one closing line.
-
-Everything below this step concerns *entity* READMEs, whose shape is the vault's own.
 
 ## Step 2.1 - Check for canonical structure documentation
 
@@ -26,7 +22,7 @@ Find the vault's declared shape for entity READMEs and briefs, per [A vault's ru
 
 ## Step 2.2 - Archived and dead entities
 
-Check CLAUDE.md for a documented archived-entity template. If none is documented, **ask the user** - do not apply a default. Archived entities don't need open-items or active-relationship sections, but carry enough context (status marker, why archived, where source docs live).
+Check `CLAUDE.md` and its rule files for a documented archived-entity template. If none is documented, **ask the user** - do not apply a default. Archived entities don't need open-items or active-relationship sections, but carry enough context (status marker, why archived, where source docs live).
 
 ## Step 2.3 - Apply
 
@@ -37,7 +33,7 @@ For each entity README:
 - Promote inline bolded blocks (Ownership, Notary) to `##` sections, except where the declared shape uses bold labels there itself. The heading replaces the bold label; the text beneath stays verbatim.
 - Add `_n/a_` placeholders for sections that genuinely don't apply.
 
-**In a vault with no entity README tier**, where every entity is documented by its `brief.md`, apply to each brief only what its shape file names: no promoted bold blocks and no `_n/a_` placeholders the shape does not require.
+**In a vault with no entity README tier**, where every entity is documented by its `brief.md`, apply to each brief only what its shape file names, and to each contact file only what `CLAUDE.md` fixes for it: no promoted bold blocks and no `_n/a_` placeholders the shape does not require.
 
 ## Edge case
 

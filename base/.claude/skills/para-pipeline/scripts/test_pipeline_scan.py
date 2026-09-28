@@ -99,12 +99,26 @@ class FolderEntities(VaultCase):
         self.assertEqual(e["opened"], "2026-08-05")
         self.assertTrue(e["duplicate_document"])
 
-    def test_a_stage_matching_no_declared_name_is_dropped_silently(self):
+    def test_an_undeclared_stage_with_no_known_header_field_is_skipped(self):
         write(self.root, "resources/ideas/other/brief.md",
               "# Other\n\n**Stage:** idea (concept only)\n")
         lc = self.deal()
         self.assertEqual([e["name"] for e in lc["entities"]], [])
         self.assertNotIn("resources/ideas/other/brief.md", lc["no_stage"])
+        self.assertEqual(lc["unknown_stage"], [])
+
+    def test_trailing_punctuation_after_the_stage_name_is_ignored(self):
+        # Issue #94: "Qualified." matched no declared name and the entity vanished.
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n_Stage: **Qualified**._\n**Opened:** 2026-08-01\n")
+        self.assertEqual(find(self.deal()["entities"], "acme")["stage"], "Qualified")
+
+    def test_an_undeclared_stage_on_a_staged_looking_entity_is_reported_not_dropped(self):
+        # Issue #94: the entity disappeared from the board with no flag.
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Prospecting (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        self.assertEqual(self.deal()["unknown_stage"],
+                         [{"path": "resources/ideas/acme/brief.md", "stage": "Prospecting"}])
 
     def test_an_ordinary_document_with_no_known_header_field_is_never_listed(self):
         write(self.root, "projects/harbor/brief.md", "# Harbor\n\n**Status:** active\n")
@@ -746,6 +760,23 @@ class Metrics(VaultCase):
         self.assertEqual(m["opened"], 1)
         self.assertEqual({r["source"]: r["entities"] for r in m["referrers"]}, {"outreach": 1})
 
+    def test_a_closed_row_linking_its_folder_counts_once_whatever_its_name(self):
+        # Issue #57: "Acme NV" against the folder acme was counted twice.
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Closed", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| Acme NV | Tom Baas | outreach | 2026-08-01 | Qualified | - | 2026-08-10, x "
+            "| moved to [acme](../../resources/ideas/acme/) |",
+            "",
+        ]) + "\n")
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-08-10)\n"
+              "**Opened:** 2026-08-01\n**Source:** outreach\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["opened"], 1)
+        self.assertEqual({r["source"]: r["entities"] for r in m["referrers"]}, {"outreach": 1})
+
     def test_counts_by_stage_excludes_terminal_and_closed_rows(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Closed", "",
@@ -832,8 +863,8 @@ class CommandLine(VaultCase):
         self.assertEqual([lc["heading"] for lc in report["lifecycles"]],
                          ["Deal lifecycle", "Property lifecycle"])
         self.assertEqual(set(report["lifecycles"][0]),
-                         {"heading", "noun", "stages", "entities", "no_stage", "empty_homes",
-                          "counts_by_stage", "terminal_this_quarter", "metrics"})
+                         {"heading", "noun", "stages", "entities", "no_stage", "unknown_stage",
+                          "empty_homes", "counts_by_stage", "terminal_this_quarter", "metrics"})
 
     def test_lifecycle_scopes_the_document_to_the_one_it_names(self):
         self.two_lifecycles()

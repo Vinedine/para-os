@@ -1495,10 +1495,34 @@ def smoke_block(vault, today):
 
 # ================================================================== the snapshot block
 
-def snapshot_block(vault, skeleton_rows, rules_rows, integration_files):
+BACKTICK_RE = re.compile(r"`([^`\s]+)`")
+# A relative file path: slash-separated segments, the last carrying an extension or a
+# leading dot. A folder (trailing slash), a skill (`/para-x`), a negation (`!.x`), a
+# heading and a revision label (digits and dots) are not one.
+FILE_PATH_RE = re.compile(r"(?:[\w.-]+/)*[\w-]*\.[\w.-]*[A-Za-z][\w.-]*")
+CLONE_ROOTS = ("base/", "addons/", "delivery/", "flavors/", "integrations/", "multi-vault/",
+               "examples/", "evals/", "docs/", "tools/")
+
+
+def _reaction_paths(entries):
+    """Every vault file path a backticked token in the entries' Reactions names, a path
+    into the clone's own folders excluded. A token naming no vault file stays in, since
+    its snapshot digest is only ever null."""
+    paths = set()
+    for entry in entries:
+        for reaction in entry.get("reactions") or []:
+            for token in BACKTICK_RE.findall(reaction):
+                if (FILE_PATH_RE.fullmatch(token) and not token.startswith(CLONE_ROOTS)
+                        and ".." not in token.split("/")):
+                    paths.add(token)
+    return sorted(paths)
+
+
+def snapshot_block(vault, skeleton_rows, rules_rows, integration_files, reaction_paths=()):
     vault = Path(vault)
     paths = {vault / "CLAUDE.md", vault / "README.md", vault / ".claude" / "settings.json",
              vault / "resources" / "scripts" / "README.md"}
+    paths.update(vault / p for p in reaction_paths)
     for row in rules_rows:
         paths.add(vault / row["file"])
     for row in skeleton_rows:
@@ -1578,7 +1602,8 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
     smoke = smoke_block(vault, today)
 
     integration_files = [m["file"] for m in integration_markers(vault)]
-    snap = snapshot_block(vault, skeleton["rows"], rules, integration_files)
+    snap = snapshot_block(vault, skeleton["rows"], rules, integration_files,
+                          _reaction_paths(delta["entries"]))
 
     report.update({
         "masters": masters, "delta": delta, "baseline": baseline, "skeleton": skeleton,
