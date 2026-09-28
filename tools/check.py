@@ -874,7 +874,7 @@ def check_rules_contract():
 # adopter's vault CLAUDE.md, read every session, and a repo-maintenance hash has no business
 # being a permanent line in it. Add a row when a delivery gains a file that derives from base.
 DELIVERY_TRACKING = {
-    "addons/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "2a0a1517ccc7"),
+    "addons/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "16930ba985c9"),
     "addons/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
     "addons/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "5b4d4ef01142"),
 }
