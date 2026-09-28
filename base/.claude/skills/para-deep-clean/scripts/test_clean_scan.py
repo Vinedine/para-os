@@ -1275,7 +1275,8 @@ class ScriptRun(VaultCase):
             actions.write_text("# Acme\n\n- [ ] One\n- [ ] Two\n", encoding="utf-8")
             edited = subprocess.run(check, capture_output=True, timeout=60)
             self.assertEqual(edited.returncode, 1)
-            self.assertEqual(json.loads(edited.stdout.decode("utf-8")), [str(actions.resolve())])
+            self.assertEqual(json.loads(edited.stdout.decode("utf-8"))["changed"],
+                         [str(actions.resolve())])
 
 
 class MissingLibrary(unittest.TestCase):

@@ -10,11 +10,11 @@ Only approved items execute, whether approved by their own question or by a tabl
 - **Split**: copy each document's pages into a new file with a tool that copies rather than re-renders them (`pypdf`'s `PdfWriter.add_page`), named to the convention, into `triage/` or the approved destinations. The original stays untouched until its own Delete question.
 - **Run vault script**: dry run first. **A script acting on the whole folder acts on declined items too**: before `--write`, move every item not approved for it out of its scope (or pass an explicit file list, where it takes one), and put them back after. The triage copy's delete runs only once the script reports the file handled, on its own approval, after an MD5 match against any copy the script wrote.
 - **Move out of vault**: to the target the operator named, collision-checked. Never into another vault: that is **Dismiss (other vault)**, which writes nothing there.
-- **Re-check before each delete or move**, per [para-shared/scripts.md](../../para-shared/scripts.md).
+- **Re-check before each delete or move**, per [para-shared/scripts.md](../../para-shared/scripts.md). A file it reports as `arrived` came in after the scan: leave it, and name it in the summary as arrived.
 - **Repoint inbound references in the same step** as the delete or move that breaks them, to the survivor or new path the approval named, resolving each rewritten link to a file that exists.
 - **Collision check before every move**: `test -e "<dst>" && echo EXISTS`. If it exists, stop the whole batch, report it, and ask how to resolve it; `mv` clobbers silently and has no undo. Once clear: `mv "<src>" "<dst>"`, absolute paths, quoted.
 - **On any failure**: report which moves succeeded and which failed, and wait for direction.
-- **Deletions are recoverable.** A git-tracked file: `git rm "<path>"`. An untracked one goes to the system trash: Windows PowerShell `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile("<path>", 'OnlyErrorDialogs', 'SendToRecycleBin')`, macOS `osascript -e 'tell application "Finder" to delete POSIX file "<absolute path>"'`, Linux `gio trash "<path>"`. With no trash reachable, say the delete is permanent and ask before `rm`. Delete only a file whose own Delete disposition was approved, and say in the summary which way each went.
+- **Deletions are recoverable.** A git-tracked file: `git rm "<path>"`. An untracked one goes to the system trash: Windows PowerShell `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile("<path>", 'OnlyErrorDialogs', 'SendToRecycleBin')`, macOS `osascript -e 'tell application "Finder" to delete POSIX file "<absolute path>"'`, Linux `gio trash "<path>"`. With no trash reachable, say the delete is permanent and ask before `rm`. Delete only a file whose own Delete disposition was approved, named in full in its own command, never by a glob or pattern, and say in the summary which way each went.
 - **Mkdir** only for destinations named in an approved disposition.
 - **Image rotation** (Windows, System.Drawing): `Save` with no format argument keeps the source format, and the temp path is needed because `FromFile` holds a handle on `$src`:
 
@@ -30,7 +30,7 @@ Only approved items execute, whether approved by their own question or by a tabl
 
   Rotation values: `Rotate90FlipNone`, `Rotate180FlipNone`, `Rotate270FlipNone`. Then delete the source if `$src` differs from `$dst`.
 
-After the moves, re-list `triage/` and confirm only the expected residue remains. A file that arrived during the run is not residue: leave it, and name it in the summary as arrived.
+After the moves, re-list `triage/` and confirm only the expected residue and the arrivals remain.
 
 ## Connector items
 
