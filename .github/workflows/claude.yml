@@ -3,6 +3,11 @@
 # (one branch per issue, a pull request into main that says `Fixes #N`); this file adds no
 # instructions of its own. The action's defaults decide who can trigger it: people with write
 # access, never bots, so a stranger's comment cannot spend the subscription.
+#
+# Claude Code refuses every edit under a `.claude/` folder in a run with no one to approve it,
+# and no allow rule, permission mode short of bypass, or hook lifts that. Skill fixes under
+# base/.claude/ are therefore worked in an interactive session, not from here. A run that hit
+# a refusal still exits cleanly, so the last step turns it red.
 name: claude
 
 on:
@@ -38,7 +43,8 @@ jobs:
       # CLAUDE.md requires tools/check.py before every commit; outlook's tests need requests.
       - name: Install requests
         run: python3 -m pip install requests
-      - uses: anthropics/claude-code-action@v1
+      - id: claude
+        uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           additional_permissions: |
@@ -46,3 +52,17 @@ jobs:
           claude_args: >-
             --max-turns 80
             --allowedTools "Bash(python3 tools/check.py:*)"
+      # Names only the tool and the file: logs on a public repository are public.
+      - name: Fail if a tool call was refused
+        if: always() && steps.claude.outputs.execution_file != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          jq -s 'flatten(1) | .[] | select(.type == "result") | .permission_denials[]?
+            | {tool_name, file_path: .tool_input.file_path}' "$EXECUTION_FILE"
+          denials=$(jq -s '[flatten(1) | .[] | select(.type == "result")
+            | if .permission_denials then (.permission_denials | length) else (.permission_denials_count // 0) end] | add // 0' "$EXECUTION_FILE")
+          if [ "$denials" -gt 0 ]; then
+            echo "::error::$denials tool call(s) were refused, so the run did not finish its task"
+            exit 1
+          fi
