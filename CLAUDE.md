@@ -40,7 +40,6 @@ second job fails when coverage drops below its floor, and a third runs `actionli
 ## Branches
 
 - **`main` is where work merges**: one issue, one branch, one pull request that says `Fixes #N`.
-  An `agent-ready` issue can be started by commenting `@claude work this issue`.
 - **`stable` is what users get**: the Quickstart, `INSTALL.md` and `/para-upgrade` read it.
   `/release` moves it forward to a tagged revision on `main`; a hotfix is the one other change.
 - **Fixes land on `main` first.** A hotfix to a released revision is fixed on `main` and
