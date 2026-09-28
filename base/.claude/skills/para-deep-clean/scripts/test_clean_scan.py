@@ -102,9 +102,10 @@ class VaultCase(unittest.TestCase):
         return path
 
     def run_scan(self, phase, today=TODAY, ref="HEAD", clone=None, templates_dirs=None,
-                dated_pattern=DEFAULT_DATED_PATTERN, headings=None):
+                dated_pattern=DEFAULT_DATED_PATTERN, headings=None, **declared):
         report, code = scan(self.root, today, phase, ref, clone, templates_dirs or [],
-                            dated_pattern, headings or list(DEFAULT_NEXT_STEPS_HEADINGS))
+                            dated_pattern, headings or list(DEFAULT_NEXT_STEPS_HEADINGS),
+                            **declared)
         self.assertEqual(code, 0)
         return report
 
@@ -455,6 +456,54 @@ class UncitedContacts(VaultCase):
         write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
         write(self.root, "areas/ops/run-log.md", "# Log\n\nMatched `Jan Claes` in the config.\n")
         self.assertEqual(self.run_scan("1")["phase1"]["uncited_exempt"], [])
+
+    def contact_vault(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+
+    def uncited_files(self, **declared):
+        return [f["file"] for c in self.run_scan("1", **declared)["phase1"]["uncited_contacts"]
+                for f in c["files"]]
+
+    def test_prompts_and_declared_template_folders_are_excluded(self):
+        # Issue #38: text pasted outside the vault is not a mention to cite.
+        self.contact_vault()
+        write(self.root, "resources/prompts/outreach.md", "# Outreach\n\nDear Jan Claes,\n")
+        write(self.root, "resources/letters/intro.md", "# Intro\n\nDear Jan Claes,\n")
+        self.assertEqual(self.uncited_files(templates_dirs=["resources/letters"]), [])
+
+    def test_a_declared_sync_output_folder_is_excluded(self):
+        self.contact_vault()
+        write(self.root, "resources/newsletter/issue-12.md", "# Issue 12\n\nJan Claes wrote in.\n")
+        self.assertEqual(self.uncited_files(), ["resources/newsletter/issue-12.md"])
+        self.assertEqual(self.uncited_files(generated_dirs=["resources/newsletter/"]), [])
+
+    def test_a_declared_name_only_register_column_is_not_a_mention(self):
+        self.contact_vault()
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | **Contact** | Next step |",
+            "|---|---|---|",
+            "| Orchard | Jan Claes | Demo |",
+            "| Harbour | Piet | Ask Jan Claes for an intro |", "",
+        ]))
+        self.assertEqual(self.uncited_files(name_only_columns=["areas/business/leads.md:Contact"]),
+                         ["areas/business/leads.md"])
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "| Company | Contact |", "|---|---|", "| Orchard | Jan Claes |", "",
+        ]))
+        self.assertEqual(self.uncited_files(), ["areas/business/leads.md"])
+        self.assertEqual(self.uncited_files(name_only_columns=["areas/business/leads.md:Contact"]),
+                         [])
+
+    def test_a_frozen_record_marker_exempts_a_client_facing_document(self):
+        self.contact_vault()
+        write(self.root, "projects/acme/proposal.md",
+              "<!-- frozen record: sent to the client -->\n# Proposal\n\nFor Jan Claes.\n")
+        write(self.root, "projects/acme/draft.md",
+              "# Draft\n" + "\n" * 15 + "Not a frozen record.\n\nFor Jan Claes.\n")
+        self.assertEqual(self.uncited_files(), ["projects/acme/draft.md"])
 
     def test_a_card_with_no_h1_is_named_by_its_also_line(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -1142,6 +1191,21 @@ class CommandLine(VaultCase):
             self.assertEqual(report["today"], "2026-09-22")
             self.assertEqual(report["vault"], self.root.resolve().as_posix())
             self.assertIn("snapshot", report[f"phase{phase}"])
+
+    def test_uncited_contact_declarations_reach_the_scan(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "resources/newsletter/issue.md", "# Issue\n\nJan Claes wrote.\n")
+        write(self.root, "areas/business/leads.md",
+              "# Leads\n\n| Company | Contact |\n|---|---|\n| Orchard | Jan Claes |\n")
+        for phase in ("1", "4"):
+            report = self.run_json("--phase", phase, "--generated-dir", "resources/newsletter",
+                                   "--name-only-column", "areas/business/leads.md:Contact")
+            if phase == "1":
+                self.assertEqual(report["phase1"]["uncited_contacts"], [])
+            else:
+                rows = {r["check"]: r["detail"] for r in report["phase4"]["rows"]}
+                self.assertEqual(rows["uncited_contacts"], 0)
 
     def test_today_defaults_to_the_system_date(self):
         write(self.root, "CLAUDE.md", "# Vault\n")

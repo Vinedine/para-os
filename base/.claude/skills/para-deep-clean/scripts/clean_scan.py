@@ -3,7 +3,8 @@
 
     py -3 clean_scan.py --vault <path> --phase 1|3|4 [--today YYYY-MM-DD] [--ref <git-ref>]
                          [--clone <path>] [--templates-dir <dir>]... [--dated-pattern <regex>]
-                         [--next-steps-heading <heading>]... [--indent N]
+                         [--next-steps-heading <heading>]... [--generated-dir <dir>]...
+                         [--name-only-column <file>:<column>]... [--indent N]
     python3 clean_scan.py --vault <path> --phase 1
 
 Prints one JSON document on stdout: the preconditions every phase checks, plus the
@@ -45,14 +46,15 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        BRIEF_LINE_CAP, CollectedVault, FALSELY_OVERDUE_DAYS, H1_RE, STALE_FILE_DAYS,
+        BRIEF_LINE_CAP, CollectedVault, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE, H1_RE,
+        STALE_FILE_DAYS,
         WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links, declarations,
         duplicates,
-        extract_links, git, git_blame_line_date, hashes, inbound_references, iso,
-        link_files, link_spans, live_lines, master_template, misplaced_checkboxes, norm,
+        extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
+        iso, link_files, link_spans, live_lines, master_template, misplaced_checkboxes, norm,
         open_tasks, over_grown_briefs, parse_date, read_lines, read_text, reference_shape,
-        refuse_if_collected, resolve_link, snapshot, strip_code, template_marker,
-        triage_items,
+        refuse_if_collected, resolve_link, snapshot, strip_code, table_cells,
+        template_marker, triage_items,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"clean_scan: {missing}. The shared vault library belongs at "
@@ -130,6 +132,38 @@ def is_ledger_exempt(rel):
     or "transcript" as a whole word, case-insensitively: `technologies` and `reviewer`
     carry none of them."""
     return any(LEDGER_EXEMPT_RE.search(part) for part in Path(rel).parts)
+
+
+def under_any(rel, folders):
+    return any(rel == f or rel.startswith(f + "/") for f in (d.strip("/") for d in folders))
+
+
+def is_frozen_record(path):
+    """The frozen-record marker phase1-structural.md Step 1.2b names, as plain text in the
+    file's first fifteen live lines; an HTML comment carries it without rendering it."""
+    return any(FROZEN_MARKER_RE.search(t) for _, t in live_lines(read_lines(path)[:15]))
+
+
+def name_only_lines(path, columns):
+    """{line: row text with every cell under one of `columns` blanked}, for each table row
+    in `path`: a column its rule file declares a name, not a link."""
+    wanted = {c.strip().lower() for c in columns}
+    out, header = {}, None
+    for lineno, text in live_lines(read_lines(path)):
+        stripped = text.strip()
+        if not stripped.startswith("|"):
+            header = None
+            continue
+        cells = table_cells(stripped)
+        if header is None:
+            header = [c.strip("*_ ").lower() for c in cells]
+            continue
+        if is_separator_row(cells):
+            continue
+        out[lineno] = "| " + " | ".join(
+            "" if i < len(header) and header[i] in wanted else c
+            for i, c in enumerate(cells)) + " |"
+    return out
 
 
 def phone_matches(text):
@@ -234,7 +268,7 @@ def placeholder_files(vault, templates_dirs):
         if not f.is_file():
             continue
         rel = f.relative_to(vault).as_posix()
-        if rel in seen or any(rel == e or rel.startswith(e + "/") for e in exclude):
+        if rel in seen or under_any(rel, exclude):
             continue
         seen.add(rel)
         out.append(f)
@@ -376,14 +410,25 @@ def top_level_area_readme(vault, card_rel):
     return "README.md"
 
 
-def uncited_contacts(vault):
+def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
     """Every carded person named in a live file with no link to their card, minus what
-    phase1-structural.md exempts. Returns (cards, exempt): `cards` is the finding, one
-    entry per card with the files that named it uncited; `exempt` is every file a mention
-    was found in but dropped as a ledger record, so the skill can override the proxy."""
+    phase1-structural.md exempts: resources/prompts/ and `excluded_dirs` (declared template
+    and sync-output folders), a file carrying the frozen-record marker, and a cell under a
+    declared name-only column (`<file>:<column>`). Returns (cards, exempt): `cards` is the
+    finding, one entry per card with the files that named it uncited; `exempt` is every
+    file a mention was found in but dropped as a ledger record, so the skill can override
+    the proxy."""
     network_dir = vault / "areas" / "network"
     if not network_dir.is_dir():
         return [], []
+    excluded = ("resources/prompts", *excluded_dirs)
+    columns = {}
+    for spec in name_only_columns:
+        rel, _, column = spec.rpartition(":")
+        columns.setdefault(rel.strip("/"), []).append(column)
+    blanked = {rel: name_only_lines(vault / rel, cols) for rel, cols in columns.items()
+               if (vault / rel).is_file()}
+    frozen = {}
     out, exempt = [], set()
     for card in sorted(network_dir.glob("*.md")):
         card_rel = card.relative_to(vault).as_posix()
@@ -398,11 +443,17 @@ def uncited_contacts(vault):
         for name in names:
             pattern = whole_word(name)
             for hit in inbound_references(vault, name):
-                if hit["file"] == card_rel or hit["in_sources"] or not in_live_scope(hit["file"]):
+                if hit["file"] == card_rel or hit["in_sources"] or not in_live_scope(hit["file"]) \
+                        or under_any(hit["file"], excluded):
                     continue
+                if hit["file"] not in frozen:
+                    frozen[hit["file"]] = is_frozen_record(vault / hit["file"])
+                if frozen[hit["file"]]:
+                    continue
+                text = blanked.get(hit["file"], {}).get(hit["line"], hit["text"])
                 # inbound_references() without a parent is a bare substring find, so the
                 # name is re-matched as a whole word.
-                if not pattern.search(unquote(hit["text"])):
+                if not pattern.search(unquote(text)):
                     continue
                 if allowed is not None and hit["file"] not in allowed:
                     continue
@@ -410,7 +461,7 @@ def uncited_contacts(vault):
                 # code sample - is not a mention of the person, per "a quoted syntax is not
                 # a used syntax", and neither is one inside a link's text or target (a
                 # linked source filename, a percent-decoded href).
-                prose = links_stripped(hit["text"])
+                prose = links_stripped(text)
                 mentioned = any(reference_shape(prose, m.start(), m.end()) == "prose"
                                 for m in pattern.finditer(prose))
                 if is_ledger_exempt(hit["file"]):
@@ -619,7 +670,7 @@ def stale_drafts(vault):
 
 # ----------------------------------------------------------------------------------- phase 1
 
-def phase1(vault, templates_dirs, dated_pattern):
+def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_columns=()):
     touched = set()
 
     map_ = phase1_map(vault)
@@ -636,7 +687,8 @@ def phase1(vault, templates_dirs, dated_pattern):
     wikilinks = find_wikilinks(vault)
     touched |= {vault / w["file"] for w in wikilinks}
 
-    uncited, uncited_exempt = uncited_contacts(vault)
+    uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs),
+                                               name_only_columns)
     touched |= {vault / c["card"] for c in uncited}
     touched |= {vault / f["file"] for c in uncited for f in c["files"]}
     touched |= {vault / f for f in uncited_exempt}
@@ -829,7 +881,8 @@ def phase3(vault, today, headings):
 
 # ----------------------------------------------------------------------------------- phase 4
 
-def phase4(vault, templates_dirs, dated_pattern, today):
+def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
+           name_only_columns=()):
     touched, rows = set(), []
 
     mc = misplaced_checkboxes(vault)
@@ -869,7 +922,8 @@ def phase4(vault, templates_dirs, dated_pattern, today):
     # Candidates only, pass: None - phase4-audit.md lists contact citation and detail
     # attribution among what this phase re-verifies, and the verdict (real defect, or a
     # legitimate exemption) is the skill's, not this script's.
-    uncited, uncited_exempt = uncited_contacts(vault)
+    uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs),
+                                               name_only_columns)
     touched |= {vault / c["card"] for c in uncited}
     touched |= {vault / f["file"] for c in uncited for f in c["files"]}
     touched |= {vault / f for f in uncited_exempt}
@@ -885,17 +939,20 @@ def phase4(vault, templates_dirs, dated_pattern, today):
 
 # ------------------------------------------------------------------------------- the report
 
-def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, headings):
+def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, headings,
+         generated_dirs=(), name_only_columns=()):
     vault = Path(vault).resolve()
     refuse_if_collected(vault)
     report = {"vault": vault.as_posix(), "today": today.isoformat(), "phase": phase,
               "preconditions": preconditions(vault, clone, ref)}
     if phase == "1":
-        report["phase1"] = phase1(vault, templates_dirs, dated_pattern)
+        report["phase1"] = phase1(vault, templates_dirs, dated_pattern, generated_dirs,
+                                  name_only_columns)
     elif phase == "3":
         report["phase3"] = phase3(vault, today, headings)
     elif phase == "4":
-        report["phase4"] = phase4(vault, templates_dirs, dated_pattern, today)
+        report["phase4"] = phase4(vault, templates_dirs, dated_pattern, today, generated_dirs,
+                                  name_only_columns)
     return report, 0
 
 
@@ -910,7 +967,13 @@ def main(argv=None):
                                      "precondition (skipped when omitted)")
     ap.add_argument("--templates-dir", action="append", default=[], metavar="DIR",
                     help="a folder the vault names as holding templates, excluded from the "
-                         "placeholder scan (repeatable)")
+                         "placeholder and uncited-contact scans (repeatable)")
+    ap.add_argument("--generated-dir", action="append", default=[], metavar="DIR",
+                    help="a folder the vault names as a sync script's output, excluded from "
+                         "the uncited-contact scan (repeatable)")
+    ap.add_argument("--name-only-column", action="append", default=[], metavar="FILE:COLUMN",
+                    help="a register column its rule file declares a name, not a link, "
+                         "excluded from the uncited-contact scan (repeatable)")
     ap.add_argument("--dated-pattern", default=DEFAULT_DATED_PATTERN,
                     help=f"naming pattern archive/meetings/ files must match "
                          f"(default: {DEFAULT_DATED_PATTERN!r})")
@@ -937,7 +1000,8 @@ def main(argv=None):
 
     try:
         report, code = scan(root, today, args.phase, args.ref, args.clone,
-                            args.templates_dir, args.dated_pattern, headings)
+                            args.templates_dir, args.dated_pattern, headings,
+                            args.generated_dir, args.name_only_column)
     except CollectedVault as refused:
         print(f"clean_scan: {refused}", file=sys.stderr)
         return 2
