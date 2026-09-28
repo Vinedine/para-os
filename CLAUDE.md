@@ -39,7 +39,10 @@ second job fails when coverage drops below its floor, and a third runs `actionli
 
 ## Branches
 
-- **`main` is where work merges**: one issue, one branch, one pull request that says `Fixes #N`.
+- **`main` is where work merges**: one issue, one branch, one pull request that says `Fixes #N`,
+  merged as a squash, so `main` reads one commit per issue. A squash leaves the branch's own
+  commits unreachable, so an issue or pull request cites other work by its number, never by the
+  hash of a commit that is not on `main`.
 - **`stable` is what users get**: the Quickstart, `INSTALL.md` and `/para-upgrade` read it.
   `/release` moves it forward to a tagged revision on `main`; a hotfix is the one other change.
 - **Fixes land on `main` first.** A hotfix to a released revision is fixed on `main` and
