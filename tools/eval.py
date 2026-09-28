@@ -154,6 +154,10 @@ def main(argv=None):
             tags = ["native"]
 
         cmd += args.rest
+        # The harness's own default judge answers in one word with no thinking, and fails
+        # right answers that a rubric has to read closely; evals/README.md has the evidence.
+        if not any(a == "--judge-model" or a.startswith("--judge-model=") for a in args.rest):
+            cmd += ["--judge-model", "sonnet"]
         # Grant what the selected cases list, unless the operator granted tools themselves.
         if not any(a == "--allow-tools" or a.startswith("--allow-tools=") for a in args.rest):
             cases = selected_cases(args.case, tags)
