@@ -112,6 +112,7 @@ A record describes the **newest** message in its thread and carries the whole of
 |---|---|
 | `subject`, `from`, `from_name`, `received`, `preview`, `link`, `id`, `message_id` | The newest message. `message_id` is the RFC822 one, so a message reaching two mailboxes is recognisable as one message. |
 | `thread_id` | The Graph conversation, or the message id where there is none. |
+| `read` | The newest message's single-message read, ready to follow `outlook.py`: `raw <root>/messages/<id> --account <token account>`, with the `/users/<address>` root and `via` account a shared mailbox needs. A staged note's `Message id` line. |
 | `message_count`, `messages` | How many messages the window held for this thread, and all of them, newest first. |
 | `participants` | Everyone who **wrote** on the thread, minus the mailbox owner. Match contacts against this, never against `from` alone: a thread where the owner replied last would otherwise hide the counterparty, which is the most ordinary thing a live thread does. Senders only, because who received a message says nothing about whose business it is. |
 | `from_owner` | Whether the newest message is from the mailbox owner. |

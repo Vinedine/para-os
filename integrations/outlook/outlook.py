@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.09.05 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: outlook 2026.09.07 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 """Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph and hand the
 messages to a caller that decides what they mean. Writes nothing, anywhere, ever.
 
@@ -902,6 +902,7 @@ def cmd_fetch(cfg, args):
                 "account": email,
                 **newest,
                 "thread_id": key,
+                "read": f"raw {root}/messages/{newest['id']} --account {token_account}",
                 "message_count": len(group),
                 # Everyone who WROTE on the thread, minus the mailbox owner. The caller's
                 # contact rule matches a counterparty, and reading only the newest message
