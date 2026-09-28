@@ -2277,6 +2277,15 @@ class BuildReportCase(CloneCase):
             self.assertEqual(code, 4)
             self.assertIn("not a para-os clone", report["clone"]["error"])
 
+    def test_exit_6_when_no_clone_was_found(self):
+        vault = self.make_vault(tempfile.mkdtemp(), fixture_template("2026.09.01"))
+        report, code = build_report(vault, None, None, False, None, str(vault / "no-skills"),
+                                    str(vault / "no-settings"), None, [])
+        self.assertEqual(code, 6)
+        self.assertEqual((report["clone"]["path"], report["clone"]["source"]), (None, None))
+        self.assertTrue(report["clone"]["error"].startswith("no para-os clone found"))
+        self.assertNotIn("delta", report)  # never an unverified verdict
+
     def test_a_full_run_answers_zero_and_every_block_is_present(self):
         vault = self.make_vault(tempfile.mkdtemp(), fixture_template("2026.08.02"))
         report, code = build_report(vault, self.clone, "main", False, "2026-09-22",
@@ -2379,6 +2388,53 @@ class MainCase(unittest.TestCase):
         self.assertEqual(code, 5)
         self.assertTrue(data["clone"]["stable_missing"])
         self.assertIn("upgrade_scan: ref does not resolve: origin/stable", err)
+
+    def a_vault(self, root):
+        vault = root / "Vault"
+        for d in ("projects", "areas"):
+            (vault / d).mkdir(parents=True)
+        write(vault, "CLAUDE.md", fixture_template("2026.08.02"))
+        return vault
+
+    def test_main_reads_the_clone_at_the_default_path_without_clone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            vault = self.a_vault(root)
+            default = root / "home" / "para-os"
+            default.mkdir(parents=True)
+            build_clone(default, root / "origin.git")
+            code, data, err = self.run_main(["--vault", str(vault), "--ref", "main",
+                                             "--paraos-home", str(root / "home"),
+                                             "--user-skills", str(root / "no-skills"),
+                                             "--user-settings", str(root / "no-settings")])
+        self.assertEqual(code, 0, err)
+        self.assertEqual((data["clone"]["path"], data["clone"]["source"]),
+                         (str(default), "default"))
+        self.assertEqual(data["delta"]["verdict"], "behind")
+
+    def test_main_takes_an_explicit_clone_over_the_default_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            vault = self.a_vault(root)
+            (root / "home" / "para-os").mkdir(parents=True)
+            (root / "not-a-clone").mkdir()
+            code, data, _ = self.run_main(["--vault", str(vault),
+                                           "--clone", str(root / "not-a-clone"),
+                                           "--paraos-home", str(root / "home")])
+        self.assertEqual(code, 4)
+        self.assertEqual((data["clone"]["path"], data["clone"]["source"]),
+                         (str(root / "not-a-clone"), "explicit"))
+
+    def test_main_exits_6_when_no_clone_is_found_anywhere(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            vault = self.a_vault(root)
+            code, data, err = self.run_main(["--vault", str(vault),
+                                             "--paraos-home", str(root / "home")])
+        self.assertEqual(code, 6)
+        self.assertIsNone(data["clone"]["path"])
+        self.assertIn("upgrade_scan: no para-os clone found", err)
+        self.assertIn(str(root / "home" / "para-os"), err)
 
     def test_main_exit_3_names_the_registered_vault_the_folder_sits_in(self):
         with tempfile.TemporaryDirectory() as tmp:

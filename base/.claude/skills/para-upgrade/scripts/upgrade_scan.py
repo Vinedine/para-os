@@ -2,7 +2,7 @@
 """Phase 0 and Phase 3 of /para-upgrade, plus the mechanical parts of Phase 2 and the Phase 5
 re-checks, as a script instead of instructions.
 
-    py -3 upgrade_scan.py --vault <path> --clone <path> [--ref origin/stable] [--worktree]
+    py -3 upgrade_scan.py --vault <path> [--clone <path>] [--ref origin/stable] [--worktree]
                           [--today YYYY-MM-DD] [--user-skills DIR] [--user-settings FILE]
                           [--unchanged EARLIER_SCAN.json] [--indent N]
 
@@ -40,8 +40,8 @@ try:
         ADDONS_DIR, BASE_TEMPLATE, H2_RE, INTEGRATION_MARKER_RE, MARKED_SUFFIXES,
         OLDER_ADDON_DIRS, SKELETON_TEMPLATE, addon_root, changed,
         changelog_entries, clone_files, clone_read, clone_ref, declarations, entries_between,
-        git, git_bytes, git_status_lines, git_untracked, integration_markers, master_template,
-        normalised,
+        find_clone, git, git_bytes, git_status_lines, git_untracked, integration_markers,
+        master_template, normalised, paraos_home_dir,
         read_lines, read_text, registered_vault, registry, rel_posix, snapshot,
         template_marker, vault_root,
     )
@@ -1541,12 +1541,19 @@ def since_block(earlier_doc, current_snapshot, current_smoke):
 # =========================================================================== the plan
 
 def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_settings,
-                 unchanged_path, entries):
+                 unchanged_path, entries, clone_source="explicit", default_clone=None):
     vault = Path(vault).resolve()
-    clone = Path(clone).resolve()
-
     v_block = vault_block(vault, entries)
+
+    if clone is None:  # find_clone found none: its own state, never an unverified master
+        report = {"vault": v_block, "clone": {
+            "path": None, "source": None,
+            "error": f"no para-os clone found: none at {default_clone}, and no --clone"}}
+        return report, 3 if not v_block["root"] else 6
+
+    clone = Path(clone).resolve()
     c_block, clone_ok, ref = clone_block(clone, ref_arg, worktree, v_block["declarations"])
+    c_block["source"] = clone_source
     report = {"vault": v_block, "clone": c_block}
 
     if not v_block["root"]:
@@ -1594,7 +1601,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Scan a vault and a para-os clone for /para-upgrade.")
     ap.add_argument("--vault", required=True, help="vault root")
-    ap.add_argument("--clone", required=True, help="a local para-os clone")
+    ap.add_argument("--clone", help="a local para-os clone (default: $PARAOS_HOME/para-os)")
     ap.add_argument("--ref", default=None, help="default: " + STABLE)
     ap.add_argument("--worktree", action="store_true",
                     help="read every master from the clone's working tree; the ref is then "
@@ -1613,9 +1620,11 @@ def main(argv=None):
         pass
 
     entries = registry(args.paraos_home)
-    report, code = build_report(Path(args.vault), Path(args.clone), args.ref, args.worktree,
+    clone, source = find_clone(args.clone, args.paraos_home)
+    report, code = build_report(Path(args.vault), clone, args.ref, args.worktree,
                                 args.today, args.user_skills, args.user_settings,
-                                args.unchanged, entries)
+                                args.unchanged, entries, source,
+                                paraos_home_dir(args.paraos_home) / "para-os")
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
 
@@ -1624,7 +1633,7 @@ def main(argv=None):
             if report["vault"].get("hint") else ""
         print(f"upgrade_scan: not a vault root: {args.vault} "
               f"(missing {', '.join(report['vault']['missing'])}){hint}", file=sys.stderr)
-    elif code in (4, 5):
+    elif code in (4, 5, 6):
         print(f"upgrade_scan: {report['clone'].get('error')}", file=sys.stderr)
     return code
 

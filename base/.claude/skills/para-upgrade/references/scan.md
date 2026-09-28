@@ -13,7 +13,7 @@ judgment lives in [delta.md](delta.md), [rules-and-skeleton.md](rules-and-skelet
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> --clone <path> \
+python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> [--clone <path>] \
     [--ref origin/stable] [--worktree] [--today YYYY-MM-DD] [--user-skills DIR] \
     [--user-settings FILE] [--unchanged EARLIER_SCAN.json] [--indent N]
 ```
@@ -27,6 +27,7 @@ python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> -
 | 3 | `--vault` is not a vault root (`vault_root`: `projects/` plus `areas/` or `archive/`, plus `CLAUDE.md`) | `vault` and `clone` (the clone is still checked, so both reasons print at once) |
 | 4 | `--clone` is not a git repository, `--ref` does not resolve, `--worktree` names a ref other than the checked-out branch or finds the clone's HEAD detached with no branch to read, or the ref carries no `CHANGELOG.md` or `base/CLAUDE.md.template` (not a para-os clone) | `vault` (full) and `clone` (with `error`) |
 | 5 | Neither `--ref` nor `--worktree` was given and the clone has no `origin/stable`: a clone made before releases moved to `stable` (`clone.stable_missing: true`) | As exit 4 |
+| 6 | No `--clone`, and no folder at `$PARAOS_HOME/para-os` (`find_clone`) | `vault` and `clone` (`path` and `source` `null`, with `error`) |
 
 A collected vault is **never refused**: `CLAUDE.md` and `.claude/` are on `flip.ps1`'s
 denylist and stay in place, so the scan reports `collected: true`, resolves skeleton
@@ -38,7 +39,7 @@ refusal (exit 2) rather than refusing itself.
 | Block | Holds |
 |---|---|
 | `vault` | `path`, `root`, `missing`, `hint`; `declarations` (the library's, unchanged); `collected`; `claude_md_lines` (`wc -l` semantics - newline count, not `splitlines()` length); `git.repo`, `git.dirty`, `git.untracked_in_scope`, `git.ignored_in_scope` (files under `CLAUDE.md` and `.claude/` git does not track or does ignore - Precondition 5) |
-| `clone` | `path`, `ref`, `ref_commit`, `worktree`, `checked_out` (`branch`, `commit`), `origin_stable`, `same_commit` (name groups sharing one commit), `dirty`, `dirty_masters` (the `dirty` paths a master is read from, Precondition 3), `ref_merged` (is the ref an ancestor of `origin/stable`; `null` with no `origin/stable`), `stable_missing`, `error` on exit 4 or 5 |
+| `clone` | `path`, `source` (`explicit`\|`default`), `ref`, `ref_commit`, `worktree`, `checked_out` (`branch`, `commit`), `origin_stable`, `same_commit` (name groups sharing one commit), `dirty`, `dirty_masters` (the `dirty` paths a master is read from, Precondition 3), `ref_merged` (is the ref an ancestor of `origin/stable`; `null` with no `origin/stable`), `stable_missing`, `error` on exit 4, 5 or 6 |
 | `masters` | `template` (the library's `master_template` result), `skeleton_overlay`, `addons` (one row per declared delivery/flavor/module: `name`, `kind`, `root` or `null` with `reported` or `carried_forward`) |
 | `delta` | `vault_marker`, `vault_marker_raw`, `legacy`, `master_marker`, `verdict` (`equal`\|`behind`\|`ahead`\|`no-marker`\|`unverified`), `entries` (each `{revision, line, items, reactions}`), `current` (equal only) |
 | | `unverified`: the master's own marker could not be read (`master_marker: null`: no `<!-- para-os-template: -->` comment in the resolved template, or the read failed). Report it as that, not as a vault-side problem. |

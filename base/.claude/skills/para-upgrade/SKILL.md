@@ -2,7 +2,7 @@
 name: para-upgrade
 description: Bring a vault in line with a newer para-os template revision - reads the vault's template marker, diffs it against a para-os clone at an explicit ref, then applies the intervening changelog entries as a reviewed migration (structure, skeleton files, stale rule and integration-script copies, and rule-driven content violations). Use when the user asks to "upgrade the vault", "align this vault to para-os", "is this vault on the latest structure", "apply the new para-os structure", or types /para-upgrade.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write
-argument-hint: '[--ref <git-ref>] [audit] [--test]'
+argument-hint: '[--ref <git-ref>] [--clone <path>] [audit] [--test]'
 ---
 
 # Para upgrade
@@ -15,13 +15,14 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 |---|---|
 | *(none)* | Full flow against the default ref |
 | `--ref <git-ref>` | Read the master from this ref instead of the default (a branch, tag, or commit). Also accepted as a bare positional argument (`/para-upgrade feat/revision-x`) or with a leading qualifier word (`local feat/revision-x`) - either resolves to `<git-ref>` in the clone, same as `--ref`. |
+| `--clone <path>` | Read this para-os clone instead of the default one, per [para-shared/scripts.md](../para-shared/scripts.md) |
 | `audit` | Read-only. Reports the delta and what would change; never modifies a file |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
-| any other `--` argument | Stops the run: name it and show this table. Never read as a ref, bare or not. |
+| any other `--` argument | Stops the run, `audit` or not: name it and show this table. Never read as a ref, bare or not. |
 
 ## Preconditions
 
-1. **A local para-os clone.** Ask the user for its path if it isn't obvious; do not guess. Every master is read from it, per [references/delta.md](references/delta.md).
+1. **A local para-os clone**, found per [para-shared/scripts.md](../para-shared/scripts.md). Where none is (the scan's exit 6), ask the user for its path. Every master is read from it, per [references/delta.md](references/delta.md).
 2. **An explicit ref, defaulting to `origin/stable`,** what users get; `origin/main` is where work merges before a release. Run `git fetch` first so `origin/stable` is current. With no ref named, a clone not on `stable` (the Phase 0 scan's `clone.checked_out.branch`, or its exit 5) was made before releases moved there: offer the one-time switch, `git -C <clone> fetch origin` then `git -C <clone> checkout stable`, so its later pulls follow `stable`.
 3. **The ref should be committed.** If the user names a working branch, read the Phase 0 scan's `clone.dirty_masters` (by hand: [references/scan.md](references/scan.md)). If the master is uncommitted, name the files and ask whether to proceed anyway or commit first. Never commit on the user's behalf.
 4. **Vault has a `CLAUDE.md`.** If missing, this is a bootstrap, not an upgrade: point at `bootstrap-prompt.md` and stop.
@@ -34,10 +35,10 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> --clone <clone path> [--ref <ref>] > <scan output path>
+python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> [--clone <path>] [--ref <ref>] > <scan output path>
 ```
 
-**Exit codes**: 0 answered; 2 fall back to [references/scan.md](references/scan.md)'s by-hand procedure; 3 `--vault` is not a vault root (one with no `CLAUDE.md` is Precondition 4's bootstrap stop); 4 the clone or the ref cannot be read (ask for the clone's path or a ref that resolves, never guess one); 5 no ref was named and the clone has no `origin/stable`: Precondition 2's switch, then scan again.
+**Exit codes**: 0 answered; 2 fall back to [references/scan.md](references/scan.md)'s by-hand procedure; 3 `--vault` is not a vault root (one with no `CLAUDE.md` is Precondition 4's bootstrap stop); 4 the clone or the ref cannot be read (ask for the clone's path or a ref that resolves, never guess one); 5 no ref was named and the clone has no `origin/stable`: Precondition 2's switch, then scan again; 6 no clone found: Precondition 1.
 
 Read the `delta` block for the vault's marker, the master's, the verdict and the collected entries, and the `clone` block for the ref read, the checked-out branch and `origin/stable`, each with its commit. Reading and resolving the master, the Equal case (which also reads Phase 3's `skills` and `integrations` blocks) and the smoke-test baseline: [references/delta.md](references/delta.md).
 

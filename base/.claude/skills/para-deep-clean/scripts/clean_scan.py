@@ -46,7 +46,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, CollectedVault, FALSELY_OVERDUE_DAYS, H1_RE, STALE_FILE_DAYS,
-        WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links, declarations,
+        WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links, declarations, find_clone,
         duplicates,
         extract_links, git, git_blame_line_date, hashes, inbound_references, iso,
         link_files, link_spans, live_lines, master_template, misplaced_checkboxes, norm,
@@ -161,17 +161,20 @@ def marker_precondition(vault, clone, ref):
     that is (a declared or detected delivery's skeleton, in whichever layout the ref
     carries, else base) is the library's `declarations` and `master_template`, the same
     reading /para-upgrade makes, so the two skills never measure one vault against two
-    templates. `ref_missing` is a clone given whose ref does not resolve: one made before
+    templates. `ref_missing` is a clone whose ref does not resolve: one made before
     releases moved to `stable`, where the ref is the default."""
     decl = declarations(vault)
     vault_marker = template_marker(read_text(vault / "CLAUDE.md"))
     master_marker, delivery_fallback = None, None
+    clone, clone_source = find_clone(clone)
 
     if clone:
         master = master_template(clone, ref, decl)
         master_marker, delivery_fallback = master["marker"], master["fallback"]
 
-    if master_marker is None or vault_marker is None:
+    if clone is None:
+        verdict = "no_clone"
+    elif master_marker is None or vault_marker is None:
         verdict = "unverified"
     elif vault_marker == master_marker:
         verdict = "equal"
@@ -181,6 +184,7 @@ def marker_precondition(vault, clone, ref):
         verdict = "ahead"
 
     out = {"vault": vault_marker, "master": master_marker, "verdict": verdict,
+           "clone": clone.as_posix() if clone else None, "clone_source": clone_source,
            "ref": ref, "ref_missing": bool(clone) and clone_ref(clone, ref) is None,
            "delivery": decl["delivery"], "delivery_source": decl["delivery_source"]}
     if delivery_fallback:
@@ -907,7 +911,7 @@ def main(argv=None):
     ap.add_argument("--ref", default="origin/stable",
                     help="committed para-os ref for the template-marker precondition")
     ap.add_argument("--clone", help="path to a local para-os clone, for the template-marker "
-                                     "precondition (skipped when omitted)")
+                                     "precondition (default: $PARAOS_HOME/para-os)")
     ap.add_argument("--templates-dir", action="append", default=[], metavar="DIR",
                     help="a folder the vault names as holding templates, excluded from the "
                          "placeholder scan (repeatable)")

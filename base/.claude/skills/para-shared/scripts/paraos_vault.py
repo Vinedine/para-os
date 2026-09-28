@@ -157,6 +157,23 @@ def vault_root(path):
     return {"root": not missing, "missing": missing}
 
 
+def paraos_home_dir(paraos_home=None):
+    """`paraos_home` where given, else `$PARAOS_HOME`, else `~/.paraos`."""
+    return Path(paraos_home or os.environ.get("PARAOS_HOME") or (Path.home() / ".paraos"))
+
+
+def find_clone(explicit=None, paraos_home=None):
+    """The para-os clone a scan reads masters from, by para-shared/scripts.md's rule: an
+    explicit `--clone` as given, else `<paraos home>/para-os` where that folder exists.
+    `(path, "explicit" | "default")`, or `(None, None)`: no clone found, which a caller
+    reports as its own state, never as a master it could not read.
+    """
+    if explicit:
+        return Path(explicit), "explicit"
+    default = paraos_home_dir(paraos_home) / "para-os"
+    return (default, "default") if default.is_dir() else (None, None)
+
+
 def registry(paraos_home=None):
     """The machine's vault registry, `<paraos_home>/vaults.json`: every vault this machine
     knows about, as written (`name`, `path`, `kind`, `purpose`, `active`). `paraos_home`
@@ -164,8 +181,7 @@ def registry(paraos_home=None):
     unparseable, never an exception: a registry read is background context for a stop line,
     not something a run needs to fail on.
     """
-    home = Path(paraos_home) if paraos_home else Path(
-        os.environ.get("PARAOS_HOME") or (Path.home() / ".paraos"))
+    home = paraos_home_dir(paraos_home)
     try:
         data = json.loads((home / "vaults.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -1933,8 +1949,7 @@ def ingest_logs(paraos_home=None):
     read from the filename: dropping it would report an ingest run that never happened
     rather than one this reader could not read. A missing directory is `[]`.
     """
-    home = Path(paraos_home) if paraos_home else Path(
-        os.environ.get("PARAOS_HOME") or (Path.home() / ".paraos"))
+    home = paraos_home_dir(paraos_home)
     base = home / "cache" / "ingest" / "runs"
     if not base.is_dir():
         return []
@@ -2003,8 +2018,7 @@ def ingest_ledger(paraos_home=None):
     is reported in `load_error` with empty maps too - a ledger a caller cannot read must never
     look like a ledger that says nothing routed anywhere.
     """
-    home = Path(paraos_home) if paraos_home else Path(
-        os.environ.get("PARAOS_HOME") or (Path.home() / ".paraos"))
+    home = paraos_home_dir(paraos_home)
     path = home / "cache" / "ingest" / "ledger.json"
     if not path.is_file():
         return {"exists": False, "mailboxes": {}, "by_message_id": {}, "load_error": None}
