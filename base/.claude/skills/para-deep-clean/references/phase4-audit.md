@@ -18,7 +18,7 @@ Read-only verification pass. Also the second half of the `audit` argument, which
 - Status tables ("where do we stand" per entity: cost basis, stage, key numbers) present and current, where the vault uses them
 - Action files sit at the actionable frontier: none at or over the 12-open WIP threshold and no 30+-day-overdue aspirational dates remain, except where the operator explicitly decided to keep one, or the item was reworded as an open question with the date removed - both count as resolved, and either way the decision goes in the run summary
 - Content grooming findings were **proposed and ruled on, not applied silently**: every removal was approved individually with its text shown, no file was deleted as a duplicate without a content diff against the copy that survived, and the run summary names which briefs Step 3.5 read and which it skipped
-- **`/para-daily-brief` actually runs** against the cleaned vault and its counts look right. Run it; don't simulate its file scan with a grep.
+- **`/para-daily-brief` actually runs** against the cleaned vault and its counts look right. Run it, terminal only; never simulate it with a grep.
 
 Report a clean state summary, or list residual issues with proposed fixes.
 

@@ -35,7 +35,7 @@ Confirm before starting:
 1. Vault has a `CLAUDE.md` documenting structure, naming conventions, and "do not add" rules. If missing, stop and ask the user to create one.
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
 3. Entities each carry the main document their `CLAUDE.md` prescribes (`brief.md` by default) plus optional `sources/`.
-4. **`triage/` must contain no loose files.** Use `Glob triage/*` to check, covering [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) - if any loose files (not subdirectories) are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1 rather than treating it as a loose item to file.
+4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them (`Glob triage/*` where it cannot run); check [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) too. If any are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
 5. **The vault should be on the newest *shipped* para-os template revision.** This skill audits the vault against the rules its own `CLAUDE.md` states, so if that contract is a revision behind, a clean bill of health here only means the vault is faithful to a stale spec. Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
    Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/stable`** (the delivery's skeleton template for a vault on a delivery, whether its `**Delivery:**` line names it or [the detection rule](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places it there: `addons/<delivery>/skeleton/`, or `delivery/<delivery>/` then `flavors/<delivery>/` at a ref with no `addons/` folder; base where the delivery has no skeleton at that ref, said so in the run). **Never read the clone's working tree:** a revision in flight lives there uncommitted and would report every vault on the machine as behind. The only marker a vault can be aligned to is one that has shipped.
@@ -55,7 +55,7 @@ Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today YYYY-MM-DD] [--ref <git-ref>] [--clone <path>] > <scan output path>
+python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] > <scan output path>
 ```
 
 ## Phased workflow
