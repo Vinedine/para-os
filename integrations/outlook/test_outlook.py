@@ -1402,6 +1402,17 @@ class CmdFetch(unittest.TestCase):
             cfg={"accounts": {"a@x.com": {"refresh_token": "t", "self": ["me@icloud.com"]}}})
         self.assertIs(records[0]["from_owner"], True)
 
+    def test_a_record_carries_the_ready_single_message_read(self):
+        # What a staged note's Message id line holds: the webLink's item id is not a Graph
+        # path, and a shared mailbox also needs /users/<address>/ and --account.
+        records, _ = self.run_fetch()
+        self.assertEqual(records[0]["read"], "raw /me/messages/1 --account a@x.com")
+        cfg = {"accounts": {"a@x.com": {"refresh_token": "t"},
+                            "info@x.com": {"via": "a@x.com"}}}
+        records, _ = self.run_fetch(cfg=cfg, feeds=("info@x.com",))
+        self.assertEqual(records[0]["read"],
+                         "raw /users/info@x.com/messages/1 --account a@x.com")
+
     def test_a_record_carries_the_conversation_id(self):
         # Parity with the connector path, where one conversation is one candidate rather
         # than N. Without it a five-message thread is judged five times.
