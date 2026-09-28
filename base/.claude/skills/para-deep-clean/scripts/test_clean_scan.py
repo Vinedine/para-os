@@ -71,13 +71,13 @@ def marker_claude_md(marker, delivery=None):
     return "\n".join(lines) + "\n"
 
 
-def make_clone(base_marker="2026.09.05", deliveries=None, layout="addons"):
+def make_clone(base_marker="2026.09.05", deliveries=None, layout="addons", root=None):
     """A throwaway committed para-os clone, for the template-marker precondition. Not
     cleaned up by the caller's addCleanup until it registers one; VaultCase.clone() does.
     `layout` is the folder each delivery ships under: `addons` today, `delivery` at a ref
-    from before `addons/` existed.
+    from before `addons/` existed. `root`, where given, is the folder to build it in.
     """
-    root = Path(tempfile.mkdtemp())
+    root = Path(root) if root else Path(tempfile.mkdtemp())
     write(root, "base/CLAUDE.md.template", marker_claude_md(base_marker))
     for name, marker in (deliveries or {}).items():
         write(root, f"{layout}/{name}/skeleton/CLAUDE.md.template", marker_claude_md(marker))
@@ -95,6 +95,13 @@ class VaultCase(unittest.TestCase):
         # symlink and Windows' behind a short RUNNER~1 name, and an absolute path the scan
         # reports would never equal the unresolved spelling.
         self.root = Path(tmp.name).resolve()
+        # An empty para-os home, so no test finds the machine's own default clone.
+        home = tempfile.TemporaryDirectory()
+        self.addCleanup(home.cleanup)
+        self.home = Path(home.name).resolve()
+        patch = mock.patch.dict(os.environ, {"PARAOS_HOME": str(self.home)})
+        patch.start()
+        self.addCleanup(patch.stop)
 
     def clone(self, **kwargs):
         path = make_clone(**kwargs)
@@ -130,12 +137,28 @@ class Preconditions(VaultCase):
         self.assertEqual(pre["template_marker"]["delivery"], "readonly-ipad")
         self.assertEqual(pre["template_marker"]["delivery_source"], "declared")
 
-    def test_no_clone_is_unverified(self):
+    def test_no_clone_anywhere_is_not_found_never_unverified(self):
         write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
         m = self.run_scan("1", clone=None)["preconditions"]["template_marker"]
-        self.assertEqual(m["verdict"], "unverified")
+        self.assertEqual((m["verdict"], m["clone"], m["clone_source"]), ("no_clone", None, None))
         self.assertIsNone(m["master"])
         self.assertIsNone(m["delivery_source"])
+
+    def test_a_clone_at_the_default_path_is_found_without_clone(self):
+        make_clone(base_marker="2026.09.05", root=self.home / "para-os")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
+        m = self.run_scan("1", clone=None)["preconditions"]["template_marker"]
+        self.assertEqual((m["verdict"], m["master"], m["clone_source"]),
+                         ("behind", "2026.09.05", "default"))
+        self.assertEqual(m["clone"], (self.home / "para-os").as_posix())
+
+    def test_an_explicit_clone_wins_over_the_default_path(self):
+        make_clone(base_marker="2026.08.01", root=self.home / "para-os")
+        clone = self.clone(base_marker="2026.09.05")
+        write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
+        m = self.run_scan("1", clone=str(clone))["preconditions"]["template_marker"]
+        self.assertEqual((m["verdict"], m["master"], m["clone_source"]),
+                         ("behind", "2026.09.05", "explicit"))
 
     def test_equal(self):
         clone = self.clone(base_marker="2026.09.05")
@@ -1196,11 +1219,11 @@ class CommandLine(VaultCase):
         report = self.run_json("--phase", "4")
         self.assertIn(report["today"], {before, date.today().isoformat()})
 
-    def test_ref_defaults_to_origin_stable_and_the_marker_is_unverified_without_a_clone(self):
+    def test_ref_defaults_to_origin_stable_and_the_marker_is_not_found_without_a_clone(self):
         write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05"))
         marker = self.run_json("--phase", "1")["preconditions"]["template_marker"]
         self.assertEqual(marker["ref"], "origin/stable")
-        self.assertEqual(marker["verdict"], "unverified")
+        self.assertEqual(marker["verdict"], "no_clone")
         self.assertFalse(marker["ref_missing"])
 
     def test_the_default_ref_reads_origin_stable_and_a_clone_without_it_is_unverified(self):

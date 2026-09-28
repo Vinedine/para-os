@@ -27,7 +27,7 @@ from paraos_vault import (
     CollectedVault, abspath, action_files, addon_root, arrived, cadence_days, changed,
     changelog_entries, clone_files, clone_read, clone_ref, closed_tasks, dangling_links,
     declarations, duplicates, entries_between, extract_links, field_ci, file_dates,
-    first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
+    find_clone, first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
     git_untracked, hashes, header_fields,
     inbound_references, ingest_ledger, ingest_logs, integration_markers, is_collected,
     lifecycles, live_lines, log_instant, main, master_template, misplaced_checkboxes,
@@ -576,6 +576,29 @@ class Registry(VaultCase):
         with mock.patch.dict(os.environ, {"PARAOS_HOME": ""}), \
              mock.patch("paraos_vault.Path.home", return_value=self.root):
             self.assertEqual(registry()[0]["name"], "BF")
+
+
+class FindClone(VaultCase):
+
+    def test_an_explicit_clone_is_taken_as_given(self):
+        (self.root / "para-os").mkdir()
+        with mock.patch.dict(os.environ, {"PARAOS_HOME": str(self.root)}):
+            self.assertEqual(find_clone(self.root / "mine"), (self.root / "mine", "explicit"))
+
+    def test_the_default_is_para_os_under_paraos_home(self):
+        (self.root / "para-os").mkdir()
+        with mock.patch.dict(os.environ, {"PARAOS_HOME": str(self.root)}):
+            self.assertEqual(find_clone(None), (self.root / "para-os", "default"))
+        self.assertEqual(find_clone(None, self.root), (self.root / "para-os", "default"))
+
+    def test_the_default_falls_back_to_the_home_paraos_folder(self):
+        (self.root / ".paraos" / "para-os").mkdir(parents=True)
+        with mock.patch.dict(os.environ, {"PARAOS_HOME": ""}), \
+             mock.patch("paraos_vault.Path.home", return_value=self.root):
+            self.assertEqual(find_clone(None), (self.root / ".paraos" / "para-os", "default"))
+
+    def test_no_clone_anywhere_is_not_found(self):
+        self.assertEqual(find_clone(None, self.root), (None, None))
 
 
 class RegisteredVaultCheck(VaultCase):
