@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: shell-upgrade-unknown-flag-stops-a-real-run
+tags: [upgrade, shell]
+context:
+  scaffold_script: setup.sh
