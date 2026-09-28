@@ -83,7 +83,8 @@ WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]")
 # `.`/`,` after it - so "€1,200 total" and "€1,200." read as the same figure.
 MONEY_RE = re.compile(r"(?:[€$]|EUR)\s?-?\d(?:[\d.,]*\d)?(?:\s?[kK]\b)?"
                       r"|-?\d(?:[\d.,]*\d)?\s?(?:%|[kK]\b)")
-LEDGER_EXEMPT_RE = re.compile(r"log|usage|review|digest|ledger|transcript", re.IGNORECASE)
+LEDGER_EXEMPT_RE = re.compile(
+    r"(?:^|[-_. ])(?:log|usage|review|digest|ledger|transcript)s?(?:[-_. ]|$)", re.IGNORECASE)
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 PHONE_CANDIDATE_RE = re.compile(r"\+?\d[\d ./]{6,}\d")
 ISO_DATE_SHAPE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -126,7 +127,8 @@ def is_ledger_exempt(rel):
     """The mechanical proxy phase1-structural.md states for "analytical and ledger records
     that are evidence in all but folder name": any path segment (a folder name or the
     filename itself, stem included) carrying "log", "usage", "review", "digest", "ledger"
-    or "transcript", case-insensitively."""
+    or "transcript" as a whole word, case-insensitively: `technologies` and `reviewer`
+    carry none of them."""
     return any(LEDGER_EXEMPT_RE.search(part) for part in Path(rel).parts)
 
 
