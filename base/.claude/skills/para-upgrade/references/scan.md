@@ -45,6 +45,7 @@ refusal (exit 2) rather than refusing itself.
 | `baseline` | `commit`, `source` (`ref-tip`\|`log-S`\|`null`), `template`, `reason` |
 | `skeleton` | `rows`: one per file the resolved master ships (`vault_path`, `master`, `present`, `identical`, `collected_as`, `folder_has_content`); `triage_readme` |
 | `rules` | One row per `.claude/rules/*.md` the vault has: `file`, `master`, `paths`, `master_paths`, `paths_missing`, `paths_extra` (both `null` with no `master`), `kind` (`shape`\|`convention`\|`mixed`), `anchors`, `doubled`, `pointer` |
+| `sections` | One row per flavor or module whose `CLAUDE.md.sections` the ref carries, declared or not (`declared`; an undeclared one only where the vault states a paragraph of some version of it): `name`, `master`, and per `## ` heading `verdict` (`absent`\|`current`\|`behind`\|`differs`), `behind` (vault paragraphs matching only an earlier version along the ref: `paragraph`, `commit`, `revision`), `missing` (current paragraphs the vault lacks), `local` (vault paragraphs no version states). Paragraphs compare with whitespace collapsed, a `{{placeholder}}` matching what the vault filled in |
 | `settings` | `master_keys`, `user_level` (`path`, `matching`), `vault_level` (`present`, `keys`), `missing_effective` |
 | `skills` | `rows`: the `para-shared` library first (`copies`, one per installed location), then one row per bundled and user-level skill folder, each with `revisions_behind`: the count of changelog entries after the OLDEST revision any of its differing files matched, up to and including the master's own marker (`entries_between`) - `null` unless the row's own `verdict` is `behind` - see [derived-copies.md](derived-copies.md) and "The verdict" below; `ignored` (folders with no `SKILL.md`) |
 | `integrations` | `rows`: one per `para-os-integration:` marker found in the vault, with the verdict, the diff, `overwrite` eligibility and the `suite` locator; `unmarked`: script files under `resources/scripts/` (and a read-only-iPad vault's root pipeline files) carrying no marker, each with `matches` (evidence, never a verdict) |
@@ -150,7 +151,10 @@ diff those.
    `null` with no master; on a collected delivery, every plain glob needs its doubled
    twin (interior `/` -> `__`, a leading `**/` -> `*__`, a trailing `/**` or `/*` -> `__*`,
    prefixed `resources/mds/`), `missing_twins` being `null` where no twin is required; the
-   pointer sentence in `CLAUDE.md` naming the file.
+   pointer sentence in `CLAUDE.md` naming the file. **`sections`**: split each addon's
+   `CLAUDE.md.sections` and the vault's `CLAUDE.md` at `## ` headings, then look up each
+   vault paragraph under a shared heading in `git show <ref>:<sections file>` and in every
+   version `git log <ref> -- <sections file>` lists.
 
 8. **`settings`** - `base/.claude/settings.json` at the ref against `~/.claude/settings.json`
    and the vault's own `.claude/settings.json`, key by key.

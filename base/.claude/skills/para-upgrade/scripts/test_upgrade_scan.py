@@ -38,7 +38,7 @@ from upgrade_scan import (  # noqa: E402
     _rule_kind, _rule_master, _scope_files, _sweep_root, _template_path_variants,
     _unmarked_matches, baseline_block, build_report,
     clone_block, compute_verdict, delta_block, integrations_block, main, masters_block,
-    rules_block, settings_block, since_block, skeleton_block, skills_block, smoke_block,
+    rules_block, sections_block, settings_block, since_block, skeleton_block, skills_block, smoke_block,
     snapshot_block, unmarked_scripts, vault_block,
 )
 from paraos_vault import changelog_entries, clone_read, integration_markers  # noqa: E402
@@ -1383,6 +1383,82 @@ class RulesBlockCase(CloneCase):
                          {"present": False, "line": None, "section": None, "wording": None})
 
 
+def module_sections(rows_wording):
+    return ("<!-- orders MODULE: merged beside base. -->\n\n## Order lifecycle\n\n"
+            "Orders move by stage.\n\n"
+            f"- **Rows before folders.** {rows_wording}\n\n"
+            "## Entity structures\n\n- **Order brief** - the shape.\n")
+
+
+class SectionsBlockCase(unittest.TestCase):
+    """A module whose sections changed between two revisions: an early hand copy of the
+    first wording is behind the module, never the vault's own variant."""
+
+    V1 = "An order is a row until it ships."
+    V2 = "An order is a row in `{{areas/business/orders.md}}` until it ships."
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = tempfile.TemporaryDirectory()
+        cls.clone = Path(cls._tmp.name) / "clone"
+        cls.clone.mkdir()
+        root = cls.clone
+        fixture_git(root, "init", "-q", "-b", "main")
+        base = "# Vault\n\n<!-- para-os-template: {} -->\n\n## Entity structures\n\n- Base.\n"
+        write(root, "base/CLAUDE.md.template", base.format("2026.09.01"))
+        write(root, "addons/orders/CLAUDE.md.sections", module_sections(cls.V1))
+        write(root, "addons/other/CLAUDE.md.sections", "## Other lifecycle\n\nOther.\n")
+        fixture_git(root, "add", "-A")
+        fixture_git(root, "commit", "-q", "--no-verify", "-m", "module before release")
+        cls.first = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True,
+                                   capture_output=True, text=True).stdout.strip()
+        write(root, "base/CLAUDE.md.template", base.format("2026.09.02"))
+        write(root, "addons/orders/CLAUDE.md.sections", module_sections(cls.V2))
+        fixture_git(root, "add", "-A")
+        fixture_git(root, "commit", "-q", "--no-verify", "-m", "module released")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._tmp.cleanup()
+
+    def scan(self, claude_md, decl):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(Path(tmp), "CLAUDE.md", claude_md)
+            rows = sections_block(Path(tmp), self.clone, "main", False, decl)
+        return {r["name"]: r for r in rows}
+
+    def test_an_early_hand_copy_is_behind_the_module_not_a_local_variant(self):
+        rows = self.scan("# Vault\n\n" + module_sections(self.V1), {})
+        self.assertEqual(set(rows), {"orders"})
+        self.assertFalse(rows["orders"]["declared"])
+        lifecycle = rows["orders"]["sections"][0]
+        self.assertEqual(lifecycle["verdict"], "behind")
+        self.assertEqual(lifecycle["behind"],
+                         [{"paragraph": f"- **Rows before folders.** {self.V1}",
+                           "commit": self.first, "revision": "2026.09.01"}])
+        self.assertEqual(lifecycle["local"], [])
+        self.assertEqual(lifecycle["missing"], [f"- **Rows before folders.** {self.V2}"])
+
+    def test_a_filled_placeholder_and_a_vault_addition_read_current(self):
+        vault = module_sections(self.V2.replace("{{areas/business/orders.md}}",
+                                                "areas/sales/orders.md"))
+        vault = vault.replace("Orders move by stage.",
+                              "Orders move by stage.\n\nOur own rule.")
+        rows = self.scan("# Vault\n\n" + vault, {"modules": ["orders"]})
+        lifecycle, entities = rows["orders"]["sections"]
+        self.assertEqual((lifecycle["verdict"], lifecycle["local"]), ("current",
+                                                                      ["Our own rule."]))
+        self.assertEqual(entities["verdict"], "current")
+
+    def test_an_undeclared_addon_is_reported_only_where_the_vault_states_a_paragraph_of_it(self):
+        rows = self.scan("# Vault\n\n## Entity structures\n\n- Base.\n\n## Other lifecycle\n\n"
+                         "Ours.\n", {})
+        self.assertEqual(rows, {})
+        rows = self.scan("# Vault\n", {"modules": ["orders"]})
+        self.assertEqual([s["verdict"] for s in rows["orders"]["sections"]],
+                         ["absent", "absent"])
+
+
 class RuleMasterCase(LayoutCase):
     """Base first, then the delivery, the flavor and each module in the order **Modules:**
     lists them; the first match wins."""
@@ -2284,7 +2360,7 @@ class BuildReportCase(CloneCase):
                                     str(vault / "no-user-settings"), None, [])
         self.assertEqual(code, 0)
         for key in ("vault", "clone", "masters", "delta", "baseline", "skeleton", "rules",
-                   "settings", "skills", "integrations", "smoke", "snapshot"):
+                   "sections", "settings", "skills", "integrations", "smoke", "snapshot"):
             self.assertIn(key, report)
         self.assertEqual(report["delta"]["verdict"], "behind")
 
