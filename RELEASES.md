@@ -10,7 +10,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ## 2026.09.07
 
-**What changes for you.** A fix to `/para-upgrade`: when it re-checks an installed script's own tests, it now runs all of them, not just the first.
+**What changes for you.** A fix to `/para-upgrade`: when it re-checks an installed script's own tests, it now runs all of them, not just the first. A fix to `/para-triage`: a file that lands in `triage/` while a triage run is going, from a mail sync for instance, is left alone and named at the end, never deleted with the files you approved.
 
 **Do you need to do anything?** Run `/para-upgrade`.
 

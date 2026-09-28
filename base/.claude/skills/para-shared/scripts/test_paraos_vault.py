@@ -24,7 +24,7 @@ from pathlib import Path
 from unittest import mock
 
 from paraos_vault import (
-    CollectedVault, abspath, action_files, addon_root, cadence_days, changed,
+    CollectedVault, abspath, action_files, addon_root, arrived, cadence_days, changed,
     changelog_entries, clone_files, clone_read, clone_ref, closed_tasks, dangling_links,
     declarations, duplicates, entries_between, extract_links, field_ci, file_dates,
     first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
@@ -1627,7 +1627,41 @@ class ChangedCLI(VaultCase):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             main(["changed", str(snap_file)])
-        self.assertEqual(json.loads(out.getvalue()), [str(target)])
+        self.assertEqual(json.loads(out.getvalue()), {"changed": [str(target)], "arrived": []})
+
+    def arrival_scan(self):
+        folder = self.root / "triage"
+        seen = write(self.root, "triage/seen.md", "# seen\n")
+        write(self.root, "triage/.gitkeep", "")
+        scan = {"snapshot": snapshot([abspath(seen)]), "snapshot_folders": [str(abspath(folder))]}
+        return self.write_json("scan.json", scan)
+
+    def test_a_file_arriving_in_a_snapshot_folder_exits_1_under_its_own_key(self):
+        scan_file = self.arrival_scan()
+        self.assertEqual(self.run_main(["changed", str(scan_file)]), 0)
+        late = write(self.root, "triage/late.md", "# late\n")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(main(["changed", str(scan_file)]), 1)
+        self.assertEqual(json.loads(out.getvalue()),
+                         {"changed": [], "arrived": [str(abspath(late))]})
+
+    def test_a_file_arriving_in_a_subfolder_or_outside_is_not_an_arrival(self):
+        scan_file = self.arrival_scan()
+        write(self.root, "triage/inbox/late.md", "# late\n")
+        write(self.root, "projects/x/late.md", "# late\n")
+        self.assertEqual(self.run_main(["changed", str(scan_file)]), 0)
+
+    def test_a_snapshot_folder_since_removed_holds_no_arrivals(self):
+        self.assertEqual(arrived({}, [str(self.root / "triage")]), [])
+
+    def test_snapshot_folders_under_a_phase_key_are_read(self):
+        folder = self.root / "triage"
+        folder.mkdir()
+        scan = {"phase1": {"snapshot": {}, "snapshot_folders": [str(abspath(folder))]}}
+        scan_file = self.write_json("scan.json", scan)
+        write(self.root, "triage/late.md", "# late\n")
+        self.assertEqual(self.run_main(["changed", str(scan_file)]), 1)
 
 
 class RegistryCLI(VaultCase):
@@ -2360,7 +2394,8 @@ class RunAsAScript(VaultCase):
         target.write_text("# x, edited\n", encoding="utf-8")
         result = self.run_script("changed", str(scan))
         self.assertEqual(result.returncode, 1)
-        self.assertEqual(json.loads(result.stdout.decode("utf-8")), [str(target)])
+        self.assertEqual(json.loads(result.stdout.decode("utf-8")),
+                         {"changed": [str(target)], "arrived": []})
 
 
 # ------------------------------------------------------------------ what a vault declares

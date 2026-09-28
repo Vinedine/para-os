@@ -1,6 +1,6 @@
 # Phase 1 - Structural and housekeeping audit
 
-`scripts/clean_scan.py --phase 1` implements every mechanical check below and `scripts/test_clean_scan.py` pins each one to a case. Read this file when a result looks wrong, when changing what a check means, or when running the scan by hand per Step 0.
+`scripts/clean_scan.py --phase 1` implements every mechanical check below except five, done by hand: naming violations outside `archive/meetings/`, archive-versus-active misclassification, single-owner records in `archive/meetings/`, figures with no as-of date, and the root `README.md` shape. `scripts/test_clean_scan.py` pins each scanned check to a case. Read this file when a result looks wrong, when changing what a check means, or when running the scan by hand per Step 0.
 
 Goal: identify and fix obvious structural issues before deeper work. Ends with the issues table and its approvals; nothing is applied before that.
 

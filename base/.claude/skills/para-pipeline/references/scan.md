@@ -16,6 +16,7 @@ What comes back, and what each field settles:
 | `lifecycles[].heading`, `.noun`, `.stages` | The heading as written, its entity noun, and the declared stage names in table order |
 | `lifecycles[].entities` | One record per resolved entity - see the field table below |
 | `lifecycles[].no_stage` | Paths of documents with no Stage line that still look like a filing gap - see Step 2 |
+| `lifecycles[].unknown_stage` | `{path, stage}` for each document whose Stage line names no declared stage but that still looks like a filing gap - see Step 2 |
 | `lifecycles[].empty_homes` | Declared homes that do not exist yet or hold nothing, each named once |
 | `lifecycles[].counts_by_stage` | `{stage, count}` for every live, non-terminal stage, in table order |
 | `lifecycles[].terminal_this_quarter` | Closed entities across every terminal stage whose Stage line dates them into the current quarter |
@@ -42,7 +43,8 @@ standing for one path segment.
 
 Read the Stage line and the header of every entity collected, per
 [para-shared/lifecycles.md](../../para-shared/lifecycles.md). A Stage line whose name matches
-none of the lifecycle's declared stages is dropped, silently.
+none of the lifecycle's declared stages is reported with the name read (`unknown_stage`) when
+the document carries one of the header fields below, and skipped silently otherwise.
 
 **A document in a declared home with no Stage line at all** is reported by path (`no_stage`)
 only when it carries one of the header fields a staged entity would (`Opened`, `Source`,

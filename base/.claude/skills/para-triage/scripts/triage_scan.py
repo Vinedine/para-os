@@ -686,10 +686,14 @@ def over_threshold_block(vault):
 
 # -------------------------------------------------------------------------------- snapshot
 
-def build_snapshot(vault, loose_items):
+def build_snapshot(vault):
+    """Every file directly in triage/, twins included, so `paraos_vault.py changed` can tell
+    a file that arrived after the scan from one the operator was shown."""
     triage_dir = vault / "triage"
-    paths = sorted({abspath(triage_dir / item["name"]) for item in loose_items}, key=str)
-    return snapshot(paths)
+    if not triage_dir.is_dir():
+        return {}
+    return snapshot(sorted(abspath(p) for p in triage_dir.iterdir()
+                           if p.is_file() and p.name != ".gitkeep"))
 
 
 # ------------------------------------------------------------------------------------- plan
@@ -721,7 +725,8 @@ def plan(vault, paraos_home, now, threads_data):
         "vault": vault_info, "sources": sources, "ingest": ingest,
         "ingest_ledger": ingest_ledger_summary, "items": items,
         "seen_ledger": seen_ledger, "over_threshold": over_threshold_block(vault),
-        "snapshot": build_snapshot(vault, loose),
+        "snapshot": build_snapshot(vault),
+        "snapshot_folders": [str(abspath(vault / "triage"))],
     }
     if threads_data is not None:
         report["threads"] = threads_block(threads_data, Path(seen_ledger["path"]), loose)

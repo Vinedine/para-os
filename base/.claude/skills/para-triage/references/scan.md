@@ -28,7 +28,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `seen_ledger` | `path`, `exists`, `entries`, `legacy`, `load_error` |
 | `threads` | Only with `--threads`: per fetched thread, `thread_id`, `thread_hash`, `staged_notes`, `ledger`, `watermark` |
 | `over_threshold` | `{file, open}` for every action file at `WIP_THRESHOLD` (12) or more open items |
-| `snapshot` | Read back by `paraos_vault.py changed <saved_to>` before each delete or move ([execute.md](execute.md)) |
+| `snapshot`, `snapshot_folders` | Every file in `triage/` and the folder itself, read back by `paraos_vault.py changed <saved_to>` before each delete or move ([execute.md](execute.md)) |
 | `saved_to`, `save_error` | Where the scan kept its own copy of this output, under `$PARAOS_HOME/data/scans/` and never inside the vault (copies older than a week are pruned); or null, and why |
 
 The rest of this file is the script's specification and the by-hand fallback. By hand, a

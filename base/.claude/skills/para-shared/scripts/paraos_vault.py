@@ -802,6 +802,7 @@ def stage_of(path):
 def stage_parts(body, raw):
     name = re.split(r"\s+-\s+", body.split("(", 1)[0])[0].strip()
     rest = body[len(name):].strip().lstrip("-").strip()
+    name = name.rstrip(".,;:!?").strip()
     if rest.startswith("(") and rest.endswith(")"):
         rest = rest[1:-1].strip()
     since = SINCE_RE.search(rest)
@@ -1568,6 +1569,21 @@ def changed(before):
     return sorted(p for p, digest in before.items() if now.get(p) != digest)
 
 
+def arrived(before, folders):
+    """The files directly in each folder that the snapshot does not hold: arrivals since it
+    was taken, which no approval covered. A `.gitkeep` is not a file here, as in triage/."""
+    known = set(before)
+    out = []
+    for folder in folders:
+        try:
+            children = sorted(Path(folder).iterdir())
+        except OSError:
+            continue
+        out += [str(abspath(c)) for c in children
+                if c.is_file() and c.name != ".gitkeep" and str(abspath(c)) not in known]
+    return out
+
+
 def scan_snapshot(data):
     """The snapshot a scan's output carries: its top-level `snapshot`, or the snapshots under
     its phase keys merged (`clean_scan.py` nests one per phase), or the document itself where
@@ -1584,6 +1600,16 @@ def scan_snapshot(data):
     if data and all(isinstance(v, (str, type(None))) for v in data.values()):
         return data
     return None
+
+
+def scan_snapshot_folders(data):
+    """The folders a scan's snapshot holds every file of, from its `snapshot_folders`
+    (top-level or under a phase key); empty where it names none."""
+    if not isinstance(data, dict):
+        return []
+    found = [data] + [v for v in data.values() if isinstance(v, dict)]
+    return [f for d in found if isinstance(d.get("snapshot_folders"), list)
+            for f in d["snapshot_folders"]]
 
 
 # --- what a vault was built from -------------------------------------------------------------
@@ -2160,7 +2186,8 @@ def main(argv=None):
     reg = sub.add_parser("registry", help="the machine's vault registry, or who else holds a name")
     reg.add_argument("name", nargs="?", help="an entity name to look for in every other vault")
     changed_cmd = sub.add_parser(
-        "changed", help="which paths in a snapshot no longer match it (exit 1 if any do)")
+        "changed", help="which paths in a snapshot no longer match it, and which files "
+                        "arrived in its snapshot_folders since (exit 1 if any)")
     changed_cmd.add_argument(
         "file", help="a JSON snapshot ({path: digest}), or scan output carrying a "
                      "'snapshot' key, top-level or under a phase key")
@@ -2186,10 +2213,10 @@ def main(argv=None):
         snap = scan_snapshot(data)
         if snap is None:
             ap.error(f"{args.file} holds no snapshot")
-        diffs = changed(snap)
+        diffs = {"changed": changed(snap), "arrived": arrived(snap, scan_snapshot_folders(data))}
         json.dump(diffs, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
-        return 1 if diffs else 0
+        return 1 if diffs["changed"] or diffs["arrived"] else 0
 
     if args.command == "ingest-logs":
         json.dump(ingest_logs(args.paraos_home), sys.stdout, ensure_ascii=False, indent=2)
