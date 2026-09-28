@@ -38,5 +38,6 @@ An entity in a folder home carries its stage **directly under the title**, on th
 - **`/para-pipeline`** renders the board, the flags and the metrics, reading `Opened`, `Source`, `Champion`, `Signer`, `Value`, `Last touch`, `Won`, a terminal stage's `<Stage> reason`, and a register row's `Contact` and `Next step` columns wherever the entity's rule file declares them, every field and column name matched case-insensitively. Read-only, and the only skill that reads every lifecycle in one pass.
 - **`/para-daily-brief`** adds one line per declared lifecycle to its vault state, counts by stage and nothing else.
 - **`/para-new <noun> <name>`** scaffolds at the first non-row stage's home, with the Stage line and the header the declaring rule file states. The sorting test still runs.
+- **`/para-triage`** offers a new counterparty's first mail as one row in the register its lifecycle opens on, at the first stage.
 - **`/para-archive`** refuses a move into a terminal stage unless the entity's Stage line names that stage, plus any reason line the rule file requires.
 - **A stage is never written by a skill's own judgment.** Moving an entity forward, back or out is the operator's call; a skill reports what the files say and flags what has stopped moving.
