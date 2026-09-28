@@ -22,6 +22,7 @@ vault. The scaffold flag is passed by default because the cases in this repo are
 
 import argparse
 import fnmatch
+import itertools
 import json
 import os
 import re
@@ -98,6 +99,22 @@ def shell_blocker():
     return None
 
 
+def claim_run_dir(runs):
+    """Create this run's results folder, named by the second it started so folders sort by
+    time. A run starting in the same second as another (a before and an after launched
+    together) takes the next free suffix, rather than sharing a folder whose report the
+    later run would overwrite."""
+    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+    runs.mkdir(parents=True, exist_ok=True)
+    for n in itertools.count(1):
+        out_dir = runs / (stamp if n == 1 else f"{stamp}-{n}")
+        try:
+            out_dir.mkdir()
+            return out_dir
+        except FileExistsError:
+            pass
+
+
 def build_plugin(workdir):
     """Assemble the plugin the harness wants: skills, a manifest, and the cases."""
     plugin = workdir / "para-os"
@@ -129,9 +146,8 @@ def main(argv=None):
     if not EVALS.is_dir():
         ap.error(f"no eval cases at {EVALS}; write one before running this")
 
-    stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     home = Path(os.environ.get("PARAOS_HOME") or (Path.home() / ".paraos"))
-    out_dir = home / "data" / "eval-runs" / stamp
+    out_dir = claim_run_dir(home / "data" / "eval-runs")
     workdir = Path(tempfile.mkdtemp(prefix="para-os-eval-"))
     try:
         plugin = build_plugin(workdir)
@@ -182,6 +198,11 @@ def main(argv=None):
             print(f"kept {workdir}")
         else:
             shutil.rmtree(workdir, ignore_errors=True)
+        # A dry run, or one stopped before the harness wrote anything, leaves no empty folder.
+        try:
+            out_dir.rmdir()
+        except OSError:
+            pass
 
 
 if __name__ == "__main__":
