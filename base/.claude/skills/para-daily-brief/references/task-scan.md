@@ -11,8 +11,8 @@ What comes back, and what each field settles:
 | `today`, `vault_type` | The date the brief is dated by, and `A` or `B` (Step 1b) |
 | `entity` | `status` of `resolved`, `ambiguous`, `elsewhere` or `unresolved`, with `match`, `candidates`, `elsewhere` and `nearest` (Step 1c) |
 | `tasks` | One record per open item: file, line, bucket, scope, section, text, markers, `lane`, `days`, `also_overdue`, `malformed_date` |
-| `entities`, `totals` | Per-entity rows with the three counts that partition the open count, and the same four numbers vault-wide |
-| `lanes` | Each lane's items, for the counts a rendered section needs |
+| `entities`, `totals` | Per-entity rows with the three counts that partition the open count and a `bar` width, and the same four numbers vault-wide |
+| `lanes` | Each lane's items, for the counts a rendered section needs; an overdue recurring item is in `recurring` and `overdue` |
 | `mentioned_elsewhere` | Under an entity scope only: open items naming it that live in another file |
 | `file_dates` | Each action file's date, by the rule in [Step 4b](#step-4b-aggregate-per-entity) |
 | `flags`, `ideas`, `triage`, `lifecycles` | Everything [signals.md](signals.md) computes from files |
