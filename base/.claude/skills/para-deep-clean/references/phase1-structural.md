@@ -58,11 +58,11 @@ One table, shown **before** applying anything:
 | # | Issue | Where | Proposed fix |
 |---|---|---|---|
 
-Wait for explicit approval. **Batch approval is allowed only for non-destructive normalisations** (naming-convention fixes, link-style normalisations, casing fixes). **Deletions, moves between PARA buckets, and any destructive operation require individual approval** - no batching, no exceptions, per [operating-discipline.md](../../para-shared/operating-discipline.md).
+Wait for explicit approval. **Batch approval is allowed only for non-destructive normalisations** (naming-convention fixes, link-style normalisations, casing fixes). **Deletions, moves between PARA buckets, and any destructive operation require individual approval**, per [operating-discipline.md](../../para-shared/operating-discipline.md).
 
 ## Step 1.4 - Apply
 
-In priority order: non-destructive first (link style, naming consistency), destructive last. Apply the batched normalisations from the issues table, then the deletions **one at a time, each on its own approval**.
+In priority order: non-destructive first (link style, naming consistency), destructive last. Apply the batched normalisations from the issues table, then the deletions **one at a time**, per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file).
 
 **Every approved move carries its links.** Run `move_plan` before moving a file or folder, apply its `inside` rewrites (links inside the moved content pointing out) and its `inbound` rewrites (links from the rest of the vault pointing in), per [operating-discipline.md](../../para-shared/operating-discipline.md) "Moving an entity folder". Re-run the dangling-link scan after any move in this step.
 
