@@ -509,19 +509,31 @@ def name_key(name):
     return re.sub(r"[^a-z0-9]+", "", strip_links(name or "").lower())
 
 
-def counted_once(entities):
-    """Every entity but a closed register row whose name matches a folder entity: that row
-    records a lead's move to the folder, so one deal opened and promoted within the quarter
-    is counted once, from its folder."""
-    folders = {name_key(e["name"]) for e in entities if e["kind"] == "folder"}
-    return [e for e in entities
-            if not (e["kind"] == "row" and e["closed"] and name_key(e["name"]) in folders)]
+def counted_once(vault, entities):
+    """Every entity but a closed register row that records a lead's move to a folder entity,
+    so one deal opened and promoted within the quarter is counted once, from its folder. The
+    row's Outcome link names the folder; a row with no link resolving to one matches by
+    name."""
+    folders = [e for e in entities if e["kind"] == "folder"]
+    dirs = {(vault / e["path"]).parent.resolve() for e in folders}
+    names = {name_key(e["name"]) for e in folders}
+
+    def moved(e):
+        if e["kind"] != "row" or not e["closed"]:
+            return False
+        link = first_link(field_ci(e["fields"], "Outcome") or "")
+        target = resolve_link((vault / e["path"]).parent, link) if link else None
+        if target and target.exists():
+            return target in dirs or target.parent in dirs
+        return name_key(e["name"]) in names
+
+    return [e for e in entities if not moved(e)]
 
 
 def compute_metrics(vault, today, lc, entities):
     q_start, q_end = quarter_bounds(today)
     stages = lc["stages"]
-    once = counted_once(entities)
+    once = counted_once(vault, entities)
 
     opened = sum(1 for e in once
                 if e["opened"] and q_start <= parse_date(e["opened"]) <= q_end)

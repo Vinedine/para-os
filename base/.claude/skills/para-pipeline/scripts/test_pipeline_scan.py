@@ -760,6 +760,23 @@ class Metrics(VaultCase):
         self.assertEqual(m["opened"], 1)
         self.assertEqual({r["source"]: r["entities"] for r in m["referrers"]}, {"outreach": 1})
 
+    def test_a_closed_row_linking_its_folder_counts_once_whatever_its_name(self):
+        # Issue #57: "Acme NV" against the folder acme was counted twice.
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Closed", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| Acme NV | Tom Baas | outreach | 2026-08-01 | Qualified | - | 2026-08-10, x "
+            "| moved to [acme](../../resources/ideas/acme/) |",
+            "",
+        ]) + "\n")
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-08-10)\n"
+              "**Opened:** 2026-08-01\n**Source:** outreach\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["opened"], 1)
+        self.assertEqual({r["source"]: r["entities"] for r in m["referrers"]}, {"outreach": 1})
+
     def test_counts_by_stage_excludes_terminal_and_closed_rows(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Closed", "",
