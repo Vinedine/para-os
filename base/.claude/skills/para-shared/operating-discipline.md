@@ -11,7 +11,11 @@ Cross-skill rules for *how a skill behaves* when it changes files. Vault convent
 - **Show before you change.** Build a proposal saying what will change and where - a table, or a question per item - and surface it *before* applying anything. Wait for explicit user approval. A pre-emptive "just do it" in the opening message does not skip the proposal; the proposal is the audit trail. A skill that asks item by item still leaves that trail in writing: what it proposed, and what was decided.
 - **Non-destructive normalizations may batch.** Renames, link repoints, casing/naming fixes, and moves between folders can be approved as a group.
 - **Destructive operations require individual approval.** Deletions - and, per some vaults, moves between PARA buckets - are approved one by one. No batching, no exceptions.
+
+## Deleting a file
+
 - **Never delete a file without comparing its actual contents first.** Matching filenames, sizes, or "looks redundant" is not proof. Read both, confirm the survivor truly supersedes, then ask.
+- **A delete stays recoverable.** A git-tracked file: `git rm "<path>"`. An untracked one goes to the system trash: Windows PowerShell `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile("<path>", 'OnlyErrorDialogs', 'SendToRecycleBin')`, macOS `osascript -e 'tell application "Finder" to delete POSIX file "<absolute path>"'`, Linux `gio trash "<path>"`. With no trash reachable, say the delete is permanent and ask before `rm`. Name each file in full in its own command, never by a glob or pattern, and say in the summary which way each went.
 
 ## Preserve, don't rewrite
 

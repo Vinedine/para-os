@@ -33,7 +33,7 @@ Some of these links may **already be broken** from earlier moves - fix them in t
 
 **Re-check the plan call's snapshot first**, immediately before anything below writes, per [para-shared/scripts.md](../../para-shared/scripts.md).
 
-In order, with `git mv` / `git rm` so history is preserved, except on the [read-only iPad delivery](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery), whose rules govern every move and delete. **`move_plan.inside` and `.inbound`** (from the plan call) name every link that sub-steps 6 and 7 below rewrite, each with the `new_href` it becomes.
+In order, with `git mv` so history is preserved, except on the [read-only iPad delivery](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery), whose rules govern every move and delete. **`move_plan.inside` and `.inbound`** (from the plan call) name every link that sub-steps 6 and 7 below rewrite, each with the `new_href` it becomes.
 
 **`git mv` on a folder fails whenever the index disagrees with the disk, and that is the ordinary state of a working vault.** A single uncommitted rename or deletion inside the entity aborts the entire move:
 
@@ -41,10 +41,10 @@ In order, with `git mv` / `git rm` so history is preserved, except on the [read-
 fatal: bad source, source=projects/<name>/sources/<a file git still holds under its old name>.md
 ```
 
-Nothing moves when this happens. Unless the vault's `CLAUDE.md` allows a skill to commit, a vault accumulates exactly this state between the operator's own commits: treat it as expected rather than as a failure to diagnose. **Fall back to plain `mv` / `rm`**, which costs no history, since git detects the rename from content when the operator commits. Same fallback where the vault is not a git repo at all. **Never retry `git mv` file by file** - a half-moved entity is worse than either outcome. Say in the report which of the two ran.
+Nothing moves when this happens. Unless the vault's `CLAUDE.md` allows a skill to commit, a vault accumulates exactly this state between the operator's own commits: treat it as expected rather than as a failure to diagnose. **Fall back to plain `mv`**, which costs no history, since git detects the rename from content when the operator commits. Same fallback where the vault is not a git repo at all. **Never retry `git mv` file by file** - a half-moved entity is worse than either outcome. Say in the report which of the two ran.
 
 1. Move living-reference files to `resources/<name>/`.
-2. Delete approved stale snapshots.
+2. Delete approved stale snapshots, per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file).
 3. Create the successor scaffold if chosen.
 4. Retense and clean `brief.md` and `actions.md` to their archived form.
 5. Move the entity to Step 1's destination. Create the destination parent if needed. **Check the destination does not already exist first** - `destination.exists` from the plan call already answers this (`test -e "<dst>" && echo EXISTS` by hand). If it exists, stop and resolve the collision with the user - never let `mv` merge into or clobber an occupied archive path.
