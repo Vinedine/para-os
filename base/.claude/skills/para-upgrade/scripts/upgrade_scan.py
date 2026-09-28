@@ -597,6 +597,123 @@ def rules_block(vault, clone, ref, worktree, decl, addons_rows):
 
 # ================================================================= the settings block
 
+# ================================================================ the sections block
+
+SECTIONS_FILE = "CLAUDE.md.sections"
+HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}")
+SECTION_HISTORY_CAP = 200
+
+
+def _h2_sections(text):
+    """{heading: [paragraph, ...]} for every `## ` section, HTML comments dropped and each
+    paragraph's whitespace collapsed, so a rewrapped copy reads as the same paragraph."""
+    out, heading, body = {}, None, []
+
+    def close():
+        if heading is not None:
+            out[heading] = [" ".join(p.split()) for p in _paragraphs("\n".join(body))]
+
+    for line in HTML_COMMENT_RE.sub("", text).splitlines():
+        m = H2_RE.match(line)
+        if m:
+            close()
+            heading, body = m.group(1).strip(), []
+        elif heading is not None:
+            body.append(line)
+    close()
+    return out
+
+
+def _paragraph_matches(vault_para, master_para):
+    """A master paragraph's `{{placeholder}}` matches whatever the vault filled in."""
+    parts = PLACEHOLDER_RE.split(master_para)
+    if len(parts) == 1:
+        return vault_para == master_para
+    return re.fullmatch(".+?".join(re.escape(p) for p in parts), vault_para) is not None
+
+
+def _sections_history(clone, ref, name):
+    """[(commit, revision, text)] for each version of an addon's CLAUDE.md.sections along
+    the ref, newest first, across every addon layout the ref's history carried."""
+    paths = [f"{root}/{name}/{SECTIONS_FILE}" for root in ADDON_ROOTS]
+    out = git(clone, ["log", ref, "--format=%H", f"-{SECTION_HISTORY_CAP}", "--"] + paths)
+    versions = []
+    for commit in (out or "").split():
+        data = next((b for b in (clone_read(clone, commit, p) for p in paths) if b), None)
+        if data is None:
+            continue
+        template = clone_read(clone, commit, BASE_TEMPLATE)
+        revision = template_marker(template.decode("utf-8", "replace")) if template else None
+        versions.append((commit, revision, normalised(data).decode("utf-8", "replace")))
+    return versions
+
+
+def _section_row(heading, master_paras, older, vault_paras):
+    """`older` is [(commit, revision, paragraphs)] of the earlier versions, newest first."""
+    behind, local, used = [], [], set()
+    for vp in vault_paras:
+        hit = next((i for i, mp in enumerate(master_paras) if _paragraph_matches(vp, mp)),
+                   None)
+        if hit is not None:
+            used.add(hit)
+            continue
+        old = next(((c, r) for c, r, paras in older
+                    if any(_paragraph_matches(vp, p) for p in paras)), None)
+        if old:
+            behind.append({"paragraph": vp, "commit": old[0], "revision": old[1]})
+        else:
+            local.append(vp)
+    missing = [mp for i, mp in enumerate(master_paras) if i not in used]
+    verdict = "behind" if behind else "current" if not missing else "differs"
+    return {"heading": heading, "verdict": verdict, "behind": behind, "missing": missing,
+            "local": local}
+
+
+def sections_block(vault, clone, ref, worktree, decl):
+    """Each flavor's and module's CLAUDE.md.sections against the vault's own sections of the
+    same heading, paragraph by paragraph against the addon's history. An addon the vault
+    does not declare is reported only where the vault states a paragraph of some version
+    of it: an adoption by hand, before the addon shipped or was declared."""
+    vault_sections = _h2_sections(read_text(Path(vault) / "CLAUDE.md") or "")
+    declared = {n for n in (decl.get("flavor"), *(decl.get("modules") or [])) if n}
+
+    names = set(declared)
+    for root in ADDON_ROOTS:
+        for f in clone_files(clone, ref, root, worktree) or []:
+            parts = f.split("/")
+            if len(parts) == 3 and parts[2] == SECTIONS_FILE:
+                names.add(parts[1])
+
+    rows = []
+    for name in sorted(names):
+        root = addon_root(clone, ref, name, worktree)
+        data = clone_read(clone, ref, f"{root}/{SECTIONS_FILE}", worktree) if root else None
+        if data is None:
+            continue
+        master = _h2_sections(normalised(data).decode("utf-8", "replace"))
+        if name not in declared and not set(master) & set(vault_sections):
+            continue
+        history = _sections_history(clone, ref, name)
+        current = normalised(data).decode("utf-8", "replace")
+        older = [(c, r, _h2_sections(t)) for c, r, t in history if t != current]
+        sections = []
+        for heading, master_paras in master.items():
+            if heading not in vault_sections:
+                sections.append({"heading": heading, "verdict": "absent"})
+                continue
+            sections.append(_section_row(
+                heading, master_paras, [(c, r, s.get(heading, [])) for c, r, s in older],
+                vault_sections[heading]))
+        adopted = any(s.get("behind") or len(s.get("missing", [])) < len(master[s["heading"]])
+                      for s in sections if s["verdict"] != "absent")
+        if name not in declared and not adopted:
+            continue
+        rows.append({"name": name, "declared": name in declared,
+                     "master": f"{root}/{SECTIONS_FILE}", "sections": sections})
+    return rows
+
+
 def _load_json_dict(text):
     if not text:
         return {}
@@ -1593,6 +1710,7 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
     baseline = baseline_block(clone, ref, delta, template, decl)
     skeleton = skeleton_block(vault, clone, ref, worktree, decl, masters["addons"])
     rules = rules_block(vault, clone, ref, worktree, decl, masters["addons"])
+    sections = sections_block(vault, clone, ref, worktree, decl)
     settings = settings_block(vault, clone, ref, worktree, user_settings)
     all_entries = _changelog_entries_at(clone, ref, worktree)
     skills = skills_block(vault, clone, ref, worktree, user_skills, decl, masters["addons"],
@@ -1607,7 +1725,8 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
 
     report.update({
         "masters": masters, "delta": delta, "baseline": baseline, "skeleton": skeleton,
-        "rules": rules, "settings": settings, "skills": skills, "integrations": integrations,
+        "rules": rules, "sections": sections, "settings": settings, "skills": skills,
+        "integrations": integrations,
         "smoke": smoke, "snapshot": snap,
     })
 
