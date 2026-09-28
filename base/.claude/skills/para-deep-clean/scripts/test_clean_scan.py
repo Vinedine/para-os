@@ -430,6 +430,23 @@ class UncitedContacts(VaultCase):
         self.assertEqual(phase1["uncited_contacts"], [])
         self.assertIn("areas/business/transcript/20260101 Call.md", phase1["uncited_exempt"])
 
+    def test_a_ledger_word_inside_a_longer_word_does_not_exempt(self):
+        # Issue #32: "log" in "technologies" and "review" in "reviewer" hid real mentions.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "areas/acme-technologies-website/brief.md", "# Site\n\nJan Claes owns it.\n")
+        write(self.root, "projects/acme/reviewer-feedback.md", "# Feedback\n\nJan Claes replied.\n")
+        write(self.root, "projects/acme/strategy-log.md", "# Log\n\nJan Claes called.\n")
+        write(self.root, "areas/usage/20260101 Digest.md", "# Digest\n\nJan Claes logged in.\n")
+        phase1 = self.run_scan("1")["phase1"]
+        found = {c["card"]: c for c in phase1["uncited_contacts"]}
+        self.assertEqual([f["file"] for f in found["areas/network/jan-claes.md"]["files"]],
+                         ["areas/acme-technologies-website/brief.md",
+                          "projects/acme/reviewer-feedback.md"])
+        self.assertEqual(sorted(phase1["uncited_exempt"]),
+                         ["areas/usage/20260101 Digest.md", "projects/acme/strategy-log.md"])
+
     def test_a_ledger_record_quoting_the_name_only_in_code_is_not_named_for_override(self):
         # uncited_exempt lists what the proxy dropped; a file with no prose mention had
         # nothing to drop, so naming it would invite an override of a non-finding.
