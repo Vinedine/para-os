@@ -37,11 +37,18 @@ Requires the activity integration installed in the vault being reviewed. Without
 
 ### Step 1 - Locate the ledger and frame the window
 
-Resolve the vault, confirm `resources/logs/sessions/` exists, and count what is there before reading any of it: how many sessions, how many distinct people, over how many days. Report the frame first.
+Resolve the vault and run the scan, per [para-shared/scripts.md](../para-shared/scripts.md):
+
+```bash
+# Windows: py -3
+python3 "<this skill's base directory>/scripts/review_scan.py" --vault <vault> [--days N] > <scan output path>
+```
+
+Exit 3 is no `resources/logs/sessions/`: the "No ledger installed" edge case. Otherwise report its `frame` first: how many sessions, how many anyone typed into, how many people, over how many days.
 
 ### Step 2 - Compute the signals
 
-Parse the JSONL with a script rather than by reading lines. **Full procedure, including every signal and what it means: [references/signals.md](references/signals.md).**
+The scan's `adoption`, `reach`, `friction` and `rhythm` hold the counts. **What each may mean, and the by-hand fallback where the script cannot run: [references/signals.md](references/signals.md).**
 
 ### Step 3 - Check usage against the vault's own rules
 
@@ -70,7 +77,7 @@ Reported lines have done their work. This step deletes, so it is **one question 
 
 ## Edge cases
 
-- **No ledger installed.** Say so, point at the integration, and stop. Do not substitute git history: it answers a different question and dressing it up as usage data is worse than an empty report.
+- **No ledger installed.** Say so, point at the integration, and stop: the reply ends there, with no observation about the vault's contents, its triage or any skill. Do not substitute git history: it answers a different question and dressing it up as usage data is worse than an empty report.
 - **Ledger present but empty.** Usually the hook never fired rather than nobody working. Check the vault's `.claude/settings.json` for the hook block and the trust step before concluding anything about people.
 - **One person, many sessions.** Perfectly reviewable; adoption and friction still hold. Drop the per-person split rather than reporting a table with one row.
 - **A git mirror exists.** Use it to answer "what changed" alongside "what was attempted", and keep the two separate in the report. The mirror cannot attribute a change to a person, so never let it look as though it did.
