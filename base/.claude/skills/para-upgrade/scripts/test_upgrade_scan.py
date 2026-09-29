@@ -1458,6 +1458,27 @@ class SectionsBlockCase(unittest.TestCase):
                                                                       ["Our own rule."]))
         self.assertEqual(entities["verdict"], "current")
 
+    def test_a_localised_paragraph_pairs_with_the_shipped_one_rather_than_joining_it(self):
+        shipped = f"- **Rows before folders.** {self.V2}"
+        ours = ("- **Rows before folders at Acme.** An order is a row in "
+                "`areas/sales/orders.md` until Acme ships it.")
+        rows = self.scan("# Vault\n\n" + module_sections(self.V2).replace(shipped, ours),
+                         {"modules": ["orders"]})
+        lifecycle = rows["orders"]["sections"][0]
+        self.assertEqual(lifecycle["localised"], [{"paragraph": ours, "shipped": shipped}])
+        self.assertEqual((lifecycle["local"], lifecycle["missing"]), ([], []))
+        self.assertEqual(lifecycle["verdict"], "current")
+
+    def test_a_paragraph_of_the_vault_s_own_does_not_pair_with_a_missing_one(self):
+        shipped = f"- **Rows before folders.** {self.V2}"
+        rows = self.scan("# Vault\n\n" + module_sections(self.V2).replace(
+            shipped, "- **Weekly call.** Every client gets a Friday call."),
+            {"modules": ["orders"]})
+        lifecycle = rows["orders"]["sections"][0]
+        self.assertEqual(lifecycle["localised"], [])
+        self.assertEqual(lifecycle["missing"], [shipped])
+        self.assertEqual(lifecycle["verdict"], "differs")
+
     def test_an_undeclared_addon_is_reported_only_where_the_vault_states_a_paragraph_of_it(self):
         rows = self.scan("# Vault\n\n## Entity structures\n\n- Base.\n\n## Other lifecycle\n\n"
                          "Ours.\n", {})
