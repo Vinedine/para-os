@@ -7,13 +7,13 @@ argument-hint: '[<vault-path>] [days] [--test]'
 
 # Activity review
 
-Turns the **activity** integration's session log into a short list of things to change. It reads that log, checks what it finds against the vault's own stated conventions, and writes a dated report.
+Turns the **activity** module's session log into a short list of things to change. It reads that log, checks what it finds against the vault's own stated conventions, and writes a dated report.
 
 The question is **never "what did these people do"**. It is "which parts of this vault work, which are ignored, and which fight the person using them". A finding that names a person rather than a defect is a finding written wrong, and the report is worthless the day anyone reads it as a performance review.
 
 **This skill is vault-agnostic.** It reads the reviewed vault's CLAUDE.md at runtime for the PARA layout, the action rules, the filing conventions and the declared skills, and judges usage against *those* rules rather than any built in here.
 
-Requires the activity integration installed in the vault being reviewed. Without it there is no input, and the honest answer is to say so and stop.
+Requires the activity module's ledger installed in the vault being reviewed. Without it there is no input, and the honest answer is to say so and stop.
 
 ## What it answers
 
@@ -77,7 +77,7 @@ Reported lines have done their work. This step deletes, so it is **one question 
 
 ## Edge cases
 
-- **No ledger installed.** Say so, point at the integration, and stop: the reply ends there, with no observation about the vault's contents, its triage or any skill. Do not substitute git history: it answers a different question and dressing it up as usage data is worse than an empty report.
+- **No ledger installed.** Say so, point at the activity module, and stop: the reply ends there, with no observation about the vault's contents, its triage or any skill. Do not substitute git history: it answers a different question and dressing it up as usage data is worse than an empty report.
 - **Ledger present but empty.** Usually the hook never fired rather than nobody working. Check the vault's `.claude/settings.json` for the hook block and the trust step before concluding anything about people.
 - **One person, many sessions.** Perfectly reviewable; adoption and friction still hold. Drop the per-person split rather than reporting a table with one row.
 - **A git mirror exists.** Use it to answer "what changed" alongside "what was attempted", and keep the two separate in the report. The mirror cannot attribute a change to a person, so never let it look as though it did.

@@ -24,7 +24,7 @@ Two new files, and nothing under `base/` moved or changed. **Neither is in the r
     {
       "name": "para-os",
       "source": "./",
-      "description": "The base /para-* skills: daily brief, triage, new, archive, deep clean, pipeline, activity review and upgrade."
+      "description": "The base /para-* skills: daily brief, triage, new, archive, deep clean, pipeline and upgrade."
     }
   ]
 }
@@ -172,7 +172,7 @@ See [Skill namespacing](#skill-namespacing). It is the change operators would no
 
 ### Add-ons and para-ingest
 
-The add-on skills (`property-*`) and `multi-vault/para-ingest` link `../para-shared/` and only work installed beside base's skills, as the real-estate README says. A second plugin rooted at an add-on would not contain `para-shared/`. Adding the add-on's skills folder to this plugin's `skills` list loads the skills, but their `../para-shared/` then resolves inside the add-on's own folder, where there is none. Add-ons are also chosen per vault, which fits project scope and not user scope. The prototype covers base only; add-ons need either one shared skills directory or their own copy of `para-shared/` before they can follow.
+The add-on skills (`property-*`, `para-activity-review`) and `multi-vault/para-ingest` link `../para-shared/` and only work installed beside base's skills, as the real-estate README says. A second plugin rooted at an add-on would not contain `para-shared/`. Adding the add-on's skills folder to this plugin's `skills` list loads the skills, but their `../para-shared/` then resolves inside the add-on's own folder, where there is none. Add-ons are also chosen per vault, which fits project scope and not user scope. The prototype covers base only; add-ons need either one shared skills directory or their own copy of `para-shared/` before they can follow.
 
 ### Vault-relative paths that assume bundled skills
 

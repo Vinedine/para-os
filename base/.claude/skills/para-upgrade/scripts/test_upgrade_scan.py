@@ -239,11 +239,13 @@ class CloneCase(unittest.TestCase):
 
 FIGURES_RULE = "---\npaths:\n  - areas/**/README.md\n  - projects/*/brief.md\n---\nFigures.\n"
 HELPER_SOURCE = "def helper():\n    return 1\n"
+ACTIVITY_SOURCE = "# para-os-integration: activity 2026.09.01\nLEDGER = 1\n"
 
 
 def build_layout_clone(root):
     """A second throwaway clone for what the widget fixture never ships: base rule, settings
-    and folder-placeholder files, rules and skills in two modules (sales, estate), the
+    and folder-placeholder files, rules and skills in two modules (sales, estate), a module
+    shipping a pipeline script and a skill with no integrations/ folder (activity), the
     para-shared library, an unmarked integration helper, a one-script and a two-script
     integration folder, and a branch (never checked out) carrying a skill main lacks.
     """
@@ -277,6 +279,10 @@ def build_layout_clone(root):
     write(root, "addons/estate/.claude/rules/deal-brief.md",
           "---\npaths:\n  - properties/*/brief.md\n---\nEstate deal brief.\n")
     write(root, "addons/estate/skeleton/resources/properties/README.md", "# Properties\n")
+    write(root, "addons/activity/pipeline/activity.py", ACTIVITY_SOURCE)
+    write(root, "addons/activity/pipeline/test_activity.py", "# tests for activity\n")
+    write(root, "addons/activity/.claude/skills/ledger-review/SKILL.md",
+          "---\nname: ledger-review\n---\n# Ledger review\n")
     write(root, "integrations/helpers/common.py", HELPER_SOURCE)
     write(root, "integrations/helpers/test_common.py", "# tests for common\n")
     write(root, "integrations/pair/a.py", "# para-os-integration: pair 2026.09.01\nA = 1\n")
@@ -1826,6 +1832,15 @@ class LayoutIntegrationsCase(LayoutCase):
             "candidates": ["integrations/pair/a.py", "integrations/pair/b.py"]}])
 
 
+    def test_a_module_s_script_resolves_from_its_pipeline_once_its_integration_is_gone(self):
+        vault = self.tmp_vault()
+        write(vault, "resources/scripts/activity.py", ACTIVITY_SOURCE)
+        row = self.rows(vault)[0]
+        self.assertEqual(row["master"], "addons/activity/pipeline/activity.py")
+        self.assertEqual(row["verdict"], "identical")
+        self.assertEqual(row["suite"]["covers"], ["addons/activity/pipeline/activity.py"])
+
+
 class UnmarkedScriptsCase(LayoutCase):
     """`unmarked`: scripts carrying no marker, each with evidence (never a verdict) of the
     shipped file it matches under integrations/ at the ref's tip."""
@@ -2116,6 +2131,22 @@ class LayoutSkillsCase(LayoutCase):
         write(vault, ".claude/skills/deal-skill/SKILL.md", "---\nname: deal-skill\n---\n# Old\n")
         row = self.row(self.run_skills(vault), "deal-skill")
         self.assertEqual(row["undeclared_addon"], "sales")
+        self.assertNotIn("verdict", row)
+
+    def test_a_vault_declaring_a_module_resolves_its_skill_from_it(self):
+        vault = self.tmp_vault()
+        write(vault, ".claude/skills/ledger-review/SKILL.md",
+              "---\nname: ledger-review\n---\n# Ledger review\n")
+        row = self.row(self.run_skills(vault, modules=["activity"]), "ledger-review")
+        self.assertEqual(row["master"], "addons/activity/.claude/skills/ledger-review")
+        self.assertEqual(row["verdict"], "identical")
+
+    def test_a_module_s_skill_in_a_vault_that_does_not_declare_it_is_undeclared(self):
+        vault = self.tmp_vault()
+        write(vault, ".claude/skills/ledger-review/SKILL.md",
+              "---\nname: ledger-review\n---\n# Ledger review\n")
+        row = self.row(self.run_skills(vault), "ledger-review")
+        self.assertEqual(row["undeclared_addon"], "activity")
         self.assertNotIn("verdict", row)
 
     def test_base_is_tried_before_an_addon_skill_of_the_same_name(self):
