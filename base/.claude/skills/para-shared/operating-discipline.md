@@ -9,8 +9,8 @@ The safety discipline **every file-mutating skill** follows. A read-only skill d
 ## Approval discipline
 
 - **Show before you change.** Build a proposal saying what will change and where - a table, or a question per item - and surface it *before* applying anything. Wait for explicit user approval. A pre-emptive "just do it" in the opening message does not skip the proposal; the proposal is the audit trail. A skill that asks item by item still leaves that trail in writing: what it proposed, and what was decided.
-- **Non-destructive normalizations may batch.** Renames, link repoints, casing/naming fixes, and moves between folders can be approved as a group.
-- **Destructive operations require individual approval.** Deletions - and, per some vaults, moves between PARA buckets - are approved one by one. No batching, no exceptions.
+- **Non-destructive normalizations may batch.** Renames, link repoints, casing/naming fixes, and moves between folders within one PARA bucket can be approved as a group.
+- **Destructive operations require individual approval.** Deletions and moves between PARA buckets are approved one by one. No batching, no exceptions.
 
 ## Deleting a file
 

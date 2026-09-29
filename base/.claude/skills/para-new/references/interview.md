@@ -2,7 +2,7 @@
 
 ## Step 2 - Settle the shape
 
-Open with what the user said and the shape it implies, rather than an empty menu. "You said the supplier needs the quote by the 14th, so this is a project" is one line and usually ends the classification. Ask only when it is genuinely unclear.
+Put the sorting test to the operator as `SKILL.md` asks it: one question, the candidate shapes as options, the shape the request points to recommended. Its description carries what the user said ("the supplier needs the quote by the 14th"). State a shape without asking only where no other is defensible.
 
 **The one question that decides it:** *who is waiting for this, and by when?* A named person or commitment plus a real date is a project. No date, or a date the user is inventing on the spot to answer the question, is an idea. Work that has no end because it simply continues is an area.
 

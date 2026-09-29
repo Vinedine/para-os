@@ -4,7 +4,7 @@
 
 Goal: every "Open items" section reflects real outstanding work, every action file sits at the actionable frontier, and prose has stopped accumulating for its own sake.
 
-**Precondition:** verify pypdf is installed - `py -c "import pypdf"`. If the import fails, either `pip install pypdf` or skip Step 3.1's document reading.
+**Precondition:** verify pypdf is installed - `python3 -c "import pypdf"` (Windows: `py -3`). If the import fails, ask whether to install it or skip Step 3.1's document reading; never install it unasked.
 
 ## Step 3.1 - Read source documents to close items
 
@@ -13,7 +13,8 @@ Goal: every "Open items" section reflects real outstanding work, every action fi
 Many "missing data" items are answerable from documents already on file:
 
 ```bash
-py -X utf8 -c "from pypdf import PdfReader; r = PdfReader(r'<path>'); print(r.pages[0].extract_text())"
+# Windows: py -3
+python3 -X utf8 -c "from pypdf import PdfReader; r = PdfReader(r'<path>'); print(r.pages[0].extract_text())"
 ```
 
 Common items closable this way: "Purchase price not on file" (read the purchase contract), "Fees not itemised" (the settlement statement or invoice), "Date X unknown" (PDF metadata or first page). Update the README with the closed facts and remove the item from Open items.
@@ -67,7 +68,7 @@ The prose half of the same problem, against the content-frontier rule in `CLAUDE
 
 Which entities to read: a `brief.md` past ~500 lines, or one that has grown by more than half since the last deep clean if the vault's git history can tell you, or any entity whose brief has more development-log entries than it has open actions. The scan's `briefs_to_read` covers the line cap; the growth and development-log comparisons are judgment on top. State the thresholds you used in the run summary, and name what you did **not** read. Too large for one conversation: split the read across read-only subagents by bucket, and re-verify each delegated finding before asking.
 
-**Out of scope entirely for Step 3.5:** `triage/` (unprocessed by definition), any `sources/` folder (a brief contradicting its own source is Phase 2's problem), and `archive/`.
+**Out of scope entirely for Step 3.5:** `triage/` (unprocessed by definition), any `sources/` folder (a brief is checked against its sources in Step 3.1), and `archive/`.
 
 ## Edge case
 

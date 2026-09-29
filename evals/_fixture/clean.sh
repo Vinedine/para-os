@@ -15,8 +15,7 @@ mkdir -p areas/business/sources archive/meetings
 
 # One dangling link, and one link whose target has both a space and a parenthesis and does
 # exist, so a link checker that stops at the first ")" gets the second one wrong even though
-# it is fine. Both spellings are unencoded, matching the vault's own worked example in
-# phase1-structural.md ("Accountant VAT (Gemini).md").
+# it is fine. Both spellings are unencoded, as a vault writes them by hand.
 cat > areas/business/brief.md <<'EOF'
 # business
 

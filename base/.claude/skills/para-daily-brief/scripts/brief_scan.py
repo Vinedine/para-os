@@ -8,7 +8,7 @@ Prints one JSON document on stdout: the vault's open tasks with their markers pa
 bucketed against a date, the per-entity totals, the health-flag inputs, the ideas lane and
 the triage count. It never writes to the vault and never reads a mailbox.
 
-Why a script. references/task-scan.md opens with "Mechanical: no judgment lives here", and
+Why a script. references/task-scan.md says "Mechanical: no judgment lives here", and
 everything it describes has exactly one right answer: which folder a name resolves to,
 which marker a line carries, which side of today a date falls on, which files share an
 mtime. Instructions for that are re-derived on every run, cost a round trip each, and

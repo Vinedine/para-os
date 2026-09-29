@@ -50,6 +50,18 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **Three template rules no longer contradict each other.** A contact card runs relationship context, then `## Next actions`, then any `## Backlog`; an entity README is the one at an entity's root, never one in its subfolders; a second machine export of the same name in one folder takes a numeric suffix. Reaction: take the reworded `**Contacts**` bullet and shape-file sentence into the vault's `CLAUDE.md`, and the export bullet into its `.claude/rules/filing.md`. A card that ends on `## Backlog` is now correct and needs no edit.
 
+**`/para-new` asks the sorting test instead of announcing it, and a deadline stays in the brief.** `interview.md` Step 2 puts the shape to the operator as a question, as `SKILL.md` does, and the no-free-text date rule applies to the action line only. Reaction: re-sync `/para-new`.
+
+**`/para-pipeline` asks about a lifecycle the vault does not declare, even when it declares only one.** Step 1 matches the argument against the declared headings and nouns and stops on no match, with or without a shell. Reaction: re-sync `/para-pipeline`.
+
+**`/para-daily-brief` answers "what should I work on today" with the full brief, and its flags say what a run without a shell cannot compute.** A scope word counts only as typed after the command. A missing Artifact tool gets one line; the stale-file flag reads Step 4b's date and says when none could be read; the over-grown-brief flag has a count that needs no shell. Reaction: re-sync `/para-daily-brief`.
+
+**`/para-archive` removes a lingering source folder only when it is empty, and follows the shared commit rule.** `rmdir` replaces `rm -rf`, and a folder that is not empty is reported, never forced. Whether the archive is committed follows `operating-discipline.md`: the vault's `CLAUDE.md`, then the operator's own instructions. Reaction: re-sync `/para-archive`.
+
+**Moves between PARA buckets are approved one by one in every vault.** `operating-discipline.md` no longer says "per some vaults", and only moves within one bucket may batch. `/para-deep-clean` tests `triage/` in Phase 4 as its precondition does, uses the shared launcher and asks before installing pypdf, and says when it made no template-marker comparison for want of a shell. Reaction: re-sync `para-shared/` and `/para-deep-clean`.
+
+**`/para-activity-review` ships its counting script and counts a skill reached in plain language.** `scripts/review_scan.py` counts the sessions, adoption, reach and friction, and a `Skill` tool call counts as an invocation, once per request. With no ledger, the reply ends at the pointer to the integration. Reaction: re-sync `/para-activity-review`, its new `scripts/` folder included.
+
 **Integrations.** Updated to 2026.09.07: `outlook` (each `fetch` record carries `read`, the ready single-message read, `/users/<address>` and the `via` account included for a shared mailbox). Reaction: straight file copy of `outlook.py` where installed.
 
 ---

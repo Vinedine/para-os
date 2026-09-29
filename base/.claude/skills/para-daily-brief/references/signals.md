@@ -1,18 +1,18 @@
 # Everything in the brief that is not a task (Steps 4c to 5c)
 
-**What the scan already did.** `scripts/brief_scan.py` ([task-scan.md](task-scan.md)) returns the health flags in `flags`, the ideas lane in `ideas` and the triage items in `triage`. Steps 4c, 4d and 5b below are its specification and the fallback for a hand-run scan. Steps 4e and 5c are not the script's and run here on every brief.
+**What the scan already did.** `scripts/brief_scan.py` ([task-scan.md](task-scan.md)) returns the health flags in `flags`, the ideas lane in `ideas`, the triage items in `triage` and the lifecycle counts in `lifecycles`. Steps 4c, 4d, 4f and 5b below are its specification and the fallback for a hand-run scan. Steps 4e and 5c are not the script's and run here on every brief.
 
 ## Step 4c: Health flags
 
 Emit each only when it fires:
 
 - **Over-threshold file:** an action file holding **12 or more open items**. Flag: `<scope>: N open - decomposed plan? Groom via /para-deep-clean`.
-- **Stale file:** an action file with open items whose mtime is **60+ days ago**. Flag with the date.
+- **Stale file:** an action file with open items whose date, by [Step 4b](task-scan.md#step-4b-aggregate-per-entity)'s rule, is **60+ days ago**. Flag with the date. Without a shell no date can be read: say the flag was not computed.
 - **Falsely-overdue candidates:** items overdue by **more than 30 days**. Flag the count and the worst offender.
 - **Stale recurrence:** a `🔁` item whose `📅` is more than one full cadence period in the past. Flag the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
 - **Undated majority:** when undated items exceed half of all open items and there are **8 or more** open items, one line: `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
 - **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, from the scan's own count call. **Decode `resources/mds/` before counting** (SKILL.md Step 1b). **Skip any file carrying a frozen-record note** (a blockquote in its first 15 lines, before its first checkbox, saying the boxes are a point-in-time record, not live work). Flag only what is left, one line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
-- **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender, worst first, capped at three: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`. Count with one `wc -l` over the glob, never by reading the files; in a collected vault the glob is `resources/mds/*__brief.md` and `resources/mds/*__README.md`, reported under the **decoded** path.
+- **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender, worst first, capped at three: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`. Count with one `wc -l` over the glob, never by reading the files; without a shell, Read each at offset 500 with limit 1, and a line there puts it past the cap; in a collected vault the glob is `resources/mds/*__brief.md` and `resources/mds/*__README.md`, reported under the **decoded** path.
 
 **Under an entity scope**, compute the flags against that entity alone and skip misplaced checkboxes and undated majority. Steps 4d, 5b and 5c are skipped entirely; Step 4e still runs, for the Next action tiebreak.
 

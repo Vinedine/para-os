@@ -4,9 +4,9 @@ What to compute from the ledger, and what each number is allowed to mean. Loaded
 
 ## Parsing
 
-Read every `resources/logs/sessions/*.jsonl` inside the window with a script, never by reading files into context.
+`scripts/review_scan.py` makes every count in this file. Where it cannot run, read each `resources/logs/sessions/*.jsonl` inside the window with Read, and Grep the folder for one event name at a time, applying the same rules by hand.
 
-Two rules the parser must follow:
+Two rules the parser follows:
 
 - **A malformed line is skipped, not fatal.** Count what was skipped and mention it only if it is more than a rounding error.
 - **Group by `session` first.** Within a session, `prompt_id` groups the tool calls that one request caused, which is what makes "how much work did that ask turn into" computable.
@@ -21,7 +21,7 @@ Per session, derive: person (from the filename), start and end timestamps, durat
 
 **Enumerate first, then subtract.** List the vault's declared capabilities before looking at the log: the skills in its `.claude/skills/`, the ones its CLAUDE.md names, and the integrations in `resources/scripts/`. Then mark which the ledger never shows.
 
-Detect an invocation from `UserPromptExpansion` events, and from prompts whose first token starts with `/`. Count per skill and per person.
+Detect an invocation from `UserPromptExpansion` events, from prompts whose first token starts with `/`, and from a `PostToolUse` whose `tool` is `Skill`, whose `target` names the skill a plain-language request reached. Count one per `prompt_id` and skill, so a slash command that also produces a `Skill` event counts once. Count per skill and per person.
 
 The four shapes this produces, in descending order of how much they should change:
 
