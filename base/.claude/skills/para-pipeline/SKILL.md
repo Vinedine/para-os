@@ -23,7 +23,7 @@ The board for **staged entities**: every lifecycle the vault declares, each enti
 | `<lifecycle>` | One lifecycle, matched on its heading noun (`deal`) or its heading text (`Deal lifecycle`), case-insensitively. Everything else is the same |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
-**A leftover argument is a lifecycle name only when it reads like one**: one or two words carrying no sentence punctuation. Anything longer is prose the operator wrapped around the invocation: where it names a lifecycle noun ("the property pipeline"), that noun is the argument; otherwise take every lifecycle and treat the prose as an instruction for this run. A name matching no declared lifecycle is asked about, never silently widened to all of them.
+**A leftover argument is a lifecycle name only when it reads like one**: one or two words carrying no sentence punctuation. Anything longer is prose the operator wrapped around the invocation: where it names a lifecycle noun ("the property pipeline"), that noun is the argument; otherwise take every lifecycle and treat the prose as an instruction for this run. A name matching no declared lifecycle is asked about, never widened to all of them, and a vault declaring only one is no exception.
 
 ## Procedure
 
@@ -35,6 +35,8 @@ Read the vault's `CLAUDE.md` and collect every section whose heading ends in `li
 
 **A vault that declares none has nothing to render.** Say so in one line, name the two places a lifecycle comes from (a flavor, a module), and stop. Never infer stages from folder names.
 
+**A lifecycle argument is matched here**, against the declared headings and nouns as the script would. On no match, ask which declared lifecycle was meant, naming them, and stop: no board renders in the same reply.
+
 ### Steps 2 and 3: Scan the homes, resolve each entity
 
 One call per lifecycle scope, after Step 1 has the declared lifecycles, per [para-shared/scripts.md](../para-shared/scripts.md):
@@ -44,7 +46,7 @@ One call per lifecycle scope, after Step 1 has the declared lifecycles, per [par
 python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault . [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Pass `--lifecycle` only under a lifecycle scope. Exit 3 is a `--lifecycle` matching no declared heading or noun (`{"error": "no such lifecycle", "declared": [...]}`): ask which of the declared ones was meant, never guess. **Field table, and the by-hand fallback where the script cannot run: [references/scan.md](references/scan.md).**
+Pass `--lifecycle` only under a lifecycle scope. Exit 3 is a `--lifecycle` matching no declared heading or noun (`{"error": "no such lifecycle", "declared": [...]}`): stop and ask, as in Step 1. **Field table, and the by-hand fallback where the script cannot run: [references/scan.md](references/scan.md).**
 
 ### Step 4: Render
 
