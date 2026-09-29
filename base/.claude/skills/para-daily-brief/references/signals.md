@@ -1,12 +1,10 @@
 # Everything in the brief that is not a task (Steps 4c to 5c)
 
-The health flags, the ideas lane, the Vision read, the triage count and the agenda. All read-only.
-
 **What the scan already did.** `scripts/brief_scan.py` ([task-scan.md](task-scan.md)) returns the health flags in `flags`, the ideas lane in `ideas` and the triage items in `triage`. Steps 4c, 4d and 5b below are its specification and the fallback for a hand-run scan. Steps 4e and 5c are not the script's and run here on every brief.
 
 ## Step 4c: Health flags
 
-Standing signals, computed from what the task scan already holds. Emit each only when it fires:
+Emit each only when it fires:
 
 - **Over-threshold file:** an action file holding **12 or more open items**. Flag: `<scope>: N open - decomposed plan? Groom via /para-deep-clean`.
 - **Stale file:** an action file with open items whose mtime is **60+ days ago**. Flag with the date.
@@ -15,8 +13,6 @@ Standing signals, computed from what the task scan already holds. Emit each only
 - **Undated majority:** when undated items exceed half of all open items and there are **8 or more** open items, one line: `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
 - **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, from the scan's own count call. **Decode `resources/mds/` before counting** (SKILL.md Step 1b). **Skip any file carrying a frozen-record note** (a blockquote in its first 15 lines, before its first checkbox, saying the boxes are a point-in-time record, not live work). Flag only what is left, one line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
 - **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender, worst first, capped at three: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`. Count with one `wc -l` over the glob, never by reading the files; in a collected vault the glob is `resources/mds/*__brief.md` and `resources/mds/*__README.md`, reported under the **decoded** path.
-
-Never fix any of these here: `/para-deep-clean` owns the repair.
 
 **Under an entity scope**, compute the flags against that entity alone and skip misplaced checkboxes and undated majority. Steps 4d, 5b and 5c are skipped entirely; Step 4e still runs, for the Next action tiebreak.
 
@@ -40,13 +36,13 @@ Sort newest-touched first, then by name. Flag any idea untouched for **6+ months
 
 ## Step 4e: Read the Vision
 
-Read the root `README.md`'s `## Vision` section: Grep `-n` for the heading, then Read from that line to the next `## ` heading. It is the ranking tiebreak and it steers the closing next action. If the README or the section is missing, skip silently.
+Read the root `README.md`'s `## Vision` section: Grep `-n` for the heading, then Read from that line to the next `## ` heading. If the README or the section is missing, skip silently.
 
 ## Step 4f: Lifecycle counts
 
 The scan's `lifecycles` field, one entry per declared lifecycle with its heading and the live count at each non-terminal stage. **One line per lifecycle, in 📊 Vault state, and nothing else**: the board is `/para-pipeline`'s.
 
-An empty list renders no such line. A declared lifecycle with no live entity renders its zeros.
+A declared lifecycle with no live entity renders its zeros.
 
 ## Step 5b: Check the triage folder
 
@@ -60,7 +56,7 @@ Two sources, merged. Entries from different sources dedupe by (date, start time)
 
 - `connector: google-workspace`: `list_calendars` / `get_events` with the Endpoint as `user_google_email`, time-bounded to today through `T+30` in every scope.
 - Any other calendar connector: ToolSearch for the tool *suffix* (`list_events`, `search_events`, `get_events`), never a full tool name. Only when that search comes back empty is the connector absent: skip the source and note it (`<source> declared but not connected - skipped`).
-- **A source that answers with an error is not absent.** Carry on with the other sources and print one line under the agenda naming the source, what failed, and the remedy the error gives
+- **A source that answers with an error is not absent.** Carry on with the other sources and print one line under the agenda naming the source, what failed, and the remedy the error gives.
 - Apply the row's `Relevant when` filter, drop all-day "free" placeholders, and never write, accept, or decline anything.
 
 **2. `meetings.md` - the manual fallback.** Grep the vault: `pattern`: `^- 🗓 `, `glob`: `{**/meetings.md,**/*__meetings.md}`, content mode, unlimited. Discard `archive/` paths, decoded. Parse `- 🗓 <date> [<time>] · <title> [· <field>...] [🔁 every <cadence>]`.

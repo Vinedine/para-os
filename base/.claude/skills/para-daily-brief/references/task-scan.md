@@ -2,9 +2,7 @@
 
 Everything between "the vault is a folder of markdown" and "a set of bucketed, per-entity task records". Mechanical: no judgment lives here.
 
-`scripts/brief_scan.py` implements every rule below over `para-shared/scripts/paraos_vault.py`, which owns what any skill would otherwise answer its own way (where a checkbox may live, what counts as one, what a marker means, which folder a name resolves to, when a file was really last touched, the thresholds a vault's rules state), and `scripts/test_brief_scan.py` pins each rule to a case.
-
-What comes back, and what each field settles:
+`scripts/brief_scan.py` implements every rule below. What comes back:
 
 | Field | Holds |
 |---|---|
@@ -17,7 +15,7 @@ What comes back, and what each field settles:
 | `file_dates` | Each action file's date, by the rule in [Step 4b](#step-4b-aggregate-per-entity) |
 | `flags`, `ideas`, `triage`, `lifecycles` | Everything [signals.md](signals.md) computes from files |
 
-The rest of this file is the script's specification and the by-hand fallback.
+Where the script cannot run, apply the rest of this file by hand.
 
 ## Step 1c: Resolve an entity scope
 
@@ -43,12 +41,12 @@ Then, by outcome:
 
 ## Step 2: Extract all open tasks and headings
 
-One Grep call, scoped tightly to action-bearing files. Do NOT scan the whole vault with `path: .` plus `type: md` - that pulls in every README and reference doc.
+One Grep call, scoped tightly to action-bearing files. Do NOT scan the whole vault with `path: .` plus `type: md`.
 
 - `pattern`: `^(# |## |- \[ \])`
 - `glob`: `{**/actions.md,**/network/*.md,**/contacts/*.md,**/people/*.md}` (flat alternates only - ripgrep does not support nested `{}` globs)
 - `path`: `.` - the vault root, which is the CWD
-- `output_mode`: `content`, `-n`: `true`, `head_limit`: `0` (unlimited - missing a match means a wrong dashboard)
+- `output_mode`: `content`, `-n`: `true`, `head_limit`: `0` (unlimited)
 
 ripgrep returns lines grouped by file in line-number order. **Discard any match whose path starts with `archive/` or `resources/`** (the vault's "Where a checkbox may live" rule). Post-filter, never anchor the glob to `projects/**/`: a root-anchored alternate silently matches nothing when `path` is not the vault root.
 
@@ -56,7 +54,7 @@ ripgrep returns lines grouped by file in line-number order. **Discard any match 
 
 **Both calls below are raw `Grep` patterns and therefore count fence content**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md): where a bucket's count is non-zero, read the matched files before reporting the number, or say in the output that it includes samples. A frozen-record note does not cover a fenced sample.
 
-**Count the misplaced checkboxes with their own call**, not from what the discard above dropped - the glob above reaches only `actions.md` and contact files, so it cannot see an open checkbox in an archived meeting note or action plan, which is exactly where they collect. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which names the files and their counts. Read each file with a non-zero count and drop the checkboxes inside a fence before the number feeds the flag.
+**Count the misplaced checkboxes with their own call**, not from what the discard above dropped - the glob above reaches only `actions.md` and contact files, so it cannot see an open checkbox in an archived meeting note or action plan. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which names the files and their counts. Read each file with a non-zero count and drop the checkboxes inside a fence before the number feeds the flag.
 
 If the call returns zero matches, SKILL.md Step 1b and its first edge case decide what renders.
 
@@ -64,9 +62,9 @@ If the call returns zero matches, SKILL.md Step 1b and its first edge case decid
 
 ### Under an entity scope
 
-Same call, two changes: `path` becomes the resolved entity folder (`projects/<name>` or `areas/<name>`) and `glob` narrows to `**/actions.md`, or to `*.md` where the entity is a contact area (`areas/network/`, `contacts/`, `people/`), whose items live in the contact files. Move the scope into `path`, **not** into the glob - the anchoring trap above is exactly what a `projects/<name>/**` alternate walks into. The `archive/` and `resources/` discard no longer fires (the path cannot reach them), so the misplaced-checkbox flag is not computed under this scope.
+Same call, two changes: `path` becomes the resolved entity folder (`projects/<name>` or `areas/<name>`) and `glob` narrows to `**/actions.md`, or to `*.md` where the entity is a contact area (`areas/network/`, `contacts/`, `people/`), whose items live in the contact files. Move the scope into `path`, **not** into the glob. The `archive/` and `resources/` discard no longer fires (the path cannot reach them), so the misplaced-checkbox flag is not computed under this scope.
 
-**Then one more grep, for what is filed elsewhere.** An entity's own action file is not the whole story: the vault routes person-paced follow-ups to `areas/network/<person>.md` and strategic items to `areas/business/actions.md`, so a project can be blocked by an item that does not live in it.
+**Then one more grep, for what is filed elsewhere.**
 
 A task mentions the entity where a link on its line - the first or any further one - resolves into the entity's folder, or, only where the entity's name carries a hyphen, dot or space, where the name or its space/dot form appears as a whole word in the text; a single-token name (`network`, `quill`) is too common a word to trust and never matches by text, only by a link.
 
@@ -122,6 +120,6 @@ A **past `🛫`** (start-gate already open) is not "waiting": ignore it and buck
 
 ## Step 4b: Aggregate per entity
 
-Group the task records by scope label. **Aggregate all contact files into one `network` row** (with the file count) - one row per person floods the dashboard. Per entity compute: bucket (`[P]` / `[A]`), open count, and three counts that **partition** it: **overdue**, **upcoming** (carries a `D`, a `🔁` or a future `🛫`, and is not overdue), **undated**. They sum to the open count wherever they are reported, the dashboard's bar segments included; never report a "dated" count that also contains the overdue ones.
+Group the task records by scope label. **Aggregate all contact files into one `network` row** (with the file count). Per entity compute: bucket (`[P]` / `[A]`), open count, and three counts that **partition** it: **overdue**, **upcoming** (carries a `D`, a `🔁` or a future `🛫`, and is not overdue), **undated**. They sum to the open count wherever they are reported, the dashboard's bar segments included; never report a "dated" count that also contains the overdue ones.
 
 Date each action file, and each idea brief for Step 4d, by its mtime, in one Bash call (`stat -c '%y' <files>` on Linux or Git Bash, `stat -f '%Sm'` on macOS; fall back to `ls -l --time-style=+%Y-%m-%d`), never by a folder or a `.pdf`, which a render resets. **A bulk write resets mtimes too:** where a file's mtime is within 60 seconds of at least two others of its kind, a collect, checkout or sync wrote them together, so in a vault with `.git` date it by `git log -1 --follow --format=%as -- <path>` at its current path, unless `git status` shows it modified. Where git returns nothing, the mtime stands.

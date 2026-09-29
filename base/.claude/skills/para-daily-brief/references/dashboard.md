@@ -8,7 +8,7 @@ The HTML page the brief publishes as an artifact, built entirely from data the b
 - **The title is also the update key**, and must match a page an earlier revision named by a different rule. Before publishing, list existing artifacts and compare *normalized* forms of both sides: lowercase, `-` and `_` to spaces, runs of whitespace collapsed, and a `vault` token immediately before `dashboard` dropped. Read the first title that matches, then republish to its `url`; create a new artifact only when nothing does, and never rename one: a matched page keeps its title.
 - Favicon: `📊`, never changed on redeploy.
 - Description parameter: `Daily vault-state dashboard: open actions per project and area, health flags, ideas, agenda.`
-- Write the HTML to the harness scratchpad or OS temp directory, **never into the vault**, under a stable filename such as `vault-dashboard.html`.
+- Write the HTML under a stable filename such as `vault-dashboard.html`.
 
 ## Hard constraints
 
@@ -33,4 +33,4 @@ Drop the panels the task scan feeds - the stat tiles that count actions, the per
 
 ## Tone
 
-Clean and dense, no decoration that doesn't carry data, no motivational copy. Omit what has no content, as the terminal brief does.
+Clean and dense, no decoration that doesn't carry data, no motivational copy.
