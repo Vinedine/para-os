@@ -1,6 +1,6 @@
 # Phase 4 - Rule-driven content violations
 
-Find the content that breaks the *new* rules. This is where the destructive work is.
+Find the content that breaks the *new* rules.
 
 Derive the checks from the changelog entries rather than a fixed list. For the 2026.08.01 revision that means: checkboxes under `resources/`, open checkboxes in `archive/`, `projects/` entries whose own brief describes a maintained area, aspirational `📅` dates, contact files with an empty actions heading.
 

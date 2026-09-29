@@ -6,7 +6,7 @@ The scan's `clone` block names the ref read, the clone's checked-out branch and 
 
 ## Resolving the master
 
-A vault declares a delivery, a flavor and its modules each on its own line under `**Type:**`. The scan's `masters` block resolves each to a root (`addons/<name>/`, or the older `delivery/`/`flavors/` split at a ref before that folder existed) - [scan.md](scan.md) states the walk. What the resolution *means*:
+A vault declares a delivery, a flavor and its modules each on its own line under `**Type:**`. The scan's `masters` block resolves each to a root - [scan.md](scan.md) states the walk. What the resolution *means*:
 
 - **Delivery** (how the vault is read): its `skeleton/CLAUDE.md.template` is the master for the marker and Phase 1; Phase 2's master is `base/` with that skeleton's files overlaid. A vault with no `**Delivery:**` line that [the detection rule](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places on the read-only iPad delivery takes that delivery at every ref, and the missing line is a Phase 1 item.
 - **Flavor** (what the vault is about): never supplies a `CLAUDE.md` master. Its addon adds sections, rule and skeleton files, and skill masters on top, each checked in the phase that checks its kind.
@@ -19,9 +19,7 @@ Read the scan's `skills` and `integrations` verdicts (`## Installed integration 
 
 ## Smoke-test baseline
 
-**This runs on every Phase 0, whatever the Equal-markers check above decided**, including the run that stops there: a migration that does nothing still has to prove it did nothing. The scan's own `smoke` block is this baseline - [scan.md](scan.md) states what it keeps and its fallback (`/para-daily-brief week`, agenda excluded, where Python is absent or `brief_scan.py` exits non-zero).
-
-Phase 5 takes the same reading again with `--unchanged <this Phase 0 scan>`. Before calling a moved count a regression, check whether the files behind the change are ones this migration wrote.
+**This runs on every Phase 0, whatever the Equal-markers check above decided**, including the run that stops there: a migration that does nothing still has to prove it did nothing. The scan's own `smoke` block is this baseline - [scan.md](scan.md) states what it keeps and its fallback.
 
 ## Checkpoints
 

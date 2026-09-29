@@ -43,7 +43,6 @@ python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> [
 Read the `delta` block for the vault's marker, the master's, the verdict and the collected entries, and the `clone` block for the ref read, the checked-out branch and `origin/stable`, each with its commit. Reading and resolving the master, the Equal case (which also reads Phase 3's `skills` and `integrations` blocks) and the smoke-test baseline: [references/delta.md](references/delta.md).
 
 - **Vault's marker**: the first `<!-- para-os-template: YYYY.MM.NN -->` comment in its `CLAUDE.md` (line 3 in the shipped template).
-- **Master's marker**: the same comment in the resolved `CLAUDE.md.template`. Read it from the template, not from `CHANGELOG.md`, which carries a lookalike inside a code fence.
 
 - **Equal** - run the Equal-markers checks, and stop unless they find the vault short.
 - **Vault ahead of master** - stop and ask. Either the ref is stale or someone hand-edited the marker. Never downgrade a vault.
@@ -94,8 +93,8 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 
 ## Notes for Claude sessions
 
-- Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary. They are long and the user needs to see where the pass is.
-- Phase 4 is where the session gets slow, because each item needs a routing decision. Batch the *presentation* (one table per rule) even though approval is per item.
+- Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary.
+- In Phase 4, batch the *presentation* (one table per rule) even though approval is per item.
 
 ## Related skills
 
