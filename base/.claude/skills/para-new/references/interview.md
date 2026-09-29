@@ -1,7 +1,5 @@
 # Classify, then interview (Steps 2 and 3)
 
-Two conversations that run as one. Settle *what shape this is* before asking anything about the work.
-
 ## Step 2 - Settle the shape
 
 Open with what the user said and the shape it implies, rather than an empty menu. "You said the supplier needs the quote by the 14th, so this is a project" is one line and usually ends the classification. Ask only when it is genuinely unclear.
@@ -15,7 +13,7 @@ Four cases that look like projects and are not:
 - **A single document with a due date.** An invoice to pay, a form to return. That is an **action** in an existing entity, or a `/para-triage` item, not a folder.
 - **A standing obligation that recurs.** Monthly reporting, quarterly reviews. Recurring work belongs in an area's `actions.md` under the vault's recurring convention: append it to the owning area, or create that area if it has none.
 
-Two cases look like areas and are not. Something with no maintenance work in it is a **resource**, not an area: a playbook you consult is a document, and an area nobody ever acts on is a folder. And something that only qualifies an asset already tracked belongs *inside* that area, not beside it - assets that gate each other are one area, so check for a widening before proposing a sibling.
+Two cases look like areas and are not. Something with no maintenance work in it is a **resource**, not an area: a playbook you consult is a document, and an area nobody ever acts on is a folder. And something that only qualifies an asset already tracked belongs *inside* that area, not beside it.
 
 When the shape turns out not to be creatable here (an action on an entity that exists, a document), stop and say which one and where it goes. Stopping is a successful run.
 
@@ -55,12 +53,12 @@ A "no" to the second is the common case and is recorded as the vault's empty sen
 ## What is never asked
 
 - **The deadline for an idea.** It has none by definition; asking invites an invented one.
-- **A breakdown of the work.** Step 3's third question asks for the *next* step, singular. If the user volunteers a plan, keep it verbatim as `## Backlog` prose rather than turning it into checkboxes.
+- **A breakdown of the work.** If the user volunteers a plan, keep it verbatim as `## Backlog` prose rather than turning it into checkboxes.
 - **Priority.** Medium carries no marker in the vault's syntax, so the default is silence. Add a marker only if the user reaches for the word themselves.
 
 ## Edge cases
 
 - **The user answers question 2 with an aspiration** ("end of the year, ideally"). Reflect it back once: is anyone expecting it then? A yes makes it a date, a no makes it an idea. Do not split the difference by writing the date anyway.
 - **A project whose deadline is real but unknown** ("as soon as the permit lands"). That is a genuine project, externally gated. Create it and leave the action undated, per the marker rules.
-- **A contact whose name is already in the vault under a different spelling.** The Step 1 fuzzy match should have caught it; if it surfaces here, stop and confirm before creating a second file for one person.
+- **A contact whose name is already in the vault under a different spelling.** Stop and confirm before creating a second file for one person.
 - **The user asks for several things at once.** Create them one at a time, most committed first. A batch of five new projects is usually one project and four ideas.

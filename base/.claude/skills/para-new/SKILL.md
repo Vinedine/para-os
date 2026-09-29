@@ -7,11 +7,11 @@ argument-hint: '[project|area|idea|contact|promote] <name> [--test]'
 
 # Para new
 
-Creates **one entity**: a project, an area, an idea, or a contact. Nothing else, with a single exception - a project or idea that would otherwise have nothing pointing at it also gets its counterparty's contact file ([references/scaffold.md](references/scaffold.md)). It also runs the one promotion the lifecycle defines, `resources/ideas/<name>/` to `projects/<name>/`, because a promoted idea is a created project whose brief already exists.
+Creates **one entity**: a project, an area, an idea, or a contact. Nothing else, with a single exception - a project or idea that would otherwise have nothing pointing at it also gets its counterparty's contact file ([references/scaffold.md](references/scaffold.md)). It also runs the one promotion the lifecycle defines, `resources/ideas/<name>/` to `projects/<name>/`.
 
-The first job is **classification, not scaffolding.** Most requests to "start a project" turn out to be an area, an idea, or a document that needs filing, and a vault that lets all of them land in `projects/` stops being readable. The sorting test runs before any question about the work itself.
+The first job is **classification, not scaffolding.** Most requests to "start a project" turn out to be an area, an idea, or a document that needs filing. The sorting test runs before any question about the work itself.
 
-**This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime for the PARA layout, the sorting test as that vault words it, what a project means there, any declared brief shape, the action-marker syntax, the naming and language conventions, and the "do not add" list. No vault-specific paths are hardcoded.
+**This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime for the PARA layout, the sorting test as that vault words it, what a project means there, any declared brief shape, the action-marker syntax, the naming and language conventions, and the "do not add" list.
 
 Do NOT invoke to file an inbound document (`/para-triage` does that), to add an action to an entity that already exists (append to its `actions.md` directly), or to create the skeleton's standing subfolders: `areas/business/` and `areas/network/` ship with the vault and are not areas anyone creates.
 
@@ -33,7 +33,7 @@ This skill's contract, and the vault's own rule: *committed and dated → projec
 
 Ask only where the answer is not forced. "Add Alex Rivera as a contact" is a person and asking is noise; a declared shape that the test contradicts is exactly when to ask, with the declared shape offered second and the reason it fails in its description.
 
-**A lifecycle noun does not replace the test, it answers the last question of it.** Where the vault declares a lifecycle ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), its entity noun names a *kind* of entity whose first stage already says which bucket it starts in; the test still decides whether this is that kind of thing at all, and a request that turns out to be committed work is created as the lifecycle's promoting stage rather than its first.
+**A lifecycle noun does not replace the test.** Where the vault declares a lifecycle ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), the test still decides whether this is that kind of entity at all, and a request that turns out to be committed work is created as the lifecycle's promoting stage rather than its first.
 
 ## Arguments
 
@@ -52,13 +52,13 @@ Nothing is written before the proposal is approved, so there is no preview argum
 
 ### Step 1 - Confirm context and check for a duplicate
 
-1. **Resolve the vault root, then verify it** - the path the operator named, or `pwd` read before anything else in the session has moved the shell, never the current directory taken on trust (`operating-discipline.md`). A root has `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
+1. **Resolve the vault root** per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), **then verify it**: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
 2. Read the vault's `CLAUDE.md` for the parameters listed above.
-3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, `areas/network/`, and `archive/`, covering [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery). Report a near-match and confirm it is genuinely a different thing. In a vault several people write, the same work gets started twice under two names, and the duplicate is only noticed once both have history. **An archived match never stops the run** - reusing a finished entity's name is allowed - but it is named, so the operator can choose a distinct slug if this is a successor rather than a repeat. Leave the archive out of the scan and [references/scaffold.md](references/scaffold.md)'s archived-collision edge case is unreachable.
+3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, `areas/network/`, and `archive/`, covering [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery). Report a near-match and confirm it is genuinely a different thing. **An archived match never stops the run** - reusing a finished entity's name is allowed - but it is named, so the operator can choose a distinct slug if this is a successor rather than a repeat.
 
 ### Steps 2 and 3 - Classify, then interview
 
-Settle the shape against the sorting test above, then ask only what that shape needs: three questions for a project, two for an area, an idea, or a contact. **The interview is not an `AskUserQuestion`** - a name, a deadline and a goal are free text, and offering four guesses as options where the operator has the answer is worse than asking. The classification is the multiple-choice decision; the interview is a conversation. The one exception is an answer the request already suggests without settling it, which [para-shared/asking.md](../para-shared/asking.md) (`## A question with a suggested answer`) puts to the operator as a recommended option. **Full procedure: [references/interview.md](references/interview.md).**
+Settle the shape against the sorting test above, then ask only what that shape needs: three questions for a project, two for an area, an idea, or a contact. **The interview is not an `AskUserQuestion`**: a name, a deadline and a goal are free text, asked in prose. The one exception is an answer the request already suggests without settling it, which [para-shared/asking.md](../para-shared/asking.md) (`## A question with a suggested answer`) puts to the operator as a recommended option. **Full procedure: [references/interview.md](references/interview.md).**
 
 ### Step 4 - Propose and scaffold
 
@@ -66,7 +66,7 @@ Show the exact files and their content, then write the folder, fill the brief fr
 
 ### Promotion
 
-When the entity already exists as an idea, this is a move rather than a creation: the brief is retensed in place, inbound links repoint in the same pass, and only the facts an idea brief cannot hold are asked for. **Full procedure: [references/promote.md](references/promote.md).**
+When the entity already exists as an idea, this is a move rather than a creation. **Full procedure: [references/promote.md](references/promote.md).**
 
 ## Strict rules
 
@@ -83,9 +83,9 @@ When the entity already exists as an idea, this is a move rather than a creation
 ## Edge cases
 
 - **It already exists.** Show what was found and ask whether to add to it instead. Never create a second folder for the same work.
-- **It is really an area.** Say which test it failed (maintained, no end date), create the area, and offer to create the *dated push* as a project alongside it if there is one. The two coexist: the project archives when it ships, the area stays.
+- **It is really an area.** Say which test it failed (maintained, no end date), create the area, and offer to create the *dated push* as a project alongside it if there is one.
 - **It is really a document.** Hand it to `/para-triage` rather than wrapping a single file in a project folder.
-- **It belongs inside an existing area.** Say which one and why, and propose widening that area rather than creating a sibling. Creating it anyway is the commonest way an `areas/` tree becomes unreadable. An established area often carries only an `actions.md`, so widening may mean adding the scope to its actions file, or writing the `brief.md` it never had - propose whichever the area's own shape calls for rather than assuming a brief is there to edit.
+- **It belongs inside an existing area.** Say which one and why, and propose widening that area rather than creating a sibling. An established area often carries only an `actions.md`, so widening may mean adding the scope to its actions file, or writing the `brief.md` it never had - propose whichever the area's own shape calls for rather than assuming a brief is there to edit.
 - **A contact with nothing outstanding** carries the vault's empty-actions sentinel, so the file reads as a decision rather than an oversight.
 - **The vault has no `resources/ideas/` or `archive/projects/`** because its `CLAUDE.md` never declared them: create the bucket only with approval, and say that it is a new bucket rather than an existing one.
 

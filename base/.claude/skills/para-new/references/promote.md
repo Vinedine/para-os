@@ -1,6 +1,6 @@
 # Promote an idea to a project
 
-`resources/ideas/<name>/` becomes `projects/<name>/`. This is a **move**, not a copy and not a fresh start: the idea's brief carries thinking worth keeping, and the vault rule is that every move repoints inbound links in the same pass.
+`resources/ideas/<name>/` becomes `projects/<name>/`. This is a **move**, not a copy and not a fresh start: the idea's brief carries thinking worth keeping.
 
 ## Step 1 - Check the bar is actually met
 
@@ -39,5 +39,5 @@ Re-run the Step 3 grep and assert zero stale references to the old path. Then re
 
 - **The idea has an `actions.md`** it should never have had (`resources/` holds no checkboxes). Fold its items into the new project's file rather than treating the file as a surprise: it is pre-existing intent, and the one-action rule applies to what stays open, so the rest becomes `## Backlog` prose.
 - **Only part of the idea is being committed.** Promote the committed part under its own name and leave the idea in place, narrowed, with a link each way. Do not move the whole folder and hope the surplus is ignored.
-- **The idea should become an area, not a project** (it turned out to be something maintained). Same move, different destination and no deadline to ask for: it lands in `areas/<name>/` with the area interview's two questions, and everything else in this procedure - the link scan, the retensing, the repoint, the verify - is unchanged.
+- **The idea should become an area, not a project** (it turned out to be something maintained). Same move, different destination and no deadline to ask for: it lands in `areas/<name>/` with the area interview's two questions.
 - **A project of that name already exists.** Stop. Either the work is already tracked, or one of the two needs a distinct name, and both are the operator's call.
