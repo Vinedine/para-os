@@ -83,7 +83,9 @@ Steps 7 and 8 run once every pull request in the revision's milestone has merged
 ## 7. Validate `main` on real vaults
 
 Record the commit under test, `<sha>`, as `git fetch origin && git rev-parse origin/main`
-prints it. The maintainer syncs the installed skills from `<sha>`, then upgrades two vaults of
+prints it. Start the evals on it with `gh workflow run evals.yml --ref main` and read the run's
+summary page when it finishes: a case that dropped since the last weekly run is a finding like
+those below. The maintainer syncs the installed skills from `<sha>`, then upgrades two vaults of
 different shapes with `/para-upgrade --ref <sha>`: one on the previous revision, one further
 behind or on an add-on. In each, run every skill the revision changed with `--test`. Every
 finding is fixed on `main` through its own issue and pull request, and the validation reruns

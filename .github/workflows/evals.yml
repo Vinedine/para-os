@@ -1,0 +1,81 @@
+# Runs the eval suite on a model, weekly and on demand from the Actions tab, never on a push or
+# a pull request: every run is a real model call on the maintainer's Claude subscription. It
+# reports and never gates on a score. evals/README.md#in-ci has what a red run means.
+name: evals
+
+on:
+  schedule:
+    - cron: "0 20 * * 5"  # Fridays, 20:00 UTC
+  workflow_dispatch:
+    inputs:
+      case:
+        description: "Case name glob, such as triage-*; empty runs every case"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+# One run at a time: two would share the plan's rate limit and score each other's throttling.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+      # The harness runs a granted shell inside bubblewrap and refuses it with no sandbox.
+      # Ubuntu 24.04's AppArmor policy stops bwrap creating user namespaces; the profile below
+      # is the one Claude Code's sandboxing docs give, and it covers bwrap alone.
+      - name: Install the sandbox
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap socat
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
+            sudo tee /etc/apparmor.d/bwrap > /dev/null <<'EOF'
+          abi <abi/4.0>,
+          include <tunables/global>
+
+          profile bwrap /usr/bin/bwrap flags=(unconfined) {
+            userns,
+            include if exists <local/bwrap>
+          }
+          EOF
+            sudo systemctl reload apparmor
+          fi
+          bwrap --ro-bind / / true
+      # --threshold 0: a low score never fails the job, so a failed run means the suite could
+      # not run. Results land under PARAOS_HOME, outside the checkout, for the upload below.
+      - name: Evals
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          PARAOS_HOME: ${{ runner.temp }}/paraos
+          CASE: ${{ inputs.case }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::No CLAUDE_CODE_OAUTH_TOKEN secret: run claude setup-token and add it"
+            exit 1
+          fi
+          args=(--shell --summary "$GITHUB_STEP_SUMMARY")
+          if [ -n "$CASE" ]; then args+=(--case "$CASE"); fi
+          python tools/eval.py "${args[@]}" -- \
+            --runs 1 --threshold 0 --concurrency 4 --max-cost-usd 40
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: ${{ runner.temp }}/paraos/data/eval-runs/
+          if-no-files-found: warn
