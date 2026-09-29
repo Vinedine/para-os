@@ -1,15 +1,11 @@
 # Scanning the vault and the clone (Phase 0, Phase 3, the mechanical half of Phase 2, the Phase 5 re-checks)
 
-From a vault and a local para-os clone to where the vault stands against the ref: the
-delta, the baseline, missing skeleton files, every rule file, skill copy and integration
-script against its master, a smoke-test baseline, and a snapshot to re-check. Mechanical: the
+Mechanical: the
 judgment lives in [delta.md](delta.md), [rules-and-skeleton.md](rules-and-skeleton.md) and
 [derived-copies.md](derived-copies.md), whose rules this file reads as one scan.
 
-`scripts/upgrade_scan.py` implements every rule below over `para-shared/scripts/paraos_vault.py`
-(`declarations`, the clone readers `clone_ref`, `clone_read`, `clone_files`, `addon_root` and
-`master_template`, the changelog and template-marker readers, `normalised`, `snapshot`), and
-`scripts/test_upgrade_scan.py` pins each rule to a case.
+`scripts/upgrade_scan.py` implements every rule below over the shared library,
+`para-shared/scripts/paraos_vault.py`.
 
 ```bash
 # Windows: py -3
@@ -94,8 +90,7 @@ older `delivery/` + `flavors/` split).
 
 **The rest of this file is that script's specification, and the fallback when it cannot run**
 (no Python, a missing file, exit 2, any non-zero exit other than 3, 4 and 5). Read this file
-when a result looks wrong, when changing what the scan means, or when running the scan by
-hand. A hand-run scan says so in the summary, in one line.
+when a result looks wrong or when running the scan by hand. A hand-run scan says so in the summary, in one line.
 
 ## By hand, where each rule actually lives, and the commands
 

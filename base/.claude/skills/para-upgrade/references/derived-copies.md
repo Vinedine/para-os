@@ -1,13 +1,11 @@
 # Phase 3 - Derived copies: rules and scripts
 
-**This is the phase that pays for the skill.** A vault's rules get copied into places a template diff never looks, and a stale copy silently re-breaks the vault on its next run. An installed integration script is the same failure in code rather than prose: the vault holds a copy, the master moved, and nothing on either side says so.
-
 ## Sweep for
 
-- **Vault-local skills** (`.claude/skills/`). A skill that restates a rule the changelog just changed will undo this migration the next time it runs. Read every one; fix the rule text, not just the skill name.
-- **Skill names** in `README.md`, `meetings.md`, briefs, and other skills. Renames don't propagate on their own. Verify each name still exists as a skill before repointing; drop references to skills that no longer exist rather than guessing a replacement. **The sweep's scope is the renames and removals the collected entries name**: an unresolved name no entry explains predates this delta, and is listed as a vault observation rather than repointed.
+- **Vault-local skills** (`.claude/skills/`). Read every one; fix the rule text, not just the skill name.
+- **Skill names** in `README.md`, `meetings.md`, briefs, and other skills. Verify each name still exists as a skill before repointing; drop references to skills that no longer exist rather than guessing a replacement. **The sweep's scope is the renames and removals the collected entries name**: an unresolved name no entry explains predates this delta, and is listed as a vault observation rather than repointed.
 - **Installed skill copies**, in both places they can live, because each goes stale on its own:
-  - *The vault's bundled `.claude/skills/`*, which the skeleton ships so an adopter can run `/para-daily-brief` the moment bootstrap finishes. **These are skeleton content and this phase audits them like any other skeleton file.** They also shadow the user-level install, so a stale one silently overrides a correct global skill for every session in that vault. Diff each against the ref's master and report; call out by name a bundled skill the scan's `revisions_behind` puts at more than one revision behind (the count of changelog entries after the oldest revision any of its differing files matched, up to and including the master's own).
+  - *The vault's bundled `.claude/skills/`*. **These are skeleton content and this phase audits them like any other skeleton file.** They also shadow the user-level install, so a stale one silently overrides a correct global skill for every session in that vault. Diff each against the ref's master and report; call out by name a bundled skill the scan's `revisions_behind` puts at more than one revision behind.
   - *The user-level install*, if the vault runs on that instead. Diff against the ref's masters (`base/.claude/skills/`, `multi-vault/*/` for an installed cross-vault skill, plus `addons/<name>/.claude/skills/` for the declared delivery, the flavor and each declared module) and report drift. Syncing them is a machine-level action, so propose it, don't do it silently.
 
   If both exist, say which one actually wins for this vault before reporting either as stale. **A copy that differs from the ref but matches the clone's working tree or another of its branches is ahead of the ref**, synced from there: report it that way, in the verdicts under `## Installed integration scripts`, never as drift. Installed flavor skills are checked only for a vault declaring that flavor.
@@ -16,7 +14,7 @@
 
   **A skill script is not an installed integration.** It carries no `para-os-integration:` marker, no vault config and no local fixes, and it is matched to its master by path rather than by marker, so the four-condition gate below does not govern it: syncing one is the plain copy the user asks for. Verify it the way that gate's fourth condition does, by running the suite beside it (the scan's `suite.command`, from the installed copy's own folder) and printing the result.
 
-  **`para-shared/scripts/` is a dependency of the others, not a skill of its own.** It holds the library every skill script reads the vault with, so a copy that syncs one skill's `scripts/` without it leaves that skill on its fallback for good, silently in the sense that only the fallback's own line says so. Check it first and name it once, rather than per skill.
+  **`para-shared/scripts/` is a dependency of the others, not a skill of its own.** It holds the library every skill script reads the vault with. Check it first and name it once, rather than per skill.
 
   **Normalize line endings on these diffs too**, as the integration scripts below do (the scan's own `normalised()` compare, [scan.md](scan.md)): LF from `git show` against CRLF in a Windows checkout otherwise reports every file as drifted.
 - **The vault's own `CLAUDE.md` claims about itself.** Enumerate the claims first, then verify each with a command, and report the list with a verdict per row rather than a sentence saying they were checked.
@@ -31,7 +29,7 @@
   | A count or inventory | "4 vendor responses", "3 vendor calls" | count the folders and compare |
   | A named skill or command exists | "emptied via `/para-triage`" | the skill must resolve; a renamed one is repointed, a removed one dropped |
 
-  **Split the literals from the shapes before running anything.** A mature vault states most of its paths as globs (`areas/*/sources/`), placeholders (`projects/<name>/brief.md`) or naming conventions (`YYYYMMDD <Who> <Description>.<ext>`), and `test -e` calls every one of them missing.
+  **Split the literals from the shapes before running anything.**
 
   **Any backticked value in the prose is a claim**, a config key included. The check runs **in both directions** for inventories: prose naming something absent is stale, and disk holding something the prose never names is undocumented.
 
@@ -45,7 +43,7 @@ Every script a para-os integration ships carries `para-os-integration: <name> <r
 diff <(git show <ref>:integrations/<name>/<file> | tr -d '\r') <(tr -d '\r' < "<vault>/<path-to-copy>")
 ```
 
-**Run this via bash (Git Bash or WSL), never PowerShell.** The `<(...)` process substitution above is a bash-only syntax; PowerShell's `diff` alias (`Compare-Object`) neither accepts it nor errors usefully - it fails as a plain parse error. Where only PowerShell is available, write both normalised sides to temp files first and diff those instead.
+**Run this via bash (Git Bash or WSL), never PowerShell:** the `<(...)` process substitution above is bash-only. Where only PowerShell is available, write both normalised sides to temp files first and diff those instead.
 
 **Resolving `<name>` to a master** follows the order [scan.md](scan.md) states: `integrations/<name>/<file>` first, then the addon's `pipeline/<file>`, which carries the same marker. If neither path exists at the ref but the *folder* does, the file was **renamed upstream**: when that folder ships exactly one non-test script, that is the master - diff against it and report the rename as part of the verdict (the scan's `renamed: true`). If the folder ships several, name them and ask which (`ambiguous-rename`, with `candidates`). Only when the folder itself is absent is the marker unresolvable (`unresolvable`): report it, leave the script alone, and never match it to a folder with a similar name.
 
@@ -77,7 +75,7 @@ A user who reads the diff may say "sync it". An overwrite needs **all four**:
 
 ## The prose that documents an integration
 
-A script and the prose describing it drift apart, and **only the script is checked by the diff above**. The vault's `resources/scripts/README.md`, its `## Triage sources` row, and any `## MCP integration intent` block are hand-written descriptions of behaviour the integration owns, and a file copy leaves every sentence about it untouched.
+**Only the script is checked by the diff above.** The vault's `resources/scripts/README.md`, its `## Triage sources` row, and any `## MCP integration intent` block are hand-written descriptions of behaviour the integration owns, and a file copy leaves every sentence about it untouched.
 
 So for every integration whose changelog entries fall inside this migration's delta, **read the entry for caller-visible changes and grep the vault's prose for the claims they invalidate.** Caller-visible means: what the tool reads, what a record represents, how a count is arrived at, how authentication happens, which flags exist, and anything the entry itself frames as a Reaction for the operator. Wording changes and internal refactors are not.
 
