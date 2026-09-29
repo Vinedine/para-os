@@ -1,6 +1,6 @@
 # Rendering the brief (Step 6)
 
-Exact terminal layout, filtered to the argument's sections. Always start with the H1 title. Sections with no content are omitted.
+Exact terminal layout, filtered to the argument's sections. Always start with the H1 title.
 
 ````
 # Daily Brief - <YYYY-MM-DD> - <vault name>
