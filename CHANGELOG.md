@@ -68,6 +68,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **A `brainstorm` module adds `/para-brainstorm`.** It takes the operator from frustrations to at most three ideas worth testing: a frame, a harvest, problem statements, three picked, ideas with the operator's first, a shortlist with no score, and each approved idea landed through `/para-new`. A dated session record keeps every idea, picked or not, with the idea's `sources/` when one landed and in `archive/meetings/` otherwise. The bootstrap offers the module once the phase 2 plan is approved. Reaction: none for an existing vault; one that wants it adopts the module through `addons/brainstorm/README.md`'s setup.
 
+**`/para-upgrade` grades a rule file's pointer where the pointer is.** The scan read only the first line linking each rule file, and matched one exact phrase, so a passing link earlier in `CLAUDE.md`, the convention form with its list before "is in", and the template's own `working-preferences.md` sentence all read as nonconforming. Every linking line is now read, the shape or convention pointer wins, and a sentence the template or a declared addon states verbatim conforms as `template`. Reaction: re-sync `/para-upgrade`.
+
 **Integrations.** Updated to 2026.09.07: `outlook` (each `fetch` record carries `read`, the ready single-message read, `/users/<address>` and the `via` account included for a shared mailbox). Reaction: straight file copy of `outlook.py` where installed.
 
 ---
