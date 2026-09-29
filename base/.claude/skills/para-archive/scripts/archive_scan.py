@@ -11,9 +11,10 @@ asks, never decides a disposition - every judgment (whether the entity is really
 each open action becomes, the version suffix, every write) stays with the skill, per
 references/reconcile.md and references/move.md.
 
-Plan mode answers Steps 1 to 5: where the entity is, what its default archive destination is,
+Plan mode answers Steps 1 to 6: where the entity is, what its default archive destination is,
 whether it sits in a declared lifecycle and what that lifecycle's terminal-stage gate needs,
-its open and settled actions, the done-gate's raw material, and every inbound reference.
+its open and settled actions, the done-gate's raw material, every inbound reference, and the
+move plan.
 Verify mode answers Step 8, after the skill has moved the entity by hand: whether anything in
 the vault still names the old path, whether every repointed link actually resolves, and what
 git shows untracked at the new path.

@@ -41,7 +41,7 @@ In order, with `git mv` so history is preserved, except on the [read-only iPad d
 fatal: bad source, source=projects/<name>/sources/<a file git still holds under its old name>.md
 ```
 
-Nothing moves when this happens. Unless the vault's `CLAUDE.md` allows a skill to commit, a vault accumulates exactly this state between the operator's own commits: treat it as expected rather than as a failure to diagnose. **Fall back to plain `mv`**, which costs no history, since git detects the rename from content when the operator commits. Same fallback where the vault is not a git repo at all. **Never retry `git mv` file by file** - a half-moved entity is worse than either outcome. Say in the report which of the two ran.
+Nothing moves when this happens. Unless a skill may commit there ([the commit rule](../../para-shared/operating-discipline.md#defer-to-the-vault)), a vault accumulates exactly this state between the operator's own commits: treat it as expected rather than as a failure to diagnose. **Fall back to plain `mv`**, which costs no history, since git detects the rename from content when the operator commits. Same fallback where the vault is not a git repo at all. **Never retry `git mv` file by file** - a half-moved entity is worse than either outcome. Say in the report which of the two ran.
 
 1. Move living-reference files to `resources/<name>/`.
 2. Delete approved stale snapshots, per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file).
@@ -50,7 +50,7 @@ Nothing moves when this happens. Unless the vault's `CLAUDE.md` allows a skill t
 5. Move the entity to Step 1's destination. Create the destination parent if needed. **Check the destination does not already exist first** - `destination.exists` from the plan call already answers this (`test -e "<dst>" && echo EXISTS` by hand). If it exists, stop and resolve the collision with the user - never let `mv` merge into or clobber an occupied archive path.
 6. **Rewrite the links *inside* the moved folder and each routed file** per [operating-discipline.md](../../para-shared/operating-discipline.md#moving-an-entity-folder): only a link whose target lies outside what moved changes.
 7. Apply every approved link repoint from the Step 6 table.
-8. **Windows note**: an empty source directory can linger ("device or resource busy") if the IDE or a terminal holds a handle - the files moved fine; `rm -rf` the empty shell and tell the user it was a stale handle, not a failure.
+8. **Windows note**: an empty source directory can linger ("device or resource busy") if the IDE or a terminal holds a handle - the files moved fine; remove the shell with `rmdir` (PowerShell: `Remove-Item` without `-Recurse`), which fails on a folder that is not empty, and tell the user it was a stale handle, not a failure. A folder that is not empty is reported, never forced.
 
 ## Step 8 - Verify and report
 
@@ -75,7 +75,7 @@ Beyond the verify call:
 
 - Confirm the archived folder contains only history (brief, actions, one-time plans) and that the successor, if any, holds the surviving work.
 - Report: what was archived and its kind, the version decision (projects only), files routed to resources, snapshots deleted, the successor created, and the count of links repointed with the table - inbound and outbound counted separately. List `untracked`: a file never committed moves on disk under a successful `git mv` too, and shows as untracked rather than renamed.
-- Say whether anything was committed: nothing is unless the vault's `CLAUDE.md` allows commits (`operating-discipline.md`), and name which of the two applied. Where a plain `mv` ran, say so here as well: `git status` shows it as deletions plus untracked files until staged. If the skill itself or a public repo was touched, flag that those need their own review.
+- Say whether anything was committed, and which source of [the commit rule](../../para-shared/operating-discipline.md#defer-to-the-vault) allowed or withheld it. Where a plain `mv` ran, say so here as well: `git status` shows it as deletions plus untracked files until staged. If the skill itself or a public repo was touched, flag that those need their own review.
 
 ## Edge cases
 
