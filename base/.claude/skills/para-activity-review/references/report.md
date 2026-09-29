@@ -4,7 +4,7 @@ The output of Step 4 of [SKILL.md](../SKILL.md). One Markdown file, written wher
 
 ## Filename and location
 
-`<review-vault>/areas/<maintainer-area>/usage/YYYY-MM-DD-<reviewed-vault>.md`, or wherever the operator's own conventions put maintenance records. Propose the path and confirm it before writing.
+`<review-vault>/areas/<maintainer-area>/usage/YYYY-MM-DD-<reviewed-vault>.md`, or wherever the operator's own conventions put maintenance records. Propose the path and confirm it before writing. Never write it into a vault belonging to the people being reviewed.
 
 ## Shape
 

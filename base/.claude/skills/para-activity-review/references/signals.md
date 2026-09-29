@@ -43,7 +43,7 @@ Also worth one line each: files written by exactly one person (single points of 
 - **Failures and denials.** Count `PostToolUseFailure` and `PermissionDenied` by tool and by target. A repeated failure on the same target is a defect with an address.
 - **Sessions that produced nothing.** Prompts submitted, nothing written all session (`summary.writes` of 0, or no `Write`/`Edit`/`touched` on an older ledger). One is noise; a pattern is people asking for something the vault cannot do.
 - **Turns per request.** Tool calls grouped by `prompt_id`. A request that expands into many turns is either real work or a badly-shaped task; read it against what was written at the end.
-- **Rephrasing.** Consecutive prompts in one session that are near-repeats (compare lowercased, punctuation stripped, on token overlap). This is the strongest available signal that the vault did not understand a request.
+- **Rephrasing.** Consecutive prompts in one session that are near-repeats (compare lowercased, punctuation stripped, on token overlap). This is the strongest available signal that the vault did not understand a request. It is **not** evidence about the person's mood or ability, and the report must not say it is.
 - **How sessions ended.** `reason` belongs to the harness, not to the ledger, and a client may report `other` for every ending. Check whether it varies at all before building anything on it, and say plainly in the report when it does not. The usable answer is the `summary` object on the `SessionEnd` line (when present): `prompts`, `tools`, `writes`, `failures`, `denials`, `duration_s`, `last_prompt_tools`. Read `last_prompt_tools: 0` as "the final request produced no tool call", never as "abandoned" - a question answered in prose looks the same.
 
 ## D. Rhythm
@@ -61,7 +61,7 @@ Read the reviewed vault's CLAUDE.md, then check only what that vault actually de
 - Entities created by hand - a write straight to `projects/<x>/brief.md` with no creation skill invoked - which says the skill is unknown, not that the person was wrong.
 - Files landing at the vault root, or in a bucket whose purpose the filing rules put elsewhere.
 
-A convention people work around is either badly designed, badly explained, or badly enforced, and the report's job is to say which.
+**Every one of these is a finding about the vault, not the person.** A convention people work around is either badly designed, badly explained, or badly enforced, and the report's job is to say which.
 
 ## What none of this can support
 
