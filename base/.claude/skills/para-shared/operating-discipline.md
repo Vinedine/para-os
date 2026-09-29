@@ -1,6 +1,6 @@
 # Operating discipline (shared across skills)
 
-Cross-skill rules for *how a skill behaves* when it changes files. Vault conventions live in each vault's `CLAUDE.md`; this is the safety discipline **every file-mutating skill** follows. A read-only skill declares that contract instead and inherits only [Arguments](#arguments).
+The safety discipline **every file-mutating skill** follows. A read-only skill declares that contract instead and inherits only [Arguments](#arguments).
 
 ## Arguments
 

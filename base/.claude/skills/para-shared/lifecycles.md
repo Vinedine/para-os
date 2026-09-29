@@ -1,6 +1,6 @@
 # Lifecycles (shared across skills)
 
-A **lifecycle** names the sub-stages one kind of entity passes through inside the PARA buckets, which PARA home each stage lives in, and where the entity leaves the live buckets. It adds no second spine: idea, project, area, archive stays the only rule everyone learns, and a lifecycle opens one of those boxes up for one kind of entity.
+A **lifecycle** names the sub-stages one kind of entity passes through inside the PARA buckets, which PARA home each stage lives in, and where the entity leaves the live buckets.
 
 **The vault declares it; a skill only reads it.** A flavor or a module ships the section, the vault's `CLAUDE.md` carries it, and every skill that touches a staged entity resolves stages here rather than knowing any of its own. One lifecycle per kind of entity: a vault holding both properties and deals carries two tables, which is a normal vault and not a conflict.
 
@@ -17,7 +17,7 @@ A lifecycle is a `CLAUDE.md` section whose **heading ends in `lifecycle`**, hold
 ## Folder homes and row homes
 
 - **A folder home** (`resources/ideas/<name>/`) is one entity per folder, carrying its stage in the `brief.md` or `README.md` the vault's shape rules give it.
-- **A row home** is a file path suffixed `(row)` (`areas/business/leads.md (row)`): one table row per entity in the register that file holds. The row *is* the entity. The table's `Stage` column is its stage, the other columns are the header a brief would carry as bold lines, and its own next-step column is its next step, which is the one exception to the vault's rule about where a next step lives. This is the volume tier, so a list of three hundred names costs three hundred rows and nothing else, and the lifecycle table says at which stage a folder is earned.
+- **A row home** is a file path suffixed `(row)` (`areas/business/leads.md (row)`): one table row per entity in the register that file holds. The row *is* the entity. The table's `Stage` column is its stage, the other columns are the header a brief would carry as bold lines, and its own next-step column is its next step, which is the one exception to the vault's rule about where a next step lives. This is the volume tier; the lifecycle table says at which stage a folder is earned.
 - **A closed row leaves the live board.** Where a register separates open rows from closed ones, under `## Open` and `## Closed`, a row under `## Closed` counts in the metrics and nowhere else, whatever its `Stage` column says.
 
 ## The Stage line
