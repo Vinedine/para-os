@@ -1,6 +1,6 @@
 ---
 name: para-brainstorm
-description: Take the operator from what keeps going wrong to two or three ideas worth testing - frame the brainstorm, harvest their frustrations, turn them into problem statements, pick three, generate ideas with theirs first, shortlist, and land at most three through /para-new, keeping a dated session record of every idea. Runs any time, in one sitting or across several. Use when the user says "let's brainstorm", "help me come up with ideas", "what could I offer", "this keeps costing me time, what can I do about it", "brainstorm on <topic>", or types /para-brainstorm.
+description: Take the operator from what keeps going wrong to two or three ideas worth testing - frame it, harvest their frustrations, write problem statements, pick three, generate ideas with theirs first, shortlist, and land at most three through /para-new, keeping a dated session record of every idea. Runs any time, in one sitting or across several. Use when the user says "let's brainstorm", "help me come up with ideas", "what could I offer", "this keeps costing me time, what can I do about it", "brainstorm on <topic>", "carry on with the brainstorm in <file>", or types /para-brainstorm.
 allowed-tools: Glob, Grep, Read, Write, Edit, Skill, AskUserQuestion
 argument-hint: '[<topic>|<path>] [--test]'
 ---
