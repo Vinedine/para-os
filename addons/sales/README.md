@@ -20,6 +20,8 @@ It sits on any delivery but [read-only iPad](../readonly-ipad/) (no `actions.md`
 
 ## Setup
 
+A new vault for a business gets the module from the bootstrap, which offers it and runs these steps itself. An existing vault adopts it by hand:
+
 1. Add `**Modules:** sales` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one, and merge in `CLAUDE.md.sections`. Replace the register placeholder with the real path.
 2. Copy `.claude/rules/deal-brief.md` into the vault's `.claude/rules/`. Where the vault has a `brief-structure.md`, add a line to it: `deal-brief.md` takes over briefs whose Stage line names a deal stage.
 3. Create the register at the path you named, with its `## Open` and `## Closed` headings, and add the weekly review to the business area's actions file under `## Recurring`.

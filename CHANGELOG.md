@@ -64,6 +64,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **`/para-activity-review` and its ledger script move out of base into an `activity` module.** Every vault carried a skill whose only input is a ledger no vault gets by bootstrapping. `addons/activity/` now ships the skill under `.claude/skills/`, `activity.py` under `pipeline/`, and a `CLAUDE.md.sections` adding `## Activity ledger`; `integrations/activity/` is gone, and the script's marker name stays `activity`. Reaction: a vault with `resources/scripts/activity.py` adds `**Modules:** activity` under its `**Type:**` line, merges the module's section, and re-syncs `/para-activity-review` from the module, its `scripts/` folder included. A vault with `.claude/skills/para-activity-review/` and no `activity.py` deletes that skill folder. The hook commands in `.claude/settings.json` point at `resources/scripts/activity.py`, which does not move, so they are unchanged.
 
+**The bootstrap offers the sales module to a business vault.** Where `Purpose` is a business and the vault is read in Claude Code, one more question asks whether the operator sells to clients; on yes the bootstrap runs the module's setup with the register at `areas/business/leads.md`, drafts the target profile from the website read or leaves it as an open question in the vault-setup brief, and names `/para-pipeline` in the hand-over. `addons/sales/README.md` keeps its manual setup for an existing vault. Reaction: none for an existing vault.
+
 **Integrations.** Updated to 2026.09.07: `outlook` (each `fetch` record carries `read`, the ready single-message read, `/users/<address>` and the `via` account included for a shared mailbox). Reaction: straight file copy of `outlook.py` where installed.
 
 ---
