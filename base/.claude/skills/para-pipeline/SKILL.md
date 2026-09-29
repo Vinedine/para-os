@@ -7,11 +7,11 @@ argument-hint: '[<lifecycle>] [--test]'
 
 # Para pipeline
 
-The board for **staged entities**: every lifecycle the vault declares, each entity at its stage, the next step and its date, what has stopped moving, and what the quarter did. It answers "where does this stand and what moves next", which no action list answers, because a stage is a fact about the outside world rather than a task.
+The board for **staged entities**: every lifecycle the vault declares, each entity at its stage, the next step and its date, what has stopped moving, and what the quarter did.
 
-**Read-only contract.** This skill never edits a file. It reports; the operator moves the entity. A stage change, a reason line, a `Last touch` update are all hand edits, and a flag here is what prompts one.
+**Read-only contract.** It reports; the operator moves the entity, and a flag here is what prompts the edit.
 
-**This skill is vault-agnostic.** It knows nothing about deals, properties or applications: only about declared lifecycles and Stage lines, whose contract is [para-shared/lifecycles.md](../para-shared/lifecycles.md). No stage name or home is hardcoded; the fields the next-step rules and the metrics read are the ones lifecycles.md names, and `Signer` is the only one whose value fires a flag.
+**This skill is vault-agnostic.** It knows only declared lifecycles and Stage lines, whose contract is [para-shared/lifecycles.md](../para-shared/lifecycles.md). No stage name or home is hardcoded.
 
 **Operator-language output.** Every line is readable by someone who has not seen this skill: the vault's own entity and stage names, no bucket jargon beyond the section titles.
 
@@ -29,7 +29,7 @@ The board for **staged entities**: every lifecycle the vault declares, each enti
 
 ### Step 1: Read the declarations
 
-Resolve the vault root, then verify it - the path the operator named, or `pwd` read before anything else in the session has moved the shell. A root has `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
+Resolve the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), then verify it: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
 
 Read the vault's `CLAUDE.md` and collect every section whose heading ends in `lifecycle`, parsing each table by [para-shared/lifecycles.md](../para-shared/lifecycles.md). Also read the rule file each lifecycle's entity documents load, which is what names their header fields.
 
@@ -44,9 +44,7 @@ One call per lifecycle scope, after Step 1 has the declared lifecycles, per [par
 python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault . [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Pass `--lifecycle` only under a lifecycle scope. Exit 3 is a `--lifecycle` matching no declared heading or noun (`{"error": "no such lifecycle", "declared": [...]}`): ask which of the declared ones was meant, never guess. Where the script cannot run, fall back to [references/scan.md](references/scan.md).
-
-The rest of Steps 2 and 3 read its output: one record per entity, already at its matched stage with days in stage, its next step and every flag input computed. **Full field table: [references/scan.md](references/scan.md).**
+Pass `--lifecycle` only under a lifecycle scope. Exit 3 is a `--lifecycle` matching no declared heading or noun (`{"error": "no such lifecycle", "declared": [...]}`): ask which of the declared ones was meant, never guess. **Field table, and the by-hand fallback where the script cannot run: [references/scan.md](references/scan.md).**
 
 ### Step 4: Render
 
@@ -64,13 +62,12 @@ Word what the script computed into the board by stage, the flags, the counts, th
 
 ## Edge cases
 
-- **A vault with two lifecycles**: render both, each with its own board, counts and metrics, in the order their sections appear in `CLAUDE.md`. Never merge them.
 - **A declared home that does not exist yet** (the register file, an `archive/` folder): count it as empty and say so once, rather than reporting an error per stage.
-- **An entity whose folder sits in the wrong home for its stage**: render it under the stage its Stage line names and flag the mismatch, naming both paths. The Stage line is the entity's own claim; the folder is where someone last left it.
+- **An entity whose folder sits in the wrong home for its stage**: render it under the stage its Stage line names and flag the mismatch, naming both paths.
 - **Two entities with the same name** in different homes: render both, each with its path, and flag the collision.
 - **A document in a declared home with no Stage line** (`no_stage`) **or a Stage line naming no declared stage** (`unknown_stage`, with the name read): list it by path under a closing line. Only one that looks like a filing gap is reported, never an ordinary project or area sharing the home ([scan.md](references/scan.md) Step 2).
 - **A register row missing a column** the table declares: render what it has, and flag the row rather than dropping it.
-- **A lifecycle with no live entity at all**: render its counts as zeros and its metrics, and say in one line that nothing is live. An empty pipeline is a real answer.
+- **A lifecycle with no live entity at all**: say in one line that nothing is live. An empty pipeline is a real answer.
 - **The vault is on the read-only iPad delivery**: resolve every path through the [collected-state path map](../para-shared/operating-discipline.md#the-read-only-ipad-delivery), and read dates from the collected `.md`. Nothing here edits a file, so no edit cycle runs.
 
 ## Related skills

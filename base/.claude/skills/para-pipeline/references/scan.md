@@ -1,13 +1,6 @@
 # Scan the homes, resolve each entity (Steps 2 and 3)
 
-Everything between "a lifecycle table in `CLAUDE.md`" and "one resolved entity per stage,
-with its next step and its flag inputs". Mechanical: no judgment lives here.
-
-`scripts/pipeline_scan.py` implements every rule below, one lifecycle at a time, over the
-lifecycle readers in `para-shared/scripts/paraos_vault.py`, and `scripts/test_pipeline_scan.py`
-pins each rule to a case.
-
-What comes back, and what each field settles:
+`scripts/pipeline_scan.py` implements every rule below. What comes back:
 
 | Field | Holds |
 |---|---|
@@ -22,7 +15,7 @@ What comes back, and what each field settles:
 | `lifecycles[].terminal_this_quarter` | Closed entities across every terminal stage whose Stage line dates them into the current quarter |
 | `lifecycles[].metrics` | Everything [render.md](render.md)'s metrics section reads: the quarter's name, opened, reached-promoting, the median, the terminal-stage reasons and the referrers table |
 
-The rest of this file is the script's specification and the by-hand fallback.
+Where the script cannot run, apply the rest of this file by hand.
 
 ## Step 2 - Collect the entities
 
@@ -110,5 +103,4 @@ line), stage, `terminal` and `closed`/`live`, `duplicate_document`, days in stag
 row entity's stage declares a folder home instead of the register it sits in (naming both),
 `row_missing_columns` for a register row narrower than its header, the next step, and
 the flag inputs `no_next_step`, `stale`, `expiring`, `signer_unknown` and `name_collision` -
-computed and named, never worded. Nothing is computed twice: [render.md](render.md) groups,
-counts and words these records and reads no file of its own.
+computed and named, never worded; [render.md](render.md) words them.
