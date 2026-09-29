@@ -66,6 +66,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **The bootstrap offers the sales module to a business vault.** Where `Purpose` is a business and the vault is read in Claude Code, one more question asks whether the operator sells to clients; on yes the bootstrap runs the module's setup with the register at `areas/business/leads.md`, drafts the target profile from the website read or leaves it as an open question in the vault-setup brief, and names `/para-pipeline` in the hand-over. `addons/sales/README.md` keeps its manual setup for an existing vault. Reaction: none for an existing vault.
 
+**A `brainstorm` module adds `/para-brainstorm`.** It takes the operator from frustrations to at most three ideas worth testing: a frame, a harvest, problem statements, three picked, ideas with the operator's first, a shortlist with no score, and each approved idea landed through `/para-new`. A dated session record keeps every idea, picked or not, with the idea's `sources/` when one landed and in `archive/meetings/` otherwise. The bootstrap offers the module once the phase 2 plan is approved. Reaction: none for an existing vault; one that wants it adopts the module through `addons/brainstorm/README.md`'s setup.
+
 **Integrations.** Updated to 2026.09.07: `outlook` (each `fetch` record carries `read`, the ready single-message read, `/users/<address>` and the `via` account included for a shared mailbox). Reaction: straight file copy of `outlook.py` where installed.
 
 ---

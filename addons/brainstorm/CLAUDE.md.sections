@@ -1,0 +1,7 @@
+<!-- brainstorm MODULE: the section this module adds to a vault's CLAUDE.md. Merge it in beside
+     the sections of base (or of the vault's delivery skeleton, or of a flavor); it never
+     replaces one. Add `**Modules:** brainstorm` under the **Type:** line in the same pass. -->
+
+## Brainstorms
+
+`/para-brainstorm` takes the operator from frustrations to at most three ideas worth testing, each created by a `/para-new` run. Its session record is one dated file holding every problem statement and every idea, picked or not: with the idea's `sources/` when one idea came out of it, in `archive/meetings/` otherwise, and in `triage/` while a run is unfinished. An idea that was not picked gets no folder; the record is where it stays findable.
