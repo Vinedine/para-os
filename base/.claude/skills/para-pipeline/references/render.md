@@ -59,4 +59,4 @@ Per lifecycle, computed from the records already collected, this quarter only (t
 
 ## The close
 
-One **Next action**, the same shape as the daily brief's: the single most concrete step the board justifies, naming an entity and what to do about it, with its file link. Prefer an entity flagged for a dated fact about to expire, then one with no next step at the latest stage reached, then the oldest days-in-stage at the stage nearest the promoting one. Where the board is clean, close on the review itself rather than inventing work.
+One **Next action**: the single most concrete step the board justifies, naming an entity and what to do about it, with its file link. Prefer an entity flagged for a dated fact about to expire, then one with no next step at the latest stage reached, then the oldest days-in-stage at the stage nearest the promoting one. Where the board is clean, close on the review itself rather than inventing work.
