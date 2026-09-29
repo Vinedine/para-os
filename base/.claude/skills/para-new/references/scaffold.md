@@ -4,7 +4,7 @@ Nothing is written until the proposal is approved. The proposal is short: the fo
 
 ## Resolve the brief shape first
 
-- **If the vault declares a shape for the new file's path**, resolved per [A vault's rule files](../../para-shared/operating-discipline.md#a-vaults-rule-files), use it. Where two shape files match, each file's own text says which kind of entity it takes.
+- **If the vault declares a shape for the new file's path**, resolved per [A vault's rule files](../../para-shared/operating-discipline.md#a-vaults-rule-files), use it.
 
   **Follow the order only where the vault fixes one.** A declared shape may state its sections as an ordered contract, or may say explicitly that order varies by entity and is not enforced. Honour whichever it does. A declared section this entity has no answer for gets whatever the vault says to do with it, typically an explicit `_n/a_`.
 - **If it describes a shape without naming sections** ("outcome up top, then a development log"), open the closest existing entity of the same shape, take its header block and section names, and fill them with this entity's answers. Where the vault holds no existing entity of that shape, the minimal spine is right and this is the first instance.
@@ -33,7 +33,7 @@ Interview question 2 asks who is waiting and by when. **The answer gets written 
 | Idea | `resources/ideas/<slug>/` | `brief.md` only |
 | Contact | `areas/network/<firstname-lastname>.md` | the one file |
 
-`<slug>` follows the vault's naming convention, kebab-case by default, no diacritics. `areas/business/` and `areas/network/` are the skeleton's standing subfolders and are never created here; a person goes in `areas/network/` as a contact file, not in an area of their own. Take the name from what the user calls the work, not from a summary of it: they have to recognise it in a dashboard.
+`<slug>` follows the vault's naming convention, kebab-case by default, no diacritics. A person goes in `areas/network/` as a contact file, not in an area of their own. Take the name from what the user calls the work, not from a summary of it: they have to recognise it in a dashboard.
 
 On the read-only iPad delivery these writes run inside [its edit cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).
 
@@ -53,9 +53,7 @@ A project's or area's `actions.md` carries the vault's heading shape and **one**
 
 **A date never survives as free text.** "before the contract renews in November" is a real deadline written where no skill can read it, and most vaults forbid it outright. Convert it to the vault's marker, and where the answer is a month or a quarter rather than a day, ask for the day instead of guessing one.
 
-An area whose only outstanding work is recurring gets that item under the vault's recurring heading and no open next step, which is a complete file rather than an empty one. An idea gets no `actions.md`. A contact's outstanding item, if there is one, goes under the contact file's own next-actions heading; if there is none, the vault's empty sentinel goes there instead. Where the vault declares a `**Kind:**` line for contact cards, it goes directly under the file's title.
-
-Where the vault's conventions drop action tracking altogether, the next step is prose in the brief and no `actions.md` is created.
+An area whose only outstanding work is recurring gets that item under the vault's recurring heading and no open next step, which is a complete file rather than an empty one. A contact's outstanding item, if there is one, goes under the contact file's own next-actions heading; if there is none, the vault's empty sentinel goes there instead. Where the vault declares a `**Kind:**` line for contact cards, it goes directly under the file's title.
 
 ## Cross-link before finishing
 
@@ -68,7 +66,6 @@ Report what was created and what was linked, in one short block. Do not restate 
 
 ## Edge cases
 
-- **The slug collides with an archived entity.** Allowed, and worth naming: say which archived entity shares the name so the operator can pick a distinct one if this is a successor rather than a repeat.
 - **The user's name for the work is a sentence.** Slug the short form, and keep their full phrasing as the brief's title line.
 - **Two people are creating in the same vault at once** (a synced drive with no merge step): re-check the folder does not exist immediately before writing, not only at Step 1.
 - **The vault declares a shape this entity genuinely breaks** (a commercial section in a household vault, say). Use the declared shape anyway and mark the section `_n/a_`. Changing the vault's declared shape is a `/para-deep-clean` decision, not a side effect of creating one entity.
