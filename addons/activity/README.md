@@ -1,6 +1,6 @@
-# Activity ledger
+# Module: activity
 
-Record how a vault is actually used, so the vault can be improved against evidence instead of impressions.
+Record how a vault is actually used, so the vault can be improved against evidence instead of impressions. A module is a **function a vault adds beside whatever it is about**, and this one is a single decision that turns on both halves: the ledger a hook writes, and `/para-activity-review`, the skill that reads it.
 
 ```
 Claude Code session  ──▶  hook: activity.py  ──▶  <vault>/resources/logs/sessions/*.jsonl
@@ -11,7 +11,13 @@ Claude Code session  ──▶  hook: activity.py  ──▶  <vault>/resources/
 
 Git tells you what changed in a vault. This tells you what someone **asked for**, which skills they reached for, where a session failed, and what they never touched at all. Those are different questions, and only the second one improves the product: a skill nobody invokes and a `triage/` that fills while `/para-triage` is never run are both invisible to a commit log.
 
-**Opt-in, deliberately.** This is not part of [`base/`](../../base/) and no vault gets it by bootstrapping. It is installed by a decision, per vault, by someone who has said what it collects to everyone it collects from. A knowledge vault that quietly logs its readers would be a worse product than one with no telemetry at all.
+**Opt-in, deliberately.** No vault gets it by bootstrapping. It is installed by a decision, per vault, by someone who has said what it collects to everyone it collects from. A knowledge vault that quietly logs its readers would be a worse product than one with no telemetry at all. It runs on Claude Code only: the ledger is its hooks.
+
+## What it adds
+
+1. **A `CLAUDE.md` section** ([`CLAUDE.md.sections`](CLAUDE.md.sections)): `## Activity ledger`, stating that the vault records its use, where the ledger lives, and that it is pruned only through the skill.
+2. **The ledger script** ([`pipeline/activity.py`](pipeline/activity.py)), copied into the vault's `resources/scripts/`. Its `para-os-integration: activity` marker puts it in `/para-upgrade`'s drift check like any integration.
+3. **The skill** ([`.claude/skills/para-activity-review/`](.claude/skills/para-activity-review/SKILL.md)), installed beside the base skills. It reads `para-shared/`.
 
 ## When it earns its place
 
@@ -27,9 +33,9 @@ It earns nothing on a vault nobody else touches and nobody is improving. Skip it
 - **Claude Code**, terminal or the Desktop app's Code tab. Both read the same project settings, and hooks fire in both.
 - **The people using the vault know it is on.** Not a technical prerequisite. See [What to tell people](#what-to-tell-people).
 
-## Install
+## Setup
 
-1. Copy `activity.py` into the vault at `resources/scripts/`. The vault root is derived from the script's own path, so there is nothing to configure and no machine-specific path in a file that syncs.
+1. Add `**Modules:** activity` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one, and merge in `CLAUDE.md.sections`. Copy `.claude/skills/para-activity-review/` beside the base skills, and `pipeline/activity.py` into the vault at `resources/scripts/`. The vault root is derived from the script's own path, so there is nothing to configure and no machine-specific path in a file that syncs.
 
 2. Wire the hooks in the vault's `.claude/settings.json`. Every command is anchored to `$CLAUDE_PROJECT_DIR`, the vault root, and the quotes around it are not optional - a vault path usually contains spaces:
 
@@ -122,10 +128,6 @@ The **full session transcript is not read**, though every hook event names its p
 This is machine output living inside a human vault, which the [scripts convention](../../base/resources/scripts/README.md) otherwise avoids by putting runtime state under `~/.paraos/`. It is deliberate and it is the only choice that works: state outside the vault never reaches the person maintaining it. Two things keep it honest - the files are small and machine-readable rather than something a reader must skim, and `/para-activity-review` prunes what it has already reported.
 
 If the vault has a git mirror, exclude `resources/logs/` from it. The files arrive through the sync anyway, and vault history should record decisions, not keystrokes.
-
-## Reading it
-
-[`/para-activity-review`](../../base/.claude/skills/para-activity-review/SKILL.md). It is the consumer, and the log is not meant to be read by eye.
 
 ## What to tell people
 

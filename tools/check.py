@@ -37,8 +37,9 @@ What it enforces, and why each one is machinery rather than prose:
                         nothing else notices falling behind. No copy is fine; a copy that
                         differs from base/.claude/skills/ fails.
 
-  Colocated tests       Each integration's own suite, run in place: `test_*.py` and `*.test.js`
-                        next to the script they cover. Shipping a revision is one command, not
+  Colocated tests       Each integration's own suite, and each add-on pipeline's and skill
+                        script folder's, run in place: `test_*.py` and `*.test.js` next to
+                        the script they cover. Shipping a revision is one command, not
                         three remembered ones. A suite whose runtime is missing FAILS rather
                         than skipping: an integration nobody could verify must not report as a
                         clean bill of health.
@@ -622,7 +623,10 @@ def skill_script_dirs():
 
 def check_tests():
     suite_dirs = integration_dirs() + skill_script_dirs()
-    suites = [p for d in suite_dirs for p in sorted(d.iterdir())
+    # An add-on's pipeline/ runs its suite where it ships one; readonly-ipad's PowerShell and
+    # renderer have none, so a pipeline is not held to having one.
+    pipelines = sorted(d for d in (ROOT / "addons").glob("*/pipeline") if d.is_dir())
+    suites = [p for d in suite_dirs + pipelines for p in sorted(d.iterdir())
               if p.suffix in RUNNERS and is_test_file(p)]
     for d in suite_dirs:
         if not any(p.parent == d for p in suites):

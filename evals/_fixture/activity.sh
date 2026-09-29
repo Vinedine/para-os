@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Extra fixture for the activity-review cases, sourced after vault.sh (which defines
 # `day()`). Writes the ledger the activity integration would have left: one JSONL file per
-# session under resources/logs/sessions/, in the field shape integrations/activity/activity.py
+# session under resources/logs/sessions/, in the field shape addons/activity/pipeline/activity.py
 # writes, dated relative to the day of the run.
 #
 # The shape is deliberate. The vault's CLAUDE.md names four skills. Over thirteen days two
