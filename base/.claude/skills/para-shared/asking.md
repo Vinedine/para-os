@@ -1,6 +1,6 @@
 # Asking item by item (shared across skills)
 
-How a skill puts a batch of decisions to the operator through `AskUserQuestion` instead of one table and one `go`. Shared because five skills do it and the mechanics are identical; what differs per skill is only the **vocabulary** - the dispositions its questions may offer - which stays in that skill's own reference.
+How a skill puts a batch of decisions to the operator through `AskUserQuestion` instead of one table and one `go`. What differs per skill is only the **vocabulary** - the dispositions its questions may offer - which stays in that skill's own reference.
 
 ## Before the questions: the manifest
 
@@ -17,7 +17,7 @@ One line, no pipes, no reasoning column: the reasoning belongs in the option des
 
 **If the batch exceeds 20 items**, the first question asked is whether to go item by item or fall back to the written proposal.
 
-**The manifest is for a batch, and below four questions there is none.** Count the questions first: **four or more, print it; fewer, go straight to asking.** The threshold is per run, not per skill.
+Count the questions first: **four or more, print it; fewer, go straight to asking.** The threshold is per run, not per skill.
 
 ## The question
 
@@ -42,7 +42,7 @@ The rule above covers dispositions. Three other shapes reach the operator, and w
 - **An open answer** (a name, a deadline, a goal, a URL) is a question **only when the skill holds a concrete suggestion for it**, from the operator's request or the vault itself. The suggestion goes first as `(Recommended)` and **Other** is where the operator corrects it. With nothing to suggest, it stays a short numbered message in prose.
 - **A discovery question** (what eats your week, where your information lives) asks which of several things hold, not what to do, so it is the one shape asked with `multiSelect: true` and no option labelled `(Recommended)`.
 
-A "confirm or correct" list written as prose, where a suggestion exists for every item, is a recommended option plus Other, and belongs in the tool. The four-question batching and the reading rules below apply unchanged, and so does `multiSelect: false` everywhere but a discovery question.
+A "confirm or correct" list written as prose, where a suggestion exists for every item, is a recommended option plus Other, and belongs in the tool. The four-question batching and the reading rules below apply unchanged.
 
 ## Grouping
 
@@ -59,7 +59,7 @@ Linked items get **one** question. Linked means one sentence can state the dispo
 - **Other is an amendment, not an answer.** If the free text names an unambiguous disposition, take it, echo the correction, and carry on. If it is ambiguous or asks something, answer it and re-ask that one question with the corrected proposal. Never execute an Other whose meaning you inferred.
 - **A skipped question is a deferral, not an approval.** A question can come back unanswered, as `[No preference]`. Nothing about that item was decided, so it executes nothing - never read it as assent to the recommended option, which is the one reading that turns a shrug into a delete. Re-ask it once in the next round, saying it came back unanswered and naming what leaving it does; if it is skipped again, record it as a deferral and move on.
 
-Record every answer, deferrals and amendments included, and carry them into the skill's final summary. The manifest records what was proposed; the summary is the record of what was decided, and a disposition appearing in neither leaves no trace at all.
+Record every answer, deferrals and amendments included, and carry them into the skill's final summary.
 
 ## When not to ask
 
