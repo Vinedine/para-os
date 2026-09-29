@@ -1,6 +1,6 @@
 # Phase 3 - Open items, action grooming, content grooming
 
-`scripts/clean_scan.py --phase 3` implements the over-threshold, other-checkbox-file, stale-undated, aspirational-date and prose-next-steps checks below, plus the size-based half of Step 3.5's brief selection as `briefs_to_read`, and `scripts/test_clean_scan.py` pins each one to a case. Content grooming's remaining judgment (Step 3.5) and reading source documents (Step 3.1) are calls the script does not attempt.
+`scripts/clean_scan.py --phase 3` implements the over-threshold, other-checkbox-file, stale-undated, aspirational-date and prose-next-steps checks below, plus the size-based half of Step 3.5's brief selection as `briefs_to_read`.
 
 Goal: every "Open items" section reflects real outstanding work, every action file sits at the actionable frontier, and prose has stopped accumulating for its own sake.
 
@@ -57,7 +57,7 @@ Grooming never touches `resources/` or `archive/` - checkboxes there are Phase 1
 
 ## Step 3.5 - Content grooming
 
-The prose half of the same problem, against the content-frontier rule in `CLAUDE.md`. Read the root `README.md`, every contact card and area README, plus the `brief.md` of every entity flagged by the size or growth signals below. The small files are in the set unconditionally. Report findings in five kinds:
+The prose half of the same problem, against the content-frontier rule in `CLAUDE.md`. Read the root `README.md`, every contact card and area README, plus the `brief.md` of every entity flagged by the size or growth signals below. Report findings in five kinds:
 
 - **Duplicated facts.** The same fact stated in more than one live file. Identify which file *owns* it (the rule that governs it, the brief of the entity it describes, the contact card of the person it concerns) and propose replacing the copies with links. **Never propose deleting a file as a duplicate without diffing it against the copy that survives**.
 - **Superseded content in live buckets.** A reversed decision, a replaced plan, a section describing how something used to work. Propose moving it to the owning `archive/` entity, or cutting it where git already holds the text. Say which, per item: "git has it" holds only in a git repo.
