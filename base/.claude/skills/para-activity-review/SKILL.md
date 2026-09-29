@@ -9,7 +9,7 @@ argument-hint: '[<vault-path>] [days] [--test]'
 
 Turns the **activity** integration's session log into a short list of things to change. It reads that log, checks what it finds against the vault's own stated conventions, and writes a dated report.
 
-The question is **never "what did these people do"**. It is "which parts of this vault work, which are ignored, and which fight the person using them".
+The question is **never "what did these people do"**. It is "which parts of this vault work, which are ignored, and which fight the person using them". A finding that names a person rather than a defect is a finding written wrong, and the report is worthless the day anyone reads it as a performance review.
 
 **This skill is vault-agnostic.** It reads the reviewed vault's CLAUDE.md at runtime for the PARA layout, the action rules, the filing conventions and the declared skills, and judges usage against *those* rules rather than any built in here.
 
