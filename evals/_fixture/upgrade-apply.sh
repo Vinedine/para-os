@@ -10,9 +10,12 @@
 # The case this fixture drives is an applied migration, not an audit. The one collected
 # entry, 2026.08.02, carries two items:
 #
-#   1. A mechanical Reaction on a file the vault has in its before state: the vault's
-#      `.claude/rules/actions.md` lists `projects/*/actions.md` alone under `paths:`, and the
-#      entry says to add `areas/*/actions.md` there.
+#   1. A mechanical Reaction on a file the vault has in its before state: the template's
+#      `## Actions` section gains one sentence, and the entry says to take it into the
+#      vault's CLAUDE.md. It is CLAUDE.md, not a file under `.claude/`, on purpose: a
+#      non-interactive run cannot Edit a `.claude/` file, which Claude Code refuses as
+#      sensitive with no operator to approve it, so a Reaction there would grade the
+#      harness rather than the skill.
 #   2. The logbook integration's master moved. The vault's `resources/scripts/logbook.py` is
 #      byte for byte the 2026.08.01 master, honestly stamped 2026.08.01, so the scan calls it
 #      behind. The newer master's `LEDGER_LIMIT` line is what a sync would bring in.
@@ -238,7 +241,7 @@ EOF
 
 ## 2026.08.02
 
-**The actions rule covers an area's action file too.** An area's `actions.md` holds open items the same way a project's does, and the rule never loaded for it. Reaction: add `areas/*/actions.md` to the `paths:` list of `.claude/rules/actions.md`.
+**An area's action file is an action file too.** An area's `actions.md` holds open items the same way a project's does, and `CLAUDE.md` never said so. The template's `## Actions` section gains one sentence. Reaction: take that sentence into the vault's `## Actions` section.
 
 **The logbook integration skips a note it has already printed.** `logbook.py` now remembers the last fifty note ids it printed in a small ledger file next to the export folder, and skips one already printed instead of repeating it. Reaction: re-sync installed `logbook.py` copies; a vault with no logbook installed has nothing to do.
 
@@ -260,13 +263,14 @@ EOF
 ## Actions
 
 A checkbox may live in `projects/` and `areas/` only, never in `resources/`. The rule file is `.claude/rules/actions.md`.
+
+An area's `actions.md` is an action file too: it follows the same checkbox rule as a project's.
 EOF
 
   cat > base/.claude/rules/actions.md <<'EOF'
 ---
 paths:
   - "projects/*/actions.md"
-  - "areas/*/actions.md"
 ---
 
 # Actions
