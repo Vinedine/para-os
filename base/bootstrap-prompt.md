@@ -1,6 +1,6 @@
 # Bootstrap prompt - stand up a new para-os vault
 
-Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks four short choice questions and two open ones, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), and cleans up after itself.
+Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks four short choice questions (a fifth for a business) and two open ones, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), and cleans up after itself.
 
 ---
 
@@ -25,6 +25,8 @@ Onboarding runs in three phases. **You run phase 1 now**, in this session. Phase
 
 `Purpose` and `Language` carry no recommendation: they are facts only I hold. If my install prompt said something about the vault anyway, order those options by it, but still ask.
 
+**Where `Purpose` is a business I run** (or my Other answer describes one) **and `Read where` is Claude Code**, follow with one more call: `Sales`, "Do you sell to clients, and want to track prospects, demos and deals?", options yes, add the sales module `(Recommended)` · not now. Never on the iPad delivery, which the module does not support. Without the tool, ask it as one line after my reply.
+
 **Then two open questions as one short numbered message**:
 
 1. In one line, what does this vault cover?
@@ -36,6 +38,7 @@ Then fill the templates:
 
 - If I chose read-only iPad, first run steps 1 and 2 of the setup in the para-os clone's `addons/readonly-ipad/README.md` (its skeleton replaces both templates); its step 3 changes apply to everything below.
 - If I gave websites, **read them** (WebFetch) and draft the four `README.md` sections (Identity, Operating model, Track record, Vision) from what you find. Flag anything you inferred so I can correct it. If I gave none, leave them as short, obvious stubs for the brainstorm (phase 2) to fill; the four headings stay exactly as the template names them.
+- If I said yes to the sales module, run the setup in the para-os clone's `addons/sales/README.md` once the templates are filled, with the register at `areas/business/leads.md`: `**Modules:** sales` under the `**Type:**` line, its `CLAUDE.md.sections` merged, `.claude/rules/deal-brief.md` copied in, the register created with its `## Open` and `## Closed` headings each carrying `_None currently._`, and the weekly review under `## Recurring` in `areas/business/actions.md`, first dated the next Friday. Draft the **target profile** its Qualified stage tests against into `README.md`'s Operating model where the websites support one, flagged as inferred; otherwise add it to the vault-setup brief as an open question for phase 2. "Not now" writes nothing from the module.
 - Fill every `{{placeholder}}` in `CLAUDE.md.template` and `README.md.template`. Keep the invariant blocks (the PARA sorting test, Lifecycle, Archive hygiene, Actions, Filing and naming, Language, Memory, File formats, the standing "Do not add" items) exactly as written. A **delivery** skeleton's header comment lists which of these it drops; treat the rest as invariant. For the taxonomy slots, use these **defaults** verbatim unless I volunteered otherwise:
   - **project** = time-bound work with a committed deliverable and deadline.
   - **extra `areas/` subfolders** = none. `business/` + `network/` only; more emerge later.
@@ -87,7 +90,7 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 ## Finish
 
 - Leave the PARA placeholder READMEs in place - they self-delete as real content arrives. `triage/` is the exception: it gets a `.gitkeep`, never a README.
-- Do **not** add entity templates or a `.claude/rules/` shape file yet; those come once a second instance of an entity type exists.
-- Delete this `bootstrap-prompt.md`. Confirm the vault is clean: filled `CLAUDE.md` + `README.md`, a seeded `areas/business/actions.md`, a `projects/vault-setup/` with `brief.md` + `actions.md`, and no remaining `.template` files.
-- Tell me the skills are already bundled in this vault (`.claude/skills/`) so I can run `/para-daily-brief` right away, and that `.claude/settings.json` ships with Claude Code's auto memory turned off (the vault itself is the memory, see `## Memory` in CLAUDE.md); leave that in place. Ask whether this vault needs a **flavor** (what it is about) or a **module** (a function beside that, such as sales), both under the para-os clone's `addons/`. Each becomes one line under `**Type:**` (`**Flavor:** <name>`, `**Modules:** <name>, <name>`), as does the iPad delivery where I chose it (`**Delivery:** <name>`); a flavor or module then runs its own README's setup, which merges its `CLAUDE.md.sections` beside the vault's sections. Default to neither.
+- Do **not** add entity templates or a `.claude/rules/` shape file yet, beyond what an adopted module ships; those come once a second instance of an entity type exists.
+- Delete this `bootstrap-prompt.md`. Confirm the vault is clean: filled `CLAUDE.md` + `README.md`, a seeded `areas/business/actions.md` (and `areas/business/leads.md` with the sales module), a `projects/vault-setup/` with `brief.md` + `actions.md`, and no remaining `.template` files.
+- Tell me the skills are already bundled in this vault (`.claude/skills/`) so I can run `/para-daily-brief` right away, and `/para-pipeline` for the deal board where the sales module went in, and that `.claude/settings.json` ships with Claude Code's auto memory turned off (the vault itself is the memory, see `## Memory` in CLAUDE.md); leave that in place. Ask whether this vault needs a **flavor** (what it is about) or a further **module** (a function beside that), both under the para-os clone's `addons/`. Each becomes one line under `**Type:**` (`**Flavor:** <name>`, `**Modules:** <name>, <name>`), as does the iPad delivery where I chose it (`**Delivery:** <name>`); a flavor or module then runs its own README's setup, which merges its `CLAUDE.md.sections` beside the vault's sections. Default to neither.
 - Offer to start the brainstorm (phase 2) right now if I have ten minutes. Once every action in the vault-setup project is done, I retire it - archive or delete `projects/vault-setup/`.
