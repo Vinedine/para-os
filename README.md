@@ -110,7 +110,7 @@ To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot
 | Skill | What it does |
 |---|---|
 | [`/para-triage`](base/.claude/skills/para-triage/SKILL.md) | Empties `triage/`: identifies each loose file, proposes a destination and a convention-conform rename, executes after your approval. |
-| [`/para-daily-brief`](base/.claude/skills/para-daily-brief/SKILL.md) | One-pass dashboard of every open task, bucketed by urgency against today, plus a meetings agenda and a triage count. |
+| [`/para-daily-brief`](base/.claude/skills/para-daily-brief/SKILL.md) | Where the vault stands: vault state, what is due now (capped at five), health flags, ideas, agenda and triage, closing on one next action. |
 | [`/para-deep-clean`](base/.claude/skills/para-deep-clean/SKILL.md) | Periodic maintenance: structural audit, README normalisation, closing documented open items by reading the source files. |
 | [`/para-new`](base/.claude/skills/para-new/SKILL.md) | Starts one project, area, idea, or contact: sorts it first, so committed work becomes a project, a maintained responsibility becomes an area, and a concept stays an idea, asks the two or three questions that shape needs, and scaffolds it. Also promotes an idea. |
 | [`/para-archive`](base/.claude/skills/para-archive/SKILL.md) | Closes out one finished project, shelved idea, or an area the vault names an archive destination for: reconciles open actions, validates its records, moves it to `archive/`, and repoints links in both directions - references to it, and the relative links written inside it, which change depth on the move. |

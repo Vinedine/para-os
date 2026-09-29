@@ -1,6 +1,6 @@
 ---
 name: para-daily-brief
-description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Naming one project or area instead scopes the whole brief to it. Use when user asks "what should I work on today", "what's overdue", "where does the vault stand", "where does <project> stand", "what's open on <project>", or types /para-daily-brief [today|week|overdue|all|<entity>].
+description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Naming one project or area instead scopes the whole brief to it. Use when user asks "what should I work on today" (the full brief, not the `today` scope), "what's overdue", "where does the vault stand", "where does <project> stand", "what's open on <project>", or types /para-daily-brief [today|week|overdue|all|<entity>].
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git log *), Bash(git status *), Bash(stat *), Bash(ls *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
 argument-hint: '[today|week|overdue|all|<entity>] [--test]'
 ---
@@ -17,7 +17,7 @@ A single-pass, date-aware picture of **where the vault stands**: which projects 
 
 ## Arguments
 
-Optional single scope argument. The four scope words are reserved; an `<entity>` is one to three words or a `projects/<name>` / `areas/<name>` path, and any other leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
+Optional single scope argument. The four scope words are reserved, and count only as the operator typed them after the command: one lifted from their sentence ("what should I work on today?") is prose, and the default view renders; an `<entity>` is one to three words or a `projects/<name>` / `areas/<name>` path, and any other leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
 
 | Arg | Renders |
 |---|---|
@@ -70,7 +70,7 @@ Done by the scan. **What it implements, and the fallback when it cannot run: [re
 
 ### Steps 4c to 4f: Health flags, ideas lane, Vision, lifecycle counts
 
-The scan's `flags`, `ideas` and `triage` hold every signal computed from files. What stays here: the Vision read (4e) and the lifecycle counts (4f), plus deciding which flags are worth a line. **Full procedure: [references/signals.md](references/signals.md).**
+The scan's `flags`, `ideas` and `triage` hold every signal computed from files. The scan's `lifecycles` holds the lifecycle counts (4f). What stays here: the Vision read (4e), plus deciding which flags are worth a line. **Full procedure: [references/signals.md](references/signals.md).**
 
 ### Step 5: Rank and cap
 
@@ -90,7 +90,7 @@ Exact layout, line rules, and the single Next action close. **Full spec: [refere
 
 ### Step 7: The visual dashboard
 
-Default and `all` scopes only (never an entity scope), and **only when an Artifact tool is available in the harness** - if it is not, skip this step silently.
+Default and `all` scopes only (never an entity scope), and **only when an Artifact tool is available in the harness** - if it is not, the last edge case below applies.
 
 Read [references/dashboard.md](references/dashboard.md) for the page spec, which owns the title and the match rule that updates yesterday's page in place. Build the self-contained HTML, write it to the harness's scratchpad or temp directory, **never inside the vault**, and publish it. Give the user the link on one line.
 
