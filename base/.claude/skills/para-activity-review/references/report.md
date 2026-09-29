@@ -27,11 +27,11 @@ The output of Step 4 of [SKILL.md](../SKILL.md). One Markdown file, written wher
 ## What this cannot see
 ```
 
-Six sections, in that order, and the order is the argument: absence first because it is the finding people most reliably miss, changes last because they should read as consequences of what came before rather than opinions.
+Six sections, in that order.
 
 ## Writing a finding
 
-Three parts, always, and a finding missing the third gets cut:
+Three parts, always:
 
 1. **What was observed**, with the number and the window it came from.
 2. **The evidence**, quoted or counted. A prompt verbatim, a file path, a count with its denominator.
@@ -39,9 +39,9 @@ Three parts, always, and a finding missing the third gets cut:
 
 > **`/para-triage` was never invoked, in 34 sessions across 4 people, while `triage/` grew from 3 to 41 files.** Two people wrote files straight into `projects/` instead, which is the workaround the structure makes easiest. **Change:** the walkthrough opens with triage rather than mentioning it ninth, and `/para-daily-brief`'s triage line moves above the fold.
 
-Rank by what the change would be worth, not by how large the number is. A capability nobody found outranks a tool that failed eleven times, because the second is a bug and the first is a product that is not being used.
+Rank by what the change would be worth, not by how large the number is. A capability nobody found outranks a tool that failed eleven times.
 
-Cap the list at what a maintainer will act on: five or six changes, with the rest as a short "also seen" line. A report proposing twenty changes gets none of them made, which is the same action-inflation failure the vault rules exist to prevent, moved up a level.
+Cap the list at what a maintainer will act on: five or six changes, with the rest as a short "also seen" line.
 
 ## Register
 
@@ -52,4 +52,4 @@ Cap the list at what a maintainer will act on: five or six changes, with the res
 
 ## Across reviews
 
-Each report is dated and kept; the interesting signal is the second one. Adoption that has not moved between two reports is a stronger finding than anything in either report alone, and it is only available if the first was written down.
+Each report is dated and kept; the interesting signal is the second one. Adoption that has not moved between two reports is a stronger finding than anything in either report alone.

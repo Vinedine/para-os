@@ -30,22 +30,22 @@ Requires the activity integration installed in the vault being reviewed. Without
 
 - No arguments: the current vault, last 30 days.
 - A path: review that vault. This is the cross-vault case - a maintainer reviewing a vault somebody else uses.
-- A number: the window in days. Fewer than 7 days of ledger is a first look, not a review, and the report says so.
+- A number: the window in days.
 - `--test`: test run, see [para-shared/test-run.md](../para-shared/test-run.md).
 
 ## Procedure
 
 ### Step 1 - Locate the ledger and frame the window
 
-Resolve the vault, confirm `resources/logs/sessions/` exists, and count what is there before reading any of it: how many sessions, how many distinct people, over how many days. Report the frame first. A review of four sessions and a review of four hundred are different documents, and stating the frame stops the second being written from the first.
+Resolve the vault, confirm `resources/logs/sessions/` exists, and count what is there before reading any of it: how many sessions, how many distinct people, over how many days. Report the frame first.
 
 ### Step 2 - Compute the signals
 
-Parse the JSONL with a script rather than by reading lines, and never let a single malformed line stop the run. **Full procedure, including every signal and what it means: [references/signals.md](references/signals.md).**
+Parse the JSONL with a script rather than by reading lines. **Full procedure, including every signal and what it means: [references/signals.md](references/signals.md).**
 
 ### Step 3 - Check usage against the vault's own rules
 
-Read the reviewed vault's CLAUDE.md, then look for the specific contradictions it makes possible: a checkbox where that vault forbids one, `triage/` growing while its triage skill is never invoked, entities created without the files the conventions require, actions minted against the vault's own dating rule. **Full list: [references/signals.md](references/signals.md).**
+Read the reviewed vault's CLAUDE.md, then look for the specific contradictions it makes possible. **Full list: [references/signals.md](references/signals.md).**
 
 ### Step 4 - Write the report
 
@@ -53,7 +53,7 @@ One dated Markdown file, findings ranked by what they would change, each tied to
 
 ### Step 5 - Propose pruning, never perform it
 
-Reported lines have done their work, and a log that grows forever becomes the clutter this skill exists to find. But this step deletes, and the vault's own rule is that pruning is *"proposed and ruled on, one item at a time"* - so it is **one question per ledger file**, never one yes over a list, per [para-shared/asking.md](../para-shared/asking.md). Each question names the file, its size and the window it covers, and says what the report took from it. **Recommend the delete only where the report actually consumed the file**; a ledger the run skipped, or one whose window the report describes as blind, keeps `Keep it` as the recommended option, because a file nothing read is not a file that has done its work. Every question carries `Keep it`, so declining costs nothing.
+Reported lines have done their work. This step deletes, so it is **one question per ledger file**, never one yes over a list, per [para-shared/asking.md](../para-shared/asking.md). Each question names the file, its size and the window it covers, and says what the report took from it. **Recommend the delete only where the report actually consumed the file**; a ledger the run skipped, or one whose window the report describes as blind, keeps `Keep it` as the recommended option. Every question carries `Keep it`.
 
 ## Strict rules
 
