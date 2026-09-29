@@ -46,7 +46,8 @@ Cap the list at what a maintainer will act on: five or six changes, with the res
 ## Register
 
 - **Findings name defects, never people.** Write "two of four people never opened `areas/`", never "X did not use areas". Per-person counts distinguish "nobody" from "one person"; that distinction goes in the reasoning, not on the page as a ranking.
-- **State the blind spots in their own section**, not as a caveat buried in the intro.
+- **Quote prompts as evidence of what was asked, and stop there.** No inference about what someone meant or felt.
+- **State the blind spots in their own section**, not as a caveat buried in the intro. What the ledger cannot see is part of the result.
 - **Include what works.** A report that only lists failures gets read as a complaint about its readers, and the thing that is working is usually the thing to build the next change on.
 
 ## Across reviews

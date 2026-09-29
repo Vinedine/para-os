@@ -15,7 +15,7 @@ Per session, derive: person (from the filename), start and end timestamps, durat
 
 **Sessions nobody typed into are the denominator trap.** A client can open a session per window or per tile, so a ledger folder counts openings, not work, and most files can hold a `SessionStart` and a `SessionEnd` and nothing else. Split them out before computing anything per session - `summary.prompts` of 0 states it outright, and on an older ledger it is the absence of any `UserPromptSubmit` line - and report both numbers, because "90 sessions" and "25 sessions anyone worked in" support very different sentences.
 
-**Files changed come from two fields, not one.** `target` names the file for a `Write` or `Edit`. `touched` - a list, with `touched_total` alongside it when the list was capped - names the files a tool changed *without* naming them itself, and it is the only way work done by a script run through Bash is visible at all. Two caveats to carry into the report. Ledgers lacking a `touched` field have no indirect write tracking, so an older window must be described as blind here rather than as quiet. And `touched` is **inferred**: its window is the tool's own duration, so on a synced library a file another person's sync client landed inside that window is indistinguishable from one this call wrote.
+**Files changed come from two fields, not one.** `target` names the file for a `Write` or `Edit`. `touched` - a list, with `touched_total` alongside it when the list was capped - names the files a tool changed *without* naming them itself, and it is the only way work done by a script run through Bash is visible at all. Two caveats to carry into the report. Ledgers lacking a `touched` field have no indirect write tracking, so an older window must be described as blind here rather than as quiet. And `touched` is **inferred**: its window is the tool's own duration, so on a synced library a file another person's sync client landed inside that window is indistinguishable from one this call wrote. It is evidence of what changed, never proof of who changed it.
 
 ## A. Adoption - what gets used
 
@@ -65,6 +65,8 @@ Read the reviewed vault's CLAUDE.md, then check only what that vault actually de
 
 ## What none of this can support
 
+- **Intent.** The ledger records what was asked, not what was meant. Never diagnose confusion or frustration from wording.
 - **Productivity.** Session counts and durations measure activity, not value. Someone who thinks for an hour and writes one good line will look idle here.
+- **Completeness.** Only Claude Code sessions are recorded. A file edited directly, a page read in a browser, and a question abandoned before it was typed are all invisible, and the last one is often the most important thing that happened.
 - **Causation.** Two signals moving together is a hypothesis worth testing by asking someone, not a finding.
 - **Attribution of a `touched` path.** The scan says a file changed while a tool ran, not that the tool changed it. On a vault several people sync, never name a person as the author of a `touched` path.
