@@ -9,9 +9,9 @@ argument-hint: '[phase1|phase2|phase3|phase4|audit] [--test]'
 
 A multi-phase cleanup workflow for vaults following the PARA plus per-entity `sources/` convention.
 
-**This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime for the entity type, naming conventions, language rules, "do not add" restrictions, and any iPad-rendering toolchain (`flip.ps1` / `render.ps1`). No vault-specific paths are hardcoded.
+**This skill is vault-agnostic.** It reads the vault's `CLAUDE.md` for its parameters, per [Defer to the vault](../para-shared/operating-discipline.md#defer-to-the-vault), including the entity type and any iPad-rendering toolchain (`flip.ps1` / `render.ps1`).
 
-Also invoke after a large content migration, or periodically (every 3-6 months) to catch drift. Do NOT invoke for single-file edits or small tweaks: this is a multi-hour pass that touches most READMEs in the vault.
+Also invoke after a large content migration, or periodically (every 3-6 months) to catch drift. Do NOT invoke for single-file edits or small tweaks.
 
 ## Arguments
 
@@ -36,14 +36,14 @@ Confirm before starting:
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
 3. Entities each carry the main document their `CLAUDE.md` prescribes (`brief.md` by default) plus optional `sources/`.
 4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them (`Glob triage/*` where it cannot run); check [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) too. If any are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
-5. **The vault should be on the newest *shipped* para-os template revision.** This skill audits the vault against the rules its own `CLAUDE.md` states, so if that contract is a revision behind, a clean bill of health here only means the vault is faithful to a stale spec. Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
+5. **The vault should be on the newest *shipped* para-os template revision.** Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
-   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/stable`** (the delivery's skeleton template for a vault on a delivery, whether its `**Delivery:**` line names it or [the detection rule](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places it there: `addons/<delivery>/skeleton/`, or `delivery/<delivery>/` then `flavors/<delivery>/` at a ref with no `addons/` folder; base where the delivery has no skeleton at that ref, said so in the run). **Never read the clone's working tree:** a revision in flight lives there uncommitted and would report every vault on the machine as behind. The only marker a vault can be aligned to is one that has shipped.
+   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/stable`** (the delivery's skeleton template for a vault on a delivery, whether its `**Delivery:**` line names it or [the detection rule](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places it there: `addons/<delivery>/skeleton/`, or `delivery/<delivery>/` then `flavors/<delivery>/` at a ref with no `addons/` folder; base where the delivery has no skeleton at that ref, said so in the run). **Never read the clone's working tree:** a revision in flight lives there uncommitted.
 
    Then, in order:
 
    - **Vault behind the shipped marker, or carrying none:** stop and say to run `/para-upgrade` first.
-   - **Vault ahead of the shipped marker:** it was aligned to a revision that has not shipped yet, as a test upgrade against an in-flight branch leaves it. Name the two markers in one line and carry on, auditing against the vault's own `CLAUDE.md`. **Never send this vault to `/para-upgrade`**, which refuses to downgrade.
+   - **Vault ahead of the shipped marker:** it was aligned to a revision that has not shipped yet. Name the two markers in one line and carry on, auditing against the vault's own `CLAUDE.md`. **Never send this vault to `/para-upgrade`**, which refuses to downgrade.
    - **No clone found** (`verdict: no_clone`, per [para-shared/scripts.md](../para-shared/scripts.md)): skip the check, say no para-os clone was found so the vault's revision could not be verified, and carry on.
    - **A clone the scan reports `ref_missing` on the default ref:** it was made before releases moved to `stable`. Offer the one-time switch (`git -C <clone> fetch origin`, then `git -C <clone> checkout stable`) and check again; declined, carry on as with no clone.
 
@@ -51,7 +51,7 @@ If the vault is on the read-only iPad delivery and **collected**, offer to run [
 
 ## Step 0 - Scan
 
-Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns the preconditions above plus that phase's candidate findings, never a proposal or a fix. Phase 2 has no script. Where it cannot run, fall back to that phase's own reference.
+Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns the preconditions above plus that phase's candidate findings. Phase 2 has no script. Where it cannot run, fall back to that phase's own reference.
 
 ```bash
 # Windows: py -3
@@ -105,17 +105,13 @@ Findings are presented two ways, and which one a finding gets is decided by whet
 
 ## Edge cases
 
-- **Vault has no CLAUDE.md**: stop and ask the user to draft one. Don't proceed without conventions documented.
 - **Multi-language vault**: match the document's source language for filenames and follow CLAUDE.md's per-section language guidance for prose.
-
-Phase-specific edge cases live with their phase.
 
 ## Notes for Claude sessions
 
 - This skill produces user-visible work on most READMEs in the vault. Make sure the user has time and bandwidth before kicking it off. A typical run takes 1-3 hours of conversation.
 - Track progress in the harness's task list where it offers one, else in a short progress message at each phase boundary.
-- When extracting data from PDFs, prefer Python plus pypdf over Bash text grepping. PDF text layout is unreliable from grep.
 
 ## Related skills
 
-- `/para-archive` - the thorough close-out for a single entity Phase 1 flags as misclassified. Preconditions 4 and 5 name the two skills that run before this one.
+- `/para-archive` - the thorough close-out for a single entity Phase 1 flags as misclassified.

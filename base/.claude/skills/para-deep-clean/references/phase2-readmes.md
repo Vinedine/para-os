@@ -29,7 +29,7 @@ Check `CLAUDE.md` and its rule files for a documented archived-entity template. 
 For each entity README:
 
 - Do the **first one as a worked example** and pause for approval before batching the rest.
-- Preserve all existing facts verbatim - only reorganize and add missing sections.
+- Preserve all existing facts verbatim, per [Preserve, don't rewrite](../../para-shared/operating-discipline.md#preserve-dont-rewrite).
 - Promote inline bolded blocks (Ownership, Notary) to `##` sections, except where the declared shape uses bold labels there itself. The heading replaces the bold label; the text beneath stays verbatim.
 - Add `_n/a_` placeholders for sections that genuinely don't apply.
 

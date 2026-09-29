@@ -1,6 +1,6 @@
 # Phase 3 - Open items, action grooming, content grooming
 
-`scripts/clean_scan.py --phase 3` implements the over-threshold, other-checkbox-file, stale-undated, aspirational-date and prose-next-steps checks below, plus the size-based half of Step 3.5's brief selection as `briefs_to_read`, and `scripts/test_clean_scan.py` pins each one to a case. Content grooming's remaining judgment (Step 3.5) and reading source documents (Step 3.1) are calls the script does not attempt.
+`scripts/clean_scan.py --phase 3` implements the over-threshold, other-checkbox-file, stale-undated, aspirational-date and prose-next-steps checks below, plus the size-based half of Step 3.5's brief selection as `briefs_to_read`. Content grooming's remaining judgment (Step 3.5) and reading source documents (Step 3.1) are calls the script does not attempt.
 
 Goal: every "Open items" section reflects real outstanding work, every action file sits at the actionable frontier, and prose has stopped accumulating for its own sake.
 
