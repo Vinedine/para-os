@@ -697,9 +697,30 @@ def _section_row(heading, master_paras, older, vault_paras):
         else:
             local.append(vp)
     missing = [mp for i, mp in enumerate(master_paras) if i not in used]
+    localised = _pair_localised(local, missing)
     verdict = "behind" if behind else "current" if not missing else "differs"
     return {"heading": heading, "verdict": verdict, "behind": behind, "missing": missing,
-            "local": local}
+            "local": local, "localised": localised}
+
+
+LOCALISED_RATIO = 0.7   # distinct paragraphs of one shipped addon section score at most 0.48
+
+
+def _pair_localised(local, missing):
+    """Take out of `local` and `missing`, in place, each vault paragraph that is a shipped one
+    reworded for the vault (a business name, a phrase), best match first: it stands as the
+    vault's wording and is never joined by the shipped paragraph it replaces."""
+    pairs = sorted(((difflib.SequenceMatcher(None, vp, mp).ratio(), vp, mp)
+                    for vp in local for mp in missing), key=lambda p: -p[0])
+    out = []
+    for ratio, vp, mp in pairs:
+        if ratio < LOCALISED_RATIO:
+            break
+        if vp in local and mp in missing:
+            local.remove(vp)
+            missing.remove(mp)
+            out.append({"paragraph": vp, "shipped": mp})
+    return out
 
 
 def sections_block(vault, clone, ref, worktree, decl):
