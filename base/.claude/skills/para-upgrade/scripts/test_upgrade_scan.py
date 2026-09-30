@@ -1371,6 +1371,47 @@ class RulesBlockCase(CloneCase):
         self.assertEqual(pointer["wording"], "convention")
         self.assertEqual(pointer["section"], "Filing and naming")
 
+    def pointer_rows(self, claude_md, *names, master_texts=None):
+        vault = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
+        for name in names:
+            write(vault, f".claude/rules/{name}", "---\npaths:\n  - projects/**\n---\nA.\n")
+        write(vault, "CLAUDE.md", claude_md)
+        return {Path(r["file"]).name: r["pointer"] for r in rules_block(
+            vault, self.clone, "main", False, {"delivery": None, "collected": False}, [],
+            master_texts=master_texts)}
+
+    def test_a_later_conforming_pointer_wins_over_an_earlier_passing_link(self):
+        # The earlier link is itself an addon's own sentence: it conforms as `template`, and
+        # still loses to the pointer proper.
+        passing = ("A reason from the list in "
+                   "[.claude/rules/deal-brief.md](.claude/rules/deal-brief.md).")
+        rows = self.pointer_rows(
+            f"# Vault\n\n## Deal lifecycle\n\n{passing}\n\n"
+            "## Entity structures\n\nThe full shape is in "
+            "[.claude/rules/deal-brief.md](.claude/rules/deal-brief.md), which loads.\n",
+            "deal-brief.md", master_texts=[f"## Deal lifecycle\n\n{passing}\n"])
+        self.assertEqual(rows["deal-brief.md"], {"present": True, "line": 9,
+                                                 "section": "Entity structures", "wording": "shape"})
+
+    def test_a_convention_pointer_with_its_list_before_is_in_conforms(self):
+        rows = self.pointer_rows(
+            "# Vault\n\n## Filing\n\nThe full convention (folder variants, machine exports) is in "
+            "[.claude/rules/filing.md](.claude/rules/filing.md), which loads.\n", "filing.md")
+        self.assertEqual(rows["filing.md"]["wording"], "convention")
+
+    def test_the_template_s_own_sentence_conforms(self):
+        sentence = ("How the operator likes to work is kept apart: it is in "
+                    "[.claude/rules/prefs.md](.claude/rules/prefs.md), which loads on its own.")
+        rows = self.pointer_rows(f"# Vault\n\n## Memory\n\nThe vault is the memory. {sentence}\n",
+                                 "prefs.md", master_texts=[f"## Memory\n\nOther text. {sentence}\n"])
+        self.assertEqual(rows["prefs.md"]["wording"], "template")
+
+    def test_a_link_nothing_states_is_still_other(self):
+        rows = self.pointer_rows("# Vault\n\n## Memory\n\nSee [this](.claude/rules/prefs.md).\n",
+                                 "prefs.md", master_texts=["## Memory\n\nNothing about it.\n"])
+        self.assertEqual(rows["prefs.md"]["wording"], "other")
+
     def test_pointer_wording_tells_the_shape_sentence_from_any_other_link(self):
         vault = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))

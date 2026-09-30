@@ -476,7 +476,7 @@ def skeleton_block(vault, clone, ref, worktree, decl, addons_rows):
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)
 PATHS_LIST_RE = re.compile(r"^paths:[ \t]*\n((?:^[ \t]*-[ \t]*\S.*\n?)+)", re.M)
 POINTER_SHAPE = "The full shape is in [.claude/rules/"
-POINTER_CONVENTION = "The full convention is in [.claude/rules/"
+POINTER_CONVENTION_RE = re.compile(r"The full convention(?: \([^)]*\))? is in \[\.claude/rules/")
 
 
 def _frontmatter_paths(text):
@@ -539,23 +539,44 @@ def _rule_kind(anchors):
     return "mixed"
 
 
-def _pointer_info(vault, filename):
+def _link_sentence(text, pos):
+    """The sentence of `text` holding the character at `pos`, whitespace collapsed."""
+    start = text.rfind(". ", 0, pos)
+    end = text.find(". ", pos)
+    return " ".join(text[start + 2 if start >= 0 else 0:end + 1 if end >= 0 else len(text)].split())
+
+
+def _pointer_info(vault, filename, master_texts=()):
+    """The line in CLAUDE.md that points at a rule file, and how it is worded. Every line
+    linking the file is read. The first in the shape form, or the convention form (a list
+    of what it covers may go before "is in"), is the pointer; else the first sentence the
+    template or a declared addon's sections state verbatim; else the first link."""
     lines = read_lines(vault / "CLAUDE.md")
-    section = None
+    masters = [" ".join(t.split()) for t in master_texts]
+    section, first, template = None, None, None
     frag_open, frag_close = f".claude/rules/{filename}](", f".claude/rules/{filename})"
     for lineno, text in enumerate(lines, start=1):
         m = H2_RE.match(text.strip())
         if m:
             section = m.group(1).strip()
-        if frag_open in text or frag_close in text:
-            if POINTER_SHAPE in text:
-                wording = "shape"
-            elif POINTER_CONVENTION in text:
-                wording = "convention"
-            else:
-                wording = "other"
-            return {"present": True, "line": lineno, "section": section, "wording": wording}
-    return {"present": False, "line": None, "section": None, "wording": None}
+        pos = max(text.find(frag_open), text.find(frag_close))
+        if pos < 0:
+            continue
+        if POINTER_SHAPE in text:
+            wording = "shape"
+        elif POINTER_CONVENTION_RE.search(text):
+            wording = "convention"
+        elif any(_link_sentence(text, pos) in t for t in masters):
+            wording = "template"
+        else:
+            wording = "other"
+        row = {"present": True, "line": lineno, "section": section, "wording": wording}
+        if wording in ("shape", "convention"):
+            return row
+        if wording == "template":
+            template = template or row
+        first = first or row
+    return template or first or {"present": False, "line": None, "section": None, "wording": None}
 
 
 def _rule_master(clone, ref, worktree, name, addons_rows):
@@ -570,11 +591,22 @@ def _rule_master(clone, ref, worktree, name, addons_rows):
     return None, None
 
 
-def rules_block(vault, clone, ref, worktree, decl, addons_rows):
+def _pointer_master_texts(clone, ref, worktree, decl, addons_rows):
+    """The template the vault is measured against and each declared addon's sections, at
+    the ref: where a pointer sentence the vault copied verbatim comes from."""
+    paths = [(master_template(clone, ref, decl, worktree) or {}).get("path")]
+    paths += [f"{r['root']}/{SECTIONS_FILE}" for r in addons_rows if r.get("root")]
+    datas = [clone_read(clone, ref, p, worktree=worktree) for p in paths if p]
+    return [d.decode("utf-8", errors="replace") for d in datas if d is not None]
+
+
+def rules_block(vault, clone, ref, worktree, decl, addons_rows, master_texts=None):
     out = []
     rules_dir = vault / ".claude" / "rules"
     if not rules_dir.is_dir():
         return out
+    if master_texts is None:
+        master_texts = _pointer_master_texts(clone, ref, worktree, decl, addons_rows)
     for path in sorted(rules_dir.glob("*.md")):
         text = read_text(path)
         paths = _frontmatter_paths(text)
@@ -590,7 +622,7 @@ def rules_block(vault, clone, ref, worktree, decl, addons_rows):
             "paths_missing": sorted(set(master_paths) - set(paths)) if master_path else None,
             "paths_extra": sorted(set(paths) - set(master_paths)) if master_path else None,
             "kind": _rule_kind(anchors), "anchors": anchors,
-            "doubled": _doubled_block(paths, decl), "pointer": _pointer_info(vault, path.name),
+            "doubled": _doubled_block(paths, decl), "pointer": _pointer_info(vault, path.name, master_texts),
         })
     return out
 
