@@ -396,7 +396,7 @@ def cadence_days(cadence):
 
 
 def parse_markers(body):
-    """Every Obsidian Tasks marker on one task line, plus the text without them.
+    """Every task marker on one task line, plus the text without them.
 
     A date-shaped marker still has to be a real date: `2026-13-45` matches the shape and
     names no day, so it comes back as no date with `malformed_date` set, never silently.

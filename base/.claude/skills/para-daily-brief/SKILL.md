@@ -13,7 +13,7 @@ A single-pass, date-aware picture of **where the vault stands**: which projects 
 
 **Operator-language output.** Every line must be actionable by a reader who has not seen this skill's internals: plain sentences, the vault's own entity names, no bucket jargon beyond the section titles.
 
-**This skill is vault-agnostic.** It discovers action-bearing files at runtime and relies on Obsidian Tasks plugin conventions.
+**This skill is vault-agnostic.** It discovers action-bearing files at runtime and reads the vault's emoji task markers.
 
 ## Arguments
 
