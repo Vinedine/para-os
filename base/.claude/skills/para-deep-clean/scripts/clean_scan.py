@@ -369,11 +369,10 @@ def contact_names(card):
     return names
 
 
-def mention_links_card(path, line_text, card_target):
-    for _, href, _ in extract_links(strip_code(line_text)):
-        if resolve_link(path, href) == card_target:
-            return True
-    return False
+def link_targets(path):
+    """Every file a link anywhere in `path` resolves to: a link to the card cites every
+    mention in the file, on whatever line it sits and whatever form of the name it uses."""
+    return {resolve_link(path, href) for _, href, _ in extract_links(strip_code(read_text(path)))}
 
 
 def identity_section(readme):
@@ -426,7 +425,7 @@ def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
         columns.setdefault(rel.strip("/"), []).append(column)
     blanked = {rel: name_only_lines(vault / rel, cols) for rel, cols in columns.items()
                if (vault / rel).is_file()}
-    frozen = {}
+    frozen, targets = {}, {}
     out, exempt = [], set()
     for card in sorted(network_dir.glob("*.md")):
         card_rel = card.relative_to(vault).as_posix()
@@ -466,19 +465,15 @@ def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
                     if mentioned:
                         exempt.add(hit["file"])
                     continue
-                entry = per_file.setdefault(hit["file"], {"mentions": 0, "linked": False})
                 if mentioned:
-                    entry["mentions"] += 1
-                # The name's own shape on this line (label, target, prose) says nothing
-                # about whether the line links to the card - a normal citation reads
-                # [Name](path), where the name is link_text and the card path is the
-                # target - so every hit line is checked for a resolving link, the ones
-                # naming the person only inside a link included.
-                if mention_links_card(vault / hit["file"], hit["text"], card_target):
-                    entry["linked"] = True
+                    per_file[hit["file"]] = per_file.get(hit["file"], 0) + 1
 
-        uncited = [{"file": f, "mentions": e["mentions"]}
-                   for f, e in sorted(per_file.items()) if e["mentions"] and not e["linked"]]
+        uncited = []
+        for f, mentions in sorted(per_file.items()):
+            if f not in targets:
+                targets[f] = link_targets(vault / f)
+            if card_target not in targets[f]:
+                uncited.append({"file": f, "mentions": mentions})
         if uncited:
             out.append({"card": card_rel, "name": names[0], "principal": principal,
                         "files": uncited})

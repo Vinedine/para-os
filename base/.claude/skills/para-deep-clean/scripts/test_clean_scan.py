@@ -383,6 +383,18 @@ class UncitedContacts(VaultCase):
               "Contact: [Jan Claes](../../areas/network/jan-claes.md)\n")
         self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
 
+    def test_a_card_link_on_a_line_naming_a_short_form_still_cites(self):
+        # The file links the card twice, each on a line calling the person by a short form
+        # the card does not list, and never on the line spelling the name in full.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\n## Identity\n\nn/a\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes flagged a risk.\n\n"
+              "Owner: [Jan](../../areas/network/jan-claes.md)\n\n"
+              "Ask [JC](../../areas/network/jan-claes.md) first.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
     def test_a_name_inside_a_longer_word_is_not_a_mention(self):
         # A contact "Mark" is not named by "Marketing": inbound_references() without a
         # parent is a substring find, so the name is re-matched as a whole word.

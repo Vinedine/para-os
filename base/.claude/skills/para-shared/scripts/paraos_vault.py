@@ -1236,12 +1236,13 @@ def opening_bracket(text, close_at):
 def extract_links(text):
     """(line number, target, target as written) for every link into the vault.
 
-    The `#fragment` is dropped and the rest percent-decoded, so a target linked with `%20`
-    resolves. What is not a path into the vault never comes back: a target carrying a scheme
-    (`http:`, `mailto:`, `file:`, a drive letter) and one holding a `<placeholder>`, which is
-    a template quoted in prose. The target as written comes back too, because it is what a
-    rewriter has to find in the file and what says how the path was encoded: a `<...>`
-    target keeps its brackets there, and a trailing `"title"` is not part of it.
+    The `?query` and `#fragment` are dropped and the rest percent-decoded, so a target linked
+    with `%20` resolves and a query-only link (`?tab=t.0`) names no file. What is not a path
+    into the vault never comes back: a target carrying a scheme (`http:`, `mailto:`, `file:`,
+    a drive letter) and one holding a `<placeholder>`, which is a template quoted in prose.
+    The target as written comes back too, because it is what a rewriter has to find in the
+    file and what says how the path was encoded: a `<...>` target keeps its brackets there,
+    and a trailing `"title"` is not part of it.
     """
     out = []
     for start, end, _ in link_spans(text):
@@ -1249,7 +1250,7 @@ def extract_links(text):
         target = raw
         if raw.startswith("<") and raw.endswith(">") and ("/" in raw or "." in raw):
             target = raw[1:-1]
-        href = unquote(target.split("#", 1)[0]).strip()
+        href = unquote(re.split(r"[?#]", target, maxsplit=1)[0]).strip()
         if not href or SCHEME_RE.match(href) or "<" in href:
             continue
         out.append((text.count("\n", 0, start) + 1, href, raw))
@@ -1367,15 +1368,15 @@ def inbound_references(vault, name, exclude=NOT_VAULT_CONTENT, parent=None):
 # --- moving a folder -------------------------------------------------------------------------
 
 def match_encoding(raw, new):
-    """The new href written the way the old one was: its `#fragment` kept, and its spaces
+    """The new href written the way the old one was: its `?query#fragment` kept, and its spaces
     percent-encoded where the original encoded them, or where the original had no space to
     say and a bare space would end the target (never inside `<...>`, where one is legal)."""
     bracketed = raw.startswith("<") and raw.endswith(">")
     if bracketed:
         raw = raw[1:-1]
-    _, sep, frag = raw.partition("#")
+    suffix = raw[len(re.split(r"[?#]", raw, maxsplit=1)[0]):]
     encode = "%20" in raw or (not bracketed and " " not in raw)
-    out = (new.replace(" ", "%20") if encode else new) + sep + frag
+    out = (new.replace(" ", "%20") if encode else new) + suffix
     return f"<{out}>" if bracketed else out
 
 
