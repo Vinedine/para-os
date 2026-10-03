@@ -1258,10 +1258,10 @@ class SectionsBlockCase(unittest.TestCase):
     def tearDownClass(cls):
         cls._tmp.cleanup()
 
-    def scan(self, claude_md, decl):
+    def scan(self, claude_md, decl, baseline=None):
         with tempfile.TemporaryDirectory() as tmp:
             write(Path(tmp), "CLAUDE.md", claude_md)
-            rows = sections_block(Path(tmp), self.clone, "main", False, decl)
+            rows = sections_block(Path(tmp), self.clone, "main", False, decl, baseline)
         return {r["name"]: r for r in rows}
 
     def test_an_early_hand_copy_is_behind_the_module_not_a_local_variant(self):
@@ -1307,6 +1307,18 @@ class SectionsBlockCase(unittest.TestCase):
         self.assertEqual(lifecycle["localised"], [])
         self.assertEqual(lifecycle["missing"], [shipped])
         self.assertEqual(lifecycle["verdict"], "differs")
+
+    def test_only_a_missing_paragraph_the_addon_changed_since_the_baseline_is_new(self):
+        vault = ("# Vault\n\n## Order lifecycle\n\nWe track each sale on one line.\n\n"
+                 "## Entity structures\n\n- Our brief, condensed.\n")
+        lifecycle, entities = self.scan(vault, {"modules": ["orders"]},
+                                        self.first)["orders"]["sections"]
+        self.assertEqual(lifecycle["missing"],
+                         ["Orders move by stage.", f"- **Rows before folders.** {self.V2}"])
+        self.assertEqual(lifecycle["missing_new"], [f"- **Rows before folders.** {self.V2}"])
+        self.assertEqual(entities["missing_new"], [])
+        lifecycle = self.scan(vault, {"modules": ["orders"]})["orders"]["sections"][0]
+        self.assertIsNone(lifecycle["missing_new"])
 
     def test_an_undeclared_addon_is_reported_only_where_the_vault_states_a_paragraph_of_it(self):
         rows = self.scan("# Vault\n\n## Entity structures\n\n- Base.\n\n## Other lifecycle\n\n"

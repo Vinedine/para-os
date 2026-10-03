@@ -651,11 +651,13 @@ def _pair_localised(local, missing):
     return out
 
 
-def sections_block(vault, clone, ref, worktree, decl):
+def sections_block(vault, clone, ref, worktree, decl, baseline=None):
     """Each flavor's and module's CLAUDE.md.sections against the vault's own sections of the
     same heading, paragraph by paragraph against the addon's history. An addon the vault
     does not declare is reported only where the vault states a paragraph of some version
-    of it: an adoption by hand, before the addon shipped or was declared."""
+    of it: an adoption by hand, before the addon shipped or was declared. `missing_new` is
+    the `missing` paragraphs the addon did not state at the `baseline` commit, None with
+    no baseline."""
     vault_sections = _h2_sections(read_text(Path(vault) / "CLAUDE.md") or "")
     declared = {n for n in (decl.get("flavor"), *(decl.get("modules") or [])) if n}
 
@@ -678,14 +680,22 @@ def sections_block(vault, clone, ref, worktree, decl):
         history = _sections_history(clone, ref, name)
         current = normalised(data).decode("utf-8", "replace")
         older = [(c, r, _h2_sections(t)) for c, r, t in history if t != current]
+        at_baseline = baseline and next(
+            (b for b in (clone_read(clone, baseline, f"{r}/{name}/{SECTIONS_FILE}")
+                         for r in ADDON_ROOTS) if b), None)
+        base_sections = _h2_sections(normalised(at_baseline).decode("utf-8", "replace")
+                                     if at_baseline else "")
         sections = []
         for heading, master_paras in master.items():
             if heading not in vault_sections:
                 sections.append({"heading": heading, "verdict": "absent"})
                 continue
-            sections.append(_section_row(
+            row = _section_row(
                 heading, master_paras, [(c, r, s.get(heading, [])) for c, r, s in older],
-                vault_sections[heading]))
+                vault_sections[heading])
+            row["missing_new"] = None if not baseline else [
+                mp for mp in row["missing"] if mp not in base_sections.get(heading, [])]
+            sections.append(row)
         adopted = any(s.get("behind") or len(s.get("missing", [])) < len(master[s["heading"]])
                       for s in sections if s["verdict"] != "absent")
         if name not in declared and not adopted:
@@ -1685,7 +1695,7 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
     baseline = baseline_block(clone, ref, delta, template)
     skeleton = skeleton_block(vault, clone, ref, worktree, masters["addons"])
     rules = rules_block(vault, clone, ref, worktree, masters["addons"])
-    sections = sections_block(vault, clone, ref, worktree, decl)
+    sections = sections_block(vault, clone, ref, worktree, decl, baseline["commit"])
     settings = settings_block(vault, clone, ref, worktree, user_settings)
     all_entries = _changelog_entries_at(clone, ref, worktree)
     skills = skills_block(vault, clone, ref, worktree, user_skills, decl, masters["addons"],
