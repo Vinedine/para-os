@@ -1353,6 +1353,16 @@ class MovePlan(VaultCase):
                          "archive/properties/orchard-lane")
         self.assertEqual([h["file"] for h in plan["inbound"]], ["areas/network/jan-janssen.md"])
 
+    def test_a_folder_link_keeps_its_trailing_slash(self):
+        self.build()
+        write(self.root, "areas/network/piet.md",
+              "# Piet\n\nThe [orchard-lane folder](../properties/orchard-lane/).\n")
+        plan = move_plan(self.root, "areas/properties/orchard-lane",
+                         "archive/properties/orchard-lane")
+        hrefs = {h["file"]: h["new_href"] for h in plan["inbound"]}
+        self.assertEqual(hrefs["areas/network/piet.md"],
+                         "../../archive/properties/orchard-lane/")
+
     def test_a_space_the_old_href_never_had_is_encoded_in_the_new_one(self):
         # A bare space ends a link target, so it is encoded even though the old href had
         # none to say how; inside <...> a space is legal and stays.
