@@ -57,7 +57,7 @@ Word what the script computed into the board by stage, the flags, the counts, th
 - **Never edit a vault file.** Not a stage, not a `Last touch`, not a missing reason line, not a checkbox. Every flag names what the operator should change, and this skill changes none of it.
 - **Never invent a stage, a date or a next step.** An entity with no `since` has an unknown time in stage and says so; an entity with no next step is flagged, never given one.
 - **Never rank, score or weight an entity.** The board is ordered by the vault's own stage order, then by days in stage. No probability, no forecast, no weighted value: a pipeline of a dozen entities is read, not modelled.
-- **Never follow a link for extra context** beyond the next-step sources in [references/scan.md](references/scan.md) Step 3.
+- **Never follow a link for extra context** beyond the next-step sources in [references/scan.md](references/scan.md) Step 3 and the title of a contact a `Source` line links.
 - **Never report an archived entity as live.** A terminal stage feeds the metrics and the reason it records, nothing else.
 - **Never widen the scan past the declared homes.** An entity carrying a Stage line outside them is not in the lifecycle, and a stage text matching no declared name is passed over silently.
 - **A value figure is internal.** It renders in the terminal, never into a file, and never into anything shared outside the vault.

@@ -477,13 +477,30 @@ def won_outside_homes(vault, promoting_home):
     return out
 
 
+LABELLED_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
+
+
 def strip_links(text):
-    return re.sub(r"\[([^\]]*)\]\([^)]+\)", r"\1", text) if text else text
+    return LABELLED_LINK_RE.sub(r"\1", text) if text else text
 
 
-def referrers_metrics(entities, q_start, q_end, promoting_name):
-    """Grouped on the Source text before its first comma (finding 2), over entities opened
-    this quarter, with a link reduced to its label before grouping."""
+def referrer_key(vault, e):
+    """The Source text before its first comma (finding 2), each link replaced by the title
+    of the file it resolves to (its name where it has none), else by its label: two labels
+    linking one contact are one referrer (issue #174)."""
+    base_dir = (vault / e["path"]).parent
+
+    def name(m):
+        target = resolve_link(base_dir, m.group(2))
+        if target and target.is_file():
+            return doc_h1(target) or target.stem
+        return m.group(1)
+
+    return LABELLED_LINK_RE.sub(name, e["source"]).split(",", 1)[0].strip()
+
+
+def referrers_metrics(vault, entities, q_start, q_end, promoting_name):
+    """Grouped by referrer_key, over entities opened this quarter."""
     scoped = [e for e in entities
               if e["opened"] and q_start <= parse_date(e["opened"]) <= q_end]
     groups, unrecorded = {}, {"source": "unrecorded", "entities": 0, "reached_promoting": 0}
@@ -495,7 +512,7 @@ def referrers_metrics(entities, q_start, q_end, promoting_name):
             unrecorded["entities"] += 1
             unrecorded["reached_promoting"] += 1 if reached else 0
             continue
-        key = strip_links(src).split(",", 1)[0].strip()
+        key = referrer_key(vault, e)
         g = groups.setdefault(key, {"source": key, "entities": 0, "reached_promoting": 0})
         g["entities"] += 1
         g["reached_promoting"] += 1 if reached else 0
@@ -595,7 +612,7 @@ def compute_metrics(vault, today, lc, entities):
         "reached_promoting": reached_promoting,
         "median_days_opened_to_promoting": median_info,
         "terminal": terminal,
-        "referrers": referrers_metrics(once, q_start, q_end,
+        "referrers": referrers_metrics(vault, once, q_start, q_end,
                                        promoting["name"] if promoting else None),
     }
     return metrics, terminal_this_quarter
