@@ -35,7 +35,7 @@ Confirm before starting:
 1. Vault has a `CLAUDE.md` documenting structure, naming conventions, and "do not add" rules. If missing, stop and ask the user to create one.
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
 3. Entities each carry the main document their `CLAUDE.md` prescribes (`brief.md` by default) plus optional `sources/`.
-4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them (`Glob triage/*` where it cannot run); check [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) too. If any are present, **stop and tell the user to run `/para-triage` first**. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
+4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them (`Glob triage/*` where it cannot run); check [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) too. If any are present, **stop and tell the user to run `/para-triage` first**; `audit`, which writes nothing, lists them as a finding instead. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
 5. **The vault should be on the newest *shipped* para-os template revision.** Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
    Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/stable`** (the delivery's skeleton template for a vault on a delivery, whether its `**Delivery:**` line names it or [the detection rule](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places it there: `addons/<delivery>/skeleton/`, or `delivery/<delivery>/` then `flavors/<delivery>/` at a ref with no `addons/` folder; base where the delivery has no skeleton at that ref, said so in the run). **Never read the clone's working tree:** a revision in flight lives there uncommitted. Without a shell `git show` cannot run: say the marker comparison was not made, and why, and carry on.
@@ -51,7 +51,7 @@ If the vault is on the read-only iPad delivery and **collected**, offer to run [
 
 ## Step 0 - Scan
 
-Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns the preconditions above plus that phase's candidate findings. Phase 2 has no script. Where it cannot run, fall back to that phase's own reference.
+Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns preconditions 4 and 5 plus that phase's candidate findings. Phase 2 has no script. Where it cannot run, fall back to that phase's own reference.
 
 ```bash
 # Windows: py -3

@@ -20,7 +20,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `ingest_ledger` | `path`, `exists`, `load_error` for `/para-ingest`'s central ledger; `items.loose[].note.routed_vaults` is what reads its `mailboxes` map, per note |
 | `items.loose` | One entry per top-level file (`.gitkeep` dropped, a PDF's `.md` twin folded on): `name`, `size`, `kind`, `readme`, `twin`, `note`, `duplicates`, `hash_skipped`, `cross_vault`, `inbound` |
 | `items.loose[].twin` | **PDF-only**: the `.md` whose stem matches a `.pdf` beside it. A Google-native stub and its converted `.md` are never paired here; the skill pairs them itself at conversion ([sources.md](sources.md#google-native-files)). |
-| `items.loose[].note` | For a `.md` item: `shape` (`ingest`/`frontmatter`/null), `fields`, `mail_note`, `mailbox`, `mentioned_vaults`, `routed_vaults`, `routed_from`, `content_incomplete`, `content_evidence`, `thread_hash`, `thread_id`, `message_id`, `conversation_id` |
+| `items.loose[].note` | For a `.md` item: `shape` (`ingest`/`frontmatter`/null), `fields`, `mail_note`, `mailbox`, `mentioned_vaults`, `routed_vaults`, `routed_from`, `content_incomplete`, `content_evidence`, `thread_hash`, `thread_id`, `message_id`, `conversation_id`, `ingest_seen`, `mailbox_readers` |
 | `items.subdirectories` | `name`, `files`, `handoff` (`_`-prefixed) |
 | `items.subdirectories_line` | The manifest's `Subdirectories, not asked: ...` line, printed as it stands; null with no subdirectories |
 | `items.empty`, `items.only_subdirectories` | The two stop conditions Step 2 checks last |
@@ -57,12 +57,13 @@ collected vault's loose items are the files in `triage/` read through their
   a bullet header carrying `Source` and `Link`, or frontmatter carrying a `thread_id`.
   `message_id` and `conversation_id` are the bullet header's `Message id` and
   `Conversation id` lines, `null` where absent.
-  - **`content_incomplete`**: `true` where the `Content` line contains, case-insensitively,
-    any of `snippet`, `preview`, `opening lines`, `no readable body`, `cut mid`, `truncat`,
-    `not read`, `not fetched`, `incomplete`; else `false` where it contains any of `full body`,
-    `plain-text body`, `complete`; else `null`, meaning judge the line yourself. **An
-    unread attachment or linked document never makes the body incomplete**: it names
-    something beside the body.
+  - **`content_incomplete`**: read the `Content` line clause by clause (split at `;`, `,`,
+    `:` and a sentence end), skipping every clause that names an attachment, linked
+    document or enclosure: it describes something beside the body. `true` where a remaining
+    clause contains, case-insensitively, any of `snippet`, `preview`, `opening lines`,
+    `no readable body`, `cut mid`, `truncat`, `excerpt`, `trimmed`, `not read`,
+    `not fetched`, `incomplete`; else `false` where one contains any of `full body`,
+    `full text`, `plain-text body`, `complete`; else `null`, meaning judge the line yourself.
   - **`mentioned_vaults`**: registry names other than this vault's appearing in the
     `Routed` line as whole words, case-insensitive for a name of four or more characters,
     case-sensitive for a shorter one (`IT`, `OR` are also ordinary words). **No negation
@@ -75,6 +76,11 @@ collected vault's loose items are the files in `triage/` read through their
     this vault is `routed_vaults`, and `routed_from` is `"ledger"`. No match, or the mailbox
     absent from the ledger: both `null`. Search only that one mailbox, never across
     mailboxes, since a six-character hash can collide.
+  - **`ingest_seen`**: that same entry's thread id, `seen_through` and `seen_date`;
+    `null` with no entry.
+  - **`mailbox_readers`**, for a mail note: every active registered vault whose
+    `## Triage sources` declares the note's mailbox (case-insensitive), sorted; `null`
+    for any other note.
   - **`cross_vault`**: a byte-identical file in another vault's `sources/`, checked across
     the **union** of `mentioned_vaults` and `routed_vaults` (`null` read as empty): a vault
     checked needlessly costs one walk, a vault missed is a silent duplicate.
