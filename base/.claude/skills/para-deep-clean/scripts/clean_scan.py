@@ -68,7 +68,8 @@ DEFAULT_NEXT_STEPS_HEADINGS = ("Next steps", "Open items")
 ENTITY_BASES = ("projects", "areas", "resources/ideas")
 LIVE_ROOTS = ("projects", "areas", "resources", "triage")  # archive/ is history, not live
 # A link target inside archive/ is still a path that must resolve; only prose there is history.
-DANGLING_ROOTS = LINK_ROOTS + ("archive",)
+# A rule file links into the vault too, from two folders down.
+DANGLING_ROOTS = LINK_ROOTS + ("archive", ".claude/rules")
 
 
 def in_live_scope(rel):
