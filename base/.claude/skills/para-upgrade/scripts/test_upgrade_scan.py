@@ -31,12 +31,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "para-shared" / "sc
 
 import upgrade_scan  # noqa: E402
 from upgrade_scan import (  # noqa: E402
-    HistoryBatch, _collected_glob_twin, _dirty_masters, _doubled_block, _effective_blob,
+    HistoryBatch, _dirty_masters, _effective_blob,
     _entry_shape, _find_undeclared_addon_skill, _frontmatter_paths,
     _global_commit_order, _ignored_in_scope, _integration_master_path, _integration_suite,
     _mechanical_equivalence, _parse_batch_output, _reaction_paths, _root_history_map,
     _rule_anchors,
-    _rule_kind, _rule_master, _scope_files, _sweep_root, _template_path_variants,
+    _rule_kind, _rule_master, _scope_files, _sweep_root,
     _unmarked_matches, baseline_block, build_report,
     clone_block, compute_verdict, delta_block, integrations_block, main, masters_block,
     rules_block, sections_block, settings_block, since_block, skeleton_block, skills_block, smoke_block,
@@ -78,11 +78,9 @@ def fixture_git(root, *args):
                    cwd=root, check=True, capture_output=True)
 
 
-def fixture_template(marker, delivery=None):
+def fixture_template(marker):
     lines = ["# Vault Conventions", "", f"<!-- para-os-template: {marker} -->",
              "**Type:** vault-type"]
-    if delivery:
-        lines.append(f"**Delivery:** {delivery}")
     return "\n".join(lines + ["", "Guidance.", ""])
 
 
@@ -129,7 +127,7 @@ Also, both housekeeping:
 
 def build_clone(root, bare_dir):
     """A throwaway para-os clone: three revisions of base/CLAUDE.md.template and of
-    integrations/widget/widget.py, an addons/ delivery and skill, a fake origin remote so
+    integrations/widget/widget.py, an addon's pipeline script, a fake origin remote so
     origin/main and origin/stable exist, and a feature branch left checked out at the end -
     so a test calling baseline_block(clone, "main", ...) is genuinely reading a ref other
     than HEAD.
@@ -146,10 +144,8 @@ def build_clone(root, bare_dir):
     write(root, "base/.claude/skills/widget-skill/scripts/run.py", "print('v1')\n")
     write(root, "base/.claude/skills/widget-skill/scripts/test_run.py", "# tests v1\n")
     write(root, "base/.claude/skills/widget-skill/scripts/helper.py", "# helper v1\n")
-    write(root, "addons/readonly-ipad/skeleton/CLAUDE.md.template",
-          fixture_template("2026.08", "readonly-ipad"))
-    write(root, "addons/readonly-ipad/skeleton/README.md.template", "# Vault\n")
-    write(root, "addons/readonly-ipad/pipeline/flip.ps1", "# flip v1\n")
+    write(root, "base/README.md.template", "# Vault\n")
+    write(root, "addons/gadget/pipeline/gadget.ps1", "# gadget v1\n")
     write(root, "integrations/widget/widget.py", integration_source("2026.08.01", "V1"))
     write(root, "integrations/widget/README.md", "# widget\n")
     write(root, "integrations/widget/test_widget.py", "# tests\n")
@@ -159,16 +155,12 @@ def build_clone(root, bare_dir):
     fixture_git(root, "tag", "rev1")
 
     write(root, "base/CLAUDE.md.template", fixture_template("2026.08.02"))
-    write(root, "addons/readonly-ipad/skeleton/CLAUDE.md.template",
-          fixture_template("2026.08.02", "readonly-ipad"))
     write(root, "integrations/widget/widget.py", integration_source("2026.08.02", "V2"))
     fixture_git(root, "add", "-A")
     fixture_git(root, "commit", "-q", "--no-verify", "-m", "rev 2026.08.02")
     fixture_git(root, "tag", "rev2")
 
     write(root, "base/CLAUDE.md.template", fixture_template("2026.09.01"))
-    write(root, "addons/readonly-ipad/skeleton/CLAUDE.md.template",
-          fixture_template("2026.09.01", "readonly-ipad"))
     write(root, "integrations/widget/widget.py", integration_source("2026.09.01", "V3"))
     write(root, "base/.claude/skills/widget-skill/scripts/run.py", "print('v3')\n")
     fixture_git(root, "add", "-A")
@@ -324,8 +316,7 @@ class LayoutCase(unittest.TestCase):
 
     def addons(self, **decl):
         """A declarations dict and the masters block's addon rows for it, at main."""
-        decl = dict({"delivery": None, "flavor": None, "modules": [], "collected": False},
-                    **decl)
+        decl = dict({"flavor": None, "modules": []}, **decl)
         return decl, masters_block(self.clone, "main", False, decl)["addons"]
 
 
@@ -531,147 +522,6 @@ class MechanicalEquivalenceCase(unittest.TestCase):
 
 
 # ============================================================================ small helpers
-
-class CollectedGlobTwinCase(unittest.TestCase):
-
-    def test_trailing_star_star(self):
-        self.assertEqual(_collected_glob_twin("triage/**"), "resources/mds/triage__*")
-
-    def test_trailing_single_star(self):
-        self.assertEqual(_collected_glob_twin("triage/*"), "resources/mds/triage__*")
-
-    def test_leading_and_trailing(self):
-        self.assertEqual(_collected_glob_twin("**/sources/**"),
-                         "resources/mds/*__sources__*")
-
-    def test_interior_slashes_only(self):
-        self.assertEqual(_collected_glob_twin("projects/*/brief.md"),
-                         "resources/mds/projects__*__brief.md")
-
-    def test_interior_star_star_collapses_to_one_star(self):
-        # base/.claude/rules/figures.md writes areas/**/README.md's twin this way.
-        self.assertEqual(_collected_glob_twin("areas/**/README.md"),
-                         "resources/mds/areas__*__README.md")
-        self.assertEqual(_collected_glob_twin("archive/**/brief.md"),
-                         "resources/mds/archive__*__brief.md")
-
-
-class DoubledBlockCase(unittest.TestCase):
-
-    def test_a_plain_glob_with_no_twin_is_reported_missing(self):
-        got = _doubled_block(["triage/**"], {"delivery": "readonly-ipad"})
-        self.assertTrue(got["required"])
-        self.assertEqual(got["missing_twins"], ["triage/**"])
-
-    def test_a_glob_with_its_twin_present_is_not_missing(self):
-        got = _doubled_block(["triage/**", "resources/mds/triage__*"],
-                             {"delivery": "readonly-ipad"})
-        self.assertEqual(got["missing_twins"], [])
-
-    def test_not_required_for_an_ordinary_delivery(self):
-        got = _doubled_block(["triage/**"], {"delivery": None})
-        self.assertFalse(got["required"])
-
-    def test_missing_twins_is_null_when_not_required(self):
-        # A --test run found the shipped figures.md reported with missing twins on a vault
-        # that needs none, which read as a failed check.
-        got = _doubled_block(["areas/**/README.md", "projects/*/brief.md"],
-                             {"delivery": None, "collected": False})
-        self.assertIsNone(got["missing_twins"])
-
-
-class TemplatePathVariantsCase(unittest.TestCase):
-
-    def test_base_template_has_no_older_layout(self):
-        self.assertEqual(_template_path_variants("base/CLAUDE.md.template", None),
-                         ["base/CLAUDE.md.template"])
-
-    def test_a_delivery_template_lists_every_layout_it_may_have_lived_at(self):
-        got = _template_path_variants("addons/readonly-ipad/skeleton/CLAUDE.md.template",
-                                      "readonly-ipad")
-        self.assertEqual(got, [
-            "addons/readonly-ipad/skeleton/CLAUDE.md.template",
-            "delivery/readonly-ipad/skeleton/CLAUDE.md.template",
-            "flavors/readonly-ipad/skeleton/CLAUDE.md.template",
-        ])
-
-    def test_a_delivery_that_fell_back_to_base_searches_the_base_template_alone(self):
-        self.assertEqual(_template_path_variants("base/CLAUDE.md.template", "readonly-ipad"),
-                         ["base/CLAUDE.md.template"])
-
-
-class RuleAnchorsCase(unittest.TestCase):
-
-    def test_front_matter_paths_read_the_same_from_a_crlf_file(self):
-        text = "---\npaths:\n  - projects/*/brief.md\n  - areas/*/brief.md\n---\nbody\n"
-        self.assertEqual(_frontmatter_paths(text.replace("\n", "\r\n")),
-                         ["projects/*/brief.md", "areas/*/brief.md"])
-
-    def test_no_front_matter_or_no_paths_key_means_no_paths(self):
-        self.assertEqual(_frontmatter_paths(None), [])
-        self.assertEqual(_frontmatter_paths("# A rule with no front matter\n"), [])
-        self.assertEqual(_frontmatter_paths("---\ndescription: x\n---\nbody\n"), [])
-
-    def test_quoted_paths_are_unquoted_and_an_empty_item_is_dropped(self):
-        text = "---\npaths:\n  - \"projects/*/brief.md\"\n  - 'areas/**'\n  - ''\n---\nbody\n"
-        self.assertEqual(_frontmatter_paths(text), ["projects/*/brief.md", "areas/**"])
-
-    def test_a_shape_file_has_all_three_anchors(self):
-        text = "---\npaths:\n  - x\n---\n**Order:** a, b\n\n## The shape\n\nbody\n\n## Placeholders\n\nnone\n"
-        anchors = _rule_anchors(text)
-        self.assertEqual(anchors, {"order": True, "shape": True, "placeholders_last": True})
-        self.assertEqual(_rule_kind(anchors), "shape")
-
-    def test_a_convention_file_has_none(self):
-        text = "---\npaths:\n  - x\n---\nA rule stated in prose, no anchors at all.\n"
-        anchors = _rule_anchors(text)
-        self.assertEqual(anchors, {"order": False, "shape": False, "placeholders_last": False})
-        self.assertEqual(_rule_kind(anchors), "convention")
-
-    def test_a_partial_set_of_anchors_is_mixed(self):
-        text = "---\npaths:\n  - x\n---\n**Order:** a\n\nprose only, no shape heading\n"
-        anchors = _rule_anchors(text)
-        self.assertEqual(_rule_kind(anchors), "mixed")
-
-
-class ChangelogEntryShapeCase(unittest.TestCase):
-    """Pins the items/reactions parser against the real changelog's two paragraph shapes:
-    one bold-led sentence per paragraph with an inline Reaction, and the legacy 2026.08.01
-    entry's un-reacted bulleted tail."""
-
-    def setUp(self):
-        self.entries = {e["revision"]: e for e in changelog_entries(CHANGELOG_TEXT)}
-
-    def test_a_reacted_entry_pairs_items_with_reactions(self):
-        shaped = _entry_shape(self.entries["2026.09.01"])
-        self.assertEqual(shaped["items"],
-                         ["Widget integration rewritten.", "Second change."])
-        self.assertEqual(len(shaped["reactions"]), 2)
-        self.assertTrue(shaped["reactions"][0].startswith("Reaction: re-sync"))
-
-    def test_the_legacy_entry_s_bullets_are_their_own_items_with_no_reaction(self):
-        shaped = _entry_shape(self.entries["2026.08.01"])
-        self.assertIn("Housekeeping one.", shaped["items"])
-        self.assertIn("Housekeeping two.", shaped["items"])
-        self.assertEqual(shaped["reactions"], [])
-
-    def test_intro_prose_with_no_bold_lead_is_not_an_item(self):
-        shaped = _entry_shape(self.entries["2026.08.01"])
-        self.assertNotIn("Six changes, before revisions carried a Reaction line.",
-                         " ".join(shaped["items"]))
-
-    def test_a_reaction_named_in_earlier_prose_is_skipped_for_the_paragraph_s_own(self):
-        # The 2026.09.04 "Other skill changes" paragraph, cut down: its prose names the
-        # 2026.09.03 entry's reaction before its own closing one.
-        entry = {"revision": "2026.09.04", "line": 1, "body": (
-            "**Other skill changes.** `rules-and-skeleton.md` states three points of the "
-            "2026.09.03 `.claude/rules/` Reaction: a *richer version* is a fuller statement "
-            "of the same rule. Reaction: re-sync installed skill copies. No other vault "
-            "changes.\n")}
-        shaped = _entry_shape(entry)
-        self.assertEqual(shaped["reactions"],
-                         ["Reaction: re-sync installed skill copies. No other vault changes."])
-
 
 # ============================================== the efficiency fix: batched history reads
 
@@ -1027,53 +877,32 @@ class CloneBlockCase(CloneCase):
 
 class MastersBlockCase(CloneCase):
 
-    def test_a_delivery_row_resolves_its_root(self):
-        decl = {"delivery": "readonly-ipad", "flavor": None, "modules": []}
-        got = masters_block(self.clone, "main", False, decl)
-        rows = {r["name"]: r for r in got["addons"]}
-        self.assertEqual(rows["readonly-ipad"]["root"], "addons/readonly-ipad")
-        self.assertEqual(got["skeleton_overlay"], "addons/readonly-ipad/skeleton")
-
     def test_an_undeclared_module_with_no_folder_is_carried_forward_only_when_addons_missing(self):
-        decl = {"delivery": None, "flavor": None, "modules": ["no-such-module"]}
+        decl = {"flavor": None, "modules": ["no-such-module"]}
         got = masters_block(self.clone, "main", False, decl)
         row = got["addons"][0]
         self.assertIsNone(row["root"])
         self.assertIn("reported", row)  # addons/ DOES exist at this ref, so it is reported...
         self.assertNotIn("carried_forward", row)   # ...never carried_forward
 
-    def test_a_declared_delivery_with_no_folder_has_no_overlay_and_falls_back_to_base(self):
-        decl = {"delivery": "no-such-delivery", "flavor": None, "modules": []}
-        got = masters_block(self.clone, "main", False, decl)
-        self.assertIsNone(got["skeleton_overlay"])
-        self.assertEqual(got["addons"][0]["kind"], "delivery")
-        self.assertIsNone(got["addons"][0]["root"])
-        self.assertIn("reported", got["addons"][0])
-        self.assertEqual(got["template"]["source"], "base")
-        self.assertIsNotNone(got["template"]["fallback"])
-
 
 class OlderLayoutMastersCase(unittest.TestCase):
-    """A ref from before addons/ existed: a delivery under delivery/, a flavor under
-    flavors/, and no folder a module could live in at all."""
+    """A ref from before addons/ existed: a flavor under flavors/, and no folder a module
+    could live in at all."""
 
     def test_each_addon_resolves_under_the_layout_the_ref_carries(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             fixture_git(repo, "init", "-q", "-b", "main")
-            write(repo, "delivery/readonly-ipad/skeleton/CLAUDE.md.template",
-                  fixture_template("2026.08.02", "readonly-ipad"))
+            write(repo, "base/CLAUDE.md.template", fixture_template("2026.08.02"))
             write(repo, "flavors/real-estate/.claude/rules/property.md", "A rule.\n")
             fixture_git(repo, "add", "-A")
             fixture_git(repo, "commit", "-q", "--no-verify", "-m", "older layout")
-            got = masters_block(repo, "main", False, {"delivery": "readonly-ipad",
-                                                      "flavor": "real-estate",
+            got = masters_block(repo, "main", False, {"flavor": "real-estate",
                                                       "modules": ["sales"]})
             gone = masters_block(repo, "main", False, {"flavor": "gone", "modules": []})
         rows = {r["name"]: r for r in got["addons"]}
-        self.assertEqual(got["template"]["path"],
-                         "delivery/readonly-ipad/skeleton/CLAUDE.md.template")
-        self.assertEqual(got["skeleton_overlay"], "delivery/readonly-ipad/skeleton")
+        self.assertEqual(got["template"]["path"], "base/CLAUDE.md.template")
         self.assertEqual(rows["real-estate"],
                          {"name": "real-estate", "kind": "flavor", "root": "flavors/real-estate"})
         # A module is carried forward; a flavor with no folder is reported, never carried.
@@ -1089,8 +918,7 @@ class DeltaBlockCase(CloneCase):
 
     def test_legacy_marker_reads_normalised_and_excludes_its_own_entry(self):
         vault = self.make_vault(self._tmpdir(), fixture_template("2026.08"))
-        template = masters_block(self.clone, "main", False, {"delivery": None}).get("template") \
-            or masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = delta_block(vault, self.clone, "main", False, template)
         self.assertEqual(delta["vault_marker"], "2026.08.01")
         self.assertTrue(delta["legacy"])
@@ -1101,7 +929,7 @@ class DeltaBlockCase(CloneCase):
 
     def test_equal_marker_reports_the_current_entry_and_no_others(self):
         vault = self.make_vault(self._tmpdir(), fixture_template("2026.09.01"))
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = delta_block(vault, self.clone, "main", False, template)
         self.assertEqual(delta["verdict"], "equal")
         self.assertEqual(delta["entries"], [])
@@ -1109,14 +937,14 @@ class DeltaBlockCase(CloneCase):
 
     def test_ahead_marker_never_downgrades(self):
         vault = self.make_vault(self._tmpdir(), fixture_template("2099.01.01"))
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = delta_block(vault, self.clone, "main", False, template)
         self.assertEqual(delta["verdict"], "ahead")
         self.assertEqual(delta["entries"], [])
 
     def test_no_marker_collects_every_entry(self):
         vault = self.make_vault(self._tmpdir(), "# Vault\n\nNo marker at all.\n")
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = delta_block(vault, self.clone, "main", False, template)
         self.assertEqual(delta["verdict"], "no-marker")
         self.assertEqual({e["revision"] for e in delta["entries"]},
@@ -1143,15 +971,15 @@ class DeltaBlockCase(CloneCase):
 class BaselineBlockCase(CloneCase):
 
     def test_ref_tip_case(self):
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = {"vault_marker": "2026.09.01", "vault_marker_raw": "2026.09.01"}
-        got = baseline_block(self.clone, "main", delta, template, {"delivery": None})
+        got = baseline_block(self.clone, "main", delta, template)
         self.assertEqual(got["source"], "ref-tip")
 
     def test_log_s_case_finds_the_parent_of_the_change_commit(self):
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = {"vault_marker": "2026.08.02", "vault_marker_raw": "2026.08.02"}
-        got = baseline_block(self.clone, "main", delta, template, {"delivery": None})
+        got = baseline_block(self.clone, "main", delta, template)
         self.assertEqual(got["source"], "log-S")
         rev2 = subprocess.run(["git", "rev-parse", "rev2"], cwd=self.clone, check=True,
                               capture_output=True, text=True).stdout.strip()
@@ -1161,9 +989,9 @@ class BaselineBlockCase(CloneCase):
         # 2026.08 (raw legacy) must not match the 2026.08.02 template via a bare substring
         # search - it needs the comment delimiters. Confirmed by finding the RIGHT commit:
         # the boundary between the legacy label and 2026.08.02, i.e. rev1's own commit.
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = {"vault_marker": "2026.08.01", "vault_marker_raw": "2026.08"}
-        got = baseline_block(self.clone, "main", delta, template, {"delivery": None})
+        got = baseline_block(self.clone, "main", delta, template)
         rev1 = subprocess.run(["git", "rev-parse", "rev1"], cwd=self.clone, check=True,
                               capture_output=True, text=True).stdout.strip()
         self.assertEqual(got["commit"], rev1)
@@ -1172,44 +1000,33 @@ class BaselineBlockCase(CloneCase):
         # HEAD (checked out) is feat/extra, which never touches base/CLAUDE.md.template beyond
         # what it inherited from main - passing ref="main" explicitly must still resolve
         # against main's own history, not silently against whatever HEAD happens to be.
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = {"vault_marker": "2026.08.02", "vault_marker_raw": "2026.08.02"}
-        got_main = baseline_block(self.clone, "main", delta, template, {"delivery": None})
-        got_feat = baseline_block(self.clone, "feat/extra", delta, template, {"delivery": None})
+        got_main = baseline_block(self.clone, "main", delta, template)
+        got_feat = baseline_block(self.clone, "feat/extra", delta, template)
         self.assertEqual(got_main["commit"], got_feat["commit"])  # feat/extra branched from main
         self.assertEqual(got_main["source"], "log-S")
 
     def test_no_marker_at_all(self):
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = {"vault_marker": None, "vault_marker_raw": None}
-        got = baseline_block(self.clone, "main", delta, template, {"delivery": None})
+        got = baseline_block(self.clone, "main", delta, template)
         self.assertIsNone(got["commit"])
         self.assertIsNone(got["source"])
 
     def test_no_master_template_at_the_ref_means_no_baseline(self):
         delta = {"vault_marker": "2026.08.02", "vault_marker_raw": "2026.08.02"}
-        got = baseline_block(self.clone, "main", delta, {"path": None, "marker": None},
-                             {"delivery": None})
+        got = baseline_block(self.clone, "main", delta, {"path": None, "marker": None})
         self.assertIsNone(got["commit"])
         self.assertIn("no master template", got["reason"])
 
     def test_a_marker_no_commit_along_the_ref_ever_carried_has_no_baseline(self):
-        template = masters_block(self.clone, "main", False, {"delivery": None})["template"]
+        template = masters_block(self.clone, "main", False, {})["template"]
         delta = {"vault_marker": "2026.07.01", "vault_marker_raw": "2026.07.01"}
-        got = baseline_block(self.clone, "main", delta, template, {"delivery": None})
+        got = baseline_block(self.clone, "main", delta, template)
         self.assertIsNone(got["commit"])
         self.assertIsNone(got["source"])
         self.assertIn("<!-- para-os-template: 2026.07.01 -->", got["reason"])
-
-    def test_a_delivery_template_s_baseline_is_found_along_its_own_history(self):
-        decl = {"delivery": "readonly-ipad"}
-        template = masters_block(self.clone, "main", False, decl)["template"]
-        self.assertEqual(template["path"], "addons/readonly-ipad/skeleton/CLAUDE.md.template")
-        delta = {"vault_marker": "2026.08.02", "vault_marker_raw": "2026.08.02"}
-        got = baseline_block(self.clone, "main", delta, template, decl)
-        self.assertEqual(got["source"], "log-S")
-        self.assertEqual(got["commit"], self.rev("rev2"))
-        self.assertEqual(got["template"], template["path"])
 
 
 # ================================================================================ skeleton
@@ -1219,8 +1036,7 @@ class SkeletonBlockCase(CloneCase):
     def test_bootstrap_prompt_and_skills_and_own_template_are_excluded(self):
         vault = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
-        rows = skeleton_block(vault, self.clone, "main", False, {"collected": False},
-                              [{"kind": "delivery", "root": None}])
+        rows = skeleton_block(vault, self.clone, "main", False, [])
         paths = {r["vault_path"] for r in rows["rows"]}
         self.assertNotIn("bootstrap-prompt.md", paths)
         self.assertNotIn("CLAUDE.md.template", paths)
@@ -1229,9 +1045,7 @@ class SkeletonBlockCase(CloneCase):
     def test_readme_template_maps_to_plain_readme(self):
         vault = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
-        decl = {"collected": False, "delivery": "readonly-ipad"}
-        addons = masters_block(self.clone, "main", False, decl)["addons"]
-        rows = skeleton_block(vault, self.clone, "main", False, decl, addons)
+        rows = skeleton_block(vault, self.clone, "main", False, [])
         paths = {r["vault_path"]: r for r in rows["rows"]}
         self.assertIn("README.md", paths)
         self.assertNotIn("README.md.template", paths)
@@ -1239,30 +1053,13 @@ class SkeletonBlockCase(CloneCase):
     def test_crlf_and_bom_only_copy_reads_identical(self):
         vault = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
-        master_bytes = clone_read(self.clone, "main",
-                                  "addons/readonly-ipad/skeleton/README.md.template")
+        master_bytes = clone_read(self.clone, "main", "base/README.md.template")
         from paraos_vault import normalised as _norm  # canonical LF form, whatever this
         canonical = _norm(master_bytes)               # platform's own write() produced
         write_bytes(vault, "README.md", b"\xef\xbb\xbf" + canonical.replace(b"\n", b"\r\n"))
-        decl = {"collected": False, "delivery": "readonly-ipad"}
-        addons = masters_block(self.clone, "main", False, decl)["addons"]
-        rows = skeleton_block(vault, self.clone, "main", False, decl, addons)
+        rows = skeleton_block(vault, self.clone, "main", False, [])
         readme_row = next(r for r in rows["rows"] if r["vault_path"] == "README.md")
         self.assertTrue(readme_row["present"])
-        self.assertTrue(readme_row["identical"])
-
-    def test_a_collected_vault_resolves_the_file_through_its_encoded_twin(self):
-        vault = Path(tempfile.mkdtemp())
-        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
-        master_bytes = clone_read(self.clone, "main",
-                                  "addons/readonly-ipad/skeleton/README.md.template")
-        write_bytes(vault, "resources/mds/README.md", master_bytes)  # top-level: no "__"
-        decl = {"collected": True, "delivery": "readonly-ipad"}
-        addons = masters_block(self.clone, "main", False, decl)["addons"]
-        rows = skeleton_block(vault, self.clone, "main", False, decl, addons)
-        readme_row = next(r for r in rows["rows"] if r["vault_path"] == "README.md")
-        self.assertTrue(readme_row["present"])
-        self.assertEqual(readme_row["collected_as"], "resources/mds/README.md")
         self.assertTrue(readme_row["identical"])
 
 
@@ -1270,7 +1067,7 @@ class LayoutSkeletonCase(LayoutCase):
 
     def rows(self, vault, **decl):
         decl, addons = self.addons(**decl)
-        block = skeleton_block(vault, self.clone, "main", False, decl, addons)
+        block = skeleton_block(vault, self.clone, "main", False, addons)
         return {r["vault_path"]: r for r in block["rows"]}, block
 
     def test_base_ships_its_rules_settings_and_folder_placeholders_as_skeleton_files(self):
@@ -1319,15 +1116,6 @@ class LayoutSkeletonCase(LayoutCase):
         _, block = self.rows(vault)
         self.assertTrue(block["triage_readme"])
 
-    def test_a_collected_vault_with_no_twin_either_reads_absent(self):
-        vault = self.tmp_vault()
-        write(vault, "resources/mds/projects__alpha__brief.md", "# Alpha\n")
-        rows, _ = self.rows(vault, collected=True)
-        row = rows["projects/README.md"]
-        self.assertFalse(row["present"])
-        self.assertIsNone(row["collected_as"])
-        self.assertIsNone(row["identical"])
-
 
 # =================================================================================== rules
 
@@ -1339,7 +1127,7 @@ class RulesBlockCase(CloneCase):
         write(vault, ".claude/rules/widget-shape.md",
               "---\npaths:\n  - projects/*/widget.md\n---\n**Order:** a\n\n"
               "## The shape\n\nbody\n\n## Placeholders\n\nnone\n")
-        rows = rules_block(vault, self.clone, "main", False, {"delivery": None, "collected": False}, [])
+        rows = rules_block(vault, self.clone, "main", False, [])
         self.assertEqual(len(rows), 1)
         row = rows[0]
         self.assertIsNone(row["master"])  # nothing named widget-shape.md ships from this clone
@@ -1353,7 +1141,7 @@ class RulesBlockCase(CloneCase):
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
         write(vault, ".claude/rules/brief-structure.md",
               "---\npaths:\n  - projects/*/brief.md\n  - areas/*/brief.md\n---\nA rule.\n")
-        rows = rules_block(vault, self.clone, "main", False, {"delivery": None, "collected": False}, [])
+        rows = rules_block(vault, self.clone, "main", False, [])
         self.assertIsNone(rows[0]["master"])
         self.assertIsNone(rows[0]["paths_missing"])
         self.assertIsNone(rows[0]["paths_extra"])
@@ -1365,7 +1153,7 @@ class RulesBlockCase(CloneCase):
         write(vault, "CLAUDE.md",
               "# Vault\n\n## Filing and naming\n\nThe full convention is in "
               "[.claude/rules/filing.md](.claude/rules/filing.md), read before filing one.\n")
-        rows = rules_block(vault, self.clone, "main", False, {"delivery": None, "collected": False}, [])
+        rows = rules_block(vault, self.clone, "main", False, [])
         pointer = rows[0]["pointer"]
         self.assertTrue(pointer["present"])
         self.assertEqual(pointer["wording"], "convention")
@@ -1378,7 +1166,7 @@ class RulesBlockCase(CloneCase):
             write(vault, f".claude/rules/{name}", "---\npaths:\n  - projects/**\n---\nA.\n")
         write(vault, "CLAUDE.md", claude_md)
         return {Path(r["file"]).name: r["pointer"] for r in rules_block(
-            vault, self.clone, "main", False, {"delivery": None, "collected": False}, [],
+            vault, self.clone, "main", False, [],
             master_texts=master_texts)}
 
     def test_a_later_conforming_pointer_wins_over_an_earlier_passing_link(self):
@@ -1423,7 +1211,7 @@ class RulesBlockCase(CloneCase):
               "[.claude/rules/briefs.md](.claude/rules/briefs.md).\n\n## Other\n\n"
               "See [the triage rule](.claude/rules/linked.md) for more.\n")
         rows = {Path(r["file"]).name: r["pointer"] for r in rules_block(
-            vault, self.clone, "main", False, {"delivery": None, "collected": False}, [])}
+            vault, self.clone, "main", False, [])}
         self.assertEqual(rows["briefs.md"],
                          {"present": True, "line": 5, "section": "Briefs", "wording": "shape"})
         self.assertEqual(rows["linked.md"]["wording"], "other")
@@ -1530,7 +1318,7 @@ class SectionsBlockCase(unittest.TestCase):
 
 
 class RuleMasterCase(LayoutCase):
-    """Base first, then the delivery, the flavor and each module in the order **Modules:**
+    """Base first, then the flavor and each module in the order **Modules:**
     lists them; the first match wins."""
 
     def test_a_base_rule_is_its_own_master_and_its_paths_are_held_against_the_master_s(self):
@@ -1538,11 +1326,25 @@ class RuleMasterCase(LayoutCase):
         write(vault, ".claude/rules/figures.md",
               "---\npaths:\n  - areas/**/README.md\n  - resources/**/brief.md\n---\nLocal.\n")
         decl, addons = self.addons()
-        row = rules_block(vault, self.clone, "main", False, decl, addons)[0]
+        row = rules_block(vault, self.clone, "main", False, addons)[0]
         self.assertEqual(row["master"], "base/.claude/rules/figures.md")
         self.assertEqual(row["master_paths"], ["areas/**/README.md", "projects/*/brief.md"])
         self.assertEqual(row["paths_missing"], ["projects/*/brief.md"])
         self.assertEqual(row["paths_extra"], ["resources/**/brief.md"])
+        self.assertEqual(row["paths_retired"], [])
+
+    def test_a_glob_doubled_for_the_retired_delivery_is_reported_for_removal(self):
+        vault = self.tmp_vault()
+        write(vault, ".claude/rules/figures.md",
+              "---\npaths:\n  - areas/**/README.md\n  - projects/*/brief.md\n"
+              "  - resources/mds/areas__*__README.md\n"
+              "  - resources/mds/projects__*__brief.md\n---\nLocal.\n")
+        _, addons = self.addons()
+        row = rules_block(vault, self.clone, "main", False, addons)[0]
+        self.assertEqual(row["paths_retired"], ["resources/mds/areas__*__README.md",
+                                                "resources/mds/projects__*__brief.md"])
+        self.assertEqual(row["paths"], ["areas/**/README.md", "projects/*/brief.md"])
+        self.assertEqual((row["paths_missing"], row["paths_extra"]), ([], []))
 
     def test_base_is_tried_before_an_addon_carrying_the_same_name(self):
         _, addons = self.addons(modules=["sales"])
@@ -1637,10 +1439,10 @@ class IntegrationMasterPathCase(CloneCase):
         self.assertEqual(path, "integrations/widget/widget.py")
         self.assertIsNone(special)
 
-    def test_a_delivery_script_resolves_through_the_addon_s_pipeline_folder(self):
+    def test_an_addon_script_resolves_through_the_addon_s_pipeline_folder(self):
         path, special, candidates = _integration_master_path(
-            self.clone, "main", False, "readonly-ipad", "flip.ps1", [])
-        self.assertEqual(path, "addons/readonly-ipad/pipeline/flip.ps1")
+            self.clone, "main", False, "gadget", "gadget.ps1", [])
+        self.assertEqual(path, "addons/gadget/pipeline/gadget.ps1")
         self.assertIsNone(special)
         self.assertIsNone(candidates)
 
@@ -1752,7 +1554,7 @@ class IntegrationsBlockCase(CloneCase):
         vault = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
         write(vault, "resources/scripts/widget.py", integration_source("2026.08.02", "V2"))
-        got = integrations_block(vault, self.clone, "main", False, {"delivery": None},
+        got = integrations_block(vault, self.clone, "main", False,
                                  [], "2026.09.01")
         row = next(r for r in got["rows"] if r["name"] == "widget")
         self.assertEqual(row["verdict"], "behind")
@@ -1765,7 +1567,7 @@ class IntegrationsBlockCase(CloneCase):
         vault = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
         write(vault, "resources/scripts/widget.py", integration_source("2026.09.01", "V1"))
-        got = integrations_block(vault, self.clone, "main", False, {"delivery": None},
+        got = integrations_block(vault, self.clone, "main", False,
                                  [], "2026.09.01")
         row = next(r for r in got["rows"] if r["name"] == "widget")
         self.assertEqual(row["verdict"], "marker-matches-content-differs")
@@ -1777,7 +1579,7 @@ class IntegrationsBlockCase(CloneCase):
         vault = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
         write(vault, "resources/scripts/widget.py", integration_source("2026.08.02", "V1"))
-        got = integrations_block(vault, self.clone, "main", False, {"delivery": None},
+        got = integrations_block(vault, self.clone, "main", False,
                                  [], "2026.09.01")
         row = next(r for r in got["rows"] if r["name"] == "widget")
         self.assertEqual(row["verdict"], "behind")
@@ -1795,7 +1597,7 @@ class IntegrationRowCase(CloneCase):
         self.addCleanup(tmp.cleanup)
         vault = Path(tmp.name).resolve()
         write(vault, f"resources/scripts/{name}.py", text)
-        got = integrations_block(vault, self.clone, ref, worktree, {"delivery": None}, [],
+        got = integrations_block(vault, self.clone, ref, worktree, [],
                                  "2026.09.01")
         return next(r for r in got["rows"] if r["name"] == name)
 
@@ -1870,7 +1672,7 @@ class IntegrationRowCase(CloneCase):
 class LayoutIntegrationsCase(LayoutCase):
 
     def rows(self, vault):
-        return integrations_block(vault, self.clone, "main", False, {"delivery": None}, [],
+        return integrations_block(vault, self.clone, "main", False, [],
                                   "2026.09.01")["rows"]
 
     def test_a_renamed_master_is_diffed_against_the_folder_s_lone_script(self):
@@ -1907,8 +1709,8 @@ class UnmarkedScriptsCase(LayoutCase):
     """`unmarked`: scripts carrying no marker, each with evidence (never a verdict) of the
     shipped file it matches under integrations/ at the ref's tip."""
 
-    def unmarked(self, vault, delivery=None):
-        return integrations_block(vault, self.clone, "main", False, {"delivery": delivery}, [],
+    def unmarked(self, vault):
+        return integrations_block(vault, self.clone, "main", False, [],
                                   "2026.09.01")["unmarked"]
 
     def test_an_unmarked_copy_of_a_shipped_script_names_it_as_evidence(self):
@@ -1935,19 +1737,10 @@ class UnmarkedScriptsCase(LayoutCase):
         vault = self.tmp_vault()
         write(vault, "resources/scripts/solo.py",
               "# para-os-integration: solo 2026.09.01\nSOLO = 1\n")
-        got = integrations_block(vault, self.clone, "main", False, {"delivery": None}, [],
+        got = integrations_block(vault, self.clone, "main", False, [],
                                  "2026.09.01")
         self.assertEqual([r["file"] for r in got["rows"]], ["resources/scripts/solo.py"])
         self.assertEqual(got["unmarked"], [])
-
-    def test_a_readonly_ipad_vault_s_root_pipeline_files_are_candidates_on_that_delivery_only(self):
-        vault = self.tmp_vault()
-        write(vault, "flip.ps1", "# flip, no marker\n")
-        write(vault, "render.mjs", "// para-os-integration: readonly-ipad 2026.09.01\n")
-        markers = integration_markers(vault)
-        self.assertEqual(unmarked_scripts(vault, {"delivery": "readonly-ipad"}, markers),
-                         [vault / "flip.ps1"])
-        self.assertEqual(unmarked_scripts(vault, {"delivery": None}, markers), [])
 
     def test_a_shipped_test_file_is_never_evidence(self):
         vault = self.tmp_vault()
@@ -1967,8 +1760,7 @@ class UnmarkedScriptsCase(LayoutCase):
 # ================================================================================== skills
 
 class UndeclaredAddonSkillCase(unittest.TestCase):
-    """A real run against origin/main (still on the pre-addons/ delivery+flavors layout)
-    found this: a skill shipped by an addon the vault does not declare must be found under
+    """A real run against a ref still on the pre-addons/ flavors layout found this: a skill shipped by an addon the vault does not declare must be found under
     WHICHEVER layout the ref carries, never addons/ alone, or origin/main silently reports
     every real-estate skill as vault-local instead of undeclared_addon."""
 
@@ -1979,13 +1771,13 @@ class UndeclaredAddonSkillCase(unittest.TestCase):
         fixture_git(root, "init", "-q", "-b", "main")
         fixture_git(root, "config", "core.autocrlf", "false")
         fixture_git(root, "config", "core.excludesFile", str(root / ".git" / "no-excludes"))
-        write(root, "delivery/real-estate/.claude/skills/property-underwrite/SKILL.md",
+        write(root, "flavors/real-estate/.claude/skills/property-underwrite/SKILL.md",
               "---\nname: property-underwrite\n---\n# Underwrite\n")
         fixture_git(root, "add", "-A")
         fixture_git(root, "commit", "-q", "--no-verify", "-m", "old layout addon skill")
         return root
 
-    def test_an_addon_skill_is_found_under_the_older_delivery_layout(self):
+    def test_an_addon_skill_is_found_under_the_older_flavors_layout(self):
         root = self.old_layout_repo()
         got = _find_undeclared_addon_skill(root, "main", False, "property-underwrite", set())
         self.assertEqual(got, "real-estate")
@@ -2287,17 +2079,6 @@ class SmokeBlockCase(unittest.TestCase):
         self.assertTrue(got["available"])
         self.assertIn("open", got["totals"])
 
-    def test_a_collected_vault_is_refused_by_brief_scan_not_by_this_script(self):
-        vault = Path(tempfile.mkdtemp())
-        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
-        for d in ("projects", "areas", "archive"):
-            (vault / d).mkdir()
-        write(vault, "CLAUDE.md", "# Vault\n\n**Type:** vault\n")
-        write(vault, "resources/mds/projects__x__brief.md", "# brief\n")
-        got = smoke_block(vault, "2026-09-22")
-        self.assertFalse(got["available"])
-        self.assertIn("collected", got["reason"])
-
 
 class SmokeStubCase(unittest.TestCase):
     """The vault's own bundled brief_scan.py is preferred over the one beside this skill, so
@@ -2484,16 +2265,6 @@ class BuildReportCase(CloneCase):
                    "sections", "settings", "skills", "integrations", "smoke", "snapshot"):
             self.assertIn(key, report)
         self.assertEqual(report["delta"]["verdict"], "behind")
-
-    def test_a_collected_vault_is_answered_not_refused(self):
-        vault = self.make_vault(tempfile.mkdtemp(), fixture_template("2026.09.01"))
-        write(vault, "resources/mds/projects__x__brief.md", "# brief\n")
-        report, code = build_report(vault, self.clone, "main", False, None,
-                                    str(vault / "no-user-skills"),
-                                    str(vault / "no-user-settings"), None, [])
-        self.assertEqual(code, 0)
-        self.assertTrue(report["vault"]["collected"])
-        self.assertFalse(report["smoke"]["available"])
 
     def scan_args(self):
         root = Path(tempfile.mkdtemp()).resolve()

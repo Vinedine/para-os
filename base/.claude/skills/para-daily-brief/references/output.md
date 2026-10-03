@@ -51,10 +51,6 @@ The 📊 Vault state rows (top 10 entities by open count, remainder aggregated t
 
 **Percent-encode every link target** (spaces, commas, `#`, `&`, brackets), never the link text.
 
-## The Type B vault
-
-Same layout, minus the sections the task scan feeds (SKILL.md Step 1b). Keep the H1, then 🗓 Agenda, 🚩 Health flags (the over-grown-brief flag only, when it fires), 💡 Ideas, 📥 Triage and the **Next action** close, in that order. One italic line under the H1 says action tracking is absent by design, and nothing repeats it per section. The triage heading stays `## 📥 Triage (N to process)`.
-
 ## The entity scope
 
 A different layout, not the vault brief with rows removed: the buckets lead and nothing is capped.
@@ -93,7 +89,7 @@ Rules specific to this scope:
 - **Health flags are this entity's only**, as signals.md Step 4c scopes them.
 - **The Next action still closes it**, chosen from this entity's own items only, never from `🔗 Mentioned elsewhere`.
 
-**The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item; a Type B vault, which has neither, takes the oldest triage item, else an idea brief's stated next step, Vision breaking ties). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. Never a question.
+**The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. Never a question.
 
 ## Example fragment
 

@@ -92,7 +92,7 @@ A candidate a check settles is reported once under **`resolved`** and dropped fr
 
 ### The lookup on disk
 
-Recompute the note's stem and look for `<vault>/triage/<stem>*.md`, covering [collected copies](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery) on the read-only iPad delivery: `<vault>/triage/<stem>*.pdf` and `<vault>/resources/mds/triage__<stem>*.md`.
+Recompute the note's stem and look for `<vault>/triage/<stem>*.md`.
 
 ## The run log
 

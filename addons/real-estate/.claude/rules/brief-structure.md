@@ -4,15 +4,11 @@ paths:
   - "projects/*/brief.md"
   - "areas/**/brief.md"
   - "archive/**/brief.md"
-  - "resources/mds/resources__ideas__*__brief.md"
-  - "resources/mds/projects__*__brief.md"
-  - "resources/mds/areas__*__brief.md"
-  - "resources/mds/archive__*__brief.md"
 ---
 
 # Brief structure
 
-**Order:** fixed for a property, not fixed for any other brief. The `resources/mds/` globs cover a read-only-iPad vault in collected state; anywhere else they match nothing.
+**Order:** fixed for a property, not fixed for any other brief.
 
 ## The shape
 

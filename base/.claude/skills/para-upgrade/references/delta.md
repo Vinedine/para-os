@@ -6,11 +6,10 @@ The scan's `clone` block names the ref read, the clone's checked-out branch and 
 
 ## Resolving the master
 
-A vault declares a delivery, a flavor and its modules each on its own line under `**Type:**`. The scan's `masters` block resolves each to a root - [scan.md](scan.md) states the walk. What the resolution *means*:
+The master for the marker and Phase 1 is `base/CLAUDE.md.template`, and Phase 2's is `base/`. A vault declares a flavor and its modules each on its own line under `**Type:**`. The scan's `masters` block resolves each to a root - [scan.md](scan.md) states the walk. What the resolution *means*:
 
-- **Delivery** (how the vault is read): its `skeleton/CLAUDE.md.template` is the master for the marker and Phase 1; Phase 2's master is `base/` with that skeleton's files overlaid. A vault with no `**Delivery:**` line that [the detection rule](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places on the read-only iPad delivery takes that delivery at every ref, and the missing line is a Phase 1 item.
 - **Flavor** (what the vault is about): never supplies a `CLAUDE.md` master. Its addon adds sections, rule and skeleton files, and skill masters on top, each checked in the phase that checks its kind.
-- **Modules** (what a vault does beside that): read exactly like a flavor, once per named module. A vault takes none, one or several, and they never replace a base, delivery or flavor section. A module the scan reports with no folder at the ref is skipped, never guessed at; one it reports `carried_forward` (the ref predates `addons/` entirely) is likewise left untouched.
+- **Modules** (what a vault does beside that): read exactly like a flavor, once per named module. A vault takes none, one or several, and they never replace a base or flavor section. A module the scan reports with no folder at the ref is skipped, never guessed at; one it reports `carried_forward` (the ref predates `addons/` entirely) is likewise left untouched.
 - **An entry for a flavor or module the vault does not declare** is usually decidable without asking: read the entry's own applicability clause ("none for a vault whose own entities are not properties it buys...") against what the vault's `CLAUDE.md` says it is for, and name that reading in the plan. Ask only where the reading leaves real doubt.
 
 ## Equal markers

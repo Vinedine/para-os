@@ -1,6 +1,6 @@
 ---
 type: regex
 match: not_contains
-pattern: 'iPad'
+pattern: 'What is this vault for'
 flags: i
 ---

@@ -5,16 +5,11 @@ paths:
   - "areas/properties/*/sources/**"
   - "archive/properties/*/sources/**"
   - "archive/researched-deals/*/sources/**"
-  - "resources/mds/resources__ideas__*__sources__*"
-  - "resources/mds/projects__*__sources__*"
-  - "resources/mds/areas__properties__*__sources__*"
-  - "resources/mds/archive__properties__*__sources__*"
-  - "resources/mds/archive__researched-deals__*__sources__*"
 ---
 
 # Property source documents
 
-How a document is named inside a property's `sources/`, the same at every stage. A convention extending [filing.md](filing.md), whose rules all still apply: this file adds a unit scope and which party is `<Who>`. A non-property project's `sources/` follows `filing.md` alone. The `resources/mds/` globs cover a read-only-iPad vault in collected state; anywhere else they match nothing.
+How a document is named inside a property's `sources/`, the same at every stage. A convention extending [filing.md](filing.md), whose rules all still apply: this file adds a unit scope and which party is `<Who>`. A non-property project's `sources/` follows `filing.md` alone.
 
 ## Naming
 

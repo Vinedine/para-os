@@ -43,10 +43,6 @@ paths:
   - "projects/*/brief.md"
   - "archive/ideas/*/brief.md"
   - "areas/*/leads.md"
-  - "resources/mds/resources__ideas__*__brief.md"
-  - "resources/mds/projects__*__brief.md"
-  - "resources/mds/archive__ideas__*__brief.md"
-  - "resources/mds/areas__*__leads.md"
 ---
 
 # Deal brief
@@ -55,7 +51,7 @@ paths:
 
 One document per deal, from Qualified on. The header is the seven lines below, directly under the title, every one present. Everything under it is an ordinary brief of the vault's own shape: what the work would be, why now, the open questions, and the one prose "revisit when X" trigger. Its `sources/` folder holds the dated records (a demo recording, a sent proposal, a call note) as any entity's does.
 
-These paths also match ideas and projects that are not deals, which follow the vault's own brief shape file: **this shape governs only the documents whose stage line names a stage of `## Deal lifecycle`**, and nothing else. The `resources/mds/` globs cover a read-only-iPad vault in collected state; anywhere else they match nothing. The one register glob covers the lead register, whose rows carry the same fields as columns.
+These paths also match ideas and projects that are not deals, which follow the vault's own brief shape file: **this shape governs only the documents whose stage line names a stage of `## Deal lifecycle`**, and nothing else. The one register glob covers the lead register, whose rows carry the same fields as columns.
 
 ## The shape
 

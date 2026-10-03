@@ -53,18 +53,7 @@ The safety discipline **every file-mutating skill** follows. A read-only skill d
 
 ## A synced vault can change mid-run
 
-Not only on the read-only iPad delivery: any vault synced by a cloud client - SharePoint, OneDrive, Google Drive for Desktop - can be written by another session, another device, or the sync client itself between this skill's own steps. A single check at the start of a run is not a safe basis for the rest of it. Take a `snapshot` of a file before proposing a change to it, and call `changed` on that snapshot again immediately before every delete or move, not only once at the top of the run; re-read a file `changed` flags before acting on it. Treat unrelated churn elsewhere in the vault as expected and safe to ignore.
-
-## The read-only iPad delivery
-
-A vault is on this delivery when its `CLAUDE.md` carries `**Delivery:** readonly-ipad`, or, with no `**Delivery:**` line, `flip.ps1` sits at its root. `flip.ps1 collect` moves every `.md` into `resources/mds/`, its vault path encoded by `__` (`triage/x.md` becomes `resources/mds/triage__x.md`), leaving the `.pdf` siblings in place; `flip.ps1 spread` reverses it. The vault is **collected** when `resources/mds/` holds any `__`-encoded `.md`.
-
-- **Every lookup over a PARA folder also covers `resources/mds/<folder>__*`**, decoded back to its vault path: a glob, a duplicate-name match, a count. A `.pdf` and its `.md` are one item, read through the `.md`.
-- **Edits and moves of existing files happen in the spread state**; writing a new file (a note into `triage/`) needs no cycle. A skill that finds the vault collected spreads it before its first edit or move, or asks the operator to, then runs `render.ps1` and `flip.ps1 collect` to leave it as found. A vault found spread stays spread. Name the cycle in the proposal or first question round; approving the writes approves it. A run that stops on a failure leaves the vault spread and says so. When one skill runs another as a sub-step, the outer skill runs the cycle once, around both.
-- **Never write to a `resources/mds/…` path directly, even when the vault reads as collected at the instant you check** - this delivery's own instance of the rule above. Run `flip.ps1 spread` immediately before editing or moving (it is idempotent per its own header, so a redundant call is harmless), verify the target file's presence after the spread, and verify it again after the following `flip.ps1 collect`. `render.ps1`'s own denylist excludes `resources/mds/`, so an edit written there directly never renders and can be silently lost or overwritten by the next collect.
-- **A `flip.ps1 collect` collision is not a count to note and move past.** It means a spread `.md` and its `resources/mds/` counterpart now disagree, and the tool does not pick a winner for you. Diff the two before finishing the run, keep the one carrying the edit just made, and remove the other - never leave both in place for a later run to rediscover.
-- **Run both scripts from the vault root** (`Push-Location "<vault>"`).
-- **A file moves, renames and deletes with its `.pdf` sibling**, and a collision check covers both names. Delete with a plain delete, never `git rm`: git tracks a spread `.md` at its collected path.
+Any vault synced by a cloud client - SharePoint, OneDrive, Google Drive for Desktop - can be written by another session, another device, or the sync client itself between this skill's own steps. A single check at the start of a run is not a safe basis for the rest of it. Take a `snapshot` of a file before proposing a change to it, and call `changed` on that snapshot again immediately before every delete or move, not only once at the top of the run; re-read a file `changed` flags before acting on it. Treat unrelated churn elsewhere in the vault as expected and safe to ignore.
 
 ## Entity creation
 

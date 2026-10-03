@@ -34,7 +34,7 @@ Copy `base/` alone. Nothing else in the repository is vault content: an add-on i
 
 ## 4. Run the bootstrap
 
-Read `bootstrap-prompt.md` in the vault root and follow the block below its `---` line, start to finish. Its first action is one `AskUserQuestion` call of four short choice questions (the vault's name, its purpose, the answer language, where it is read), then two open ones as a short message (what it covers, a website to read). **Ask them before writing any file, and write nothing until the answers are in.** From the answers it fills `CLAUDE.md` and `README.md`, creates `projects/vault-setup/` for the rest of onboarding, and deletes itself when it is done.
+Read `bootstrap-prompt.md` in the vault root and follow the block below its `---` line, start to finish. Its first action is one `AskUserQuestion` call of three short choice questions (the vault's name, its purpose, the answer language), then two open ones as a short message (what it covers, a website to read). **Ask them before writing any file, and write nothing until the answers are in.** From the answers it fills `CLAUDE.md` and `README.md`, creates `projects/vault-setup/` for the rest of onboarding, and deletes itself when it is done.
 
 ## 5. Hand over
 

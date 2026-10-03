@@ -2,13 +2,11 @@
 paths:
   - "areas/**/README.md"
   - "**/brief.md"
-  - "resources/mds/areas__*__README.md"
-  - "resources/mds/*__brief.md"
 ---
 
 # Figures
 
-Where a number lives, and how a document that needs it gets it. A convention, not a document shape: it governs every figure in a brief or an entity README, whatever that document's structure. The `resources/mds/` globs cover a read-only-iPad vault in collected state; anywhere else they match nothing.
+Where a number lives, and how a document that needs it gets it. A convention, not a document shape: it governs every figure in a brief or an entity README, whatever that document's structure.
 
 ## One number, one home
 

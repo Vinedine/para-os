@@ -131,17 +131,12 @@ def task_label(t):
 
 def tiles(scan):
     lanes, totals = scan["lanes"], scan["totals"]
-    if scan["vault_type"] == "B":
-        dormant = sum(1 for i in scan["ideas"] if i["dormant"])
-        rows = [(len(scan["ideas"]), "ideas", False), (len(scan["triage"]), "in triage", False),
-                (dormant, "dormant ideas", False)]
-    else:
-        week = len(lanes.get("today", [])) + len(lanes.get("this_week", []))
-        share = round(100 * totals["undated"] / totals["open"]) if totals["open"] else 0
-        rows = [(totals["open"], "open actions", False),
-                (totals["overdue"], "overdue", totals["overdue"] > 0),
-                (week, "due this week", False), (f"{share}%", "undated", False),
-                (len(scan["ideas"]), "ideas", False), (len(scan["triage"]), "in triage", False)]
+    week = len(lanes.get("today", [])) + len(lanes.get("this_week", []))
+    share = round(100 * totals["undated"] / totals["open"]) if totals["open"] else 0
+    rows = [(totals["open"], "open actions", False),
+            (totals["overdue"], "overdue", totals["overdue"] > 0),
+            (week, "due this week", False), (f"{share}%", "undated", False),
+            (len(scan["ideas"]), "ideas", False), (len(scan["triage"]), "in triage", False)]
     cells = "".join(f'<div class="tile{" alert" if alert else ""}"><b>{n}</b>'
                     f'<span>{label}</span></div>' for n, label, alert in rows)
     return f'<div class="tiles">{cells}</div>'
@@ -311,7 +306,7 @@ code{font-size:.92em}
 header{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem}
 h1{font-size:1.65rem;font-weight:700;margin:0;letter-spacing:-.015em}
 h1 small{font-weight:600;color:var(--accent)}
-.date,.typeb{color:var(--muted);font-size:.85rem}
+.date{color:var(--muted);font-size:.85rem}
 h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:1.75rem 0 .6rem}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.6rem}
 .tile{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.6rem .75rem}
@@ -363,18 +358,9 @@ def render(scan, judgment):
         raise JudgmentError("the dashboard is a vault-wide page; an entity scope has none")
     name = display_name(scan["vault"])
     title = f"{name} Dashboard"
-    type_b = scan["vault_type"] == "B"
     body = [f'<header><h1>{html.escape(name)} <small>· Daily Brief</small></h1>'
             f'<span class="date">{long_date(scan["today"])}</span></header>']
-    if type_b:
-        body.append('<p class="typeb">This vault tracks no actions, by design.</p>')
-    body.append(tiles(scan))
-    if not type_b:
-        body.append(entity_chart(scan))
-    body.append(flags(judgment))
-    if not type_b:
-        body.append(now_panel(scan, judgment))
-    body += [agenda(judgment), ideas(scan), triage(scan), next_action(scan, judgment),
+    body += [tiles(scan), entity_chart(scan), flags(judgment), now_panel(scan, judgment), agenda(judgment), ideas(scan), triage(scan), next_action(scan, judgment),
              f'<footer>Generated {scan["today"]} by /para-daily-brief · read-only: repairs '
              f'via /para-deep-clean</footer>']
     page = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'

@@ -1,6 +1,5 @@
 <!-- brainstorm MODULE: the section this module adds to a vault's CLAUDE.md. Merge it in beside
-     the sections of base (or of the vault's delivery skeleton, or of a flavor); it never
-     replaces one. Add `**Modules:** brainstorm` under the **Type:** line in the same pass. -->
+     the sections of base and of any flavor; it never replaces one. Add `**Modules:** brainstorm` under the **Type:** line in the same pass. -->
 
 ## Brainstorms
 

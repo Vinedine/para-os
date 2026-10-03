@@ -2,13 +2,11 @@
 paths:
   - "triage/**"
   - "**/sources/**"
-  - "resources/mds/triage__*"
-  - "resources/mds/*__sources__*"
 ---
 
 # Filing source documents
 
-How a document is named and where it lives once it leaves `triage/`. A convention, not a document shape: it applies to every file filed, whatever folder it lands in. The `resources/mds/` globs cover a read-only-iPad vault in collected state; anywhere else they match nothing.
+How a document is named and where it lives once it leaves `triage/`. A convention, not a document shape: it applies to every file filed, whatever folder it lands in.
 
 ## Naming
 

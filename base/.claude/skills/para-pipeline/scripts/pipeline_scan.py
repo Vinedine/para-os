@@ -41,8 +41,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        CollectedVault, DATE_RE, H1_RE, field_ci, first_link, header_fields, is_live, iso,
-        lifecycles, live_lines, open_tasks, parse_date, read_lines, refuse_if_collected,
+        DATE_RE, H1_RE, field_ci, first_link, header_fields, is_live, iso,
+        lifecycles, live_lines, open_tasks, parse_date, read_lines,
         register_rows, stage_of, stage_parts,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
@@ -632,7 +632,6 @@ def matches_lifecycle(lc, query):
 
 def scan(vault, today, lifecycle=None):
     vault = Path(vault).resolve()
-    refuse_if_collected(vault)
     declared = lifecycles(vault)
 
     report = {"vault": vault.as_posix(), "today": today.isoformat()}
@@ -670,12 +669,7 @@ def main(argv=None):
     if not root.is_dir():
         ap.error(f"no such vault: {root}")
 
-    try:
-        report, code = scan(root, today, args.lifecycle)
-    except CollectedVault as refused:
-        print(f"pipeline_scan: {refused}", file=sys.stderr)
-        return 2
-
+    report, code = scan(root, today, args.lifecycle)
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     return code

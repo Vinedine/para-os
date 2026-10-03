@@ -70,18 +70,17 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 1. **Write the new revision marker** into the vault's `CLAUDE.md`, and write it *here* - Phase 1 holds the vault's existing marker even while it replaces the section around it. Only after the phases above actually applied: the next run skips whatever a marker claims. The checkpoint re-check comes immediately before.
 2. **Run the vault's own skills as a smoke test.** Re-run the scan with `--unchanged <the Phase 0 scan>`: `since.smoke` is every count that moved since before the migration (`{count, before, after}`), and `since.changed` every file that changed, each of which should be one this run wrote. Also run at least one skill end to end (`/para-daily-brief week` publishes nothing). A skill that errors, or a count that moved for a file this migration did not write, is a regression, fixed here.
 3. **Re-run the link check** from `/para-deep-clean` Phase 1, Step 1.2 (its `phase1-structural.md`), as written there. Zero dangling relative links in live buckets.
-4. **Close the [edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) only now**, after every check that resolves a path against disk (this link check, Phase 3's self-claims sweep, the skeleton-presence check): they read the spread state.
-5. **Report.** What changed per phase, what was proposed and declined, what was routed where, and what you did **not** verify.
+4. **Report.** What changed per phase, what was proposed and declined, what was routed where, and what you did **not** verify.
 
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
 - **The changelog is the scope.** Drift the changelog doesn't mention belongs to `/para-deep-clean`.
-- **Never remove vault-local additions** - sections, rules, markers, or the `**Type:**`, `**Delivery:**`, `**Flavor:**` and `**Modules:**` lines. The template is a floor.
+- **Never remove vault-local additions** - sections, rules, markers, or the `**Type:**`, `**Flavor:**` and `**Modules:**` lines. The template is a floor.
 - **Never create a redundant `.claude/settings.json`** when the user-level settings already set the same keys, and never create a `triage/README.md` at all.
 - **Never invent content.** A missing brief is written from what's on disk, or left missing with the gap stated. A missing date stays missing.
-- **Never write to an installed script without the four-condition gate** - anything carrying (or identified as needing) a `para-os-integration:` marker, wherever it sits: `resources/scripts/`, or the vault root where a delivery's render pipeline lives. The general rule is report drift and let the user merge it; the one permitted write is the marker line itself, plus the **one sanctioned overwrite** described in Phase 3 (user asked, mechanical equivalence proven, copy not ahead, verified after write).
+- **Never write to an installed script without the four-condition gate** - anything carrying (or identified as needing) a `para-os-integration:` marker, wherever it sits in the vault. The general rule is report drift and let the user merge it; the one permitted write is the marker line itself, plus the **one sanctioned overwrite** described in Phase 3 (user asked, mechanical equivalence proven, copy not ahead, verified after write).
 
 ## Edge cases
 

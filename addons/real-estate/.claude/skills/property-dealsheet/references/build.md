@@ -1,4 +1,4 @@
-# Readiness check, build and render
+# Readiness check, build and verify
 
 ## The readiness check (Step 1)
 
@@ -26,9 +26,8 @@ Follow the template's header comment: copy-fill, the stage variant, cost lines, 
    - **Facade photo**: reuse the previous sheet's when unchanged; otherwise take it from `sources/photos/` or a `sources/` PDF. With none, follow the template's no-photo instruction.
 4. **Footer**: says the sheet is derived from the dossier, as of the date of the dossier's last material edit.
 
-## Render or verify, and report (Step 3)
+## Verify and report (Step 3)
 
-- **On `**Delivery:** readonly-ipad`**, run `render.ps1` from the vault root and read the PDF back for layout breakage (a blank page, a table split mid-row, a near-empty page). Fix the HTML and re-render until it is clean. Report the PDF path.
-- **On any other delivery** the HTML is the deliverable. Read it back for an unfilled `{{placeholder}}`, an unreplaced image token or a dropped section, fix, and report the HTML path and that it is unrendered.
+The HTML is the deliverable. Read it back for an unfilled `{{placeholder}}`, an unreplaced image token or a dropped section, fix, and report the HTML path.
 
 Report the verdict quoted from the dossier and the open items the sheet prints.

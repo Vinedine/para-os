@@ -2,13 +2,13 @@
 
 For a vault that sells something: prospects, demos, proposals, and the deals that come from them. A module is a **function a vault adds beside whatever it is about**, so this adds one lifecycle, one document shape, and the register that holds the leads which have not earned a folder yet. It needs no skill of its own: the board is `/para-pipeline`, which base ships, and the stages come from the vault's `CLAUDE.md`.
 
-It sits on any delivery but [read-only iPad](../readonly-ipad/) (no `actions.md` for its weekly review) and beside any [flavor](../real-estate/), including none. A property developer carries the real-estate flavor for its properties and this module for its buyers, in two tables, one `CLAUDE.md`, no overlap.
+It sits beside any [flavor](../real-estate/), including none. A property developer carries the real-estate flavor for its properties and this module for its buyers, in two tables, one `CLAUDE.md`, no overlap.
 
 **Vocabulary-neutral where it can be, opinionated where it pays.** The stage names are the phases a prospect hears in the room rather than generic funnel words, so a vault whose sales conversation has its own names renames them in its own table and changes nothing else.
 
 ## What it adds
 
-1. **`CLAUDE.md` sections** ([`CLAUDE.md.sections`](CLAUDE.md.sections)): `## Deal lifecycle` (the seven stages and their homes, rows before folders, what promotes and moves back, Nurture and Lost, the weekly review, and the contact card's `**Kind:**` line) and an `## Entity structures` pointer. They are added beside the sections of base, the delivery skeleton or a flavor, and never replace one.
+1. **`CLAUDE.md` sections** ([`CLAUDE.md.sections`](CLAUDE.md.sections)): `## Deal lifecycle` (the seven stages and their homes, rows before folders, what promotes and moves back, Nurture and Lost, the weekly review, and the contact card's `**Kind:**` line) and an `## Entity structures` pointer. They are added beside the sections of base or a flavor, and never replace one.
 2. **A rule file** ([`.claude/rules/deal-brief.md`](.claude/rules/deal-brief.md)): the eight header lines of a deal brief, the lost-reason list, the rule that keeps the next step out of the header, and the columns of the lead register.
 3. **No skill, no skeleton files.** `/para-pipeline` renders the board from the declared lifecycle, and the register is one file the vault creates the first time it has a lead.
 

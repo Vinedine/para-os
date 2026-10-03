@@ -33,7 +33,7 @@ Some of these links may **already be broken** from earlier moves - fix them in t
 
 **Re-check the plan call's snapshot first**, immediately before anything below writes, per [para-shared/scripts.md](../../para-shared/scripts.md).
 
-In order, with `git mv` so history is preserved, except on the [read-only iPad delivery](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery), whose rules govern every move and delete. **`move_plan.inside` and `.inbound`** (from the plan call) name every link that sub-steps 6 and 7 below rewrite, each with the `new_href` it becomes.
+In order, with `git mv` so history is preserved. **`move_plan.inside` and `.inbound`** (from the plan call) name every link that sub-steps 6 and 7 below rewrite, each with the `new_href` it becomes.
 
 **`git mv` on a folder fails whenever the index disagrees with the disk, and that is the ordinary state of a working vault.** A single uncommitted rename or deletion inside the entity aborts the entire move:
 

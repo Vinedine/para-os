@@ -4,7 +4,7 @@ For an operator who wants a route from "this keeps costing me time" to a short l
 
 Onboarding's phase 2 inventories work that already exists; `/para-new idea` records a concept already formed. This sits between the two: it harvests the operator's frustrations, turns them into problem statements, generates ideas with the operator's first, and lands at most three through `/para-new`. It runs as often as the operator wants, in one sitting or across several.
 
-It sits on any delivery and beside any flavor. On read-only iPad, where there is no actions file, a test the operator dates stays prose in the idea's brief.
+It sits beside any flavor.
 
 ## What it adds
 

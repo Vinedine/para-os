@@ -23,7 +23,7 @@ Grep the whole vault for references to the idea's path and name. Classify each: 
 
 ## Step 4 - Move, retense, seed
 
-In order, on the read-only iPad delivery inside [its edit cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery):
+In order:
 
 1. Move the folder with `git mv` so history is preserved, falling back to a plain move if the vault is not a git repo.
 2. **Retense the brief** to the vault's project shape. Facts are preserved verbatim: the concept becomes the goal, the reasoning becomes why it matters, open questions that are still open stay open questions. Idea-only anchors that the vault's conventions define (an idea stage line, a promotion-criteria section) are removed; a staged entity keeps its header, its Stage line moved to the promoting stage `(since <today>)`. Nothing is silently dropped: anything that no longer fits the project shape is surfaced, not deleted.

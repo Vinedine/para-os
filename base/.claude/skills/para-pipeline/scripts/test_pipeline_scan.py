@@ -27,7 +27,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from pipeline_scan import CollectedVault, main, scan
+from pipeline_scan import main, scan
 
 TODAY = date(2026, 9, 21)   # falls in the third calendar quarter of its year
 SCRIPT = Path(__file__).resolve().parent / "pipeline_scan.py"
@@ -73,7 +73,7 @@ class VaultCase(unittest.TestCase):
 
 class FolderEntities(VaultCase):
 
-    def test_a_folder_entity_is_collected_from_its_brief(self):
+    def test_a_folder_entity_is_read_from_its_brief(self):
         write(self.root, "resources/ideas/acme/brief.md", "\n".join([
             "# Acme", "",
             "**Stage:** Qualified (since 2026-09-01)",
@@ -168,7 +168,7 @@ class FolderEntities(VaultCase):
 
 class RowEntities(VaultCase):
 
-    def test_a_row_is_collected_per_table_row_with_its_section(self):
+    def test_a_row_is_read_per_table_row_with_its_section(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Open", "",
             "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
@@ -808,11 +808,6 @@ class Scope(VaultCase):
         self.assertEqual(report["error"], "no such lifecycle")
         self.assertEqual(report["declared"], ["Deal lifecycle"])
 
-    def test_a_collected_vault_is_refused_rather_than_read_as_empty(self):
-        write(self.root, "resources/mds/projects__acme__brief.md", "# acme\n")
-        with self.assertRaises(CollectedVault):
-            scan(self.root, TODAY)
-
     def test_two_lifecycles_are_scanned_independently(self):
         write(self.root, "CLAUDE.md", LIFECYCLE + "\n".join([
             "## Property lifecycle", "",
@@ -907,13 +902,6 @@ class CommandLine(VaultCase):
     def test_a_vault_path_that_is_not_a_folder_is_a_usage_error(self):
         err = self.usage_error("--vault", str(self.root / "missing"))
         self.assertIn("no such vault", err)
-
-    def test_a_collected_vault_exits_2_with_the_reason_on_stderr_and_nothing_on_stdout(self):
-        write(self.root, "resources/mds/projects__acme__brief.md", "# acme\n")
-        code, out, err = self.run_main("--today", "2026-09-21")
-        self.assertEqual(code, 2)
-        self.assertEqual(out, "")
-        self.assertTrue(err.startswith("pipeline_scan: "), err)
 
 
 class ScriptRun(VaultCase):

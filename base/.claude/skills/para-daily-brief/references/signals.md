@@ -11,14 +11,14 @@ Emit each only when it fires:
 - **Falsely-overdue candidates:** items overdue by **more than 30 days**. Flag the count and the worst offender.
 - **Stale recurrence:** a `🔁` item whose `📅` is more than one full cadence period in the past. Flag the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
 - **Undated majority:** when undated items exceed half of all open items and there are **8 or more** open items, one line: `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
-- **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, from the scan's own count call. **Decode `resources/mds/` before counting** (SKILL.md Step 1b). **Skip any file carrying a frozen-record note** (a blockquote in its first 15 lines, before its first checkbox, saying the boxes are a point-in-time record, not live work). Flag only what is left, one line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
-- **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender, worst first, capped at three: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`. Count with one `wc -l` over the glob, never by reading the files; without a shell, Read each at offset 500 with limit 1, and a line there puts it past the cap; in a collected vault the glob is `resources/mds/*__brief.md` and `resources/mds/*__README.md`, reported under the **decoded** path.
+- **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, from the scan's own count call. **Skip any file carrying a frozen-record note** (a blockquote in its first 15 lines, before its first checkbox, saying the boxes are a point-in-time record, not live work). Flag only what is left, one line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
+- **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender, worst first, capped at three: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`. Count with one `wc -l` over the glob, never by reading the files; without a shell, Read each at offset 500 with limit 1, and a line there puts it past the cap.
 
 **Under an entity scope**, compute the flags against that entity alone and skip misplaced checkboxes and undated majority. Steps 4d, 5b and 5c are skipped entirely; Step 4e still runs, for the Next action tiebreak.
 
 ## Step 4d: Ideas lane
 
-If `resources/ideas/` exists, list its direct subfolders, then read each one's `brief.md` (collected: `resources/mds/resources__ideas__<name>__brief.md`, SKILL.md Step 1b).
+If `resources/ideas/` exists, list its direct subfolders, then read each one's `brief.md`.
 
 **Date:** that `brief.md`'s, by the dating rule in [task-scan.md](task-scan.md#step-4b-aggregate-per-entity).
 
@@ -46,7 +46,7 @@ A declared lifecycle with no live entity renders its zeros.
 
 ## Step 5b: Check the triage folder
 
-Glob the **direct file children** of `triage/` (top-level only), with their [collected copies](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery). Do not parse contents. A `.pdf` and its `.md` are one line, linked to the `.pdf` where one exists. **`.gitkeep` is not an item.** No item means omit the section.
+Glob the **direct file children** of `triage/` (top-level only). Do not parse contents. **`.gitkeep` is not an item.** No item means omit the section.
 
 ## Step 5c: Build the agenda
 

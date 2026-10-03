@@ -20,7 +20,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from brief_scan import CollectedVault, WIP_THRESHOLD, scan
+from brief_scan import WIP_THRESHOLD, scan
 
 
 def write(root, rel, text):
@@ -425,24 +425,6 @@ class LifecycleCounts(VaultCase):
     def test_a_vault_with_no_lifecycle_carries_an_empty_list(self):
         build_vault(self.root)
         self.assertEqual(scan(self.root, TODAY)["lifecycles"], [])
-
-
-class VaultKind(VaultCase):
-
-    def test_a_vault_with_no_action_files_is_the_read_only_kind(self):
-        write(self.root, "README.md", "# Read-only vault\n")
-        write(self.root, "areas/health/brief.md", "# health\n")
-        self.assertEqual(scan(self.root, TODAY)["vault_type"], "B")
-
-    def test_a_vault_with_action_files_is_the_full_kind(self):
-        build_vault(self.root)
-        self.assertEqual(scan(self.root, TODAY)["vault_type"], "A")
-
-    def test_a_collected_vault_is_refused_rather_than_read_as_empty(self):
-        write(self.root, "resources/mds/projects__acme__actions.md", "# acme\n\n- [ ] One\n")
-        write(self.root, "README.md", "# Collected\n")
-        with self.assertRaises(CollectedVault):
-            scan(self.root, TODAY)
 
 
 if __name__ == "__main__":

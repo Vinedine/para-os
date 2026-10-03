@@ -19,7 +19,7 @@ Brings a property's dossier to **decision-ready**: every reachable fact gathered
 
 ## What it reads
 
-1. **The vault's `CLAUDE.md`**: its `**Flavor:**` and `**Delivery:**` lines, the books line and any capital page under `## Deal sheets`, the network-card convention, the language rule. Then `.claude/rules/property-dossier.md` and `property-sources.md`.
+1. **The vault's `CLAUDE.md`**: its `**Flavor:**` line, the books line and any capital page under `## Deal sheets`, the network-card convention, the language rule. Then `.claude/rules/property-dossier.md` and `property-sources.md`.
 2. **The source register**, `resources/property-evaluation/property-data-sources.md`. Every local fact comes from it; a local fact it does not name is never assumed.
 3. **The analyst persona**, found by shape and not by name: the one folder under `resources/prompts/` holding a `*.core.md` and `adapters/claude-code.md`. Its `knowledge/` carries the tax and structure reasoning for the vault's jurisdiction.
 
@@ -27,7 +27,7 @@ Any of the three missing: stop and ask.
 
 ## Procedure
 
-Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary. Each phase ends with a short summary and waits for the go-ahead; never advance past a phase that changed files without one. On `**Delivery:** readonly-ipad`, run [its edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) around the writes.
+Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary. Each phase ends with a short summary and waits for the go-ahead; never advance past a phase that changed files without one.
 
 1. **Setup**: the property and the mode. **Procedure: [references/enrichment.md](references/enrichment.md).**
 2. **Focused folder cleanup**, this folder only. **Procedure: [references/enrichment.md](references/enrichment.md).**

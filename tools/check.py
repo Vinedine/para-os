@@ -14,11 +14,10 @@ What it enforces, and why each one is machinery rather than prose:
                         marker that disagrees with the table sends the wrong answer to every
                         vault, silently.
 
-  Template revisions    base/, each delivery skeleton, and each example vault all stamp a
-                        `<!-- para-os-template: -->` marker. They must agree with the newest
-                        CHANGELOG entry: a delivery left a revision behind means /para-upgrade
-                        reads a stale master and reports "nothing to do" on a vault that
-                        genuinely needs migrating.
+  Template revisions    base/ and each example vault stamp a `<!-- para-os-template: -->`
+                        marker. They must agree with the newest CHANGELOG entry: a template
+                        left a revision behind means /para-upgrade reads a stale master and
+                        reports "nothing to do" on a vault that genuinely needs migrating.
 
   Release notes         RELEASES.md tells people what each revision changes; CHANGELOG.md
                         tells /para-upgrade what to do. Both list the same revisions in the
@@ -44,11 +43,6 @@ What it enforces, and why each one is machinery rather than prose:
                         than skipping: an integration nobody could verify must not report as a
                         clean bill of health.
 
-  Delivery tracking     Each delivery skeleton file is a derived copy of a base file, shipped
-                        whole rather than as a patch. Content cannot be compared - the deltas
-                        are the point - so DELIVERY_TRACKING stamps the digest of each base file
-                        and this fails when base moves, until someone has reconciled the two.
-
   Vendor validator      `claude plugin validate` over the same folder, which is a linter and
                         not a distribution step: no manifest, no marketplace, nothing
                         published. It enforces whatever the tool currently requires of a
@@ -72,9 +66,8 @@ What it enforces, and why each one is machinery rather than prose:
                         failed call per run before the agent retries.
 
   Rules contract        Every `.claude/rules/*.md` file carries a non-empty `paths:` frontmatter
-                        list, and it and its vault's CLAUDE.md point at each other, both ways -
-                        base's shipped rule files against base's template, and each delivery
-                        skeleton's template against base's rules, which its vaults inherit.
+                        list, and it and its vault's CLAUDE.md point at each other, both ways,
+                        base's shipped rule files against base's template included.
                         A rule file with no pointer is invisible to a skill that resolves shape
                         from CLAUDE.md alone, and a pointer to a file that was renamed or
                         deleted sends a reader to nothing.
@@ -89,7 +82,6 @@ What it enforces, and why each one is machinery rather than prose:
 Deliberately NOT checked: anything requiring judgement (privacy beyond a known term, bloat,
 whether a rule earns its words). Those are review, not a script.
 """
-import hashlib
 import io
 import os
 import re
@@ -250,13 +242,8 @@ def changelog_revisions():
     return re.findall(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$", text, re.M)
 
 
-def delivery_skeleton_templates():
-    return sorted((ROOT / "addons").glob("*/skeleton/CLAUDE.md.template"))
-
-
 def template_files():
     files = [ROOT / "base" / "CLAUDE.md.template"]
-    files += delivery_skeleton_templates()
     files += sorted(p / "CLAUDE.md" for p in (ROOT / "examples").iterdir()
                     if p.is_dir() and (p / "CLAUDE.md").exists())
     return [f for f in files if f.exists()]
@@ -272,10 +259,6 @@ def check_template_revisions():
     if len(set(revisions)) != len(revisions):
         bad("CHANGELOG.md: a revision heading appears twice")
     current = revisions[0]
-
-    if not delivery_skeleton_templates():
-        bad("addons/*/skeleton/CLAUDE.md.template: none found, so every template check below "
-            "would skip the delivery skeletons without failing. Fix the glob, not this line.")
 
     for f in template_files():
         m = re.search(r"<!--\s*para-os-template:\s*(\S+)\s*-->",
@@ -314,8 +297,8 @@ FINISHED_MAX_LINES = 200   # a populated vault's own CLAUDE.md, at the adherence
 def check_template_size():
     """A vault starts at a template's length and adds its own sections on top.
 
-    The adherence target for a CLAUDE.md is 200 lines. A **template** - base, and every delivery
-    skeleton - becomes an adopter's vault CLAUDE.md and is then extended, so it has to leave
+    The adherence target for a CLAUDE.md is 200 lines. A **template**, base's, becomes an
+    adopter's vault CLAUDE.md and is then extended, so it has to leave
     room below that target for what the vault adds. A **finished** vault CLAUDE.md, which is
     what the example is, is held to the target itself: an example over 200 lines contradicts
     the rule it ships. Rules only: procedure belongs to the script or skill that runs it,
@@ -623,8 +606,7 @@ def skill_script_dirs():
 
 def check_tests():
     suite_dirs = integration_dirs() + skill_script_dirs()
-    # An add-on's pipeline/ runs its suite where it ships one; readonly-ipad's PowerShell and
-    # renderer have none, so a pipeline is not held to having one.
+    # An add-on's pipeline/ runs its suite where it ships one, but is not held to having one.
     pipelines = sorted(d for d in (ROOT / "addons").glob("*/pipeline") if d.is_dir())
     suites = [p for d in suite_dirs + pipelines for p in sorted(d.iterdir())
               if p.suffix in RUNNERS and is_test_file(p)]
@@ -801,9 +783,6 @@ RULES_PATHS_LIST = re.compile(r"^paths:[ \t]*\n((?:^[ \t]*-[ \t]*\S.*\n?)+)", re
 RULES_POINTER = re.compile(r"\.claude/rules/([A-Za-z0-9_.-]+\.md)")
 
 
-BASE_RULES = ROOT / "base" / ".claude" / "rules"
-
-
 def vault_roots_with_rules():
     """Every CLAUDE.md, or CLAUDE.md.template, paired with the `.claude/rules/` it points into.
 
@@ -813,9 +792,7 @@ def vault_roots_with_rules():
     rules/ folder is picked up with no edit here.
 
     Templates count too, because base ships rule files of its own: matching only `CLAUDE.md`
-    would leave the one set every new vault receives checked by nothing. A delivery skeleton
-    ships no `.claude/` - its vaults are built by copying base whole - so its template is
-    held against base's rules, which is what its pointers resolve to once installed.
+    would leave the one set every new vault receives checked by nothing.
     """
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in WALK_SKIP_DIRS]
@@ -824,8 +801,6 @@ def vault_roots_with_rules():
             if name not in filenames:
                 continue
             rules_dir = here / ".claude" / "rules"
-            if not rules_dir.is_dir() and here.name == "skeleton" and here.parent.parent == ROOT / "addons":
-                rules_dir = BASE_RULES
             if rules_dir.is_dir():
                 yield here / name, rules_dir
 
@@ -868,61 +843,6 @@ def check_rules_contract():
 
     if not seen:
         ok("no .claude/rules/ folders shipped yet")
-
-
-# --- delivery skeletons track base ----------------------------------------------------
-
-# What each delivery skeleton file is a derived copy of, and the digest of that master as of
-# the last time a human reconciled the two. The digests live HERE rather than stamped in the
-# delivery files themselves because those files ship: the delivery CLAUDE.md.template becomes an
-# adopter's vault CLAUDE.md, read every session, and a repo-maintenance hash has no business
-# being a permanent line in it. Add a row when a delivery gains a file that derives from base.
-DELIVERY_TRACKING = {
-    "addons/readonly-ipad/skeleton/CLAUDE.md.template": ("base/CLAUDE.md.template", "90e7ebd0dd02"),
-    "addons/readonly-ipad/skeleton/README.md.template": ("base/README.md.template", "43113ab61151"),
-    "addons/readonly-ipad/skeleton/.gitignore":         ("base/.gitignore",          "5b4d4ef01142"),
-}
-
-
-def base_digest(p):
-    """Content hash, line endings normalized: a CRLF checkout must hash the same as an LF one,
-    or this check would fire on every machine that clones the repo rather than on a real edit."""
-    text = "\n".join(p.read_bytes().decode("utf-8", "replace").splitlines())
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
-
-
-def check_delivery_tracking():
-    """A delivery skeleton file is a derived copy of a base file, and nothing else notices it rot.
-
-    `addons/*/skeleton/` ships whole files, not patches, so each is 39% to 67% a verbatim copy
-    of its base counterpart with a handful of deliberate deltas. The convention has been a
-    header comment reading "if base changes, propagate here" - the same unenforced promise that
-    let installed integration scripts drift for a revision, in the one place /para-upgrade reads
-    as a master. Base moves, the delivery keeps the old paragraph, and every vault on that delivery
-    is migrated to a rule the product no longer states.
-
-    Comparing content cannot work: the deltas are the point, so a content rule either passes on
-    everything or fails on the deltas forever. What CAN be checked is whether the master has
-    moved since a human last looked. Re-stamping after reviewing a base diff and changing
-    nothing is a legitimate outcome, and is the whole point: it records that someone looked.
-    """
-    for skel_path, (base_path, stamped) in sorted(DELIVERY_TRACKING.items()):
-        f, m = ROOT / skel_path, ROOT / base_path
-        if not f.exists():
-            bad(f"{skel_path}: listed in DELIVERY_TRACKING but does not exist. Drop the row, "
-                f"or restore the file.")
-            continue
-        if not m.exists():
-            bad(f"{skel_path}: tracks `{base_path}`, which does not exist")
-            continue
-        want = base_digest(m)
-        if stamped != want:
-            bad(f"{base_path} changed ({stamped} -> {want}); {skel_path} derives from it and "
-                f"may now be stale. Review the diff, apply what the delivery needs, then update "
-                f"the digest in tools/check.py DELIVERY_TRACKING. Re-stamping with no edit to the "
-                f"delivery is fine - it records that someone looked.")
-        else:
-            ok(f"{skel_path} reconciled against {base_path} @ {want}")
 
 
 def check_skill_validator():
@@ -1004,7 +924,6 @@ def main():
     check_dates()
     check_never_ship()
     check_example_skill_copies()
-    check_delivery_tracking()
     check_skills()
     check_launchers()
     check_rules_contract()

@@ -22,8 +22,6 @@ Read-only verification pass. Also the second half of the `audit` argument, which
 
 Report a clean state summary, or list residual issues with proposed fixes.
 
-**A vault this run spread** is rendered and collected again after this audit, closing [the edit cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).
-
 ## Edge case
 
 - **An Open items list grows indefinitely with low-priority items**: propose grouping into "Active" (real work) vs "Residual flags" (historical gaps, low priority). Keep both, but make the priority hierarchy visible.

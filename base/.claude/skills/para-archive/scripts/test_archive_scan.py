@@ -29,7 +29,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from archive_scan import CollectedVault, main, plan, reason_allowed, verify
+from archive_scan import main, plan, reason_allowed, verify
 
 SCRIPT = Path(__file__).resolve().parent / "archive_scan.py"
 TODAY = date(2026, 9, 22)
@@ -144,17 +144,6 @@ class VaultRoot(unittest.TestCase):
         self.assertEqual(code, 3)
         out = json.loads(buf.getvalue())
         self.assertIsNone(out["vault"]["hint"])
-
-    def test_exit_2_on_a_collected_vault(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        root = Path(tmp.name)
-        for d in ("projects", "areas", "archive"):
-            (root / d).mkdir()
-        write(root, "CLAUDE.md", "# Vault\n")
-        write(root, "resources/mds/projects__acme__brief.md", "# acme\n")
-        with self.assertRaises(CollectedVault):
-            plan(root, "acme", None, TODAY, None)
 
     def test_a_nonexistent_vault_path_exits_3_with_json_rather_than_bare_usage_text(self):
         # A typo'd or stale --vault used to hit argparse's own "no such vault" error before
@@ -1097,18 +1086,6 @@ class CommandLine(VaultCase):
         self.assertEqual(report["moved_to"], "archive/projects/acme")
         self.assertEqual(len(report["inside"]["dangling"]), 1)
         self.assertFalse(report["clean"])
-
-    def test_a_collected_vault_exits_2_in_both_modes(self):
-        write(self.root, "resources/mds/projects__acme__brief.md", "# acme\n")
-        for argv in (("--entity", "acme", "--today", "2026-09-22"),
-                     ("--verify", "--moved-from", "projects/acme",
-                      "--moved-to", "archive/projects/acme")):
-            err = io.StringIO()
-            with contextlib.redirect_stderr(err):
-                code, out = self.run_main(*argv)
-            self.assertEqual(code, 2, argv)
-            self.assertEqual(out, "")
-            self.assertIn("archive_scan: this vault is collected", err.getvalue())
 
     def test_plan_mode_without_an_entity_is_a_usage_error(self):
         self.assertIn("--entity is required outside --verify", self.usage_error())

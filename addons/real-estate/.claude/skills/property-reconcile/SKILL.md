@@ -19,7 +19,7 @@ Answers one question: **does what the dossier says match what the source documen
 
 ## What it reads
 
-- **The vault's `CLAUDE.md`**: its `**Flavor:**` and `**Delivery:**` lines, the books line under `## Deal sheets`, the language rule.
+- **The vault's `CLAUDE.md`**: its `**Flavor:**` line, the books line under `## Deal sheets`, the language rule.
 - **`.claude/rules/property-dossier.md`** (the shape claims live in) and **`property-sources.md`** (how `sources/` is named).
 - **`resources/property-evaluation/property-data-sources.md`**, the source register: it says which gaps are unobtainable. It is not a licence to fetch.
 
@@ -27,7 +27,7 @@ A vault that declares no `**Flavor:** real-estate` and has no dossier rule is no
 
 ## Procedure
 
-Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary. On `**Delivery:** readonly-ipad`, run [its edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) around the writes.
+Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary.
 
 1. **Locate.** Resolve the vault root once and hold it (`operating-discipline.md`). Resolve the property to exactly one folder and its dossier: `brief.md` in `projects/` or `resources/ideas/`, `README.md` in `areas/properties/`. None or several: stop and ask. List every file in `sources/`; with none, continue on the books alone if the vault names them, otherwise stop. Summarise and get the go-ahead.
 2. **Extract, in parallel.** One agent per group of source documents plus one for the books, each returning quoted facts only. **Procedure: [references/extraction.md](references/extraction.md).**

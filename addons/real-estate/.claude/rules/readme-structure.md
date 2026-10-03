@@ -4,15 +4,11 @@ paths:
   - "areas/**/README.md"
   - "resources/*/README.md"
   - "archive/**/README.md"
-  - "resources/mds/projects__README.md"
-  - "resources/mds/areas__*__README.md"
-  - "resources/mds/resources__*__README.md"
-  - "resources/mds/archive__*__README.md"
 ---
 
 # README structure
 
-**Order:** fixed for a property, not fixed for any other README. The `resources/mds/` globs cover a read-only-iPad vault in collected state; anywhere else they match nothing.
+**Order:** fixed for a property, not fixed for any other README.
 
 ## The shape
 

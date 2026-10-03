@@ -38,7 +38,7 @@ Batch up to **4 questions per call**, ordered so questions about the same entity
 
 The rule above covers dispositions. Three other shapes reach the operator, and which one decides whether to use the tool and how:
 
-- **A closed choice** (purpose, language, a delivery, a shape) is always a question: the options are known before anyone answers.
+- **A closed choice** (purpose, language, a flavor, a shape) is always a question: the options are known before anyone answers.
 - **An open answer** (a name, a deadline, a goal, a URL) is a question **only when the skill holds a concrete suggestion for it**, from the operator's request or the vault itself. The suggestion goes first as `(Recommended)` and **Other** is where the operator corrects it. With nothing to suggest, it stays a short numbered message in prose.
 - **A discovery question** (what eats your week, where your information lives) asks which of several things hold, not what to do, so it is the one shape asked with `multiSelect: true` and no option labelled `(Recommended)`.
 

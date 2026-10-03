@@ -1,6 +1,5 @@
 <!-- sales MODULE: the sections this module adds to a vault's CLAUDE.md. Merge them in beside
-     the sections of base (or of the vault's delivery skeleton, or of a flavor); they never
-     replace one. Add `**Modules:** sales` under the **Type:** line in the same pass, and add
+     the sections of base and of any flavor; they never replace one. Add `**Modules:** sales` under the **Type:** line in the same pass, and add
      the weekly review to the vault's business actions file as its bullet below says. -->
 
 ## Deal lifecycle
