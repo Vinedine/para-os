@@ -557,14 +557,14 @@ def _mailbox_readers(entries):
     so Dismiss (other vault) leaves the item somewhere (references/approval.md)."""
     readers = {}
     for entry in entries:
-        path = entry.get("path")
-        if not entry.get("active") or not path or not Path(path).is_dir():
+        path, name = entry.get("path"), entry.get("name")
+        if not entry.get("active") or not name or not path or not Path(path).is_dir():
             continue
         for row in triage_sources(Path(path))["rows"]:
             if row.get("mailbox") and row.get("kind") in ("connector", "fetch-script"):
                 names = readers.setdefault(row["mailbox"].lower(), [])
-                if entry.get("name") not in names:
-                    names.append(entry.get("name"))
+                if name not in names:
+                    names.append(name)
     return {mailbox: sorted(names) for mailbox, names in readers.items()}
 
 

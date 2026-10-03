@@ -804,6 +804,7 @@ class DuplicatesAndCrossVault(VaultCase):
             write(path, "CLAUDE.md", text)
             entries.append({"name": name, "path": str(path), "active": active})
         entries.append({"name": "Gone", "path": str(Path(tmp.name) / "gone"), "active": True})
+        entries.append({"path": str(Path(tmp.name) / "Beta"), "active": True})  # no name
         write(self.root, "triage/20260920 Re Quote 88604c.md", "\n".join([
             "# Re: Quote", "",
             "- **Source:** google-workspace (alex@example-work.com)",
