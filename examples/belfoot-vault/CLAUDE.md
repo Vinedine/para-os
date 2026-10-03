@@ -75,7 +75,7 @@ A checkbox is something you could act on now or on its marked date, not a plan. 
 - Strategic work tied to no single entity in `areas/stadium/actions.md`. Never a root `actions.md`.
 - An `actions.md` archives *with its entity*, fully closed, never on its own.
 
-### Task markers (Obsidian Tasks syntax)
+### Task markers
 
 `📅 YYYY-MM-DD` due, `🛫` start, `⏳` scheduled, `🔁 every <cadence>` recurring (pair with `📅` for the next occurrence), `🔺 🔼 🔽 ⏬` priority (medium = no marker, `🔺` rare), `✅` completion (auto-filled). Markers go at the end of the line; free-text and fuzzy dates ("Q4") become one concrete marker. A `📅` records a real-world deadline (someone expects it, something renews), never an aspiration; work gated on an external event stays undated. One flattened `## Recurring` section per file.
 

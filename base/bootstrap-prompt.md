@@ -6,7 +6,7 @@ Paste the block below into a Claude Code session (or any markdown-reading agent)
 
 You are setting up a new para-os vault. The working directory is the vault root. It already contains the PARA skeleton (`triage/`, `projects/`, `areas/{business,network}/`, `resources/{prompts,ideas,scripts}/`, `archive/meetings/`), each folder with a placeholder README except two: `triage/` carries only a `.gitkeep` and must never be given a README, and `resources/scripts/` has a real README (the state buckets and `PARAOS_HOME` resolver) that stays as shipped. Also present: the bundled `.claude/` folder (skills, rules, settings), two template files at the root - `CLAUDE.md.template` and `README.md.template` - both full of `{{placeholders}}`, and this `bootstrap-prompt.md`.
 
-para-os vaults follow a fixed pattern: a PARA layout, a per-vault `CLAUDE.md` documenting the local conventions, an `actions.md` task format using Obsidian Tasks emoji markers, and the principle "don't template an entity shape until a second instance proves it."
+para-os vaults follow a fixed pattern: a PARA layout, a per-vault `CLAUDE.md` documenting the local conventions, an `actions.md` task format using emoji task markers, and the principle "don't template an entity shape until a second instance proves it."
 
 Onboarding runs in three phases. **You run phase 1 now**, in this session. Phases 2 and 3 are real work that spans sessions, so you capture them as the vault's first project, `projects/vault-setup/`, which I retire once the vault is loaded and wired.
 
@@ -80,7 +80,7 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
   - *Systems* - one row per system my work lives in (mail, calendar, drive, accounting, tickets, ...): what it holds · how it's wired in (connector authorized in the agent · MCP server declared in config · integration script in `resources/scripts/`) · status (pending / connected). Only the integration scripts live in the vault; connectors and MCP servers are agent-side, so this table plans and tracks them.
   - *Data sources* - one row per existing folder or inbox to pull from: where it is · what to extract into the vault.
 
-**`actions.md`** (Obsidian Tasks markers) - the concrete next steps:
+**`actions.md`** (emoji task markers) - the concrete next steps:
 
 - `- [ ] Brainstorm: four short rounds on my week, my systems, the next 90 days and one win (or drop a recording / notes in triage/)`
 - `- [ ] List the systems my work lives in`
