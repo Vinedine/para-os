@@ -10,7 +10,7 @@ One file per routed thread per vault, into `<vault>/triage/`. It follows the sha
 
 That exact derivation, not merely *a* hash: it lets any later run **recompute a filename and look for it on disk**, the only check that survives a deleted ledger.
 
-**A thread that resurfaces and stages again on the same day computes the same name.** Where the computed name already exists on disk, append ` 2`, then ` 3`, and look the stem up as a prefix glob in the places [the lookup on disk](#the-lookup-on-disk) names.
+**A thread that resurfaces and stages again on the same day computes the same name.** Look the stem up as a prefix glob in the places [the lookup on disk](#the-lookup-on-disk) names and read each match's `Message id`. One equal to this note's means the message is already staged: write nothing. Otherwise append ` 2`, then ` 3`.
 
 **Body:**
 
