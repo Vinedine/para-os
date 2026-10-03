@@ -471,6 +471,16 @@ class NextStep(VaultCase):
             with self.subTest(cell=cell):
                 self.assertEqual(self.row_entity(cell)["next_step"]["date"], "2026-09-25")
 
+    def test_a_by_date_outranks_an_earlier_on_date(self):
+        # Issue #173: the first attached date won, so the presentation date read as the due date.
+        for cell, due in (
+                ("Contact the director after the partner presentation on 2026-10-06, "
+                 "by 2026-10-09 at the latest", "2026-10-09"),
+                ("Call by 2026-10-09 to confirm the 📅 2026-10-12 visit", "2026-10-12"),
+                ("Meet on 2026-10-06, send the notes 2026-10-08", "2026-10-06")):
+            with self.subTest(cell=cell):
+                self.assertEqual(self.row_entity(cell)["next_step"]["date"], due)
+
     def test_a_no_step_wording_is_no_next_step(self):
         # Issue #34, finding 2: "None planned" suppressed the no_next_step flag.
         for cell in ("None planned: raised at the partners meeting on 2026-09-10", "none planned",

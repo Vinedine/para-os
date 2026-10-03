@@ -68,9 +68,9 @@ One next step per entity, taken from the first of these that produces an open ch
    the same file. Follow the link as written; a champion line with no
    link, or a link resolving to nothing, is the no-next-step case rather than a name to
    search for.
-4. **The row's own next-step column**, for an entity in a row home. Its date is one the
-   wording attaches to the step: a `📅` marker, `by` or `on` before it, or the date closing
-   the cell. A date elsewhere in the prose is not the due date. An undated step still
+4. **The row's own next-step column**, for an entity in a row home. Its date is the one the
+   wording attaches to the step, ranked: a `📅` marker, then `by` before it, then `on`, then
+   the date closing the cell. A date elsewhere in the prose is not the due date. An undated step still
    counts; `None planned`, `-` and an empty cell do not.
 
 An entity that reaches the end of that list with nothing open **has no next step**, which is

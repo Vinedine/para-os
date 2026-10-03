@@ -199,11 +199,20 @@ def next_step_for_folder(vault, today, doc, fields, other_files):
     return champion_step(vault, today, doc.parent, fields)
 
 
-# A date the wording attaches to a register row's step: a 📅 marker, `by` or `on` before it,
-# or the date closing the cell. A date anywhere else in the prose is not the due date.
-STEP_DATE_RE = re.compile(
-    r"📅️?\s*(\d{4}-\d{2}-\d{2})|\b(?:by|on)\s+(\d{4}-\d{2}-\d{2})|(\d{4}-\d{2}-\d{2})\W*$",
-    re.IGNORECASE)
+# A date the wording attaches to a register row's step, ranked: a 📅 marker, `by` before it,
+# `on` before it, the date closing the cell. The highest-ranked match wins wherever it sits.
+# A date anywhere else in the prose is not the due date.
+STEP_DATE_RES = [re.compile(p, re.IGNORECASE) for p in (
+    r"📅️?\s*(\d{4}-\d{2}-\d{2})", r"\bby\s+(\d{4}-\d{2}-\d{2})",
+    r"\bon\s+(\d{4}-\d{2}-\d{2})", r"(\d{4}-\d{2}-\d{2})\W*$")]
+
+
+def step_date(text):
+    for rx in STEP_DATE_RES:
+        m = rx.search(text)
+        if m:
+            return parse_date(m.group(1))
+    return None
 
 
 def next_step_for_row(vault, today, reg_path, row, header_cols):
@@ -216,8 +225,7 @@ def next_step_for_row(vault, today, reg_path, row, header_cols):
     text = (row.get(next_key) or "").strip() if next_key else ""
     if text in ("", "-") or text.lower().startswith("none planned"):
         return None
-    m = STEP_DATE_RE.search(text)
-    d = parse_date(next(g for g in m.groups() if g)) if m else None
+    d = step_date(text)
     return {"text": text, "date": iso(d), "days": (d - today).days if d else None,
             "file": reg_path.relative_to(vault).as_posix(), "line": row.get("line"),
             "source": "register_row"}
