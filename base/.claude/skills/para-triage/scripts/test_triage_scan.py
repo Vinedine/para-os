@@ -720,6 +720,12 @@ class ContentIncomplete(unittest.TestCase):
             self.assertTrue(got, line)
             self.assertEqual(phrase, want)
 
+    def test_a_full_body_without_the_operators_own_messages_is_incomplete(self):
+        got, phrase = _content_incomplete(
+            "Full body of the two inbound messages; own messages not fetched.")
+        self.assertTrue(got)
+        self.assertEqual(phrase, "not fetched")
+
     def test_a_clause_naming_an_attachment_settles_nothing(self):
         got, phrase = _content_incomplete("The attached PDF was not read.")
         self.assertIsNone(got)

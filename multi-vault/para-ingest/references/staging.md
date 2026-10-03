@@ -31,7 +31,7 @@ That exact derivation, not merely *a* hash: it lets any later run **recompute a 
 
 Two rules about the content:
 
-- **Whatever stands in for the message is qualified in the note itself, on the `Content` line.** A note holding a 200-character snippet must say so.
+- **Whatever stands in for the message is qualified in the note itself, on the `Content` line.** A note holding a 200-character snippet must say so, and one built without the operator's own messages says `own messages not fetched`.
 - **No proposed action, no classification, no urgency.** The note records what arrived and why it was routed here.
 
 ### A resurfaced thread stages a fresh note
