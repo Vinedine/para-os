@@ -36,6 +36,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **Setting up a vault asks three choices.** The bootstrap prompt drops the `Read where` question, and a business vault is always offered the sales module. Reaction: none for an existing vault.
 
+**Existing `working-preferences.md` copies take the reworded Out bullet.** 2026.09.07 reworded it in base only, so a vault's copy still says a preference holding in every vault on the machine "is still written here, per vault". Reaction: replace that bullet in the vault's `.claude/rules/working-preferences.md` with base's, the rest of the file untouched. A preference already listed stays; removing one that repeats user-level instructions is the operator's call.
+
 ---
 
 ## 2026.09.07
