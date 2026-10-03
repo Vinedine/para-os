@@ -136,9 +136,10 @@ diff those.
    (`base/.claude/rules/<name>`, else a declared addon's file of the same name) and that
    file's own `paths:`; `kind` from the three anchors (`**Order:**`, `## The shape`,
    `## Placeholders` as the last `##`) - all three present is `shape`, none is `convention`,
-   anything else is `mixed`; a glob opening on `resources/mds/` (the retired delivery's
-   collected-state twin) is `paths_retired`, left out of `paths_missing` and `paths_extra`
-   against the master's list, both `null` with no master; the pointer sentence in `CLAUDE.md` naming the file. **`sections`**: split each addon's
+   anything else is `mixed`; `paths_missing` and `paths_extra` against the master's list,
+   `null` with no master, leaving out a glob opening on `resources/mds/` (the retired
+   delivery's collected-state twin), which is `paths_retired`; the pointer sentence in
+   `CLAUDE.md` naming the file. **`sections`**: split each addon's
    `CLAUDE.md.sections` and the vault's `CLAUDE.md` at `## ` headings, then look up each
    vault paragraph under a shared heading in `git show <ref>:<sections file>` and in every
    version `git log <ref> -- <sections file>` lists.
