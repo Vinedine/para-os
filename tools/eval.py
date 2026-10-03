@@ -209,12 +209,23 @@ def main(argv=None):
         tags = tag_values(args.rest)
         if args.case:
             cmd += ["--case", args.case]
-        elif not args.shell and not tags:
+        matched = selected_cases(args.case, tags)
+        needs_shell = [n for n, (_, tools) in matched.items() if {"Bash", "PowerShell"} & set(tools)]
+        if not args.shell and not tags and (not args.case or needs_shell):
             # A case needing a shell is not free to skip late: without the grant the run
             # still happens, the model just never gets the tool, and the bill arrives with
-            # a failure that says nothing. Select the ones that can pass here instead.
+            # a failure that says nothing. Select the ones that can pass here instead. The
+            # harness intersects --case with --tag, so a glob catching no shell case (the
+            # install cases carry no native tag) is passed through as given.
             cmd += ["--tag", "native"]
             tags = ["native"]
+            if args.case:
+                left_out = sorted(set(matched) - set(selected_cases(args.case, tags)))
+                if len(left_out) == len(matched):
+                    ap.error(f"--case {args.case} matches only cases that need a shell; "
+                             f"pass --shell to run them")
+                print(f"selecting --tag native, which leaves out {' '.join(left_out)}; "
+                      f"--shell runs them")
 
         cmd += args.rest
         # The harness's own default judge answers in one word with no thinking, and fails
