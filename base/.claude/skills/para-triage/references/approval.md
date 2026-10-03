@@ -46,7 +46,7 @@ Under the shared grouping limits:
 - Several shots of one physical thing (a business card, a photographed letter).
 - Files that arrived together from one sender or event and share a destination folder.
 - A connector thread and an attachment of it a sync script dropped into `triage/`.
-- **The notes staged from one thread** (`items.same_thread`, the same six-character hash in their names or the same `Conversation id`): one question saying what happens to each note. This group alone may carry deletes, its single survivor being the thread in the mailbox ([asking.md](../../para-shared/asking.md#grouping)).
+- **The notes staged from one thread** (`items.same_thread`, the same six-character hash in their names or the same `Conversation id`): one question saying what happens to each note it keeps or files. A note to delete gets its own question, naming the thread in the mailbox as its survivor.
 
 ## The manifest
 

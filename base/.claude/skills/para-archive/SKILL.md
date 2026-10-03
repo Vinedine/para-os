@@ -30,7 +30,7 @@ Do NOT invoke to archive contacts, or an area the vault names no archive destina
 
 ## Procedure
 
-Each step that changes files ends with a proposal and waits for explicit approval. Never auto-advance through a destructive step (move, delete, link rewrite) without showing what will change. **Per-item decisions are asked one at a time** - every open action's disposition, and the version suffix - through `AskUserQuestion`, per [para-shared/asking.md](../para-shared/asking.md); the link repoints and the moves themselves stay a single batched proposal, since they are one mechanical consequence of decisions already made.
+Each step that changes files ends with a proposal and waits for explicit approval. Never auto-advance through a destructive step (move, delete, link rewrite) without showing what will change. **Per-item decisions are asked one at a time** - every open action's disposition, and the version suffix - through `AskUserQuestion`, per [para-shared/asking.md](../para-shared/asking.md); the link repoints batch as one proposal, and each move is approved on its own.
 
 ### Step 0 - Scan
 
