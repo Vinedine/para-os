@@ -3,7 +3,7 @@ name: release
 description: Cut or extend a para-os template revision - pick the label, write the CHANGELOG entry, restamp every marker, bump changed integrations, reconcile delivery digests, run the full check, validate main on real vaults, and ship it to stable. Use when the maintainer says "release", "cut a revision", "stamp the revision", or types /release.
 argument-hint: '[<revision>]'
 disable-model-invocation: true
-allowed-tools: Bash(python3 *), Bash(py *), Bash(git *), Bash(gh *), Read, Grep, Glob, Edit, Write, AskUserQuestion
+allowed-tools: Bash(python3 *), Bash(py *), Bash(git *), Bash(gh *), Read, Grep, Glob, Edit, Write, AskUserQuestion, Skill
 ---
 
 # Release a revision
@@ -85,7 +85,12 @@ Steps 7 and 8 run once every pull request in the revision's milestone has merged
 Record the commit under test, `<sha>`, as `git fetch origin && git rev-parse origin/main`
 prints it. Start the evals on it with `gh workflow run evals.yml --ref main` and read the run's
 summary page when it finishes: a case that dropped since the last weekly run is a finding like
-those below. The maintainer syncs the installed skills from `<sha>`, then upgrades two vaults of
+those below. Beside them, run the `claude-api` skill's `prompt-audit` at `<sha>`, scoped to the
+shipped files the revision changed (`git diff --name-only origin/stable...<sha> -- base addons
+multi-vault`), or to every shipped skill when a Claude model has shipped since the last revision.
+It applies nothing; each finding it would edit is a finding like those below, and a removal it
+proposes is compared on the evals first. The maintainer syncs the installed skills from `<sha>`,
+then upgrades two vaults of
 different shapes with `/para-upgrade --ref <sha>`: one on the previous revision, one further
 behind or on an add-on. In each, run every skill the revision changed with `--test`. Every
 finding is fixed on `main` through its own issue and pull request, and the validation reruns
