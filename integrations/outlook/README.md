@@ -74,7 +74,7 @@ Microsoft says why in `error_description`, keyed by an `AADSTS` code, and the sc
 | `accounts` | List configured mailboxes | no |
 | `fetch [--days N] [--include-bulk]` | Candidates as JSON on stdout, for a skill to judge | **never** |
 | `search <query> [--limit N] [--body] [--all-mailboxes]` | Ad-hoc keyword search across the whole mailbox | **never** |
-| `raw <graph-path> [--account <email>]` | Raw Graph GET: debugging, and reading one message in full | no |
+| `raw <graph-path> [--account <email>]` | Raw Graph GET: debugging, and reading one message in full. `--account` is required once more than one mailbox is configured | no |
 
 There is no default command: a bare `outlook.py` asks for a subcommand.
 

@@ -1704,9 +1704,18 @@ class CmdRaw(unittest.TestCase):
         self.assertEqual(token.call_args.args[1], "b@h.com")
         get.assert_called_once_with("tok", "/me/messages?$top=1")
 
-    def test_without_an_account_the_first_configured_one_is_used(self):
-        _, token, _ = self.run_raw()
+    def test_without_an_account_the_only_configured_one_is_used(self):
+        _, token, _ = self.run_raw(cfg={"client_id": "X",
+                                        "accounts": {"a@h.com": {"refresh_token": "t"}}})
         self.assertEqual(token.call_args.args[1], "a@h.com")
+
+    def test_without_an_account_among_several_it_exits_naming_them(self):
+        # Reading the first one silently answers a message id from another mailbox with
+        # the wrong mailbox's contents, or an error that looks like a missing message.
+        with self.assertRaises(SystemExit) as e:
+            self.run_raw()
+        self.assertIn("--account", str(e.exception))
+        self.assertIn("b@h.com", str(e.exception))
 
     def test_no_account_anywhere_exits_asking_for_one(self):
         with self.assertRaises(SystemExit) as e:
@@ -1715,7 +1724,7 @@ class CmdRaw(unittest.TestCase):
 
     def test_the_answer_is_printed_as_json_with_non_ascii_intact(self):
         body = {"value": [{"subject": "Offerte café Brussel"}]}
-        out, _, _ = self.run_raw(body=body)
+        out, _, _ = self.run_raw(account="a@h.com", body=body)
         self.assertEqual(json.loads(out), body)
         self.assertIn("Offerte café Brussel", out)
 

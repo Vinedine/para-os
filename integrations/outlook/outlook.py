@@ -790,7 +790,12 @@ def resolve_feeds(cfg, account_arg):
 
 
 def cmd_raw(cfg, args):
-    email = args.account or next(iter(cfg.get("accounts", {})), None)
+    accounts = list(cfg.get("accounts", {}))
+    if not args.account and len(accounts) > 1:
+        # A message id belongs to one mailbox: reading the first account silently answers
+        # from the wrong one.
+        sys.exit(f"Several accounts configured ({', '.join(accounts)}). Pass --account.")
+    email = args.account or next(iter(accounts), None)
     if not email:
         sys.exit("No account. Pass --account or configure one.")
     token = access_token(cfg, email)
