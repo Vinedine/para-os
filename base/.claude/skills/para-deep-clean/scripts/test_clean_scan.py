@@ -218,6 +218,17 @@ class DanglingLinks(VaultCase):
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0]["href"], "missing.md")
 
+    def test_a_rule_file_s_links_resolve_from_two_folders_down(self):
+        # A repo list moved into .claude/rules/ carries ../../ links.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, ".claude/rules/code-repos.md",
+              "# Code repos\n\n- [acme](../../projects/acme/brief.md)\n"
+              "- [gone](../projects/acme/brief.md)\n")
+        hits = self.run_scan("1")["phase1"]["dangling"]
+        self.assertEqual([(h["file"], h["href"]) for h in hits],
+                         [(".claude/rules/code-repos.md", "../projects/acme/brief.md")])
+
     def test_excludes_schemes_and_placeholders(self):
         # Finding 5 of the 20260915-2146 test run.
         write(self.root, "CLAUDE.md", "# Vault\n")

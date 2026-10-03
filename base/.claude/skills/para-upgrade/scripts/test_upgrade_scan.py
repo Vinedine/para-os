@@ -1188,6 +1188,23 @@ class RulesBlockCase(CloneCase):
             "[.claude/rules/filing.md](.claude/rules/filing.md), which loads.\n", "filing.md")
         self.assertEqual(rows["filing.md"]["wording"], "convention")
 
+    def test_a_moved_code_repos_list_is_a_convention_with_a_conforming_pointer(self):
+        vault = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
+        write(vault, ".claude/rules/code-repos.md",
+              "---\npaths:\n  - projects/**\n  - areas/**\n  - resources/ideas/**\n---\n"
+              "# Code repos\n\n- `widget-api`: the API. Owned by "
+              "[areas/platform](../../areas/platform/README.md).\n")
+        write(vault, "CLAUDE.md",
+              "# Vault\n\n## Code repos\n\nThe vault names the code repos it steers, and no repo "
+              "names the vault back. The full convention (every repo, what it is, and where it "
+              "lives in this vault) is in [.claude/rules/code-repos.md](.claude/rules/code-repos.md)"
+              ", which loads on its own when a project, idea or area is read.\n")
+        row = rules_block(vault, self.clone, "main", False, [])[0]
+        self.assertEqual(row["kind"], "convention")
+        self.assertEqual((row["pointer"]["section"], row["pointer"]["wording"]),
+                         ("Code repos", "convention"))
+
     def test_the_template_s_own_sentence_conforms(self):
         sentence = ("How the operator likes to work is kept apart: it is in "
                     "[.claude/rules/prefs.md](.claude/rules/prefs.md), which loads on its own.")
