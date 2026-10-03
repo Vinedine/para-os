@@ -10,6 +10,7 @@ Read-only verification pass. Also the second half of the `audit` argument, which
 - CLAUDE.md documents the canonical structures used
 - Triage folder holds no loose files, by Precondition 4's test (subdirectories listed; a `.gitkeep` is fine; a `README.md` is not)
 - No empty PARA leaf directories
+- No loose files at the resources root beyond its `README.md`
 - Archive folder is clean: no loose files at the archive root, `archive/meetings/` holds only cross-cutting records and they follow the dated-naming convention, archived entities carry their minimum record
 - Every person holding a card in `areas/network/` is linked rather than merely named on first mention in each live-bucket file (exempting the vault's principals outside the root README and every Phase 1 Step 1.2 exclusion), and their contact details appear only on the card, attributed to their actual owner rather than to whoever shares a line with them
 - No contradiction between live files survives unrecorded: each is corrected in the copies, or carried as an open item on the entity that owns the fact
