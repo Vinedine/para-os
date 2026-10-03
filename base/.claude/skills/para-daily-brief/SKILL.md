@@ -92,7 +92,7 @@ Exact layout, line rules, and the single Next action close. **Full spec: [refere
 
 Default and `all` scopes only (never an entity scope), and **only when an Artifact tool is available in the harness** - if it is not, the last edge case below applies.
 
-Read [references/dashboard.md](references/dashboard.md) for the page spec, which owns the title and the match rule that updates yesterday's page in place. Build the self-contained HTML, write it to the harness's scratchpad or temp directory, **never inside the vault**, and publish it. Give the user the link on one line.
+Render the page with `scripts/render_dashboard.py` from the scan and a small judgment file, per [references/dashboard.md](references/dashboard.md), which owns the page spec, the remembered URL and the title match that updates yesterday's page in place. The page goes to the harness's scratchpad or temp directory, **never inside the vault**. Publish it and give the user the link on one line.
 
 ## Strict rules
 

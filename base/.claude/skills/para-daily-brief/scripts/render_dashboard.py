@@ -1,0 +1,461 @@
+#!/usr/bin/env python3
+"""The dashboard page of /para-daily-brief, rendered from the scan instead of written by hand.
+
+    py -3 render_dashboard.py --scan <scan.json> --judgment <judgment.json> --out <page.html>
+    py -3 render_dashboard.py --remember <artifact url> --vault <path>
+
+Render prints one JSON line: `out`, the page's `title` and `description`, and `url`, the artifact this vault's
+dashboard was last published to (null when none is remembered). Remember stores that URL
+under `$PARAOS_HOME/cache/daily-brief/dashboards.json`, keyed by vault path; it is a cache,
+and deleting it only sends the next run back to the title match in references/dashboard.md.
+
+Everything on the page with one right answer comes from the scan: tiles, per-entity bars,
+the remainder strip, Later counts, lifecycle lines, ideas, triage. The judgment file holds
+only what the model decides, so the model writes a few hundred bytes instead of the page:
+
+    {"now": [{"file": "projects/x/actions.md", "line": 12, "text": "optional override"}],
+     "flags": ["**x: 14 open** - groom via `/para-deep-clean`"],
+     "agenda": [{"label": "Today", "events": [{"when": "09:30", "title": "...", "sub": "..."}]}],
+     "agenda_note": "optional muted line: upcoming expansion, failed sources",
+     "next_action": {"text": "Open X and check Y", "file": "projects/x/actions.md", "line": 12}}
+
+Strings in the judgment file take `**bold**`, `` `code` `` and `[label](target)` (rendered
+as its label). A `now` or `next_action` entry naming a task the scan does not hold is an
+error (exit 2), never a silent drop. The page spec this implements is references/dashboard.md.
+"""
+
+import argparse
+import html
+import json
+import re
+import sys
+from datetime import date
+from pathlib import Path
+
+SHARED_DIR = Path(__file__).resolve().parents[2] / "para-shared" / "scripts"
+if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
+    sys.path.insert(0, str(SHARED_DIR))
+
+try:
+    from paraos_vault import paraos_home_dir  # noqa: E402
+except ImportError as missing:
+    print(f"render_dashboard: {missing}. Write the page by hand with references/dashboard.md",
+          file=sys.stderr)
+    sys.exit(2)
+
+TOP_ENTITIES = 10
+TEXT_CAP = 100
+DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+          "September", "October", "November", "December"]
+LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+BOLD_LEAD_RE = re.compile(r"^\*\*(.+?)\*\*")
+CLAUSE_END_RE = re.compile(r";| - |[.!?](?=\s|$)")
+DESCRIPTION = ("Daily vault-state dashboard: open actions per project and area, health flags, "
+               "ideas, agenda.")
+
+
+class JudgmentError(ValueError):
+    pass
+
+
+# ------------------------------------------------------------------------ text helpers
+
+def inline(text):
+    """Escape, then the three markdown forms a judgment string may carry."""
+    text = LINK_RE.sub(r"\1", text or "")
+    out = html.escape(text, quote=False)
+    out = re.sub(r"`([^`]+)`", r"<code>\1</code>", out)
+    return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", out)
+
+
+def cut(text):
+    """A task cut, never wrapped: its bold lead where it has one, else its first clause,
+    then to TEXT_CAP characters at a word boundary (output.md's line rules)."""
+    text = LINK_RE.sub(r"\1", text).strip()
+    lead = BOLD_LEAD_RE.match(text)
+    if lead:
+        text = lead.group(1).rstrip(".:")
+    else:
+        end = CLAUSE_END_RE.search(text)
+        if end and end.start() > 0:
+            text = text[:end.start()]
+    text = text.replace("**", "").replace("`", "").strip()
+    if len(text) > TEXT_CAP:
+        text = text[:TEXT_CAP].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+    return text
+
+
+def short_date(iso):
+    d = date.fromisoformat(iso)
+    return f"{d.day} {MONTHS[d.month - 1][:3]}"
+
+
+def long_date(iso):
+    d = date.fromisoformat(iso)
+    return f"{DAYS[d.weekday()]} {d.day} {MONTHS[d.month - 1]} {d.year}"
+
+
+def relative(days):
+    if days == 0:
+        return "today"
+    return f"{-days}d ago" if days < 0 else f"in {days}d"
+
+
+def display_name(vault):
+    """The vault's CLAUDE.md H1 without a trailing `Vault Conventions`, else its folder."""
+    claude = Path(vault) / "CLAUDE.md"
+    if claude.is_file():
+        for line in claude.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("# "):
+                name = re.sub(r"\s*vault conventions\s*$", "", line[2:].strip(), flags=re.I)
+                if name:
+                    return name
+                break
+    return Path(vault).name
+
+
+# ------------------------------------------------------------------------- the panels
+
+def find_task(scan, ref, what):
+    for t in scan["tasks"]:
+        if t["file"] == ref.get("file") and t["line"] == ref.get("line"):
+            return t
+    raise JudgmentError(f"{what} names {ref.get('file')}:{ref.get('line')}, "
+                        f"which holds no open task in the scan")
+
+
+def task_label(t):
+    return f"{t['person'] or t['scope']}:{t['line']}"
+
+
+def tiles(scan):
+    lanes, totals = scan["lanes"], scan["totals"]
+    if scan["vault_type"] == "B":
+        dormant = sum(1 for i in scan["ideas"] if i["dormant"])
+        rows = [(len(scan["ideas"]), "ideas", False), (len(scan["triage"]), "in triage", False),
+                (dormant, "dormant ideas", False)]
+    else:
+        week = len(lanes.get("today", [])) + len(lanes.get("this_week", []))
+        share = round(100 * totals["undated"] / totals["open"]) if totals["open"] else 0
+        rows = [(totals["open"], "open actions", False),
+                (totals["overdue"], "overdue", totals["overdue"] > 0),
+                (week, "due this week", False), (f"{share}%", "undated", False),
+                (len(scan["ideas"]), "ideas", False), (len(scan["triage"]), "in triage", False)]
+    cells = "".join(f'<div class="tile{" alert" if alert else ""}"><b>{n}</b>'
+                    f'<span>{label}</span></div>' for n, label, alert in rows)
+    return f'<div class="tiles">{cells}</div>'
+
+
+def counts_text(row):
+    parts = [f"{row[k]} {k}" for k in ("overdue", "upcoming", "undated") if row[k]]
+    return f"<b>{row['open']}</b> open · " + " · ".join(parts)
+
+
+def entity_chart(scan):
+    rows = scan["entities"]
+    if not rows:
+        return ""
+    top, rest = rows[:TOP_ENTITIES], rows[TOP_ENTITIES:]
+    peak = top[0]["open"]
+    out = ['<h2>Open actions per entity</h2><div class="chart">']
+    for r in top:
+        name = html.escape(r["label"])
+        if r["label"] == "network" and r["files"] > 1:
+            name += f" ({r['files']} files)"
+        segs = "".join(f'<i class="seg-{cls}" style="width:{100 * r[k] / r["open"]:.2f}%"></i>'
+                       for k, cls in (("overdue", "over"), ("upcoming", "up"),
+                                      ("undated", "und")) if r[k])
+        out.append(f'<div class="row"><span class="name"><span class="badge">{r["bucket"]}'
+                   f'</span>{name}</span><div class="track"><div class="bar" '
+                   f'style="width:{100 * r["open"] / peak:.1f}%">{segs}</div></div>'
+                   f'<span class="n">{counts_text(r)}</span></div>')
+    out.append('<div class="legend"><span><i class="seg-over"></i>overdue</span>'
+               '<span><i class="seg-up"></i>upcoming</span>'
+               '<span><i class="seg-und"></i>undated</span></div>')
+    if rest:
+        agg = {k: sum(r[k] for r in rest) for k in ("open", "overdue", "upcoming", "undated")}
+        more = "entity" if len(rest) == 1 else "entities"
+        out.append(f'<div class="rest">+{len(rest)} more {more} · {counts_text(agg)} <span class="sub">(composition only, not charted)'
+                   f'</span></div>')
+    t = scan["totals"]
+    share = round(100 * t["undated"] / t["open"]) if t["open"] else 0
+    out.append(f'<div class="totals"><b>{t["open"]}</b> open · <b>{t["overdue"]}</b> overdue · '
+               f'<b>{t["upcoming"]}</b> upcoming · <b>{t["undated"]}</b> undated ({share}%)</div>')
+    out.append("</div>")
+    for lc in scan.get("lifecycles") or []:
+        stages = " · ".join(f"{c['stage']} {c['count']}" for c in lc["counts"])
+        out.append(f'<p class="pipeline"><b>{html.escape(lc["heading"])}:</b> '
+                   f'{html.escape(stages)} - <code>/para-pipeline</code> for the board</p>')
+    return "".join(out)
+
+
+def flags(judgment):
+    items = judgment.get("flags") or []
+    if not items:
+        return ""
+    lis = "".join(f"<li>{inline(f)}</li>" for f in items)
+    return f'<h2>Health flags</h2><ul class="flags">{lis}</ul>'
+
+
+def task_meta(t):
+    bits = [html.escape(task_label(t))]
+    if t["recurring"]:
+        bits.append(f"🔁 {html.escape(t['recurring'])}")
+    if t["effective_date"]:
+        mark = "📅" if t["due"] else "⏳"
+        badge = f"{mark} {short_date(t['effective_date'])} ({relative(t['days'])})"
+        bits.append(f'<span class="due">{badge}</span>' if t["days"] <= 0 else badge)
+    return f'<span class="meta">{" · ".join(bits)}</span>'
+
+
+def later_line(scan, now_keys):
+    lanes = scan["lanes"]
+
+    def left(*names):
+        keys = {(e["file"], e["line"]) for n in names for e in lanes.get(n, [])}
+        return len(keys - now_keys)
+
+    counts = [(left("overdue", "today", "this_week"), "this week"),
+              (left("next_30"), "next 30 days"), (left("later"), "later"),
+              (left("recurring"), "recurring"), (left("waiting"), "waiting"),
+              (left("undated"), "undated")]
+    return ('<p class="later"><b>Later:</b> '
+            + " · ".join(f"{n} {label}" for n, label in counts) + "</p>")
+
+
+def now_panel(scan, judgment):
+    picks = judgment.get("now") or []
+    if len(picks) > 5:
+        raise JudgmentError(f"now holds {len(picks)} items; the cap is five")
+    tasks = [(find_task(scan, p, "now"), p) for p in picks]
+    now_keys = {(t["file"], t["line"]) for t, _ in tasks}
+    out = []
+    if tasks:
+        out.append(f'<h2>Now · {len(tasks)} of {scan["totals"]["open"]}</h2><ol class="now">')
+        for t, p in tasks:
+            prio = f"{t['priority']} " if t["priority"] else ""
+            text = html.escape(p.get("text") or cut(t["text"]))
+            out.append(f"<li>{prio}{text} {task_meta(t)}</li>")
+        out.append("</ol>")
+    out.append(later_line(scan, now_keys))
+    return "".join(out)
+
+
+def agenda(judgment):
+    sections = [s for s in judgment.get("agenda") or [] if s.get("events")]
+    note = judgment.get("agenda_note")
+    if not sections and not note:
+        return ""
+    out = ['<h2>Agenda</h2><div class="agenda">']
+    for s in sections:
+        out.append(f'<div class="day">{html.escape(s.get("label", ""))}</div>')
+        for e in s["events"]:
+            sub = f' <span class="sub">· {inline(e["sub"])}</span>' if e.get("sub") else ""
+            out.append(f'<div class="ev"><time>{html.escape(e.get("when", ""))}</time>'
+                       f'<span>{inline(e.get("title", ""))}{sub}</span></div>')
+    out.append("</div>")
+    if note:
+        out.append(f'<p class="note">{inline(note)}</p>')
+    return "".join(out)
+
+
+def ideas(scan):
+    if not scan["ideas"]:
+        return ""
+    rows = []
+    for i in scan["ideas"]:
+        stage = f"<span>{inline(i['stage'])}</span>" if i["stage"] else ""
+        dormant = '<span class="dormant">dormant 6+ months</span>' if i["dormant"] else ""
+        touched = f"touched {short_date(i['touched'])}" if i["touched"] else ""
+        rows.append(f'<div class="item"><b>{html.escape(i["name"])}</b>{stage}{dormant}'
+                    f'<span class="meta">{touched}</span></div>')
+    return f'<h2>Ideas · {len(rows)}</h2><div class="list">{"".join(rows)}</div>'
+
+
+def triage(scan):
+    items = scan["triage"]
+    if not items:
+        return ""
+    rows = "".join(f'<div class="item"><span>{html.escape(re.sub(r"[.]md$", "", n))}</span></div>'
+                   for n in items)
+    return f'<h2>Triage · {len(items)} to process</h2><div class="list">{rows}</div>'
+
+
+def next_action(scan, judgment):
+    na = judgment.get("next_action")
+    if not na or not na.get("text"):
+        raise JudgmentError("next_action.text is required")
+    meta = ""
+    if na.get("file"):
+        meta = f' <span class="meta">{html.escape(task_label(find_task(scan, na, "next_action")))}</span>'
+    return f'<div class="next"><strong>Next action</strong>{inline(na["text"])}{meta}</div>'
+
+
+# --------------------------------------------------------------------------- the page
+
+CSS = """
+:root{--bg:#F7F7F4;--surface:#FFFFFF;--ink:#20242B;--muted:#6B7280;--line:#E3E4DF;
+--accent:#1F6E68;--accent-soft:#E4EFED;--alert:#B4423A;--upcoming:#3E6C93;--undated:#C9CCC3;--chip:#EEEFEA}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+--bg:#14171B;--surface:#1C2026;--ink:#E7E5DF;--muted:#8E959F;--line:#2C313A;--accent:#55A79D;
+--accent-soft:#1E3330;--alert:#D06B60;--upcoming:#6E9CC4;--undated:#3B414B;--chip:#262B33}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#14171B;--surface:#1C2026;--ink:#E7E5DF;
+--muted:#8E959F;--line:#2C313A;--accent:#55A79D;--accent-soft:#1E3330;--alert:#D06B60;
+--upcoming:#6E9CC4;--undated:#3B414B;--chip:#262B33}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5}
+code,.meta,.date,.tile b,.badge,.row .n,.agenda time{font-family:Consolas,"SF Mono",Menlo,monospace}
+code{font-size:.92em}
+.wrap{max-width:880px;margin:0 auto;padding:2rem 1rem 3rem}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.25rem}
+h1{font-size:1.65rem;font-weight:700;margin:0;letter-spacing:-.015em}
+h1 small{font-weight:600;color:var(--accent)}
+.date,.typeb{color:var(--muted);font-size:.85rem}
+h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:1.75rem 0 .6rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.6rem}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.6rem .75rem}
+.tile b{display:block;font-size:1.4rem;font-weight:600;font-variant-numeric:tabular-nums}
+.tile span{font-size:.75rem;color:var(--muted)}
+.tile.alert b{color:var(--alert)}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.9rem 1rem .6rem}
+.row{display:grid;grid-template-columns:minmax(0,13rem) minmax(4rem,1fr) auto;gap:.6rem;align-items:center;padding:.25rem 0}
+.row .name{font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.badge{display:inline-block;font-size:.65rem;color:var(--muted);background:var(--chip);border-radius:3px;padding:0 .25rem;margin-right:.3rem}
+.bar{display:flex;height:14px;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%}
+.seg-over{background:var(--alert)}.seg-up{background:var(--upcoming)}.seg-und{background:var(--undated)}
+.row .n{font-size:.75rem;color:var(--muted);text-align:right;white-space:nowrap}
+.row .n b,.rest b,.totals b,.pipeline b{color:var(--ink);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:1rem;font-size:.72rem;color:var(--muted);padding:.6rem .1rem .1rem;border-top:1px solid var(--line);margin-top:.5rem}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:.3rem}
+.rest,.totals{font-size:.8rem;color:var(--muted);padding:.25rem .1rem 0}
+.sub{color:var(--muted)}
+.pipeline{font-size:.82rem;color:var(--muted);margin:.6rem 0 0}
+.pipeline+.pipeline{margin-top:.1rem}
+.flags{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+.flags li{background:var(--chip);border-left:3px solid var(--alert);border-radius:0 5px 5px 0;padding:.5rem .75rem;font-size:.85rem}
+ol.now{list-style:none;margin:0;padding:0;counter-reset:now;display:grid;gap:.4rem}
+ol.now li{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.55rem .75rem .55rem 2.5rem;position:relative;font-size:.9rem}
+ol.now li::before{counter-increment:now;content:counter(now);position:absolute;left:.8rem;top:.55rem;font-family:Consolas,monospace;font-size:.82rem;color:var(--accent);font-weight:600}
+.meta{font-size:.72rem;color:var(--muted)}
+.meta .due,.dormant{color:var(--alert)}
+.later{font-size:.82rem;color:var(--muted);margin-top:.5rem}
+.agenda{display:grid;gap:.25rem}
+.agenda .day{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:.5rem .1rem 0}
+.agenda .ev{display:grid;grid-template-columns:7.5rem 1fr;gap:.6rem;padding:.4rem .1rem;border-bottom:1px solid var(--line);font-size:.9rem}
+.agenda time{font-size:.78rem;color:var(--accent)}
+.note{font-size:.75rem;color:var(--muted);margin-top:.5rem}
+.list{display:grid;gap:.4rem}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.5rem .75rem;font-size:.85rem;display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap}
+.item b{font-weight:600}.item span{min-width:0}.dormant{font-size:.75rem}
+.item .meta{flex:1 1 auto;text-align:right}
+.next{margin-top:1.9rem;background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:.75rem 1rem;font-size:.9rem}
+.next strong{color:var(--accent);text-transform:uppercase;font-size:.7rem;letter-spacing:.08em;display:block;margin-bottom:.2rem}
+footer{margin-top:1.1rem;font-size:.72rem;color:var(--muted)}
+@media (max-width:620px){.row{grid-template-columns:1fr;gap:.2rem}.row .n{text-align:left;white-space:normal}
+.agenda .ev{grid-template-columns:1fr;gap:.1rem}}
+"""
+
+
+def render(scan, judgment):
+    if scan.get("scope") != "vault":
+        raise JudgmentError("the dashboard is a vault-wide page; an entity scope has none")
+    name = display_name(scan["vault"])
+    title = f"{name} Dashboard"
+    type_b = scan["vault_type"] == "B"
+    body = [f'<header><h1>{html.escape(name)} <small>· Daily Brief</small></h1>'
+            f'<span class="date">{long_date(scan["today"])}</span></header>']
+    if type_b:
+        body.append('<p class="typeb">This vault tracks no actions, by design.</p>')
+    body.append(tiles(scan))
+    if not type_b:
+        body.append(entity_chart(scan))
+    body.append(flags(judgment))
+    if not type_b:
+        body.append(now_panel(scan, judgment))
+    body += [agenda(judgment), ideas(scan), triage(scan), next_action(scan, judgment),
+             f'<footer>Generated {scan["today"]} by /para-daily-brief · read-only: repairs '
+             f'via /para-deep-clean</footer>']
+    page = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            f'<title>{html.escape(title)}</title><style>{CSS}</style></head><body>'
+            f'<div class="wrap">{"".join(b for b in body if b)}</div></body></html>\n')
+    return title, page
+
+
+# ------------------------------------------------------------------ remembered URL
+
+def cache_file(paraos_home=None):
+    return paraos_home_dir(paraos_home) / "cache" / "daily-brief" / "dashboards.json"
+
+
+def vault_key(vault):
+    return Path(vault).resolve().as_posix().lower()
+
+
+def load_cache(paraos_home=None):
+    path = cache_file(paraos_home)
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def remembered_url(vault, paraos_home=None):
+    entry = load_cache(paraos_home).get(vault_key(vault))
+    return entry.get("url") if isinstance(entry, dict) else None
+
+
+def remember(vault, url, paraos_home=None):
+    path = cache_file(paraos_home)
+    data = load_cache(paraos_home)
+    data[vault_key(vault)] = {"url": url, "title": f"{display_name(vault)} Dashboard"}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    return path
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Render the daily-brief dashboard page.")
+    ap.add_argument("--scan", help="brief_scan.py output")
+    ap.add_argument("--judgment", help="the model's judgment file")
+    ap.add_argument("--out", help="where to write the page (never inside the vault)")
+    ap.add_argument("--remember", metavar="URL", help="store the published artifact URL")
+    ap.add_argument("--vault", help="vault root, with --remember")
+    args = ap.parse_args(argv)
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, OSError):
+        pass
+
+    if args.remember:
+        if not args.vault:
+            ap.error("--remember needs --vault")
+        path = remember(args.vault, args.remember)
+        print(json.dumps({"remembered": args.remember, "cache": path.as_posix()}))
+        return 0
+    if not (args.scan and args.judgment and args.out):
+        ap.error("render needs --scan, --judgment and --out")
+
+    scan = json.loads(Path(args.scan).read_text(encoding="utf-8"))
+    judgment = json.loads(Path(args.judgment).read_text(encoding="utf-8"))
+    out = Path(args.out).resolve()
+    if out.is_relative_to(Path(scan["vault"]).resolve()):
+        print("render_dashboard: --out is inside the vault; write it to a scratch folder",
+              file=sys.stderr)
+        return 2
+    try:
+        title, page = render(scan, judgment)
+    except JudgmentError as wrong:
+        print(f"render_dashboard: {wrong}", file=sys.stderr)
+        return 2
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(page, encoding="utf-8")
+    print(json.dumps({"out": out.as_posix(), "title": title, "description": DESCRIPTION,
+                      "url": remembered_url(scan["vault"])}, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
