@@ -1131,6 +1131,11 @@ class Links(VaultCase):
     def test_a_fragment_is_dropped_before_the_target(self):
         self.assertEqual(extract_links("[x](brief.md#the-shape)")[0][1], "brief.md")
 
+    def test_a_query_is_dropped_and_a_query_only_link_is_no_file(self):
+        # A Google Docs export links its own headings as `(?tab=t.0#heading=h.abc)`.
+        text = "[00:12](?tab=t.0#heading=h.abc) and [x](brief.md?v=2#top)"
+        self.assertEqual(extract_links(text), [(1, "brief.md", "brief.md?v=2#top")])
+
     def test_an_angle_bracket_target_comes_back_without_its_brackets(self):
         got = extract_links("[x](<projects/my file.md>)")
         self.assertEqual(got, [(1, "projects/my file.md", "<projects/my file.md>")])
@@ -1360,6 +1365,8 @@ class MovePlan(VaultCase):
                          "../New%20Home/b.md#x")
         self.assertEqual(match_encoding("<../a/b.md>", "../New Home/b.md"),
                          "<../New Home/b.md>")
+        self.assertEqual(match_encoding("../a/b.md?v=2#x", "../New Home/b.md"),
+                         "../New%20Home/b.md?v=2#x")
 
 
 class FileContents(VaultCase):

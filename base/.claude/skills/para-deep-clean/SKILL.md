@@ -53,8 +53,10 @@ Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] > <scan output path>
+python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] [--templates-dir <dir>]... [--generated-dir <dir>]... [--name-only-column <file>:<column>]... > <scan output path>
 ```
+
+Each exclusion flag repeats once per entry the vault declares: a folder its `CLAUDE.md` names as holding templates (`--templates-dir`) or a script's output (`--generated-dir`), and a register column its rule file declares a name, not a link (`--name-only-column`). What each skips: the uncited-contacts exclusions in [references/phase1-structural.md](references/phase1-structural.md).
 
 ## Phased workflow
 
