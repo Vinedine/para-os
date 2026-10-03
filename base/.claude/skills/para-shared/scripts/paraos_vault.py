@@ -1388,6 +1388,8 @@ def link_rewrite(vault, path, line, href, raw, target, moved_target, from_dir):
     stands, or the target travels and the linking file stands.
     """
     new = Path(os.path.relpath(moved_target, from_dir)).as_posix()
+    if href.endswith("/"):
+        new += "/"  # a folder link stays one
     return {"file": rel_posix(vault, path), "line": line, "href": href, "raw": raw,
             "resolved": rel_posix(vault, target), "new_href": match_encoding(raw, new)}
 

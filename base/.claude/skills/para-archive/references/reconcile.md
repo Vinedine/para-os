@@ -8,7 +8,7 @@ Each step ends with a proposal and waits for approval.
 
 Read the entity's `actions.md` (and any per-file action markers). Split into **done** vs **open**, where open is every unchecked checkbox and every `## Backlog` item with no stated disposition. A Backlog item already carrying a Done, Decided or Resolved line is settled: list it in the closed record, never ask about it. **`actions.done` and `.open` carry the checkboxes; `actions.backlog` carries every Backlog item, each with `settled` and `by` already computed** - a top-level non-checkbox bullet with its continuation lines, or a paragraph of prose outside any bullet, under the heading and any subheading of it.
 
-**The settled match is a capitalised `Done`, `Decided` or `Resolved` as a whole word, case-sensitive.**
+**The settled match is `Done`, `Decided` or `Resolved` as a whole word: capitalised anywhere, or lowercase opening the item or a clause** (`decided: kept the old vendor`). A lowercase one inside a sentence (`once the migration is done`, `still to be decided`) is a condition, not a disposition.
 
 **A checkbox inside a fenced code block is not an open action**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md).
 

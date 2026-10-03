@@ -535,6 +535,18 @@ class Actions(VaultCase):
         self.assertFalse(item["settled"])
         self.assertIsNone(item["by"])
 
+    def test_a_lowercase_disposition_opening_a_clause_is_settled(self):
+        # A Backlog item opening "decided:" is as settled as one saying "Decided"; one that
+        # waits for something "to be decided" is not.
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme - Actions\n\n## Backlog\n"
+              "- Rebrand. decided against it after the pitch.\n"
+              "- resolved: the vendor took it back.\n"
+              "- Pricing tier, still to be decided.\n")
+        settled = [b["settled"] for b in self.plan("acme")["actions"]["backlog"]]
+        self.assertEqual(settled, [True, True, False])
+
     def test_backlog_is_read_from_both_actions_and_brief(self):
         write(self.root, "projects/acme/brief.md",
               "# Acme\n\n## Backlog\n- A brief-side idea, still open.\n")
@@ -856,6 +868,19 @@ class Verify(VaultCase):
         self.assertTrue(all("archive/projects/acme" not in m["text"]
                             or "archive/projects/acme/brief.md](../../archive" in m["text"]
                             for m in v["stale_mentions"]))
+
+    def test_a_mention_the_operator_approved_keeping_does_not_fail_the_verify(self):
+        write(self.root, "areas/network/jan.md",
+              "# Jan\n\nAs filed at the time under projects/acme.\nOr projects/acme here.\n")
+        v, code = verify(self.root, "projects/acme", "archive/projects/acme", [],
+                         kept=["areas/network/jan.md:3"])
+        self.assertEqual(code, 0)
+        self.assertEqual([m["line"] for m in v["stale_mentions"]], [4])
+        self.assertEqual([m["line"] for m in v["stale_mentions_kept"]], [3])
+        self.assertFalse(v["clean"])
+        v, _ = verify(self.root, "projects/acme", "archive/projects/acme", [],
+                      kept=["areas/network/jan.md:3", "areas/network/jan.md:4"])
+        self.assertTrue(v["clean"])
 
     def test_a_trailing_slash_or_backslash_path_is_normalised(self):
         # Plan mode normalised --destination but verify took --moved-from/--moved-to as

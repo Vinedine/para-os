@@ -279,14 +279,15 @@ def any_ahead(task, today):
     return False
 
 
-SETTLE_PATTERNS = (("Done", re.compile(r"\bDone\b")), ("Decided", re.compile(r"\bDecided\b")),
-                   ("Resolved", re.compile(r"\bResolved\b")))
+SETTLE_PATTERNS = tuple(
+    (word, re.compile(rf"\b{word}\b|(?:^|[.:;(]\s*)\b{word.lower()}\b"))
+    for word in ("Done", "Decided", "Resolved"))
 
 
 def settle_check(text):
     """Whether a Backlog item is settled: a capitalised Done, Decided or Resolved as a whole
-    word anywhere in it, case-sensitive, per reconcile.md Step 2. `by` names the leftmost
-    match among the three."""
+    word anywhere in it, or a lowercase one opening the item or a clause ("decided: x"), per
+    reconcile.md Step 2. `by` names the leftmost match among the three."""
     best = None
     for label, pattern in SETTLE_PATTERNS:
         m = pattern.search(text)
@@ -666,13 +667,18 @@ def old_path_block(vault, moved_from):
     return {"exists": exists, "empty": empty}
 
 
-def verify(vault, moved_from, moved_to, routed):
+def verify(vault, moved_from, moved_to, routed, kept=()):
+    """`kept`: the `file:line` mentions of the old path the operator approved leaving as
+    written, reported under `stale_mentions_kept` and not counted against `clean`."""
     vault = Path(vault).resolve()
     # Normalised as plan mode normalises --destination: `projects/acme/` or `projects\\acme`
     # otherwise matches no written mention and the pass reads a false clean.
     moved_from, moved_to = vault_rel_arg(moved_from), vault_rel_arg(moved_to)
     s_links = stale_links(vault, moved_from)
     s_mentions, s_exempt = stale_mentions(vault, moved_from, moved_to)
+    kept = {k.replace("\\", "/") for k in kept}
+    s_kept = [m for m in s_mentions if f"{m['file']}:{m['line']}" in kept]
+    s_mentions = [m for m in s_mentions if m not in s_kept]
     inbound = inbound_resolved(vault, moved_to)
     inside = inside_links(vault, moved_to, routed)
     clean = (not s_links and not s_mentions and not inbound["unresolved"]
@@ -680,7 +686,8 @@ def verify(vault, moved_from, moved_to, routed):
     return {
         "vault": vault.as_posix(), "moved_from": moved_from, "moved_to": moved_to,
         "stale_links": s_links, "stale_mentions": s_mentions,
-        "stale_mentions_exempt": s_exempt, "inbound_resolved": inbound, "inside": inside,
+        "stale_mentions_exempt": s_exempt, "stale_mentions_kept": s_kept,
+        "inbound_resolved": inbound, "inside": inside,
         "old_path": old_path_block(vault, moved_from),
         "untracked": git_untracked(vault, moved_to), "clean": clean,
     }, 0
@@ -701,6 +708,9 @@ def main(argv=None):
     ap.add_argument("--moved-to", help="vault-relative new path (verify mode)")
     ap.add_argument("--routed", action="append", default=[],
                     help="a vault-relative file routed to resources/, repeatable (verify mode)")
+    ap.add_argument("--keep", action="append", default=[],
+                    help="a file:line mention of the old path approved to stay, repeatable "
+                         "(verify mode)")
     ap.add_argument("--route", action="append", default=[],
                     help="a vault-relative file Step 4 decided to route to resources/, "
                          "repeatable (plan mode, re-run once that decision is made)")
@@ -737,7 +747,7 @@ def main(argv=None):
         return 3
 
     if args.verify:
-        report, code = verify(root, args.moved_from, args.moved_to, args.routed)
+        report, code = verify(root, args.moved_from, args.moved_to, args.routed, args.keep)
     else:
         today = parse_date(args.today) if args.today else date.today()
         if args.today and not today:
