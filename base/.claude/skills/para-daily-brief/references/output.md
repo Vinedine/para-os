@@ -41,7 +41,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 **Next action:** <exactly one concrete step - see below>
 ````
 
-**When Now is empty**, the `**Later:**` line renders alone, with no `🎯 Now` heading.
+**The Later line's `this week` counts every 🔴, 🟠 and 🟡 item not in Now**, so an overdue or due-today item the cap leaves out lands there. When Now is empty, the line renders alone, with no `🎯 Now` heading.
 
 **The lifecycle line follows Totals**, one per declared lifecycle, stages in the table's own order and omitted where the vault declares none.
 

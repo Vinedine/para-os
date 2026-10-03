@@ -10,7 +10,7 @@ Everything between "the vault is a folder of markdown" and "a set of bucketed, p
 | `entity` | `status` of `resolved`, `ambiguous`, `elsewhere` or `unresolved`, with `match`, `candidates`, `elsewhere` and `nearest` (Step 1b) |
 | `tasks` | One record per open item: file, line, bucket, scope, section, text, markers, `lane`, `days`, `also_lane`, `malformed_date` |
 | `entities`, `totals` | Per-entity rows with the three counts that partition the open count and a `bar` width, and the same four numbers vault-wide |
-| `lanes` | Each lane's items, for the counts a rendered section needs; a recurring item overdue or due today is in `recurring` and that lane too |
+| `lanes` | Each lane's `(file, line)` references, joined back into `tasks` for the counts a rendered section needs; a recurring item overdue or due today is in `recurring` and that lane too |
 | `mentioned_elsewhere` | Under an entity scope only: open items naming it that live in another file |
 | `file_dates` | Each action file's date, by the rule in [Step 4b](#step-4b-aggregate-per-entity) |
 | `flags`, `ideas`, `triage`, `lifecycles` | Everything [signals.md](signals.md) computes from files |
