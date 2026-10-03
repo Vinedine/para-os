@@ -38,6 +38,10 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **Existing `working-preferences.md` copies take the reworded Out bullet.** 2026.09.07 reworded it in base only, so a vault's copy still says a preference holding in every vault on the machine "is still written here, per vault". Reaction: replace that bullet in the vault's `.claude/rules/working-preferences.md` with base's, the rest of the file untouched. A preference already listed stays; removing one that repeats user-level instructions is the operator's call.
 
+**A vault's code repos list is a convention file.** `## Code repos` keeps its heading and one pointer to `.claude/rules/code-repos.md`, which holds the list and the rules that come with it, `paths:` scoped to `projects/**`, `areas/**` and `resources/ideas/**`. `/para-deep-clean` checks links in `.claude/rules/` for dangling targets. Reaction: a vault with a repo list inline under `## Code repos` moves it verbatim into the file, prefixes its relative links with `../../`, and leaves the bootstrap prompt's pointer sentence under the heading. A vault with no `## Code repos` does nothing. Re-sync `/para-deep-clean`.
+
+**No loose files at the resources root.** The template's `resources/` bullet says a reference lives with the area or project it serves, else in the folder of its kind, with `README.md` the one file allowed at the root. `/para-deep-clean` reports the rest as `resources_loose` in Phase 1 and fails a `resources_clean` row in Phase 4. Reaction: take the reworded `resources/` bullet into the vault's `CLAUDE.md`, unless the vault's own wording keeps loose files on purpose, and re-sync `/para-deep-clean`. List each loose file at the resources root and propose its move as its own migration item, inbound links repointed; nothing moves unasked.
+
 ---
 
 ## 2026.09.07

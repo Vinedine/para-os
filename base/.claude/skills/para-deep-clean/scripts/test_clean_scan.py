@@ -218,6 +218,17 @@ class DanglingLinks(VaultCase):
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0]["href"], "missing.md")
 
+    def test_a_rule_file_s_links_resolve_from_two_folders_down(self):
+        # A repo list moved into .claude/rules/ carries ../../ links.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, ".claude/rules/code-repos.md",
+              "# Code repos\n\n- [acme](../../projects/acme/brief.md)\n"
+              "- [gone](../projects/acme/brief.md)\n")
+        hits = self.run_scan("1")["phase1"]["dangling"]
+        self.assertEqual([(h["file"], h["href"]) for h in hits],
+                         [(".claude/rules/code-repos.md", "../projects/acme/brief.md")])
+
     def test_excludes_schemes_and_placeholders(self):
         # Finding 5 of the 20260915-2146 test run.
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -791,6 +802,15 @@ class Archive(VaultCase):
         loose = self.run_scan("1")["phase1"]["archive"]["loose_root_files"]
         self.assertEqual(loose, ["archive/stray.md"])
 
+    def test_loose_resources_root_file_flagged_beside_its_index(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/README.md", "# Resources\n")
+        write(self.root, "resources/.gitkeep", "")
+        write(self.root, "resources/playbook.md", "x\n")
+        write(self.root, "resources/prompts/draft.md", "x\n")
+        loose = self.run_scan("1")["phase1"]["resources_loose"]
+        self.assertEqual(loose, ["resources/playbook.md"])
+
     def test_meetings_naming_violation_flagged(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "archive/meetings/not-dated.md", "x\n")
@@ -1080,6 +1100,13 @@ class Phase4Rows(VaultCase):
         rows = {r["check"]: r["pass"] for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
         self.assertFalse(rows["triage_empty"])
         self.assertTrue(rows["dangling_links"])
+
+    def test_a_loose_resources_file_fails_only_its_row(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/checklist.md", "x\n")
+        rows = {r["check"]: r["pass"] for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]}
+        self.assertFalse(rows["resources_clean"])
+        self.assertTrue(rows["archive_clean"])
 
     def test_aspirational_row_reports_detail(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
