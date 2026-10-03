@@ -33,7 +33,8 @@ from triage_scan import (
     build_loose, build_snapshot, ingest_block, main, note_block, over_threshold_block, plan,
     same_thread_block, seen_ledger_block, subdirectories_block, subdirectories_line,
     vault_block,
-    _content_incomplete, _extract_thread_id, _mentioned_vaults, _routed_from_ledger,
+    _content_incomplete, _extract_thread_id, _ingest_seen, _mentioned_vaults,
+    _routed_from_ledger,
 )
 
 import sys
@@ -607,6 +608,30 @@ class NoteShapes(unittest.TestCase):
         self.assertEqual(routed, ["Beta"])
         self.assertEqual(source, "ledger")
 
+    def test_ingest_seen_carries_the_ledger_entrys_watermark(self):
+        ledger_mailboxes = {"alex@example-work.com": {"1a0c556d2559b07c": {
+            "routed": ["Alpha"], "seen_through": "<m2@example-work.com>",
+            "seen_date": "2026-09-20T10:00:00+02:00"}}}
+        self.assertEqual(_ingest_seen(ledger_mailboxes, "alex@example-work.com", "88604c"),
+                         {"thread_id": "1a0c556d2559b07c",
+                          "seen_through": "<m2@example-work.com>",
+                          "seen_date": "2026-09-20T10:00:00+02:00"})
+        self.assertIsNone(_ingest_seen(ledger_mailboxes, "other@example-work.com", "88604c"))
+
+    def test_a_staged_note_reports_its_ingest_seen_point(self):
+        path = self.note("20260920 Re Quote 88604c.md", "\n".join([
+            "# Re: Quote", "",
+            "- **Source:** google-workspace (alex@example-work.com)",
+            "- **Content:** Full body.",
+            "- **Link:** https://mail.google.com/mail/u/0/#all/1a0c556d2559b07c", "",
+        ]))
+        ledger_mailboxes = {"alex@example-work.com": {"1a0c556d2559b07c": {
+            "routed": ["Alpha"], "seen_through": "<m2@example-work.com>",
+            "seen_date": "2026-09-20T10:00:00+02:00"}}}
+        note = note_block(path, [], "Alpha", ledger_mailboxes)
+        self.assertEqual(note["ingest_seen"]["seen_through"], "<m2@example-work.com>")
+        self.assertIsNone(note_block(path, [], "Alpha", {})["ingest_seen"])
+
     def test_routed_vaults_is_null_when_the_mailbox_is_unknown_to_the_ledger(self):
         routed, source = _routed_from_ledger({}, "alex@example-work.com", "88604c", "Alpha")
         self.assertIsNone(routed)
@@ -694,6 +719,29 @@ class ContentIncomplete(unittest.TestCase):
         self.assertFalse(got)
         self.assertEqual(phrase, "plain-text body")
 
+    def test_unread_attachments_beside_a_full_body_are_complete(self):
+        got, phrase = _content_incomplete("Full text, 26 image attachments not read")
+        self.assertFalse(got)
+        self.assertEqual(phrase, "full text")
+
+    def test_an_excerpt_or_a_trimmed_body_is_incomplete(self):
+        for line, want in (("Excerpt of the newest message; 3 attachments not read.", "excerpt"),
+                           ("Body trimmed to the first paragraph.", "trimmed")):
+            got, phrase = _content_incomplete(line)
+            self.assertTrue(got, line)
+            self.assertEqual(phrase, want)
+
+    def test_a_full_body_without_the_operators_own_messages_is_incomplete(self):
+        got, phrase = _content_incomplete(
+            "Full body of the two inbound messages; own messages not fetched.")
+        self.assertTrue(got)
+        self.assertEqual(phrase, "not fetched")
+
+    def test_a_clause_naming_an_attachment_settles_nothing(self):
+        got, phrase = _content_incomplete("The attached PDF was not read.")
+        self.assertIsNone(got)
+        self.assertIsNone(phrase)
+
     def test_the_word_incomplete_is_not_read_as_complete(self):
         # "complete" is a held phrase and sits inside "incomplete": the line says the body
         # is not held, so it must not read as held.
@@ -723,6 +771,36 @@ class DuplicatesAndCrossVault(VaultCase):
 
     def body(self, word, times=40):
         return (word + " ") * times + "\n"
+
+    def test_mailbox_readers_are_the_active_vaults_declaring_the_notes_mailbox(self):
+        # Dismiss (other vault) deletes the note on the assumption that the owning vault
+        # receives the same mail: these are the vaults for which that holds.
+        import tempfile
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        reads = sources_claude_md(
+            ["| mail | connector: google-workspace | Alex@Example-Work.com | Leads. |"])
+        other = sources_claude_md(
+            ["| mail | connector: google-workspace | other@example-work.com | Leads. |"])
+        entries = [{"name": "Alpha", "path": str(self.root), "active": True}]
+        write(self.root, "CLAUDE.md", reads)
+        for name, text, active in (("Beta", reads, True), ("Gamma", other, True),
+                                   ("Delta", reads, False)):
+            path = Path(tmp.name) / name
+            write(path, "CLAUDE.md", text)
+            entries.append({"name": name, "path": str(path), "active": active})
+        entries.append({"name": "Gone", "path": str(Path(tmp.name) / "gone"), "active": True})
+        entries.append({"path": str(Path(tmp.name) / "Beta"), "active": True})  # no name
+        write(self.root, "triage/20260920 Re Quote 88604c.md", "\n".join([
+            "# Re: Quote", "",
+            "- **Source:** google-workspace (alex@example-work.com)",
+            "- **Link:** https://mail.google.com/mail/u/0/#all/1a0c556d2559b07c", "",
+        ]))
+        write(self.root, "triage/plain.md", "Not a mail note.\n")
+        loose = {i["name"]: i for i in build_loose(self.root, entries, "Alpha", {})}
+        self.assertEqual(loose["20260920 Re Quote 88604c.md"]["note"]["mailbox_readers"],
+                         ["Alpha", "Beta"])
+        self.assertIsNone(loose["plain.md"]["note"]["mailbox_readers"])
 
     def test_a_byte_identical_file_under_a_different_name_is_flagged(self):
         # A --test run finding: the duplicate check must not key on filename.

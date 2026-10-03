@@ -275,8 +275,11 @@ LINK_THREAD_F_RE = re.compile(r"#[^/]+/thread-f:(\d+)")
 
 # "incomplete" is here, and checked first, because the held phrase "complete" is inside it.
 INCOMPLETE_PHRASES = ("snippet", "preview", "opening lines", "no readable body", "cut mid",
-                      "truncat", "not read", "not fetched", "incomplete")
-COMPLETE_PHRASES = ("full body", "plain-text body", "complete")
+                      "truncat", "excerpt", "trimmed", "not read", "not fetched", "incomplete")
+COMPLETE_PHRASES = ("full body", "full text", "plain-text body", "complete")
+# A Content line's clauses: split at `;`, `,`, `:` and a sentence end, never inside `invite.ics`.
+CLAUSE_SPLIT_RE = re.compile(r"[;,:]|\.(?:\s|$)")
+BESIDE_BODY_RE = re.compile(r"attach|linked (?:document|file)|enclos")
 
 
 def _unquote(value):
@@ -340,18 +343,16 @@ def _content_incomplete(text):
     this script's own - stated in references/scan.md's by-hand section, not in
     references/filing.md or references/approval.md, which only name the field. An incomplete
     signal wins even where a "held" phrase is also present, since "false" means the body is
-    held *with none* of the incomplete signals - an unread attachment or linked document
-    ("was not opened") never counts, since it names something *beside* the body, not the
-    body itself."""
+    held *with none* of the incomplete signals. Only the clauses describing the body are
+    read: a clause naming an attachment or linked document ("26 image attachments not read")
+    names something *beside* the body, so it settles nothing either way."""
     if not text:
         return None, None
-    lowered = text.lower()
-    for phrase in INCOMPLETE_PHRASES:
-        if phrase in lowered:
-            return True, phrase
-    for phrase in COMPLETE_PHRASES:
-        if phrase in lowered:
-            return False, phrase
+    clauses = [c for c in CLAUSE_SPLIT_RE.split(text.lower()) if not BESIDE_BODY_RE.search(c)]
+    for phrases, verdict in ((INCOMPLETE_PHRASES, True), (COMPLETE_PHRASES, False)):
+        for phrase in phrases:
+            if any(phrase in clause for clause in clauses):
+                return verdict, phrase
     return None, None
 
 
@@ -375,27 +376,42 @@ def _mentioned_vaults(routed_text, entries, this_vault_name):
     return sorted(set(hits))
 
 
-def _routed_from_ledger(ledger_mailboxes, mailbox, filename_hash, vault_name):
-    """`(routed_vaults, routed_from)` from `/para-ingest`'s own central ledger: the `routed`
-    list of the entry, in this note's own mailbox, whose thread hashes to this note's
-    filename hash - minus this vault. `(None, None)` where the mailbox is unknown to the
-    ledger or no entry's thread matches: the hash is searched only within the note's own
-    mailbox, never across every mailbox in the ledger, since a six-hex hash can collide
-    between two unrelated mailboxes."""
+def _ledger_entry(ledger_mailboxes, mailbox, filename_hash):
+    """`(thread_id, record)` of the entry in `/para-ingest`'s central ledger, in this note's
+    own mailbox, whose thread hashes to this note's filename hash; `(None, None)` where the
+    mailbox is unknown to the ledger or no entry's thread matches. The hash is searched only
+    within the note's own mailbox, never across every mailbox in the ledger, since a six-hex
+    hash can collide between two unrelated mailboxes."""
     if not mailbox or not filename_hash:
         return None, None
     mailbox_entries = ledger_mailboxes.get(mailbox)
     if not isinstance(mailbox_entries, dict):
         return None, None
     for thread_id, record in mailbox_entries.items():
-        if not isinstance(record, dict):
-            continue
-        if thread_hash(thread_id) != filename_hash:
-            continue
-        routed = record.get("routed")
-        routed = routed if isinstance(routed, list) else []
-        return sorted({v for v in routed if v and v != vault_name}), "ledger"
+        if isinstance(record, dict) and thread_hash(thread_id) == filename_hash:
+            return thread_id, record
     return None, None
+
+
+def _routed_from_ledger(ledger_mailboxes, mailbox, filename_hash, vault_name):
+    """`(routed_vaults, routed_from)`: the ledger entry's `routed` list minus this vault,
+    and `"ledger"`; `(None, None)` with no entry."""
+    _, record = _ledger_entry(ledger_mailboxes, mailbox, filename_hash)
+    if record is None:
+        return None, None
+    routed = record.get("routed")
+    routed = routed if isinstance(routed, list) else []
+    return sorted({v for v in routed if v and v != vault_name}), "ledger"
+
+
+def _ingest_seen(ledger_mailboxes, mailbox, filename_hash):
+    """The ledger entry's thread id and watermark, which a re-read at source is compared
+    against (references/execute.md); None with no entry."""
+    thread_id, record = _ledger_entry(ledger_mailboxes, mailbox, filename_hash)
+    if record is None:
+        return None
+    return {"thread_id": thread_id, "seen_through": record.get("seen_through"),
+            "seen_date": record.get("seen_date")}
 
 
 def _extract_thread_id(link_value, filename_hash):
@@ -464,6 +480,7 @@ def note_block(path, entries, vault_name, ledger_mailboxes):
         "thread_id": _extract_thread_id(link_value, filename_hash),
         "message_id": fields.get("Message id") if shape == "ingest" else None,
         "conversation_id": fields.get("Conversation id") if shape == "ingest" else None,
+        "ingest_seen": _ingest_seen(ledger_mailboxes, mailbox, filename_hash),
     }
 
 
@@ -534,6 +551,23 @@ def _inbound_for_item(vault, name):
 
 # ------------------------------------------------------------------------------ items: loose
 
+def _mailbox_readers(entries):
+    """`{mailbox, lowercased: [vault names]}` for every active registered vault whose
+    `## Triage sources` declares that mailbox: the vaults that receive its mail on their own,
+    so Dismiss (other vault) leaves the item somewhere (references/approval.md)."""
+    readers = {}
+    for entry in entries:
+        path, name = entry.get("path"), entry.get("name")
+        if not entry.get("active") or not name or not path or not Path(path).is_dir():
+            continue
+        for row in triage_sources(Path(path))["rows"]:
+            if row.get("mailbox") and row.get("kind") in ("connector", "fetch-script"):
+                names = readers.setdefault(row["mailbox"].lower(), [])
+                if name not in names:
+                    names.append(name)
+    return {mailbox: sorted(names) for mailbox, names in readers.items()}
+
+
 def build_loose(vault, entries, vault_name, ledger_mailboxes):
     triage_dir = vault / "triage"
     file_map = {}
@@ -560,9 +594,15 @@ def build_loose(vault, entries, vault_name, ledger_mailboxes):
         items.append(entry)
 
     _fill_duplicates(vault, items)
+    readers = None
     for entry in items:
         note = entry["note"]
+        if note:
+            note["mailbox_readers"] = None
         if note and note["mail_note"]:
+            if readers is None:
+                readers = _mailbox_readers(entries)
+            note["mailbox_readers"] = readers.get((note["mailbox"] or "").lower(), [])
             # cross_vault checks the union: mentioned_vaults costs one extra size-filtered
             # sources/ walk per name when it turns out wrong, routed_vaults missing one is
             # the silent duplicate real --test runs have hit.
