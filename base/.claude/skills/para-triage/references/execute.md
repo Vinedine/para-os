@@ -23,7 +23,7 @@ Only approved items execute, whether approved by their own question or by a tabl
   $tmp = "$dst.rotating"
   $img = [System.Drawing.Image]::FromFile($src)
   $img.RotateFlip([System.Drawing.RotateFlipType]::Rotate180FlipNone)
-  $img.Save($tmp)                       # encoder inferred from $dst's extension
+  $img.Save($tmp)                       # no format argument: keeps the source's format
   $img.Dispose()                        # releases the handle on $src
   Move-Item -Force $tmp $dst
   ```

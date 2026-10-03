@@ -1,7 +1,7 @@
 ---
 name: para-triage
 description: Empty the current vault's triage/ folder - and any configured triage sources (mailboxes, sync scripts) - by classifying each item, proposing a destination or action, then executing after user confirmation. Use when user asks to "process triage", "clean up triage", "what's in triage", "empty the inbox", "check my email for anything to do", or types /para-triage.
-allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content, mcp__google-workspace__search_drive_files, mcp__google-workspace__list_drive_items, mcp__google-workspace__get_drive_file_content
+allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content, mcp__google-workspace__get_gmail_attachment_content, mcp__google-workspace__search_drive_files, mcp__google-workspace__list_drive_items, mcp__google-workspace__get_drive_file_content
 argument-hint: '[preview|apply|convert|table] [--test]'
 ---
 
@@ -61,7 +61,7 @@ Read each loose file, weigh the scan's duplicates, cross-vault hits and orientat
 
 Group the linked items, **then print the manifest**, when and where [para-shared/asking.md](../para-shared/asking.md) says: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. Then ask **one `AskUserQuestion` per item or linked group**. **Vocabulary, grouping and delete rules: [references/approval.md](references/approval.md).**
 
-**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** After the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. Same follow-on edits. `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
+**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** `convert` builds no table: it reports what arrived and stops. On the others, after the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. Same follow-on edits. `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
 ### Steps 7 to 9: Execute, update READMEs, re-render
 

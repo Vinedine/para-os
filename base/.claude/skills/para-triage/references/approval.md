@@ -69,7 +69,7 @@ After it, list the **follow-on edits** to each receiving entity's `README.md` or
 
 ## The table path
 
-The arguments that do not ask are `preview`, `apply`, `convert` and `table`, plus any run with no interactive operator ([SKILL.md](../SKILL.md) Steps 5 and 6). The `Action` column holds only these:
+The arguments that build this table instead of asking are `preview`, `apply` and `table`, plus any run with no interactive operator ([SKILL.md](../SKILL.md) Steps 5 and 6). The `Action` column holds only these:
 
 - **Files**: File it, File it + rotate Nx, Extract, Split, Run vault script, Delete (duplicate), Delete (redundant scan), Delete (no lasting value), Move out of vault, Leave in triage.
 - **Threads and staged mail notes**: Update existing, Add action, Add register row, Note to triage, Dismiss (noise), Dismiss (other vault), Stage in other vault (a staged note only), Leave thread.
