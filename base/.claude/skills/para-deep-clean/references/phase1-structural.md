@@ -48,6 +48,8 @@ Audit `archive/` against the vault's **Archive hygiene** conventions in CLAUDE.m
 - **Archived entities missing their minimum record** - no `brief.md` / `README.md` or status marker. Flag.
 - **Typos or wrong names in already-archived filenames** - the naming scan applies to archived files too. Propose a rename, preserving the source language.
 
+**Loose files at the resources root** (`resources_loose`): any file there but `README.md` and `.gitkeep`. Propose a destination for each: the area or project it serves when one owns it, else a kind folder, a new one if none fits. Repoint its inbound links in the same step.
+
 ## Step 1.3 - Present the issues table
 
 One table, shown **before** applying anything:

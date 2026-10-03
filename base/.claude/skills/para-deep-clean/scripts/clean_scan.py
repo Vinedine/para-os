@@ -651,6 +651,16 @@ def archive_findings(vault, dated_pattern):
             "missing_record": missing_record, "misplaced_checkboxes": misplaced_checkboxes(vault)}
 
 
+def resources_loose(vault):
+    """Files at the resources root beside its index: each belongs in a kind folder or with
+    the area or project it serves."""
+    root = vault / "resources"
+    if not root.is_dir():
+        return []
+    return sorted(p.relative_to(vault).as_posix() for p in root.iterdir()
+                  if p.is_file() and p.name not in ("README.md", ".gitkeep"))
+
+
 def stale_drafts(vault):
     out = []
     for path in sorted(vault.rglob("*")):
@@ -702,6 +712,9 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
     touched |= {vault / f for f in archive["missing_record"]}
     touched |= {vault / r["file"] for rows in archive["misplaced_checkboxes"].values() for r in rows}
 
+    res_loose = resources_loose(vault)
+    touched |= {vault / f for f in res_loose}
+
     drafts = stale_drafts(vault)
     touched |= {vault / d["draft"] for d in drafts}
 
@@ -709,7 +722,7 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
             "checker_verified": checker, "wikilinks": wikilinks, "uncited_contacts": uncited,
             "uncited_exempt": uncited_exempt, "inline_contact_details": inline_details,
             "duplicates": dup, "figure_pairs": figs, "archive": archive,
-            "stale_drafts": drafts, "snapshot": snapshot(sorted(touched, key=str))}
+            "resources_loose": res_loose, "stale_drafts": drafts, "snapshot": snapshot(sorted(touched, key=str))}
 
 
 # ----------------------------------------------------------------------------------- phase 3
@@ -894,6 +907,10 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
     touched |= {vault / f for f in arch["loose_root_files"] + arch["meetings_naming"] + arch["missing_record"]}
     touched |= {vault / r["file"] for rows_ in arch["misplaced_checkboxes"].values() for r in rows_}
     rows.append({"check": "archive_clean", "pass": archive_clean, "detail": arch})
+
+    res_loose = resources_loose(vault)
+    touched |= {vault / f for f in res_loose}
+    rows.append({"check": "resources_clean", "pass": not res_loose, "detail": res_loose})
 
     dangling = dangling_links(vault, DANGLING_ROOTS)
     touched |= {vault / d["file"] for d in dangling}
