@@ -63,7 +63,7 @@ Then fill the templates:
 
 ## Phases 2 + 3 - the vault-setup project
 
-Create `projects/vault-setup/` - the vault's first project, since standing the vault up is itself a time-bound deliverable. It holds two files:
+Create `projects/vault-setup/` - the vault's first project, since standing the vault up is itself a deliverable. It has no deadline, and you never invent one for it: it retires when its actions are done, and its brief says so where a date would go. It holds two files:
 
 **`brief.md`** - a short plan covering:
 
