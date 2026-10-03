@@ -551,6 +551,23 @@ def _inbound_for_item(vault, name):
 
 # ------------------------------------------------------------------------------ items: loose
 
+def _mailbox_readers(entries):
+    """`{mailbox, lowercased: [vault names]}` for every active registered vault whose
+    `## Triage sources` declares that mailbox: the vaults that receive its mail on their own,
+    so Dismiss (other vault) leaves the item somewhere (references/approval.md)."""
+    readers = {}
+    for entry in entries:
+        path = entry.get("path")
+        if not entry.get("active") or not path or not Path(path).is_dir():
+            continue
+        for row in triage_sources(Path(path))["rows"]:
+            if row.get("mailbox") and row.get("kind") in ("connector", "fetch-script"):
+                names = readers.setdefault(row["mailbox"].lower(), [])
+                if entry.get("name") not in names:
+                    names.append(entry.get("name"))
+    return {mailbox: sorted(names) for mailbox, names in readers.items()}
+
+
 def build_loose(vault, entries, vault_name, ledger_mailboxes):
     triage_dir = vault / "triage"
     file_map = {}
@@ -577,9 +594,15 @@ def build_loose(vault, entries, vault_name, ledger_mailboxes):
         items.append(entry)
 
     _fill_duplicates(vault, items)
+    readers = None
     for entry in items:
         note = entry["note"]
+        if note:
+            note["mailbox_readers"] = None
         if note and note["mail_note"]:
+            if readers is None:
+                readers = _mailbox_readers(entries)
+            note["mailbox_readers"] = readers.get((note["mailbox"] or "").lower(), [])
             # cross_vault checks the union: mentioned_vaults costs one extra size-filtered
             # sources/ walk per name when it turns out wrong, routed_vaults missing one is
             # the silent duplicate real --test runs have hit.

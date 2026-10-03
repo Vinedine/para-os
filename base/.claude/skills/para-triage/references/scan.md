@@ -20,7 +20,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `ingest_ledger` | `path`, `exists`, `load_error` for `/para-ingest`'s central ledger; `items.loose[].note.routed_vaults` is what reads its `mailboxes` map, per note |
 | `items.loose` | One entry per top-level file (`.gitkeep` dropped, a PDF's `.md` twin folded on): `name`, `size`, `kind`, `readme`, `twin`, `note`, `duplicates`, `hash_skipped`, `cross_vault`, `inbound` |
 | `items.loose[].twin` | **PDF-only**: the `.md` whose stem matches a `.pdf` beside it. A Google-native stub and its converted `.md` are never paired here; the skill pairs them itself at conversion ([sources.md](sources.md#google-native-files)). |
-| `items.loose[].note` | For a `.md` item: `shape` (`ingest`/`frontmatter`/null), `fields`, `mail_note`, `mailbox`, `mentioned_vaults`, `routed_vaults`, `routed_from`, `content_incomplete`, `content_evidence`, `thread_hash`, `thread_id`, `message_id`, `conversation_id`, `ingest_seen` |
+| `items.loose[].note` | For a `.md` item: `shape` (`ingest`/`frontmatter`/null), `fields`, `mail_note`, `mailbox`, `mentioned_vaults`, `routed_vaults`, `routed_from`, `content_incomplete`, `content_evidence`, `thread_hash`, `thread_id`, `message_id`, `conversation_id`, `ingest_seen`, `mailbox_readers` |
 | `items.subdirectories` | `name`, `files`, `handoff` (`_`-prefixed) |
 | `items.subdirectories_line` | The manifest's `Subdirectories, not asked: ...` line, printed as it stands; null with no subdirectories |
 | `items.empty`, `items.only_subdirectories` | The two stop conditions Step 2 checks last |
@@ -78,6 +78,9 @@ collected vault's loose items are the files in `triage/` read through their
     mailboxes, since a six-character hash can collide.
   - **`ingest_seen`**: that same entry's thread id, `seen_through` and `seen_date`;
     `null` with no entry.
+  - **`mailbox_readers`**, for a mail note: every active registered vault whose
+    `## Triage sources` declares the note's mailbox (case-insensitive), sorted; `null`
+    for any other note.
   - **`cross_vault`**: a byte-identical file in another vault's `sources/`, checked across
     the **union** of `mentioned_vaults` and `routed_vaults` (`null` read as empty): a vault
     checked needlessly costs one walk, a vault missed is a silent duplicate.

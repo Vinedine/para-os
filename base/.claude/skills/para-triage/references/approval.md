@@ -21,7 +21,7 @@ What a question may offer; [the table path](#the-table-path) offers less. Nothin
 
 **A subdirectory is listed, never asked**: every option it could get changes nothing. It goes under the manifest (`Subdirectories, not asked: ...`) and in the summary.
 
-**A staged mail note takes the connector-thread vocabulary too.** A loose `.md` staged from a mailbox (by `/para-ingest` or an earlier **Note to triage**; the scan's `note.mail_note`) stands in for its thread. Its question may add **Update existing**, **Add action**, **Add register row** and **Dismiss (other vault)**, each also disposing of the note, and the option says how: `Update existing, note deleted` is the default shape, since the thread survives in the mailbox and the note's Link names it; file the note too only where it holds content the mailbox copy does not. **Dismiss (noise)** is **Delete (no lasting value)** here, and **Leave thread** is **Leave in triage**. Its thread was ledgered when staged, so triage writes no seen-ledger entry for it.
+**A staged mail note takes the connector-thread vocabulary too.** A loose `.md` staged from a mailbox (by `/para-ingest` or an earlier **Note to triage**; the scan's `note.mail_note`) stands in for its thread. Its question may add **Update existing**, **Add action**, **Add register row**, **Dismiss (other vault)** and **Stage in other vault**, each also disposing of the note, and the option says how: `Update existing, note deleted` is the default shape, since the thread survives in the mailbox and the note's Link names it; file the note too only where it holds content the mailbox copy does not. **Dismiss (noise)** is **Delete (no lasting value)** here, and **Leave thread** is **Leave in triage**. **Dismiss (other vault)** deletes the note only where `note.mailbox_readers` names that vault, which then receives the same mail; otherwise the option is **Stage in other vault**, the note moved unchanged into that vault's `triage/`. Its thread was ledgered when staged, so triage writes no seen-ledger entry for it.
 
 **Connector threads** (named by subject, sender and date):
 
@@ -72,6 +72,6 @@ After it, list the **follow-on edits** to each receiving entity's `README.md` or
 The arguments that do not ask are `preview`, `apply`, `convert` and `table`, plus any run with no interactive operator ([SKILL.md](../SKILL.md) Steps 5 and 6). The `Action` column holds only these:
 
 - **Files**: File it, File it + rotate Nx, Extract, Split, Run vault script, Delete (duplicate), Delete (redundant scan), Delete (no lasting value), Move out of vault, Leave in triage.
-- **Threads and staged mail notes**: Update existing, Add action, Add register row, Note to triage, Dismiss (noise), Dismiss (other vault), Leave thread.
+- **Threads and staged mail notes**: Update existing, Add action, Add register row, Note to triage, Dismiss (noise), Dismiss (other vault), Stage in other vault (a staged note only), Leave thread.
 
 A file needing a new entity is **Leave in triage**, its Why naming the entity to create: `/para-new` asks questions nobody is there to answer.
