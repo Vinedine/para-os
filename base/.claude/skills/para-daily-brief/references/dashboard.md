@@ -16,8 +16,8 @@ Exit 2 means the script cannot run or the judgment named a task the scan does no
 ## Identity and lifecycle
 
 - `<title>`: the vault's **display name** plus ` Dashboard`, and nothing longer. The display name is the vault's `CLAUDE.md` H1 with a trailing `Vault Conventions` stripped (`# BelFoot Vault Conventions` gives `BelFoot Dashboard`); the folder name only when there is no H1.
-- **The title is also the update key** where no `url` is remembered, and must match a page an earlier revision named by a different rule. List existing artifacts and compare *normalized* forms of both sides: lowercase, `-` and `_` to spaces, runs of whitespace collapsed, and a `vault` token immediately before `dashboard` dropped. Read the first title that matches, then republish to its `url`; create a new artifact only when nothing does, and never rename one: a matched page keeps its title.
-- Favicon: `📊`, never changed on redeploy.
+- **The title is also the update key** where no `url` is remembered, and an existing page may differ from it in case or separators. List existing artifacts and compare *normalized* forms of both sides: lowercase, `-` and `_` to spaces, runs of whitespace collapsed, and a `vault` token immediately before `dashboard` dropped. Read the first title that matches, then republish to its `url`; create a new artifact only when nothing does, and never rename one: a matched page keeps its title.
+- Icon: `chart` on the first publish, omitted on redeploy.
 - Description parameter: `Daily vault-state dashboard: open actions per project and area, health flags, ideas, agenda.`
 - Write the HTML under a stable filename such as `vault-dashboard.html`.
 

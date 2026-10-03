@@ -22,7 +22,7 @@ python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> [
 | 2 | The shared library is missing or fails to import | Nothing but a stderr line: run the by-hand fallback |
 | 3 | `--vault` is not a vault root (`vault_root`: `projects/` plus `areas/` or `archive/`, plus `CLAUDE.md`) | `vault` and `clone` (the clone is still checked, so both reasons print at once) |
 | 4 | `--clone` is not a git repository, `--ref` does not resolve, `--worktree` names a ref other than the checked-out branch or finds the clone's HEAD detached with no branch to read, or the ref carries no `CHANGELOG.md` or `base/CLAUDE.md.template` (not a para-os clone) | `vault` (full) and `clone` (with `error`) |
-| 5 | Neither `--ref` nor `--worktree` was given and the clone has no `origin/stable`: a clone made before releases moved to `stable` (`clone.stable_missing: true`) | As exit 4 |
+| 5 | Neither `--ref` nor `--worktree` was given and the clone has no `origin/stable` branch yet (`clone.stable_missing: true`) | As exit 4 |
 | 6 | No `--clone`, and no folder at `$PARAOS_HOME/para-os` (`find_clone`) | `vault` and `clone` (`path` and `source` `null`, with `error`) |
 
 ## The output

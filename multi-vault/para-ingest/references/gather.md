@@ -37,7 +37,7 @@ Then say the plan out loud before acting on it: **N vaults, N mailboxes, N scrip
 
 ### The volume gate: a script writes only if its dry run is small
 
-**Script output bypasses the router entirely.** A sync script writes into `triage/` itself, so nothing this skill decides applies to what it puts there.
+**Script output bypasses the router entirely.** A sync script writes into `triage/` itself, so nothing this skill decides applies to what it puts there. One script routes by a rule of its own, another imports an inbox wholesale.
 
 The two kinds are indistinguishable from the manifest, and asking each vault to declare which it is would be a new configuration field that goes stale. Use the dry-run count instead, which measures the thing that actually matters:
 
