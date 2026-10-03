@@ -9,7 +9,7 @@ argument-hint: '[phase1|phase2|phase3|phase4|audit] [--test]'
 
 A multi-phase cleanup workflow for vaults following the PARA plus per-entity `sources/` convention.
 
-**This skill is vault-agnostic.** It reads the vault's `CLAUDE.md` for its parameters, per [Defer to the vault](../para-shared/operating-discipline.md#defer-to-the-vault), including the entity type and any iPad-rendering toolchain (`flip.ps1` / `render.ps1`).
+**This skill is vault-agnostic.** It reads the vault's `CLAUDE.md` for its parameters, per [Defer to the vault](../para-shared/operating-discipline.md#defer-to-the-vault), including the entity type.
 
 Also invoke after a large content migration, or periodically (every 3-6 months) to catch drift. Do NOT invoke for single-file edits or small tweaks.
 
@@ -35,10 +35,10 @@ Confirm before starting:
 1. Vault has a `CLAUDE.md` documenting structure, naming conventions, and "do not add" rules. If missing, stop and ask the user to create one.
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
 3. Entities each carry the main document their `CLAUDE.md` prescribes (`brief.md` by default) plus optional `sources/`.
-4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them (`Glob triage/*` where it cannot run); check [collected copies](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) too. If any are present, **stop and tell the user to run `/para-triage` first**; `audit`, which writes nothing, lists them as a finding instead. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
+4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them (`Glob triage/*` where it cannot run). If any are present, **stop and tell the user to run `/para-triage` first**; `audit`, which writes nothing, lists them as a finding instead. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
 5. **The vault should be on the newest *shipped* para-os template revision.** Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
-   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/stable`** (the delivery's skeleton template for a vault on a delivery, whether its `**Delivery:**` line names it or [the detection rule](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) places it there: `addons/<delivery>/skeleton/`, or `delivery/<delivery>/` then `flavors/<delivery>/` at a ref with no `addons/` folder; base where the delivery has no skeleton at that ref, said so in the run). **Never read the clone's working tree:** a revision in flight lives there uncommitted. Without a shell `git show` cannot run: say the marker comparison was not made, and why, and carry on.
+   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/stable`**. **Never read the clone's working tree:** a revision in flight lives there uncommitted. Without a shell `git show` cannot run: say the marker comparison was not made, and why, and carry on.
 
    Then, in order:
 
@@ -46,8 +46,6 @@ Confirm before starting:
    - **Vault ahead of the shipped marker:** it was aligned to a revision that has not shipped yet. Name the two markers in one line and carry on, auditing against the vault's own `CLAUDE.md`. **Never send this vault to `/para-upgrade`**, which refuses to downgrade.
    - **No clone found** (`verdict: no_clone`, per [para-shared/scripts.md](../para-shared/scripts.md)): skip the check, say no para-os clone was found so the vault's revision could not be verified, and carry on.
    - **A clone the scan reports `ref_missing` on the default ref:** it was made before releases moved to `stable`. Offer the one-time switch (`git -C <clone> fetch origin`, then `git -C <clone> checkout stable`) and check again; declined, carry on as with no clone.
-
-If the vault is on the read-only iPad delivery and **collected**, offer to run [its edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) around the phases that write.
 
 ## Step 0 - Scan
 
@@ -99,7 +97,7 @@ Findings are presented two ways, and which one a finding gets is decided by whet
 
 - **Read every README and key source PDF** before proposing changes.
 - **Pause for approval between phases**, and within Phase 2 do one worked example before batching the rest.
-- **Respect "do not add" rules** in CLAUDE.md. Common ones: no per-entity templates, no derived outputs that drift from a single source, and, on the read-only iPad delivery specifically, no `actions.md` at all.
+- **Respect "do not add" rules** in CLAUDE.md. Common ones: no per-entity templates, and no derived outputs that drift from a single source.
 - **Match the vault's voice and style.** Read 2-3 nearby READMEs first and copy the structure and tone.
 - **Cross-vault separation**: never link from a code repo to a private vault path, and never include other-vault paths in repo-checked content.
 

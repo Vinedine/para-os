@@ -44,18 +44,7 @@ python3 "<this skill's base directory>/scripts/brief_scan.py" --vault . [--entit
 
 Pass `--entity` only under an entity scope. **Field table, and the by-hand fallback where the script cannot run: [references/task-scan.md](references/task-scan.md).**
 
-### Step 1b: Identify the vault type
-
-- **Type B (read-only consumer vault)** - no `actions.md` anywhere, on the [read-only iPad delivery](../para-shared/operating-discipline.md#the-read-only-ipad-delivery). Action tracking is absent by design, so the missing `actions.md` is **not** an error - never report it as one.
-- **Type A (PARA vault with action tracking)** otherwise - the full flow.
-
-The scan's `vault_type` says which. Only when it reports `B` does the delivery decide a read-only vault from a genuinely empty Type A one.
-
-**Type B skips only what the task scan feeds:** 📊 Vault state, 🎯 Now, the Later counts, and every health flag but the over-grown brief. Everything computed from the filesystem rather than from checkboxes still runs - 💡 Ideas (4d), the Vision read (4e), the over-grown-brief flag, 📥 Triage (5b), 🗓 Agenda (5c), the **Next action** close, and the dashboard (Step 7) with its task panels omitted - plus one line saying action tracking is absent by design.
-
-**While the vault is collected** (same link), the scan refuses with exit 2 rather than reporting a busy vault as an empty one, so the fallback runs: resolve every markdown path through the path map, never the PARA path, where a miss is silent; take every date from the collected `.md` ([task-scan.md](references/task-scan.md#step-4b-aggregate-per-entity)); and test the **decoded** path wherever they test one against `archive/` or `resources/`.
-
-### Step 1c: Resolve an entity scope
+### Step 1b: Resolve an entity scope
 
 Only when the argument is not one of the four scope words **and reads like an entity name** by the test in Arguments above. Pass it as `--entity`; the scan answers in `entity.status`, and nothing else decides it:
 
@@ -108,7 +97,7 @@ Render the page with `scripts/render_dashboard.py` from the scan and a small jud
 
 ## Edge cases
 
-- **Vault with no actions.md files:** Type B gives Step 1b's reduced brief. Type A with empty or absent `triage/` gives `No action-bearing files found in <cwd>.` and stops; with a populated triage, render only 📥 Triage.
+- **Vault with no action files:** with empty or absent `triage/`, say `No action-bearing files found in <cwd>.` and stop; with a populated triage, render only 📥 Triage.
 - **Every marker case is the scan's**, gate, cadence and malformed date alike: render the `lane` it returns, and a task carrying `malformed_date` reads "(malformed date)". Where the fallback is running instead, [references/task-scan.md](references/task-scan.md) holds the same rules.
 - **Recurring item without a date:** counts in Recurring; in `all`, show "next: -".
 - **Fewer than 5 Now candidates:** show what exists; never pad the list from Undated.

@@ -144,10 +144,6 @@ It would also need new work: detect the plugin (the vault's or the user's `enabl
 
 Today a vault folder is complete: copy, sync or clone it anywhere and the skills come with it. That includes cloud sessions and routines, which per the docs load skills committed to a repository's `.claude/skills/` but not plugins, whether declared in the repository's `.claude/settings.json` or enabled in user settings. With the plugin, every machine that runs the skills installs it first. Offline use is fine after install, since the plugin runs from its cache, and a marketplace added from a local clone needs no network at all. Cowork sessions, per the docs, load the skills enabled for the claude.ai account rather than `~/.claude/skills/`; neither install path was tried there.
 
-### The read-only iPad delivery
-
-The vault sits on a shared Google Drive, so its bundled `.claude/skills/` (55 files, about 1 MB, test suites included) syncs to every drive that shares it. The plugin takes that off the drive. The reader is unaffected either way; they never run a skill. The cost lands on maintainers: a second maintainer machine no longer gets the skills with the drive and has to install the plugin. The delivery's edit cycle is documented in `para-shared/operating-discipline.md`, which travels with the plugin, and each skill still detects the delivery from the vault's `**Delivery:**` line.
-
 ### The vault's git history
 
 Today every revision lands a skill diff in the vault's history: noise, but also an exact record of the skill code that ran against the vault at each commit. With the plugin the history holds only the migrations `/para-upgrade` makes, and which skills ran is known only through the marker and the installed plugin version, which agree only if the operator updates the plugin and runs the upgrade together.
@@ -193,8 +189,7 @@ With `plugin.json` at the repository root, `claude plugin eval .` run from the r
 3. **Per vault, upgrade first.** Run `/para-upgrade` to bring the vault to the revision that shipped the manifests, while its bundled skills still run it.
 4. **Then install and remove the copies.** From the vault root, `claude plugin install para-os@para-os --scope project`, or once at user scope when every project on the machine is a para-os vault. Delete `.claude/skills/para-*/` and `.claude/skills/para-shared/`, and nothing else in `.claude/skills/`, since a vault's own skills live there too. Do the same for any `para-*` copies in `~/.claude/skills/`. Commit.
 5. **Confirm** in a new session: `claude plugin details para-os` lists the eight skills, `/para-os:para-daily-brief week` runs, and the `/` menu shows no unprefixed `/para-daily-brief` left over.
-6. **For the read-only iPad delivery**, do step 4 on the maintainer's machine; the deletion then syncs off the drive. Each further maintainer machine installs the plugin.
-7. **To roll back**, uninstall the plugin (`claude plugin uninstall para-os@para-os`) and copy `base/.claude/skills/` back into the vault.
+6. **To roll back**, uninstall the plugin (`claude plugin uninstall para-os@para-os`) and copy `base/.claude/skills/` back into the vault.
 
 Later revisions then carry "update the plugin" as their skill Reaction, and `/para-upgrade`'s copy audit becomes the legacy path for vaults that never switched. `base/.claude/skills/` stays where it is: it is the plugin's source.
 

@@ -38,10 +38,6 @@ Exit 2 means the script cannot run or the judgment named a task the scan does no
 7. **Ideas** - one row per idea: name, last-touched date, the stage line when the brief states one, a dormancy badge at 6+ months.
 8. **Footer** - `Generated <date> by /para-daily-brief · read-only: repairs via /para-deep-clean`, and the Next action as a highlighted closing strip above it.
 
-## In a Type B vault
-
-Drop the panels the task scan feeds - the stat tiles that count actions, the per-entity bars (3), and Now (5) - and keep 1, 4 (the over-grown-brief flag only), 6, 7, 8. The tile row becomes Ideas · Triage · Dormant ideas. Say once, in the header, that the vault tracks no actions by design; never render an empty actions chart or a zeroed overdue tile.
-
 ## Tone
 
 Clean and dense, no decoration that doesn't carry data, no motivational copy.

@@ -22,6 +22,22 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 ---
 
+## 2026.10.01
+
+**The read-only iPad delivery is removed, and the delivery kind of add-on with it.** `addons/readonly-ipad/` is gone. Add-ons are two kinds, flavor and module, both shipping `CLAUDE.md.sections` merged beside base's sections, and every vault is measured against `base/CLAUDE.md.template`. No skill handles a collected vault any more: every scan reads every vault, and `para-shared/operating-discipline.md` loses `## The read-only iPad delivery` while keeping its synced-vault rule. `/para-triage` drops its re-render step, so Step 9 is now the summary. Reaction: re-sync `para-shared/`, `/para-archive`, `/para-deep-clean`, `/para-new`, `/para-pipeline`, `/para-triage`, `/para-upgrade` and `/para-ingest`. A vault declaring `**Delivery:** readonly-ipad`, or with `flip.ps1` at its root, runs `flip.ps1 spread` one last time, then removes `flip.ps1`, `render.ps1`, `render.mjs` and the `**Delivery:**` line, and is measured against base as a vault several revisions behind would be: its `CLAUDE.md` sections against the template, its skeleton files against base's. The generated PDF files are the operator's to keep or delete, never deleted unasked. A `**Delivery:**` line naming anything else is reported as no longer meaning anything, its removal proposed and never made unasked.
+
+**Rule files carry no `resources/mds/` globs.** `figures.md`, `filing.md` and the real-estate flavor's four rule files lose each glob's collected-state twin and the sentence explaining it. `/para-upgrade`'s `rules` block reports such a glob as `paths_retired`, apart from the vault's own extra globs. Reaction: remove from each `.claude/rules/` copy every glob its row lists under `paths_retired`, and the sentence saying the `resources/mds/` globs cover a collected vault. A `CLAUDE.md` sentence saying rule-file globs are doubled on the read-only iPad delivery, or naming `flip.ps1 collect`, goes too where an earlier revision left one.
+
+**The machine-read sentence names two declaration lines.** The sentence under `**Type:**` lists `**Flavor:**` and `**Modules:**` only. Reaction: every vault drops `**Delivery:**` from that sentence's list, its own wording otherwise kept, a translated one included.
+
+**`/para-daily-brief` has one vault layout.** The Type B brief and dashboard, which existed only for the delivery, are gone, and the scan no longer reports `vault_type`; a vault with no action file renders its triage alone, or says it found none. Reaction: re-sync `/para-daily-brief`.
+
+**`/property-dealsheet` builds an HTML file and stops there.** The deal sheet is `<property>-dealsheet.html` beside the dossier, read back for gaps and never rendered to PDF; `/property-reconcile` and `/property-underwrite` run no edit cycle. Reaction: none for a vault whose own entities are not properties it buys, renovates, sells or holds. A real-estate vault re-syncs the three `property-*` skills and `resources/prompts/dealsheet-template.html`, and takes the `## Deal sheets` paragraph without its PDF sentence, which the scan's `sections` block offers as `behind`.
+
+**Setting up a vault asks three choices.** The bootstrap prompt drops the `Read where` question, and a business vault is always offered the sales module. Reaction: none for an existing vault.
+
+---
+
 ## 2026.09.07
 
 **`/para-upgrade` ran only the first of an integration's JavaScript test files.** The `suite.runner` its scan gives named one file, so granola's `granola.test.js` never ran while `granola.js` was listed as covered. The runner now names every test file. No template rule or section changed. Reaction: re-sync `/para-upgrade`.

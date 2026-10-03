@@ -162,7 +162,7 @@ A vault the agent can only read is a tidy filing cabinet. Wire in a source and t
 
 ## Add-ons
 
-The base assumes you read and write the Markdown yourself. An add-on layers on it, as one of [three kinds](addons/README.md): a **delivery** changes how a vault is read, a **flavor** what it is about, a **module** adds a function beside that. [`readonly-ipad/`](addons/readonly-ipad/) is a delivery: you maintain the vault, a non-technical reader consumes generated PDFs on an iPad through Google Drive, and next steps live as prose instead of `actions.md`. [`real-estate/`](addons/real-estate/) is a flavor for buying, renovating, selling and holding property; [`sales/`](addons/sales/) is a module for prospects, demos and deals. A vault declares its add-ons under the `**Type:**` line of its `CLAUDE.md`.
+An add-on layers on the base, as one of [two kinds](addons/README.md): a **flavor** says what a vault is about, a **module** adds a function beside that. [`real-estate/`](addons/real-estate/) is a flavor for buying, renovating, selling and holding property; [`sales/`](addons/sales/) is a module for prospects, demos and deals. A vault declares its add-ons under the `**Type:**` line of its `CLAUDE.md`.
 
 ## Data and privacy
 
@@ -180,7 +180,7 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 - [`INSTALL.md`](INSTALL.md) - the setup steps the Quickstart prompt runs.
 - [`RELEASES.md`](RELEASES.md) - what each `YYYY.MM.NN` revision changes for you, in plain words, and whether you need to do anything.
 - [`CHANGELOG.md`](CHANGELOG.md) - the same revisions as step-by-step instructions `/para-upgrade` applies to a vault.
-- [`addons/`](addons/README.md) - the delivery, flavor and module add-ons.
+- [`addons/`](addons/README.md) - the flavor and module add-ons.
 - [`integrations/`](integrations/README.md) - drop-in scripts that pull an outside system into a vault.
 - [`multi-vault/`](multi-vault/) - optional layer for several vaults drawing on the same inboxes.
 - [`examples/`](examples/README.md) - fictional, fully populated vaults to poke at.
@@ -195,7 +195,7 @@ Beyond the list at the top:
 - **Account skills come along:** Claude Code syncs the skills and plugins enabled on your claude.ai account into sessions (the document skills are what a vault needs for the files it receives); `syncClaudeAiSkills: false` and `syncClaudeAiPlugins: false` in your settings keep a vault to its own.
 - **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
 - **A substrate that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible. What the agent may change on its own, and what enforces it, is in [the autonomy tiers](docs/autonomy-tiers.md).
-- **Add-ons and integrations bring their own:** the read-only delivery needs Windows PowerShell and Node.js 18+ ([setup](addons/readonly-ipad/README.md)), and each integration's runtime and platform are in the [integrations table](integrations/README.md#available).
+- **Integrations bring their own:** each integration's runtime and platform are in the [integrations table](integrations/README.md#available).
 
 ## Running several vaults
 

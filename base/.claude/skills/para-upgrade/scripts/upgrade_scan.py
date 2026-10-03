@@ -14,7 +14,7 @@ Reading the vault and the clone is not this script's own work: para-shared/scrip
 paraos_vault.py holds the primitives (declarations, the git and clone readers, the template
 and changelog readers, snapshots). What lives here is what /para-upgrade alone decides: the
 baseline commit lookup, the skeleton and rules field tables, the shared skill/integration
-verdict rules, the suite locator, and the collected-name encoding for a plain glob.
+verdict rules, and the suite locator.
 
 What it deliberately does NOT do, so the skill keeps owning it: merge a CLAUDE.md section,
 create a skeleton file, overwrite an installed script (the one sanctioned overwrite is a
@@ -38,7 +38,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         ADDONS_DIR, BASE_TEMPLATE, H2_RE, INTEGRATION_MARKER_RE, MARKED_SUFFIXES,
-        OLDER_ADDON_DIRS, SKELETON_TEMPLATE, addon_root, changed,
+        OLDER_ADDON_DIRS, addon_root, changed,
         changelog_entries, clone_files, clone_read, clone_ref, declarations, entries_between,
         find_clone, git, git_bytes, git_status_lines, git_untracked, integration_markers,
         master_template, normalised, paraos_home_dir,
@@ -138,7 +138,7 @@ def vault_block(vault, entries):
 
     return {
         "path": str(vault), "root": info["root"], "missing": info["missing"], "hint": hint,
-        "declarations": decl, "collected": decl["collected"], "claude_md_lines": claude_md_lines,
+        "declarations": decl, "claude_md_lines": claude_md_lines,
         "git": {"repo": repo, "dirty": dirty, "untracked_in_scope": untracked,
                 "ignored_in_scope": ignored},
     }
@@ -155,8 +155,7 @@ def _dirty_masters(dirty, decl):
     every layout this repo has shipped, and a collapsed untracked folder (`addons/`) counts
     when a master root lies inside it."""
     decl = decl or {}
-    names = [n for n in [decl.get("delivery"), decl.get("flavor")] +
-             list(decl.get("modules") or []) if n]
+    names = [n for n in [decl.get("flavor")] + list(decl.get("modules") or []) if n]
     roots = ([f"{d}/" for d in MASTER_DIRS] +
              [f"{layout}/{n}/" for layout in ADDON_ROOTS for n in names])
     return [p for p in dirty if p == "CHANGELOG.md" or
@@ -235,7 +234,7 @@ def clone_block(clone, ref_arg, worktree, decl=None):
 
 # ================================================================== the masters block
 
-ADDON_ROOTS = (ADDONS_DIR,) + OLDER_ADDON_DIRS  # every layout this repo has shipped
+ADDON_ROOTS = (ADDONS_DIR,) + OLDER_ADDON_DIRS  # every layout a flavor or module shipped in
 
 
 def _addon_row(clone, ref, name, kind, worktree, addons_present):
@@ -249,24 +248,15 @@ def _addon_row(clone, ref, name, kind, worktree, addons_present):
 
 
 def masters_block(clone, ref, worktree, decl):
-    template = master_template(clone, ref, decl, worktree)
-    delivery = decl.get("delivery")
-    skeleton_overlay = None
-    if delivery:
-        root = addon_root(clone, ref, delivery, worktree)
-        if root:
-            skeleton_overlay = f"{root}/skeleton"
-
+    template = master_template(clone, ref, worktree)
     addons_present = bool(clone_files(clone, ref, ADDONS_DIR, worktree))
     rows = []
-    if delivery:
-        rows.append(_addon_row(clone, ref, delivery, "delivery", worktree, addons_present))
     if decl.get("flavor"):
         rows.append(_addon_row(clone, ref, decl["flavor"], "flavor", worktree, addons_present))
     for m in decl.get("modules") or []:
         rows.append(_addon_row(clone, ref, m, "module", worktree, addons_present))
 
-    return {"template": template, "skeleton_overlay": skeleton_overlay, "addons": rows}
+    return {"template": template, "addons": rows}
 
 
 # ==================================================================== the delta block
@@ -339,26 +329,7 @@ def delta_block(vault, clone, ref, worktree, template):
 
 # ================================================================= the baseline block
 
-def _template_path_variants(resolved_path, delivery):
-    """The resolved template path plus every older-layout path it may have lived at along
-    the same ref's history, since a -S search has to span the addons/ -> delivery+flavors ->
-    flavors rename to find a commit from before it."""
-    if not delivery:
-        return [resolved_path]
-    parts = resolved_path.split("/", 1)
-    if len(parts) != 2 or parts[0] not in ADDON_ROOTS:
-        return [resolved_path]
-    rest = parts[1]
-    seen, out = set(), []
-    for root in ADDON_ROOTS:
-        candidate = f"{root}/{rest}"
-        if candidate not in seen:
-            seen.add(candidate)
-            out.append(candidate)
-    return out
-
-
-def baseline_block(clone, ref, delta, template, decl):
+def baseline_block(clone, ref, delta, template):
     vault_marker = delta["vault_marker"]
     vault_marker_raw = delta["vault_marker_raw"]
     if not vault_marker_raw:
@@ -379,9 +350,8 @@ def baseline_block(clone, ref, delta, template, decl):
                 "template": template_path,
                 "reason": f"the ref's own committed template still carries {vault_marker}"}
 
-    paths = _template_path_variants(template_path, decl.get("delivery"))
     marker_comment = f"<!-- para-os-template: {vault_marker_raw} -->"
-    out = git(clone, ["log", ref, "--format=%H", f"-S{marker_comment}", "--"] + paths)
+    out = git(clone, ["log", ref, "--format=%H", f"-S{marker_comment}", "--", template_path])
     hashes = [h for h in (out or "").splitlines() if h.strip()]
     if not hashes:
         return {"commit": None, "source": None, "template": None,
@@ -410,15 +380,6 @@ def _skeleton_master_files(clone, ref, worktree, addons_rows):
             continue
         files[_vault_path_for_skeleton(p, "base/")] = p
 
-    delivery_root = next((r["root"] for r in addons_rows if r["kind"] == "delivery" and r["root"]),
-                         None)
-    if delivery_root:
-        prefix = f"{delivery_root}/skeleton/"
-        for p in clone_files(clone, ref, f"{delivery_root}/skeleton", worktree) or []:
-            if p == f"{delivery_root}/{SKELETON_TEMPLATE}":
-                continue
-            files[_vault_path_for_skeleton(p, prefix)] = p
-
     for r in addons_rows:
         if r["kind"] not in ("flavor", "module") or not r["root"]:
             continue
@@ -431,32 +392,18 @@ def _skeleton_master_files(clone, ref, worktree, addons_rows):
     return files
 
 
-def _collected_plain_path(vault_path):
-    return vault_path.replace("/", "__")
-
-
-def skeleton_block(vault, clone, ref, worktree, decl, addons_rows):
+def skeleton_block(vault, clone, ref, worktree, addons_rows):
     files = _skeleton_master_files(clone, ref, worktree, addons_rows)
-    collected = decl.get("collected")
     rows = []
     for vp in sorted(files):
         master_path = files[vp]
         data = clone_read(clone, ref, master_path, worktree=worktree)
         vault_file = vault / vp
         present = vault_file.is_file()
-        collected_as = None
-        read_from = vault_file
-        if not present and collected and vp.lower().endswith(".md"):
-            enc = _collected_plain_path(vp)
-            twin = vault / "resources" / "mds" / enc
-            if twin.is_file():
-                collected_as = f"resources/mds/{enc}"
-                present = True
-                read_from = twin
         identical = None
         if present and data is not None:
             try:
-                identical = normalised(read_from.read_bytes()) == normalised(data)
+                identical = normalised(vault_file.read_bytes()) == normalised(data)
             except OSError:
                 identical = None
         folder_has_content = None
@@ -466,8 +413,7 @@ def skeleton_block(vault, clone, ref, worktree, decl, addons_rows):
                 folder_has_content = any(
                     c.name not in ("README.md", ".gitkeep") for c in folder.iterdir())
         rows.append({"vault_path": vp, "master": master_path, "present": present,
-                     "identical": identical, "collected_as": collected_as,
-                     "folder_has_content": folder_has_content})
+                     "identical": identical, "folder_has_content": folder_has_content})
     return {"rows": rows, "triage_readme": (vault / "triage" / "README.md").is_file()}
 
 
@@ -475,6 +421,9 @@ def skeleton_block(vault, clone, ref, worktree, decl, addons_rows):
 
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)
 PATHS_LIST_RE = re.compile(r"^paths:[ \t]*\n((?:^[ \t]*-[ \t]*\S.*\n?)+)", re.M)
+# Each glob's collected-state twin, which revision 2026.10.01 retired with the delivery that
+# needed it: reported apart from the vault's own extra globs, for removal.
+RETIRED_GLOB_PREFIX = "resources/mds/"
 POINTER_SHAPE = "The full shape is in [.claude/rules/"
 POINTER_CONVENTION_RE = re.compile(r"The full convention(?: \([^)]*\))? is in \[\.claude/rules/")
 
@@ -497,29 +446,6 @@ def _frontmatter_paths(text):
         if item:
             out.append(item)
     return out
-
-
-def _collected_glob_twin(glob):
-    """The resources/mds/ name a plain glob's collected twin carries: interior '/' -> '__', a
-    leading '**/' -> '*__', an interior '/**/' -> '__*__', a trailing '/**' or '/*' -> '__*'."""
-    g, prefix_add = glob, ""
-    if g.startswith("**/"):
-        prefix_add, g = "*__", g[3:]
-    if g.endswith("/**"):
-        g = g[:-3] + "__*"
-    elif g.endswith("/*"):
-        g = g[:-2] + "__*"
-    g = g.replace("/**/", "/*/").replace("/", "__")
-    return f"resources/mds/{prefix_add}{g}"
-
-
-def _doubled_block(paths, decl):
-    required = decl.get("delivery") == "readonly-ipad" or bool(decl.get("collected"))
-    if not required:
-        return {"required": False, "missing_twins": None}  # not applicable, never a failure
-    plain = [p for p in paths if not p.startswith("resources/mds/")]
-    missing = [p for p in plain if _collected_glob_twin(p) not in paths]
-    return {"required": True, "missing_twins": missing}
 
 
 def _rule_anchors(text):
@@ -591,25 +517,27 @@ def _rule_master(clone, ref, worktree, name, addons_rows):
     return None, None
 
 
-def _pointer_master_texts(clone, ref, worktree, decl, addons_rows):
+def _pointer_master_texts(clone, ref, worktree, addons_rows):
     """The template the vault is measured against and each declared addon's sections, at
     the ref: where a pointer sentence the vault copied verbatim comes from."""
-    paths = [(master_template(clone, ref, decl, worktree) or {}).get("path")]
+    paths = [master_template(clone, ref, worktree)["path"]]
     paths += [f"{r['root']}/{SECTIONS_FILE}" for r in addons_rows if r.get("root")]
     datas = [clone_read(clone, ref, p, worktree=worktree) for p in paths if p]
     return [d.decode("utf-8", errors="replace") for d in datas if d is not None]
 
 
-def rules_block(vault, clone, ref, worktree, decl, addons_rows, master_texts=None):
+def rules_block(vault, clone, ref, worktree, addons_rows, master_texts=None):
     out = []
     rules_dir = vault / ".claude" / "rules"
     if not rules_dir.is_dir():
         return out
     if master_texts is None:
-        master_texts = _pointer_master_texts(clone, ref, worktree, decl, addons_rows)
+        master_texts = _pointer_master_texts(clone, ref, worktree, addons_rows)
     for path in sorted(rules_dir.glob("*.md")):
         text = read_text(path)
-        paths = _frontmatter_paths(text)
+        all_paths = _frontmatter_paths(text)
+        retired = [p for p in all_paths if p.startswith(RETIRED_GLOB_PREFIX)]
+        paths = [p for p in all_paths if p not in retired]
         master_path, master_data = _rule_master(clone, ref, worktree, path.name, addons_rows)
         master_text = master_data.decode("utf-8", errors="replace") if master_data is not None \
             else None
@@ -617,12 +545,12 @@ def rules_block(vault, clone, ref, worktree, decl, addons_rows, master_texts=Non
         anchors = _rule_anchors(text)
         out.append({
             "file": rel_posix(vault, path), "master": master_path,
-            "paths": paths, "master_paths": master_paths,
+            "paths": paths, "paths_retired": retired, "master_paths": master_paths,
             # null with no master: nothing to hold the paths against, not a failed check
             "paths_missing": sorted(set(master_paths) - set(paths)) if master_path else None,
             "paths_extra": sorted(set(paths) - set(master_paths)) if master_path else None,
             "kind": _rule_kind(anchors), "anchors": anchors,
-            "doubled": _doubled_block(paths, decl), "pointer": _pointer_info(vault, path.name, master_texts),
+            "pointer": _pointer_info(vault, path.name, master_texts),
         })
     return out
 
@@ -1173,7 +1101,7 @@ def _mechanical_equivalence(copy_bytes, master_bytes, history, is_python):
 def _skill_master_root(clone, ref, worktree, name, addons_rows):
     candidates = [f"base/.claude/skills/{name}", f"multi-vault/{name}"]
     for r in addons_rows:
-        if r["kind"] in ("delivery", "flavor", "module") and r["root"]:
+        if r["root"]:
             candidates.append(f"{r['root']}/.claude/skills/{name}")
     for path in candidates:
         files = [f for f in (clone_files(clone, ref, path, worktree) or [])
@@ -1206,10 +1134,9 @@ def _addon_skill_index(clone, ref, worktree):
 
 
 def _find_undeclared_addon_skill(clone, ref, worktree, name, declared_names, index=None):
-    """Every addon name the ref carries, whichever of the three layouts it ships (addons/,
-    or the older delivery/ + flavors/ split origin/main is still on) - a real-run finding:
-    origin/main has no addons/ folder at all, so a search scoped to it alone silently missed
-    every undeclared addon's skill there. `index`, when given (skills_block's own, built once
+    """Every addon name the ref carries, whichever layout it ships (addons/, or the older
+    flavors/) - a real-run finding: a ref with no addons/ folder at all, searched there
+    alone, silently missed every undeclared addon's skill. `index`, when given (skills_block's own, built once
     per scan via `_addon_skill_index`), answers from memory instead of a fresh git search;
     without it, this still answers on its own - the direct-call shape the tests exercise."""
     if index is not None:
@@ -1504,18 +1431,13 @@ def _suite_stem(test_file):
     return stem
 
 
-def unmarked_scripts(vault, decl, marked_files):
+def unmarked_scripts(vault, marked_files):
     vault = Path(vault)
     candidates = []
     scripts_dir = vault / "resources" / "scripts"
     if scripts_dir.is_dir():
         candidates += [p for p in sorted(scripts_dir.iterdir())
                        if p.is_file() and p.suffix in MARKED_SUFFIXES and not _is_test_file(p.name)]
-    if decl.get("delivery") == "readonly-ipad":
-        for name in ("flip.ps1", "render.ps1", "render.mjs"):
-            p = vault / name
-            if p.is_file():
-                candidates.append(p)
     marked_set = {vault / m["file"] for m in marked_files}
     return [p for p in candidates if p not in marked_set]
 
@@ -1614,7 +1536,7 @@ def _finish_integration_row(plan, batch):
     return row
 
 
-def integrations_block(vault, clone, ref, worktree, decl, addons_rows, master_marker):
+def integrations_block(vault, clone, ref, worktree, addons_rows, master_marker):
     vault = Path(vault)
     markers = integration_markers(vault)
     batch = HistoryBatch(clone, ref, worktree)
@@ -1625,7 +1547,7 @@ def integrations_block(vault, clone, ref, worktree, decl, addons_rows, master_ma
     rows = [_finish_integration_row(plan, batch) for plan in plans]
 
     unmarked = [{"file": rel_posix(vault, p), "matches": _unmarked_matches(clone, ref, worktree, p)}
-               for p in unmarked_scripts(vault, decl, markers)]
+               for p in unmarked_scripts(vault, markers)]
 
     return {"rows": rows, "unmarked": unmarked}
 
@@ -1760,15 +1682,15 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
     template = masters["template"]
 
     delta = delta_block(vault, clone, ref, worktree, template)
-    baseline = baseline_block(clone, ref, delta, template, decl)
-    skeleton = skeleton_block(vault, clone, ref, worktree, decl, masters["addons"])
-    rules = rules_block(vault, clone, ref, worktree, decl, masters["addons"])
+    baseline = baseline_block(clone, ref, delta, template)
+    skeleton = skeleton_block(vault, clone, ref, worktree, masters["addons"])
+    rules = rules_block(vault, clone, ref, worktree, masters["addons"])
     sections = sections_block(vault, clone, ref, worktree, decl)
     settings = settings_block(vault, clone, ref, worktree, user_settings)
     all_entries = _changelog_entries_at(clone, ref, worktree)
     skills = skills_block(vault, clone, ref, worktree, user_skills, decl, masters["addons"],
                           delta["master_marker"], all_entries)
-    integrations = integrations_block(vault, clone, ref, worktree, decl, masters["addons"],
+    integrations = integrations_block(vault, clone, ref, worktree, masters["addons"],
                                       delta["master_marker"])
     smoke = smoke_block(vault, today)
 

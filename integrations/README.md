@@ -2,7 +2,7 @@
 
 Small, self-contained connectors that pull an outside system into a vault. Each drops a script into a vault's `resources/scripts/` and lands real Markdown (or files) where the assistant can read it alongside everything else.
 
-An integration is **not** an [add-on](../addons/). An add-on changes what a vault is or how it is consumed (e.g. `readonly-ipad` adds a render pipeline). An integration is an optional script that works with *any* vault whatever it declares, and carries prerequisites (an app, an account, a platform) that not everyone has - which is why these live here and not in [`base/`](../base/), the dependency-free core everyone copies.
+An integration is **not** an [add-on](../addons/). An add-on changes what a vault is or does (e.g. `sales` adds a deal pipeline). An integration is an optional script that works with *any* vault whatever it declares, and carries prerequisites (an app, an account, a platform) that not everyone has - which is why these live here and not in [`base/`](../base/), the dependency-free core everyone copies.
 
 ## The contract every integration follows
 

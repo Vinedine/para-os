@@ -35,8 +35,6 @@ Interview question 2 asks who is waiting and by when. **The answer gets written 
 
 `<slug>` follows the vault's naming convention, kebab-case by default, no diacritics. A person goes in `areas/network/` as a contact file, not in an area of their own. Take the name from what the user calls the work, not from a summary of it: they have to recognise it in a dashboard.
 
-On the read-only iPad delivery these writes run inside [its edit cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).
-
 ### A staged entity
 
 Where the vault declares a lifecycle whose entity noun the operator used ([para-shared/lifecycles.md](../../para-shared/lifecycles.md)), the path comes from the lifecycle table instead of the row above: **the first stage whose `PARA home` is a folder**, with `<...>` replaced by the slug. The table's earlier row homes are a register, not a folder this skill creates: an entity that belongs at one of those is **one row appended to that register**, in the register's own column order, and nothing else. Say which of the two the run is doing before writing either.

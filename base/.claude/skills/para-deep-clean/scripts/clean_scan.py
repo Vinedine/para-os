@@ -46,14 +46,14 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        BRIEF_LINE_CAP, CollectedVault, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE, H1_RE,
+        BRIEF_LINE_CAP, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE, H1_RE,
         STALE_FILE_DAYS,
-        LINK_ROOTS, WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links, declarations,
+        LINK_ROOTS, WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links,
         duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
         iso, link_files, link_spans, live_lines, master_template, misplaced_checkboxes, norm,
         open_tasks, over_grown_briefs, parse_date, read_lines, read_text, reference_shape,
-        refuse_if_collected, resolve_link, snapshot, strip_code, table_cells,
+        resolve_link, snapshot, strip_code, table_cells,
         template_marker, triage_items,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
@@ -193,20 +193,16 @@ def triage_precondition(vault):
 
 
 def marker_precondition(vault, clone, ref):
-    """The vault's template marker against the master's at a committed ref. Which master
-    that is (a declared or detected delivery's skeleton, in whichever layout the ref
-    carries, else base) is the library's `declarations` and `master_template`, the same
-    reading /para-upgrade makes, so the two skills never measure one vault against two
-    templates. `ref_missing` is a clone whose ref does not resolve: one made before
-    releases moved to `stable`, where the ref is the default."""
-    decl = declarations(vault)
+    """The vault's template marker against the master's at a committed ref, read through
+    the library's `master_template` as /para-upgrade reads it. `ref_missing` is a clone
+    whose ref does not resolve: one made before releases moved to `stable`, where the ref
+    is the default."""
     vault_marker = template_marker(read_text(vault / "CLAUDE.md"))
-    master_marker, delivery_fallback = None, None
+    master_marker = None
     clone, clone_source = find_clone(clone)
 
     if clone:
-        master = master_template(clone, ref, decl)
-        master_marker, delivery_fallback = master["marker"], master["fallback"]
+        master_marker = master_template(clone, ref)["marker"]
 
     if clone is None:
         verdict = "no_clone"
@@ -219,13 +215,9 @@ def marker_precondition(vault, clone, ref):
     else:
         verdict = "ahead"
 
-    out = {"vault": vault_marker, "master": master_marker, "verdict": verdict,
-           "clone": clone.as_posix() if clone else None, "clone_source": clone_source,
-           "ref": ref, "ref_missing": bool(clone) and clone_ref(clone, ref) is None,
-           "delivery": decl["delivery"], "delivery_source": decl["delivery_source"]}
-    if delivery_fallback:
-        out["delivery_fallback"] = delivery_fallback
-    return out
+    return {"vault": vault_marker, "master": master_marker, "verdict": verdict,
+            "clone": clone.as_posix() if clone else None, "clone_source": clone_source,
+            "ref": ref, "ref_missing": bool(clone) and clone_ref(clone, ref) is None}
 
 
 def preconditions(vault, clone, ref):
@@ -854,8 +846,7 @@ def bullets_under_headings(path, headings, vault):
 
 def prose_next_steps(vault, headings):
     """For a vault with no actions.md at all, the bullets under the vault's declared
-    next-steps headings in every live brief - the read-only iPad delivery's own next-step
-    channel, per operating-discipline.md."""
+    next-steps headings in every live brief: such a vault keeps its next steps there."""
     if any(True for _ in vault.rglob("actions.md")):
         return {"applicable": False, "items": []}
     items = []
@@ -957,7 +948,6 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
 def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, headings,
          generated_dirs=(), name_only_columns=()):
     vault = Path(vault).resolve()
-    refuse_if_collected(vault)
     report = {"vault": vault.as_posix(), "today": today.isoformat(), "phase": phase,
               "preconditions": preconditions(vault, clone, ref)}
     if phase == "1":
@@ -1013,13 +1003,9 @@ def main(argv=None):
         ap.error(f"no such vault: {root}")
     headings = args.next_steps_heading or list(DEFAULT_NEXT_STEPS_HEADINGS)
 
-    try:
-        report, code = scan(root, today, args.phase, args.ref, args.clone,
-                            args.templates_dir, args.dated_pattern, headings,
-                            args.generated_dir, args.name_only_column)
-    except CollectedVault as refused:
-        print(f"clean_scan: {refused}", file=sys.stderr)
-        return 2
+    report, code = scan(root, today, args.phase, args.ref, args.clone,
+                        args.templates_dir, args.dated_pattern, headings,
+                        args.generated_dir, args.name_only_column)
 
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")

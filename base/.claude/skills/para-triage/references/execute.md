@@ -1,10 +1,9 @@
-# Executing an approved batch (Steps 7 to 9)
+# Executing an approved batch (Steps 7 and 8)
 
 Only approved items execute, whether approved by their own question or by a table approved as a unit ([approval.md](approval.md)). A deferral is a no-op, not a delayed yes. **A failure anywhere stops the whole batch.**
 
 ## Loose files
 
-- **Read-only iPad delivery**: Steps 7 to 9 run inside [its cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).
 - **Create entity**: `/para-new` runs as a sub-step before the moves; its questions settle the entity, not whether to create one. The item files into whatever entity it ends on (created, widened, or found to exist) under that entity's convention, folder included, which the approval covers, and the new brief cites that path. Ending on no entity, the item stays in `triage/` and the batch carries on. **An entity with no folder** (a contact kept as a single file): `/para-new` folds the item's content into the card as prose, and the triage file then gets its own **Delete (no lasting value)** question naming the card as the survivor.
 - **Extract**: unpack into a temporary folder outside the vault, then move each member as approved, each collision-checked. The archive stays until its own Delete question.
 - **Split**: copy each document's pages into a new file with a tool that copies rather than re-renders them (`pypdf`'s `PdfWriter.add_page`), named to the convention, into `triage/` or the approved destinations. The original stays untouched until its own Delete question.
@@ -47,7 +46,3 @@ For a connector thread and a staged mail note alike:
 ## Follow-ons (Step 8)
 
 For each receiving entity whose `README.md` or `brief.md` was flagged with follow-on edits: add table rows in the existing column order, source-list entries in the right sub-section in date order, and a new sub-section only where one is due, in the existing order. Match the nearby entries' voice and structure, and **rewrite nothing else**; in prose sections (Background, Open items) change only a stated fact the new file changes ("X document not on file" becomes "X document on file as ...").
-
-## Re-render PDFs (Step 9)
-
-Only if the vault has `render.ps1`: run it from the vault root, and on the read-only iPad delivery close [its cycle](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).

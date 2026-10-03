@@ -31,10 +31,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `snapshot`, `snapshot_folders` | Every file in `triage/` and the folder itself, read back by `paraos_vault.py changed <saved_to>` before each delete or move ([execute.md](execute.md)) |
 | `saved_to`, `save_error` | Where the scan kept its own copy of this output, under `$PARAOS_HOME/data/scans/` and never inside the vault (copies older than a week are pruned); or null, and why |
 
-The rest of this file is the script's specification and the by-hand fallback. By hand, a
-collected vault's loose items are the files in `triage/` read through their
-`resources/mds/triage__*` copies, per
-[operating-discipline.md](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery).
+The rest of this file is the script's specification and the by-hand fallback.
 
 ## By hand, where each rule actually lives
 

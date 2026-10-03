@@ -1,4 +1,4 @@
-# Scanning, parsing and bucketing tasks (Steps 1c to 4b)
+# Scanning, parsing and bucketing tasks (Steps 1b to 4b)
 
 Everything between "the vault is a folder of markdown" and "a set of bucketed, per-entity task records". Mechanical: no judgment lives here.
 
@@ -6,8 +6,8 @@ Everything between "the vault is a folder of markdown" and "a set of bucketed, p
 
 | Field | Holds |
 |---|---|
-| `today`, `vault_type` | The date the brief is dated by, and `A` or `B` (Step 1b) |
-| `entity` | `status` of `resolved`, `ambiguous`, `elsewhere` or `unresolved`, with `match`, `candidates`, `elsewhere` and `nearest` (Step 1c) |
+| `today` | The date the brief is dated by |
+| `entity` | `status` of `resolved`, `ambiguous`, `elsewhere` or `unresolved`, with `match`, `candidates`, `elsewhere` and `nearest` (Step 1b) |
 | `tasks` | One record per open item: file, line, bucket, scope, section, text, markers, `lane`, `days`, `also_overdue`, `malformed_date` |
 | `entities`, `totals` | Per-entity rows with the three counts that partition the open count and a `bar` width, and the same four numbers vault-wide |
 | `lanes` | Each lane's items, for the counts a rendered section needs; an overdue recurring item is in `recurring` and `overdue` |
@@ -17,7 +17,7 @@ Everything between "the vault is a folder of markdown" and "a set of bucketed, p
 
 Where the script cannot run, apply the rest of this file by hand.
 
-## Step 1c: Resolve an entity scope
+## Step 1b: Resolve an entity scope
 
 Runs only when the argument is not one of the four reserved scope words **and reads like an entity name** (SKILL.md, Arguments). The scope words win on a collision, so an entity genuinely named `all` is reached by its path (`/para-daily-brief projects/all`).
 
@@ -50,13 +50,11 @@ One Grep call, scoped tightly to action-bearing files. Do NOT scan the whole vau
 
 ripgrep returns lines grouped by file in line-number order. **Discard any match whose path starts with `archive/` or `resources/`** (the vault's "Where a checkbox may live" rule). Post-filter, never anchor the glob to `projects/**/`: a root-anchored alternate silently matches nothing when `path` is not the vault root.
 
-**`resources/mds/` is exempt from that discard and decoded instead** (SKILL.md Step 1b): in a collected vault it holds every `.md`. Decode each filename back to its vault path (`projects__x__actions.md` is `projects/x/actions.md`) and apply the `archive/` / `resources/` test to that. Always add `**/*__actions.md` and the matching contact-file alternates to the glob, since type detection runs this grep before anything knows the vault is collected.
-
 **Both calls below are raw `Grep` patterns and therefore count fence content**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md): where a bucket's count is non-zero, read the matched files before reporting the number, or say in the output that it includes samples. A frozen-record note does not cover a fenced sample.
 
 **Count the misplaced checkboxes with their own call**, not from what the discard above dropped - the glob above reaches only `actions.md` and contact files, so it cannot see an open checkbox in an archived meeting note or action plan. One Grep in `count` mode per bucket - `pattern`: `^- \[ \]`, `glob`: `**/*.md`, `path`: `archive` then `resources` - which names the files and their counts. Read each file with a non-zero count and drop the checkboxes inside a fence before the number feeds the flag.
 
-If the call returns zero matches, SKILL.md Step 1b and its first edge case decide what renders.
+If the call returns zero matches, SKILL.md's first edge case decides what renders.
 
 **Handle truncated lines.** ripgrep emits `[Omitted long matching line]` past its column-width limit. Recover each `(file, line)` pair with `Read` using `offset: <line>, limit: 1`; once **more than 10** pairs are omitted, read the affected files whole instead, one call per file rather than one per line.
 
@@ -122,4 +120,4 @@ A **past `🛫`** (start-gate already open) is not "waiting": ignore it and buck
 
 Group the task records by scope label. **Aggregate all contact files into one `network` row** (with the file count). Per entity compute: bucket (`[P]` / `[A]`), open count, and three counts that **partition** it: **overdue**, **upcoming** (carries a `D`, a `🔁` or a future `🛫`, and is not overdue), **undated**. They sum to the open count wherever they are reported, the dashboard's bar segments included; never report a "dated" count that also contains the overdue ones.
 
-Date each action file, and each idea brief for Step 4d, by its mtime, in one Bash call (`stat -c '%y' <files>` on Linux or Git Bash, `stat -f '%Sm'` on macOS; fall back to `ls -l --time-style=+%Y-%m-%d`), never by a folder or a `.pdf`, which a render resets. **A bulk write resets mtimes too:** where a file's mtime is within 60 seconds of at least two others of its kind, a collect, checkout or sync wrote them together, so in a vault with `.git` date it by `git log -1 --follow --format=%as -- <path>` at its current path, unless `git status` shows it modified. Where git returns nothing, the mtime stands.
+Date each action file, and each idea brief for Step 4d, by its mtime, in one Bash call (`stat -c '%y' <files>` on Linux or Git Bash, `stat -f '%Sm'` on macOS; fall back to `ls -l --time-style=+%Y-%m-%d`), never by a folder. **A bulk write resets mtimes too:** where a file's mtime is within 60 seconds of at least two others of its kind, a checkout or sync wrote them together, so in a vault with `.git` date it by `git log -1 --follow --format=%as -- <path>` at its current path, unless `git status` shows it modified. Where git returns nothing, the mtime stands.

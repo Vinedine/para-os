@@ -1,5 +1,5 @@
 <!-- real-estate FLAVOR: the sections this flavor adds to a vault's CLAUDE.md. Merge them in
-     beside the sections of base (or of the vault's delivery skeleton); they never replace one.
+     beside the sections of base; they never replace one.
      Add `**Flavor:** real-estate` under the **Type:** line in the same pass. -->
 
 ## Property lifecycle
@@ -30,7 +30,7 @@ A property's PARA home follows its stage, and a property is **bought** on the de
 
 ## Deal sheets
 
-A **deal sheet** is the designed rendering of a property's dossier: `<property>-dealsheet.html` beside it, built by `/property-dealsheet` from [`resources/prompts/dealsheet-template.html`](resources/prompts/dealsheet-template.html). On `**Delivery:** readonly-ipad` it is rendered to PDF with `render.ps1`; on any other delivery the HTML is the deliverable.
+A **deal sheet** is the designed rendering of a property's dossier: `<property>-dealsheet.html` beside it, built by `/property-dealsheet` from [`resources/prompts/dealsheet-template.html`](resources/prompts/dealsheet-template.html).
 
 - **The dossier is the source of truth; the sheet is derived**, and its footer says so. Never hand-type a number into a sheet: regenerate it.
 - **One format.** The design system, section skeleton and stage variants are in the template's header comment. A new component goes into the template.

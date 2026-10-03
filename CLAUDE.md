@@ -11,7 +11,7 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | Path | What it is |
 |---|---|
 | `base/` | The vault skeleton: `CLAUDE.md.template`, `README.md.template`, `.claude/skills/para-*`, `.claude/rules/`, `bootstrap-prompt.md` |
-| `addons/` | Delivery skeletons and flavors an operator adopts by name later |
+| `addons/` | Flavors and modules an operator adopts by name later |
 | `integrations/` | Sync and fetch scripts, each stamped `para-os-integration: <name> <revision>` |
 | `multi-vault/` | `/para-ingest`, for operators running several vaults |
 | `examples/belfoot-vault/` | The example vault, growing with base: a working instance of everything base ships. Read it, never copy it |
@@ -69,9 +69,6 @@ second job fails when coverage drops below its floor, and a third runs `actionli
 - **Revision markers agree.** Every template and the example vault carry the newest
   `CHANGELOG.md` revision, and `RELEASES.md` lists the same revisions in the same order; each integration's scripts agree with its row in
   `integrations/README.md`.
-- **Delivery tracking.** Editing `base/CLAUDE.md.template`, `base/README.md.template` or
-  `base/.gitignore` fails the check until the matching `addons/readonly-ipad/skeleton/` file is
-  reviewed and its digest in `DELIVERY_TRACKING` is restamped.
 
 ## Never ship
 

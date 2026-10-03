@@ -1,6 +1,6 @@
 ---
 name: property-dealsheet
-description: Convert one property's decision-ready dossier into the designed deal sheet (HTML, rendered to PDF on the read-only iPad delivery). Pure derivation - reads only the dossier, fills the vault's deal-sheet template, embeds images. It gathers no new information; a missing fact stops it and points to /property-underwrite or /property-reconcile. Covers acquisitions and held properties, with a per-unit table for a building sold unit by unit. Use when asked to build or refresh a deal sheet, or on /property-dealsheet <property>.
+description: Convert one property's decision-ready dossier into the designed deal sheet, an HTML file beside it. Pure derivation - reads only the dossier, fills the vault's deal-sheet template, embeds images. It gathers no new information; a missing fact stops it and points to /property-underwrite or /property-reconcile. Covers acquisitions and held properties, with a per-unit table for a building sold unit by unit. Use when asked to build or refresh a deal sheet, or on /property-dealsheet <property>.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion, TodoWrite
 argument-hint: '<property-name> [--test]'
 ---
@@ -20,7 +20,7 @@ Turns one property's dossier into the designed deal sheet a decision-maker reads
 
 ## What it reads
 
-- **The vault's `CLAUDE.md`**: its `**Delivery:**` line, the `## Deal sheets` rules, the language rule.
+- **The vault's `CLAUDE.md`**: the `## Deal sheets` rules, the language rule.
 - **The template**, `resources/prompts/dealsheet-template.html`. Its header comment is the design system, the section skeleton and the stage variants.
 - **The source register**, `resources/property-evaluation/property-data-sources.md`, for two things only: which facts no free source settles, and the plan renderer if it names one.
 - **The dossier**, the only fact source.
@@ -29,11 +29,11 @@ Template or dossier missing: stop and ask.
 
 ## Procedure
 
-Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary. On `**Delivery:** readonly-ipad`, run [its edit cycle](../para-shared/operating-discipline.md#the-read-only-ipad-delivery) around the build.
+Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary.
 
 1. **Locate and check readiness.** Resolve the vault root once and hold it (`operating-discipline.md`). Resolve the property to exactly one folder and its dossier; none or several, stop and ask. Run the readiness check, and on any gap stop with the checklist. **Procedure: [references/build.md](references/build.md).** Summarise the verdict and get the go-ahead.
-2. **Build the sheet** from the template. **Procedure: [references/build.md](references/build.md).** Get the go-ahead before rendering.
-3. **Render or verify, and report.** **Procedure: [references/build.md](references/build.md).**
+2. **Build the sheet** from the template. **Procedure: [references/build.md](references/build.md).**
+3. **Verify and report.** **Procedure: [references/build.md](references/build.md).**
 
 ## Strict rules
 

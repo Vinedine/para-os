@@ -33,7 +33,7 @@ from unittest import mock
 
 import clean_scan
 from clean_scan import (
-    CollectedVault, DEFAULT_DATED_PATTERN, DEFAULT_NEXT_STEPS_HEADINGS, main, scan,
+    DEFAULT_DATED_PATTERN, DEFAULT_NEXT_STEPS_HEADINGS, main, scan,
 )
 from paraos_vault import STALE_FILE_DAYS, changed, scan_snapshot  # made importable by clean_scan's own guard
 
@@ -62,25 +62,19 @@ def git_commit_at(root, date_str, message="commit"):
     subprocess.run(["git", "commit", "-q", "-m", message], cwd=root, check=True, env=env)
 
 
-def marker_claude_md(marker, delivery=None):
+def marker_claude_md(marker, *extra):
     lines = ["# Vault Conventions", "", f"<!-- para-os-template: {marker} -->",
-             "**Type:** vault"]
-    if delivery:
-        lines.append(f"**Delivery:** {delivery}")
-    lines.append("")
+             "**Type:** vault", *extra, ""]
     return "\n".join(lines) + "\n"
 
 
-def make_clone(base_marker="2026.09.05", deliveries=None, layout="addons", root=None):
+def make_clone(base_marker="2026.09.05", root=None):
     """A throwaway committed para-os clone, for the template-marker precondition. Not
     cleaned up by the caller's addCleanup until it registers one; VaultCase.clone() does.
-    `layout` is the folder each delivery ships under: `addons` today, `delivery` at a ref
-    from before `addons/` existed. `root`, where given, is the folder to build it in.
+    `root`, where given, is the folder to build it in.
     """
     root = Path(root) if root else Path(tempfile.mkdtemp())
     write(root, "base/CLAUDE.md.template", marker_claude_md(base_marker))
-    for name, marker in (deliveries or {}).items():
-        write(root, f"{layout}/{name}/skeleton/CLAUDE.md.template", marker_claude_md(marker))
     git_init(root)
     git_commit_at(root, "2026-01-01")
     return root
@@ -130,20 +124,11 @@ class Preconditions(VaultCase):
         self.assertEqual(pre["triage_loose"], ["note.md"])
         self.assertTrue(pre["triage_readme"])
 
-    def test_delivery_survives_the_template_marker_comment(self):
-        # Every real vault CLAUDE.md carries the marker comment between its title and its
-        # first bold field, which header_fields() now skips rather than stopping at.
-        write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01", delivery="readonly-ipad"))
-        pre = self.run_scan("1")["preconditions"]
-        self.assertEqual(pre["template_marker"]["delivery"], "readonly-ipad")
-        self.assertEqual(pre["template_marker"]["delivery_source"], "declared")
-
     def test_no_clone_anywhere_is_not_found_never_unverified(self):
         write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
         m = self.run_scan("1", clone=None)["preconditions"]["template_marker"]
         self.assertEqual((m["verdict"], m["clone"], m["clone_source"]), ("no_clone", None, None))
         self.assertIsNone(m["master"])
-        self.assertIsNone(m["delivery_source"])
 
     def test_a_clone_at_the_default_path_is_found_without_clone(self):
         make_clone(base_marker="2026.09.05", root=self.home / "para-os")
@@ -186,45 +171,6 @@ class Preconditions(VaultCase):
         self.assertEqual(m["verdict"], "unverified")
         self.assertIsNone(m["vault"])
         self.assertEqual(m["master"], "2026.09.05")
-
-    def test_delivery_skeleton_used_when_it_exists_at_the_ref(self):
-        clone = self.clone(base_marker="2026.09.01", deliveries={"readonly-ipad": "2026.09.05"})
-        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05", delivery="readonly-ipad"))
-        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
-        self.assertEqual(m["master"], "2026.09.05")
-        self.assertEqual(m["verdict"], "equal")
-        self.assertNotIn("delivery_fallback", m)
-
-    def test_delivery_with_no_skeleton_falls_back_to_base(self):
-        # Finding 1 of the 20260916-0030 test run.
-        clone = self.clone(base_marker="2026.09.01")
-        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.01", delivery="direct"))
-        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
-        self.assertEqual(m["master"], "2026.09.01")
-        self.assertEqual(m["verdict"], "equal")
-        self.assertIn("delivery_fallback", m)
-
-    def test_no_delivery_line_and_flip_at_the_root_is_measured_against_the_skeleton(self):
-        # operating-discipline.md's detection rule: flip.ps1 at the root puts the vault on
-        # the read-only iPad delivery with or without the line. Measured against base, this
-        # vault read as ahead of a template it was never built from.
-        clone = self.clone(base_marker="2026.09.01", deliveries={"readonly-ipad": "2026.09.05"})
-        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05"))
-        write(self.root, "flip.ps1", "# flip\n")
-        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
-        self.assertEqual((m["delivery"], m["delivery_source"]), ("readonly-ipad", "detected"))
-        self.assertEqual(m["master"], "2026.09.05")
-        self.assertEqual(m["verdict"], "equal")
-        self.assertNotIn("delivery_fallback", m)
-
-    def test_a_ref_from_before_addons_finds_the_skeleton_under_delivery(self):
-        clone = self.clone(base_marker="2026.09.01", deliveries={"readonly-ipad": "2026.09.03"},
-                           layout="delivery")
-        write(self.root, "CLAUDE.md", marker_claude_md("2026.09.03", delivery="readonly-ipad"))
-        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
-        self.assertEqual(m["master"], "2026.09.03")
-        self.assertEqual(m["verdict"], "equal")
-        self.assertNotIn("delivery_fallback", m)
 
 
 # ------------------------------------------------------------------------------------- Phase 1
@@ -1217,15 +1163,6 @@ class Snapshot(VaultCase):
 
 # ---------------------------------------------------------------------------------- refusals
 
-class Refusals(VaultCase):
-
-    def test_collected_vault_is_refused_rather_than_read_as_empty(self):
-        write(self.root, "resources/mds/projects__acme__brief.md", "# Acme\n")
-        with self.assertRaises(CollectedVault):
-            scan(self.root, TODAY, "1", "HEAD", None, [], DEFAULT_DATED_PATTERN,
-                list(DEFAULT_NEXT_STEPS_HEADINGS))
-
-
 # ------------------------------------------------------------------------------ command line
 
 class CommandLine(VaultCase):
@@ -1360,14 +1297,6 @@ class CommandLine(VaultCase):
     def test_phase_is_required_and_phase_2_has_no_scan(self):
         self.assertIn("--phase", self.usage_error("--vault", str(self.root)))
         self.assertIn("invalid choice", self.usage_error("--vault", str(self.root), "--phase", "2"))
-
-    def test_a_collected_vault_exits_2_with_the_reason_on_stderr_and_nothing_on_stdout(self):
-        write(self.root, "CLAUDE.md", "# Vault\n")
-        write(self.root, "resources/mds/projects__acme__brief.md", "# Acme\n")
-        code, out, err = self.run_main("--vault", str(self.root), "--phase", "1")
-        self.assertEqual(code, 2)
-        self.assertEqual(out, "")
-        self.assertTrue(err.startswith("clean_scan: "), err)
 
 
 class ScriptRun(VaultCase):

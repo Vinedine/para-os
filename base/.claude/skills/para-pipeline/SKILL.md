@@ -70,7 +70,6 @@ Word what the script computed into the board by stage, the flags, the counts, th
 - **A document in a declared home with no Stage line** (`no_stage`) **or a Stage line naming no declared stage** (`unknown_stage`, with the name read): list it by path under a closing line. Only one that looks like a filing gap is reported, never an ordinary project or area sharing the home ([scan.md](references/scan.md) Step 2).
 - **A register row missing a column** the table declares: render what it has, and flag the row rather than dropping it.
 - **A lifecycle with no live entity at all**: say in one line that nothing is live. An empty pipeline is a real answer.
-- **The vault is on the read-only iPad delivery**: resolve every path through the [collected-state path map](../para-shared/operating-discipline.md#the-read-only-ipad-delivery), and read dates from the collected `.md`. Nothing here edits a file, so no edit cycle runs.
 
 ## Related skills
 

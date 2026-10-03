@@ -7,20 +7,13 @@ paths:
   - "archive/properties/*/README.md"
   - "archive/researched-deals/*/brief.md"
   - "archive/researched-deals/*/README.md"
-  - "resources/mds/resources__ideas__*__brief.md"
-  - "resources/mds/projects__*__brief.md"
-  - "resources/mds/areas__properties__*__README.md"
-  - "resources/mds/archive__properties__*__brief.md"
-  - "resources/mds/archive__properties__*__README.md"
-  - "resources/mds/archive__researched-deals__*__brief.md"
-  - "resources/mds/archive__researched-deals__*__README.md"
 ---
 
 # Property dossier
 
 **Order:** fixed. A section that does not apply stays, marked as in [Placeholders](#placeholders).
 
-One document per property. From Acquiring on it carries the sixteen sections below: a flip and a rental differ only in which sections carry content, never in the order or the names. Prospecting, Sold and Dropped vary as [What each stage carries](#what-each-stage-carries) says, and the stage names are those of `## Property lifecycle` in the vault's `CLAUDE.md`. The filename follows the bucket: `brief.md` in `resources/ideas/` and `projects/`, `README.md` in `areas/properties/`; an archived property keeps the filename it had. These paths also match other projects and ideas, which follow `brief-structure.md`: a non-property one, and a works project on a held property, whose dossier is the area's `README.md`. The `resources/mds/` globs cover a read-only-iPad vault in collected state; anywhere else they match nothing.
+One document per property. From Acquiring on it carries the sixteen sections below: a flip and a rental differ only in which sections carry content, never in the order or the names. Prospecting, Sold and Dropped vary as [What each stage carries](#what-each-stage-carries) says, and the stage names are those of `## Property lifecycle` in the vault's `CLAUDE.md`. The filename follows the bucket: `brief.md` in `resources/ideas/` and `projects/`, `README.md` in `areas/properties/`; an archived property keeps the filename it had. These paths also match other projects and ideas, which follow `brief-structure.md`: a non-property one, and a works project on a held property, whose dossier is the area's `README.md`.
 
 ## The shape
 

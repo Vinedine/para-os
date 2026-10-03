@@ -26,8 +26,7 @@ folder is a vault root, what the machine's registry says about it and its neighb
 a checkbox may live, what counts as one, what a task marker means, which folder a name
 resolves to, when a file was really last touched, what a link points at and what a move
 would have to rewrite, whether two files hold the same bytes (and whether two copies of one
-file differ in more than line endings), what a vault declares it is built from and which
-template in a para-os clone that names, and the numbers a vault's own rules state. A second implementation of any of those is a vault getting two answers to one
+file differ in more than line endings), what a vault declares it is built from, and the numbers a vault's own rules state. A second implementation of any of those is a vault getting two answers to one
 question, which is the failure this repo exists to prevent.
 
 What does NOT live here: anything a single skill decides. Bucketing against a date,
@@ -94,36 +93,6 @@ CADENCE_DAYS = {
     "month": 30, "monthly": 30, "quarter": 91, "quarterly": 91,
     "year": 365, "yearly": 365, "annum": 365,
 }
-
-
-class CollectedVault(Exception):
-    """A vault resting in collected state, where every markdown file lives under
-    resources/mds/ with its path encoded in the filename. Reading it needs the path map,
-    which these helpers do not implement, and a vault-shaped read finds no action file at
-    all: it would report a thriving vault as an empty one. Refusing is the only honest
-    answer, and the skill falls back to scanning by hand."""
-
-
-def is_collected(vault):
-    """Whether a vault rests in collected state: `resources/mds/` holds any `__`-encoded
-    `.md`, the rule operating-discipline.md states for the read-only iPad delivery.
-
-    Asked on its own by a reader that does not need the PARA folders: `flip.ps1 collect`
-    never moves `CLAUDE.md` or anything under `.claude/`, so a vault's declarations and its
-    installed copies still read in place, and such a reader answers with the state named
-    rather than refusing. A reader that does need the folders refuses, through
-    `refuse_if_collected`.
-    """
-    mds = Path(vault) / "resources" / "mds"
-    return mds.is_dir() and any(mds.glob("*__*.md"))
-
-
-def refuse_if_collected(vault):
-    """Raise `CollectedVault` where `is_collected` says the vault is collected."""
-    if is_collected(vault):
-        raise CollectedVault(
-            "this vault is collected (resources/mds/ holds its markdown); "
-            "scan it by hand with the skill's own reference procedure")
 
 
 # --- names --------------------------------------------------------------------------------
@@ -730,7 +699,7 @@ def git_blame_line_date(vault, path, line):
 def file_dates(vault, paths):
     """{path: YYYY-MM-DD} for each file, by mtime, with one correction.
 
-    A checkout, a sync or a collect writes many files in the same second, which leaves
+    A checkout or a sync writes many files in the same second, which leaves
     every mtime saying today and hides what is actually stale. Where three or more files
     share a moment, git's own last-commit date is the honest answer for the ones git says
     are unmodified.
@@ -903,10 +872,6 @@ def register_rows(path):
 
 # --- what the vault declares ---------------------------------------------------------------
 
-DELIVERY_SCRIPT = "flip.ps1"         # at a vault root with no **Delivery:** line: the delivery below
-DETECTED_DELIVERY = "readonly-ipad"
-
-
 def _declared(value):
     """One declaration line's value as a name: markdown marks dropped, whitespace
     collapsed, None where nothing is left."""
@@ -916,30 +881,17 @@ def _declared(value):
 
 def declarations(vault):
     """What a vault says it is built from, read from the lines under its `CLAUDE.md` title
-    (`header_fields`): {type, delivery, delivery_source, flavor, modules, collected}.
+    (`header_fields`): {type, flavor, modules}. `modules` is the `**Modules:**` line split
+    on its commas in the order written, `[]` where the vault declares none.
 
-    `delivery_source` is "declared" where a `**Delivery:**` line names one; "detected"
-    where there is no such line and `flip.ps1` sits at the vault root, which puts the vault
-    on `readonly-ipad` whether it says so or not (operating-discipline.md, "The read-only
-    iPad delivery"); else None. `modules` is the `**Modules:**` line split on its commas in
-    the order written, `[]` where the vault declares none. `collected` is `is_collected`:
-    the declarations still read in a collected vault, since `flip.ps1` never moves
-    `CLAUDE.md`, but most of what a caller goes on to read has moved.
-
-    One reading for every skill, because the declaration picks the master a vault is
-    measured against: two skills reading it two ways compare one vault against two
-    templates and give it two verdicts.
+    One reading for every skill, because the declaration picks the addons a vault is
+    measured against: two skills reading it two ways give one vault two verdicts.
     """
-    vault = Path(vault)
-    fields = header_fields(vault / "CLAUDE.md")
-    delivery = _declared(field_ci(fields, "Delivery"))
-    source = "declared" if delivery else None
-    if not delivery and (vault / DELIVERY_SCRIPT).is_file():
-        delivery, source = DETECTED_DELIVERY, "detected"
+    fields = header_fields(Path(vault) / "CLAUDE.md")
     modules = [m.strip() for m in (_declared(field_ci(fields, "Modules")) or "").split(",")]
-    return {"type": _declared(field_ci(fields, "Type")), "delivery": delivery,
-            "delivery_source": source, "flavor": _declared(field_ci(fields, "Flavor")),
-            "modules": [m for m in modules if m], "collected": is_collected(vault)}
+    return {"type": _declared(field_ci(fields, "Type")),
+            "flavor": _declared(field_ci(fields, "Flavor")),
+            "modules": [m for m in modules if m]}
 
 
 def lifecycles(vault):
@@ -1659,8 +1611,8 @@ def template_marker(text, raw=False):
 def integration_markers(vault, exclude=NOT_VAULT_CONTENT):
     """Every installed integration script in the vault, as {file, name, revision}.
 
-    The whole vault, never one folder: a delivery installs its pipeline where it needs it,
-    and a folder-scoped scan reports those copies as absent rather than as stale.
+    The whole vault, never one folder: a script installed outside `resources/scripts/`
+    would otherwise read as absent rather than as stale.
     """
     vault = Path(vault)
     out = []
@@ -1719,9 +1671,8 @@ def entries_between(entries, after, upto=None):
 # it names the checked-out branch.
 
 BASE_TEMPLATE = "base/CLAUDE.md.template"
-SKELETON_TEMPLATE = "skeleton/CLAUDE.md.template"   # under an addon's own folder
 ADDONS_DIR = "addons"
-OLDER_ADDON_DIRS = ("delivery", "flavors")          # where an addon lived before addons/
+OLDER_ADDON_DIRS = ("flavors",)                     # where a flavor lived before addons/
 
 
 def _clone_rel(path):
@@ -1829,16 +1780,14 @@ def _clone_holds_folder(clone, ref, path, worktree):
 
 
 def addon_root(clone, ref, name, worktree=False):
-    """The clone-relative folder an addon (a delivery, a flavor or a module) lives in at a
-    ref, or None where that ref holds none by that name.
+    """The clone-relative folder an addon (a flavor or a module) lives in at a ref, or None
+    where that ref holds none by that name.
 
-    Three layouts have shipped, and a vault pinned to an older ref is measured against the
-    layout that ref carried. Today every addon lives under `addons/<name>/`. Before that, a
-    delivery lived under `delivery/<name>/` and a flavor under `flavors/<name>/`; and
-    before that the read-only iPad delivery was itself a flavor, under
-    `flavors/readonly-ipad/`. So a ref holding `addons/` answers from there alone, never
-    from a folder that ref no longer carries, and a ref without it answers with the first
-    of `delivery/<name>`, `flavors/<name>` that exists at it.
+    Today every addon lives under `addons/<name>/`; before that a flavor lived under
+    `flavors/<name>/`, and a vault pinned to an older ref is measured against the layout
+    that ref carried. So a ref holding `addons/` answers from there alone, never from a
+    folder that ref no longer carries, and a ref without it answers with `flavors/<name>`
+    where that exists at it.
     """
     if not name or any(c in name for c in "/\\") or name in (".", ".."):
         return None
@@ -1849,44 +1798,18 @@ def addon_root(clone, ref, name, worktree=False):
     return next((c for c in candidates if _clone_holds_folder(clone, ref, c, worktree)), None)
 
 
-def _template_row(path, data, source, fallback):
-    text = data.decode("utf-8", errors="replace") if data is not None else ""
-    return {"path": path, "marker": template_marker(text),
-            "raw_marker": template_marker(text, raw=True), "source": source,
-            "fallback": fallback}
-
-
-def master_template(clone, ref, decl, worktree=False):
-    """The `CLAUDE.md` template a vault is measured against at a ref, as {path, marker,
-    raw_marker, source, fallback}. `decl` is the vault's `declarations()`.
-
-    A vault on a delivery, declared or detected, is measured against the delivery's
-    `<addon_root>/skeleton/CLAUDE.md.template`, whichever layout the ref carries; every
-    other vault against `base/CLAUDE.md.template`. A delivery with no skeleton template at
-    the ref falls back to base, and `fallback` says so in one sentence an operator can read
-    (None otherwise). `source` names which was read, "delivery" or "base", and is None
-    where the ref holds neither. `marker` is the revision as `template_marker` reads it and
-    `raw_marker` the label the comment writes, so a legacy label is told apart from the
-    revision it became.
-
-    A detected delivery counts here exactly as a declared one: a vault with `flip.ps1` at
-    its root measured against base reads as behind, or ahead of, a template it was never
-    built from.
+def master_template(clone, ref, worktree=False):
+    """The `CLAUDE.md` template a vault is measured against at a ref,
+    `base/CLAUDE.md.template`, as {path, marker, raw_marker, source}. `marker` is the
+    revision as `template_marker` reads it and `raw_marker` the label the comment writes,
+    so a legacy label is told apart from the revision it became. `source` is "base", or
+    None where the ref holds no template.
     """
-    delivery = (decl or {}).get("delivery")
-    fallback = None
-    if delivery:
-        root = addon_root(clone, ref, delivery, worktree)
-        if root:
-            path = f"{root}/{SKELETON_TEMPLATE}"
-            data = clone_read(clone, ref, path, worktree)
-            if data is not None:
-                return _template_row(path, data, "delivery", None)
-        where = "in the clone's working tree" if worktree else f"at {ref}"
-        fallback = (f"'{delivery}' names no skeleton {where}; "
-                    f"compared against {BASE_TEMPLATE} instead")
     data = clone_read(clone, ref, BASE_TEMPLATE, worktree)
-    return _template_row(BASE_TEMPLATE, data, "base" if data is not None else None, fallback)
+    text = data.decode("utf-8", errors="replace") if data is not None else ""
+    return {"path": BASE_TEMPLATE, "marker": template_marker(text),
+            "raw_marker": template_marker(text, raw=True),
+            "source": "base" if data is not None else None}
 
 
 # --- para-ingest's own run logs, staged-note names, and the seen-ledger watermark ---------

@@ -44,9 +44,9 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        CollectedVault, MIN_HASH_BYTES, WIP_THRESHOLD, abspath, action_files, hashes,
+        MIN_HASH_BYTES, WIP_THRESHOLD, abspath, action_files, hashes,
         ingest_ledger, ingest_logs, inbound_references, live_lines, log_instant, norm,
-        note_name_parts, open_tasks, read_lines, refuse_if_collected, registered_vault,
+        note_name_parts, open_tasks, read_lines, registered_vault,
         registry, rel_posix, same_place, snapshot, thread_hash, triage_items, triage_sources,
         vault_root, watermark, written_under,
     )
@@ -887,12 +887,6 @@ def main(argv=None):
         print(f"triage_scan: not a vault root: {root} (missing "
               f"{', '.join(info['missing'])}){hint}", file=sys.stderr)
         return 3
-
-    try:
-        refuse_if_collected(root)
-    except CollectedVault as refused:
-        print(f"triage_scan: {refused}", file=sys.stderr)
-        return 2
 
     report = plan(root, args.paraos_home, now, threads_data)
     report["saved_to"], report["save_error"] = save_report(report, root, args.paraos_home, now)

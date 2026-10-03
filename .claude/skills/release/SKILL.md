@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut or extend a para-os template revision - pick the label, write the CHANGELOG entry, restamp every marker, bump changed integrations, reconcile delivery digests, run the full check, validate main on real vaults, and ship it to stable. Use when the maintainer says "release", "cut a revision", "stamp the revision", or types /release.
+description: Cut or extend a para-os template revision - pick the label, write the CHANGELOG entry, restamp every marker, bump changed integrations, run the full check, validate main on real vaults, and ship it to stable. Use when the maintainer says "release", "cut a revision", "stamp the revision", or types /release.
 argument-hint: '[<revision>]'
 disable-model-invocation: true
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git *), Bash(gh *), Read, Grep, Glob, Edit, Write, AskUserQuestion, Skill
@@ -53,14 +53,11 @@ would not recognise. When folding into an open revision, update both files.
 
 ## 4. Restamp
 
-- `<!-- para-os-template: <label> -->` in `base/CLAUDE.md.template`, every
-  `addons/*/skeleton/CLAUDE.md.template`, and every `examples/*/CLAUDE.md`.
+- `<!-- para-os-template: <label> -->` in `base/CLAUDE.md.template` and every
+  `examples/*/CLAUDE.md`.
 - For each integration whose script changed since its last stamp: the
   `para-os-integration: <name> <label>` marker in every script in its folder, and its row in
   the Available table in `integrations/README.md`. An unchanged integration keeps its label.
-- If `base/CLAUDE.md.template`, `base/README.md.template` or `base/.gitignore` changed: review
-  the matching `addons/readonly-ipad/skeleton/` file, apply what the delivery needs, then
-  restamp its digest in `DELIVERY_TRACKING` in `tools/check.py` to the value the check reports.
 
 ## 5. Verify
 

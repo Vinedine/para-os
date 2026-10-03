@@ -9,7 +9,7 @@ argument-hint: '[preview|apply|convert|table] [--test]'
 
 Processes every loose file in the current vault's `triage/` folder, plus any items pulled from the vault's configured triage sources (mailboxes, sync scripts). **Nothing is moved, renamed, or deleted until its own disposition has been put to the operator and approved** - one question per item, or per linked group, with the whole batch listed as a manifest first.
 
-**This skill is vault-agnostic.** The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PARA layout, any iPad-rendering toolchain (`flip.ps1` / `render.ps1`), and the optional `## Triage sources` block; a vault without that block is folder-only.
+**This skill is vault-agnostic.** The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PARA layout, and the optional `## Triage sources` block; a vault without that block is folder-only.
 
 Do NOT invoke for files outside `triage/`. Files already filed are stable; don't re-sort them.
 
@@ -30,7 +30,7 @@ Do NOT invoke for files outside `triage/`. Files already filed are stable; don't
 
 **Resolve the vault root** (the path the operator named, or `pwd` before anything moved the shell, per `operating-discipline.md`) and verify it with Step 2's scan, run now. `vault.root` false (exit 3): stop with `Not a vault root: <the path you checked>.`, adding `Registered vault <name> is at <path>.` where `hint` names one, and **never run against that path until the operator names it**. An empty `triage/` is no reason to stop: Step 2's pulls write into it.
 
-Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-discipline.md#a-vaults-rule-files) (filing, language and do-not-add rules; quote the naming convention you apply back verbatim in the proposal), and note whether the vault is on the [read-only iPad delivery](../para-shared/operating-discipline.md#the-read-only-ipad-delivery). Also read the root `README.md`'s `## Operating model` section, skipping silently if absent: it says what the business *is*, and decides the in/out call on connector items.
+Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-discipline.md#a-vaults-rule-files) (filing, language and do-not-add rules; quote the naming convention you apply back verbatim in the proposal). Also read the root `README.md`'s `## Operating model` section, skipping silently if absent: it says what the business *is*, and decides the in/out call on connector items.
 
 **Where no source-document naming convention is stated**, propose destinations only and ask the user to dictate the convention before any rename executes. Never invent one or borrow another vault's.
 
@@ -63,11 +63,11 @@ Group the linked items, **then print the manifest**, when and where [para-shared
 
 **On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** `convert` builds no table: it reports what arrived and stops. On the others, after the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. Same follow-on edits. `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
-### Steps 7 to 9: Execute, update READMEs, re-render
+### Steps 7 and 8: Execute, update READMEs
 
-Moves, deletes, rotations, connector writes, README follow-ons, and the optional `render.ps1` pass. **Full procedure: [references/execute.md](references/execute.md).**
+Moves, deletes, rotations, connector writes, and README follow-ons. **Full procedure: [references/execute.md](references/execute.md).**
 
-### Step 10: Summarize
+### Step 9: Summarize
 
 One line per category: N files moved (each linked to its new path), N deleted with the reason, N follow-on edits (each file named), and what is left in `triage/`. **Name the deferrals too**: every `Leave in triage`, `Note to triage` or `Leave thread`, and every amendment made through Other, per [para-shared/asking.md](../para-shared/asking.md).
 

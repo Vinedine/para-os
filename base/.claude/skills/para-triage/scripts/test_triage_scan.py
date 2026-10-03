@@ -161,20 +161,6 @@ class VaultRoot(unittest.TestCase):
         out = json.loads(buf.getvalue())
         self.assertIn("triage/", out["vault"]["missing"])
 
-    def test_exit_2_on_a_collected_vault(self):
-        import tempfile
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        root = Path(tmp.name)
-        for d in ("projects", "areas", "archive", "triage"):
-            (root / d).mkdir()
-        write(root, "CLAUDE.md", "# Vault\n")
-        write(root, "resources/mds/projects__acme__brief.md", "# acme\n")
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = main(["--vault", str(root), "--now", "2026-09-22T12:00:00+00:00"])
-        self.assertEqual(code, 2)
-
     def test_registered_root_carries_name_and_active_from_the_exact_entry(self):
         import tempfile
         tmp = tempfile.TemporaryDirectory()

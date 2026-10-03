@@ -135,20 +135,6 @@ class Judgment(DashboardCase):
         self.assertNotIn("<h2>Health flags", page)
 
 
-class TypeB(DashboardCase):
-
-    def test_a_vault_without_actions_drops_the_task_panels(self):
-        for f in self.root.rglob("actions.md"):
-            f.unlink()
-        report = self.report()
-        self.assertEqual(report["vault_type"], "B")
-        _, page = render(report, {"next_action": {"text": "Open the oldest triage item"}})
-        self.assertIn("tracks no actions", page)
-        self.assertNotIn('class="chart"', page)
-        self.assertNotIn("open actions", page)
-        self.assertIn("dormant ideas", page)
-
-
 class Cut(unittest.TestCase):
 
     def test_a_bold_lead_is_the_whole_line(self):

@@ -46,11 +46,11 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        CollectedVault, DATE_RE, H1_RE, H2_RE, HEADING_RE, LINK_ROOTS, NOT_VAULT_CONTENT,
+        DATE_RE, H1_RE, H2_RE, HEADING_RE, LINK_ROOTS, NOT_VAULT_CONTENT,
         abspath, blank_spans,
         closed_tasks, extract_links, field_ci, git_untracked, header_fields,
         inbound_references, is_under, lifecycles, link_files, link_spans, live_lines,
-        move_plan, open_tasks, parse_date, read_lines, read_text, refuse_if_collected,
+        move_plan, open_tasks, parse_date, read_lines, read_text,
         registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
         snapshot, stage_line, stage_of, strip_code, vault_root,
     )
@@ -519,7 +519,6 @@ def build_snapshot(vault, entity_dir, inbound_refs):
 
 def plan(vault, entity_name, destination_arg, today, paraos_home, route_files=()):
     vault = Path(vault).resolve()
-    refuse_if_collected(vault)
     report = {
         "vault": vault_block(vault, paraos_home),
         "entity": entity_block(vault, entity_name, paraos_home),
@@ -669,7 +668,6 @@ def old_path_block(vault, moved_from):
 
 def verify(vault, moved_from, moved_to, routed):
     vault = Path(vault).resolve()
-    refuse_if_collected(vault)
     # Normalised as plan mode normalises --destination: `projects/acme/` or `projects\\acme`
     # otherwise matches no written mention and the pass reads a false clean.
     moved_from, moved_to = vault_rel_arg(moved_from), vault_rel_arg(moved_to)
@@ -738,18 +736,14 @@ def main(argv=None):
               f"{', '.join(info['missing'])}){hint}", file=sys.stderr)
         return 3
 
-    try:
-        if args.verify:
-            report, code = verify(root, args.moved_from, args.moved_to, args.routed)
-        else:
-            today = parse_date(args.today) if args.today else date.today()
-            if args.today and not today:
-                ap.error("--today wants YYYY-MM-DD")
-            report, code = plan(root, args.entity, args.destination, today, args.paraos_home,
-                               args.route)
-    except CollectedVault as refused:
-        print(f"archive_scan: {refused}", file=sys.stderr)
-        return 2
+    if args.verify:
+        report, code = verify(root, args.moved_from, args.moved_to, args.routed)
+    else:
+        today = parse_date(args.today) if args.today else date.today()
+        if args.today and not today:
+            ap.error("--today wants YYYY-MM-DD")
+        report, code = plan(root, args.entity, args.destination, today, args.paraos_home,
+                           args.route)
 
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")

@@ -39,10 +39,10 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        BRIEF_LINE_CAP, CollectedVault, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
+        BRIEF_LINE_CAP, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
         STALE_FILE_DAYS, WIP_THRESHOLD, action_files, cadence_days, field_ci,
         file_dates, is_under, iso, lifecycles, link_spans, misplaced_checkboxes, open_tasks,
-        over_grown_briefs, parse_date, refuse_if_collected, register_rows, resolve_entity,
+        over_grown_briefs, parse_date, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
@@ -299,13 +299,10 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
 
 def scan(vault, today, entity=None):
     vault = Path(vault).resolve()
-    refuse_if_collected(vault)
-
     files = action_files(vault)
     report = {
         "vault": vault.as_posix(),
         "today": today.isoformat(),
-        "vault_type": "A" if any(p.name == "actions.md" for p in files) else "B",
         "scope": "vault",
     }
 
@@ -377,12 +374,7 @@ def main(argv=None):
     if not root.is_dir():
         ap.error(f"no such vault: {root}")
 
-    try:
-        report = scan(root, today, args.entity)
-    except CollectedVault as refused:
-        print(f"brief_scan: {refused}", file=sys.stderr)
-        return 2
-
+    report = scan(root, today, args.entity)
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     return 0

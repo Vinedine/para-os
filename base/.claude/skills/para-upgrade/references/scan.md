@@ -25,29 +25,24 @@ python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> [
 | 5 | Neither `--ref` nor `--worktree` was given and the clone has no `origin/stable`: a clone made before releases moved to `stable` (`clone.stable_missing: true`) | As exit 4 |
 | 6 | No `--clone`, and no folder at `$PARAOS_HOME/para-os` (`find_clone`) | `vault` and `clone` (`path` and `source` `null`, with `error`) |
 
-A collected vault is **never refused**: `CLAUDE.md` and `.claude/` are on `flip.ps1`'s
-denylist and stay in place, so the scan reports `collected: true`, resolves skeleton
-presence through the collected name, and the `smoke` block reports `brief_scan.py`'s own
-refusal (exit 2) rather than refusing itself.
-
 ## The output
 
 | Block | Holds |
 |---|---|
-| `vault` | `path`, `root`, `missing`, `hint`; `declarations` (the library's, unchanged); `collected`; `claude_md_lines` (`wc -l` semantics - newline count, not `splitlines()` length); `git.repo`, `git.dirty`, `git.untracked_in_scope`, `git.ignored_in_scope` (files under `CLAUDE.md` and `.claude/` git does not track or does ignore - Precondition 5) |
+| `vault` | `path`, `root`, `missing`, `hint`; `declarations` (the library's, unchanged); `claude_md_lines` (`wc -l` semantics - newline count, not `splitlines()` length); `git.repo`, `git.dirty`, `git.untracked_in_scope`, `git.ignored_in_scope` (files under `CLAUDE.md` and `.claude/` git does not track or does ignore - Precondition 5) |
 | `clone` | `path`, `source` (`explicit`\|`default`), `ref`, `ref_commit`, `worktree`, `checked_out` (`branch`, `commit`), `origin_stable`, `same_commit` (name groups sharing one commit), `dirty`, `dirty_masters` (the `dirty` paths a master is read from, Precondition 3), `ref_merged` (is the ref an ancestor of `origin/stable`; `null` with no `origin/stable`), `stable_missing`, `error` on exit 4, 5 or 6 |
-| `masters` | `template` (the library's `master_template` result), `skeleton_overlay`, `addons` (one row per declared delivery/flavor/module: `name`, `kind`, `root` or `null` with `reported` or `carried_forward`) |
+| `masters` | `template` (the library's `master_template` result: `base/CLAUDE.md.template`), `addons` (one row per declared flavor and module: `name`, `kind`, `root` or `null` with `reported` or `carried_forward`) |
 | `delta` | `vault_marker`, `vault_marker_raw`, `legacy`, `master_marker`, `verdict` (`equal`\|`behind`\|`ahead`\|`no-marker`\|`unverified`), `entries` (each `{revision, line, items, reactions}`), `current` (equal only) |
 | | `unverified`: the master's own marker could not be read (`master_marker: null`: no `<!-- para-os-template: -->` comment in the resolved template, or the read failed). Report it as that, not as a vault-side problem. |
 | `baseline` | `commit`, `source` (`ref-tip`\|`log-S`\|`null`), `template`, `reason` |
-| `skeleton` | `rows`: one per file the resolved master ships (`vault_path`, `master`, `present`, `identical`, `collected_as`, `folder_has_content`); `triage_readme` |
-| `rules` | One row per `.claude/rules/*.md` the vault has: `file`, `master`, `paths`, `master_paths`, `paths_missing`, `paths_extra` (both `null` with no `master`), `kind` (`shape`\|`convention`\|`mixed`), `anchors`, `doubled`, `pointer` |
+| `skeleton` | `rows`: one per file the resolved master ships (`vault_path`, `master`, `present`, `identical`, `folder_has_content`); `triage_readme` |
+| `rules` | One row per `.claude/rules/*.md` the vault has: `file`, `master`, `paths`, `paths_retired` (globs no master carries any more, taken out of `paths`), `master_paths`, `paths_missing`, `paths_extra` (both `null` with no `master`), `kind` (`shape`\|`convention`\|`mixed`), `anchors`, `pointer` |
 | `sections` | One row per flavor or module whose `CLAUDE.md.sections` the ref carries, declared or not (`declared`; an undeclared one only where the vault states a paragraph of some version of it): `name`, `master`, and per `## ` heading `verdict` (`absent`\|`current`\|`behind`\|`differs`), `behind` (vault paragraphs matching only an earlier version along the ref: `paragraph`, `commit`, `revision`), `missing` (current paragraphs the vault lacks), `local` (vault paragraphs no version states), `localised` (a `local` and a `missing` paragraph that are one paragraph the vault reworded, paired and taken out of both: `paragraph`, `shipped`). Paragraphs compare with whitespace collapsed, a `{{placeholder}}` matching what the vault filled in |
 | `settings` | `master_keys`, `user_level` (`path`, `matching`), `vault_level` (`present`, `keys`), `missing_effective` |
 | `skills` | `rows`: the `para-shared` library first (`copies`, one per installed location), then one row per bundled and user-level skill folder, each with `revisions_behind`: the count of changelog entries after the OLDEST revision any of its differing files matched, up to and including the master's own marker (`entries_between`) - `null` unless the row's own `verdict` is `behind` - see [derived-copies.md](derived-copies.md) and "The verdict" below; `ignored` (folders with no `SKILL.md`) |
-| `integrations` | `rows`: one per `para-os-integration:` marker found in the vault, with the verdict, the diff, `overwrite` eligibility and the `suite` locator; `unmarked`: script files under `resources/scripts/` (and a read-only-iPad vault's root pipeline files) carrying no marker, each with `matches` (evidence, never a verdict) |
+| `integrations` | `rows`: one per `para-os-integration:` marker found in the vault, with the verdict, the diff, `overwrite` eligibility and the `suite` locator; `unmarked`: script files under `resources/scripts/` carrying no marker, each with `matches` (evidence, never a verdict) |
 | | `unmarked[].matches` compares the script's bytes against `integrations/*` **at the ref's tip only**, not that folder's history nor the addon `pipeline/` folders. A script matching an older master, or a pipeline script, has to be recognised by eye. |
-| | Master resolution for both `rules` and `skills`, where more than one declared addon could carry a file of the same name, tries base first (`base/.claude/rules/`, or for a skill `base/.claude/skills/` then `multi-vault/`), then the delivery, then the flavor, then each module in the order `**Modules:**` lists them; the first match wins. |
+| | Master resolution for both `rules` and `skills`, where more than one declared addon could carry a file of the same name, tries base first (`base/.claude/rules/`, or for a skill `base/.claude/skills/` then `multi-vault/`), then the flavor, then each module in the order `**Modules:**` lists them; the first match wins. |
 | `smoke` | `available`, `script`, `today`, `totals`, `entities`, `lanes` (`{lane: count}`), `flags`, `ideas` (length), `triage` (length); `reason` when `available` is false |
 | `snapshot` | `{path: digest}` over `CLAUDE.md`, `README.md`, `.claude/settings.json`, `resources/scripts/README.md`, every `.claude/rules/*.md`, every marked integration file, every skeleton target path, and every vault file path a collected entry's Reaction names in backticks (a path into the clone's own folders excluded) - `null` where a path is absent |
 | `since` | Only with `--unchanged`: `changed` (snapshot paths whose digest moved, deletions included) and `smoke` (`{count, before, after}` for every smoke count that moved) |
@@ -86,7 +81,7 @@ copy ships its own `scripts/`. A copy with no master at the ref *and* a folder o
 in O is `ahead`, never `unmatched`; only with neither is it `unmatched`. A copy matching an
 addon's skill the vault does not declare is `undeclared_addon: <name>`, skipped rather than
 diffed - searched under whichever addon layout the ref actually carries (`addons/`, or the
-older `delivery/` + `flavors/` split).
+older `flavors/`).
 
 **The rest of this file is that script's specification, and the fallback when it cannot run**
 (no Python, a missing file, exit 2, any non-zero exit other than 3, 4 and 5). Read this file
@@ -98,7 +93,7 @@ Run every `diff` and `git log ... -S` below via bash (Git Bash or WSL): `<(...)`
 bash-only. Where only PowerShell is available, write both normalised sides to temp files and
 diff those.
 
-1. **`vault`** - the library's root rule, `declarations`, and `is_collected`, by hand. Precondition
+1. **`vault`** - the library's root rule and `declarations`, by hand. Precondition
    5's scope: `git ls-files -- CLAUDE.md .claude` (tracked), `git status --porcelain --
    CLAUDE.md .claude` (dirty and untracked), `git check-ignore -- CLAUDE.md .claude/**`
    (ignored).
@@ -113,8 +108,8 @@ diff those.
    `git show <ref>:base/CLAUDE.md.template` succeed.
 
 3. **`masters`** - [delta.md](delta.md)'s "Resolving the master": walk `addons/<name>/`,
-   else `delivery/<name>/` and `flavors/<name>/` at a ref with no `addons/` folder, per
-   declared delivery, flavor and module.
+   else `flavors/<name>/` at a ref with no `addons/` folder, per declared flavor and
+   module.
 
 4. **`delta`** - the vault's marker: the first `<!-- para-os-template: -->` comment in
    `CLAUDE.md`, read literally (`raw`) and as the legacy-renumbered form (`2026.08` reads as
@@ -127,27 +122,24 @@ diff those.
 
 5. **`baseline`** - `git show <ref>:<template>`; if its marker still matches the vault's,
    that is the baseline (`ref-tip`). Otherwise `git log <ref> -S"<!-- para-os-template:
-   <raw marker> -->" -- <template> <its older-layout paths>`, take the newest commit listed,
+   <raw marker> -->" -- <template>`, take the newest commit listed,
    and its **parent** (`git rev-parse <that commit>^1`) is the baseline. **Walk the named
    ref, never HEAD**, and search the raw marker **with its comment delimiters**.
 
 6. **`skeleton`** - enumerate `base/` at the ref minus `base/.claude/skills/**`,
    `base/CLAUDE.md.template` (Phase 1's, not Phase 2's) and `base/bootstrap-prompt.md`
-   (setup-only); overlay the delivery's `skeleton/` files (its own
-   `CLAUDE.md.template` excluded the same way); add each declared flavor's and module's
-   `.claude/rules/*` and `skeleton/**`. `README.md.template` maps to a vault `README.md`.
-   For each, compare `git show <ref>:<master>` against the vault's own file, normalised - or,
-   on a collected vault, against `resources/mds/<path with every "/" turned "__">`.
+   (setup-only); add each declared flavor's and module's `.claude/rules/*` and
+   `skeleton/**`. `README.md.template` maps to a vault `README.md`. For each, compare
+   `git show <ref>:<master>` against the vault's own file, normalised.
 
 7. **`rules`** - for each `.claude/rules/*.md`: its `paths:` frontmatter list; its master
    (`base/.claude/rules/<name>`, else a declared addon's file of the same name) and that
    file's own `paths:`; `kind` from the three anchors (`**Order:**`, `## The shape`,
    `## Placeholders` as the last `##`) - all three present is `shape`, none is `convention`,
    anything else is `mixed`; `paths_missing` and `paths_extra` against the master's list,
-   `null` with no master; on a collected delivery, every plain glob needs its doubled
-   twin (interior `/` -> `__`, a leading `**/` -> `*__`, a trailing `/**` or `/*` -> `__*`,
-   prefixed `resources/mds/`), `missing_twins` being `null` where no twin is required; the
-   pointer sentence in `CLAUDE.md` naming the file. **`sections`**: split each addon's
+   `null` with no master, leaving out a glob opening on `resources/mds/` (the retired
+   delivery's collected-state twin), which is `paths_retired`; the pointer sentence in
+   `CLAUDE.md` naming the file. **`sections`**: split each addon's
    `CLAUDE.md.sections` and the vault's `CLAUDE.md` at `## ` headings, then look up each
    vault paragraph under a shared heading in `git show <ref>:<sections file>` and in every
    version `git log <ref> -- <sections file>` lists.
@@ -162,7 +154,7 @@ diff those.
 
 10. **`smoke`** - `python3 "<skills folder>/para-daily-brief/scripts/brief_scan.py" --vault <vault> --indent 2` (Windows: `py -3`),
     per [delta.md](delta.md)'s "Smoke-test baseline". Non-zero exit
-    (a collected vault included), or no Python: run `/para-daily-brief week` instead and
+    or no Python: run `/para-daily-brief week` instead and
     keep the same counts, agenda excluded.
 
 11. **`snapshot`**, **`since`** - `paraos_vault.py`'s own `snapshot`/`changed` functions, or

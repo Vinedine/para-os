@@ -12,9 +12,9 @@ The candidate set for a thread is **the vaults that declared the mailbox it came
 
    Grep each candidate vault for each remaining address. **A hit in one vault decides. Hits in several narrow the choice without deciding it:** a participant known to just one of those vaults settles it for that vault; otherwise apply rule 2 among those vaults only, and route to all of them only when subject and snippet cannot separate them. **Where to grep:**
 
-   - **`areas/network/` and `resources/mds/`, both, always**, since a vault on the [read-only iPad delivery](../../para-shared/operating-discipline.md#the-read-only-ipad-delivery) keeps its contact files collected there.
-   - **Take a hit in a contact file or in an entity's own document under those roots**, such as the README of the entity an address concerns.
-   - **Never take a hit in a staged triage note or a source document**: nothing in `triage/`, no `resources/mds/triage__*`, nothing under a `sources/` folder or its `resources/mds/*__sources__*` form. A staged note carries every participant of the thread it came from; a source document names people who are not the vault's correspondents.
+   - **`areas/network/`, always.**
+   - **Take a hit in a contact file or in an entity's own document under it**, such as the README of the entity an address concerns.
+   - **Never take a hit in a staged triage note or a source document**: nothing in `triage/`, nothing under a `sources/` folder. A staged note carries every participant of the thread it came from; a source document names people who are not the vault's correspondents.
    - **Do not count a match inside a PDF**, which `grep` finds only sometimes.
 2. **Otherwise judge subject and snippet** against each candidate vault's `Relevant when` text and its `purpose` from the registry, with the `## Operating model` as the tiebreak on what the vault's business actually is. Read the snippet, not the body.
 3. **The result is zero to many vaults.** Not one. Both ends are normal, and most threads route to none.
@@ -38,4 +38,4 @@ Every routed thread carries its reason into the staged note and the ledger; ever
 - **Never route to a vault outside the candidate set**, however well the content fits.
 - **Never route on the recipient address alone.** A mailbox declared by six vaults says nothing about which one a given thread belongs to.
 - **Never carry a judgment into the routing decision.** Whether the thread needs a reply, whether the ball is in the operator's court, whether it is urgent: all of it is triage's.
-- **Never let routing read a vault's contents beyond its contact roots (`areas/network/` and `resources/mds/`), `CLAUDE.md` and the root `README.md`.**
+- **Never let routing read a vault's contents beyond its contact root (`areas/network/`), `CLAUDE.md` and the root `README.md`.**

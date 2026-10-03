@@ -24,15 +24,15 @@ from pathlib import Path
 from unittest import mock
 
 from paraos_vault import (
-    CollectedVault, abspath, action_files, addon_root, arrived, cadence_days, changed,
+    abspath, action_files, addon_root, arrived, cadence_days, changed,
     changelog_entries, clone_files, clone_read, clone_ref, closed_tasks, dangling_links,
     declarations, duplicates, entries_between, extract_links, field_ci, file_dates,
     find_clone, first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
     git_untracked, hashes, header_fields,
-    inbound_references, ingest_ledger, ingest_logs, integration_markers, is_collected,
+    inbound_references, ingest_ledger, ingest_logs, integration_markers,
     lifecycles, live_lines, log_instant, main, master_template, misplaced_checkboxes,
     match_encoding, move_plan, norm, normalised, note_name_parts, open_tasks, over_grown_briefs,
-    parse_markers, refuse_if_collected, register_rows, registered_vault, registry,
+    parse_markers, register_rows, registered_vault, registry,
     registry_holding, rel_posix, resolve_entity, resolve_link, scope_of, snapshot, split_lines,
     stage_line, stage_of, strip_code, table_cells, template_marker, thread_hash, triage_items, triage_sources, vault_root,
     watermark, written_under,
@@ -489,35 +489,6 @@ class WhereThingsLive(VaultCase):
         self.assertEqual(scope_of(self.root, path), ("?", "resources/playbook"))
         self.assertEqual(scope_of(self.root, write(self.root, "actions.md", "# root\n")),
                          ("?", "actions.md"))
-
-    def test_a_collected_vault_is_refused_not_guessed(self):
-        write(self.root, "resources/mds/projects__acme__actions.md", "# acme\n\n- [ ] One\n")
-        with self.assertRaises(CollectedVault):
-            refuse_if_collected(self.root)
-
-    def test_a_normal_vault_passes_the_collected_check(self):
-        write(self.root, "resources/ideas/orchard-labs/brief.md", "# idea\n")
-        refuse_if_collected(self.root)
-
-    def test_an_encoded_md_under_resources_mds_is_collected(self):
-        write(self.root, "resources/mds/projects__acme__brief.md", "# acme\n")
-        self.assertIs(is_collected(self.root), True)
-
-    def test_resources_mds_with_no_encoded_md_is_not_collected(self):
-        # The rule is "any __-encoded .md": a plain note, or an encoded name that is not
-        # markdown, is not the state flip.ps1 collect leaves.
-        write(self.root, "resources/mds/notes.md", "# notes\n")
-        write(self.root, "resources/mds/projects__acme__brief.pdf", "%PDF\n")
-        self.assertIs(is_collected(self.root), False)
-        self.assertIs(is_collected(self.root / "no-such-vault"), False)
-
-    def test_the_refusal_still_names_the_state_and_the_fallback(self):
-        write(self.root, "resources/mds/triage__note.md", "# note\n")
-        with self.assertRaises(CollectedVault) as refused:
-            refuse_if_collected(self.root)
-        self.assertEqual(str(refused.exception),
-                         "this vault is collected (resources/mds/ holds its markdown); "
-                         "scan it by hand with the skill's own reference procedure")
 
 
 class VaultRootCheck(VaultCase):
@@ -1049,11 +1020,11 @@ class HeaderBlock(VaultCase):
             "# Vault Conventions", "",
             "<!-- para-os-template: 2026.09.03 -->",
             "**Type:** vault",
-            "**Delivery:** sales", "",
+            "**Flavor:** sales", "",
         ]) + "\n")
         got = header_fields(path)
         self.assertEqual(got["Type"], "vault")
-        self.assertEqual(got["Delivery"], "sales")
+        self.assertEqual(got["Flavor"], "sales")
 
 
 class Register(VaultCase):
@@ -1527,16 +1498,16 @@ class Markers(VaultCase):
     def test_every_installed_script_is_found_wherever_it_was_installed(self):
         write(self.root, "resources/scripts/granola.py",
               '#!/usr/bin/env python3\n"""para-os-integration: granola 2026.08.02"""\n')
-        write(self.root, "render.ps1", "# para-os-integration: render 2026.09.01\n")
+        write(self.root, "sync.ps1", "# para-os-integration: sync 2026.09.01\n")
         write(self.root, "resources/scripts/local.py", "# a script of this vault's own\n")
         got = integration_markers(self.root)
         self.assertEqual([(h["file"], h["name"], h["revision"]) for h in got],
-                         [("render.ps1", "render", "2026.09.01"),
-                          ("resources/scripts/granola.py", "granola", "2026.08.02")])
+                         [("resources/scripts/granola.py", "granola", "2026.08.02"),
+                          ("sync.ps1", "sync", "2026.09.01")])
 
     def test_every_shipped_script_is_found_where_its_marker_sits(self):
-        # A read-only-iPad pipeline script carries its marker below a help block, past
-        # the first 40 lines, and was reported unmarked.
+        # A script carrying its marker below a help block, past the first 40 lines, was
+        # reported unmarked.
         repo = SCRIPT.parents[5]
         shipped = [p for d in ("integrations", "addons") if (repo / d).is_dir()
                    for p in sorted((repo / d).rglob("*"))
@@ -2434,12 +2405,9 @@ class Declarations(VaultCase):
 
     def test_every_line_under_the_title_is_read(self):
         write(self.root, "CLAUDE.md", conventions(
-            "**Type:** vault", "**Delivery:** readonly-ipad",
-            "**Flavor:** real-estate", "**Modules:** sales, crm"))
+            "**Type:** vault", "**Flavor:** real-estate", "**Modules:** sales, crm"))
         self.assertEqual(declarations(self.root), {
-            "type": "vault", "delivery": "readonly-ipad",
-            "delivery_source": "declared", "flavor": "real-estate",
-            "modules": ["sales", "crm"], "collected": False})
+            "type": "vault", "flavor": "real-estate", "modules": ["sales", "crm"]})
 
     def test_modules_keep_the_order_written_and_drop_empties(self):
         write(self.root, "CLAUDE.md", conventions("**Type:** x", "**Modules:** crm, , sales,"))
@@ -2448,53 +2416,21 @@ class Declarations(VaultCase):
     def test_a_vault_declaring_nothing_answers_with_nothing(self):
         write(self.root, "CLAUDE.md", conventions("**Type:** vault"))
         got = declarations(self.root)
-        self.assertEqual((got["delivery"], got["delivery_source"], got["flavor"],
-                          got["modules"]), (None, None, None, []))
-
-    def test_no_delivery_line_and_flip_at_the_root_is_the_read_only_ipad_delivery(self):
-        # operating-discipline.md's detection rule: the vault is on the delivery whether
-        # its CLAUDE.md says so or not.
-        write(self.root, "CLAUDE.md", conventions("**Type:** vault"))
-        write(self.root, "flip.ps1", "# flip\n")
-        got = declarations(self.root)
-        self.assertEqual((got["delivery"], got["delivery_source"]),
-                         ("readonly-ipad", "detected"))
-
-    def test_a_declared_delivery_wins_over_flip_at_the_root(self):
-        write(self.root, "CLAUDE.md", conventions("**Type:** x", "**Delivery:** direct"))
-        write(self.root, "flip.ps1", "# flip\n")
-        got = declarations(self.root)
-        self.assertEqual((got["delivery"], got["delivery_source"]), ("direct", "declared"))
-
-    def test_flip_anywhere_but_the_root_detects_nothing(self):
-        write(self.root, "CLAUDE.md", conventions("**Type:** x"))
-        write(self.root, "resources/scripts/flip.ps1", "# flip\n")
-        self.assertIsNone(declarations(self.root)["delivery_source"])
+        self.assertEqual((got["flavor"], got["modules"]), (None, []))
 
     def test_a_bold_line_below_the_header_block_is_not_a_declaration(self):
         write(self.root, "CLAUDE.md", conventions("**Type:** x") +
-              "\n**Delivery:** readonly-ipad\n")
-        self.assertIsNone(declarations(self.root)["delivery"])
+              "\n**Flavor:** real-estate\n")
+        self.assertIsNone(declarations(self.root)["flavor"])
 
     def test_markdown_marks_around_a_value_are_not_part_of_the_name(self):
-        write(self.root, "CLAUDE.md", conventions("**Type:** x", "**Delivery:** `readonly-ipad`",
+        write(self.root, "CLAUDE.md", conventions("**Type:** x", "**Flavor:** `real-estate`",
                                                   "**Modules:** `sales`, **crm**"))
         got = declarations(self.root)
-        self.assertEqual((got["delivery"], got["modules"]), ("readonly-ipad", ["sales", "crm"]))
-
-    def test_a_collected_vault_still_answers_and_says_so(self):
-        # flip.ps1 collect never moves CLAUDE.md, so the declarations still read.
-        write(self.root, "CLAUDE.md", conventions("**Type:** x"))
-        write(self.root, "flip.ps1", "# flip\n")
-        write(self.root, "resources/mds/projects__orchard-lane__brief.md", "# brief\n")
-        got = declarations(self.root)
-        self.assertEqual((got["type"], got["delivery_source"], got["collected"]),
-                         ("x", "detected", True))
+        self.assertEqual((got["flavor"], got["modules"]), ("real-estate", ["sales", "crm"]))
 
     def test_a_folder_with_no_claude_md_answers_rather_than_raising(self):
-        self.assertEqual(declarations(self.root), {
-            "type": None, "delivery": None, "delivery_source": None, "flavor": None,
-            "modules": [], "collected": False})
+        self.assertEqual(declarations(self.root), {"type": None, "flavor": None, "modules": []})
 
 
 # ------------------------------------------------------------------- a para-os clone
@@ -2506,11 +2442,9 @@ def fixture_git(root, *args):
                    cwd=root, check=True, capture_output=True)
 
 
-def fixture_template(marker, delivery=None):
+def fixture_template(marker):
     lines = ["# Vault Conventions", "", f"<!-- para-os-template: {marker} -->",
              "**Type:** vault-type"]
-    if delivery:
-        lines.append(f"**Delivery:** {delivery}")
     return "\n".join(lines + ["", "Guidance.", ""])
 
 
@@ -2521,18 +2455,21 @@ def write_bytes(root, rel, data):
     return path
 
 
+DOSSIER = "addons/real-estate/.claude/rules/property-dossier.md"
+
+
 def build_clone(root):
-    """A throwaway para-os clone carrying the three addon layouts this repo's own history
+    """A throwaway para-os clone carrying the two addon layouts this repo's own history
     shipped, one tagged commit each, plus a working tree that differs from the last commit.
 
-    - `layout-flavors`: the read-only iPad delivery under `flavors/readonly-ipad/`, before
-      deliveries had a folder of their own; the base template still on the legacy `2026.08`.
-    - `layout-delivery`: `delivery/readonly-ipad/` beside `flavors/real-estate/`.
+    - `layout-flavors`: the real-estate flavor under `flavors/real-estate/`, before addons
+      had a folder of their own; the base template still on the legacy `2026.08`.
     - `layout-addons` (and the annotated `v2026.09.04`): everything under `addons/`, plus a
-      leftover `delivery/legacy-kit/` that an `addons/` ref must never answer from.
-    - Working tree: an unstaged base edit (2026.09.05); a skeleton edit staged at 2026.09.06
-      then rewritten on disk to 2026.09.07; an untracked file and an untracked folder; an
-      ignored `__pycache__`; a folder holding only ignored files; a tracked file deleted.
+      leftover `flavors/legacy-kit/` that an `addons/` ref must never answer from.
+    - Working tree: an unstaged base edit (2026.09.05); a rule file edit staged at
+      2026.09.06 then rewritten on disk to 2026.09.07; an untracked file and an untracked
+      folder; an ignored `__pycache__`; a folder holding only ignored files; a tracked file
+      deleted.
     """
     fixture_git(root, "init", "-q")
     # Hermetic against the machine's own git config: a system autocrlf would rewrite the
@@ -2541,35 +2478,21 @@ def build_clone(root):
     fixture_git(root, "config", "core.excludesFile", str(root / ".git" / "no-excludes"))
     write(root, "CHANGELOG.md", "# Changelog\n\n## 2026.08.01\n\nThe first.\n")
     write(root, "base/CLAUDE.md.template", fixture_template("2026.08"))
-    write(root, "flavors/readonly-ipad/skeleton/CLAUDE.md.template",
-          fixture_template("2026.08", "readonly-ipad"))
-    write(root, "flavors/readonly-ipad/pipeline/flip.ps1", "# flip\n")
+    write(root, "flavors/real-estate/.claude/rules/property-dossier.md", "# Dossier 2026.08\n")
     fixture_git(root, "add", "-A")
     fixture_git(root, "commit", "-q", "--no-verify", "-m", "flavors layout")
     fixture_git(root, "tag", "layout-flavors")
 
-    (root / "delivery").mkdir()
-    fixture_git(root, "mv", "flavors/readonly-ipad", "delivery/readonly-ipad")
-    write(root, "base/CLAUDE.md.template", fixture_template("2026.09.03"))
-    write(root, "delivery/readonly-ipad/skeleton/CLAUDE.md.template",
-          fixture_template("2026.09.03", "readonly-ipad"))
-    write(root, "flavors/real-estate/.claude/rules/property-dossier.md", "# Dossier\n")
-    fixture_git(root, "add", "-A")
-    fixture_git(root, "commit", "-q", "--no-verify", "-m", "delivery layout")
-    fixture_git(root, "tag", "layout-delivery")
-
     (root / "addons").mkdir()
-    fixture_git(root, "mv", "delivery/readonly-ipad", "addons/readonly-ipad")
     fixture_git(root, "mv", "flavors/real-estate", "addons/real-estate")
     write(root, "base/CLAUDE.md.template", fixture_template("2026.09.04"))
-    write(root, "addons/readonly-ipad/skeleton/CLAUDE.md.template",
-          fixture_template("2026.09.04", "readonly-ipad"))
+    write(root, DOSSIER, "# Dossier 2026.09.04\n")
     write(root, "addons/sales/.claude/rules/deal-brief.md", "# Deal brief\n")
     write(root, "addons/sales/README.md", "# Sales\n")
     write(root, "addons/sales/Réunion notes.md", "# Réunion\n")
     write_bytes(root, "addons/sales/crlf.txt", b"caf\xe9\r\nline\r\n")
     write(root, "addons/sales-extra/README.md", "# Not sales\n")
-    write(root, "delivery/legacy-kit/README.md", "# Left behind\n")
+    write(root, "flavors/legacy-kit/README.md", "# Left behind\n")
     write(root, ".gitignore", "__pycache__/\n")
     fixture_git(root, "add", "-A")
     fixture_git(root, "commit", "-q", "--no-verify", "-m", "addons layout")
@@ -2577,10 +2500,9 @@ def build_clone(root):
     fixture_git(root, "tag", "-a", "v2026.09.04", "-m", "revision")
 
     write(root, "base/CLAUDE.md.template", fixture_template("2026.09.05"))
-    skeleton = "addons/readonly-ipad/skeleton/CLAUDE.md.template"
-    write(root, skeleton, fixture_template("2026.09.06", "readonly-ipad"))
-    fixture_git(root, "add", skeleton)
-    write(root, skeleton, fixture_template("2026.09.07", "readonly-ipad"))
+    write(root, DOSSIER, "# Dossier 2026.09.06\n")
+    fixture_git(root, "add", DOSSIER)
+    write(root, DOSSIER, "# Dossier 2026.09.07\n")
     write(root, "addons/sales/untracked.md", "# New\n")
     write(root, "addons/northwind-kit/README.md", "# Northwind kit\n")
     write_bytes(root, "addons/sales/__pycache__/x.cpython-312.pyc", b"\0")
@@ -2637,8 +2559,8 @@ class CloneRead(CloneCase):
                          b"caf\xe9\r\nline\r\n")
 
     def test_an_older_ref_reads_the_path_it_carried(self):
-        path = "flavors/readonly-ipad/skeleton/CLAUDE.md.template"
-        self.assertIn(b"2026.08 -->", clone_read(self.clone, "layout-flavors", path))
+        path = "flavors/real-estate/.claude/rules/property-dossier.md"
+        self.assertIn(b"2026.08", clone_read(self.clone, "layout-flavors", path))
         self.assertIsNone(clone_read(self.clone, "HEAD", path))
 
     def test_a_folder_is_no_file(self):
@@ -2658,7 +2580,7 @@ class CloneRead(CloneCase):
                                                 worktree=True))
 
     def test_worktree_reads_the_disk_never_the_index(self):
-        path = "addons/readonly-ipad/skeleton/CLAUDE.md.template"
+        path = DOSSIER
         staged = subprocess.run(["git", "show", f":{path}"], cwd=self.clone, check=True,
                                 capture_output=True).stdout
         self.assertIn(b"2026.09.06", staged)   # the premise: the index holds another edit
@@ -2704,8 +2626,7 @@ class CloneFiles(CloneCase):
     def test_an_empty_prefix_lists_the_whole_tree(self):
         got = clone_files(self.clone, "layout-flavors", "")
         self.assertEqual(got, ["CHANGELOG.md", "base/CLAUDE.md.template",
-                               "flavors/readonly-ipad/pipeline/flip.ps1",
-                               "flavors/readonly-ipad/skeleton/CLAUDE.md.template"])
+                               "flavors/real-estate/.claude/rules/property-dossier.md"])
 
     def test_nothing_there_is_empty_and_a_bad_ref_is_none(self):
         self.assertEqual(clone_files(self.clone, "layout-flavors", "addons"), [])
@@ -2720,19 +2641,12 @@ class CloneFiles(CloneCase):
 
 class AddonRoot(CloneCase):
 
-    def test_the_first_layout_kept_the_delivery_under_flavors(self):
-        self.assertEqual(addon_root(self.clone, "layout-flavors", "readonly-ipad"),
-                         "flavors/readonly-ipad")
-        self.assertIsNone(addon_root(self.clone, "layout-flavors", "real-estate"))
-
-    def test_the_second_layout_split_delivery_from_flavors(self):
-        self.assertEqual(addon_root(self.clone, "layout-delivery", "readonly-ipad"),
-                         "delivery/readonly-ipad")
-        self.assertEqual(addon_root(self.clone, "layout-delivery", "real-estate"),
+    def test_the_older_layout_kept_a_flavor_under_flavors(self):
+        self.assertEqual(addon_root(self.clone, "layout-flavors", "real-estate"),
                          "flavors/real-estate")
 
     def test_today_every_addon_lives_under_addons(self):
-        for name in ("readonly-ipad", "real-estate", "sales"):
+        for name in ("real-estate", "sales"):
             self.assertEqual(addon_root(self.clone, "HEAD", name), f"addons/{name}")
         self.assertIsNone(addon_root(self.clone, "HEAD", "crm"))
 
@@ -2740,7 +2654,7 @@ class AddonRoot(CloneCase):
         self.assertIsNone(addon_root(self.clone, "HEAD", "legacy-kit"))
 
     def test_a_module_at_a_ref_before_addons_resolves_to_nothing(self):
-        self.assertIsNone(addon_root(self.clone, "layout-delivery", "sales"))
+        self.assertIsNone(addon_root(self.clone, "layout-flavors", "sales"))
 
     def test_worktree_counts_an_untracked_folder_and_not_one_of_ignored_files(self):
         self.assertEqual(addon_root(self.clone, "HEAD", "northwind-kit", worktree=True),
@@ -2750,58 +2664,27 @@ class AddonRoot(CloneCase):
         self.assertIsNone(addon_root(self.clone, "HEAD", "stale", worktree=True))
 
     def test_a_name_that_is_a_path_is_no_addon(self):
-        for name in ("", None, "..", "readonly-ipad/skeleton", "..\\base"):
+        for name in ("", None, "..", "real-estate/skeleton", "..\\base"):
             self.assertIsNone(addon_root(self.clone, "HEAD", name))
 
 
 class MasterTemplate(CloneCase):
 
-    def test_a_vault_on_no_delivery_is_measured_against_base(self):
-        self.assertEqual(master_template(self.clone, "HEAD", {"delivery": None}), {
+    def test_every_vault_is_measured_against_base(self):
+        self.assertEqual(master_template(self.clone, "HEAD"), {
             "path": "base/CLAUDE.md.template", "marker": "2026.09.04",
-            "raw_marker": "2026.09.04", "source": "base", "fallback": None})
-        self.assertEqual(master_template(self.clone, "HEAD", None)["source"], "base")
-
-    def test_a_delivery_is_measured_against_its_skeleton_in_every_layout(self):
-        decl = {"delivery": "readonly-ipad"}
-        for ref, path, marker in (
-                ("HEAD", "addons/readonly-ipad", "2026.09.04"),
-                ("layout-delivery", "delivery/readonly-ipad", "2026.09.03"),
-                ("layout-flavors", "flavors/readonly-ipad", "2026.08.01")):
-            got = master_template(self.clone, ref, decl)
-            self.assertEqual((got["path"], got["marker"], got["source"], got["fallback"]),
-                             (f"{path}/skeleton/CLAUDE.md.template", marker, "delivery", None))
-
-    def test_a_detected_delivery_counts_as_a_declared_one(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            vault = Path(tmp)
-            write(vault, "CLAUDE.md", conventions("**Type:** x"))
-            write(vault, "flip.ps1", "# flip\n")
-            got = master_template(self.clone, "layout-delivery", declarations(vault))
-        self.assertEqual(got["path"], "delivery/readonly-ipad/skeleton/CLAUDE.md.template")
+            "raw_marker": "2026.09.04", "source": "base"})
 
     def test_the_legacy_label_comes_back_raw_beside_the_revision_it_became(self):
-        got = master_template(self.clone, "layout-flavors", {"delivery": None})
+        got = master_template(self.clone, "layout-flavors")
         self.assertEqual((got["raw_marker"], got["marker"]), ("2026.08", "2026.08.01"))
 
-    def test_a_delivery_with_no_skeleton_falls_back_to_base_and_says_so(self):
-        for name in ("direct", "sales"):   # no folder at all; a folder with no skeleton
-            got = master_template(self.clone, "layout-addons", {"delivery": name})
-            self.assertEqual((got["path"], got["source"], got["marker"]),
-                             ("base/CLAUDE.md.template", "base", "2026.09.04"))
-            self.assertEqual(got["fallback"],
-                             f"'{name}' names no skeleton at layout-addons; "
-                             f"compared against base/CLAUDE.md.template instead")
-
     def test_worktree_reads_the_templates_on_disk(self):
-        got = master_template(self.clone, "HEAD", {"delivery": "readonly-ipad"}, worktree=True)
-        self.assertEqual((got["marker"], got["source"]), ("2026.09.07", "delivery"))
-        got = master_template(self.clone, "HEAD", {"delivery": "direct"}, worktree=True)
-        self.assertEqual(got["marker"], "2026.09.05")
-        self.assertIn("in the clone's working tree", got["fallback"])
+        got = master_template(self.clone, "HEAD", worktree=True)
+        self.assertEqual((got["marker"], got["source"]), ("2026.09.05", "base"))
 
     def test_a_ref_holding_neither_template_has_no_source(self):
-        got = master_template(self.clone, "no-such-ref", {"delivery": None})
+        got = master_template(self.clone, "no-such-ref")
         self.assertEqual((got["source"], got["marker"], got["raw_marker"]), (None, None, None))
 
 

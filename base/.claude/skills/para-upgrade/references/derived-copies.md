@@ -6,7 +6,7 @@
 - **Skill names** in `README.md`, `meetings.md`, briefs, and other skills. Verify each name still exists as a skill before repointing; drop references to skills that no longer exist rather than guessing a replacement. **The sweep's scope is the renames and removals the collected entries name**: an unresolved name no entry explains predates this delta, and is listed as a vault observation rather than repointed.
 - **Installed skill copies**, in both places they can live, because each goes stale on its own:
   - *The vault's bundled `.claude/skills/`*. **These are skeleton content and this phase audits them like any other skeleton file.** They also shadow the user-level install, so a stale one silently overrides a correct global skill for every session in that vault. Diff each against the ref's master and report; call out by name a bundled skill the scan's `revisions_behind` puts at more than one revision behind.
-  - *The user-level install*, if the vault runs on that instead. Diff against the ref's masters (`base/.claude/skills/`, `multi-vault/*/` for an installed cross-vault skill, plus `addons/<name>/.claude/skills/` for the declared delivery, the flavor and each declared module) and report drift. Syncing them is a machine-level action, so propose it, don't do it silently.
+  - *The user-level install*, if the vault runs on that instead. Diff against the ref's masters (`base/.claude/skills/`, `multi-vault/*/` for an installed cross-vault skill, plus `addons/<name>/.claude/skills/` for the declared flavor and each declared module) and report drift. Syncing them is a machine-level action, so propose it, don't do it silently.
 
   If both exist, say which one actually wins for this vault before reporting either as stale. **A copy that differs from the ref but matches the clone's working tree or another of its branches is ahead of the ref**, synced from there: report it that way, in the verdicts under `## Installed integration scripts`, never as drift. Installed flavor skills are checked only for a vault declaring that flavor.
 
@@ -35,7 +35,7 @@
 
 ## Installed integration scripts
 
-Every script a para-os integration ships carries `para-os-integration: <name> <revision>` in its header. An integration whose README installs it outside any vault (a machine-level hook) is checked where that README says it lives, once per machine, and reported as such. **Grep the whole vault for that marker, not just `resources/scripts/`** - a delivery may install its scripts elsewhere (the readonly-ipad render pipeline sits at the vault root), and a folder-scoped grep would never see them.
+Every script a para-os integration ships carries `para-os-integration: <name> <revision>` in its header. An integration whose README installs it outside any vault (a machine-level hook) is checked where that README says it lives, once per machine, and reported as such. **Grep the whole vault for that marker, not just `resources/scripts/`** - an add-on may install its scripts elsewhere, and a folder-scoped grep would never see them.
 
 **Compare the content, never the marker string.** The marker says which integration a file came from; it does not say what the file contains. A copy whose header was bumped by hand while the code stayed old reports clean under a string compare. The scan's `integrations` block already carries the normalised diff, `diff_stat`, and the verdict for every marked script ([scan.md](scan.md), "The verdict"); where it cannot run, diff by hand:
 
