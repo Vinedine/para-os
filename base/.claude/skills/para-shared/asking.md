@@ -69,4 +69,4 @@ Record every answer, deferrals and amendments included, and carry them into the 
 - On an explicit **escape argument** for an operator who would rather read a batch than click through it.
 - When **no interactive operator is present**: a scheduled task, a subagent, a non-interactive run.
 
-On those paths the skill produces the markdown proposal it always did, gated on a single "reply **go**", or nothing at all.
+On those paths the skill produces the markdown proposal, gated on a single "reply **go**", or nothing at all.

@@ -11,7 +11,7 @@ Reads every registered vault's declared triage sources **once**, decides **only*
 
 **It never decides what an item means.** No classifying, no drafting an action, no filing into an entity, no touching a mailbox. Every judgment about meaning stays with `/para-triage`, interactively, in the vault the item landed in.
 
-- **It needs `para-shared/` beside it.** The two links below resolve once this folder is installed next to the other `para-*` skills, which is where the layer README says to put it. In the repo they do not resolve.
+- **It needs `para-shared/` beside it.** Its `../para-shared/` links resolve only when this folder sits next to the other `para-*` skills, which is where the layer README says to put it.
 
 **Run it from anywhere.** Unlike every other `para-*` skill this one is not scoped to the cwd: the registry outside the vaults is what tells it they exist. The substrate stays federated and only the index is central, so no vault ever learns another vault's content.
 
@@ -51,7 +51,7 @@ These scripts dedupe against their own central ledgers, so running them is idemp
 Follow **[../para-shared/connectors.md](../para-shared/connectors.md)**, the same fetch protocol `/para-triage` uses: dispatch, query frame, thread normalisation, dedup, message list. Two differences:
 
 - **The query frame is the union of every declaring vault's `Relevant when`**, not one vault's. Fetch once, route after. A per-vault query would refetch the same mailbox N times, which is the cost this layer exists to remove.
-- **A connector this file's `allowed-tools` does not name is a setup step, not an absent mailbox.** The names there are the stable-server case; a harness that exposes the same connector under an account UUID (`mcp__<uuid>__search_threads`) is found by the shared file's tool-suffix rule and then refused, which looks identical to "not connected" and silently unroutes every vault it feeds. **Report it and carry on; never edit this file mid-run to widen your own permissions, and never let a refusal be reported as an absence.** The frontmatter carries a wildcard in the tool-name position for this reason; the operator changes it if their harness still refuses.
+- **A connector this file's `allowed-tools` does not name is a setup step, not an absent mailbox.** The names there are the stable-server case; a harness that exposes the same connector under an account UUID (`mcp__<uuid>__search_threads`) is found by the shared file's tool-suffix rule and then refused, which looks identical to "not connected" and silently unroutes every vault it feeds. **Report it and carry on; never edit this file mid-run to widen your own permissions, and never let a refusal be reported as an absence.** Pre-approving a connector exposed under an account UUID is the operator's edit to this frontmatter, never the run's.
 - **Dedup against this skill's own ledger**, plus the per-vault legacy ledgers named in [references/staging.md](references/staging.md). Stop at the end of step 6 of the shared file: its judgment steps are triage's, not this skill's. A thread the shared file hands back **resurfaced** has grown since it was dispositioned; route it from scratch and stage only what arrived after the watermark.
 
 Window: **30 days in preview, 2 days in write mode, including the first write run.** It turns on the mode, not on whether a ledger exists yet. **Backfilling a month of a mailbox nobody was ingesting is not this layer's job**: a deliberate backfill is `--days N` by hand, once.

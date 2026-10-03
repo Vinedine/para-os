@@ -1,7 +1,7 @@
 ---
 name: para-daily-brief
 description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Naming one project or area instead scopes the whole brief to it. Use when user asks "what should I work on today" (the full brief, not the `today` scope), "what's overdue", "where does the vault stand", "where does <project> stand", "what's open on <project>", or types /para-daily-brief [today|week|overdue|all|<entity>].
-allowed-tools: Bash(python3 *), Bash(py *), Bash(git log *), Bash(git status *), Bash(stat *), Bash(ls *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
+allowed-tools: Bash(python3 *), Bash(py *), Bash(git log *), Bash(git status *), Bash(stat *), Bash(ls *), Bash(wc *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
 argument-hint: '[today|week|overdue|all|<entity>] [--test]'
 ---
 
@@ -85,14 +85,14 @@ Render the page with `scripts/render_dashboard.py` from the scan and a small jud
 
 ## Strict rules
 
-- **Do NOT parse completed items (`- [x]`)** - they're history.
-- **Do NOT rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`; this skill never applies them.
-- **Do NOT follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, and an idea brief's stage line.)
-- **Do NOT add commentary or recommendations** beyond the Health flags and the single Next action. Decisions are the operator's.
-- **Do NOT dedupe cross-referenced items** (same task in two files). Show both.
+- **Do not parse completed items (`- [x]`)** - they're history.
+- **Do not rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`; this skill never applies them.
+- **Do not follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, and an idea brief's stage line.)
+- **Do not add commentary or recommendations** beyond the Health flags and the single Next action. Decisions are the operator's.
+- **Do not dedupe cross-referenced items** (same task in two files). Show both.
 - **Meetings: today and future only, never invented.** Render only what the calendar or `meetings.md` line contains - never fabricate a meeting, time, or attendee. Calendars are read-only.
-- **Do NOT include `**Status:**` lines** from actions files.
-- **Do NOT resolve an ambiguous entity name by choosing one**, and never fall back to the whole vault when a name matches nothing. Ask.
+- **Do not include `**Status:**` lines** from actions files.
+- **Do not resolve an ambiguous entity name by choosing one**, and never fall back to the whole vault when a name matches nothing. Ask.
 - **An entity scope does not unlock the brief.** It narrows *which action files* are read; it does not relax the no-follow-links rule above. A status read that summarises `brief.md` is a different contract, not this argument.
 
 ## Edge cases

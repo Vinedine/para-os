@@ -41,7 +41,7 @@ Three parts, always:
 
 Rank by what the change would be worth, not by how large the number is. A capability nobody found outranks a tool that failed eleven times.
 
-Cap the list at what a maintainer will act on: five or six changes, with the rest as a short "also seen" line.
+Keep the list to the changes a maintainer will act on, ranked; the rest go in a short "also seen" line.
 
 ## Register
 

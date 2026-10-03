@@ -43,7 +43,7 @@ One call per lifecycle scope, after Step 1 has the declared lifecycles, per [par
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault . [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
+python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault <root> [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 
 Pass `--lifecycle` only under a lifecycle scope. Exit 3 is a `--lifecycle` matching no declared heading or noun (`{"error": "no such lifecycle", "declared": [...]}`): stop and ask, as in Step 1. **Field table, and the by-hand fallback where the script cannot run: [references/scan.md](references/scan.md).**

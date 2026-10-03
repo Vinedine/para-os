@@ -20,7 +20,7 @@ Where the vault names its books, run this as its own pass:
 - **Portfolio file.** Does the dossier agree with the portfolio-level file that quotes the same figure? Two files disagreeing is drift even when neither can be checked against a document.
 - **Derived figures.** Where a booked figure has to be derived (cost released against units sold), reconcile it two independent ways, write both down, and say in the dossier that it is derived and what would settle it.
 
-Money follows the same four classes, plus one case: a figure the books cannot carry yet because the deed has not passed is not drift. It sits under prepayments, and the dossier says so.
+Money follows the same classes, plus one case: a figure the books cannot carry yet because the deed has not passed is not drift. It sits under prepayments, and the dossier says so.
 
 ## Step 4 - Apply and report
 
