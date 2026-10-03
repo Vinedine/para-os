@@ -17,7 +17,7 @@ One line, no pipes, no reasoning column: the reasoning belongs in the option des
 
 **If the batch exceeds 20 items**, the first question asked is whether to go item by item or fall back to the written proposal.
 
-Count the questions first: **four or more, print it; fewer, go straight to asking.** The threshold is per run, not per skill.
+Count the questions first: **four or more, print it, ahead of the questions or, on a path that does not ask, ahead of the table; fewer, skip it.** The threshold is per run, not per skill.
 
 ## The question
 
@@ -70,5 +70,3 @@ Record every answer, deferrals and amendments included, and carry them into the 
 - When **no interactive operator is present**: a scheduled task, a subagent, a non-interactive run.
 
 On those paths the skill produces the markdown proposal it always did, gated on a single "reply **go**", or nothing at all.
-
-**A preview prints the manifest first, then the table.** The manifest is the plan of the run it stands in for - how many questions, which items group, how many rounds - so a preview still shows the shape of what a live run would ask, and the table carries the reasoning a live run puts in the option descriptions.
