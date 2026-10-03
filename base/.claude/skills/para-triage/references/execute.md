@@ -40,6 +40,7 @@ For a connector thread and a staged mail note alike:
 - **Add action**: append the task line to the named `actions.md`, in the vault's markers. Never create an `actions.md`.
 - **Add register row**: append the approved row, as shown, to the register's open table (under `## Open` where it splits open from closed), whose `_None currently._` placeholder gives way to the header its rule file declares. Never create the register.
 - **On a staged mail note**, that write comes first, then the note goes as its option said: deleted (the default) or filed. **Dismiss (other vault)** deletes the note and names its vault in the summary, writing nothing there. No seen-ledger entry for any of these.
+- **A re-read that reached past the note's ingest seen point** (a message newer than `note.ingest_seen.seen_date`), once the note's disposition has executed: add this vault's registry name to each such message's `by_message_id` list in `/para-ingest`'s ledger (`ingest_ledger.path`), keyed as [connectors.md](../../para-shared/connectors.md) step 6 keys it, so the next ingest does not stage it here again. The watermark and `routed` stay: another routed vault may still be owed the message.
 - **Note to triage**: write a short `.md` into `triage/` with frontmatter (`source`, `thread_id`, `date`, `link`) and a 2-3 line summary of what needs attention. Do not file it further this pass.
 - **Ledger writes**: per [sources.md](sources.md#the-seen-ledger).
 

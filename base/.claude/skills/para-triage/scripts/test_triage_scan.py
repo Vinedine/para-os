@@ -33,7 +33,8 @@ from triage_scan import (
     build_loose, build_snapshot, ingest_block, main, note_block, over_threshold_block, plan,
     same_thread_block, seen_ledger_block, subdirectories_block, subdirectories_line,
     vault_block,
-    _content_incomplete, _extract_thread_id, _mentioned_vaults, _routed_from_ledger,
+    _content_incomplete, _extract_thread_id, _ingest_seen, _mentioned_vaults,
+    _routed_from_ledger,
 )
 
 import sys
@@ -620,6 +621,30 @@ class NoteShapes(unittest.TestCase):
                                              "88604c", "Alpha")
         self.assertEqual(routed, ["Beta"])
         self.assertEqual(source, "ledger")
+
+    def test_ingest_seen_carries_the_ledger_entrys_watermark(self):
+        ledger_mailboxes = {"alex@example-work.com": {"1a0c556d2559b07c": {
+            "routed": ["Alpha"], "seen_through": "<m2@example-work.com>",
+            "seen_date": "2026-09-20T10:00:00+02:00"}}}
+        self.assertEqual(_ingest_seen(ledger_mailboxes, "alex@example-work.com", "88604c"),
+                         {"thread_id": "1a0c556d2559b07c",
+                          "seen_through": "<m2@example-work.com>",
+                          "seen_date": "2026-09-20T10:00:00+02:00"})
+        self.assertIsNone(_ingest_seen(ledger_mailboxes, "other@example-work.com", "88604c"))
+
+    def test_a_staged_note_reports_its_ingest_seen_point(self):
+        path = self.note("20260920 Re Quote 88604c.md", "\n".join([
+            "# Re: Quote", "",
+            "- **Source:** google-workspace (alex@example-work.com)",
+            "- **Content:** Full body.",
+            "- **Link:** https://mail.google.com/mail/u/0/#all/1a0c556d2559b07c", "",
+        ]))
+        ledger_mailboxes = {"alex@example-work.com": {"1a0c556d2559b07c": {
+            "routed": ["Alpha"], "seen_through": "<m2@example-work.com>",
+            "seen_date": "2026-09-20T10:00:00+02:00"}}}
+        note = note_block(path, [], "Alpha", ledger_mailboxes)
+        self.assertEqual(note["ingest_seen"]["seen_through"], "<m2@example-work.com>")
+        self.assertIsNone(note_block(path, [], "Alpha", {})["ingest_seen"])
 
     def test_routed_vaults_is_null_when_the_mailbox_is_unknown_to_the_ledger(self):
         routed, source = _routed_from_ledger({}, "alex@example-work.com", "88604c", "Alpha")

@@ -376,27 +376,42 @@ def _mentioned_vaults(routed_text, entries, this_vault_name):
     return sorted(set(hits))
 
 
-def _routed_from_ledger(ledger_mailboxes, mailbox, filename_hash, vault_name):
-    """`(routed_vaults, routed_from)` from `/para-ingest`'s own central ledger: the `routed`
-    list of the entry, in this note's own mailbox, whose thread hashes to this note's
-    filename hash - minus this vault. `(None, None)` where the mailbox is unknown to the
-    ledger or no entry's thread matches: the hash is searched only within the note's own
-    mailbox, never across every mailbox in the ledger, since a six-hex hash can collide
-    between two unrelated mailboxes."""
+def _ledger_entry(ledger_mailboxes, mailbox, filename_hash):
+    """`(thread_id, record)` of the entry in `/para-ingest`'s central ledger, in this note's
+    own mailbox, whose thread hashes to this note's filename hash; `(None, None)` where the
+    mailbox is unknown to the ledger or no entry's thread matches. The hash is searched only
+    within the note's own mailbox, never across every mailbox in the ledger, since a six-hex
+    hash can collide between two unrelated mailboxes."""
     if not mailbox or not filename_hash:
         return None, None
     mailbox_entries = ledger_mailboxes.get(mailbox)
     if not isinstance(mailbox_entries, dict):
         return None, None
     for thread_id, record in mailbox_entries.items():
-        if not isinstance(record, dict):
-            continue
-        if thread_hash(thread_id) != filename_hash:
-            continue
-        routed = record.get("routed")
-        routed = routed if isinstance(routed, list) else []
-        return sorted({v for v in routed if v and v != vault_name}), "ledger"
+        if isinstance(record, dict) and thread_hash(thread_id) == filename_hash:
+            return thread_id, record
     return None, None
+
+
+def _routed_from_ledger(ledger_mailboxes, mailbox, filename_hash, vault_name):
+    """`(routed_vaults, routed_from)`: the ledger entry's `routed` list minus this vault,
+    and `"ledger"`; `(None, None)` with no entry."""
+    _, record = _ledger_entry(ledger_mailboxes, mailbox, filename_hash)
+    if record is None:
+        return None, None
+    routed = record.get("routed")
+    routed = routed if isinstance(routed, list) else []
+    return sorted({v for v in routed if v and v != vault_name}), "ledger"
+
+
+def _ingest_seen(ledger_mailboxes, mailbox, filename_hash):
+    """The ledger entry's thread id and watermark, which a re-read at source is compared
+    against (references/execute.md); None with no entry."""
+    thread_id, record = _ledger_entry(ledger_mailboxes, mailbox, filename_hash)
+    if record is None:
+        return None
+    return {"thread_id": thread_id, "seen_through": record.get("seen_through"),
+            "seen_date": record.get("seen_date")}
 
 
 def _extract_thread_id(link_value, filename_hash):
@@ -465,6 +480,7 @@ def note_block(path, entries, vault_name, ledger_mailboxes):
         "thread_id": _extract_thread_id(link_value, filename_hash),
         "message_id": fields.get("Message id") if shape == "ingest" else None,
         "conversation_id": fields.get("Conversation id") if shape == "ingest" else None,
+        "ingest_seen": _ingest_seen(ledger_mailboxes, mailbox, filename_hash),
     }
 
 

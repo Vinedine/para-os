@@ -68,7 +68,7 @@ One central ledger at `${PARAOS_HOME:-~/.paraos}/cache/ingest/ledger.json`, keye
 
 ### The two indexes
 
-**Before staging a thread into a vault, check whether any message in it is already recorded against that vault in `by_message_id`, and skip that pair if it is.** Record every staged message's key there afterwards. It deduplicates per vault, not globally.
+**Before staging a thread into a vault, drop every message already recorded against that vault in `by_message_id`, and skip the pair when none is left.** `/para-triage` records there a message it read at source past the watermark. Record every staged message's key there afterwards. It deduplicates per vault, not globally.
 
 - **Every fetched thread gets an entry**, routed or not, except under the rule directly below.
 - **A thread routed to a vault that could not be written gets no entry at all.** Not a partial entry, not an entry naming the vaults that did get it. If any vault in the routing decision was unreachable (its registry path not mounted, its `triage/` not writable), withhold the per-mailbox entry and let the thread be refetched next run. Record `by_message_id` for every message actually staged, always. Report these in the run log as **`undelivered`**.
