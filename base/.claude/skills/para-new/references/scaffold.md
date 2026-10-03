@@ -10,7 +10,7 @@ Nothing is written until the proposal is approved. The proposal is short: the fo
 - **If it describes a shape without naming sections** ("outcome up top, then a development log"), open the closest existing entity of the same shape, take its header block and section names, and fill them with this entity's answers. Where the vault holds no existing entity of that shape, the minimal spine is right and this is the first instance.
 - **If it declares none**, use the minimal spine below and **do not add a template file to the vault**: templating a shape is the operator's decision once a second instance proves it.
 
-Minimal project brief: a title, `## Goal` (what it produces), `## Why it matters` (what it unblocks), and `## Source` (where this came from - the meeting, the mail, the conversation) when there is one. Nothing else earns a heading on day one.
+Minimal project brief: a title, `## Goal` (what it produces), `## Why it matters` (what it unblocks), and `## Source` (where this came from - the meeting, the mail, the conversation) when there is one. A source still in `triage/` is named there in prose, not linked, and left for `/para-triage` to file into the entity's `sources/`. Nothing else earns a heading on day one.
 
 Minimal area brief: a title, what the area covers, and what keeping it going involves. An area's brief is the running narrative of something that has no end, so it states scope rather than an outcome.
 

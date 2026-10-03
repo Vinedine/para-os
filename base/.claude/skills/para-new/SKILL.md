@@ -54,7 +54,7 @@ Nothing is written before the proposal is approved, so there is no preview argum
 
 1. **Resolve the vault root** per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), **then verify it**: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
 2. Read the vault's `CLAUDE.md` for the parameters listed above.
-3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, `areas/network/`, and `archive/`. Report a near-match and confirm it is genuinely a different thing. **An archived match never stops the run** - reusing a finished entity's name is allowed - but it is named, so the operator can choose a distinct slug if this is a successor rather than a repeat.
+3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, `areas/network/`, and `archive/`. Report a near-match and confirm it is genuinely a different thing. **An archived match never stops the run** - reusing a finished entity's name is allowed - but it is named, so the operator can choose a distinct slug if this is a successor rather than a repeat. **Where `${PARAOS_HOME:-~/.paraos}/vaults.json` lists other vaults, match their same folders too** and name a hit, with its vault, before scaffolding: the same entity in two vaults is the operator's call, never silently created.
 
 ### Steps 2 and 3 - Classify, then interview
 

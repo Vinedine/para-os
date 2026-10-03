@@ -10,7 +10,7 @@ What `--test` does. Every para-os skill accepts it, a flavor's skills included: 
 
 ## What changes, and what does not
 
-**The run does not change.** Same steps, same approvals, same writes. A run that writes goes against a copy of a vault; a real vault gets the skill's read-only argument (`preview`, `audit`).
+**The run does not change.** Same steps, same approvals, same writes. A run that writes goes against a copy of a vault; a real vault gets the skill's read-only argument (`preview`, `audit`), and a skill with none asks its questions as usual and stops at its proposal, before the first write.
 
 Three things are added:
 

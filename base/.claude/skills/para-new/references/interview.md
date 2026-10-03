@@ -39,7 +39,7 @@ An area that arrived through the recurring-obligation route above already stated
 1. What is the concept, in a sentence or two?
 2. What would have to be true for this to become a project?
 
-The second answer is the promotion trigger and the only forward-looking thing an idea brief carries. **Skip the question where the vault already states the trigger** for this kind of idea (a promotion rule in `CLAUDE.md` or a rule file) and record that rule. If the user has no answer, record that rather than manufacturing one.
+The second answer is the promotion trigger and the only forward-looking thing an idea brief carries. **An entity named by a declared lifecycle's noun is staged, not an idea**, even when the request says `idea`: it takes [scaffold.md](scaffold.md#a-staged-entity)'s path, and its stages replace the trigger question. **Skip the question where the vault already states the trigger** for this kind of idea (a promotion rule in `CLAUDE.md` or a rule file) and record that rule. If the user has no answer, record that rather than manufacturing one.
 
 **Contact - two questions.**
 
