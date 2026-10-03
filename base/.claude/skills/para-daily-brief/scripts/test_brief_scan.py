@@ -118,8 +118,18 @@ class Lanes(VaultCase):
 
     def test_a_recurring_item_with_a_past_date_is_also_flagged_overdue(self):
         task = self.task(self.report, "Weekly review")
-        self.assertEqual(task["lane"], "recurring")
-        self.assertTrue(task["also_overdue"])
+        self.assertEqual((task["lane"], task["also_lane"]), ("recurring", "overdue"))
+
+    def test_a_recurring_item_due_today_joins_the_today_lane_but_not_its_total(self):
+        write(self.root, "areas/ops/actions.md",
+              "# ops\n\n## Recurring\n- [ ] Prune the log 🔁 every month 📅 2026-09-21\n")
+        report = scan(self.root, TODAY)
+        task = self.task(report, "Prune the log")
+        self.assertEqual((task["lane"], task["also_lane"]), ("recurring", "today"))
+        self.assertIn({"file": "areas/ops/actions.md", "line": 4}, report["lanes"]["today"])
+        self.assertIn({"file": "areas/ops/actions.md", "line": 4}, report["lanes"]["recurring"])
+        self.assertEqual(self.task(report, "Weekly review")["also_lane"], "overdue")
+        self.assertIsNone(self.task(report, "Due today")["also_lane"])
 
     def test_an_overdue_recurring_item_joins_the_overdue_lane_but_not_its_total(self):
         weekly = self.task(self.report, "Weekly review")["line"]

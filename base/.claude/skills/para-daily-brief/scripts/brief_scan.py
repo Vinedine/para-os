@@ -68,11 +68,12 @@ def bucket_task(task, today):
     task["effective_date"] = iso(effective)
     task["days"] = (effective - today).days if effective else None
 
+    task["also_lane"] = None
     if task["recurring"]:
         task["lane"] = "recurring"
-        task["also_overdue"] = bool(effective and effective < today)
+        if effective and effective <= today:
+            task["also_lane"] = "overdue" if effective < today else "today"
         return task
-    task["also_overdue"] = False
     if start and start > today:
         task["lane"] = "waiting"
         return task
@@ -270,12 +271,13 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
                                          "open": len(items)})
 
     for t in tasks:
-        if t["lane"] == "overdue" or t.get("also_overdue"):
+        overdue = "overdue" in (t["lane"], t.get("also_lane"))
+        if overdue:
             days = -(t["days"] or 0)
             if days > FALSELY_OVERDUE_DAYS:
                 flags["falsely_overdue"].append({"file": t["file"], "line": t["line"],
                                                  "days": days, "text": t["text"][:120]})
-        if t["recurring"] and t.get("also_overdue"):
+        if t["recurring"] and overdue:
             period = cadence_days(t["recurring"])
             if period:
                 late = -(t["days"] or 0)
@@ -338,8 +340,8 @@ def scan(vault, today, entity=None):
         "undated": sum(1 for t in scoped_tasks if t["lane"] == "undated"),
     }
     report["lanes"] = {}
-    for t in scoped_tasks:  # an overdue recurring item sits in both lanes, and Now
-        for lane in [t["lane"]] + (["overdue"] if t["also_overdue"] else []):
+    for t in scoped_tasks:  # a recurring item overdue or due today sits in both lanes
+        for lane in filter(None, [t["lane"], t["also_lane"]]):
             report["lanes"].setdefault(lane, []).append({"file": t["file"], "line": t["line"]})
     entity_path = resolution["match"]["path"] \
         if resolution and resolution["status"] == "resolved" else None

@@ -8,9 +8,9 @@ Everything between "the vault is a folder of markdown" and "a set of bucketed, p
 |---|---|
 | `today` | The date the brief is dated by |
 | `entity` | `status` of `resolved`, `ambiguous`, `elsewhere` or `unresolved`, with `match`, `candidates`, `elsewhere` and `nearest` (Step 1b) |
-| `tasks` | One record per open item: file, line, bucket, scope, section, text, markers, `lane`, `days`, `also_overdue`, `malformed_date` |
+| `tasks` | One record per open item: file, line, bucket, scope, section, text, markers, `lane`, `days`, `also_lane`, `malformed_date` |
 | `entities`, `totals` | Per-entity rows with the three counts that partition the open count and a `bar` width, and the same four numbers vault-wide |
-| `lanes` | Each lane's items, for the counts a rendered section needs; an overdue recurring item is in `recurring` and `overdue` |
+| `lanes` | Each lane's `(file, line)` references, joined back into `tasks` for the counts a rendered section needs; a recurring item overdue or due today is in `recurring` and that lane too |
 | `mentioned_elsewhere` | Under an entity scope only: open items naming it that live in another file |
 | `file_dates` | Each action file's date, by the rule in [Step 4b](#step-4b-aggregate-per-entity) |
 | `flags`, `ideas`, `triage`, `lifecycles` | Everything [signals.md](signals.md) computes from files |
@@ -114,7 +114,7 @@ Let `T` be today. Let `D` be the task's effective date: its `📅` if present, e
 | ⏳ Waiting | has `🛫` AND `🛫 > T` |
 | ❓ Undated | no `D`, no `🔁`, no *future* `🛫` |
 
-A **past `🛫`** (start-gate already open) is not "waiting": ignore it and bucket by `D`, else Undated. Only a *future* `🛫` routes to Waiting. **Precedence:** Recurring > Waiting > date-based, except that a recurring item whose `D` is already past **also** appears in 🔴 tagged `🔁`, in every scope rather than only in `overdue`. It is still counted once, under Recurring.
+A **past `🛫`** (start-gate already open) is not "waiting": ignore it and bucket by `D`, else Undated. Only a *future* `🛫` routes to Waiting. **Precedence:** Recurring > Waiting > date-based, except that a recurring item whose `D` is past or today **also** appears in 🔴 or 🟠 tagged `🔁`, in every scope rather than only in `overdue`. It is still counted once, under Recurring.
 
 ## Step 4b: Aggregate per entity
 
