@@ -275,8 +275,11 @@ LINK_THREAD_F_RE = re.compile(r"#[^/]+/thread-f:(\d+)")
 
 # "incomplete" is here, and checked first, because the held phrase "complete" is inside it.
 INCOMPLETE_PHRASES = ("snippet", "preview", "opening lines", "no readable body", "cut mid",
-                      "truncat", "not read", "not fetched", "incomplete")
-COMPLETE_PHRASES = ("full body", "plain-text body", "complete")
+                      "truncat", "excerpt", "trimmed", "not read", "not fetched", "incomplete")
+COMPLETE_PHRASES = ("full body", "full text", "plain-text body", "complete")
+# A Content line's clauses: split at `;`, `,`, `:` and a sentence end, never inside `invite.ics`.
+CLAUSE_SPLIT_RE = re.compile(r"[;,:]|\.(?:\s|$)")
+BESIDE_BODY_RE = re.compile(r"attach|linked (?:document|file)|enclos")
 
 
 def _unquote(value):
@@ -340,18 +343,16 @@ def _content_incomplete(text):
     this script's own - stated in references/scan.md's by-hand section, not in
     references/filing.md or references/approval.md, which only name the field. An incomplete
     signal wins even where a "held" phrase is also present, since "false" means the body is
-    held *with none* of the incomplete signals - an unread attachment or linked document
-    ("was not opened") never counts, since it names something *beside* the body, not the
-    body itself."""
+    held *with none* of the incomplete signals. Only the clauses describing the body are
+    read: a clause naming an attachment or linked document ("26 image attachments not read")
+    names something *beside* the body, so it settles nothing either way."""
     if not text:
         return None, None
-    lowered = text.lower()
-    for phrase in INCOMPLETE_PHRASES:
-        if phrase in lowered:
-            return True, phrase
-    for phrase in COMPLETE_PHRASES:
-        if phrase in lowered:
-            return False, phrase
+    clauses = [c for c in CLAUSE_SPLIT_RE.split(text.lower()) if not BESIDE_BODY_RE.search(c)]
+    for phrases, verdict in ((INCOMPLETE_PHRASES, True), (COMPLETE_PHRASES, False)):
+        for phrase in phrases:
+            if any(phrase in clause for clause in clauses):
+                return verdict, phrase
     return None, None
 
 

@@ -57,12 +57,13 @@ collected vault's loose items are the files in `triage/` read through their
   a bullet header carrying `Source` and `Link`, or frontmatter carrying a `thread_id`.
   `message_id` and `conversation_id` are the bullet header's `Message id` and
   `Conversation id` lines, `null` where absent.
-  - **`content_incomplete`**: `true` where the `Content` line contains, case-insensitively,
-    any of `snippet`, `preview`, `opening lines`, `no readable body`, `cut mid`, `truncat`,
-    `not read`, `not fetched`, `incomplete`; else `false` where it contains any of `full body`,
-    `plain-text body`, `complete`; else `null`, meaning judge the line yourself. **An
-    unread attachment or linked document never makes the body incomplete**: it names
-    something beside the body.
+  - **`content_incomplete`**: read the `Content` line clause by clause (split at `;`, `,`,
+    `:` and a sentence end), skipping every clause that names an attachment, linked
+    document or enclosure: it describes something beside the body. `true` where a remaining
+    clause contains, case-insensitively, any of `snippet`, `preview`, `opening lines`,
+    `no readable body`, `cut mid`, `truncat`, `excerpt`, `trimmed`, `not read`,
+    `not fetched`, `incomplete`; else `false` where one contains any of `full body`,
+    `full text`, `plain-text body`, `complete`; else `null`, meaning judge the line yourself.
   - **`mentioned_vaults`**: registry names other than this vault's appearing in the
     `Routed` line as whole words, case-insensitive for a name of four or more characters,
     case-sensitive for a shorter one (`IT`, `OR` are also ordinary words). **No negation

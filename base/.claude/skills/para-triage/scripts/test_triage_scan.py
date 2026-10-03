@@ -708,6 +708,23 @@ class ContentIncomplete(unittest.TestCase):
         self.assertFalse(got)
         self.assertEqual(phrase, "plain-text body")
 
+    def test_unread_attachments_beside_a_full_body_are_complete(self):
+        got, phrase = _content_incomplete("Full text, 26 image attachments not read")
+        self.assertFalse(got)
+        self.assertEqual(phrase, "full text")
+
+    def test_an_excerpt_or_a_trimmed_body_is_incomplete(self):
+        for line, want in (("Excerpt of the newest message; 3 attachments not read.", "excerpt"),
+                           ("Body trimmed to the first paragraph.", "trimmed")):
+            got, phrase = _content_incomplete(line)
+            self.assertTrue(got, line)
+            self.assertEqual(phrase, want)
+
+    def test_a_clause_naming_an_attachment_settles_nothing(self):
+        got, phrase = _content_incomplete("The attached PDF was not read.")
+        self.assertIsNone(got)
+        self.assertIsNone(phrase)
+
     def test_the_word_incomplete_is_not_read_as_complete(self):
         # "complete" is a held phrase and sits inside "incomplete": the line says the body
         # is not held, so it must not read as held.
