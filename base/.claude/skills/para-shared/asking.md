@@ -48,7 +48,7 @@ A "confirm or correct" list written as prose, where a suggestion exists for ever
 
 Linked items get **one** question. Linked means one sentence can state the disposition for all of them **and** the question can name every member. Three hard limits, each closing a way a group hides a decision:
 
-- **Never group a destructive item with anything.** A delete, a close, a drop: its own question, always, whatever it arrived beside. **One exception**: several copies of one record whose single survivor the question names - the notes `/para-triage` finds staged from one mail thread, all superseded by the thread still in the mailbox - share one question. The question still names each member and what happens to it.
+- **Never group a destructive item with anything.** A delete, a close, a drop: its own question, always, whatever it arrived beside.
 - **Never group items whose targets differ.** A shared target is what makes one answer honest for all of them.
 - **Never group more than five.**
 

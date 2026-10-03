@@ -36,7 +36,7 @@ After the moves, re-list `triage/` and confirm only the expected residue and the
 
 For a connector thread and a staged mail note alike:
 
-- **Update existing**: annotate the tracked item in place, the `actions.md` line ("reply received `<date>`", "docs arrived `<date>`, now actionable") or the contact/project note, in the vault's Obsidian Tasks markers; a register row gets its last-touch and next-step cells rewritten. Never tick an item unless the work is done, and never add a duplicate line.
+- **Update existing**: annotate the tracked item in place, the `actions.md` line ("reply received `<date>`", "docs arrived `<date>`, now actionable") or the contact/project note, in the vault's task markers; a register row gets its last-touch and next-step cells rewritten. Never tick an item unless the work is done, and never add a duplicate line.
 - **Add action**: append the task line to the named `actions.md`, in the vault's markers. Never create an `actions.md`.
 - **Add register row**: append the approved row, as shown, to the register's open table (under `## Open` where it splits open from closed), whose `_None currently._` placeholder gives way to the header its rule file declares. Never create the register.
 - **On a staged mail note**, that write comes first, then the note goes as its option said: deleted (the default) or filed. **Dismiss (other vault)** deletes the note and names its vault in the summary, writing nothing there. **Stage in other vault** moves it, collision-checked, into `triage/` under that vault's registry path, and names it in the summary. No seen-ledger entry for any of these.
