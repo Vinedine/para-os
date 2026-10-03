@@ -3,7 +3,7 @@
 ## Step 1 - Setup
 
 1. **Resolve the vault root** once and hold it (`operating-discipline.md`). Resolve the property to exactly one folder and its dossier (`brief.md` in `projects/` or `resources/ideas/`, `README.md` in `areas/properties/`); none or several, stop and ask.
-2. **Note the mode**: **acquisition** for a prospect or a deal in progress, **hold review** for a property in `areas/properties/`.
+2. **Note the mode**: **acquisition** for a prospect or a deal in progress (an **own home** when the dossier says the buyer will live in it), **hold review** for a property in `areas/properties/`.
 3. **Recommend `/property-reconcile` first** when `sources/` holds files newer than the dossier's last material edit, the dossier states two values for one load-bearing number, or it projects a cost an invoice shows already paid.
 
 ## Step 2 - Focused folder cleanup

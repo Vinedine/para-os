@@ -1,6 +1,6 @@
 ---
 name: property-underwrite
-description: Bring one property's dossier to decision-ready - focused folder cleanup, enrichment from the vault's mailboxes, the lookups and portals its source register names, and comparables, then an analyst-persona pass producing structure, economics, two scenarios and a clear verdict, all written into the dossier. Covers prospects, deals in progress and held properties. Use when asked to underwrite a property, enrich a brief, run the analyst pass, refresh a held property's numbers, or on /property-underwrite <property>.
+description: Bring one property's dossier to decision-ready - focused folder cleanup, enrichment from the vault's mailboxes, the lookups and portals its source register names, and comparables, then an analyst-persona pass producing structure, economics, two scenarios and a clear verdict, all written into the dossier. Covers prospects, deals in progress (an own home included) and held properties. Use when asked to underwrite a property, enrich a brief, run the analyst pass, refresh a held property's numbers, or on /property-underwrite <property>.
 allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write, WebSearch, WebFetch, AskUserQuestion, TodoWrite, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
 argument-hint: '<property-name> [--test]'
 ---
@@ -19,7 +19,7 @@ Brings a property's dossier to **decision-ready**: every reachable fact gathered
 
 ## What it reads
 
-1. **The vault's `CLAUDE.md`**: its `**Flavor:**` and `**Delivery:**` lines, the books line under `## Deal sheets`, the network-card convention, the language rule. Then `.claude/rules/property-dossier.md` and `property-sources.md`.
+1. **The vault's `CLAUDE.md`**: its `**Flavor:**` and `**Delivery:**` lines, the books line and any capital page under `## Deal sheets`, the network-card convention, the language rule. Then `.claude/rules/property-dossier.md` and `property-sources.md`.
 2. **The source register**, `resources/property-evaluation/property-data-sources.md`. Every local fact comes from it; a local fact it does not name is never assumed.
 3. **The analyst persona**, found by shape and not by name: the one folder under `resources/prompts/` holding a `*.core.md` and `adapters/claude-code.md`. Its `knowledge/` carries the tax and structure reasoning for the vault's jurisdiction.
 
