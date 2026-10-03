@@ -30,7 +30,7 @@ Exact terminal layout. One block per lifecycle, in the order the sections appear
 **Next action:** <exactly one concrete step>
 ````
 
-**Line rules.** One line per entity, no wraps. Stages render in the lifecycle table's own order, terminal stages excluded from the board. Within a stage, order by days in stage descending. `?d` is an unknown time in stage, never a zero. The next-step link points at the file the step actually lives in (the entity's `actions.md`, the champion's contact file, the register). **Percent-encode every link target**, never the link text.
+**Line rules.** One line per entity, no wraps: a long cell is cut after its first clause and ends in `…`. Stages render in the lifecycle table's own order, terminal stages excluded from the board. Within a stage, order by days in stage descending. `?d` is an unknown time in stage, never a zero, and a record carrying `since_from: "opened"` reads `<N>d since opened`. The next-step link points at the file the step actually lives in (the entity's `actions.md`, the champion's contact file, the register). **Percent-encode every link target**, never the link text.
 
 **A row home renders like any other stage**, with the register file as the link target and the row's own next-step column as the step. Where a stage holds more than fifteen rows, render the ten with the nearest dated next step, then one `(+N more in <register>)` line.
 
@@ -59,4 +59,4 @@ Per lifecycle, computed from the records already collected, this quarter only (t
 
 ## The close
 
-One **Next action**: the single most concrete step the board justifies, naming an entity and what to do about it, with its file link. Prefer an entity flagged for a dated fact about to expire, then one with no next step at the latest stage reached, then the oldest days-in-stage at the stage nearest the promoting one. Where the board is clean, close on the review itself rather than inventing work.
+One **Next action**: the single most concrete step the board justifies, naming an entity and what to do about it, with its file link. Prefer an entity flagged for a dated fact about to expire, then one whose next step is overdue, then one with no next step, then any other; within each, the most advanced stage first, then the longest since last touch (days in stage where none is recorded). Where the board is clean, close on the review itself rather than inventing work.
