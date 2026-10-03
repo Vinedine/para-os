@@ -745,6 +745,20 @@ class Metrics(VaultCase):
         self.assertEqual(rows, [{"source": "referral from Jan", "entities": 2,
                                  "reached_promoting": 1}])
 
+    def test_two_labels_linking_one_contact_are_one_referrer_named_by_its_title(self):
+        # Issue #174: the table grouped on the link label, so one contact showed twice.
+        write(self.root, "areas/network/alex-rivera.md", "# Alex Rivera\n")
+        write(self.root, "resources/ideas/nova/brief.md",
+              "# Nova\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+              "**Source:** referral from [Alex Rivera](../../../areas/network/alex-rivera.md)\n")
+        write(self.root, "resources/ideas/vega/brief.md",
+              "# Vega\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+              "**Source:** referral from [alex-rivera](../../../areas/network/alex-rivera.md), "
+              "at the fair\n")
+        rows = self.deal()["metrics"]["referrers"]
+        self.assertEqual(rows, [{"source": "referral from Alex Rivera", "entities": 2,
+                                 "reached_promoting": 0}])
+
     def test_a_lead_opened_and_promoted_in_one_quarter_counts_once(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Closed", "",
