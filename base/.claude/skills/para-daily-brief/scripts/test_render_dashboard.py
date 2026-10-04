@@ -142,11 +142,15 @@ class Bars(DashboardCase):
             else:
                 self.assertIsNone(panel, key)
 
-    def test_ideas_and_triage_tiles_jump_to_their_sections(self):
+    def test_no_link_navigates_the_page_own_frame(self):
+        # The artifact viewer blanks the page on an in-page #anchor or a deep link
+        # followed in place, so every link opens a new window and none is a fragment.
         _, page = render(self.report(), self.judgment(self.report()))
-        for target in ("ideas", "triage"):
-            self.assertIn(f'href="#{target}"', page)
-            self.assertIn(f'id="{target}"', page)
+        links = re.findall(r"<a [^>]*>", page)
+        self.assertTrue(links)
+        for a in links:
+            self.assertIn('target="_blank"', a)
+            self.assertNotIn('href="#', a)
 
 
 class Sessions(DashboardCase):

@@ -146,26 +146,25 @@ def tasks_at(scan, refs):
 
 def tiles(scan):
     """Overdue, Due this week and Undated toggle a panel listing the tasks they count (a
-    hidden checkbox, so no script); Open actions, Ideas and Triage jump to their section."""
+    hidden checkbox, so no script). No tile is a link: the artifact viewer resolves an
+    in-page `#anchor` against its own address, and the page goes blank."""
     lanes, totals = scan["lanes"], scan["totals"]
     week = lanes.get("today", []) + lanes.get("this_week", [])
     share = round(100 * totals["undated"] / totals["open"]) if totals["open"] else 0
     panels = {"overdue": [t for t in scan["tasks"] if t["lane"] == "overdue"],
               "week": tasks_at(scan, week),
               "undated": [t for t in scan["tasks"] if t["lane"] == "undated"]}
-    rows = [(totals["open"], "open actions", False, "#entities"),
+    rows = [(totals["open"], "open actions", False, None),
             (totals["overdue"], "overdue", totals["overdue"] > 0, "overdue"),
             (len(week), "due this week", False, "week"), (f"{share}%", "undated", False, "undated"),
-            (len(scan["ideas"]), "ideas", False, "#ideas"),
-            (len(scan["triage"]), "in triage", False, "#triage")]
+            (len(scan["ideas"]), "ideas", False, None),
+            (len(scan["triage"]), "in triage", False, None)]
     toggles, cells, boxes = [], [], []
     for n, label, alert, target in rows:
         cls = "tile alert" if alert else "tile"
         inner = f"<b>{n}</b><span>{label}</span>"
-        if n == 0 or (target in panels and not panels[target]):
+        if not panels.get(target):
             cells.append(f'<div class="{cls}">{inner}</div>')
-        elif target.startswith("#"):
-            cells.append(f'<a class="{cls}" href="{target}">{inner}</a>')
         else:
             toggles.append(f'<input type="checkbox" class="toggle" id="tile-{target}">')
             cells.append(f'<label class="{cls}" for="tile-{target}">{inner}</label>')
@@ -193,12 +192,13 @@ def bar_order(tasks):
 
 def session_link(scan, t, label):
     """The task as a Claude Code deep link: a terminal session opens in the vault with a
-    prompt naming the task, typed but not sent (code.claude.com/docs/en/deep-links)."""
+    prompt naming the task, typed but not sent (code.claude.com/docs/en/deep-links). It
+    opens in a new window: followed in the page's own frame, it blanks the page."""
     prompt = (f"Let's work on this open action, at {t['file']}:{t['line']} in this vault:\n\n"
               f"{t['text'][:SESSION_TEXT_CAP]}")
     query = urlencode({"cwd": str(Path(scan["vault"])), "q": prompt}, quote_via=quote)
-    return (f'<a class="go" href="claude-cli://open?{html.escape(query)}" '
-            f'title="Open a Claude Code session on this action">{label}</a>')
+    return (f'<a class="go" href="claude-cli://open?{html.escape(query)}" target="_blank" '
+            f'rel="noopener" title="Open a Claude Code session on this action">{label}</a>')
 
 
 def task_item(scan, t):
@@ -453,8 +453,8 @@ h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.09e
 .tile b{display:block;font-size:1.4rem;font-weight:600;font-variant-numeric:tabular-nums}
 .tile span{font-size:.75rem;color:var(--muted)}
 .tile.alert b{color:var(--alert)}
-a.tile,label.tile{color:inherit;text-decoration:none;cursor:pointer}
-a.tile:hover,label.tile:hover{border-color:var(--accent)}
+label.tile{cursor:pointer}
+label.tile:hover{border-color:var(--accent)}
 .toggle{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
 .panel{display:none;margin-top:.6rem;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.6rem .9rem .1rem}
 #tile-overdue:checked~.panels .p-overdue,#tile-week:checked~.panels .p-week,#tile-undated:checked~.panels .p-undated{display:block}
