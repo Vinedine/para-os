@@ -561,6 +561,14 @@ def counted_once(vault, entities):
     return [e for e in entities if not moved(e)]
 
 
+def reason_declared(vault, reason_field):
+    """Whether a rule file under .claude/rules/ declares the `**<Stage> reason:**` line, so a
+    terminal entity without one is a gap rather than a stage that records none (issue #181)."""
+    needle = f"**{reason_field}:**".lower()
+    return any(needle in p.read_text(encoding="utf-8", errors="replace").lower()
+               for p in sorted((vault / ".claude" / "rules").glob("*.md")))
+
+
 def compute_metrics(vault, today, lc, entities):
     q_start, q_end = quarter_bounds(today)
     stages = lc["stages"]
@@ -610,7 +618,8 @@ def compute_metrics(vault, today, lc, entities):
             this_q += 1 if in_quarter else 0
             reason_raw = field_ci(e["fields"], reason_field)
             if not reason_raw or not reason_raw.strip():
-                missing.append(e["name"])
+                if reason_declared(vault, reason_field):
+                    missing.append(e["name"])
                 continue
             key = reason_raw.split(",", 1)[0].strip()
             reasons_all[key] = reasons_all.get(key, 0) + 1
