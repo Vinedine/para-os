@@ -128,7 +128,12 @@ class FolderEntities(VaultCase):
         write(self.root, "projects/tended/brief.md", "# Tended\n\n**Opened:** 2026-08-01\n")
         self.assertIn("projects/tended/brief.md", self.deal()["no_stage"])
 
-    def test_a_home_with_an_extra_fixed_segment_is_reported_regardless_of_fields(self):
+    def test_an_ordinary_idea_with_no_stage_line_is_never_listed(self):
+        # resources/ideas/ holds ordinary ideas too, however deep its path sits.
+        write(self.root, "resources/ideas/kiln/brief.md", "# Kiln\n\nA concept.\n")
+        self.assertNotIn("resources/ideas/kiln/brief.md", self.deal()["no_stage"])
+
+    def test_a_lifecycle_only_home_reports_a_missing_stage_regardless_of_fields(self):
         write(self.root, "CLAUDE.md", "\n".join([
             "# Vault", "", "## Property lifecycle", "",
             "| Stage | PARA home |", "|---|---|",
@@ -137,6 +142,19 @@ class FolderEntities(VaultCase):
         ]) + "\n")
         write(self.root, "areas/properties/oakview/brief.md", "# Oakview\n\nNo stage line.\n")
         self.assertIn("areas/properties/oakview/brief.md", self.deal()["no_stage"])
+
+    def test_a_lifecycle_only_home_reports_an_undeclared_stage_regardless_of_fields(self):
+        # Issue #67: a held dossier's label carries no header field, so a misnamed stage
+        # dropped off the board silently.
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "## Property lifecycle", "",
+            "| Stage | PARA home |", "|---|---|",
+            "| Held | `areas/properties/<property>/` |", "",
+        ]) + "\n")
+        write(self.root, "areas/properties/ashgrove/README.md",
+              "# Ashgrove\n\n_Stage: Let - since the deed_\n")
+        self.assertEqual(self.deal()["unknown_stage"],
+                         [{"path": "areas/properties/ashgrove/README.md", "stage": "Let"}])
 
     def test_home_mismatch_names_both_paths(self):
         write(self.root, "projects/wrongplace/brief.md",
