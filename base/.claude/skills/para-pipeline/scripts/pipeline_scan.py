@@ -96,14 +96,16 @@ def doc_h1(path):
     return None
 
 
-def home_has_extra_segment(home):
-    """Whether a home glob carries more than one fixed path segment before its `<...>`
-    placeholder - scan.md's no_stage narrowing rule (b): a home nested deeper than a PARA
-    bucket's direct child names its own home-shaped folder even with nothing else marking
-    it as staged."""
-    segments = home.rstrip("/").split("/")
-    fixed = next((i for i, s in enumerate(segments) if "<" in s), len(segments))
-    return fixed > 1
+# The homes base gives an ordinary project, area or idea (CLAUDE.md.template), as globs.
+ORDINARY_HOMES = {"projects/*", "areas/*", "resources/ideas/*", "archive/projects/*",
+                  "archive/ideas/*"}
+
+
+def home_is_lifecycle_only(home):
+    """Whether no ordinary project, area or idea can occupy a home - scan.md's narrowing
+    rule (b): a document there with no Stage line, or one naming no declared stage, is a
+    filing gap even with nothing else marking it as staged (issue #67)."""
+    return re.sub(r"<[^>]+>", "*", home.rstrip("/")) not in ORDINARY_HOMES
 
 
 def other_actions_files(vault):
@@ -287,7 +289,7 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
     entities, no_stage, unknown_stage = [], [], []
     if not dirs:
         return entities, no_stage, unknown_stage, True
-    extra_segment = home_has_extra_segment(home)
+    lifecycle_only = home_is_lifecycle_only(home)
 
     for d in dirs:
         doc = pick_doc(d)
@@ -298,9 +300,9 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
         if not matched:
             path = doc.relative_to(vault).as_posix()
             fielded = any(field_ci(header_fields(doc), f) is not None for f in NO_STAGE_FIELDS)
-            if info is None and (extra_segment or fielded):
+            if info is None and (lifecycle_only or fielded):
                 no_stage.append(path)
-            elif info is not None and fielded:
+            elif info is not None and (lifecycle_only or fielded):
                 unknown_stage.append({"path": path, "stage": info["name"]})
             continue
 

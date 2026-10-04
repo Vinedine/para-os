@@ -36,14 +36,15 @@ standing for one path segment.
 
 Read the Stage line and the header of every entity collected, per
 [para-shared/lifecycles.md](../../para-shared/lifecycles.md). A Stage line whose name matches
-none of the lifecycle's declared stages is reported with the name read (`unknown_stage`) when
-the document carries one of the header fields below, and skipped silently otherwise.
+none of the lifecycle's declared stages is reported with the name read (`unknown_stage`)
+under the same test as a missing one, below, and skipped silently otherwise.
 
 **A document in a declared home with no Stage line at all** is reported by path (`no_stage`)
 only when it carries one of the header fields a staged entity would (`Opened`, `Source`,
-`Champion`, `Signer`, `Value`, `Last touch`, `Won`), or when its home sits deeper than a PARA
-bucket's direct child - more than one fixed path segment before the `<placeholder>`.
-Otherwise it is skipped silently.
+`Champion`, `Signer`, `Value`, `Last touch`, `Won`), or when no ordinary project, area or
+idea can occupy its home: any home but `projects/`, `areas/`, `resources/ideas/`,
+`archive/projects/` or `archive/ideas/` followed directly by the `<placeholder>`. Otherwise it
+is skipped silently.
 
 **A row whose Stage cell names a stage declared with a folder home** is a `home_mismatch`
 too, naming that stage's own home and the register the row was found in. A closed row
