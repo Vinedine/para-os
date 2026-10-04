@@ -20,7 +20,7 @@ A lightweight inventory:
 
 - **Stale draft files**: `.doc` / `.docx` drafts alongside signed `.pdf` finals. Some vaults keep them as searchable text: check the README before proposing deletion.
 - **Naming convention violations**: filenames not matching the vault's convention, judged per [A vault's rule files](../../para-shared/operating-discipline.md#a-vaults-rule-files) (legacy suffixes like ` - FINAL`, typos, wrong dates, wrong language).
-- **Dangling links**: every relative `](path)` in a live-bucket file or under `archive/` must resolve to a file that exists; a path an archived record names in prose is history, not a link. Report each with its source file and the likely intended target. Out of scope: external URLs, and absolute paths in any form they take - a drive-letter path (`C:\...`), a UNC share (`\\host\...`), and a **`file:///` URI**. An absolute machine-local path is worth mentioning once as a portability finding, but it is not a dangling link. Nor is a template placeholder: a bare `<placeholder>` target, or `<...>` inside a path. A whole target in angle brackets (`[x](<projects/my file.md>)`) is a real link, brackets stripped, and a trailing `"title"` is never part of a target.
+- **Dangling links**: every relative `](path)` in a live-bucket file, a `.claude/rules/` file or under `archive/` must resolve to a file that exists; a path an archived record names in prose is history, not a link. Report each with its source file and the likely intended target. Out of scope: external URLs, and absolute paths in any form they take - a drive-letter path (`C:\...`), a UNC share (`\\host\...`), and a **`file:///` URI**. An absolute machine-local path is worth mentioning once as a portability finding, but it is not a dangling link. Nor is a template placeholder: a bare `<placeholder>` target, or `<...>` inside a path. A whole target in angle brackets (`[x](<projects/my file.md>)`) is a real link, brackets stripped, and a trailing `"title"` is never part of a target.
 
   **Percent-decode the href before resolving it.** Decode with a real URL-decoder (`urllib.parse.unquote`), never a shell substitution. An href ends at the `)` that balances its opening `(`. Strip any `?query` or `#fragment` before resolving (a link that is nothing else names no file), and resolve relative to the **linking file's own folder**, not the vault root. Scanning by hand, apply the same rules `paraos_vault.dangling_links()` does.
 
@@ -47,6 +47,8 @@ Audit `archive/` against the vault's **Archive hygiene** conventions in CLAUDE.m
 
 - **Archived entities missing their minimum record** - no `brief.md` / `README.md` or status marker. Flag.
 - **Typos or wrong names in already-archived filenames** - the naming scan applies to archived files too. Propose a rename, preserving the source language.
+
+**Loose files at the resources root** (`resources_loose`): any file there but `README.md` and `.gitkeep`. Propose a destination for each: the area or project it serves when one owns it, else a kind folder, a new one if none fits. Repoint its inbound links in the same step.
 
 ## Step 1.3 - Present the issues table
 
