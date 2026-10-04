@@ -17,7 +17,16 @@ One document per property. From Acquiring on it carries the sixteen sections bel
 
 ## The shape
 
-1. **H1 title** - the address; append `(sold)` once a bought property is sold, never to a deal that collapsed before the deed. Follow it with a one-line stage label: `_Stage: <stage> - <key date>_`.
+1. **H1 title** - the address; append `(sold)` once a bought property is sold, never to a deal that collapsed before the deed. Follow it with four header lines, the ones `/para-pipeline` reads:
+
+   ```
+   **Stage:** Acquiring (since YYYY-MM-DD; deed due YYYY-MM-DD)
+   **Opened:** YYYY-MM-DD
+   **Source:** <agent, listing, off-market or a contact link>, <channel>
+   **Last touch:** YYYY-MM-DD, <what happened>
+   ```
+
+   `since` is the day it entered the stage, and any other date in the parentheses is a key date that expires (an offer's validity, the deed). `Opened` is the day it entered the vault and never changes. `Last touch` is rewritten after every contact. A field not yet known carries `unknown`.
 2. **Snapshot** - one paragraph: type and units, parcel or title identifier, bought for X (date), the plan, the current stage. Links to the portfolio overview where the vault keeps one.
 3. **Deal economics** - the headline block, and what the property is judged on. It carries **three kinds of number, never mixed in one table**:
    - **Contracted** - fixed by a signed or invoiced document: purchase price, transfer taxes, conveyancing fees, credit drawn, loans received. Each line cites the document.
@@ -43,9 +52,9 @@ One document per property. From Acquiring on it carries the sixteen sections bel
 
 ### What each stage carries
 
-- **Prospecting** (`resources/ideas/`) - at least Snapshot, Deal economics, and an open-items section in the place of Open items. **Use the heading the vault's own next-steps convention already recognises** - `CLAUDE.md`'s Filing and naming section, or a vault-local pickup script such as `openstaande-punten.py`, names the exact heading text (and its language) a vault scans for; a prospect brief written under any other heading, however similar, silently drops off that pickup. Where the vault states no such convention, `## Open questions` then `## Next step` are the default. Any other section of the shape joins, in the shape's order, once there is a fact for it. It takes the full shape on promotion.
+- **Prospecting** (`resources/ideas/`) - at least Snapshot, Deal economics, and an open-items section in the place of Open items. **Use the heading the vault's own next-steps convention already recognises** - `CLAUDE.md`'s Filing and naming section, or a vault-local pickup script such as `openstaande-punten.py`, names the exact heading text (and its language) a vault scans for; a prospect brief written under any other heading, however similar, silently drops off that pickup. Where the vault states no such convention, `## Open questions` then `## Next step` are the default. A committed next step is also a dated checkbox in an area's `actions.md` linking the brief, which is where `/para-pipeline` finds it, since a prospect has no `actions.md` of its own. Any other section of the shape joins, in the shape's order, once there is a fact for it. It takes the full shape on promotion.
 - **Sold** (`archive/properties/`) - the shape it had, plus a financing line saying how the credit closed.
-- **Dropped** (`archive/researched-deals/`) - opens on five sections: H1 with a `(skipped)`, `(researched, not pursued)` or `(collapsed)` marker; one intro paragraph on the property and how far the research went; `## Status` (a table: address, type, asking price, source channel, stage when stopped); `## Source documents` (or `_None._`); `## Reason for skipping`. Every other section it carried follows unchanged.
+- **Dropped** (`archive/researched-deals/`) - opens on five sections: H1 with a `(skipped)`, `(researched, not pursued)` or `(collapsed)` marker, its header carrying `**Dropped reason:** <reason>, <one free clause>` directly under `Stage`; one intro paragraph on the property and how far the research went; `## Status` (a table: address, type, asking price, source channel, stage when stopped); `## Source documents` (or `_None._`); `## Reason for skipping`, the full account the reason line summarises. Every other section it carried follows unchanged.
 
 ## Placeholders
 

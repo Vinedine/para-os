@@ -753,11 +753,18 @@ class Metrics(VaultCase):
         self.assertEqual(terminal["all_time_reasons"], {"relationship only": 1})
 
     def test_a_terminal_entity_with_no_reason_line_is_named_not_counted(self):
+        write(self.root, ".claude/rules/deal-brief.md", "**Lost reason:** <reason>\n")
         write(self.root, "archive/ideas/omega/brief.md",
               "# Omega\n\n**Stage:** Lost (since 2026-08-01)\n**Opened:** 2026-03-01\n")
         terminal = self.deal()["metrics"]["terminal"]["Lost"]
         self.assertEqual(terminal["missing_reason"], ["omega"])
         self.assertEqual(terminal["all_time_reasons"], {})
+
+    def test_a_missing_reason_is_named_only_where_a_rule_file_declares_the_line(self):
+        # Issue #181: every sold property was named as missing a "Sold reason" no rule asks for.
+        write(self.root, "archive/ideas/omega/brief.md",
+              "# Omega\n\n**Stage:** Lost (since 2026-08-01)\n**Opened:** 2026-03-01\n")
+        self.assertEqual(self.deal()["metrics"]["terminal"]["Lost"]["missing_reason"], [])
 
     def test_referrers_table_has_an_unrecorded_row(self):
         write(self.root, "resources/ideas/withsource/brief.md",
@@ -843,6 +850,66 @@ class Metrics(VaultCase):
         counts = {row["stage"]: row["count"] for row in lc["counts_by_stage"]}
         self.assertEqual(counts, {"Lead": 0, "Qualified": 1, "Goal": 0})
         self.assertNotIn("Lost", counts)
+
+
+PROPERTY_LIFECYCLE = "\n".join([
+    "# Vault", "",
+    "## Property lifecycle", "",
+    "| Stage | PARA home |",
+    "|---|---|",
+    "| **Prospecting**: considering, an offer out | `resources/ideas/<property>/` |",
+    "| **Acquiring**, **Permitting**, **Renovating**, **Selling**: agreement to sale"
+    " | `projects/<property>/` |",
+    "| **Held**: bought and kept | `areas/properties/<property>/` |",
+    "| **Sold**: bought, then sold | `archive/properties/<property>/` |",
+    "| **Dropped**: never bought | `archive/researched-deals/<property>/` |", "",
+]) + "\n"
+
+
+class PropertyDossier(VaultCase):
+    """Issue #181: the real-estate flavor's dossier, header as property-dossier.md gives it."""
+
+    def setUp(self):
+        super().setUp()
+        write(self.root, "CLAUDE.md", PROPERTY_LIFECYCLE)
+
+    def test_a_prospect_takes_its_next_step_from_an_area_checkbox_linking_the_dossier(self):
+        write(self.root, "resources/ideas/elm-row-4/brief.md",
+              "# Elm Row 4\n\n**Stage:** Prospecting (since 2026-09-01)\n**Opened:** 2026-09-01\n")
+        write(self.root, "areas/business/actions.md",
+              "# Business\n\n- [ ] Second viewing of [Elm Row 4]"
+              "(../../resources/ideas/elm-row-4/brief.md) 📅 2026-09-25\n")
+        e = find(self.deal()["entities"], "elm-row-4")
+        self.assertIn("Second viewing", e["next_step"]["text"])
+        self.assertFalse(e["flags"]["no_next_step"])
+
+    def test_days_in_stage_and_a_dated_fact_come_from_the_dossier_stage_line(self):
+        write(self.root, "projects/elm-row-4/brief.md",
+              "# Elm Row 4\n\n**Stage:** Acquiring (since 2026-09-01; deed due 2026-11-30)\n"
+              "**Opened:** 2026-07-15\n**Source:** listing, portal\n"
+              "**Last touch:** 2026-09-18, notary call\n")
+        e = find(self.deal()["entities"], "elm-row-4")
+        self.assertEqual(e["days_in_stage"], 20)
+        self.assertEqual(e["last_touch"]["days"], 3)
+        self.assertEqual(len(e["dated_facts"]), 1)
+
+    def test_a_dropped_property_reason_line_is_read(self):
+        write(self.root, "archive/researched-deals/elm-row-4/brief.md",
+              "# Elm Row 4 (skipped)\n\n**Stage:** Dropped (since 2026-09-10)\n"
+              "**Dropped reason:** price, asking stayed above the walk-away\n"
+              "**Opened:** 2026-08-01\n")
+        dropped = self.deal()["metrics"]["terminal"]["Dropped"]
+        self.assertEqual(dropped["reasons_this_quarter"], {"price": 1})
+        self.assertEqual(dropped["missing_reason"], [])
+
+    def test_the_first_stage_under_projects_is_the_promoting_one(self):
+        write(self.root, "projects/elm-row-4/brief.md",
+              "# Elm Row 4\n\n**Stage:** Acquiring (since 2026-08-01)\n**Opened:** 2026-07-01\n")
+        write(self.root, "projects/oak-lane-9/brief.md",
+              "# Oak Lane 9\n\n**Stage:** Renovating (since 2026-08-01)\n**Opened:** 2026-07-01\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["promoting_stage"], "Acquiring")
+        self.assertEqual(m["reached_promoting"], 1)
 
 
 class Scope(VaultCase):
