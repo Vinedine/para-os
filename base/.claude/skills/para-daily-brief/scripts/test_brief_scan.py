@@ -385,6 +385,55 @@ class IdeasAndTriage(VaultCase):
         self.assertEqual(scan(self.root, TODAY)["triage"],
                          ["20260919 Something - Note.md"])
 
+    def test_an_idea_carries_days_in_stage_its_revisit_sentence_and_what_names_it(self):
+        build_vault(self.root)
+        write(self.root, "resources/ideas/acme-deal/brief.md", "\n".join([
+            "# Acme deal", "", "**Stage:** Qualified (since 2026-09-01; prices hold to 2026-10-31)",
+            "", "Some prose about it. Revisit when [Jan](../../../areas/network/jan.md) has "
+            "replied, or by month end. Then decide.", ""]))
+        write(self.root, "areas/business/actions.md", "# b\n\n"
+              "- [ ] Call about [the deal](../../resources/ideas/acme-deal/brief.md) 📅 2026-09-25\n"
+              "- [ ] Send the acme deal deck\n- [ ] Unrelated thing\n")
+        idea = next(i for i in scan(self.root, TODAY)["ideas"] if i["name"] == "acme-deal")
+        self.assertEqual((idea["since"], idea["days_in_stage"]), ("2026-09-01", 20))
+        self.assertEqual(idea["revisit"], "Revisit when Jan has replied, or by month end")
+        self.assertEqual(idea["actions"], [{"file": "areas/business/actions.md", "line": 3},
+                                           {"file": "areas/business/actions.md", "line": 4}])
+
+    def test_an_idea_without_a_since_date_or_trigger_carries_none(self):
+        build_vault(self.root)
+        idea = scan(self.root, TODAY)["ideas"][0]
+        self.assertEqual((idea["days_in_stage"], idea["revisit"], idea["actions"]),
+                         (None, None, []))
+
+    def test_a_triage_note_previews_its_sender_title_and_first_paragraph(self):
+        build_vault(self.root)
+        write(self.root, "triage/20260920 Mail - Hello.md", "\n".join([
+            "---", "source: gmail", "---", "# Re: Hello", "",
+            "- **From:** Jan Janssen <jan@example.be>", "- **Received:** 2026-09-20", "",
+            "**2026-09-20, Jan to Vincent**", "", "Plus: one thing.", "Second line.", "",
+            "Later paragraph."]))
+        got = scan(self.root, TODAY)["triage_preview"]["20260920 Mail - Hello.md"]
+        self.assertEqual(got, {"from": "Jan Janssen <jan@example.be>", "subject": "Re: Hello",
+                               "excerpt": "Plus: one thing. Second line."})
+
+    def test_an_eml_previews_its_headers_and_plain_body_and_other_formats_have_none(self):
+        build_vault(self.root)
+        write(self.root, "triage/m.eml", "From: Ann <ann@example.be>\nSubject: Quote\n"
+              "Content-Type: text/plain; charset=utf-8\n\nHello,\n\nthe quote is attached.\n")
+        (self.root / "triage" / "scan.docx").write_bytes(b"PK\x03\x04")
+        got = scan(self.root, TODAY)["triage_preview"]
+        self.assertEqual(got["m.eml"], {"from": "Ann <ann@example.be>", "subject": "Quote",
+                                        "excerpt": "Hello, the quote is attached."})
+        self.assertNotIn("scan.docx", got)
+
+    def test_a_pdf_previews_through_its_markdown_twin(self):
+        build_vault(self.root)
+        (self.root / "triage" / "invoice.pdf").write_bytes(b"%PDF-1.4")
+        write(self.root, "triage/invoice.md", "# Invoice 42\n\nAmount due by Friday.\n")
+        got = scan(self.root, TODAY)["triage_preview"]
+        self.assertEqual(got["invoice.pdf"]["excerpt"], "Amount due by Friday.")
+
     def test_an_entity_scope_asks_neither_question(self):
         build_vault(self.root)
         got = scan(self.root, TODAY, entity="acme-website")

@@ -32,6 +32,8 @@ Then cut the line: link syntax reduced to its label, then everything from the fi
 
 An idea with no stage line renders as name and date.
 
+**For the dashboard**, the scan adds `days_in_stage` from the stage line's `(since <date>)`, `revisit` (the sentence holding the brief's "revisit when", cut like the stage line), and `actions`: the open items elsewhere that name the idea, by the scan's mention rule. By hand, skip them.
+
 Sort newest-touched first, then by name. Flag any idea untouched for **6+ months** as a retirement candidate; never retire it.
 
 ## Step 4e: Read the Vision
@@ -46,7 +48,7 @@ A declared lifecycle with no live entity renders its zeros.
 
 ## Step 5b: Check the triage folder
 
-Glob the **direct file children** of `triage/` (top-level only). Do not parse contents. **`.gitkeep` is not an item.** No item means omit the section.
+Glob the **direct file children** of `triage/` (top-level only). **`.gitkeep` is not an item.** The terminal brief lists names only; the scan's `triage_preview` reads each item's head for the dashboard alone: an `.eml`'s sender, subject and plain-text body, a note's `From:` field, H1 and first prose paragraph, a PDF through its markdown twin, nothing from any other format. By hand, skip the preview. No item means omit the section.
 
 ## Step 5c: Build the agenda
 
