@@ -468,7 +468,8 @@ def quarter_name(d):
 def won_outside_homes(vault, promoting_home):
     """An entity carrying a Won date wherever it now sits: the archived mirror of the
     promoting stage's own home, which is outside every declared home once a project ships
-    and archives (render.md's Won-date rule)."""
+    and archives (render.md's Won-date rule). Each record is shaped enough to join the
+    opened count and the referrers table (issue #66), and has no stage of its own."""
     pattern = "archive/" + re.sub(r"<[^>]+>", "*", promoting_home.rstrip("/"))
     out = []
     for d in sorted(vault.glob(pattern)):
@@ -480,8 +481,11 @@ def won_outside_homes(vault, promoting_home):
         fields = header_fields(doc)
         won_date = extract_date(field_ci(fields, "Won"))
         if won_date:
-            out.append({"won_date": won_date,
-                        "opened_date": extract_date(field_ci(fields, "Opened"))})
+            opened_date = extract_date(field_ci(fields, "Opened"))
+            out.append({"name": d.name, "kind": "folder", "stage": None, "closed": True,
+                        "path": doc.relative_to(vault).as_posix(), "fields": fields,
+                        "opened": iso(opened_date), "source": field_ci(fields, "Source"),
+                        "won_date": won_date, "opened_date": opened_date})
     return out
 
 
@@ -558,12 +562,13 @@ def counted_once(vault, entities):
 def compute_metrics(vault, today, lc, entities):
     q_start, q_end = quarter_bounds(today)
     stages = lc["stages"]
-    once = counted_once(vault, entities)
+    promoting = next((s for s in stages if s["home"].startswith("projects/")), None)
+    archived_won = won_outside_homes(vault, promoting["home"]) if promoting else []
+    once = counted_once(vault, entities + archived_won)
 
     opened = sum(1 for e in once
                 if e["opened"] and q_start <= parse_date(e["opened"]) <= q_end)
 
-    promoting = next((s for s in stages if s["home"].startswith("projects/")), None)
     reached_promoting, median_info = None, {"n": 0, "median": None, "values": None}
     if promoting:
         reach_deltas, count = [], 0
@@ -577,7 +582,7 @@ def compute_metrics(vault, today, lc, entities):
                 opened_date = parse_date(e["opened"])
                 if opened_date:
                     reach_deltas.append((reach_date - opened_date).days)
-        for w in won_outside_homes(vault, promoting["home"]):
+        for w in archived_won:
             if w["won_date"] and q_start <= w["won_date"] <= q_end:
                 count += 1
                 if w["opened_date"]:
