@@ -669,6 +669,31 @@ class Metrics(VaultCase):
         self.assertEqual(m["reached_promoting"], 1)
         self.assertEqual(m["median_days_opened_to_promoting"], {"n": 0, "median": None, "values": None})
 
+    def test_an_archived_won_project_still_counts_as_opened_and_in_the_referrers(self):
+        # Issue #66: won and delivered inside one quarter, it reached Goal from nowhere.
+        write(self.root, "archive/projects/nova/brief.md",
+              "# Nova\n\n**Stage:** Goal (since 2026-08-15)\n**Opened:** 2026-07-01\n"
+              "**Source:** outreach, cold mail\n**Won:** 2026-08-15\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["opened"], 1)
+        self.assertEqual(m["referrers"],
+                         [{"source": "outreach", "entities": 1, "reached_promoting": 1}])
+
+    def test_a_closed_row_that_moved_to_an_archived_won_project_is_counted_once(self):
+        write(self.root, "archive/projects/nova/brief.md",
+              "# Nova\n\n**Opened:** 2026-07-01\n**Source:** outreach, cold mail\n"
+              "**Won:** 2026-08-15\n")
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "## Closed", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| Nova | Kim | outreach | 2026-07-01 | Lead | - | 2026-07-10 |"
+            " [qualified](../../archive/projects/nova/) |", "",
+        ]))
+        m = self.deal()["metrics"]
+        self.assertEqual(m["opened"], 1)
+        self.assertEqual(m["referrers"][0]["entities"], 1)
+
     def test_a_won_date_is_the_reach_date_over_the_stage_since_date(self):
         write(self.root, "projects/nova/brief.md",
               "# Nova\n\n**Stage:** Goal (since 2026-05-01)\n**Opened:** 2026-07-01\n"
