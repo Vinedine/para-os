@@ -92,14 +92,113 @@ class Bars(DashboardCase):
         for i in range(12):
             write(self.root, f"areas/area-{i:02}/actions.md", f"# a\n\n- [ ] Thing {i}\n")
         _, page = render(self.report(), self.judgment(self.report()))
-        self.assertEqual(page.count('<div class="row">'), 10)
+        self.assertEqual(page.count('<summary class="row">'), 10)
         self.assertRegex(page, r'class="rest">\+\d+ more entities')
+
+    def test_each_row_opens_on_its_own_open_tasks_in_bar_order(self):
+        report = self.report()
+        _, page = render(report, self.judgment(report))
+        rows = re.findall(r'<summary class="row">.*?</span>([^<]*)</span>.*?</summary>'
+                          r'<ol class="drill">(.*?)</ol>', page)
+        self.assertEqual(len(rows), len(report["entities"]))
+        for (label, drill), entity in zip(rows, report["entities"]):
+            self.assertTrue(label.startswith(entity["label"]))
+            segs = re.findall(r'<li><i class="seg-(\w+)"', drill)
+            self.assertEqual(len(segs), entity["open"])
+            self.assertEqual(segs, sorted(segs, key=["over", "up", "und"].index))
+        acme = dict(rows)["acme-website"]
+        self.assertLess(acme.index("Late thing"), acme.index("Due today"))
+        self.assertLess(acme.index("Due today"), acme.index("No date at all"))
+        self.assertNotIn("Done already", page)
+
+    def test_the_remainder_strip_opens_on_the_tasks_it_counts(self):
+        for i in range(12):
+            write(self.root, f"areas/area-{i:02}/actions.md", f"# a\n\n- [ ] Thing {i}\n")
+        report = self.report()
+        _, page = render(report, self.judgment(report))
+        drill = re.search(r'<summary class="rest">.*?</summary><ol class="drill">(.*?)</ol>',
+                          page).group(1)
+        self.assertEqual(drill.count("<li>"), sum(e["open"] for e in report["entities"][10:]))
 
     def test_the_overdue_tile_is_alert_only_when_nonzero(self):
         report = self.report()
         _, page = render(report, self.judgment(report))
-        alert = '<div class="tile alert">' in page
+        alert = 'class="tile alert"' in page
         self.assertEqual(alert, report["totals"]["overdue"] > 0)
+
+    def test_count_tiles_open_on_exactly_the_tasks_they_count(self):
+        report = self.report()
+        _, page = render(report, self.judgment(report))
+        lanes, totals = report["lanes"], report["totals"]
+        expect = {"overdue": totals["overdue"], "undated": totals["undated"],
+                  "week": len(lanes.get("today", []) + lanes.get("this_week", []))}
+        for key, n in expect.items():
+            panel = re.search(rf'<div class="panel p-{key}">.*?<ol class="drill">(.*?)</ol>', page)
+            if n:
+                self.assertIn(f'<label class="tile', page)
+                self.assertEqual(panel.group(1).count("<li>"), n, key)
+            else:
+                self.assertIsNone(panel, key)
+
+    def test_the_page_holds_no_links(self):
+        # The Claude Desktop artifact viewer opens no custom-scheme link and blanks the
+        # page on an in-page #anchor, so the page carries none.
+        _, page = render(self.report(), self.judgment(self.report()))
+        self.assertNotIn("<a ", page)
+
+
+class Drilldowns(DashboardCase):
+
+    def test_a_flag_object_opens_on_the_tasks_the_scan_flagged(self):
+        report = self.report()
+        self.assertTrue(report["flags"]["stale_recurrence"])
+        flag = {"text": "**Weekly review** is behind", "kind": "stale_recurrence"}
+        _, page = render(report, self.judgment(report, flags=[flag]))
+        drill = re.search(r'<ul class="flags"><li><details>.*?</details>', page).group(0)
+        self.assertIn("Weekly review", drill)
+        self.assertEqual(drill.count("<li><i "), len(report["flags"]["stale_recurrence"]))
+
+    def test_a_flag_object_naming_what_the_scan_did_not_raise_is_an_error(self):
+        report = self.report()
+        for flag in ({"text": "x", "kind": "undated_majority"},
+                     {"text": "x", "kind": "over_threshold", "file": "projects/acme-website/actions.md"},
+                     {"text": "x", "kind": "made_up"}):
+            with self.assertRaises(JudgmentError):
+                render(report, self.judgment(report, flags=[flag]))
+
+    def test_a_plain_string_flag_still_renders_without_a_drilldown(self):
+        report = self.report()
+        _, page = render(report, self.judgment(report, flags=["**x: 14 open**"]))
+        self.assertIn("<li><b>x: 14 open</b></li>", page)
+
+    def test_an_idea_opens_on_days_in_stage_next_step_others_and_revisit(self):
+        write(self.root, "resources/ideas/acme-deal/brief.md",
+              "# Acme deal\n\n**Stage:** Qualified (since 2026-09-01)\n\n"
+              "Revisit when Jan replies.\n")
+        write(self.root, "areas/business/actions.md", "# b\n\n"
+              "- [ ] Send the acme deal deck\n"
+              "- [ ] Call about [it](../../resources/ideas/acme-deal/brief.md) 📅 2026-09-20\n")
+        _, page = render(self.report(), self.judgment(self.report()))
+        card = re.search(r'<details class="item"><summary class="head x"><b>acme-deal</b>.*?'
+                         r'</details>', page).group(0)
+        self.assertIn("<b>14 days</b> in stage", card)
+        step, rest = card.split("Next step", 1)[1].split("Also open naming it · 1", 1)
+        self.assertIn("Call about it", step)
+        self.assertIn("Send the acme deal deck", rest)
+        self.assertIn("Revisit when Jan replies", card)
+
+    def test_an_idea_with_nothing_behind_it_is_a_plain_row(self):
+        _, page = render(self.report(), self.judgment(self.report()))
+        self.assertRegex(page, r'<div class="item"><div class="head"><b>orchard-labs</b>')
+
+    def test_a_triage_item_opens_on_its_sender_and_first_lines(self):
+        write(self.root, "triage/20260914 Mail - Quote.md",
+              "# Quote\n\n- **From:** Ann <ann@example.be>\n\nThe quote is attached.\n")
+        _, page = render(self.report(), self.judgment(self.report()))
+        card = re.search(r'<summary class="head x"><span>20260914 Mail - Quote</span>.*?'
+                         r'</details>', page).group(0)
+        self.assertIn("From Ann &lt;ann@example.be&gt;", card)
+        self.assertIn("The quote is attached.", card)
 
 
 class Judgment(DashboardCase):

@@ -26,6 +26,8 @@ an operator reads.
 """
 
 import argparse
+import email
+import email.policy
 import json
 import re
 import sys
@@ -41,7 +43,8 @@ try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
         STALE_FILE_DAYS, WIP_THRESHOLD, action_files, cadence_days, field_ci,
-        file_dates, is_under, iso, lifecycles, link_spans, misplaced_checkboxes, open_tasks,
+        file_dates, is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes,
+        open_tasks, read_lines,
         over_grown_briefs, parse_date, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
     )
@@ -53,6 +56,13 @@ except ImportError as missing:  # the skill falls back to scanning by hand
 
 LINK_TARGET_RE = re.compile(r"\]\([^)]*\)")
 SENTENCE_END_RE = re.compile(r"[.!?](?=\s+[^a-z\s]|\s*$)")
+SENTENCE_START_RE = re.compile(r"[.!?]\s+(?=[^a-z\s])")
+REVISIT_RE = re.compile(r"\brevisit when\b", re.IGNORECASE)
+SENDER_RE = re.compile(r"^(?:[-*]\s+)?\**from\**:\**\s+(.+)$", re.IGNORECASE)
+NOTE_FIELD_RE = re.compile(r"^(?:[-*]\s+\**[A-Za-z][\w ]{0,30}\**:|\*\*[A-Za-z][\w ]{0,30}:\*\*)")
+BOLD_LINE_RE = re.compile(r"^\*\*[^*]+\*\*:?$")  # a bold line on its own is a heading
+PREVIEW_BYTES = 64 * 1024  # a triage item's head: enough for headers and a first paragraph
+PREVIEW_CHARS = 240
 UNDATED_MAJORITY_MIN = 8  # below this, a new vault's bootstrap actions are not a backlog
 
 
@@ -197,13 +207,97 @@ def ideas_lane(vault, today):
         touched = dates.get(brief)
         touched_date = parse_date(touched)
         age = (today - touched_date).days if touched_date else None
+        stage = stage_of(brief)
+        since = parse_date(stage["since"]) if stage else None
         rows.append({"name": d.name, "path": brief.relative_to(vault).as_posix(),
                      "touched": touched, "age_days": age,
                      "stage": short_stage(stage_line(brief)),
+                     "since": iso(since) if since else None,
+                     "days_in_stage": (today - since).days if since else None,
+                     "revisit": revisit_sentence(brief),
                      "dormant": bool(age is not None and age >= DORMANT_ENTITY_DAYS)})
     rows.sort(key=lambda r: r["name"])
     rows.sort(key=lambda r: r["touched"] or "", reverse=True)
     return rows
+
+
+def revisit_sentence(brief):
+    """The brief's one prose "revisit when X" trigger, as the sentence holding it, cut like
+    a stage line. None where the brief has none."""
+    for _, text in live_lines(read_lines(brief)):
+        stripped = text.strip()
+        if stripped.startswith(("#", "|", ">")):
+            continue
+        m = REVISIT_RE.search(stripped)
+        if m:
+            starts = [e.end() for e in SENTENCE_START_RE.finditer(stripped) if e.end() <= m.start()]
+            return short_stage(re.sub(r"^[-*]\s+", "", stripped[starts[-1] if starts else 0:]))
+    return None
+
+
+def triage_preview(vault, names):
+    """Who sent each triage item and its first prose lines, read from the file's head: an
+    .eml's headers and plain-text body, a note's `From:` field and first paragraph. A PDF
+    reads through its extracted markdown twin; any other format has no preview."""
+    out = {}
+    for name in names:
+        path = Path(vault) / "triage" / name
+        twin = path.with_suffix(".md")
+        if path.suffix.lower() == ".pdf" and twin.is_file():
+            path = twin
+        try:
+            if path.suffix.lower() == ".eml":
+                with path.open("rb") as fh:
+                    msg = email.message_from_bytes(fh.read(PREVIEW_BYTES),
+                                                   policy=email.policy.default)
+                body = msg.get_body(preferencelist=("plain",))
+                sender, subject = msg["From"], msg["Subject"]
+                text = body.get_content() if body else ""
+            elif path.suffix.lower() in (".md", ".txt"):
+                with path.open("rb") as fh:
+                    head = fh.read(PREVIEW_BYTES).decode("utf-8", errors="replace")
+                sender, subject, text = note_head(head)
+            else:
+                continue
+        except (OSError, LookupError, ValueError):
+            continue
+        excerpt = " ".join((text or "").split())
+        if len(excerpt) > PREVIEW_CHARS:
+            excerpt = excerpt[:PREVIEW_CHARS].rsplit(" ", 1)[0] + "…"
+        row = {k: str(v).strip() for k, v in
+               (("from", sender), ("subject", subject), ("excerpt", excerpt)) if v}
+        if row:
+            out[name] = row
+    return out
+
+
+def note_head(head):
+    """A staged note's sender (its `From:` field), its H1, and its first prose paragraph:
+    the first run of lines that is no heading, field, table, quote, comment or front matter."""
+    lines = head.splitlines()
+    if lines and lines[0].strip() == "---":
+        end = next((i for i, l in enumerate(lines[1:], 1) if l.strip() == "---"), 0)
+        lines = lines[end + 1:]
+    sender = subject = None
+    para = []
+    for line in lines:
+        s = line.strip()
+        from_line = SENDER_RE.match(s)
+        if from_line and not sender:
+            sender = from_line.group(1)
+        if s.startswith("# ") and not subject:
+            subject = s[2:].strip()
+        if not s:
+            if para:
+                break
+            continue
+        heading = s.startswith(("#", "|", ">", "<!--", "---")) or BOLD_LINE_RE.match(s)
+        if from_line or heading or NOTE_FIELD_RE.match(s):
+            if para:
+                break
+            continue
+        para.append(s)
+    return sender, subject, LINK_TARGET_RE.sub("]", " ".join(para)).replace("[", "").replace("]", "")
 
 
 def lifecycle_counts(vault):
@@ -349,7 +443,12 @@ def scan(vault, today, entity=None):
                                    scoped=report["scope"] == "entity", entity_path=entity_path)
     if report["scope"] == "vault":
         report["ideas"] = ideas_lane(vault, today)
+        for idea in report["ideas"]:  # an idea holds no actions.md: its work lives elsewhere
+            match = {"label": idea["name"], "path": f"resources/ideas/{idea['name']}"}
+            idea["actions"] = [{"file": t["file"], "line": t["line"]}
+                               for t in mentions_elsewhere(vault, tasks, match)]
         report["triage"] = triage_items(vault)
+        report["triage_preview"] = triage_preview(vault, report["triage"])
         report["lifecycles"] = lifecycle_counts(vault)
     return report
 

@@ -13,7 +13,7 @@ Everything between "the vault is a folder of markdown" and "a set of bucketed, p
 | `lanes` | Each lane's `(file, line)` references, joined back into `tasks` for the counts a rendered section needs; a recurring item overdue or due today is in `recurring` and that lane too |
 | `mentioned_elsewhere` | Under an entity scope only: open items naming it that live in another file |
 | `file_dates` | Each action file's date, by the rule in [Step 4b](#step-4b-aggregate-per-entity) |
-| `flags`, `ideas`, `triage`, `lifecycles` | Everything [signals.md](signals.md) computes from files |
+| `flags`, `ideas`, `triage`, `triage_preview`, `lifecycles` | Everything [signals.md](signals.md) computes from files |
 
 Where the script cannot run, apply the rest of this file by hand.
 

@@ -87,7 +87,7 @@ Render the page with `scripts/render_dashboard.py` from the scan and a small jud
 
 - **Do not parse completed items (`- [x]`)** - they're history.
 - **Do not rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`; this skill never applies them.
-- **Do not follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, and an idea brief's stage line.)
+- **Do not follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, an idea brief's stage line and revisit sentence, and the head of each triage item, the last two read by the scan for the dashboard.)
 - **Do not add commentary or recommendations** beyond the Health flags and the single Next action. Decisions are the operator's.
 - **Do not dedupe cross-referenced items** (same task in two files). Show both.
 - **Meetings: today and future only, never invented.** Render only what the calendar or `meetings.md` line contains - never fabricate a meeting, time, or attendee. Calendars are read-only.
