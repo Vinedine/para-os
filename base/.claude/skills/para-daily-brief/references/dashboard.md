@@ -23,11 +23,11 @@ Exit 2 means the script cannot run or the judgment named a task the scan does no
 
 ## Hard constraints
 
-- **Self-contained.** No external scripts, stylesheets, images, or fonts (system font stack). No JavaScript: every drilldown is a native `<details>` or a hidden checkbox and its label. The one link out is the Claude Code deep link below, which loads nothing. **This overrides any artifact-design guidance to pair webfonts**: hierarchy comes from weight, size, and letter-spacing on the system stack.
+- **Self-contained.** No external scripts, stylesheets, images, or fonts (system font stack). No JavaScript: every drilldown is a native `<details>` or a hidden checkbox and its label. **This overrides any artifact-design guidance to pair webfonts**: hierarchy comes from weight, size, and letter-spacing on the system stack.
 - **Theme-aware.** Define the light palette as CSS custom properties on `:root`; redefine the tokens under `@media (prefers-color-scheme: dark)` guarded as `:root:not([data-theme="light"])`, and again under `:root[data-theme="dark"]`. Give `body` an explicit token background. Muted, calm palette; red only for overdue and health flags.
 - **Responsive.** Relative units, flexbox/grid, nothing forcing horizontal page scroll; wide content scrolls inside its own container.
 
-- **Every listed task opens a Claude Code session.** Its text links to `claude-cli://open` with the vault as `cwd` and a prompt naming the task and its `file:line` ([deep links](https://code.claude.com/docs/en/deep-links)): a terminal session, the prompt typed but not sent. Now, the Next action and every drilldown row carry it. **No link navigates the page's own frame**: the deep link opens in a new window (`target="_blank"`), and the page holds no in-page `#anchor`, both of which blank the artifact viewer.
+- **No links.** The artifact viewer in Claude Desktop opens no custom-scheme link (a `claude-cli://` deep link does nothing), and an in-page `#anchor` blanks the page.
 
 ## Page structure, top to bottom
 

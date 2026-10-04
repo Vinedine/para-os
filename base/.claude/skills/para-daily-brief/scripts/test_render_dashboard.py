@@ -10,7 +10,6 @@ writes a real vault or the machine's own cache.
 """
 
 import contextlib
-import html
 import io
 import json
 import re
@@ -18,7 +17,6 @@ import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
 from brief_scan import scan
 from render_dashboard import JudgmentError, cut, main, remember, remembered_url, render
@@ -142,39 +140,11 @@ class Bars(DashboardCase):
             else:
                 self.assertIsNone(panel, key)
 
-    def test_no_link_navigates_the_page_own_frame(self):
-        # The artifact viewer blanks the page on an in-page #anchor or a deep link
-        # followed in place, so every link opens a new window and none is a fragment.
+    def test_the_page_holds_no_links(self):
+        # The Claude Desktop artifact viewer opens no custom-scheme link and blanks the
+        # page on an in-page #anchor, so the page carries none.
         _, page = render(self.report(), self.judgment(self.report()))
-        links = re.findall(r"<a [^>]*>", page)
-        self.assertTrue(links)
-        for a in links:
-            self.assertIn('target="_blank"', a)
-            self.assertNotIn('href="#', a)
-
-
-class Sessions(DashboardCase):
-
-    def test_every_listed_task_opens_a_claude_session_in_the_vault(self):
-        report = self.report()
-        _, page = render(report, self.judgment(report))
-        hrefs = re.findall(r'<a class="go" href="([^"]+)"', page)
-        # every drilldown row, plus the one Now item and the Next action
-        self.assertEqual(len(hrefs), page.count('<li><i class="seg-') + 2)
-        url = urlparse(html.unescape(hrefs[0]))
-        query = parse_qs(url.query)
-        self.assertEqual((url.scheme, url.netloc), ("claude-cli", "open"))
-        self.assertEqual(query["cwd"], [str(Path(report["vault"]))])
-        t = self.first_task(report)
-        self.assertTrue(any(f"{t['file']}:{t['line']}" in parse_qs(
-            urlparse(html.unescape(h)).query)["q"][0] for h in hrefs))
-
-    def test_the_prompt_stays_under_the_deep_link_cap(self):
-        write(self.root, "projects/acme-website/actions.md", "# a\n\n- [ ] " + "word " * 3000 + "\n")
-        report = self.report()
-        _, page = render(report, self.judgment(report))
-        for h in re.findall(r'<a class="go" href="([^"]+)"', page):
-            self.assertLessEqual(len(parse_qs(urlparse(html.unescape(h)).query)["q"][0]), 5000)
+        self.assertNotIn("<a ", page)
 
 
 class Drilldowns(DashboardCase):

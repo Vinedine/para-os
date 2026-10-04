@@ -24,11 +24,8 @@ Strings in the judgment file take `**bold**`, `` `code` `` and `[label](target)`
 as its label). A flag written as an object names the scan flag it reports in `kind`, plus the
 `file` for a per-file one (`over_threshold`, `stale_files`), and opens on the items behind it.
 A `now` or `next_action` entry naming a task the scan does not hold, or a flag object naming
-one it did not raise, is an error (exit 2), never a silent drop.
-
-Every task the page lists links to a Claude Code deep link (claude-cli://open), which opens
-a terminal session in the vault with a prompt naming the task, typed but not sent. The page
-spec this implements is references/dashboard.md.
+one it did not raise, is an error (exit 2), never a silent drop. The page spec this
+implements is references/dashboard.md.
 """
 
 import argparse
@@ -38,7 +35,6 @@ import re
 import sys
 from datetime import date
 from pathlib import Path
-from urllib.parse import quote, urlencode
 
 SHARED_DIR = Path(__file__).resolve().parents[2] / "para-shared" / "scripts"
 if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
@@ -53,7 +49,6 @@ except ImportError as missing:
 
 TOP_ENTITIES = 10
 TEXT_CAP = 100
-SESSION_TEXT_CAP = 2000  # of the deep link's 5,000-character prompt
 TILE_PANELS = ("overdue", "week", "undated")
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
@@ -190,21 +185,10 @@ def bar_order(tasks):
     return sorted(tasks, key=lambda t: (rank[segment(t)], t["days"] or 0, t["file"], t["line"]))
 
 
-def session_link(scan, t, label):
-    """The task as a Claude Code deep link: a terminal session opens in the vault with a
-    prompt naming the task, typed but not sent (code.claude.com/docs/en/deep-links). It
-    opens in a new window: followed in the page's own frame, it blanks the page."""
-    prompt = (f"Let's work on this open action, at {t['file']}:{t['line']} in this vault:\n\n"
-              f"{t['text'][:SESSION_TEXT_CAP]}")
-    query = urlencode({"cwd": str(Path(scan["vault"])), "q": prompt}, quote_via=quote)
-    return (f'<a class="go" href="claude-cli://open?{html.escape(query)}" target="_blank" '
-            f'rel="noopener" title="Open a Claude Code session on this action">{label}</a>')
-
-
 def task_item(scan, t):
     prio = f"{t['priority']} " if t["priority"] else ""
     return (f'<li><i class="seg-{segment(t)}"></i><span>{prio}'
-            f'{session_link(scan, t, html.escape(cut(t["text"])))}</span>{task_meta(t)}</li>')
+            f'{html.escape(cut(t["text"]))}</span>{task_meta(t)}</li>')
 
 
 def drill_list(scan, tasks):
@@ -330,7 +314,7 @@ def now_panel(scan, judgment):
         out.append(f'<h2>Now · {len(tasks)} of {scan["totals"]["open"]}</h2><ol class="now">')
         for t, p in tasks:
             prio = f"{t['priority']} " if t["priority"] else ""
-            text = session_link(scan, t, html.escape(p.get("text") or cut(t["text"])))
+            text = html.escape(p.get("text") or cut(t["text"]))
             out.append(f"<li>{prio}{text} {task_meta(t)}</li>")
         out.append("</ol>")
     out.append(later_line(scan, now_keys))
@@ -422,7 +406,6 @@ def next_action(scan, judgment):
     text, meta = inline(na["text"]), ""
     if na.get("file"):
         t = find_task(scan, na, "next_action")
-        text = session_link(scan, t, text)
         meta = f' <span class="meta">{html.escape(task_label(t))}</span>'
     return f'<div class="next"><strong>Next action</strong>{text}{meta}</div>'
 
@@ -479,7 +462,6 @@ summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-
 .row .name::before,summary.rest::before,summary.x::before{content:"▸";display:inline-block;width:.9rem;color:var(--muted);transition:transform .15s}
 details[open]>summary .name::before,details[open]>summary.rest::before,details[open]>summary.x::before{transform:rotate(90deg)}
 summary.x:hover{color:var(--accent)}
-a.go{color:inherit;text-decoration:none}a.go:hover{color:var(--accent);text-decoration:underline}
 .drill{list-style:none;margin:.15rem 0 .55rem .45rem;padding:.2rem 0 .2rem .9rem;border-left:2px solid var(--line);display:grid;gap:.3rem;font-size:.82rem}
 .drill li{display:flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .5rem}
 .drill i{display:inline-block;width:8px;height:8px;border-radius:2px;flex:none}
