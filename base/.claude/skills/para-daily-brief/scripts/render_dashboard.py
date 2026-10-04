@@ -147,6 +147,24 @@ def counts_text(row):
     return f"<b>{row['open']}</b> open · " + " · ".join(parts)
 
 
+def segment(t):
+    """The bar segment a task counts in: overdue, undated, or upcoming for every other lane."""
+    return {"overdue": "over", "undated": "und"}.get(t["lane"], "up")
+
+
+def drilldown(scan, rows):
+    """The open tasks behind some chart rows, in the order the bar reads: overdue, then
+    upcoming soonest first, then undated."""
+    keys = {(r["bucket"], r["label"]) for r in rows}
+    order = {"over": 0, "up": 1, "und": 2}
+    tasks = sorted((t for t in scan["tasks"] if (t["bucket"], t["scope"]) in keys),
+                   key=lambda t: (order[segment(t)], t["days"] or 0, t["file"], t["line"]))
+    lis = "".join(f'<li><i class="seg-{segment(t)}"></i><span>'
+                  f'{t["priority"] + " " if t["priority"] else ""}{html.escape(cut(t["text"]))}'
+                  f'</span>{task_meta(t)}</li>' for t in tasks)
+    return f'<ol class="drill">{lis}</ol>'
+
+
 def entity_chart(scan):
     rows = scan["entities"]
     if not rows:
@@ -161,18 +179,20 @@ def entity_chart(scan):
         segs = "".join(f'<i class="seg-{cls}" style="width:{100 * r[k] / r["open"]:.2f}%"></i>'
                        for k, cls in (("overdue", "over"), ("upcoming", "up"),
                                       ("undated", "und")) if r[k])
-        out.append(f'<div class="row"><span class="name"><span class="badge">{r["bucket"]}'
-                   f'</span>{name}</span><div class="track"><div class="bar" '
+        out.append(f'<details><summary class="row"><span class="name"><span class="badge">'
+                   f'{r["bucket"]}</span>{name}</span><div class="track"><div class="bar" '
                    f'style="width:{100 * r["open"] / peak:.1f}%">{segs}</div></div>'
-                   f'<span class="n">{counts_text(r)}</span></div>')
+                   f'<span class="n">{counts_text(r)}</span></summary>{drilldown(scan, [r])}'
+                   f'</details>')
     out.append('<div class="legend"><span><i class="seg-over"></i>overdue</span>'
                '<span><i class="seg-up"></i>upcoming</span>'
                '<span><i class="seg-und"></i>undated</span></div>')
     if rest:
         agg = {k: sum(r[k] for r in rest) for k in ("open", "overdue", "upcoming", "undated")}
         more = "entity" if len(rest) == 1 else "entities"
-        out.append(f'<div class="rest">+{len(rest)} more {more} · {counts_text(agg)} <span class="sub">(composition only, not charted)'
-                   f'</span></div>')
+        out.append(f'<details><summary class="rest">+{len(rest)} more {more} · '
+                   f'{counts_text(agg)} <span class="sub">(composition only, not charted)'
+                   f'</span></summary>{drilldown(scan, rest)}</details>')
     t = scan["totals"]
     share = round(100 * t["undated"] / t["open"]) if t["open"] else 0
     out.append(f'<div class="totals"><b>{t["open"]}</b> open · <b>{t["overdue"]}</b> overdue · '
@@ -325,6 +345,15 @@ h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.09e
 .legend{display:flex;flex-wrap:wrap;gap:1rem;font-size:.72rem;color:var(--muted);padding:.6rem .1rem .1rem;border-top:1px solid var(--line);margin-top:.5rem}
 .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:.3rem}
 .rest,.totals{font-size:.8rem;color:var(--muted);padding:.25rem .1rem 0}
+summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}
+summary:hover .name,summary.rest:hover{color:var(--accent)}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.row .name::before,summary.rest::before{content:"▸";display:inline-block;width:.9rem;color:var(--muted);transition:transform .15s}
+details[open]>summary .name::before,details[open]>summary.rest::before{transform:rotate(90deg)}
+.drill{list-style:none;margin:.15rem 0 .55rem .45rem;padding:.2rem 0 .2rem .9rem;border-left:2px solid var(--line);display:grid;gap:.3rem;font-size:.82rem}
+.drill li{display:flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .5rem}
+.drill i{display:inline-block;width:8px;height:8px;border-radius:2px;flex:none}
+.drill span{min-width:0}
 .sub{color:var(--muted)}
 .pipeline{font-size:.82rem;color:var(--muted);margin:.6rem 0 0}
 .pipeline+.pipeline{margin-top:.1rem}

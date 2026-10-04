@@ -92,8 +92,33 @@ class Bars(DashboardCase):
         for i in range(12):
             write(self.root, f"areas/area-{i:02}/actions.md", f"# a\n\n- [ ] Thing {i}\n")
         _, page = render(self.report(), self.judgment(self.report()))
-        self.assertEqual(page.count('<div class="row">'), 10)
+        self.assertEqual(page.count('<summary class="row">'), 10)
         self.assertRegex(page, r'class="rest">\+\d+ more entities')
+
+    def test_each_row_opens_on_its_own_open_tasks_in_bar_order(self):
+        report = self.report()
+        _, page = render(report, self.judgment(report))
+        rows = re.findall(r'<summary class="row">.*?</span>([^<]*)</span>.*?</summary>'
+                          r'<ol class="drill">(.*?)</ol>', page)
+        self.assertEqual(len(rows), len(report["entities"]))
+        for (label, drill), entity in zip(rows, report["entities"]):
+            self.assertTrue(label.startswith(entity["label"]))
+            segs = re.findall(r'<li><i class="seg-(\w+)"', drill)
+            self.assertEqual(len(segs), entity["open"])
+            self.assertEqual(segs, sorted(segs, key=["over", "up", "und"].index))
+        acme = dict(rows)["acme-website"]
+        self.assertLess(acme.index("Late thing"), acme.index("Due today"))
+        self.assertLess(acme.index("Due today"), acme.index("No date at all"))
+        self.assertNotIn("Done already", page)
+
+    def test_the_remainder_strip_opens_on_the_tasks_it_counts(self):
+        for i in range(12):
+            write(self.root, f"areas/area-{i:02}/actions.md", f"# a\n\n- [ ] Thing {i}\n")
+        report = self.report()
+        _, page = render(report, self.judgment(report))
+        drill = re.search(r'<summary class="rest">.*?</summary><ol class="drill">(.*?)</ol>',
+                          page).group(1)
+        self.assertEqual(drill.count("<li>"), sum(e["open"] for e in report["entities"][10:]))
 
     def test_the_overdue_tile_is_alert_only_when_nonzero(self):
         report = self.report()
