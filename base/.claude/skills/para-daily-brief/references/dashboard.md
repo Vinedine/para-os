@@ -13,6 +13,10 @@ The HTML page the brief publishes as an artifact, built entirely from data the b
 
 Exit 2 means the script cannot run or the judgment named a task the scan does not hold; fix the judgment, or write the page by hand to the spec below. A page written by hand goes through the Write tool, never a shell heredoc, which breaks on a quote in the content.
 
+## Without a brief run
+
+`scripts/refresh_dashboard.py`, run from an end-of-turn hook, keeps a numbers-only copy of the page current with no model run: `render_dashboard.py --mechanical`, written under `$PARAOS_HOME/cache/daily-brief/`, with Now ranked by Step 5's sort alone and every fired flag worded by the script. The hook recipe is in the script's docstring; wiring it is the operator's choice. The full brief remains the source of the Next action, the agenda and the published page, and that copy says so in place of both.
+
 ## Identity and lifecycle
 
 - `<title>`: the vault's **display name** plus ` Dashboard`, and nothing longer. The display name is the vault's `CLAUDE.md` H1 with a trailing `Vault Conventions` stripped (`# BelFoot Vault Conventions` gives `BelFoot Dashboard`); the folder name only when there is no H1.

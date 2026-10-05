@@ -2,6 +2,7 @@
 """The dashboard page of /para-daily-brief, rendered from the scan instead of written by hand.
 
     py -3 render_dashboard.py --scan <scan.json> --judgment <judgment.json> --out <page.html>
+    py -3 render_dashboard.py --scan <scan.json> --mechanical --out <page.html>
     py -3 render_dashboard.py --remember <artifact url> --vault <path>
 
 Render prints one JSON line: `out`, the page's `title` and `description`, and `url`, the artifact this vault's
@@ -26,6 +27,12 @@ as its label). A flag written as an object names the scan flag it reports in `ki
 A `now` or `next_action` entry naming a task the scan does not hold, or a flag object naming
 one it did not raise, is an error (exit 2), never a silent drop. The page spec this
 implements is references/dashboard.md.
+
+`--mechanical` renders with no judgment file, so the page can be kept current by a hook
+(scripts/refresh_dashboard.py) with no model run: Now is ranked by the brief's own sort
+(overdue and due today first, then priority, then date) without the Vision tiebreak, every
+flag the scan fired is worded here, and in place of the Next action and the agenda, which
+stay model work, one line says they come from the next brief run.
 """
 
 import argparse
@@ -41,7 +48,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
 try:
-    from paraos_vault import paraos_home_dir  # noqa: E402
+    from paraos_vault import PRIORITY_RANK, paraos_home_dir, scope_of  # noqa: E402
 except ImportError as missing:
     print(f"render_dashboard: {missing}. Write the page by hand with references/dashboard.md",
           file=sys.stderr)
@@ -410,6 +417,82 @@ def next_action(scan, judgment):
     return f'<div class="next"><strong>Next action</strong>{text}{meta}</div>'
 
 
+# ------------------------------------------------------------- without a judgment file
+
+NOW_CAP = 5
+NOW_LANES = ("overdue", "today", "this_week")
+
+
+def mechanical_now(scan):
+    """Step 5's ranking without the model: overdue and due-today items first, then priority
+    descending, then date ascending, and no Vision tiebreak. A recurring item overdue or due
+    today is in those lanes already."""
+    keys = {(e["file"], e["line"]) for lane in NOW_LANES for e in scan["lanes"].get(lane, [])}
+    picks = [t for t in scan["tasks"] if (t["file"], t["line"]) in keys]
+    picks.sort(key=lambda t: (0 if t["days"] <= 0 else 1,
+                              -PRIORITY_RANK.get(t["priority"] or "", 0),
+                              t["days"], t["file"], t["line"]))
+    return [{"file": t["file"], "line": t["line"]} for t in picks[:NOW_CAP]]
+
+
+def file_label(scan, rel):
+    """The `<scope>` a flag names a file by: the entity, or the person for a contact file."""
+    bucket, scope = scope_of(scan["vault"], Path(scan["vault"]) / rel)
+    return Path(rel).stem if scope == "network" else scope
+
+
+def mechanical_flags(scan):
+    """Every flag the scan fired, worded as references/signals.md words it, each as a flag
+    object that opens on what it reports."""
+    raised, out = scan["flags"], []
+    for r in raised.get("over_threshold") or []:
+        out.append({"text": f"**{file_label(scan, r['file'])}: {r['open']} open** - decomposed "
+                            f"plan? Groom via `/para-deep-clean`",
+                    "kind": "over_threshold", "file": r["file"]})
+    for r in raised.get("stale_files") or []:
+        out.append({"text": f"**{file_label(scan, r['file'])}: {r['open']} open, untouched since "
+                            f"{r['touched']}** ({r['days']}d)",
+                    "kind": "stale_files", "file": r["file"]})
+    late = raised.get("falsely_overdue") or []
+    if late:
+        worst = late[0]
+        out.append({"text": f"**{len(late)} overdue by more than 30 days** - worst: "
+                            f"{file_label(scan, worst['file'])}:{worst['line']}, {worst['days']}d. "
+                            f"Was the deadline real? `/para-deep-clean` asks",
+                    "kind": "falsely_overdue"})
+    behind = raised.get("stale_recurrence") or []
+    if behind:
+        worst = behind[0]
+        out.append({"text": f"**{len(behind)} recurring behind** - worst: "
+                            f"{file_label(scan, worst['file'])}:{worst['line']} 🔁 {worst['cadence']}, "
+                            f"📅 {worst['date']}, {worst['periods_behind']} periods behind",
+                    "kind": "stale_recurrence"})
+    um = raised.get("undated_majority")
+    if um:
+        out.append({"text": f"**{um['undated']} of {um['open']} open items are undated** - the "
+                            f"backlog is bigger than the brief can date. `/para-deep-clean` grooms",
+                    "kind": "undated_majority"})
+    mis = raised.get("misplaced") or {}
+    parts = [f"{sum(r['open'] for r in rows)} under {bucket}/ (worst: {rows[0]['file']}, "
+             f"{rows[0]['open']})" for bucket, rows in mis.items() if rows]
+    if parts:
+        out.append({"text": f"**Open checkboxes {' and '.join(parts)}** - archive hygiene "
+                            f"requires zero, and `resources/` never holds one",
+                    "kind": "misplaced"})
+    briefs = raised.get("over_grown_briefs") or []
+    if briefs:
+        out.append({"text": f"**{briefs[0]['file']}: {briefs[0]['lines']} lines** - content "
+                            f"grooming via `/para-deep-clean`"
+                            + (f", and {len(briefs) - 1} more" if len(briefs) > 1 else ""),
+                    "kind": "over_grown_briefs"})
+    return out
+
+
+def mechanical_note():
+    return ('<p class="note">Next action and agenda come from the next '
+            '<code>/para-daily-brief</code> run.</p>')
+
+
 # --------------------------------------------------------------------------- the page
 
 CSS = """
@@ -501,16 +584,23 @@ footer{margin-top:1.1rem;font-size:.72rem;color:var(--muted)}
 """
 
 
-def render(scan, judgment):
+def render(scan, judgment=None):
+    """The page: from the model's judgment file, or, with none, from the scan alone."""
     if scan.get("scope") != "vault":
         raise JudgmentError("the dashboard is a vault-wide page; an entity scope has none")
+    mechanical = judgment is None
+    if mechanical:
+        judgment = {"now": mechanical_now(scan), "flags": mechanical_flags(scan)}
     name = display_name(scan["vault"])
     title = f"{name} Dashboard"
     body = [f'<header><h1>{html.escape(name)} <small>· Daily Brief</small></h1>'
             f'<span class="date">{long_date(scan["today"])}</span></header>']
-    body += [tiles(scan), entity_chart(scan), flags(scan, judgment), now_panel(scan, judgment), agenda(judgment), ideas(scan), triage(scan), next_action(scan, judgment),
-             f'<footer>Generated {scan["today"]} by /para-daily-brief · read-only: repairs '
-             f'via /para-deep-clean</footer>']
+    body += [tiles(scan), entity_chart(scan), flags(scan, judgment), now_panel(scan, judgment),
+             agenda(judgment), ideas(scan), triage(scan),
+             mechanical_note() if mechanical else next_action(scan, judgment),
+             f'<footer>Generated {scan["today"]} '
+             f'{"from the scan alone" if mechanical else "by /para-daily-brief"} · read-only: '
+             f'repairs via /para-deep-clean</footer>']
     page = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>{html.escape(title)}</title><style>{CSS}</style></head><body>'
@@ -554,6 +644,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Render the daily-brief dashboard page.")
     ap.add_argument("--scan", help="brief_scan.py output")
     ap.add_argument("--judgment", help="the model's judgment file")
+    ap.add_argument("--mechanical", action="store_true",
+                    help="render from the scan alone, with no judgment file")
     ap.add_argument("--out", help="where to write the page (never inside the vault)")
     ap.add_argument("--remember", metavar="URL", help="store the published artifact URL")
     ap.add_argument("--vault", help="vault root, with --remember")
@@ -569,11 +661,14 @@ def main(argv=None):
         path = remember(args.vault, args.remember)
         print(json.dumps({"remembered": args.remember, "cache": path.as_posix()}))
         return 0
-    if not (args.scan and args.judgment and args.out):
-        ap.error("render needs --scan, --judgment and --out")
+    if args.mechanical and args.judgment:
+        ap.error("--mechanical renders without a judgment file; drop one or the other")
+    if not (args.scan and args.out and (args.judgment or args.mechanical)):
+        ap.error("render needs --scan, --out and either --judgment or --mechanical")
 
     scan = json.loads(Path(args.scan).read_text(encoding="utf-8"))
-    judgment = json.loads(Path(args.judgment).read_text(encoding="utf-8"))
+    judgment = None if args.mechanical else \
+        json.loads(Path(args.judgment).read_text(encoding="utf-8"))
     out = Path(args.out).resolve()
     if out.is_relative_to(Path(scan["vault"]).resolve()):
         print("render_dashboard: --out is inside the vault; write it to a scratch folder",
