@@ -48,6 +48,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **The dashboard can be kept current without a brief run.** `render_dashboard.py --mechanical` renders the page from the scan alone, Now ranked by the brief's own sort and every fired flag worded by the script, with one line in place of the Next action and the agenda. `scripts/refresh_dashboard.py` is the end-of-turn hook that re-renders it in the background when an action-bearing file, `triage/` or `resources/ideas/` changed, under `$PARAOS_HOME/cache/daily-brief/`; its docstring holds the hook recipe. Reaction: re-sync `/para-daily-brief`. Wiring the hook is the operator's harness setting, never proposed as a vault change.
 
+**`/para-daily-brief` flags a project or area with nothing open.** A folder under `projects/` or `areas/`, `areas/network/` aside, with no open item anywhere under it, a `🔁` counting as open, had no Vault state row and so vanished from the brief. The scan now reports it as `nothing_open`, those with no `actions.md` first, and the brief and dashboard flag it: `<entity>: nothing open - finished (archive) or stalled (next step)?` Reaction: re-sync `/para-daily-brief`.
+
 ---
 
 ## 2026.09.07

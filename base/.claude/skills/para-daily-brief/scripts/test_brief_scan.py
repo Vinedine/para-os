@@ -224,6 +224,29 @@ class HealthFlags(VaultCase):
         got = scan(self.root, TODAY, entity="wordy")["flags"]["over_grown_briefs"]
         self.assertEqual([b["file"] for b in got], ["projects/wordy/brief.md"])
 
+    def test_a_project_with_only_closed_items_has_nothing_open_and_a_recurring_area_does(self):
+        write(self.root, "projects/stalled/actions.md", "# stalled\n\n- [x] Kicked off\n")
+        write(self.root, "areas/home/actions.md",
+              "# home\n\n## Recurring\n- [ ] Check the boiler 🔁 every year 📅 2026-11-01\n")
+        got = scan(self.root, TODAY)["flags"]["nothing_open"]
+        self.assertEqual([(e["bucket"], e["label"], e["file"]) for e in got],
+                         [("P", "stalled", "projects/stalled/actions.md")])
+        self.assertIsNotNone(got[0]["touched"])
+
+    def test_an_entity_with_no_action_file_leads_the_nothing_open_list(self):
+        write(self.root, "projects/stalled/actions.md", "# stalled\n\n- [x] Kicked off\n")
+        write(self.root, "areas/garden/brief.md", "# garden\n")
+        got = scan(self.root, TODAY)["flags"]["nothing_open"]
+        self.assertEqual([(e["path"], e["file"], e["touched"]) for e in got][0],
+                         ("areas/garden", None, None))
+        self.assertEqual([e["path"] for e in got], ["areas/garden", "projects/stalled"])
+
+    def test_open_work_anywhere_under_an_entity_or_in_a_contact_file_keeps_it_off(self):
+        write(self.root, "areas/properties/main-street-4/actions.md",
+              "# main-street-4\n\n- [ ] Index the rent 📅 2027-01-01\n")
+        write(self.root, "areas/network/jan-janssen.md", "# Jan\n\n## Next actions\n_None currently._\n")
+        self.assertEqual(scan(self.root, TODAY)["flags"]["nothing_open"], [])
+
 
 class AggregationAndScope(VaultCase):
 
@@ -278,6 +301,7 @@ class AggregationAndScope(VaultCase):
         flags = scan(self.root, TODAY, entity="acme-website")["flags"]
         self.assertIsNone(flags["misplaced"])
         self.assertIsNone(flags["undated_majority"])
+        self.assertIsNone(flags["nothing_open"])
 
     def test_an_unresolved_name_returns_no_tasks_at_all(self):
         build_vault(self.root)
