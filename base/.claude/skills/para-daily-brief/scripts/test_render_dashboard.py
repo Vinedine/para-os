@@ -234,6 +234,58 @@ class Judgment(DashboardCase):
         self.assertNotIn("<h2>Health flags", page)
 
 
+class Mechanical(DashboardCase):
+
+    def test_now_is_the_briefs_own_sort_capped_at_five(self):
+        for i in range(4):
+            write(self.root, f"areas/area-{i}/actions.md",
+                  f"# a\n\n- [ ] Late {i} 📅 2026-09-0{i + 1}\n- [ ] Soon {i} 🔺 📅 2026-09-1{i + 6}\n")
+        report = self.report()
+        _, page = render(report)
+        now = re.search(r'<ol class="now">(.*?)</ol>', page).group(1)
+        items = re.findall(r"<li>(.*?)</li>", now)
+        self.assertEqual(len(items), 5)
+        # Overdue and due today outrank a higher priority that is merely upcoming.
+        self.assertTrue(all("ago" in it or "today" in it for it in items), items)
+        self.assertNotIn("Next month", now)
+
+    def test_every_fired_flag_is_worded_and_opens_on_its_items(self):
+        write(self.root, "areas/busy/actions.md",
+              "# b\n\n" + "".join(f"- [ ] Thing {n}\n" for n in range(12)))
+        write(self.root, "archive/old/actions.md", "# o\n\n- [ ] Left open\n")
+        write(self.root, "projects/acme-website/brief.md", "# a\n" + "line\n" * 501)
+        report = self.report()
+        fired = [k for k, v in report["flags"].items() if v]
+        self.assertGreaterEqual(len(fired), 5, fired)
+        _, page = render(report)
+        flags = re.search(r'<ul class="flags">(.*?)</ul>', page).group(1)
+        self.assertEqual(flags.count("<details>"), len(fired))
+        self.assertIn("busy: 12 open", flags)
+        self.assertIn("Weekly review", flags)
+        self.assertIn("archive/old/actions.md", flags)
+        self.assertIn("projects/acme-website/brief.md: 502 lines", flags)
+        self.assertIn("undated", flags)
+
+    def test_no_next_action_and_one_line_saying_where_it_comes_from(self):
+        _, page = render(self.report())
+        self.assertNotIn("Next action</strong>", page)
+        self.assertNotIn("<h2>Agenda", page)
+        self.assertEqual(page.count("come from the next <code>/para-daily-brief</code> run"), 1)
+        self.assertIn("Generated 2026-09-15 from the scan alone", page)
+
+    def test_the_cli_renders_without_a_judgment_file(self):
+        report = self.report()
+        s = Path(self.tmp.name) / "scan.json"
+        s.write_text(json.dumps(report), encoding="utf-8")
+        out = Path(self.tmp.name) / "out" / "page.html"
+        with contextlib.redirect_stdout(io.StringIO()) as printed:
+            self.assertEqual(main(["--scan", str(s), "--mechanical", "--out", str(out)]), 0)
+        self.assertEqual(json.loads(printed.getvalue())["title"], "BelFoot Dashboard")
+        self.assertIn("from the scan alone", out.read_text(encoding="utf-8"))
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            main(["--scan", str(s), "--mechanical", "--judgment", str(s), "--out", str(out)])
+
+
 class Cut(unittest.TestCase):
 
     def test_a_bold_lead_is_the_whole_line(self):

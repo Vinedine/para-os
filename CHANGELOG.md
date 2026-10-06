@@ -46,6 +46,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **A project that lost its deadline is proposed for demotion.** The Lifecycle bullet on a project running alongside its area adds that a project with no dated commitment left for six months is an area wearing a project name, which `/para-deep-clean` proposes demoting, always on the operator's call. Its Phase 3 scan lists such projects as `demotion_candidates`: the newest date on any checkbox in the project, open or ticked, six months or more old, staged entities and projects with no dated action at all left out. Reaction: take the reworded Lifecycle bullet into the vault's `CLAUDE.md`, which the scan's `sections` block offers as `behind`, and re-sync `/para-deep-clean`.
 
+**The dashboard can be kept current without a brief run.** `render_dashboard.py --mechanical` renders the page from the scan alone, Now ranked by the brief's own sort and every fired flag worded by the script, with one line in place of the Next action and the agenda. `scripts/refresh_dashboard.py` is the end-of-turn hook that re-renders it in the background when an action-bearing file, `triage/` or `resources/ideas/` changed, under `$PARAOS_HOME/cache/daily-brief/`; its docstring holds the hook recipe. Reaction: re-sync `/para-daily-brief`. Wiring the hook is the operator's harness setting, never proposed as a vault change.
+
 ---
 
 ## 2026.09.07
