@@ -23,7 +23,7 @@ Root `README.md` is the master document, single source of truth for identity, op
 
 - `/para-new` **creates** a project, area, idea, or contact, settling its shape against the sorting test before scaffolding anything.
 - An idea **promotes** to `projects/` when someone waits on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar; it earns its `actions.md` then, not before. Retiring an idea is always the operator's call, never automatic: one that never happened goes to `archive/ideas/`, one where real work ran and then stopped goes to `archive/projects/`.
-- The next big, dated push on a maintained asset is a **project running alongside its area**; when it archives, surviving work returns to the area.
+- The next big, dated push on a maintained asset is a **project running alongside its area**; when it archives, surviving work returns to the area. A project with no dated commitment left for six months is an area wearing a project name: `/para-deep-clean` proposes its **demotion** to one, always on the operator's call.
 - An entity **archives whole** (brief, actions, sources) via `/para-archive`, with open items routed out *first* to the owning area, a successor project, or the contact file. Where this file names an archive destination for a kind of entity, that kind goes there instead of `archive/projects/` or `archive/ideas/`, an area included.
 - **Every move repoints inbound links in the same pass**, not just archiving. `/para-deep-clean` audits for dangling links.
 

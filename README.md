@@ -43,11 +43,11 @@ Everything stays ordinary files (PDFs, scans, spreadsheets, Markdown) in ordinar
 
 Any "AI on top of my stuff" setup is three layers stacked. Naming them shows where para-os sits, and why it isn't competing with the tools it gets compared to:
 
-1. **Substrate (your files)** - the files and how they're organised. **This is para-os.**
-2. **Agent (the assistant)** - the model that reads and writes them: Claude Code, Cursor, Codex, Gemini CLI, Claude Cowork.
-3. **Interface (how you work with it)** - how you drive it: the Claude desktop app, an editor like VS Code, a notes app, a chat app, PDFs on an iPad.
+1. **Data (what you know)** - your files and how they're organised. **This is para-os.**
+2. **Model (the AI itself)** - the brain: Claude, ChatGPT, Gemini. A product you subscribe to.
+3. **Harness (the app it works through)** - what lets the model open your files and do the work: the Claude desktop app, Claude Code, Cursor, Codex.
 
-para-os owns layer 1 and is built for Claude Code: the conventions are plain Markdown any agent can read, but the skills and the `CLAUDE.md` contract are Claude Code formats. Almost nobody does the layer-1 work because it feels like filing, not engineering. That's exactly why it pays off: an agent is only as good as the files you point it at, and that leverage grows as agents get better. The files are the memory - the folder on disk is the durable state, the agent reads it fresh each session, and the git diff is the audit log. No memory features, no chat-history dependence.
+para-os owns layer 1 and is built for Claude Code: the conventions are plain Markdown any agent can read, but the skills and the `CLAUDE.md` contract are Claude Code formats. Almost nobody does the layer-1 work because it feels like filing, not engineering. That's exactly why it pays off: an agent is only as good as the files you point it at, and that leverage grows as models get better. The files are the memory - the folder on disk is the durable state, the agent reads it fresh each session, and the git diff is the audit log. No memory features, no chat-history dependence.
 
 You stay the operator: you hold the goals, the assistant does the work - and when something is ambiguous or it can't do a step reliably, it says so and asks, rather than confidently handing you the wrong thing.
 
@@ -172,7 +172,7 @@ For GDPR or data-sovereignty needs there's a ladder: a provider plan whose comme
 
 ## Why this exists
 
-Notion and Obsidian never stuck for me: keeping the structure current cost more than it gave back. The agent absorbs exactly that overhead, so the structure finally pays for itself. I now run a business, client engagements, and family admin this way; wired into my bookkeeping, a vault answers questions I used to take to my accountant. The thesis underneath, for technical readers: **clean file structures are the substrate for AI.** Point an agent at `Documents/Misc` and search is all it can do; give it a predictable layout with documented conventions and it files, cross-references, audits, and briefs you reliably.
+Notion and Obsidian never stuck for me: keeping the structure current cost more than it gave back. The agent absorbs exactly that overhead, so the structure finally pays for itself. I now run a business, client engagements, and family admin this way; wired into my bookkeeping, a vault answers questions I used to take to my accountant. The thesis underneath, for technical readers: **clean file structures are what AI runs on.** Point an agent at `Documents/Misc` and search is all it can do; give it a predictable layout with documented conventions and it files, cross-references, audits, and briefs you reliably.
 
 ## What's in the repo
 
@@ -194,7 +194,7 @@ Beyond the list at the top:
 - **Python 3 is optional** and does not come with Claude Code: install it from [python.org](https://www.python.org/downloads/) if you want it. It lets `/para-daily-brief`, `/para-pipeline`, `/para-deep-clean`, `/para-archive`, `/para-triage`, `/para-upgrade` and `/para-activity-review` hand their mechanical half to a script beside the skill; without it they fall back to a slower by-hand procedure and say so. On Windows use `py -3`, since a bare `python` is often a Microsoft Store stub. `/para-upgrade` also needs a local clone of this repository.
 - **Account skills come along:** Claude Code syncs the skills and plugins enabled on your claude.ai account into sessions (the document skills are what a vault needs for the files it receives); `syncClaudeAiSkills: false` and `syncClaudeAiPlugins: false` in your settings keep a vault to its own.
 - **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
-- **A substrate that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible. What the agent may change on its own, and what enforces it, is in [the autonomy tiers](docs/autonomy-tiers.md).
+- **Storage that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible. What the agent may change on its own, and what enforces it, is in [the autonomy tiers](docs/autonomy-tiers.md).
 - **Integrations bring their own:** each integration's runtime and platform are in the [integrations table](integrations/README.md#available).
 
 ## Running several vaults

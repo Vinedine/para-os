@@ -23,8 +23,8 @@ Reading the vault's primitives - fenced-block-aware line scanning, link extracti
 resolution, content hashing, the checkbox and staleness thresholds - is not this script's
 own work: para-shared/scripts/paraos_vault.py holds it. What lives here is what this
 skill alone decides: which files are in scope for a placeholder or figure scan, how a
-contact's citations are counted, what an "entity folder" is under archive/, and how a
-stale item's date is measured.
+contact's citations are counted, what an "entity folder" is under archive/, how a
+stale item's date is measured, and which project has had no dated commitment for six months.
 
 What it deliberately does NOT do, so the skill keeps owning it: decide whether a finding
 is a real defect or an exempt third-party file, propose a fix, ask a question, or write
@@ -46,14 +46,15 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        BRIEF_LINE_CAP, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE, H1_RE,
-        STALE_FILE_DAYS,
+        ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
+        FROZEN_MARKER_RE, H1_RE, STALE_FILE_DAYS, TASK_RE,
         LINK_ROOTS, WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links,
         duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
-        iso, link_files, link_spans, live_lines, master_template, misplaced_checkboxes, norm,
+        iso, lifecycles, link_files, link_spans, live_lines, master_template,
+        misplaced_checkboxes, norm,
         open_tasks, over_grown_briefs, parse_date, read_lines, read_text, reference_shape,
-        resolve_link, snapshot, strip_code, table_cells,
+        resolve_link, snapshot, stage_of, strip_code, table_cells,
         template_marker, triage_items,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
@@ -864,6 +865,43 @@ def prose_next_steps(vault, headings):
     return {"applicable": True, "items": items}
 
 
+def newest_dated_action(folder):
+    """The newest date any checkbox in an entity's folder carries, open or ticked, on any
+    marker: a closed item dated last spring is still the last commitment the project made.
+    `sources/` is other people's documents, never the project's own commitments."""
+    newest = None
+    for path in sorted(folder.rglob("*.md")):
+        if "sources" in path.relative_to(folder).parts:
+            continue
+        for _, text in live_lines(read_lines(path)):
+            if not (TASK_RE.match(text) or CLOSED_TASK_RE.match(text)):
+                continue
+            for raw in ANY_DATE_RE.findall(text):
+                d = parse_date(raw)
+                if d and (newest is None or d > newest):
+                    newest = d
+    return newest
+
+
+def demotion_candidates(vault, today):
+    """Projects whose newest dated action is DORMANT_ENTITY_DAYS or more old: the Lifecycle
+    rule's "no dated commitment left for six months". A project with no dated action at all
+    is the sorting test's problem, not this one's, and a staged entity (a deal, a property)
+    moves through its lifecycle, never to an area, so neither is listed."""
+    declared = {s["name"].lower() for lc in lifecycles(vault) for s in lc["stages"]}
+    out = []
+    for folder in sorted(p for p in (vault / "projects").glob("*") if p.is_dir()):
+        brief = next((folder / n for n in ("brief.md", "README.md") if (folder / n).is_file()), None)
+        stage = stage_of(brief) if brief else None
+        if stage and stage["name"].lower() in declared:
+            continue
+        newest = newest_dated_action(folder)
+        if newest and (today - newest).days >= DORMANT_ENTITY_DAYS:
+            out.append({"project": folder.relative_to(vault).as_posix(), "newest_date": iso(newest),
+                        "days": (today - newest).days})
+    return out
+
+
 def phase3(vault, today, headings):
     files = action_files(vault)
     other_paths = other_checkbox_paths(vault)
@@ -882,6 +920,8 @@ def phase3(vault, today, headings):
     return {"over_threshold": over_threshold, "other_checkbox_files": other_files,
             "stale_undated": stale_undated, "aspirational": aspirational,
             "prose_next_steps": prose, "briefs_to_read": briefs_to_read,
+            "demotion_candidates": demotion_candidates(vault, today)
+            if (vault / "projects").is_dir() else [],
             "snapshot": snapshot(sorted(touched, key=str))}
 
 

@@ -1,6 +1,6 @@
 # Phase 3 - Open items, action grooming, content grooming
 
-`scripts/clean_scan.py --phase 3` implements the over-threshold, other-checkbox-file, stale-undated, aspirational-date and prose-next-steps checks below, plus the size-based half of Step 3.5's brief selection as `briefs_to_read`. Content grooming's remaining judgment (Step 3.5) and reading source documents (Step 3.1) are calls the script does not attempt.
+`scripts/clean_scan.py --phase 3` implements the over-threshold, other-checkbox-file, stale-undated, aspirational-date, demotion and prose-next-steps checks below, plus the size-based half of Step 3.5's brief selection as `briefs_to_read`. Content grooming's remaining judgment (Step 3.5) and reading source documents (Step 3.1) are calls the script does not attempt.
 
 Goal: every "Open items" section reflects real outstanding work, every action file sits at the actionable frontier, and prose has stopped accumulating for its own sake.
 
@@ -47,6 +47,7 @@ The repair half of the actionable-frontier rule in `CLAUDE.md`. For every `actio
   **Measure staleness on the item's own line, not on the file**. Use `git blame -L <line>,<line> --porcelain -w -- <file>` for the last commit that changed the item itself, where the vault has git and the file is tracked. Where blame's commit hash is all zero, the line is edited but not yet committed: report it as `measured_by: "uncommitted"`, never a fabricated date. **An untracked file is not stale**, only uncommitted; fall back to its mtime. Where neither measure works for a given item, say so **for that item**, never for the whole file or the whole run.
 - **Aspirational dates** - items overdue by more than 30 days. Offer stripping the `📅` and leaving the item undated or demoted, against keeping it because the deadline was real and genuinely missed.
 - **Recently overdue** - items overdue by 30 days or less: done, re-dated, or left.
+- **Projects that lost their deadline** - the scan's `demotion_candidates`: a project whose newest dated action, open or ticked, is six months or more old, and that sits in no declared lifecycle. Propose its demotion to an area in the phase summary, one line per project naming the date; the operator decides, and this pass never performs the move.
 
 **All three open on a question of fact, which carries no `(Recommended)`.** Whether a dormant item was quietly finished or abandoned, and whether a blown date was ever real, are things only the operator knows. Per the recommendation carve-out in [para-shared/asking.md](../../para-shared/asking.md), ask the fact first with no option labelled, ordered by what the file's own evidence suggests, and say in each description what that answer does to the item; the disposition that follows (close, date or demote; strip or keep; close, re-date or leave) is the skill's to propose and takes a recommendation as usual. Where each answer maps to exactly one disposition, fold the two into one question per item, each option naming the fact and its effect ("Finished untracked: close it"), still with no `(Recommended)`.
 
