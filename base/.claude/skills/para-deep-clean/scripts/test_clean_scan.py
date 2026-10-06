@@ -1023,6 +1023,44 @@ class StaleUndated(VaultCase):
         self.assertEqual(self.run_scan("3")["phase3"]["stale_undated"], {})
 
 
+class Demotion(VaultCase):
+
+    def candidates(self):
+        return self.run_scan("3", today=TODAY)["phase3"]["demotion_candidates"]
+
+    def test_a_project_whose_newest_dated_action_is_over_six_months_old_is_proposed(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme\n\n- [x] Kick-off 📅 2026-01-10 ✅ 2026-01-11\n- [ ] Tidy the brief\n")
+        rows = self.candidates()
+        self.assertEqual(rows, [{"project": "projects/acme", "newest_date": "2026-01-10",
+                                 "days": (TODAY - date(2026, 1, 10)).days}])
+
+    def test_a_project_with_a_future_date_is_not(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme\n\n- [x] Kick-off 📅 2026-01-10\n- [ ] Ship it 📅 2026-12-01\n")
+        self.assertEqual(self.candidates(), [])
+
+    def test_a_date_in_another_checkbox_file_counts_but_not_one_under_sources(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Old 📅 2026-01-10\n")
+        write(self.root, "projects/acme/plan.md", "# Plan\n\n- [ ] Review ⏳ 2026-09-01\n")
+        self.assertEqual(self.candidates(), [])
+        write(self.root, "projects/acme/plan.md", "# Plan\n")
+        write(self.root, "projects/acme/sources/notes.md", "# Notes\n\n- [ ] Theirs 📅 2026-09-01\n")
+        self.assertEqual([r["project"] for r in self.candidates()], ["projects/acme"])
+
+    def test_an_undated_project_an_area_and_a_staged_entity_are_never_proposed(self):
+        write(self.root, "CLAUDE.md", "# Vault\n\n## Deal lifecycle\n\n"
+              "| Stage | PARA home |\n|---|---|\n| Lead | projects/ |\n| Won | archive/projects/ |\n")
+        write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] No date anywhere\n")
+        write(self.root, "areas/ops/actions.md", "# Ops\n\n- [x] Old 📅 2026-01-10\n")
+        write(self.root, "projects/big-deal/brief.md", "# Big deal\n\n**Stage:** Lead (since 2026-01-10)\n")
+        write(self.root, "projects/big-deal/actions.md", "# Big deal\n\n- [ ] Call 📅 2026-01-12\n")
+        self.assertEqual(self.candidates(), [])
+
+
 class Aspirational(VaultCase):
 
     def test_overdue_beyond_threshold_flagged(self):
