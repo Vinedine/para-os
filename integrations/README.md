@@ -14,6 +14,7 @@ An integration is **not** an [add-on](../addons/). An add-on changes what a vaul
 | Credentials | `~/.paraos/secrets/<service>.{json,env}` - never syncs to a cloud drive or git remote |
 | Regenerable output | `~/.paraos/cache/<service>/` - safe to delete anytime |
 | Bulk working data | `~/.paraos/data/<name>/` - kept, but not vault-worthy |
+| Dedup ledger of a sync script | `~/.paraos/data/<script name>/synced.json`, `{id: path of the note written}`, each note's name opening on its item's `YYYYMMDD` date: `/para-daily-brief` reads it to flag a source gone silent |
 
 The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a home path. `~/.paraos/README.md` on each machine is the manifest of what's actually installed. The full convention for that destination folder - the buckets and the `PARAOS_HOME` resolver, with Python and Node snippets - is specified in [`base/resources/scripts/README.md`](../base/resources/scripts/README.md).
 

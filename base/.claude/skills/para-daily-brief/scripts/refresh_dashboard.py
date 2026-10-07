@@ -116,7 +116,7 @@ def render_now(vault, paraos_home=None, today=None):
     from render_dashboard import render
     page, stamp, _ = cache_paths(vault, paraos_home)
     seen = fingerprint(vault)
-    report = json.loads(json.dumps(scan(vault, today or date.today())))
+    report = json.loads(json.dumps(scan(vault, today or date.today(), paraos_home=paraos_home)))
     title, html = render(report)
     page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text(html, encoding="utf-8")

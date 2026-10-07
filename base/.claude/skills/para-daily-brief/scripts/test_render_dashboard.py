@@ -303,6 +303,33 @@ class Mechanical(DashboardCase):
             main(["--scan", str(s), "--mechanical", "--judgment", str(s), "--out", str(out)])
 
 
+class SilentSource(DashboardCase):
+
+    def silent_report(self):
+        home = Path(self.tmp.name) / "home"
+        write(self.root, "CLAUDE.md", "# BelFoot Vault Conventions\n\n## Triage sources\n\n"
+              "| Source | Type | Endpoint | Relevant when |\n|---|---|---|---|\n"
+              "| granola | sync-script 🔁 every week | `resources/scripts/granola.js` | Meetings. |\n")
+        write(home, "data/granola/synced.json",
+              json.dumps({"a": str(self.root / "triage" / "20260901 Kickoff.md")}))
+        return json.loads(json.dumps(scan(self.root, TODAY, paraos_home=home)))
+
+    def test_a_silent_source_is_worded_and_opens_on_its_ledger(self):
+        _, page = render(self.silent_report())
+        flags = re.search(r'<ul class="flags">(.*?)</ul>', page).group(1)
+        self.assertIn("<b>granola: nothing since 2026-09-01</b> (14 days, expected every week)",
+                      flags)
+        self.assertRegex(flags, r"<details>.*data/granola/synced\.json")
+
+    def test_a_judgment_flag_opens_only_on_a_source_the_scan_flagged(self):
+        report = self.silent_report()
+        flag = {"text": "granola is quiet", "kind": "silent_sources", "source": "granola"}
+        _, page = render(report, self.judgment(report, flags=[flag]))
+        self.assertIn("synced.json", page)
+        with self.assertRaises(JudgmentError):
+            render(report, self.judgment(report, flags=[dict(flag, source="pocket")]))
+
+
 class Cut(unittest.TestCase):
 
     def test_a_bold_lead_is_the_whole_line(self):
