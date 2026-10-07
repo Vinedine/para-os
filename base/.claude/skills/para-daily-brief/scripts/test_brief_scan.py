@@ -15,6 +15,7 @@ dates, hygiene sweeps. What is tested here is what the brief itself decides, and
 two produce together.
 """
 
+import json
 import tempfile
 import unittest
 from datetime import date
@@ -484,6 +485,86 @@ class LifecycleCounts(VaultCase):
     def test_a_vault_with_no_lifecycle_carries_an_empty_list(self):
         build_vault(self.root)
         self.assertEqual(scan(self.root, TODAY)["lifecycles"], [])
+
+
+class SilentSources(VaultCase):
+    """A source's newest delivery to this vault, read from its own ledger in a temporary
+    PARAOS_HOME, against the cadence its Triage sources row declares."""
+
+    GRANOLA = "| granola | sync-script 🔁 every week | `resources/scripts/granola.js` | Meetings. |"
+
+    def setUp(self):
+        super().setUp()
+        self.vault = self.root / "vault"
+        self.home = self.root / "home"
+        build_vault(self.vault)
+
+    def declare(self, *rows):
+        write(self.vault, "CLAUDE.md", "# Vault\n\n## Triage sources\n\n"
+              "| Source | Type | Endpoint | Relevant when |\n|---|---|---|---|\n"
+              + "".join(r + "\n" for r in rows))
+
+    def ledger(self, rel, data):
+        write(self.home, rel, data if isinstance(data, str) else json.dumps(data))
+
+    def notes(self, vault, *names):
+        return {f"{vault.name}-{i}": str(vault / "triage" / n) for i, n in enumerate(names)}
+
+    def silent(self, **kw):
+        return scan(self.vault, TODAY, paraos_home=self.home, **kw)["flags"]["silent_sources"]
+
+    def test_a_source_quiet_for_longer_than_its_cadence_is_flagged(self):
+        self.declare(self.GRANOLA)
+        self.ledger("data/granola/synced.json", {
+            **self.notes(self.vault, "20260901 Kickoff.md", "20260912 Review.md"),
+            **self.notes(self.root / "other-vault", "20260920 Routed elsewhere.md")})
+        self.assertEqual([(s["source"], s["newest"], s["days"], s["cadence"]) for s in self.silent()],
+                         [("granola", "2026-09-12", 9, "every week")])
+
+    def test_a_source_heard_from_within_its_cadence_is_not_flagged(self):
+        self.declare(self.GRANOLA)
+        self.ledger("data/granola/synced.json", self.notes(self.vault, "20260918 Standup.md"))
+        self.assertEqual(self.silent(), [])
+
+    def test_a_row_with_no_cadence_or_a_source_with_no_ledger_is_not_checked(self):
+        self.declare("| granola | sync-script | `resources/scripts/granola.js` | Meetings. |",
+                     "| pocket | sync-script 🔁 every week | `resources/scripts/pocket.py` | Calls. |")
+        self.ledger("data/granola/synced.json", self.notes(self.vault, "20260101 Old.md"))
+        self.assertEqual(self.silent(), [])
+
+    def test_a_date_later_than_today_never_makes_a_source_current(self):
+        self.declare(self.GRANOLA)
+        self.ledger("data/granola/synced.json",
+                    self.notes(self.vault, "20260901 Real.md", "20261231 Corrupt.md"))
+        self.assertEqual([s["newest"] for s in self.silent()], ["2026-09-01"])
+
+    def test_an_unreadable_ledger_is_flagged_never_passed(self):
+        self.declare(self.GRANOLA)
+        self.ledger("data/granola/synced.json", "{not json")
+        got = self.silent()
+        self.assertEqual([(s["source"], s["newest"], s["error"]) for s in got],
+                         [("granola", None, "unreadable")])
+
+    def test_the_older_cache_copy_of_a_ledger_is_read_too(self):
+        self.declare(self.GRANOLA)
+        self.ledger("data/granola/synced.json", self.notes(self.vault, "20260901 Early.md"))
+        self.ledger("cache/granola/synced.json", self.notes(self.vault, "20260919 Late.md"))
+        self.assertEqual(self.silent(), [])
+
+    def test_a_mailbox_reads_what_ingest_routed_to_this_vault(self):
+        self.declare("| work | connector: google-workspace 🔁 every 2 weeks | "
+                     "`ann@example.com` | Clients. |")
+        self.ledger("cache/ingest/ledger.json", {"by_message_id": {}, "mailboxes": {
+            "ann@example.com": {
+                "t1": {"routed": ["vault"], "seen_date": "2026-09-02T10:00:00+02:00"},
+                "t2": {"routed": ["other-vault"], "seen_date": "2026-09-20T10:00:00+02:00"}}}})
+        self.assertEqual([(s["source"], s["newest"], s["days"]) for s in self.silent()],
+                         [("work", "2026-09-02", 19)])
+
+    def test_an_entity_scope_does_not_check_silence(self):
+        self.declare(self.GRANOLA)
+        self.ledger("data/granola/synced.json", self.notes(self.vault, "20260901 Old.md"))
+        self.assertIsNone(self.silent(entity="acme-website"))
 
 
 if __name__ == "__main__":

@@ -23,7 +23,8 @@ only what the model decides, so the model writes a few hundred bytes instead of 
 
 Strings in the judgment file take `**bold**`, `` `code` `` and `[label](target)` (rendered
 as its label). A flag written as an object names the scan flag it reports in `kind`, plus the
-`file` for a per-file one (`over_threshold`, `stale_files`), and opens on the items behind it.
+`file` for a per-file one (`over_threshold`, `stale_files`) or the `source` for a
+`silent_sources` one, and opens on the items behind it.
 A `now` or `next_action` entry naming a task the scan does not hold, or a flag object naming
 one it did not raise, is an error (exit 2), never a silent drop. The page spec this
 implements is references/dashboard.md.
@@ -271,6 +272,14 @@ def flag_drill(scan, flag):
         lis = "".join(f'<li><span>{html.escape(r["file"])}</span>'
                       f'<span class="meta">{r[unit]} {unit}</span></li>' for r in rows)
         return f'<ol class="drill">{lis}</ol>'
+    if kind == "silent_sources":
+        row = next((r for r in raised.get(kind) or [] if r["source"] == flag.get("source")), None)
+        if not row:
+            raise JudgmentError(f"flag {kind} names {flag.get('source')}, which the scan "
+                                f"did not flag")
+        return (f'<ol class="drill"><li><span>{html.escape(row["ledger"])}</span>'
+                f'<span class="meta">newest {row["newest"] or "unread"} · expected '
+                f'{html.escape(row["cadence"])}</span></li></ol>')
     raise JudgmentError(f"flag kind {kind!r} is not a scan flag")
 
 
@@ -485,6 +494,12 @@ def mechanical_flags(scan):
                             f"grooming via `/para-deep-clean`"
                             + (f", and {len(briefs) - 1} more" if len(briefs) > 1 else ""),
                     "kind": "over_grown_briefs"})
+    for r in raised.get("silent_sources") or []:
+        out.append({"text": f"**{r['source']}: ledger unreadable** - its silence is unknown"
+                    if r.get("error") else
+                    f"**{r['source']}: nothing since {r['newest']}** ({r['days']} days, expected "
+                    f"{r['cadence']}) - check its sign-in and routing",
+                    "kind": "silent_sources", "source": r["source"]})
     return out
 
 

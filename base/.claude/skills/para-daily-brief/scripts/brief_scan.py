@@ -2,11 +2,13 @@
 """The mechanical half of /para-daily-brief, as a script instead of instructions.
 
     py -3 tools/../scripts/brief_scan.py --vault <path> [--today YYYY-MM-DD] [--entity <name>]
+                                         [--paraos-home <dir>]
     python3 scripts/brief_scan.py --vault <path>
 
 Prints one JSON document on stdout: the vault's open tasks with their markers parsed and
 bucketed against a date, the per-entity totals, the health-flag inputs, the ideas lane and
-the triage count. It never writes to the vault and never reads a mailbox.
+the triage count. It never writes to the vault and never reads a mailbox; outside the vault
+it reads only the ledgers of the sources the vault declares, under PARAOS_HOME.
 
 Why a script. references/task-scan.md says "Mechanical: no judgment lives here", and
 everything it describes has exactly one right answer: which folder a name resolves to,
@@ -29,6 +31,7 @@ import argparse
 import email
 import email.policy
 import json
+import os
 import re
 import sys
 from datetime import date
@@ -47,6 +50,9 @@ try:
         open_tasks, read_lines,
         over_grown_briefs, parse_date, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
+    )
+    from paraos_vault import (  # noqa: E402
+        ingest_ledger, paraos_home_dir, same_place, triage_sources,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"brief_scan: {missing}. The shared vault library belongs at "
@@ -391,9 +397,83 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
     return flags
 
 
+NOTE_DATE_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})(?!\d)")
+
+
+def delivered(vault, row, paraos_home):
+    """(ledger, dates of what the source delivered to this vault, error) from the source's
+    own ledger on this machine, or None where it keeps none here.
+
+    A sync script keeps `{id: path of the note it wrote}` at
+    `<PARAOS_HOME>/data/<script name>/synced.json`, an older copy's at `cache/<name>/`, each
+    note named from its item's date; a note is this vault's when it was written under it. A
+    mailbox's own ledger is `/para-ingest`'s, its threads this vault's when routed to the
+    folder's name. `/para-triage`'s seen-ledger is the vault's, not a source's, so a mailbox
+    read without ingest has none."""
+    home = paraos_home_dir(paraos_home)
+    if row["kind"] == "sync-script" and row["path"]:
+        name = Path(row["path"].replace("\\", "/")).stem
+        ledgers = [p for p in (home / "data" / name / "synced.json",
+                               home / "cache" / name / "synced.json") if p.is_file()]
+        if not ledgers:
+            return None
+        mine, places, dates = same_place(vault), {}, []
+        for path in ledgers:
+            try:
+                notes = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(notes, dict):
+                    raise ValueError("not an object")
+            except (OSError, ValueError):
+                return path, [], "unreadable"
+            for note in filter(lambda n: isinstance(n, str), notes.values()):
+                parent = str(Path(note).parent)
+                place = places.setdefault(parent, same_place(parent))
+                m = NOTE_DATE_RE.match(Path(note).name)
+                if m and (place == mine or place.startswith(mine.rstrip(os.sep) + os.sep)):
+                    dates.append(parse_date("-".join(m.groups())))
+        return ledgers[0], dates, None
+    if row["mailbox"]:
+        ledger = ingest_ledger(paraos_home)
+        path = home / "cache" / "ingest" / "ledger.json"
+        if not ledger["exists"]:
+            return None
+        if ledger["load_error"]:
+            return path, [], "unreadable"
+        threads = next((t for box, t in ledger["mailboxes"].items()
+                        if box.lower() == row["mailbox"].lower()), {})
+        name = Path(vault).name
+        return path, [parse_date(str(t.get("seen_date") or t.get("date"))[:10])
+                      for t in threads.values()
+                      if isinstance(t, dict) and name in (t.get("routed") or [])], None
+    return None
+
+
+def silent_sources(vault, today, paraos_home=None):
+    """Every Triage sources row carrying a cadence hint whose newest delivery to this vault
+    is older than one cadence, or whose ledger cannot be read: a source gone silent reads
+    exactly like a quiet month. A date later than today is corrupt and never counts as the
+    newest; a source with no ledger here, or nothing in it for this vault, is not judged."""
+    out = []
+    for row in triage_sources(vault)["rows"]:
+        period = cadence_days(row["cadence"])
+        seen = delivered(vault, row, paraos_home) if period else None
+        if not seen:
+            continue
+        ledger, dates, error = seen
+        newest = max((d for d in dates if d and d <= today), default=None)
+        flag = {"source": re.sub(r"[`*]", "", row["source"]), "cadence": row["cadence"],
+                "ledger": ledger.as_posix(), "newest": iso(newest), "days": None}
+        if error:
+            out.append(dict(flag, error=error))
+        elif newest and (today - newest).days > period:
+            out.append(dict(flag, days=(today - newest).days))
+    out.sort(key=lambda r: -(r["days"] or 10 ** 6))
+    return out
+
+
 # ------------------------------------------------------------------------------- the report
 
-def scan(vault, today, entity=None):
+def scan(vault, today, entity=None, paraos_home=None):
     vault = Path(vault).resolve()
     files = action_files(vault)
     report = {
@@ -441,6 +521,8 @@ def scan(vault, today, entity=None):
         if resolution and resolution["status"] == "resolved" else None
     report["flags"] = health_flags(vault, scoped_tasks, today, dates,
                                    scoped=report["scope"] == "entity", entity_path=entity_path)
+    report["flags"]["silent_sources"] = None if report["scope"] == "entity" \
+        else silent_sources(vault, today, paraos_home)
     if report["scope"] == "vault":
         report["ideas"] = ideas_lane(vault, today)
         for idea in report["ideas"]:  # an idea holds no actions.md: its work lives elsewhere
@@ -459,6 +541,7 @@ def main(argv=None):
     ap.add_argument("--today", help="date to bucket against (default: the system date)")
     ap.add_argument("--entity", help="scope to one project or area")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
+    ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     args = ap.parse_args(argv)
 
     # A Windows console and a Windows pipe both default to a codepage that cannot encode a
@@ -475,7 +558,7 @@ def main(argv=None):
     if not root.is_dir():
         ap.error(f"no such vault: {root}")
 
-    report = scan(root, today, args.entity)
+    report = scan(root, today, args.entity, args.paraos_home)
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     return 0
