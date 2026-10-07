@@ -32,7 +32,8 @@ from paraos_vault import (
     git_untracked, hashes, header_fields,
     inbound_references, ingest_ledger, ingest_logs, integration_markers,
     contact_card_level, headline, lifecycles, live_lines, log_instant, main,
-    master_template, misplaced_checkboxes, next_occurrence, open_items,
+    master_template, misplaced_checkboxes, next_occurrence, open_items, waiting_on,
+    cap_count,
     match_encoding, move_plan, norm, normalised, note_name_parts, notice_date, open_tasks,
     over_grown_briefs,
     parse_markers, register_rows, registered_vault, registry,
@@ -823,6 +824,19 @@ class EntityState(VaultCase):
 
 
 class EndOfWork(VaultCase):
+
+    def test_a_wait_reads_its_person_what_and_since(self):
+        self.assertEqual(
+            waiting_on("Waiting on [Ann Smet](../network/ann-smet.md): the signed copy "
+                       "(since 2026-09-01)"),
+            {"person": "Ann Smet", "what": "the signed copy", "since": "2026-09-01"})
+        self.assertEqual(waiting_on("**Waiting on** Jan: the export")["since"], None)
+        self.assertIsNone(waiting_on("Chase Jan about the export"))
+
+    def test_a_wait_does_not_count_toward_the_cap(self):
+        tasks = [{"text": "Send the deck"},
+                 {"text": "Waiting on Jan: the export (since 2026-09-01)"}]
+        self.assertEqual(cap_count(tasks), 1)
 
     def test_open_items_are_gathered_per_entity_a_file_belongs_to(self):
         write(self.root, "projects/acme/actions.md",

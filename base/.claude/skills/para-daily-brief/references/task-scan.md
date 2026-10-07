@@ -112,6 +112,7 @@ Let `T` be today. Let `D` be the task's effective date: its `📅` if present, e
 | ⚪ Later | has `D` AND `D > T+30` |
 | 🔁 Recurring | has `🔁` - classify here regardless of `D` |
 | ⏳ Waiting | has `🛫` AND `🛫 > T` |
+| Waiting on others | text opens on `Waiting on` and has no `D`; its age is T less its `(since YYYY-MM-DD)` |
 | ❓ Undated | no `D`, no `🔁`, no *future* `🛫` |
 
 A **past `🛫`** (start-gate already open) is not "waiting": ignore it and bucket by `D`, else Undated. Only a *future* `🛫` routes to Waiting. **Precedence:** Recurring > Waiting > date-based, except that a recurring item whose `D` is past or today **also** appears in 🔴 or 🟠 tagged `🔁`, in every scope rather than only in `overdue`. It is still counted once, under Recurring.

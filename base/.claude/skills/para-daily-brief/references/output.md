@@ -25,7 +25,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 ## 🎯 Now (5 of N)
 1. 🔺 <task text> - [<scope>:<line>](<relative/path>#L<line>) · 📅 <date> (<Nd> ago)
 2. ...
-**Later:** N this week · N next 30 days · N later · N recurring · N waiting · N undated
+**Later:** N this week · N next 30 days · N later · N recurring · N waiting · N waiting on others (oldest N days) · N undated
 
 ## 🚩 Health flags
 - <flag lines>

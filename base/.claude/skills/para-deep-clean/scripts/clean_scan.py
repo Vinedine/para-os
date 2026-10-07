@@ -48,7 +48,7 @@ try:
     from paraos_vault import (  # noqa: E402
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
         FROZEN_MARKER_RE, STALE_UNDATED_DAYS, TASK_RE,
-        LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, clone_ref, contact_names,
+        LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, clone_ref, contact_names,
         dangling_links, duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
         iso, lifecycles, link_files, link_spans, live_lines, master_template,
@@ -718,7 +718,8 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
 # ----------------------------------------------------------------------------------- phase 3
 
 def over_threshold_from(files, vault):
-    out = [{"file": f.relative_to(vault).as_posix(), "open": len(open_tasks(f))} for f in files]
+    out = [{"file": f.relative_to(vault).as_posix(), "open": cap_count(open_tasks(f))}
+           for f in files]
     out = [r for r in out if r["open"] > OPEN_ITEM_CAP]
     return sorted(out, key=lambda r: -r["open"])
 

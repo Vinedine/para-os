@@ -183,6 +183,24 @@ class HealthFlags(VaultCase):
         self.assertEqual(scan(self.root, TODAY)["flags"]["over_threshold"],
                          [{"file": "projects/busy/actions.md", "open": OPEN_ITEM_CAP + 1}])
 
+    def test_a_wait_of_twenty_days_is_flagged_and_one_of_three_is_only_listed(self):
+        write(self.root, "projects/acme/actions.md", "# acme\n\n"
+              "- [ ] Waiting on [Ann Smet](../../areas/network/ann-smet.md): the signed copy "
+              "(since 2026-09-01)\n"
+              "- [ ] Waiting on Jan: the export (since 2026-09-18)\n")
+        got = scan(self.root, TODAY)
+        self.assertEqual(sorted(e["line"] for e in got["lanes"]["waiting_on"]), [3, 4])
+        self.assertEqual(got["flags"]["waiting_too_long"],
+                         [{"file": "projects/acme/actions.md", "line": 3, "person": "Ann Smet",
+                           "what": "the signed copy", "days": 20}])
+        self.assertNotIn("undated", got["lanes"])
+
+    def test_waits_stay_out_of_the_cap(self):
+        items = "\n".join(f"- [ ] Item {n}" for n in range(OPEN_ITEM_CAP))
+        waits = "\n".join(f"- [ ] Waiting on Jan: part {n} (since 2026-09-20)" for n in range(3))
+        write(self.root, "projects/busy/actions.md", f"# busy\n\n{items}\n{waits}\n")
+        self.assertEqual(scan(self.root, TODAY)["flags"]["over_threshold"], [])
+
     def test_a_file_at_the_cap_stays_quiet(self):
         items = "\n".join(f"- [ ] Item {n}" for n in range(OPEN_ITEM_CAP))
         write(self.root, "projects/busy/actions.md", f"# busy\n\n{items}\n")
