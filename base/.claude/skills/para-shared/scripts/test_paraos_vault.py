@@ -359,6 +359,9 @@ def git_init(root):
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
+    # No auto maintenance: its detached run writes into .git while a test reads or deletes it.
+    subprocess.run(["git", "config", "gc.auto", "0"], cwd=root, check=True)
+    subprocess.run(["git", "config", "maintenance.auto", "false"], cwd=root, check=True)
 
 
 def git_commit_at(root, date_str, message="commit"):
@@ -728,6 +731,8 @@ class FileDates(VaultCase):
         run("init", "-q")
         run("config", "user.email", "t@example.com")
         run("config", "user.name", "t")
+        run("config", "gc.auto", "0")
+        run("config", "maintenance.auto", "false")
         for n in range(3):
             write(self.root, f"projects/x/{n}.md", "# x\n")
         run("add", "-A")
@@ -2607,8 +2612,10 @@ class Declarations(VaultCase):
 
 def fixture_git(root, *args):
     # No global excludes: a maintainer ignoring .claude/ would drop fixture files silently.
+    # No auto maintenance: its detached run writes into .git while a test reads or deletes it.
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-                    "-c", "core.autocrlf=false", "-c", "core.excludesFile=", *args],
+                    "-c", "core.autocrlf=false", "-c", "core.excludesFile=",
+                    "-c", "gc.auto=0", "-c", "maintenance.auto=false", *args],
                    cwd=root, check=True, capture_output=True)
 
 

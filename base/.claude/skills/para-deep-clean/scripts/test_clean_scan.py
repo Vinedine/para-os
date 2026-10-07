@@ -53,6 +53,9 @@ def git_init(root):
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "Test"], cwd=root, check=True)
+    # No auto maintenance: its detached run writes into .git while a test reads or deletes it.
+    subprocess.run(["git", "config", "gc.auto", "0"], cwd=root, check=True)
+    subprocess.run(["git", "config", "maintenance.auto", "false"], cwd=root, check=True)
 
 
 def git_commit_at(root, date_str, message="commit"):

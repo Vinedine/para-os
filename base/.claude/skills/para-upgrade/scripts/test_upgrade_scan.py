@@ -74,8 +74,10 @@ def write_at(path, text):
 
 def fixture_git(root, *args):
     # No global excludes: a maintainer ignoring .claude/ would drop fixture files silently.
+    # No auto maintenance: its detached run writes into .git while a test reads or deletes it.
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-                    "-c", "core.autocrlf=false", "-c", "core.excludesFile=", *args],
+                    "-c", "core.autocrlf=false", "-c", "core.excludesFile=",
+                    "-c", "gc.auto=0", "-c", "maintenance.auto=false", *args],
                    cwd=root, check=True, capture_output=True)
 
 
@@ -177,6 +179,9 @@ def build_clone(root, bare_dir):
 
     subprocess.run(["git", "init", "-q", "--bare", str(bare_dir)], check=True,
                    capture_output=True)
+    # The push runs maintenance inside the bare repository, where fixture_git's -c never reaches.
+    fixture_git(bare_dir, "config", "gc.auto", "0")
+    fixture_git(bare_dir, "config", "maintenance.auto", "false")
     fixture_git(root, "remote", "add", "origin", str(bare_dir))
     fixture_git(root, "push", "-q", "origin", "main", "main:stable")
     fixture_git(root, "fetch", "-q", "origin")
