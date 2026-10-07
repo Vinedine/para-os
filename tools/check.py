@@ -93,6 +93,7 @@ import shutil
 import subprocess
 import sys
 import tokenize
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]   # repo root; this file lives in tools/
@@ -657,19 +658,28 @@ def check_tests():
         if not any(p.parent == d for p in suites):
             bad(f"{rel(d)}/ ships no test suite")
 
-    for p in suites:
-        cmd = RUNNERS[p.suffix](p)
+    def run_suite(p):
         try:
             # utf-8 explicitly: test names and output carry characters a cp1252 console
             # default cannot decode, and a UnicodeDecodeError here would read as a test failure.
-            returncode, combined = run_captured(cmd, timeout=300)
-        except FileNotFoundError:
-            bad(f"{rel(p)}: cannot run, `{cmd[0]}` is not on PATH. A suite that could not "
-                f"run has not passed.")
+            return run_captured(RUNNERS[p.suffix](p), timeout=300)
+        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+            return e
+
+    # The suites share nothing but the machine, and the slow ones spend their time waiting on
+    # the git processes they start, so they run side by side. Results report in suite order.
+    with ThreadPoolExecutor(max_workers=max(2, os.cpu_count() or 2)) as pool:
+        results = list(pool.map(run_suite, suites))
+
+    for p, result in zip(suites, results):
+        if isinstance(result, FileNotFoundError):
+            bad(f"{rel(p)}: cannot run, `{RUNNERS[p.suffix](p)[0]}` is not on PATH. A suite "
+                f"that could not run has not passed.")
             continue
-        except subprocess.TimeoutExpired:
+        if isinstance(result, subprocess.TimeoutExpired):
             bad(f"{rel(p)}: timed out after 300s")
             continue
+        returncode, combined = result
 
         count = next((int(m.group(1)) for m in (c.search(combined) for c in COUNTS) if m), None)
         if returncode != 0:
