@@ -203,10 +203,11 @@ def next_step_for_folder(vault, today, doc, fields, other_files):
 
 # A date the wording attaches to a register row's step, ranked: a 📅 marker, `by` before it,
 # `on` before it, the date closing the cell. The highest-ranked match wins wherever it sits.
-# A date anywhere else in the prose is not the due date.
+# A date anywhere else in the prose is not the due date. `by` and `on` may carry a weekday.
+WEEKDAY = r"(?:(?:mon|tues?|wed(?:s|nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)?\.?,?\s+)?"
 STEP_DATE_RES = [re.compile(p, re.IGNORECASE) for p in (
-    r"📅️?\s*(\d{4}-\d{2}-\d{2})", r"\bby\s+(\d{4}-\d{2}-\d{2})",
-    r"\bon\s+(\d{4}-\d{2}-\d{2})", r"(\d{4}-\d{2}-\d{2})\W*$")]
+    r"📅️?\s*(\d{4}-\d{2}-\d{2})", r"\bby\s+" + WEEKDAY + r"(\d{4}-\d{2}-\d{2})",
+    r"\bon\s+" + WEEKDAY + r"(\d{4}-\d{2}-\d{2})", r"(\d{4}-\d{2}-\d{2})\W*$")]
 
 
 def step_date(text):

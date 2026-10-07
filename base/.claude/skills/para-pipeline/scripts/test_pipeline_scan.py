@@ -499,6 +499,18 @@ class NextStep(VaultCase):
             with self.subTest(cell=cell):
                 self.assertEqual(self.row_entity(cell)["next_step"]["date"], due)
 
+    def test_a_weekday_between_by_or_on_and_the_date_still_attaches_it(self):
+        # Issue #301: "by Tuesday <date>" missed `by`, so an incidental `on` date won.
+        for cell, due in (
+                ("Wait for their answer to the demo offer; one short nudge if no answer by "
+                 "Tuesday 2026-10-13. The office moved, per a web search on 2026-10-05",
+                 "2026-10-13"),
+                ("Send the notes by Tues. 2026-10-13, after the call on 2026-10-05", "2026-10-13"),
+                ("Call on Fri, 2026-10-09 about the quote", "2026-10-09"),
+                ("Visit on wednesday 2026-10-14, then the deck", "2026-10-14")):
+            with self.subTest(cell=cell):
+                self.assertEqual(self.row_entity(cell)["next_step"]["date"], due)
+
     def test_a_no_step_wording_is_no_next_step(self):
         # Issue #34, finding 2: "None planned" suppressed the no_next_step flag.
         for cell in ("None planned: raised at the partners meeting on 2026-09-10", "none planned",
