@@ -234,8 +234,9 @@ stops before the first model call, so a new case can be checked for shape at no 
 
 ## The install cases
 
-The `install-*` cases read the kit as this checkout has it. `_fixture/kit/` holds symlinks
-to the repo's `INSTALL.md` and `base/`, and `tools/eval.py`'s copy of this folder follows
+The `install-*` cases read the kit as this checkout has it, and so do the real-estate cases
+through `_fixture/property.sh`. `_fixture/kit/` holds symlinks to the repo's `INSTALL.md`,
+`base/` and `addons/real-estate/`, and `tools/eval.py`'s copy of this folder follows
 them into real files, so a case tests the text under review rather than a copy of it that
 drifts. A checkout made with symlinks off, Git for Windows' default, holds a one-line text
 file there instead, and these cases stop at setup saying so: turn on git's `core.symlinks`

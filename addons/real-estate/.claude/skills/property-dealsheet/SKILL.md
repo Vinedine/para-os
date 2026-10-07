@@ -1,6 +1,6 @@
 ---
 name: property-dealsheet
-description: Convert one property's decision-ready dossier into the designed deal sheet, an HTML file beside it. Pure derivation - reads only the dossier, fills the vault's deal-sheet template, embeds images. It gathers no new information; a missing fact stops it and points to /property-underwrite or /property-reconcile. Covers acquisitions and held properties, with a per-unit table for a building sold unit by unit. Use when asked to build or refresh a deal sheet, or on /property-dealsheet <property>.
+description: Convert one property's decision-ready dossier into the designed deal sheet, an HTML file beside it. Pure rendering - reads only the dossier, fills the vault's deal-sheet template, embeds images. It gathers no new information and computes no figure; a missing fact or figure stops it and points to /property-underwrite or /property-reconcile. Covers acquisitions and held properties, with a per-unit table for a building sold unit by unit. Use when asked to build or refresh a deal sheet, or on /property-dealsheet <property>.
 allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion, TodoWrite
 argument-hint: '<property-name> [--test]'
 ---
@@ -39,7 +39,7 @@ Track the phases in the harness's task list where it offers one, else in a short
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **The dossier is the only fact source.** Every number, date, name and the verdict come from it. No email, no web, no analyst pass, no source document read for facts: a need the dossier cannot meet is a gate, never a research task.
+- **The dossier is the only fact source.** Every number, date, name and the verdict come from it, each figure as the dossier writes it. No email, no web, no analyst pass, no source document read for facts, no figure worked out here: a need the dossier cannot meet is a gate, never a research task or a calculation.
 - **Copy-fill the template, never an existing sheet**, and never hand-patch a number into a built sheet: rebuild it.
 - **Honesty.** Every estimate the dossier flags stays flagged in the Assumptions block; never soften an open item.
 - **The sheet's language is the dossier's**, the template's own labels included.

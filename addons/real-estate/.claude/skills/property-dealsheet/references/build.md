@@ -8,6 +8,7 @@ The dossier must carry:
 - **A verdict** backed by underwriting numbers (yield or margin, and the scenarios; while a permit is undecided, the scenarios are its outcomes)
 - **A rent roll or a renovation scope**, per the stage variant
 - **Key facts**: parcel or title identifier with the building and unit count, the parties (agent, seller, whoever executes the deed), financing (while Prospecting, the funding route wherever the dossier states it: a prospect carries no financing section yet), and the energy rating
+- **Every figure the sheet prints**, written in the dossier: the cost basis and each of its lines, each scenario's margin or yields, the per-unit amounts. One the sheet would have to work out from others is missing, however easily the dossier's numbers give it, and so is a total whose parts, summed by running code, do not equal it, as `property-dossier.md`'s Derived figures says
 - **An open-items list**
 - **Per-unit area and price**, and the costs of dividing the building, where the dossier prices the property per unit
 
@@ -20,7 +21,7 @@ A field the dossier marks `_n/a_` with its reason passes (a private sale has no 
 Follow the template's header comment: copy-fill, the stage variant, cost lines, pagination. Then:
 
 1. **Where it goes**: `<property folder>/<property>-dealsheet.html`, beside the dossier. A rebuild replaces it.
-2. **A building sold unit by unit** gets the template's per-unit table, and the costs of dividing it (legal division, surveys, per-unit certificates and inspections, meters) go into the cost basis.
+2. **A building sold unit by unit** gets the template's per-unit table, and its cost basis shows the costs of dividing it (legal division, surveys, per-unit certificates and inspections, meters) as the dossier's own lines.
 3. **Images**, as data URIs, no external reference:
    - **Plan image**: where the register names a plan renderer, run it from the vault root with the dossier's parcel identifier. Without one, use the facade or a site photo in that slot, or drop the image column.
    - **Facade photo**: reuse the previous sheet's when unchanged; otherwise take it from `sources/photos/` or a `sources/` PDF. With none, follow the template's no-photo instruction.

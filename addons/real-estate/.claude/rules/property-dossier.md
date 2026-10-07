@@ -56,6 +56,10 @@ One document per property. From Acquiring on it carries the sixteen sections bel
 - **Sold** (`archive/properties/`) - the shape it had, plus a financing line saying how the credit closed.
 - **Dropped** (`archive/researched-deals/`) - opens on five sections: H1 with a `(skipped)`, `(researched, not pursued)` or `(collapsed)` marker, its header carrying `**Dropped reason:** <reason>, <one free clause>` directly under `Stage`; one intro paragraph on the property and how far the research went; `## Status` (a table: address, type, asking price, source channel, stage when stopped); `## Source documents` (or `_None._`); `## Reason for skipping`, the full account the reason line summarises. Every other section it carried follows unchanged.
 
+## Derived figures
+
+A figure worked out from others (a total, a yield, a cover ratio, a margin, a per-unit amount, a bid level) is computed by running code, never by mental arithmetic, and written with its inputs beside it, each one a figure this dossier, the source register or the analyst persona states: `gross yield 6.2 % = 18,600 rent / 300,000 price`. A figure explained by its parts has parts that sum to it. A deal sheet prints the dossier's figures and derives none.
+
 ## Placeholders
 
 A section that does not apply gets `_n/a_` with a short reason (`_n/a_ - owner-occupied._`, `_n/a_ - unencumbered._`), never a bare `_n/a_` and never an omitted heading. A figure not yet known is marked in words inside its table (`_to confirm_`, `_pending_`, `_not yet computable_`), never left blank. A closed dossier says so in full: `_Fully closed (sold <date>); the flags below are historical, no action outstanding._`
