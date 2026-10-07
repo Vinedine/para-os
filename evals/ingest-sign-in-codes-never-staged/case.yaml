@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: ingest-sign-in-codes-never-staged
+tags: [ingest, shell]
+context:
+  scaffold_script: setup.sh

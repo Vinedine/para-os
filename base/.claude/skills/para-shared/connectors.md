@@ -50,3 +50,7 @@ This file is the **fetch protocol**, shared by every skill that reads a mailbox 
    Say in the report whenever rung 3 was used, because that is the rung where cross-mailbox dedup is off.
 
 **Where this ends.** Step 6 hands back a deduped candidate set with a true message list, each thread flagged new or resurfaced. Neither the query frame nor the dedup decides whether a thread matters - that is the caller's, and the two callers ask different questions of the same set: `/para-triage` asks what to *do* about a thread, `/para-ingest` asks only which vault it belongs to.
+
+## Sign-in and security codes
+
+A message whose content is authentication material (a one-time or verification code, a sign-in or magic link, a password-reset or recovery link, a token) is **Dismiss (noise)** for every caller, and `/para-ingest` leaves it unrouted: never staged, noted or filed. Its subject, snippet and link appear nowhere a run writes or shows: no filename, manifest line, summary, run log, dashboard, and no ledger `subject` or `reason`, which read `sign-in or security code`. Report them as one count per mailbox, `sign-in and security codes: 3`, and point an operator who asks for one to the mailbox.

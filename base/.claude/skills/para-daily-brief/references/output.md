@@ -36,6 +36,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 
 ## 📥 Triage (N to process)
 - [<filename>](triage/<filename>)
+- sign-in and security codes: N
 
 ---
 **Next action:** <exactly one concrete step - see below>
@@ -44,6 +45,8 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 **The Later line's `this week` counts every 🔴, 🟠 and 🟡 item not in Now**, so an overdue or due-today item the cap leaves out lands there. When Now is empty, the line renders alone, with no `🎯 Now` heading.
 
 **The lifecycle line follows Totals**, one per declared lifecycle, stages in the table's own order and omitted where the vault declares none.
+
+**A triage item the scan's `triage_preview` marks `auth` is never listed**: it is counted on the codes line, which is omitted at zero ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 
 The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block. Bar rows: width 10, the row's `bar` (10 x open / max open, rounded half-up) filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append the full bucket sections (🔴 🟠 🟡 🔵 ⚪ 🔁 ⏳ ❓, each a complete list in the Now line format) after Health flags.
 

@@ -67,6 +67,14 @@ REVISIT_RE = re.compile(r"\brevisit when\b", re.IGNORECASE)
 SENDER_RE = re.compile(r"^(?:[-*]\s+)?\**from\**:\**\s+(.+)$", re.IGNORECASE)
 NOTE_FIELD_RE = re.compile(r"^(?:[-*]\s+\**[A-Za-z][\w ]{0,30}\**:|\*\*[A-Za-z][\w ]{0,30}:\*\*)")
 BOLD_LINE_RE = re.compile(r"^\*\*[^*]+\*\*:?$")  # a bold line on its own is a heading
+# Authentication material, which the dashboard counts and never names (para-shared/
+# connectors.md). A backstop for an item that reached triage/ by hand: English phrasings only,
+# and a booking or order confirmation code is deliberately not one.
+AUTH_RE = re.compile(
+    r"\b(?:verification|security|one[- ]time|sign[- ]?in|log[- ]?in|authentication|2fa|mfa)"
+    r"[- ](?:code|link|pin|passcode)s?\b|\bmagic[- ]link\b|\bone[- ]time pass(?:word|code)\b"
+    r"|\b(?:reset|recover)\b[^.\n]{0,30}\bpassword\b|\bpassword\b[^.\n]{0,30}\b(?:reset|recovery)\b",
+    re.IGNORECASE)
 PREVIEW_BYTES = 64 * 1024  # a triage item's head: enough for headers and a first paragraph
 PREVIEW_CHARS = 240
 UNDATED_MAJORITY_MIN = 8  # below this, a new vault's bootstrap actions are not a backlog
@@ -244,9 +252,13 @@ def revisit_sentence(brief):
 def triage_preview(vault, names):
     """Who sent each triage item and its first prose lines, read from the file's head: an
     .eml's headers and plain-text body, a note's `From:` field and first paragraph. A PDF
-    reads through its extracted markdown twin; any other format has no preview."""
+    reads through its extracted markdown twin; any other format has no preview. An item
+    holding a sign-in or security code is `{"auth": True}` and nothing else."""
     out = {}
     for name in names:
+        if AUTH_RE.search(name):
+            out[name] = {"auth": True}
+            continue
         path = Path(vault) / "triage" / name
         twin = path.with_suffix(".md")
         if path.suffix.lower() == ".pdf" and twin.is_file():
@@ -268,6 +280,9 @@ def triage_preview(vault, names):
         except (OSError, LookupError, ValueError):
             continue
         excerpt = " ".join((text or "").split())
+        if AUTH_RE.search(f"{subject or ''} {excerpt}"):
+            out[name] = {"auth": True}
+            continue
         if len(excerpt) > PREVIEW_CHARS:
             excerpt = excerpt[:PREVIEW_CHARS].rsplit(" ", 1)[0] + "…"
         row = {k: str(v).strip() for k, v in
