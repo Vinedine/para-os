@@ -12,7 +12,7 @@ Find the vault's declared shape for entity READMEs and briefs, per [A vault's ru
 
 **Where one exists, audit against it and add nothing.** Propose extending it where it lives if it is genuinely incomplete.
 
-**Where none exists**, draft a shape file from what the existing READMEs already share, per the rule-file contract in the vault's `CLAUDE.md` `## Do not add`, and propose adding it with its pointer.
+**Where none exists**, draft a shape file from what the existing READMEs already share, per [para-shared/rule-files.md](../../para-shared/rule-files.md), and propose adding it with its pointer.
 
 **Order is the vault's call, not this skill's.** A declared shape may fix its section order as a contract, or may say order varies by entity and is not enforced. Audit against whichever it does, and **never report a vault as non-conforming for an order it deliberately declined to fix**. A structure this skill drafts specifies that sections which don't apply get explicit `_n/a_` lines and includes the domain-specific sections the vault's purpose needs; whether it also fixes an order is a question for the operator.
 

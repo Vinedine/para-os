@@ -855,7 +855,7 @@ def vault_roots_with_rules():
     """Every CLAUDE.md, or CLAUDE.md.template, paired with the `.claude/rules/` it points into.
 
     `.claude/rules/` is where a vault's own CLAUDE.md extraction sends procedure
-    (base/CLAUDE.md.template `## Do not add`): a rule file, and a one-line pointer left
+    (base/.claude/skills/para-shared/rule-files.md): a rule file, and a one-line pointer left
     behind in CLAUDE.md. Walked rather than hardcoded, so a second example that grows a
     rules/ folder is picked up with no edit here.
 
