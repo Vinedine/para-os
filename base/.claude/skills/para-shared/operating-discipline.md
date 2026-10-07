@@ -60,7 +60,7 @@ The safety discipline **every file-mutating skill** follows. A read-only skill d
 ## A vault's rule files
 
 - **Check `.claude/rules/` before concluding anything from `CLAUDE.md`'s body.** A pointer line in `CLAUDE.md` ("The full shape is in ...") is the declaration: follow the file it names as if it were inline. With no rule file for it, find the inline section by what it says, never by its heading.
-- **Pick a shape file by kind, never by which paths it covers.** The contract in the vault's `CLAUDE.md` `## Do not add` tells a shape file from a convention file. A convention file loads on the same documents but governs what goes into them, never their structure, so a vault whose only matching rule file is a convention has declared no shape.
+- **Pick a shape file by kind, never by which paths it covers.** [rule-files.md](rule-files.md) tells a shape file from a convention file. A convention file loads on the same documents but governs what goes into them, never their structure, so a vault whose only matching rule file is a convention has declared no shape.
 - **Read every shape file whose `paths:` match**, whatever is already in context. Between two, the topic file governs the documents its `paths:` name, narrowed to the kind of entity it states where those paths also match others, and the floor file (`brief-structure.md`, `readme-structure.md`) the rest.
 - **Judge a filename against the whole of `.claude/rules/filing.md`**, not its default alone: a folder's established variant, a period attestation named by the period it covers, and a machine export's own name all conform.
 
