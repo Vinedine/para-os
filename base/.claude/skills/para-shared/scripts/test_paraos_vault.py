@@ -31,8 +31,8 @@ from paraos_vault import (
     find_clone, first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
     git_untracked, hashes, header_fields,
     inbound_references, ingest_ledger, ingest_logs, integration_markers,
-    contact_card_level, lifecycles, live_lines, log_instant, main, master_template,
-    misplaced_checkboxes,
+    contact_card_level, headline, lifecycles, live_lines, log_instant, main,
+    master_template, misplaced_checkboxes, next_occurrence, open_items,
     match_encoding, move_plan, norm, normalised, note_name_parts, notice_date, open_tasks,
     over_grown_briefs,
     parse_markers, register_rows, registered_vault, registry,
@@ -822,6 +822,47 @@ class EntityState(VaultCase):
         self.assertEqual(stage_line(path), "An installer who wants a rebuild.")
 
 
+class EndOfWork(VaultCase):
+
+    def test_open_items_are_gathered_per_entity_a_file_belongs_to(self):
+        write(self.root, "projects/acme/actions.md",
+              "# a\n\n- [ ] Send the deck 📅 2026-10-09\n- [x] Call ✅ 2026-10-01\n\n"
+              "## Backlog\n\n- Rebuild the site, once the host replies\n")
+        write(self.root, "projects/acme/sources/20261007 Call.md", "# Call\n")
+        write(self.root, "areas/network/ann-smet.md", "# Ann\n\n## Next actions\n\n- [ ] Thank Ann\n")
+        write(self.root, "resources/playbook.md", "# p\n")
+        got = open_items(self.root, [self.root / "projects/acme/sources/20261007 Call.md",
+                                     self.root / "areas/network/ann-smet.md",
+                                     self.root / "resources/playbook.md"])
+        self.assertEqual([g["entity"] for g in got],
+                         ["areas/network/ann-smet.md", "projects/acme"])
+        acme = got[1]
+        self.assertEqual([t["text"] for t in acme["open"]], ["Send the deck"])
+        self.assertEqual(acme["backlog"], [{"line": 8,
+                                            "text": "Rebuild the site, once the host replies"}])
+
+    def test_a_ticked_recurring_item_rolls_one_cadence_from_its_due_date(self):
+        got = next_occurrence("- [ ] Pay rent 🔁 every month 📅 2026-10-01", date(2026, 10, 7))
+        self.assertEqual(got["closed"], "- [x] Pay rent 🔁 every month 📅 2026-10-01 ✅ 2026-10-07")
+        self.assertEqual(got["next"], "- [ ] Pay rent 🔁 every month 📅 2026-11-01")
+
+    def test_when_done_or_no_due_date_counts_from_today(self):
+        for line in ("- [ ] Water 🔁 every 2 weeks when done 📅 2026-09-01",
+                     "- [ ] Water 🔁 every 2 weeks"):
+            self.assertEqual(next_occurrence(line, date(2026, 10, 7))["due"], "2026-10-21", line)
+
+    def test_a_cadence_that_cannot_be_counted_is_refused(self):
+        with self.assertRaises(ValueError):
+            next_occurrence("- [ ] Review 🔁 every weekday 📅 2026-10-07", date(2026, 10, 7))
+        with self.assertRaises(ValueError):
+            next_occurrence("- [ ] Not recurring 📅 2026-10-07", date(2026, 10, 7))
+
+    def test_the_headline_is_the_bold_lead_or_the_whole_text(self):
+        self.assertEqual(headline("**Send the deck** with the figures"), "Send the deck")
+        self.assertEqual(headline("Send the deck with the figures"),
+                         "Send the deck with the figures")
+
+
 class Hygiene(VaultCase):
 
     def test_open_checkboxes_are_counted_where_they_are_forbidden(self):
@@ -917,6 +958,14 @@ class Hygiene(VaultCase):
             got = misplaced_checkboxes(self.root, with_closed=True)
             self.assertNotIn("areas/network", got)
             self.assertEqual(got["closed"], {})
+
+    def test_a_folder_the_table_declares_never_is_checked_like_resources(self):
+        write(self.root, "CLAUDE.md", "# V\n\n### Where a checkbox may live\n\n"
+              "| Bucket | `actions.md` | State |\n|---|---|---|\n"
+              "| `areas/tickets/` | **never** | the tracker holds this work |\n")
+        write(self.root, "areas/tickets/actions.md", "# t\n\n- [ ] Re-created by hand\n")
+        self.assertEqual(misplaced_checkboxes(self.root)["areas/tickets"],
+                         [{"file": "areas/tickets/actions.md", "open": 1}])
 
     def test_no_triage_folder_is_no_items(self):
         self.assertEqual(triage_items(self.root), [])

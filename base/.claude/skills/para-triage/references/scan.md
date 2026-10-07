@@ -27,7 +27,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `items.same_thread` | `{key: [names]}` for every thread hash or `Conversation id` two or more notes share, keyed by the conversation id where one joins them |
 | `seen_ledger` | `path`, `exists`, `entries`, `legacy`, `load_error` |
 | `threads` | Only with `--threads`: per fetched thread, `thread_id`, `thread_hash`, `staged_notes`, `ledger`, `watermark` |
-| `over_threshold` | `{file, open}` for every action file at `WIP_THRESHOLD` (12) or more open items |
+| `over_threshold` | `{file, open}` for every action file at the cap, `OPEN_ITEM_CAP` (8), or past it |
 | `snapshot`, `snapshot_folders` | Every file in `triage/` and the folder itself, read back by `paraos_vault.py changed <saved_to>` before each delete or move ([execute.md](execute.md)) |
 | `saved_to`, `save_error` | Where the scan kept its own copy of this output, under `$PARAOS_HOME/data/scans/` and never inside the vault (copies older than a week are pruned); or null, and why |
 
