@@ -12,9 +12,9 @@ paths:
 
 ## The shape
 
-Two shapes recur, grounded in the three briefs this vault holds.
+Two shapes recur, grounded in the four briefs this vault holds.
 
-**Workstream briefs** (`projects/cashless-stadium-rollout/brief.md`, `projects/ticketing-platform-replacement/brief.md`) agree, heading for heading, on a fixed core: a title, one mission paragraph with no heading of its own, then `## Why now`, `## Scope` (an `In:` / `Out:` pair of lists), `## Stakeholders`, `## Deadline`, and `## Status` last. Between `## Deadline` and `## Status`, a workstream adds whichever of `## Vendor` (once one is under contract) and `## Risks (live)` (once a live risk exists) apply to it - both present in `cashless-stadium-rollout`, both absent from `ticketing-platform-replacement` because it has signed neither a vendor nor logged a live risk yet. Their absence there is not a gap to fill; add either section only once the fact it would hold actually exists.
+**Workstream briefs** (`projects/cashless-stadium-rollout/brief.md`, `projects/ticketing-platform-replacement/brief.md`, and the archived `archive/projects/programme-discovery/brief.md`) agree, heading for heading, on a fixed core: a title, one mission paragraph with no heading of its own, then `## Why now`, `## Scope` (an `In:` / `Out:` pair of lists), `## Stakeholders`, `## Deadline`, and `## Status` last. Between `## Deadline` and `## Status`, a workstream adds whichever of `## Vendor` (once one is under contract) and `## Risks (live)` (once a live risk exists) apply to it - both present in `cashless-stadium-rollout`, both absent from `ticketing-platform-replacement` because it has signed neither a vendor nor logged a live risk yet. Their absence there is not a gap to fill; add either section only once the fact it would hold actually exists.
 
 **Idea briefs** (`resources/ideas/fan-app-rebuild/brief.md`) open with a `**Stage:**` line directly under the title, then a blockquoted one- or two-line context note (why it's parked, what it depends on, when to revisit), then the concept paragraph, `## Why now`, `## Possible scope`, `## Open questions`, `## Dependencies`, and `## Stakeholders (provisional)`. The closing line states the revisit trigger as prose, not a `📅` - nothing here is a committed date yet.
 

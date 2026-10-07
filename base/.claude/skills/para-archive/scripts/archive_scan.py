@@ -219,7 +219,9 @@ def lifecycle_block(vault, doc, dest, folder_name):
     """None unless the entity's own Stage line names a stage of a lifecycle the vault
     declares. Otherwise: the lifecycle, every terminal stage with its home made concrete
     for this entity, which terminal stage (if any) the destination matches, whether the
-    Stage line already names it, and the reason-gate's raw material for that stage."""
+    Stage line already names it, the reason-gate's raw material for that stage, and `won`:
+    the Stage line names the promoting stage (the first in table order whose home sits
+    under `projects/`, /para-pipeline's rule) or the record carries a dated `Won` line."""
     info = stage_of(doc) if doc else None
     if info is None:
         return None
@@ -260,12 +262,18 @@ def lifecycle_block(vault, doc, dest, folder_name):
         reason = {"field": field_name, "raw": raw, "key": key,
                    "allowed": reason_allowed(vault, destination_matches)}
 
+    promoting = next((s for s in matched_lc["stages"] if s["home"].startswith("projects/")),
+                     None)
+    won_line = field_ci(header_fields(doc), "Won")
+    won = bool((promoting and promoting["name"] == matched_stage["name"])
+               or (won_line and DATE_RE.search(won_line)))
+
     return {
         "heading": matched_lc["heading"], "noun": matched_lc["noun"],
         "current_stage": matched_stage["name"], "terminal_stages": terminal_stages,
         "destination_matches": destination_matches,
         "stage_line_names_destination": stage_line_names_destination,
-        "reason": reason,
+        "reason": reason, "won": won,
     }
 
 

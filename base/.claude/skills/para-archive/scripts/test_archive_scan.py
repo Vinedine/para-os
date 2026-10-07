@@ -479,6 +479,31 @@ class Lifecycle(VaultCase):
                          [{"name": "Lost", "home": "archive/ideas/<company>/",
                            "concrete_home": "archive/ideas/acme"}])
 
+    def test_a_project_at_the_stage_that_promotes_into_projects_was_won(self):
+        # close-out.md: the client's words are asked for a won deal only.
+        self.declare_deal_lifecycle()
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n**Stage:** Goal (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        self.assertTrue(self.plan("acme")["lifecycle"]["won"])
+
+    def test_a_won_date_marks_a_win_where_no_stage_promotes_into_projects(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "## Deal lifecycle", "",
+            "| Stage | PARA home |", "|---|---|",
+            "| Qualified | `resources/ideas/<company>/` |",
+            "| Signed | `areas/<company>/` |", "",
+        ]) + "\n")
+        write(self.root, "areas/acme/brief.md",
+              "# Acme\n\n**Stage:** Signed (since 2026-09-01)\n**Won:** 2026-09-01\n")
+        self.assertTrue(self.plan("acme", destination="archive/clients/acme")
+                        ["lifecycle"]["won"])
+
+    def test_a_deal_short_of_the_promoting_stage_with_no_won_date_was_not_won(self):
+        self.declare_deal_lifecycle()
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-08-01)\n**Won:** unknown\n")
+        self.assertFalse(self.plan("acme")["lifecycle"]["won"])
+
 
 # ------------------------------------------------------------------------------- actions
 

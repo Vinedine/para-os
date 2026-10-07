@@ -1,6 +1,6 @@
 ---
 name: para-archive
-description: Archive a finished project, a retired idea, or an area the vault names an archive destination for, end-to-end - reconcile its open actions, validate its brief/actions files, optionally version-suffix it (projects only), route living-reference files to resources/, then move it to archive/ and repoint every inbound link in the vault. Use when a project has shipped or an idea is being shelved and the user asks to "archive this", "close out <name>", "wrap up <name>", "shelve <idea>", or types /para-archive <name>.
+description: Archive a finished project, a retired idea, or an area the vault names an archive destination for, end-to-end - reconcile its open actions, validate its brief/actions files, optionally version-suffix it (projects only), route living-reference files to resources/, move it to archive/ and repoint every inbound link in the vault, then propose its Track record line and route its lessons. Use when a project has shipped or an idea is being shelved and the user asks to "archive this", "close out <name>", "wrap up <name>", "shelve <idea>", or types /para-archive <name>.
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git mv *), Bash(git rm *), Bash(mv *), Bash(mkdir *), Bash(rmdir *), Bash(test *), Bash(echo *), Bash(grep *), Bash(pwd *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write, AskUserQuestion
 argument-hint: '<name> [preview|table] [--test]'
 ---
@@ -23,14 +23,14 @@ Do NOT invoke to archive contacts, or an area the vault names no archive destina
 
 | Arg | Behavior |
 |---|---|
-| `<name>` | Full flow: reconcile, validate, version (projects only), route refs, move, repoint links, report. Pauses for approval at each decision. |
-| `<name> preview` | Run the analysis (open actions, file validation, inbound-link scan) and show the plan - the manifest of questions a live run would ask, then the proposal - but make NO changes. |
+| `<name>` | Full flow: reconcile, validate, version (projects only), route refs, move, repoint links, close out, report. Pauses for approval at each decision. |
+| `<name> preview` | Run the analysis (open actions, file validation, inbound-link scan) and show the plan - the manifest of questions a live run would ask, then the proposal, Step 9's included - but make NO changes. |
 | `<name> table` | The batch proposal flow: one markdown proposal table, one `go`, then execute. The escape from item-by-item questions that [para-shared/asking.md](../para-shared/asking.md) requires. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## Procedure
 
-Each step that changes files ends with a proposal and waits for explicit approval. Never auto-advance through a destructive step (move, delete, link rewrite) without showing what will change. **Per-item decisions are asked one at a time** - every open action's disposition, and the version suffix - through `AskUserQuestion`, per [para-shared/asking.md](../para-shared/asking.md); the link repoints batch as one proposal, and each move is approved on its own.
+Each step that changes files ends with a proposal and waits for explicit approval. Never auto-advance through a destructive step (move, delete, link rewrite) without showing what will change. **Per-item decisions are asked one at a time** - every open action's disposition, the version suffix, and each of Step 9's - through `AskUserQuestion`, per [para-shared/asking.md](../para-shared/asking.md); the link repoints batch as one proposal, and each move is approved on its own.
 
 ### Step 0 - Scan
 
@@ -59,6 +59,10 @@ Split the actions into done and open and get a disposition for each open one; va
 
 Classify `inbound`'s references before anything moves, re-running the plan call with `--route` once Step 4 has decided what routes to `resources/`; execute the moves with `git mv`, rewriting the relative links *inside* whatever moved per `move_plan`; **re-check the snapshot** immediately before Step 7 writes anything; then run the verify call and resolve every count it reports, asserting zero dangling references in either direction. **Full procedure: [references/move.md](references/move.md).**
 
+### Step 9 - Close out
+
+Once the verify call is clean, so every link uses the archived path: propose one line for the root `README.md`'s `## Track record` linking the archived brief, or the extension of a line already there; ask what to do differently next time and route at most three lessons to a home something still reads; and for a won deal (`lifecycle.won`), record the outcome in the client's own words with its clearance. Each is a question the operator can skip. **Full procedure: [references/close-out.md](references/close-out.md).**
+
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
@@ -68,6 +72,7 @@ Classify `inbound`'s references before anything moves, re-running the plan call 
 - **Don't archive live work.** If a project's open actions are still genuinely live (not routable out), the project isn't done - stop and say so rather than burying live work. Likewise, don't archive an idea that's still under active exploration.
 - **Version logic is for projects only.** Never apply a `-vN` suffix to an idea or an area; they archive under their own name.
 - **Never move a staged entity into a terminal stage on your own.** The Stage line and the reason its rule file requires are the operator's words, written before the move. `lifecycle.reason` names the field, its current value and key, and the `allowed` list (or `null`, meaning read the rule file yourself); offer the exact lines; refuse the run until they are there.
+- **Never invent a lesson or a client's words.** A lesson is one the operator states or the brief records; a client's words are quoted verbatim from a file on record, or not recorded at all.
 
 Archive-hygiene rules - no open actions, living-refs to resources, minimum record, zero dangling links - come from the **Archive hygiene** conventions in CLAUDE.md, whether that's the vault's own file or an inherited global one.
 
