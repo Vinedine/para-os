@@ -55,13 +55,13 @@ The scan keeps its own copy outside the vault and names it in `saved_to`: that p
 
 ### Steps 3 and 4: Inspect each file, then choose its destination
 
-Read each loose file, weigh the scan's duplicates, cross-vault hits and orientation problems, then find its entity and build the convention-conform filename. **Full procedure: [references/filing.md](references/filing.md).**
+Read each loose file, weigh the scan's duplicates, cross-vault hits and orientation problems, then find its entity and build the convention-conform filename. **Full procedure: [references/filing.md](references/filing.md).** A meeting record filed for an entity whose shape declares `Last touch` also proposes that entity's updates and a follow-up draft: [references/after-a-meeting.md](references/after-a-meeting.md).
 
 ### Steps 5 and 6: Propose, then approve item by item
 
 Group the linked items, **then print the manifest**, when and where [para-shared/asking.md](../para-shared/asking.md) says: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. Then ask **one `AskUserQuestion` per item or linked group**. **Vocabulary, grouping and delete rules: [references/approval.md](references/approval.md).**
 
-**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** `convert` builds no table: it reports what arrived and stops. On the others, after the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. Same follow-on edits. `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
+**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** `convert` builds no table: it reports what arrived and stops. On the others, after the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. The follow-on edits and any draft go under the table in full, in the same message, never "as listed above". `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
 ### Steps 7 and 8: Execute, update READMEs
 

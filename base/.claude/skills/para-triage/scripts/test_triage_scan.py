@@ -1144,6 +1144,25 @@ class OverThreshold(VaultCase):
         self.assertEqual(over_threshold_block(self.root), [])
 
 
+# ---------------------------------------------------------------------------- contact cards
+
+class ContactCards(VaultCase):
+    """Where a meeting record's next step may go (references/after-a-meeting.md): the
+    `areas/network/` row of the checkbox table, read by the library."""
+
+    def test_the_network_row_sets_the_level_the_report_carries(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "**Type:** vault", "", "### Where a checkbox may live", "",
+            "| Bucket | `actions.md` | State |", "|---|---|---|",
+            "| `projects/`, `areas/` | yes | open + closed |",
+            "| `areas/network/` | relationship only | replies, introductions, thanks, check-ins |",
+        ]) + "\n")
+        self.assertEqual(self.plan()["contact_card_level"], "relationship only")
+
+    def test_a_vault_with_no_network_row_and_no_roster_is_yes(self):
+        self.assertEqual(self.plan()["contact_card_level"], "yes")
+
+
 # -------------------------------------------------------------------------------- snapshot
 
 class Snapshot(VaultCase):
@@ -1347,8 +1366,9 @@ class CommandLine(VaultCase):
         self.assertEqual(code, 0)
         report = json.loads(out)
         self.assertEqual(set(report), {"vault", "sources", "ingest", "ingest_ledger", "items",
-                                       "seen_ledger", "over_threshold", "snapshot",
-                                       "snapshot_folders", "saved_to", "save_error"})
+                                       "seen_ledger", "over_threshold", "contact_card_level",
+                                       "snapshot", "snapshot_folders", "saved_to",
+                                       "save_error"})
         self.assertEqual([i["name"] for i in report["items"]["loose"]],
                          ["20260920 Subject 88604c.md"])
         self.assertEqual(len(report["snapshot"]), 1)
