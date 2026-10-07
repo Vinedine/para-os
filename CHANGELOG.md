@@ -50,6 +50,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **`/para-audit` reports every registered vault in one table.** A read-only skill in `multi-vault/`, installed beside `/para-ingest`, measures each vault the registry lists against a para-os clone at a committed ref: its template revision, its `**Type:**` line against the entry's `kind`, its declaration lines and add-on names, the rule files base and its add-ons ship, its integration scripts, its bundled skill copies and its `CLAUDE.md` size, closing on the vault to upgrade first. A registry entry may carry `retired: true`, which the audit reports as excluded; `active: false` still only takes a vault out of `/para-ingest`. `upgrade_scan.py`'s `skills_block` reads a vault's bundled copies alone when given no user-level skills folder. Reaction: none for a vault; this revision's re-sync of `/para-upgrade` carries the script change.
 
+**An answer about the operator's own documents quotes them or says they are not on file.** `## Authoritative sources` adds two sentences: such an answer quotes the clause with its file name and page; a document not on file is said to be missing, and any general-knowledge answer is labelled as such; two source documents that disagree are both given, the cautious reading first. Reaction: append the two sentences to the vault's `## Authoritative sources` paragraph, its own wording otherwise kept.
+
 ---
 
 ## 2026.09.07
