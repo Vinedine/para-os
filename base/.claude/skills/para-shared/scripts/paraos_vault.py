@@ -15,6 +15,7 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
     py -3 paraos_vault.py changed <file>
     py -3 paraos_vault.py sources [--vault .]
     py -3 paraos_vault.py ingest-logs [--paraos-home DIR]
+    py -3 paraos_vault.py notice-date <renewal> "<n> months" [--term "1 year"] [--today D]
 
     import sys
     from pathlib import Path
@@ -26,7 +27,7 @@ folder is a vault root, what the machine's registry says about it and its neighb
 a checkbox may live, what counts as one, what a task marker means, which folder a name
 resolves to, when a file was really last touched, what a link points at and what a move
 would have to rewrite, whether two files hold the same bytes (and whether two copies of one
-file differ in more than line endings), what a vault declares it is built from, and the numbers a vault's own rules state. A second implementation of any of those is a vault getting two answers to one
+file differ in more than line endings), what a vault declares it is built from, the numbers a vault's own rules state, and the last day to give notice on a renewing agreement. A second implementation of any of those is a vault getting two answers to one
 question, which is the failure this repo exists to prevent.
 
 What does NOT live here: anything a single skill decides. Bucketing against a date,
@@ -35,13 +36,14 @@ stay with the skill that owns them.
 """
 
 import argparse
+import calendar
 import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
 
@@ -362,6 +364,47 @@ def cadence_days(cadence):
     count, word = (int(m.group(1)), m.group(2)) if m else (1, body.split()[0] if body.split() else "")
     word = word.rstrip("s")
     return CADENCE_DAYS[word] * count if word in CADENCE_DAYS else None
+
+
+PERIOD_RE = re.compile(r"^\s*(\d+)\s*(day|week|month|year)s?\s*$", re.IGNORECASE)
+
+
+def add_months(day, months):
+    """`day` moved by whole calendar months, back where `months` is negative, clamped to the
+    last day of a shorter month: `2027-05-31` less three months is `2027-02-28`."""
+    year, month = divmod(day.year * 12 + day.month - 1 + months, 12)
+    month += 1
+    return date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
+
+
+def shift(day, period, times=1):
+    """`day` moved by `times` of a period written `<n> days|weeks|months|years`, back where
+    `times` is negative. ValueError on any other wording."""
+    m = PERIOD_RE.match(str(period))
+    if not m:
+        raise ValueError(f"not a period: {period!r}; write <n> days, weeks, months or years")
+    count, unit = int(m.group(1)) * times, m.group(2).lower()
+    if unit in ("day", "week"):
+        return day + timedelta(days=count * (7 if unit == "week" else 1))
+    return add_months(day, count * (12 if unit == "year" else 1))
+
+
+def notice_date(renewal, notice, term=None, today=None):
+    """The last day to give notice on an agreement renewing on `renewal`: the renewal less
+    the notice period. With `term`, how often it renews, a renewal whose notice day is
+    behind today rolls forward whole terms, counted from `renewal` so a clamped month never
+    drifts, to the first whose notice day is still ahead."""
+    today = today or date.today()
+    if term and shift(renewal, term) <= renewal:
+        raise ValueError(f"a term moves the renewal forward: {term!r}")
+    current, rolled = renewal, 0
+    deadline = shift(current, notice, -1)
+    while term and deadline < today:
+        rolled += 1
+        current = shift(renewal, term, rolled)
+        deadline = shift(current, notice, -1)
+    return {"renewal": iso(current), "notice": notice, "term": term,
+            "notice_date": iso(deadline), "passed": deadline < today}
 
 
 def parse_markers(body):
@@ -2135,6 +2178,13 @@ def main(argv=None):
     ingest_logs_cmd = sub.add_parser("ingest-logs", help="every /para-ingest run log, newest first")
     ingest_logs_cmd.add_argument("--paraos-home", dest="paraos_home", default=None,
                                  help="ingest cache root (default: $PARAOS_HOME or ~/.paraos)")
+    notice = sub.add_parser("notice-date", help="the last day to give notice on a renewing "
+                                                "agreement")
+    notice.add_argument("renewal", help="the renewal date, YYYY-MM-DD")
+    notice.add_argument("notice", help="the notice period: <n> days, weeks, months or years")
+    notice.add_argument("--term", help="how often it renews, written the same way: a renewal "
+                                       "whose notice day has passed rolls forward to the next")
+    notice.add_argument("--today", help="YYYY-MM-DD (default: the system clock)")
     for parser in (resolve, declared, dangling, inbound, plan, digests, reg, sources):
         parser.add_argument("--vault", default=".", help="vault root (default: .)")
     args = ap.parse_args(argv)
@@ -2160,6 +2210,18 @@ def main(argv=None):
 
     if args.command == "ingest-logs":
         json.dump(ingest_logs(args.paraos_home), sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
+
+    if args.command == "notice-date":
+        renewal, today = parse_date(args.renewal), parse_date(args.today or iso(date.today()))
+        if not renewal or not today:
+            ap.error(f"dates are YYYY-MM-DD: {args.renewal!r}, {args.today!r}")
+        try:
+            answer = notice_date(renewal, args.notice, args.term, today)
+        except ValueError as err:
+            ap.error(str(err))
+        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 0
 

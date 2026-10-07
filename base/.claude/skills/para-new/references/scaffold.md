@@ -49,7 +49,7 @@ The counterparty's contact file is created with it, under the last bullet of [Cr
 
 A project's or area's `actions.md` carries the vault's heading shape and **one** open item: the answer to the third interview question, with a `📅` only if the deadline is real and belongs to that step rather than to the project as a whole. Anything else the user volunteered goes under `## Backlog` in the same file, as prose, verbatim.
 
-**A date in the action never survives as free text.** "before the contract renews in November" is a real deadline written where no skill can read it, and most vaults forbid it outright. Convert it to the vault's marker, and where the answer is a month or a quarter rather than a day, ask for the day instead of guessing one.
+**A date in the action never survives as free text.** "before the contract renews in November" is a real deadline written where no skill can read it, and most vaults forbid it outright. Convert it to the vault's marker, a renewal [dated on its last day to give notice](../../para-shared/operating-discipline.md#dating-a-renewing-agreement), and where the answer is a month or a quarter rather than a day, or the notice period is unknown, ask instead of guessing.
 
 An area whose only outstanding work is recurring gets that item under the vault's recurring heading and no open next step, which is a complete file rather than an empty one. A contact's outstanding item, if there is one, goes under the contact file's own next-actions heading; if there is none, the vault's empty sentinel goes there instead. Where the vault declares a `**Kind:**` line for contact cards, it goes directly under the file's title.
 

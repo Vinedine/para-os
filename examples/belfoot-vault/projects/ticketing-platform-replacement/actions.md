@@ -10,6 +10,7 @@ See [brief.md](brief.md) for scope. Vendor selection deadline: 2026-09-15.
 
 - [ ] Score the four responses against the matrix 🔼 📅 2026-07-01
 - [ ] Schedule the vendor demo days for the week of July 6-10 📅 2026-06-29
+- [ ] Give Poortwerk notice on the [legacy licence](sources/20140303%20Poortwerk%20Licence%20agreement.md), or it renews on 2028-01-01 for a year past the decommissioning 📅 2027-10-01
 
 ## Backlog
 

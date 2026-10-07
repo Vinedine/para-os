@@ -24,14 +24,15 @@ from pathlib import Path
 from unittest import mock
 
 from paraos_vault import (
-    abspath, action_files, addon_root, arrived, cadence_days, changed,
+    abspath, action_files, add_months, addon_root, arrived, cadence_days, changed,
     changelog_entries, clone_files, clone_read, clone_ref, closed_tasks, dangling_links,
     declarations, duplicates, entries_between, extract_links, field_ci, file_dates,
     find_clone, first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
     git_untracked, hashes, header_fields,
     inbound_references, ingest_ledger, ingest_logs, integration_markers,
     lifecycles, live_lines, log_instant, main, master_template, misplaced_checkboxes,
-    match_encoding, move_plan, norm, normalised, note_name_parts, open_tasks, over_grown_briefs,
+    match_encoding, move_plan, norm, normalised, note_name_parts, notice_date, open_tasks,
+    over_grown_briefs,
     parse_markers, register_rows, registered_vault, registry,
     registry_holding, rel_posix, resolve_entity, resolve_link, scope_of, snapshot, split_lines,
     stage_line, stage_of, strip_code, table_cells, template_marker, thread_hash, triage_items, triage_sources, vault_root,
@@ -1580,6 +1581,95 @@ class Markers(VaultCase):
     def test_an_unstamped_vault_is_offered_every_entry(self):
         got = entries_between(changelog_entries(CHANGELOG), None, "2026.09.01")
         self.assertEqual([e["revision"] for e in got], ["2026.09.01", "2026.08.01"])
+
+
+class NoticeDates(unittest.TestCase):
+    """The last day to give notice on a renewing agreement, which operating-discipline.md
+    dates such an item on instead of on the renewal."""
+
+    def test_a_month_back_crosses_into_the_year_before(self):
+        self.assertEqual(add_months(date(2027, 1, 1), -3), date(2026, 10, 1))
+
+    def test_a_day_past_the_end_of_a_shorter_month_clamps_to_its_last_day(self):
+        self.assertEqual(add_months(date(2027, 5, 31), -3), date(2027, 2, 28))
+        self.assertEqual(add_months(date(2028, 5, 31), -3), date(2028, 2, 29))
+        self.assertEqual(add_months(date(2026, 1, 31), 1), date(2026, 2, 28))
+
+    def test_twelve_months_is_the_same_day_a_year_on(self):
+        self.assertEqual(add_months(date(2026, 3, 15), 12), date(2027, 3, 15))
+        self.assertEqual(add_months(date(2026, 3, 15), 0), date(2026, 3, 15))
+
+    def test_three_months_notice_on_a_new_year_renewal_falls_on_the_first_of_october(self):
+        got = notice_date(date(2027, 1, 1), "3 months", today=date(2026, 9, 1))
+        self.assertEqual(got, {"renewal": "2027-01-01", "notice": "3 months", "term": None,
+                               "notice_date": "2026-10-01", "passed": False})
+
+    def test_a_notice_period_in_days_weeks_or_years_counts_in_that_unit(self):
+        today = date(2026, 1, 1)
+        for period, want in (("30 days", "2026-12-02"), ("6 weeks", "2026-11-20"),
+                             ("1 year", "2026-01-01"), ("1 Month", "2026-12-01"),
+                             ("2 months", "2026-11-01")):
+            with self.subTest(period=period):
+                self.assertEqual(
+                    notice_date(date(2027, 1, 1), period, today=today)["notice_date"], want)
+
+    def test_a_notice_date_already_behind_today_is_passed(self):
+        got = notice_date(date(2027, 1, 1), "3 months", today=date(2026, 10, 6))
+        self.assertEqual((got["notice_date"], got["passed"]), ("2026-10-01", True))
+        same_day = notice_date(date(2027, 1, 1), "3 months", today=date(2026, 10, 1))
+        self.assertFalse(same_day["passed"])
+
+    def test_a_term_rolls_a_past_renewal_to_the_first_whose_notice_is_still_open(self):
+        # Signed years ago, renewing each 1 March: the 2027 renewal's notice day is behind
+        # today, so the next one still open is the 2028 renewal.
+        got = notice_date(date(2020, 3, 1), "3 months", term="1 year",
+                          today=date(2026, 12, 15))
+        self.assertEqual((got["renewal"], got["notice_date"], got["passed"]),
+                         ("2028-03-01", "2027-12-01", False))
+
+    def test_a_term_counts_from_the_renewal_given_so_a_clamped_month_does_not_drift(self):
+        # Stepping month by month from the 31st would carry February's 28th forward.
+        got = notice_date(date(2026, 1, 31), "10 days", term="1 month",
+                          today=date(2026, 3, 25))
+        self.assertEqual((got["renewal"], got["notice_date"]), ("2026-04-30", "2026-04-20"))
+
+    def test_a_term_leaves_a_renewal_whose_notice_is_still_open_where_it_is(self):
+        got = notice_date(date(2027, 1, 1), "3 months", term="1 year", today=date(2026, 9, 1))
+        self.assertEqual((got["renewal"], got["notice_date"]), ("2027-01-01", "2026-10-01"))
+
+    def test_a_period_in_words_or_a_zero_term_is_refused(self):
+        for notice, term in (("three months", None), ("3 fortnights", None), ("", None),
+                             ("3 months", "0 years")):
+            with self.subTest(notice=notice, term=term):
+                with self.assertRaises(ValueError):
+                    notice_date(date(2027, 1, 1), notice, term=term, today=date(2026, 1, 1))
+
+    def run_main(self, argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(argv)
+        return code, out.getvalue()
+
+    def test_the_command_prints_the_notice_date_with_its_inputs(self):
+        code, out = self.run_main(["notice-date", "2027-01-01", "3 months",
+                                   "--today", "2026-09-01"])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["notice_date"], "2026-10-01")
+
+    def test_the_command_rolls_forward_by_its_term(self):
+        code, out = self.run_main(["notice-date", "2020-03-01", "3 months", "--term", "1 year",
+                                   "--today", "2026-12-15"])
+        self.assertEqual((code, json.loads(out)["renewal"]), (0, "2028-03-01"))
+
+    def test_the_command_refuses_what_it_cannot_read_with_exit_2(self):
+        for argv in (["notice-date", "1 January", "3 months"],
+                     ["notice-date", "2027-01-01", "three months"],
+                     ["notice-date", "2027-01-01", "3 months", "--today", "soon"]):
+            with self.subTest(argv=argv):
+                with contextlib.redirect_stderr(io.StringIO()), \
+                        self.assertRaises(SystemExit) as stop:
+                    self.run_main(argv)
+                self.assertEqual(stop.exception.code, 2)
 
 
 class ChangedCLI(VaultCase):
