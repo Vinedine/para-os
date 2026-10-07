@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: deep-clean-reads-every-page
+tags: [deep-clean, native]
+context:
+  scaffold_script: setup.sh
