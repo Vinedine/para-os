@@ -47,7 +47,7 @@ The scan keeps its own copy outside the vault and names it in `saved_to`: that p
 
 **Exit codes**: 0 answered, an empty `triage/` included; 2 fall back to [references/scan.md](references/scan.md)'s by-hand procedure, [references/sources.md](references/sources.md) and [references/filing.md](references/filing.md); 3 not a vault root (Step 1's stop). **Field table: [references/scan.md](references/scan.md).**
 
-**Each `sources.rows[].plan` decides whether that source runs**: a `pull` or `run` row executes here per [references/sources.md](references/sources.md), its output then flowing on like any loose file; `skip` and `lookup` rows pull nothing. **Re-run the scan** after anything writes into `triage/`, and with `--threads <file>` once a local connector pull has its candidate threads, so each folds into a note already staged for it and carries its seen-ledger watermark.
+**Each `sources.rows[].plan` decides whether that source runs**: a `pull` or `run` row executes here per [references/sources.md](references/sources.md), its output then flowing on like any loose file, and a `sent` row runs its sent-mail pass alone; `skip` and `lookup` rows pull nothing. **Re-run the scan** after anything writes into `triage/`, and with `--threads <file>` once a local connector pull has its candidate threads, so each folds into a note already staged for it and carries its seen-ledger watermark and, where the operator wrote last, its working days without a reply.
 
 **Then read `items.loose`** and `items.subdirectories`. Subdirectories are **listed, never asked** ([references/approval.md](references/approval.md)). `triage/` never holds a `README.md`: **never create one**, and propose deleting one the scan flags (`readme: true`) rather than filing it.
 

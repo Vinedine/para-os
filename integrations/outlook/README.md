@@ -72,7 +72,7 @@ Microsoft says why in `error_description`, keyed by an `AADSTS` code, and the sc
 |---|---|---|
 | `login <email> [--shared] [--device-code]` | Browser login for one mailbox | secret file only |
 | `accounts` | List configured mailboxes | no |
-| `fetch [--days N] [--include-bulk]` | Candidates as JSON on stdout, for a skill to judge | **never** |
+| `fetch [--days N] [--include-bulk] [--sent]` | Candidates as JSON on stdout, for a skill to judge | **never** |
 | `search <query> [--limit N] [--body] [--all-mailboxes]` | Ad-hoc keyword search across the whole mailbox | **never** |
 | `raw <graph-path> [--account <email>]` | Raw Graph GET: debugging, and reading one message in full. `--account` is required once more than one mailbox is configured | no |
 
@@ -95,6 +95,8 @@ Both print Graph's `bodyPreview`, a couple of hundred characters. **To read a hi
 `fetch` reads a recent window and **writes nothing**. It prints the candidates as JSON on stdout, one object per thread, and leaves the relevance decision to whatever consumes it.
 
 **It reads the inbox and the archive, and nothing else.** It used to read `/me/messages`, which is the whole mailbox, so a run re-surfaced mail the spam filter had already caught and mail the operator had already thrown away, and offered it back as something to triage. Measured across two live mailboxes over one 2-day window: **233 messages, of which 171 came from Junk Email, Deleted Items or Sent Items** - one of the two had an empty inbox and returned 30 messages, all of them junk. Nothing failed while this was wrong; the run simply looked productive, which is why the scope is pinned by tests rather than left to this paragraph. The archive stays in scope because an operator who archives fast can file a real message between two runs, and it is cheap: 6 messages over 30 days on the mailbox that actually archives. The folders are named by Graph's language-independent well-known names, since display names are localized and `Junk Email` is `Ongewenste e-mail` on a Dutch mailbox.
+
+**`--sent` adds Sent Items**, for a vault whose `## Triage sources` row asks for the sent pass ([`para-shared/connectors.md`](../../base/.claude/skills/para-shared/connectors.md)): each thread then carries the owner's own messages beside the replies to them, so a promise made in mail and a message nobody answered are visible. The window is at least 14 days whatever `--days` says, so a message is still read on the run after its fifth working day without an answer. It stays off by default because Sent Items re-surfaced handled mail; the caller's seen-ledger is what keeps a handled thread from coming back.
 
 A skill consuming it judges each candidate against the vault's own `## Triage sources` rules and its README, the same way it judges mail from a Gmail connector, and writes only what survives. Getting a judgment wrong therefore costs nothing, where the removed write path cost a folder of files to delete.
 
