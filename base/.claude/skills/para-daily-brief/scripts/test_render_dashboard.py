@@ -162,9 +162,22 @@ class Drilldowns(DashboardCase):
         report = self.report()
         for flag in ({"text": "x", "kind": "undated_majority"},
                      {"text": "x", "kind": "over_threshold", "file": "projects/acme-website/actions.md"},
+                     {"text": "x", "kind": "nothing_open"},
                      {"text": "x", "kind": "made_up"}):
             with self.assertRaises(JudgmentError):
                 render(report, self.judgment(report, flags=[flag]))
+
+    def test_a_nothing_open_flag_opens_on_each_entity_and_its_action_files_date(self):
+        write(self.root, "projects/stalled/actions.md", "# s\n\n- [x] Kicked off\n")
+        write(self.root, "areas/garden/brief.md", "# g\n")
+        report = self.report()
+        flag = {"text": "**garden: nothing open**", "kind": "nothing_open"}
+        _, page = render(report, self.judgment(report, flags=[flag]))
+        drill = re.search(r'<ul class="flags"><li><details>.*?</details>', page).group(0)
+        self.assertIn("<span>areas/garden</span><span class=\"meta\">no actions.md</span>", drill)
+        touched = report["flags"]["nothing_open"][1]["touched"]
+        self.assertIn(f"<span>projects/stalled</span><span class=\"meta\">since {touched}</span>",
+                      drill)
 
     def test_a_plain_string_flag_still_renders_without_a_drilldown(self):
         report = self.report()
@@ -254,9 +267,11 @@ class Mechanical(DashboardCase):
               "# b\n\n" + "".join(f"- [ ] Thing {n}\n" for n in range(12)))
         write(self.root, "archive/old/actions.md", "# o\n\n- [ ] Left open\n")
         write(self.root, "projects/acme-website/brief.md", "# a\n" + "line\n" * 501)
+        write(self.root, "projects/stalled/actions.md", "# s\n\n- [x] Kicked off\n")
+        write(self.root, "projects/waiting/actions.md", "# w\n\n- [x] Sent the quote\n")
         report = self.report()
         fired = [k for k, v in report["flags"].items() if v]
-        self.assertGreaterEqual(len(fired), 5, fired)
+        self.assertGreaterEqual(len(fired), 6, fired)
         _, page = render(report)
         flags = re.search(r'<ul class="flags">(.*?)</ul>', page).group(1)
         self.assertEqual(flags.count("<details>"), len(fired))
@@ -265,6 +280,8 @@ class Mechanical(DashboardCase):
         self.assertIn("archive/old/actions.md", flags)
         self.assertIn("projects/acme-website/brief.md: 502 lines", flags)
         self.assertIn("undated", flags)
+        self.assertIn("<b>stalled: nothing open</b>, and 1 more - finished (archive) or stalled "
+                      "(next step)?", flags)
 
     def test_no_next_action_and_one_line_saying_where_it_comes_from(self):
         _, page = render(self.report())
