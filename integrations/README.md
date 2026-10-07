@@ -26,6 +26,7 @@ The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a hom
 | [`outlook/`](outlook/) | 2026.09.07 | Outlook / Hotmail / Microsoft 365 mail as candidates for a skill to judge, plus ad-hoc mailbox search | Python 3.9+, `requests` | any |
 | [`plaud/`](plaud/) | 2026.10.01 | Plaud recorder summaries + transcripts into `triage/` | Python 3.9+ | any |
 | [`pocket/`](pocket/) | 2026.09.03 | Pocket recorder summaries + transcripts into `triage/` | Python 3.9+ | any |
+| [`vault-mirror/`](vault-mirror/) | 2026.10.01 | The history of a vault on a synced drive, committed to a git repository outside it | Python 3.9+, git | any |
 
 ## Versioning
 

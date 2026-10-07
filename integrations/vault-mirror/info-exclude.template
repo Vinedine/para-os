@@ -1,0 +1,20 @@
+# A vault mirror's starting ignore rules: copy this file to <mirror>/.git/info/exclude.
+# mirror.py copies every file the vault holds; these rules decide which ones the history
+# keeps. A path matched here sits in the mirror's working tree and is never committed.
+
+# Track what a global gitignore commonly keeps out but a vault needs in its history.
+!CLAUDE.md
+!CLAUDE.local.md
+!.claude/
+!.claude/**
+
+# Copied, never committed: the activity log, script caches, operating-system litter.
+resources/logs/
+__pycache__/
+node_modules/
+desktop.ini
+Thumbs.db
+.DS_Store
+
+# Bulk kept as a copy only: uncomment, or list your own large folders.
+# archive/
