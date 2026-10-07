@@ -600,7 +600,8 @@ def skill_script_dirs():
     """Each skill's scripts/ folder, wherever skills ship from. A skill that hands a
     mechanical step to a script is testable in the way prose never was, so the suite runs
     here with the integrations rather than waiting for someone to remember it."""
-    roots = [ROOT / "base" / ".claude" / "skills"] + addon_skill_dirs()
+    roots = [ROOT / "base" / ".claude" / "skills"] + addon_skill_dirs() + \
+        [d for d in EXTRA_SKILL_DIRS if d.is_dir()]
     return sorted(d for root in roots for d in root.glob("*/scripts") if d.is_dir())
 
 

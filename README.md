@@ -122,7 +122,7 @@ Beyond base:
 - The [real-estate](addons/real-estate/) add-on adds [`/property-reconcile`](addons/real-estate/.claude/skills/property-reconcile/SKILL.md) (checks a property dossier against its sources), [`/property-underwrite`](addons/real-estate/.claude/skills/property-underwrite/SKILL.md) (brings it to decision-ready) and [`/property-dealsheet`](addons/real-estate/.claude/skills/property-dealsheet/SKILL.md) (renders the deal sheet).
 - The [activity](addons/activity/) module adds [`/para-activity-review`](addons/activity/.claude/skills/para-activity-review/SKILL.md), which reads the vault's usage ledger and reports which skills nobody invokes, where sessions stall and which conventions people work around, each finding naming a change.
 - The [brainstorm](addons/brainstorm/) module adds [`/para-brainstorm`](addons/brainstorm/.claude/skills/para-brainstorm/SKILL.md), which takes you from what keeps costing you time to two or three ideas worth testing, your own ideas before the agent's, and creates only the ones you approve.
-- [`multi-vault/`](multi-vault/) adds [`/para-ingest`](multi-vault/para-ingest/SKILL.md), which reads shared sources once and stages each item in the vault it belongs to.
+- [`multi-vault/`](multi-vault/) adds [`/para-ingest`](multi-vault/para-ingest/SKILL.md), which reads shared sources once and stages each item in the vault it belongs to, and [`/para-audit`](multi-vault/para-audit/SKILL.md), which reports in one table how far each registered vault has drifted from the template and which to upgrade first.
 
 **Your own skills.** A vault can grow skills of its own, and three rules keep them supportable. A request starts as a prompt in `resources/prompts/` and becomes a skill after its third use, the same wait-until-proven rule the vault applies to templates. It is built with Anthropic's `skill-creator` skill, so it stays well-formed. And it never takes the `para-` prefix, which belongs to para-os: `/para-upgrade` treats a skill with a name para-os ships as its own copy and replaces it.
 
@@ -182,7 +182,7 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 - [`CHANGELOG.md`](CHANGELOG.md) - the same revisions as step-by-step instructions `/para-upgrade` applies to a vault.
 - [`addons/`](addons/README.md) - the flavor and module add-ons.
 - [`integrations/`](integrations/README.md) - drop-in scripts that pull an outside system into a vault.
-- [`multi-vault/`](multi-vault/) - optional layer for several vaults drawing on the same inboxes.
+- [`multi-vault/`](multi-vault/) - optional layer for several vaults: one audit across them, and one read of the inboxes they share.
 - [`examples/`](examples/README.md) - fictional, fully populated vaults to poke at.
 - For contributors: [`tools/check.py`](tools/check.py), the contract checks every revision passes, and [`evals/`](evals/README.md), the skill evals.
 
@@ -191,7 +191,7 @@ Notion and Obsidian never stuck for me: keeping the structure current cost more 
 Beyond the list at the top:
 
 - **Claude Code in a terminal** works the same as the desktop app: start it in the empty folder and paste the same line. Linux has no desktop app, so this is the route there.
-- **Python 3 is optional** and does not come with Claude Code: install it from [python.org](https://www.python.org/downloads/) if you want it. It lets `/para-daily-brief`, `/para-pipeline`, `/para-deep-clean`, `/para-archive`, `/para-triage`, `/para-upgrade` and `/para-activity-review` hand their mechanical half to a script beside the skill; without it they fall back to a slower by-hand procedure and say so. On Windows use `py -3`, since a bare `python` is often a Microsoft Store stub. `/para-upgrade` also needs a local clone of this repository.
+- **Python 3 is optional** and does not come with Claude Code: install it from [python.org](https://www.python.org/downloads/) if you want it. It lets `/para-daily-brief`, `/para-pipeline`, `/para-deep-clean`, `/para-archive`, `/para-triage`, `/para-upgrade`, `/para-activity-review` and `/para-audit` hand their mechanical half to a script beside the skill; without it they fall back to a slower by-hand procedure and say so. On Windows use `py -3`, since a bare `python` is often a Microsoft Store stub. `/para-upgrade` and `/para-audit` also need a local clone of this repository.
 - **Account skills come along:** Claude Code syncs the skills and plugins enabled on your claude.ai account into sessions (the document skills are what a vault needs for the files it receives); `syncClaudeAiSkills: false` and `syncClaudeAiPlugins: false` in your settings keep a vault to its own.
 - **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
 - **Storage that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible. What the agent may change on its own, and what enforces it, is in [the autonomy tiers](docs/autonomy-tiers.md).
@@ -201,7 +201,7 @@ Beyond the list at the top:
 
 Each vault carries its own copy of the skills, which works but means one copy per vault. To keep a single source, move the skills to `~/.claude/skills/` (Claude Code loads them there for every vault, and `/para-upgrade` checks that install too) and delete the per-vault `.claude/skills/`. Keep one or the other: a skill in `~/.claude/skills/` wins over a vault's own copy of the same name, so a vault that keeps both runs the global one, however old it is.
 
-If those vaults also draw on the same inboxes, see [`multi-vault/`](multi-vault/).
+To see which of them lag the template, or if they also draw on the same inboxes, see [`multi-vault/`](multi-vault/).
 
 ## License
 
