@@ -44,6 +44,11 @@ The safety discipline **every file-mutating skill** follows. A read-only skill d
 - **Never invent dates or completion markers.** Use the vault's marker syntax; leave externally-gated items undated.
 - **Commit only under a declared commit policy**: the vault's `CLAUDE.md` first, then the operator's own global instructions where the vault's says nothing. Where neither allows it, stop after the change; the user commits.
 
+## Dating a renewing agreement
+
+- **A contract, lease, subscription or policy that renews unless notice is given is dated on its last day to give notice**, never on the renewal, and the line's text names the renewal date. That day is the `notice_date` of `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" notice-date <renewal> "<n> months"` (Windows: `py -3`). Where it reports `passed`, say so, and `--term "<how often it renews>"` gives the next renewal's. Without a shell, count back by hand and say so.
+- **A check that comes round every year** (an indexation, a renewal reviewed each year) is one `🔁 every year` item, its `📅` the next occurrence.
+
 ## A vault's rule files
 
 - **Check `.claude/rules/` before concluding anything from `CLAUDE.md`'s body.** A pointer line in `CLAUDE.md` ("The full shape is in ...") is the declaration: follow the file it names as if it were inline. With no rule file for it, find the inline section by what it says, never by its heading.

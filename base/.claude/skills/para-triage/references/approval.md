@@ -9,6 +9,7 @@ What a question may offer; [the table path](#the-table-path) offers less. Nothin
 **Loose files:**
 
 - **File it** (move + rename to the convention) · **File it + rotate Nx**.
+- **File it + add action**: the document sets a deadline no open line tracks ([filing.md](filing.md)). Files it, then adds one line to the owning entity's `actions.md` under **Add action**'s rules below, dated on that deadline and linking the filed file. **Show the line in full before approval**, in the option description or under the table.
 - **Extract** (an archive): each member's destination and convention name listed in the option description; the archive then gets its own Delete question.
 - **Split** (a PDF bundling several documents): one new file per document, pages copied without re-encoding, each filed like any loose file; the original stays until its own Delete question.
 - **Run vault script**: the vault's filing rules hand this kind of file to a script. Its dry-run verdict is the evidence; the triage copy's delete is its own question once the script has run.
@@ -73,7 +74,7 @@ After it, list the **follow-on edits** to each receiving entity's `README.md` or
 
 The arguments that build this table instead of asking are `preview`, `apply` and `table`, plus any run with no interactive operator ([SKILL.md](../SKILL.md) Steps 5 and 6). The `Action` column holds only these:
 
-- **Files**: File it, File it + rotate Nx, Extract, Split, Run vault script, Delete (duplicate), Delete (redundant scan), Delete (no lasting value), Move out of vault, Leave in triage.
+- **Files**: File it, File it + rotate Nx, File it + add action, Extract, Split, Run vault script, Delete (duplicate), Delete (redundant scan), Delete (no lasting value), Move out of vault, Leave in triage.
 - **Threads and staged mail notes**: Update existing, Add action, Add register row, Note to triage, Dismiss (noise), Dismiss (other vault), Stage in other vault (a staged note only), Leave thread.
 
 A file needing a new entity is **Leave in triage**, its Why naming the entity to create: `/para-new` asks questions nobody is there to answer.
