@@ -1,0 +1,9 @@
+{
+  "_comment": "Only for a Plaud account that feeds several vaults. A vault that is the only destination needs no plaud.config.json and no title prefixes: without a route, every recording lands in its triage/.",
+  "meetings_subdir": "triage",
+  "route": {
+    "Client": ".",
+    "Home": "family",
+    "Side": "side-project"
+  }
+}
