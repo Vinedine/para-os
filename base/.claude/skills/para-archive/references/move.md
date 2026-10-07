@@ -74,7 +74,7 @@ pass every file moved to `resources/<name>/` in Step 7.1 as its own `--routed`, 
 Beyond the verify call:
 
 - Confirm the archived folder contains only history (brief, actions, one-time plans) and that the successor, if any, holds the surviving work.
-- Report: what was archived and its kind, the version decision (projects only), files routed to resources, snapshots deleted, the successor created, and the count of links repointed with the table - inbound and outbound counted separately. List `untracked`: a file never committed moves on disk under a successful `git mv` too, and shows as untracked rather than renamed.
+- Report, once [Step 9](close-out.md) has run: what was archived and its kind, the version decision (projects only), files routed to resources, snapshots deleted, the successor created, and the count of links repointed with the table - inbound and outbound counted separately. List `untracked`: a file never committed moves on disk under a successful `git mv` too, and shows as untracked rather than renamed.
 - Say whether anything was committed, and which source of [the commit rule](../../para-shared/operating-discipline.md#defer-to-the-vault) allowed or withheld it. Where a plain `mv` ran, say so here as well: `git status` shows it as deletions plus untracked files until staged. If the skill itself or a public repo was touched, flag that those need their own review.
 
 ## Edge cases

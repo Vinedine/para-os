@@ -18,6 +18,7 @@ Out of scope, and living elsewhere: retail outside the stadium (club shops, onli
 
 ## Track record
 
+- **2026-02-11** - Programme discovery delivered: the board approved the plan of workstreams, owners and budget envelope that the engagement runs on ([brief](archive/projects/programme-discovery/brief.md)).
 - **2026-04-18** - NovaPay contract signed for the cashless rollout (SOW on file in the project's `sources/`).
 - **2026-05-15** - Ticketing RFP issued to four shortlisted vendors after a clean legal review; all four responses received by the 2026-06-20 deadline.
 - **2026-05-22** - Q3 budget overrun (~€85k) on the cashless rollout flagged with the CFO; three cost-recovery options delivered 2026-05-29.
