@@ -36,6 +36,10 @@ Out:
 - General admission cutover: 2027-07-01.
 - Old platform decommissioned: 2027-12-31.
 
+## Development log
+
+- **2026-06-22** Kept all four vendors in scoring, TicketMatch BE included despite its late reference names: the evaluation matrix decides the shortlist, not the shape of a response.
+
 ## Status
 
 In vendor selection. RFP issued 2026-05-15 to four vendors (Gateline Sport, Tribunex Enterprise, Kavelo, and TicketMatch BE); all four responses received by the 2026-06-20 deadline. Finalising the evaluation matrix (due 2026-06-26), then scoring the responses, with demo days the week of 2026-07-06. See [actions.md](actions.md) for the live task list.

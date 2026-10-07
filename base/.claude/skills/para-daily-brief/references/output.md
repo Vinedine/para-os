@@ -94,6 +94,47 @@ Rules specific to this scope:
 
 **The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. Never a question.
 
+## The review scope
+
+A look back over the window, every number from the scan's `review` block. The entity scope renders the same layout, titled `# Review - <entity> - <start> to <end>`.
+
+````
+# Review - <start> to <end> - <vault name>
+
+**N done · N slipped · N moved · N decisions** over <the last 7 days | the last 30 days | since <start>>
+
+## ✅ Done (N)
+**[P] <entity>** (N)
+- <task text> - [<scope>:<line>](<relative/path>#L<line>) · ✅ <date>
+*N closed items carry no completion date, so no window counts them.*
+
+## ⚠️ Slipped (N)
+- <task text> - [<scope>:<line>](<relative/path>#L<line>) · 📅 <date> (<N>d late)
+
+## 🔀 Moved
+**<Lifecycle>:** N - <name> to <Stage> <date> · <name> to <Stage> <date>, closed
+
+## 🧱 Stuck
+- N overdue, the oldest: <task text> - [<scope>:<line>](<relative/path>#L<line>) · 📅 <date> (<N>d ago)
+- No next step: <entity> · <entity>
+
+## 🧭 Decisions (N)
+- <date> · <entity>: <entry text> - [<scope>:<line>](<relative/path>#L<line>)
+
+---
+**Next action:** <exactly one concrete step>
+````
+
+- **Done groups by entity**, most closes first, each item in date order; an archived entity's row adds `(archived)`, and a contact's close is linked by `<person>:<line>` as in Now.
+- **An undated close is never dated into the window.** The italic count line renders whenever `undated` is above zero, whatever the window holds.
+- **Moved leads with its count**, one line per declared lifecycle and a quiet one included (`**<Lifecycle>:** nothing moved`); a terminal or closed move says so. The board stays `/para-pipeline`'s.
+- **Stuck names the oldest overdue item only**, since Slipped already lists the recent ones, and at most three entities with no next step, plus a count.
+- **Decisions render as written**, cut like a task.
+- **An empty section is omitted**, Moved excepted; with nothing in the window at all, the count line alone says so.
+- **The Next action** is the first step on the oldest slipped item, else on Stuck, by the rule below.
+
+**For one entity, close by offering a status update** the operator can send: one line after the Next action, `Draft a status update for <entity>?`. On a yes, draft it in chat per [para-shared/drafting.md](../../para-shared/drafting.md), each recipient's address from their contact card: what was done (from Done, in plain words), what is next (the entity's soonest open items), and what we need from you (the open items waiting on the recipient's side, a paragraph omitted when none is). No links, counts, flags or undated closes, and never written to a file.
+
 ## Example fragment
 
 ```

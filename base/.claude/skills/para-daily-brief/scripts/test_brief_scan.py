@@ -21,7 +21,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from brief_scan import OPEN_ITEM_CAP, scan
+from brief_scan import OPEN_ITEM_CAP, review_window, scan
 
 
 def write(root, rel, text):
@@ -583,6 +583,164 @@ class LifecycleCounts(VaultCase):
     def test_a_vault_with_no_lifecycle_carries_an_empty_list(self):
         build_vault(self.root)
         self.assertEqual(scan(self.root, TODAY)["lifecycles"], [])
+
+
+def build_review_vault(root):
+    """A week to review against TODAY: closes inside and outside it and one undated, a due
+    date it let pass, stage changes in it and before it, and dated log entries."""
+    write(root, "CLAUDE.md", "\n".join([
+        "# Vault", "", "## Deal lifecycle", "",
+        "| Stage | PARA home |", "|---|---|",
+        "| Lead | `areas/business/leads.md` (row) |",
+        "| Qualified | `resources/ideas/<company>/` |",
+        "| Lost | `archive/ideas/<company>/` |", "",
+    ]) + "\n")
+    write(root, "projects/acme-website/actions.md", "\n".join([
+        "# acme-website - Actions", "", "## Build",
+        "- [ ] Slipped this week 📅 2026-09-17",
+        "- [ ] Slipped long ago 📅 2026-08-01",
+        "- [ ] Due today 📅 2026-09-21",
+        "- [ ] Still ahead 📅 2026-09-25",
+        "- [x] Closed this week ✅ 2026-09-18",
+        "- [x] Closed on the first day ✅ 2026-09-15",
+        "- [x] Closed the day before ✅ 2026-09-14",
+        "- [x] Closed with no date",
+        "", "```markdown", "- [x] A sample close ✅ 2026-09-18", "```", "",
+    ]) + "\n")
+    write(root, "areas/network/jan-janssen.md",
+          "# Jan Janssen\n\n## History\n- [x] Thanked Jan ✅ 2026-09-16\n\n"
+          "## Next actions\n_None currently._\n")
+    write(root, "areas/garden/brief.md", "# garden\n")
+    write(root, "archive/projects/old-site/actions.md",
+          "# old-site\n\n- [x] Shipped the old site ✅ 2026-09-16\n- [x] An archived undated close\n")
+    write(root, "areas/business/leads.md", "\n".join([
+        "# Leads", "", "## Open", "",
+        "| Company | Stage |", "|---|---|",
+        "| [Acme](https://acme.example) | Lead (since 2026-09-16) |",
+        "| Beta | Lead (since 2026-08-01) |", "",
+        "## Closed", "",
+        "| Company | Stage |", "|---|---|", "| Old Co | Lead (since 2026-09-19) |", "",
+    ]) + "\n")
+    write(root, "resources/ideas/gamma/brief.md", "# gamma\n\n**Stage:** Qualified (since 2026-09-20)\n")
+    write(root, "resources/ideas/eps/brief.md", "# eps\n\n**Stage:** Qualified (since 2026-09-01)\n")
+    write(root, "resources/ideas/zeta/brief.md", "# zeta\n\n**Stage:** Qualified\n")
+    write(root, "archive/ideas/delta/brief.md", "# delta\n\n**Stage:** Lost (since 2026-09-17)\n")
+    write(root, "projects/acme-website/brief.md", "\n".join([
+        "# acme-website", "", "## Development log", "",
+        "- **2026-09-16** - Chose the hosted checkout over a custom cart.",
+        "- 2026-09-02: Kept the old URL structure.", "",
+        "### 2026-09-19", "", "Dropped the blog migration from scope.", "",
+        "## Status", "", "- 2026-09-18 A status line, not a log entry.", "",
+    ]) + "\n")
+    write(root, "projects/acme-website/sources/20260917 Kickoff.md",
+          "# Kickoff\n\n## Decisions\n\n- 2026-09-17 A meeting record, not the log.\n")
+    write(root, "areas/business/decision-log.md",
+          "# Decision log\n\n| Date | Decision |\n|---|---|\n| 2026-09-20 | Raised the day rate |\n")
+    return root
+
+
+class Review(VaultCase):
+
+    def setUp(self):
+        super().setUp()
+        build_review_vault(self.root)
+
+    def review(self, window="week", **kw):
+        return scan(self.root, TODAY, review=window, **kw)["review"]
+
+    def done_texts(self, review):
+        return {i["text"] for row in review["done"]["by_entity"] for i in row["items"]}
+
+    def test_a_week_is_the_seven_days_ending_today_and_a_month_the_thirty(self):
+        self.assertEqual(review_window("week", TODAY),
+                         {"name": "week", "start": "2026-09-15", "end": "2026-09-21", "days": 7})
+        self.assertEqual(review_window("month", TODAY)["start"], "2026-08-23")
+        self.assertEqual(review_window("2026-09-01", TODAY),
+                         {"name": "since", "start": "2026-09-01", "end": "2026-09-21", "days": 21})
+
+    def test_a_window_that_names_no_past_date_is_refused(self):
+        for arg in ("fortnight", "2026-09-22", "2026-13-01", ""):
+            self.assertIsNone(review_window(arg, TODAY), arg)
+
+    def test_only_a_close_dated_inside_the_window_is_done(self):
+        got = self.review()
+        self.assertEqual(self.done_texts(got),
+                         {"Closed this week", "Closed on the first day", "Thanked Jan",
+                          "Shipped the old site"})
+        self.assertEqual(got["done"]["count"], 4)
+
+    def test_a_close_with_no_date_is_counted_and_never_given_one(self):
+        got = self.review()["done"]
+        self.assertEqual(got["undated"], 1)
+        self.assertNotIn("Closed with no date", self.done_texts(self.review()))
+
+    def test_done_groups_by_entity_and_an_archived_entity_says_so(self):
+        rows = {(r["bucket"], r["label"]): r for r in self.review()["done"]["by_entity"]}
+        self.assertEqual(rows[("P", "acme-website")]["count"], 2)
+        self.assertEqual(rows[("A", "network")]["items"][0]["person"], "jan-janssen")
+        self.assertTrue(rows[("P", "old-site")]["archived"])
+        self.assertFalse(rows[("P", "acme-website")]["archived"])
+
+    def test_slipped_is_a_due_date_inside_the_window_that_is_still_open(self):
+        got = self.review()["slipped"]
+        self.assertEqual([(s["text"], s["due"], s["days_late"]) for s in got],
+                         [("Slipped this week", "2026-09-17", 4)])
+
+    def test_moved_counts_every_stage_entered_in_the_window_a_terminal_one_included(self):
+        lc = self.review()["moved"][0]
+        self.assertEqual(lc["heading"], "Deal lifecycle")
+        self.assertEqual(lc["count"], 4)
+        self.assertEqual([(e["name"], e["stage"], e["since"], e["terminal"], e["closed"])
+                          for e in lc["entities"]],
+                         [("Acme", "Lead", "2026-09-16", False, False),
+                          ("delta", "Lost", "2026-09-17", True, True),
+                          ("Old Co", "Lead", "2026-09-19", False, True),
+                          ("gamma", "Qualified", "2026-09-20", False, False)])
+
+    def test_a_lifecycle_where_nothing_moved_still_has_its_line(self):
+        lc = self.review("2026-09-21")["moved"][0]
+        self.assertEqual((lc["heading"], lc["count"], lc["entities"]), ("Deal lifecycle", 0, []))
+
+    def test_decisions_are_dated_log_entries_inside_the_window(self):
+        got = self.review()["decisions"]
+        self.assertEqual([(d["date"], d["text"], d["file"]) for d in got], [
+            ("2026-09-16", "Chose the hosted checkout over a custom cart.",
+             "projects/acme-website/brief.md"),
+            ("2026-09-19", "Dropped the blog migration from scope.",
+             "projects/acme-website/brief.md"),
+            ("2026-09-20", "Raised the day rate", "areas/business/decision-log.md"),
+        ])
+
+    def test_only_a_development_log_is_read_never_a_call_log_or_a_backlog(self):
+        write(self.root, "areas/ops/brief.md", "\n".join([
+            "# ops", "", "## Call log", "- 2026-09-17 Called the host.", "",
+            "## Backlog", "- 2026-09-18 Someday, the migration.", "",
+            "## Development log (newest first)", "- 2026-09-18 Moved to the managed host.", "",
+        ]) + "\n")
+        got = [d["text"] for d in self.review()["decisions"] if d["file"] == "areas/ops/brief.md"]
+        self.assertEqual(got, ["Moved to the managed host."])
+
+    def test_stuck_reuses_the_overdue_lane_and_the_entities_with_nothing_open(self):
+        got = self.review()["stuck"]
+        overdue = [t["text"] for t in scan(self.root, TODAY)["tasks"] if t["lane"] == "overdue"]
+        self.assertEqual(len(got["overdue"]), len(overdue))
+        self.assertEqual([e["path"] for e in got["no_next_step"]],
+                         ["areas/business", "areas/garden"])
+
+    def test_one_entity_is_reviewed_on_its_own_files_alone(self):
+        got = self.review(entity="acme-website")
+        self.assertEqual(self.done_texts(got), {"Closed this week", "Closed on the first day"})
+        self.assertEqual(got["done"]["undated"], 1)
+        self.assertEqual([s["text"] for s in got["slipped"]], ["Slipped this week"])
+        self.assertEqual({d["file"] for d in got["decisions"]}, {"projects/acme-website/brief.md"})
+        self.assertEqual(got["moved"][0]["count"], 0)
+        self.assertEqual(got["stuck"]["no_next_step"], [])
+
+    def test_a_name_that_resolves_to_nothing_gets_no_review(self):
+        self.assertIsNone(self.review(entity="nothing-like-this"))
+
+    def test_no_review_block_without_the_scope(self):
+        self.assertNotIn("review", scan(self.root, TODAY))
 
 
 class SilentSources(VaultCase):
