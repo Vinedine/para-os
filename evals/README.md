@@ -109,7 +109,9 @@ One directory per case: `case.yaml` names it and points at the fixture script, `
 holds what the operator types and the run's limits, and each file under `graders/` is one
 check on the result. `_fixture/vault.sh` builds the vault every case runs against, with
 its dates written relative to the day of the run, so a case scores the same whenever it
-runs.
+runs. A case can run on the example vault the repo ships instead: `_fixture/example.sh`
+copies `examples/belfoot-vault/`, which `tools/eval.py` places beside the fixtures, and the
+case moves to the day of the run whatever line it needs there.
 
 Runs start in an empty directory with none of your settings, skills, or connectors, and
 the vault's own `CLAUDE.md` is not loaded for them: a skill that needs a convention has to

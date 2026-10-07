@@ -11,8 +11,8 @@ ships no manifest: it is a template repo, not a marketplace entry, and `claude p
 validate` already reads base/.claude/skills/ as a plain skills folder. So this wrapper
 assembles a plugin in a temporary directory instead: base's skills, every add-on's and the
 multi-vault layer's skills beside them as an operator installs them, a generated manifest,
-and a copy of evals/. The repo keeps exactly what it had, and the harness gets the shape
-it needs.
+and a copy of evals/ with the example vaults beside its fixtures. The repo keeps exactly
+what it had, and the harness gets the shape it needs.
 
 Results land in ${PARAOS_HOME:-~/.paraos}/data/eval-runs/<timestamp>/, where the repo
 already keeps what a run produced rather than what it ships. Nothing is written inside
@@ -40,6 +40,7 @@ SKILLS = ROOT / "base" / ".claude" / "skills"
 ADDON_SKILLS = ROOT / "addons"   # addons/<name>/.claude/skills/<skill>/
 MULTI_VAULT = ROOT / "multi-vault"   # multi-vault/<skill>/
 EVALS = ROOT / "evals"
+EXAMPLES = ROOT / "examples"
 
 MANIFEST = {
     "name": "para-os",
@@ -156,6 +157,14 @@ def summary_markdown(out_dir):
     return "\n".join(lines) + "\n"
 
 
+def no_skill_copy(directory, names):
+    """What copying an example vault leaves out: the untracked `.claude/skills/` copy it may
+    hold, so a case loads the skills under test rather than a stale copy of them, and the
+    caches a test run leaves behind."""
+    skip = {"__pycache__", ".pytest_cache"} & set(names)
+    return skip | ({"skills"} if Path(directory).name == ".claude" else set())
+
+
 def build_plugin(workdir):
     """Assemble the plugin the harness wants: skills, a manifest, and the cases."""
     plugin = workdir / "para-os"
@@ -171,6 +180,7 @@ def build_plugin(workdir):
         shutil.copytree(skill.parent, target)
     shutil.copytree(EVALS, plugin / "evals",
                     ignore=shutil.ignore_patterns("results"))
+    shutil.copytree(EXAMPLES, plugin / "evals" / "_fixture" / "examples", ignore=no_skill_copy)
     return plugin
 
 

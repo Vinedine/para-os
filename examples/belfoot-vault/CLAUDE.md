@@ -142,4 +142,4 @@ A persistent script the agent writes for this vault lives at `resources/scripts/
 
 ## Skills wired to this vault
 
-`/para-daily-brief` (bucketed action dashboard across every `actions.md`), `/para-triage` (empty the inbox by classifying then moving each item), `/para-new` (create a workstream, area, idea or contact, and promote an idea), `/para-deep-clean` (audit structural drift), `/para-archive` (close out one finished project or shelved idea), `/para-pipeline` (the vendor board).
+`/para-daily-brief` (bucketed action dashboard across every `actions.md`), `/para-prep` (prepare a stakeholder meeting from their card, the workstreams and the last record), `/para-triage` (empty the inbox by classifying then moving each item), `/para-new` (create a workstream, area, idea or contact, and promote an idea), `/para-deep-clean` (audit structural drift), `/para-archive` (close out one finished project or shelved idea), `/para-pipeline` (the vendor board).
