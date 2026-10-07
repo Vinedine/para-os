@@ -38,7 +38,7 @@ These paths also match ideas and projects that are not deals, which follow the v
 7. **Last touch** - `<date>, <what happened>`, rewritten by hand after every contact. It is the single field the staleness flag reads.
 8. **Won** - the day the first paid phase was agreed, written by the promotion to Goal and kept unchanged when the delivery project later archives, so `/para-pipeline` can still count the deal as reached wherever it now sits.
 
-**The next step is not a header line.** It lives where the vault's action rules already put it: the champion's contact file under its next-actions heading, the project's `actions.md` once promoted, or the register row's own column. Written into the header as well it becomes the one field typed twice, and the copy is the one that goes stale.
+**The next step is not a header line.** It lives where the vault's action rules already put it: the champion's contact file under its next-actions heading where the vault's `areas/network/` checkbox row allows it, an open item linking the deal brief, the project's `actions.md` once promoted, or the register row's own column. Written into the header as well it becomes the one field typed twice, and the copy is the one that goes stale.
 
 **A lost deal carries one more line**, directly under `Stage`: `**Lost reason:** <reason>, <one free clause>`, the reason being one of **no decision**, **timing**, **budget**, **went elsewhere**, **not a fit**, **relationship only**. The free clause is what a later reader needs and the list cannot hold. `/para-archive` refuses the move to `archive/ideas/` without it.
 

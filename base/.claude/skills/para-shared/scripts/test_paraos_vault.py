@@ -31,7 +31,8 @@ from paraos_vault import (
     find_clone, first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
     git_untracked, hashes, header_fields,
     inbound_references, ingest_ledger, ingest_logs, integration_markers,
-    lifecycles, live_lines, log_instant, main, master_template, misplaced_checkboxes,
+    contact_card_level, lifecycles, live_lines, log_instant, main, master_template,
+    misplaced_checkboxes,
     match_encoding, move_plan, norm, normalised, note_name_parts, notice_date, open_tasks,
     over_grown_briefs,
     parse_markers, register_rows, registered_vault, registry,
@@ -851,6 +852,49 @@ class Hygiene(VaultCase):
     def test_a_file_under_archive_with_only_closed_checkboxes_is_not_flagged(self):
         write(self.root, "archive/projects/old/actions.md", "# old\n\n- [x] Done\n")
         self.assertEqual(misplaced_checkboxes(self.root), {"archive": [], "resources": []})
+
+    def network_row(self, level, roster=False):
+        rows = ["| `projects/`, `areas/` | yes | open + closed |"]
+        if level:
+            rows.append(f"| `areas/network/` | {level} | what a card may hold |")
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# V", "", "## Actions", "", "### Where a checkbox may live", "",
+            "| Bucket | `actions.md` | State |", "|---|---|---|", *rows, "",
+            *(["## Who writes this vault", "", "| Person | Lane |", "|---|---|"] if roster
+              else []), ""]))
+        write(self.root, "areas/network/jan-peeters.md", "\n".join([
+            "# Jan Peeters", "", "## Next actions", "",
+            "- [ ] Send Jan the deck", "- [x] Thank Jan ✅ 2026-09-01", ""]))
+
+    def test_the_network_row_sets_the_contact_card_level(self):
+        for row, level in (("yes", "yes"), ("**never**", "never"),
+                           ("relationship only", "relationship only")):
+            self.network_row(row)
+            self.assertEqual(contact_card_level(self.root), level, row)
+
+    def test_no_row_is_yes_unless_a_roster_implies_never(self):
+        self.network_row(None)
+        self.assertEqual(contact_card_level(self.root), "yes")
+        self.network_row(None, roster=True)
+        self.assertEqual(contact_card_level(self.root), "never")
+        self.network_row("yes", roster=True)
+        self.assertEqual(contact_card_level(self.root), "yes")
+
+    def test_at_never_open_and_closed_card_checkboxes_are_reported_apart(self):
+        self.network_row("**never**")
+        got = misplaced_checkboxes(self.root, with_closed=True)
+        self.assertEqual(got["areas/network"],
+                         [{"file": "areas/network/jan-peeters.md", "open": 1}])
+        self.assertEqual(got["closed"]["areas/network"],
+                         [{"file": "areas/network/jan-peeters.md", "closed": 1}])
+        self.assertNotIn("closed", misplaced_checkboxes(self.root))
+
+    def test_at_yes_or_with_no_row_card_checkboxes_are_not_reported(self):
+        for level in ("yes", None):
+            self.network_row(level)
+            got = misplaced_checkboxes(self.root, with_closed=True)
+            self.assertNotIn("areas/network", got)
+            self.assertEqual(got["closed"], {})
 
     def test_no_triage_folder_is_no_items(self):
         self.assertEqual(triage_items(self.root), [])

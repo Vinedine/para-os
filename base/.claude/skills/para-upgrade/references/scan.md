@@ -39,6 +39,7 @@ python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> [
 | `rules` | One row per `.claude/rules/*.md` the vault has: `file`, `master`, `paths`, `paths_retired` (globs no master carries any more, taken out of `paths`), `master_paths`, `paths_missing`, `paths_extra` (both `null` with no `master`), `kind` (`shape`\|`convention`\|`mixed`), `anchors`, `pointer` |
 | `sections` | One row per flavor or module whose `CLAUDE.md.sections` the ref carries, declared or not (`declared`; an undeclared one only where the vault states a paragraph of some version of it): `name`, `master`, and per `## ` heading `verdict` (`absent`\|`current`\|`behind`\|`differs`), `behind` (vault paragraphs matching only an earlier version along the ref: `paragraph`, `commit`, `revision`), `missing` (current paragraphs the vault lacks), `missing_new` (those the addon did not state under that heading at `baseline.commit`; `null` with no baseline), `local` (vault paragraphs no version states), `localised` (a `local` and a `missing` paragraph that are one paragraph the vault reworded, paired and taken out of both: `paragraph`, `shipped`). Paragraphs compare with whitespace collapsed, a `{{placeholder}}` matching what the vault filled in |
 | `settings` | `master_keys`, `user_level` (`path`, `matching`), `vault_level` (`present`, `keys`), `missing_effective` |
+| `checkboxes` | `missing` (each `bucket` and the master's `row` as written), `contact_card_level` |
 | `skills` | `rows`: the `para-shared` library first (`copies`, one per installed location), then one row per bundled and user-level skill folder, each with `revisions_behind`: the count of changelog entries after the OLDEST revision any of its differing files matched, up to and including the master's own marker (`entries_between`) - `null` unless the row's own `verdict` is `behind` - see [derived-copies.md](derived-copies.md) and "The verdict" below; `ignored` (folders with no `SKILL.md`) |
 | `integrations` | `rows`: one per `para-os-integration:` marker found in the vault, with the verdict, the diff, `overwrite` eligibility and the `suite` locator; `unmarked`: script files under `resources/scripts/` carrying no marker, each with `matches` (evidence, never a verdict) |
 | | `unmarked[].matches` compares the script's bytes against `integrations/*` **at the ref's tip only**, not that folder's history nor the addon `pipeline/` folders. A script matching an older master, or a pipeline script, has to be recognised by eye. |
@@ -147,6 +148,9 @@ diff those.
 
 8. **`settings`** - `base/.claude/settings.json` at the ref against `~/.claude/settings.json`
    and the vault's own `.claude/settings.json`, key by key.
+   **`checkboxes`**: the rows of the template's `Where a checkbox may live` table whose
+   bucket cell the vault's own table lacks, and the level a missing `areas/network/` row is
+   written at: `never` where the vault has a `## Who writes this vault` heading, else `yes`.
 
 9. **`skills`** and **`integrations`** - [derived-copies.md](derived-copies.md)'s "Sweep for"
    and "Installed integration scripts" sections state every rule above by hand: the master

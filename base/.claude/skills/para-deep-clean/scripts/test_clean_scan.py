@@ -849,6 +849,17 @@ class Archive(VaultCase):
         write(self.root, "archive/meetings/nested/20260101 Call.md", "x\n")
         self.assertEqual(self.run_scan("1")["phase1"]["archive"]["missing_record"], [])
 
+    def test_a_card_checkbox_is_misplaced_where_the_network_row_says_never(self):
+        write(self.root, "CLAUDE.md", "# Vault\n\n### Where a checkbox may live\n\n"
+              "| Bucket | `actions.md` | State |\n|---|---|---|\n"
+              "| `areas/network/` | **never** | a checkbox on a card is a filing error |\n")
+        write(self.root, "areas/network/ann-smet.md",
+              "# Ann Smet\n\n## Next actions\n\n- [ ] Send the deck\n- [x] Thanked ✅ 2026-09-01\n")
+        found = self.run_scan("1")["phase1"]["archive"]["misplaced_checkboxes"]
+        self.assertEqual(found["areas/network"], [{"file": "areas/network/ann-smet.md", "open": 1}])
+        self.assertEqual(found["closed"]["areas/network"],
+                         [{"file": "areas/network/ann-smet.md", "closed": 1}])
+
 
 class StaleDrafts(VaultCase):
 

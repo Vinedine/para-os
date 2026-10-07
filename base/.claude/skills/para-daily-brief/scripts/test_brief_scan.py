@@ -163,6 +163,16 @@ class WhatCounts(VaultCase):
         self.assertEqual(got["flags"]["misplaced"]["archive"][0]["open"], 1)
         self.assertEqual(got["flags"]["misplaced"]["resources"][0]["open"], 1)
 
+    def test_an_open_card_checkbox_is_misplaced_where_the_network_row_says_never(self):
+        write(self.root, "CLAUDE.md", "# V\n\n### Where a checkbox may live\n\n"
+              "| Bucket | `actions.md` | State |\n|---|---|---|\n"
+              "| `areas/network/` | **never** | a checkbox on a card is a filing error |\n")
+        write(self.root, "areas/network/ann-smet.md",
+              "# Ann Smet\n\n## Next actions\n\n- [ ] Send Ann the deck\n- [x] Thanked ✅ 2026-09-01\n")
+        got = scan(self.root, TODAY)["flags"]["misplaced"]
+        self.assertEqual(got["areas/network"], [{"file": "areas/network/ann-smet.md", "open": 1}])
+        self.assertNotIn("closed", got)
+
 
 class HealthFlags(VaultCase):
 

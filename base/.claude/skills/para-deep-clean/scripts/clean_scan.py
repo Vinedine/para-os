@@ -649,7 +649,14 @@ def archive_findings(vault, dated_pattern):
                 if not (entity_dir / "brief.md").is_file() and not (entity_dir / "README.md").is_file():
                     missing_record.append(entity_dir.relative_to(vault).as_posix())
     return {"loose_root_files": loose_root_files, "meetings_naming": meetings_naming,
-            "missing_record": missing_record, "misplaced_checkboxes": misplaced_checkboxes(vault)}
+            "missing_record": missing_record,
+            "misplaced_checkboxes": misplaced_checkboxes(vault, with_closed=True)}
+
+
+def misplaced_files(found):
+    """Every file the misplaced-checkbox report names, open and closed lists alike."""
+    rows = [r for b, rs in found.items() if b != "closed" for r in rs]
+    return {r["file"] for r in rows + [r for rs in found.get("closed", {}).values() for r in rs]}
 
 
 def resources_loose(vault):
@@ -711,7 +718,7 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
     touched |= {vault / f for f in archive["loose_root_files"]}
     touched |= {vault / f for f in archive["meetings_naming"]}
     touched |= {vault / f for f in archive["missing_record"]}
-    touched |= {vault / r["file"] for rows in archive["misplaced_checkboxes"].values() for r in rows}
+    touched |= {vault / f for f in misplaced_files(archive["misplaced_checkboxes"])}
 
     res_loose = resources_loose(vault)
     touched |= {vault / f for f in res_loose}
@@ -945,7 +952,7 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
     arch = archive_findings(vault, dated_pattern)
     archive_clean = not (arch["loose_root_files"] or arch["meetings_naming"] or arch["missing_record"])
     touched |= {vault / f for f in arch["loose_root_files"] + arch["meetings_naming"] + arch["missing_record"]}
-    touched |= {vault / r["file"] for rows_ in arch["misplaced_checkboxes"].values() for r in rows_}
+    touched |= {vault / f for f in misplaced_files(arch["misplaced_checkboxes"])}
     rows.append({"check": "archive_clean", "pass": archive_clean, "detail": arch})
 
     res_loose = resources_loose(vault)

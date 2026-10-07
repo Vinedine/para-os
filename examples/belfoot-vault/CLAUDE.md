@@ -30,7 +30,7 @@ Root `README.md` is the master document, single source of truth for identity, op
 - `/para-new` **creates** a workstream, area, idea, or contact, settling its shape against the sorting test before scaffolding anything.
 - An idea **promotes** to `projects/` when someone waits on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar; it earns its `actions.md` then, not before. Retiring an idea is always the operator's call, never automatic: one that never happened goes to `archive/ideas/`, one where real work ran and then stopped goes to `archive/projects/`.
 - The next big, dated push on a maintained asset is a **project running alongside its area**; when it archives, surviving work returns to the area. A project with no dated commitment left for six months is an area wearing a project name: `/para-deep-clean` proposes its **demotion** to one, always on the operator's call.
-- An entity **archives whole** (brief, actions, sources) via `/para-archive`, with open items routed out *first* to the owning area, a successor project, or the contact file. Where this file names an archive destination for a kind of entity, that kind goes there instead of `archive/projects/` or `archive/ideas/`, an area included.
+- An entity **archives whole** (brief, actions, sources) via `/para-archive`, with open items routed out *first* to the owning area, a successor project, or the contact file where the `areas/network/` row below allows. Where this file names an archive destination for a kind of entity, that kind goes there instead of `archive/projects/` or `archive/ideas/`, an area included.
 - **Every move repoints inbound links in the same pass**, not just archiving. `/para-deep-clean` audits for dangling links.
 
 ### Archive hygiene
@@ -52,10 +52,11 @@ A checkbox is a commitment, so the bucket a file sits in decides whether it may 
 | Bucket | `actions.md` | State |
 |---|---|---|
 | `projects/`, `areas/` | yes | open + closed |
+| `areas/network/` | yes | any action about the person; `relationship only` keeps replies, introductions, thanks and check-ins; `never` keeps none |
 | `resources/` | **never** | a checkbox here is a filing error |
 | `archive/` | yes | **all closed** - one open `- [ ]` means it was archived too early |
 
-A dated go/no-go on an idea is a strategic action in `areas/stadium/actions.md`, linking to the idea; a stakeholder follow-up lives in that person's contact file; scheduled multi-step work means the thing is a workstream, not an idea.
+A dated go/no-go on an idea is a strategic action in `areas/stadium/actions.md`, linking to the idea; a stakeholder follow-up lives in that person's contact file as far as the `areas/network/` row allows, else with the entity it serves; scheduled multi-step work means the thing is a workstream, not an idea.
 
 ### The actionable frontier
 
@@ -71,7 +72,7 @@ A checkbox is something you could act on now or on its marked date, not a plan. 
 ### Which file an action goes in
 
 - With the workstream or area it belongs to: `projects/<x>/actions.md`, `areas/<x>/actions.md`.
-- Per-stakeholder actions in the contact file under `## Next actions`.
+- Per-stakeholder actions in the contact file under `## Next actions`, as far as the `areas/network/` row allows; the rest with the project or area they serve, and an item nobody will carry there is dropped.
 - Strategic work tied to no single entity in `areas/stadium/actions.md`. Never a root `actions.md`.
 - An `actions.md` archives *with its entity*, fully closed, never on its own.
 
@@ -81,7 +82,7 @@ A checkbox is something you could act on now or on its marked date, not a plan. 
 
 ## Filing and naming
 
-- **Contacts**: one file per stakeholder at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context, then `## Next actions` (`_None currently._` when empty), then any `## Backlog`. A shared workstream is tracked in the primary stakeholder's file; the others carry a pointer line.
+- **Contacts**: one file per stakeholder at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics). Relationship context, an optional `## History` of closed items, then `## Next actions` (`_None currently._` when empty or at `never`, optionally with one line pointing at the live work), then any `## Backlog`. A shared workstream is tracked in the primary stakeholder's file; the others carry a pointer line.
 - **Dated conversation records** (meeting notes, transcripts, chat/email sequences): to the `sources/` of the owning workstream or area; `archive/meetings/YYYYMMDD Description.md` only when they span several entities.
 - **Source documents**: `sources/YYYYMMDD <Who> <Description>.<ext>` - the date of the document itself (signing, issue, inspection), not the received date. The full convention (folder variants, period attestations, machine exports, executed filing rules, and where a document lives) is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on its own when a triage item or a source document is read; read it explicitly before filing one.
 - **Brief and relationship**: the contact file is the relationship summary; the workstream folder holds the brief and execution detail. Cross-link both ways.

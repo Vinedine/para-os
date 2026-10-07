@@ -647,6 +647,18 @@ class Actions(VaultCase):
         write(self.root, "resources/ideas/acme/brief.md", "# Acme\n")
         self.assertFalse(self.plan("acme")["actions"]["idea_holds_actions"])
 
+    def test_surviving_items_route_to_a_contact_file_only_where_the_network_row_allows(self):
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        for level, offered in (("yes", "contact file"),
+                               ("relationship only", "contact file (relationship actions only)"),
+                               ("**never**", None)):
+            write(self.root, "CLAUDE.md", "# V\n\n### Where a checkbox may live\n\n"
+                  "| Bucket | `actions.md` | State |\n|---|---|---|\n"
+                  f"| `areas/network/` | {level} | what a card may hold |\n")
+            routes = self.plan("acme")["actions"]["route_options"]
+            self.assertEqual([r for r in routes if r.startswith("contact file")],
+                             [offered] if offered else [], level)
+
 
 # ---------------------------------------------------------------------------------- gate
 

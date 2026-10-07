@@ -48,10 +48,10 @@ Dates and markers per [operating-discipline.md](../../para-shared/operating-disc
 
 - A **new successor idea** at `resources/ideas/<name>-vNext/` (scaffold `brief.md` **only**, cross-linked to the archived original) - use only if the user chooses it.
 - An **existing project**, or an **area's rolling actions**.
-- A **contact file**, for anything that is really a follow-up with one person.
+- A **contact file**, for anything that is really a follow-up with one person, offered only as `actions.route_options` lists it: the vault's `areas/network/` checkbox row removes it at `never` and keeps only relationship actions at `relationship only`.
 - **Drop**.
 
-**A successor idea never gets an `actions.md`** (the vault's "Where a checkbox may live" rule). Fold what survives into its `brief.md` as open questions and prose next steps. A genuinely dated commitment is not idea material: route it to the owning area's `actions.md`, an existing project, or the contact file.
+**A successor idea never gets an `actions.md`** (the vault's "Where a checkbox may live" rule). Fold what survives into its `brief.md` as open questions and prose next steps. A genuinely dated commitment is not idea material: route it to the owning area's `actions.md`, an existing project, or the contact file where `route_options` offers one.
 
 **Living-reference files**: scan the entity folder for files whose *content* is reusable reference rather than history - playbooks, positioning or strategy docs, templates, anything linked by other live work as a resource. Propose moving them to `resources/<name>/`. The entity's history (brief, actions, one-time migration or handoff plans) archives with it. **`inbound.living_reference_candidates`** lists every file inside the entity folder that a live file outside it already links to, each with the files linking to it - candidates to judge, never a verdict.
 

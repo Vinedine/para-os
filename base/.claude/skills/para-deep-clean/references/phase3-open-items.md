@@ -52,7 +52,9 @@ The repair half of the actionable-frontier rule in `CLAUDE.md`. For every `actio
 
 **A vault with no `actions.md` keeps its next steps as prose** under headings its `CLAUDE.md` names, or, where it names none, as the brief's own next-steps or open-items sections. Run the same tests over each bullet under those headings: over-threshold per file, stale undated, blown dates, and duplicates across files, where demoting means moving the bullet out of the heading into the body, text verbatim. Add one disposition checkboxes never need, **Not an action**: analysis or status parked under a next-steps heading, moved into the body the same way. A list generated from those headings is fixed at its sources (Phase 1).
 
-Grooming never touches `resources/` or `archive/` - checkboxes there are Phase 1 filing errors, not grooming candidates.
+**Where the vault's `areas/network/` checkbox row says `relationship only`**, propose moving each card item that advances a project or area (anything but a reply, an introduction, thanks or a check-in) to that entity's `actions.md`, text verbatim, one question per item.
+
+Grooming never touches `resources/` or `archive/` - checkboxes there are Phase 1 filing errors, not grooming candidates, and neither are a card's under `never`.
 
 ## Step 3.5 - Content grooming
 
