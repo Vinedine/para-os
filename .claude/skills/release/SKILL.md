@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut or extend a para-os template revision - pick the label, write the CHANGELOG entry, restamp every marker, bump changed integrations, run the full check, validate main on real vaults, and ship it to stable. Use when the maintainer says "release", "cut a revision", "stamp the revision", or types /release.
+description: Cut or extend a para-os template revision - pick the label, fold the changelog fragments, restamp every marker, bump changed integrations, run the full check, validate main on real vaults, and ship it to stable. Use when the maintainer says "release", "cut a revision", "stamp the revision", or types /release.
 argument-hint: '[<revision>]'
 disable-model-invocation: true
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git *), Bash(gh *), Read, Grep, Glob, Edit, Write, AskUserQuestion, Skill
@@ -25,7 +25,8 @@ git log --oneline origin/stable..HEAD
 
 A change needs a revision when a vault must do something: re-sync a skill or `para-shared/`,
 copy a rule file, edit its `CLAUDE.md`, update an installed integration. Wording that changes no
-rule does not. When nothing qualifies, say so and stop.
+rule does not. Each such change left a fragment in `changelog.d/`; write one now for any that
+did not. When nothing qualifies, say so and stop.
 
 ## 2. Pick the label
 
@@ -39,17 +40,18 @@ already has it (`git show origin/stable:CHANGELOG.md`).
 
 An argument naming a revision overrides this; confirm it is newer than every heading.
 
-## 3. Write the entry
+## 3. Fold the fragments
 
-Match the entries below it exactly: a bold one-line summary with its own `Reaction:`, then one
-bold-led paragraph per change, each ending in `Reaction:` (what an existing vault does, or
-`none for an existing vault`). Add an `**Integrations.**` line when a script moved. Newest
-first, and no calendar dates or em/en dashes in the prose.
+```bash
+# Windows: py -3
+python3 .claude/skills/release/scripts/fold_changelog.py <label>
+```
 
-Then the same revision in `RELEASES.md`, for people rather than the agent: a
-**What changes for you.** paragraph and a **Do you need to do anything?** paragraph that names
-only what `/para-upgrade` cannot do for them. Plain words, no file paths a non-programmer
-would not recognise. When folding into an open revision, update both files.
+It appends every fragment to the `<label>` revision in `CHANGELOG.md` and `RELEASES.md`, in
+the order they merged, and deletes it; it writes nothing when it refuses. Then read the
+revision in both files: merge its `**Integrations.**` paragraphs into one, and make the two
+`RELEASES.md` paragraphs read as one text each, the second naming only what `/para-upgrade`
+cannot do. What each part holds is in [changelog.d/README.md](../../../changelog.d/README.md).
 
 ## 4. Restamp
 
@@ -72,7 +74,7 @@ treating it as a pass. Fix every failure; never edit a check to get green.
 ## 6. Hand over
 
 Show the entry and the diff stat, and propose one commit, `Stamp revision <label>` or
-`Fold <change> into revision <label>`. Commit only after approval. Never push or open a PR
+`Fold changelog.d into revision <label>`. Commit only after approval. Never push or open a PR
 unless asked.
 
 Steps 7 and 8 run once every pull request in the revision's milestone has merged into `main`.
@@ -80,8 +82,10 @@ Steps 7 and 8 run once every pull request in the revision's milestone has merged
 ## 7. Validate `main` on real vaults
 
 Record the commit under test, `<sha>`, as `git fetch origin && git rev-parse origin/main`
-prints it. Start the evals on it with `gh workflow run evals.yml --ref main` and read the run's
-summary page when it finishes: a case that dropped since the last weekly run is a finding like
+prints it. Stop if `git ls-tree --name-only <sha> changelog.d/` lists more than its
+`README.md`: `/para-upgrade` reads `CHANGELOG.md` alone, so that change would ship untested
+and unannounced. Fold it first (steps 2-6). Start the evals on it with
+`gh workflow run evals.yml --ref main` and read the run's summary page when it finishes: a case that dropped since the last weekly run is a finding like
 those below. Beside them, run the `claude-api` skill's `prompt-audit` at `<sha>`, scoped to the
 shipped files the revision changed (`git diff --name-only origin/stable...<sha> -- base addons
 multi-vault`), or to every shipped skill when a Claude model has shipped since the last revision.

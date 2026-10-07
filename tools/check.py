@@ -24,6 +24,10 @@ What it enforces, and why each one is machinery rather than prose:
                         same order, so a revision cut without its note fails here rather than
                         reaching an operator unexplained.
 
+  Changelog fragments   A pull request adds `changelog.d/<issue>.md` instead of editing those
+                        two files, and /release folds it in. A fragment the fold cannot parse
+                        fails here, in the pull request that wrote it, not at the release.
+
   Dashes                CLAUDE.md makes this a hard rule for shipped prose, and it is the one
                         style rule a reader notices immediately.
 
@@ -288,6 +292,21 @@ def check_release_notes():
         bad(f"RELEASES.md has `## {extra}`, which CHANGELOG.md does not")
     if set(notes) == set(revisions):
         bad("RELEASES.md lists the CHANGELOG revisions in a different order; keep both newest first")
+
+
+MAINTAINER_SKILLS = ROOT / ".claude" / "skills"   # for working on this repo; never shipped
+
+
+def check_fragments():
+    """The parser is the fold's own, so what passes here is what /release can fold."""
+    sys.path.insert(0, str(MAINTAINER_SKILLS / "release" / "scripts"))
+    from fold_changelog import fragment_paths, parse_fragment
+    for p in sorted(fragment_paths(ROOT)):
+        _, problems = parse_fragment(p.read_text(encoding="utf-8"))
+        for problem in problems:
+            bad(f"{rel(p)}: {problem}")
+        if not problems:
+            ok(f"{rel(p)} parses")
 
 
 TEMPLATE_MAX_LINES = 120   # a starting point; worst today is base at 119
@@ -597,11 +616,11 @@ COUNTS = (re.compile(r"^Ran (\d+) tests?", re.M), re.compile(r"^\D*pass (\d+)$",
 
 
 def skill_script_dirs():
-    """Each skill's scripts/ folder, wherever skills ship from. A skill that hands a
-    mechanical step to a script is testable in the way prose never was, so the suite runs
-    here with the integrations rather than waiting for someone to remember it."""
+    """Each skill's scripts/ folder, wherever skills ship from, and the maintainer's own. A
+    skill that hands a mechanical step to a script is testable in the way prose never was, so
+    the suite runs here with the integrations rather than waiting for someone to remember it."""
     roots = [ROOT / "base" / ".claude" / "skills"] + addon_skill_dirs() + \
-        [d for d in EXTRA_SKILL_DIRS if d.is_dir()]
+        [d for d in EXTRA_SKILL_DIRS if d.is_dir()] + [MAINTAINER_SKILLS]
     return sorted(d for root in roots for d in root.glob("*/scripts") if d.is_dir())
 
 
@@ -920,6 +939,7 @@ def main():
     check_integrations()
     check_template_revisions()
     check_release_notes()
+    check_fragments()
     check_template_size()
     check_dashes()
     check_dates()

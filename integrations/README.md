@@ -34,7 +34,7 @@ An installed integration is a **copy**, so the vault needs a way to tell whether
 para-os-integration: granola 2026.08.02
 ```
 
-The version is **per integration, not per file**: every script in the folder carries the same one, stamped with the revision that folder's *code* last changed in. Bump it when a change is something an already-installed copy has to react to (a fixed API call, a new argument, a changed output path), and note the change under that revision's **Integrations** line in the changelog. A README rewording is not a bump.
+The version is **per integration, not per file**: every script in the folder carries the same one, stamped with the revision that folder's *code* last changed in. Bump it when a change is something an already-installed copy has to react to (a fixed API call, a new argument, a changed output path), and name it in an **Integrations** paragraph of the pull request's [changelog fragment](../changelog.d/README.md). A README rewording is not a bump.
 
 `/para-upgrade` reads the marker in each script under a vault's `resources/scripts/`, compares it against the master's, and **reports** anything behind. It never overwrites a vault's copy unprompted, since a copy can carry a local fix. The scripts themselves hold nothing vault-specific (routing lives in a `<name>.config.json` beside the script, secrets under `~/.paraos/secrets/`), so re-syncing one is a straight file copy plus whatever one-time migration the changelog entry names. A script with no marker is left alone and named as skipped.
 
@@ -45,5 +45,5 @@ The version is **per integration, not per file**: every script in the folder car
 3. Resolve paths via `PARAOS_HOME`; don't hardcode `~/<something>`.
 4. Stamp every script's header with `para-os-integration: <name> <revision>` (see **Versioning** above).
 5. Ship a folder here: the script(s) plus a `README.md` covering prerequisites, one-time setup, and usage.
-6. Add a row to the **Available** table above, and an **Integrations** line to the changelog entry for that revision.
+6. Add a row to the **Available** table above, and an **Integrations** paragraph to the pull request's [changelog fragment](../changelog.d/README.md).
 7. Cover the folder's pure functions with tests next to the script (`test_*.py`, `*.test.js`; no runner or dependency beyond the language's built-in one), then run `python3 tools/check.py` (`py -3` on Windows) from the repo root - it verifies the marker, the table row, and the revision all agree, and runs every integration's suite. A folder with no suite is a failure, as is one whose runtime is missing.
