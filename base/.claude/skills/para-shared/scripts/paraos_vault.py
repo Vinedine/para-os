@@ -52,11 +52,13 @@ from urllib.parse import unquote
 # One home for numbers that several skills quote. A skill that disagrees with one of these
 # tells an operator their file is fine while another says it needs grooming.
 
-WIP_THRESHOLD = 12          # open items in one action file, at or above which it needs grooming
+OPEN_ITEM_CAP = 8           # open items one action file holds: past it, close or demote first
+HEADLINE_CAP = 120          # characters in an action's headline: its bold lead, else the line
 FALSELY_OVERDUE_DAYS = 30   # overdue by more than this reads as a date that was never real
 DORMANT_ENTITY_DAYS = 180   # untouched this long: a retirement candidate
 BRIEF_LINE_CAP = 500        # a brief past this is over-grown
 STALE_FILE_DAYS = 60        # an action file with open items, untouched this long
+STALE_UNDATED_DAYS = 30     # an open, undated item untouched this long: offered for demotion
 CLUSTER_SECONDS = 60        # mtimes this close mean a bulk write, not an edit
 
 # --- what a task looks like ---------------------------------------------------------------
@@ -1217,7 +1219,8 @@ def _frozen(lines, first):
 
 def misplaced_checkboxes(vault, with_closed=False):
     """Open checkboxes where the vault forbids them, per bucket, worst file first: `archive`,
-    `resources`, and `areas/network` where the vault's contact-card level is `never`.
+    `resources`, `areas/network` where the vault's contact-card level is `never`, and any
+    other folder its checkbox table declares at `never` (work tracked somewhere else).
     `with_closed` adds `closed`, the ticked checkboxes on those cards, which `never` forbids
     too.
 
@@ -1231,7 +1234,12 @@ def misplaced_checkboxes(vault, with_closed=False):
     vault = Path(vault)
     out, closed = {}, {}
     cards = contact_card_level(vault) == "never"
-    for parent in ("archive", "resources") + (("areas/network",) if cards else ()):
+    declared = [k.strip("/") for k, cells in
+                checkbox_rows(read_text(vault / "CLAUDE.md") or "").items()
+                if cells[0].startswith("never") and "," not in k and k.endswith("/")
+                and k.strip("/") not in ("archive", "resources", "areas/network")]
+    for parent in ("archive", "resources") + (("areas/network",) if cards else ()) + \
+            tuple(declared):
         base = vault / parent
         rows, ticked = [], []
         if base.is_dir():
@@ -1256,6 +1264,120 @@ def misplaced_checkboxes(vault, with_closed=False):
     if with_closed:
         out["closed"] = closed
     return out
+
+
+def other_checkbox_paths(vault):
+    """Every `.md` under `projects/` and `areas/` that is not an action file or a contact
+    file (action_files() already covers both) and carries at least one open checkbox: the
+    boxes no brief counts, in a log, a plan or a meeting note."""
+    vault = Path(vault)
+    action_set = set(action_files(vault))
+    out = []
+    for bucket in ("projects", "areas"):
+        base = vault / bucket
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*.md")):
+            if path in action_set or path.name == "actions.md":
+                continue
+            if open_tasks(path):
+                out.append(path)
+    return out
+
+
+def stray_checkboxes(vault):
+    """`other_checkbox_paths()` less the frozen records, as `{file, open}`, worst first."""
+    vault = Path(vault)
+    rows = []
+    for path in other_checkbox_paths(vault):
+        lines = read_lines(path)
+        opens = [n for n, text in live_lines(lines) if TASK_RE.match(text)]
+        if opens and not _frozen(lines, opens[0]):
+            rows.append({"file": path.relative_to(vault).as_posix(), "open": len(opens)})
+    return sorted(rows, key=lambda r: -r["open"])
+
+
+BOLD_LEAD_RE = re.compile(r"^\*\*(.+?)\*\*")
+
+
+def headline(text):
+    """An action's headline: its bold lead where it opens on one, else the whole text."""
+    m = BOLD_LEAD_RE.match(text.strip())
+    return m.group(1).strip() if m else text.strip()
+
+
+def entity_of(vault, path):
+    """The vault-relative entity a file belongs to: `projects/<x>`, `areas/<x>`, or the
+    contact file itself under `areas/network/`. None for anything else."""
+    parts = Path(path).resolve().relative_to(Path(vault).resolve()).parts
+    if len(parts) >= 3 and parts[:2] == ("areas", "network"):
+        return "/".join(parts[:3])
+    if len(parts) >= 3 and parts[0] in ("projects", "areas"):
+        return "/".join(parts[:2])
+    return None
+
+
+def backlog_bullets(path):
+    """The top-level bullets under a `## Backlog` heading, `{line, text}` each."""
+    out, inside = [], False
+    for n, line in live_lines(read_lines(path)):
+        heading = HEADING_RE.match(line)
+        if heading:
+            inside = heading.group(2).strip().lower() == "backlog"
+            continue
+        if inside and re.match(r"^[-*] (?!\[[ xX]\])", line):
+            out.append({"line": n, "text": line[2:].strip()})
+    return out
+
+
+def open_items(vault, files):
+    """What an end-of-work reconcile asks about: for each entity the `files` belong to, its
+    open checkboxes and its `## Backlog` bullets, in its action file or its contact file."""
+    vault = Path(vault)
+    out = {}
+    for f in files:
+        try:
+            entity = entity_of(vault, f)
+        except ValueError:
+            continue
+        if not entity or entity in out:
+            continue
+        home = vault / entity
+        doc = home if home.is_file() else home / "actions.md"
+        if not doc.is_file():
+            continue
+        rel = doc.relative_to(vault).as_posix()
+        out[entity] = {"file": rel,
+                       "open": [{"line": t["line"], "text": t["text"], "due": t["due"],
+                                 "recurring": t["recurring"]} for t in open_tasks(doc)],
+                       "backlog": backlog_bullets(doc)}
+    return [dict(entity=k, **v) for k, v in sorted(out.items())]
+
+
+CADENCE_RE = re.compile(r"every\s+(?:(\d+)\s+)?(day|week|month|year)s?\b(.*)", re.IGNORECASE)
+
+
+def next_occurrence(line, today):
+    """A recurring task ticked today: `{closed, next}`, the line closed with `✅ <today>` and
+    its successor reopened on the next due date. The next date is one cadence on from the
+    line's `📅` (from today for `when done`, or a line with no `📅`). ValueError where the
+    line carries no cadence this can count: every <n> days, weeks, months or years."""
+    m = TASK_RE.match(line.strip()) or CLOSED_TASK_RE.match(line.strip())
+    if not m:
+        raise ValueError("not a task line")
+    body = m.group(1)
+    markers = parse_markers(body)
+    found = CADENCE_RE.match(markers["recurring"] or "")
+    if not found:
+        raise ValueError(f"no countable cadence: {markers['recurring']!r}")
+    period = f"{found.group(1) or 1} {found.group(2).lower()}s"
+    due = parse_date(markers["due"])
+    base = today if "when done" in found.group(3).lower() or not due else due
+    following = shift(base, period)
+    body = DONE_RE.sub("", body).rstrip()
+    successor = DUE_RE.sub(f"📅 {iso(following)}", body) if due else f"{body} 📅 {iso(following)}"
+    return {"closed": f"- [x] {body} ✅ {iso(today)}", "next": f"- [ ] {successor}",
+            "due": iso(following)}
 
 
 def over_grown_briefs(vault, cap=BRIEF_LINE_CAP, limit=3):
@@ -2390,7 +2512,15 @@ def main(argv=None):
     notice.add_argument("--term", help="how often it renews, written the same way: a renewal "
                                        "whose notice day has passed rolls forward to the next")
     notice.add_argument("--today", help="YYYY-MM-DD (default: the system clock)")
-    for parser in (resolve, declared, dangling, inbound, plan, digests, reg, sources):
+    items = sub.add_parser("open-items", help="the open items of the entities some files "
+                                              "belong to, for an end-of-work reconcile")
+    items.add_argument("files", nargs="*", help="vault-relative files (default: every file "
+                                                "git reports changed)")
+    recur = sub.add_parser("next-occurrence", help="a recurring task ticked: the closed line "
+                                                   "and its successor")
+    recur.add_argument("line", help="the task line as written")
+    recur.add_argument("--today", help="YYYY-MM-DD (default: the system clock)")
+    for parser in (resolve, declared, dangling, inbound, plan, digests, reg, sources, items):
         parser.add_argument("--vault", default=".", help="vault root (default: .)")
     args = ap.parse_args(argv)
 
@@ -2430,9 +2560,26 @@ def main(argv=None):
         sys.stdout.write("\n")
         return 0
 
+    if args.command == "next-occurrence":
+        today = parse_date(args.today or iso(date.today()))
+        if not today:
+            ap.error(f"dates are YYYY-MM-DD: {args.today!r}")
+        try:
+            answer = next_occurrence(args.line, today)
+        except ValueError as err:
+            ap.error(str(err))
+        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
+
     root = Path(args.vault)
     if not root.is_dir():
         ap.error(f"no such vault: {root}")
+    if args.command == "open-items":
+        files = [root / f for f in args.files] or sorted(git_modified(root))
+        json.dump(open_items(root, files), sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
     json.dump(answer_for(args, root), sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0

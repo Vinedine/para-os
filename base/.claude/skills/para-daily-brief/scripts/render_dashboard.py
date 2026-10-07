@@ -49,7 +49,9 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
 try:
-    from paraos_vault import PRIORITY_RANK, paraos_home_dir, scope_of  # noqa: E402
+    from paraos_vault import (  # noqa: E402
+        HEADLINE_CAP, OPEN_ITEM_CAP, PRIORITY_RANK, paraos_home_dir, scope_of,
+    )
 except ImportError as missing:
     print(f"render_dashboard: {missing}. Write the page by hand with references/dashboard.md",
           file=sys.stderr)
@@ -257,18 +259,18 @@ def flag_drill(scan, flag):
             raise JudgmentError(f"flag {kind} names {flag.get('file')}, which the scan "
                                 f"did not flag")
         return drill_list(scan, [t for t in scan["tasks"] if t["file"] == flag["file"]])
-    if kind in ("falsely_overdue", "stale_recurrence", "undated_majority"):
+    if kind in ("falsely_overdue", "stale_recurrence", "undated_majority", "long_headlines"):
         if not raised.get(kind):
             raise JudgmentError(f"flag {kind} is one the scan did not raise")
         if kind == "undated_majority":
             return drill_list(scan, [t for t in scan["tasks"] if t["lane"] == "undated"])
         return drill_list(scan, tasks_at(scan, raised[kind]))
-    if kind in ("misplaced", "over_grown_briefs"):
+    if kind in ("misplaced", "over_grown_briefs", "stray_checkboxes"):
         rows = (sum((raised.get(kind) or {}).values(), []) if kind == "misplaced"
                 else raised.get(kind) or [])
         if not rows:
             raise JudgmentError(f"flag {kind} is one the scan did not raise")
-        unit = "open" if kind == "misplaced" else "lines"
+        unit = "lines" if kind == "over_grown_briefs" else "open"
         lis = "".join(f'<li><span>{html.escape(r["file"])}</span>'
                       f'<span class="meta">{r[unit]} {unit}</span></li>' for r in rows)
         return f'<ol class="drill">{lis}</ol>'
@@ -467,8 +469,9 @@ def mechanical_flags(scan):
     object that opens on what it reports."""
     raised, out = scan["flags"], []
     for r in raised.get("over_threshold") or []:
-        out.append({"text": f"**{file_label(scan, r['file'])}: {r['open']} open** - decomposed "
-                            f"plan? Groom via `/para-deep-clean`",
+        out.append({"text": f"**{file_label(scan, r['file'])}: {r['open']} open**, over the cap "
+                            f"of {OPEN_ITEM_CAP} - close or demote before adding. "
+                            f"`/para-deep-clean` grooms",
                     "kind": "over_threshold", "file": r["file"]})
     for r in raised.get("stale_files") or []:
         out.append({"text": f"**{file_label(scan, r['file'])}: {r['open']} open, untouched since "
@@ -509,6 +512,20 @@ def mechanical_flags(scan):
         out.append({"text": f"**Open checkboxes {' and '.join(parts)}** - "
                             + ", and ".join(why[b] for b, _ in fired if b in why),
                     "kind": "misplaced"})
+    stray = raised.get("stray_checkboxes") or []
+    if stray:
+        out.append({"text": f"**{sum(r['open'] for r in stray)} open checkboxes outside the action "
+                            f"files** (worst: {stray[0]['file']}, {stray[0]['open']}) - no brief "
+                            f"counts them: move them to `actions.md`, or mark the file frozen",
+                    "kind": "stray_checkboxes"})
+    long_ = raised.get("long_headlines") or []
+    if long_:
+        worst = long_[0]
+        out.append({"text": f"**{len(long_)} action{'s' if len(long_) > 1 else ''} over "
+                            f"{HEADLINE_CAP} characters** - worst: "
+                            f"{file_label(scan, worst['file'])}:{worst['line']}, {worst['chars']}. "
+                            f"A bold headline, the detail in a sub-bullet or the brief",
+                    "kind": "long_headlines"})
     briefs = raised.get("over_grown_briefs") or []
     if briefs:
         out.append({"text": f"**{briefs[0]['file']}: {briefs[0]['lines']} lines** - content "

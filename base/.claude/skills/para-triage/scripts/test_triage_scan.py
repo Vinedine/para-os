@@ -1115,14 +1115,14 @@ class SameThread(unittest.TestCase):
 
 class OverThreshold(VaultCase):
 
-    def test_exactly_twelve_open_items_is_flagged(self):
-        lines = "\n".join(f"- [ ] Item {n}" for n in range(12))
+    def test_a_file_at_the_cap_is_flagged(self):
+        lines = "\n".join(f"- [ ] Item {n}" for n in range(8))
         write(self.root, "projects/acme/actions.md", f"# Acme - Actions\n\n{lines}\n")
         rows = over_threshold_block(self.root)
-        self.assertEqual(rows, [{"file": "projects/acme/actions.md", "open": 12}])
+        self.assertEqual(rows, [{"file": "projects/acme/actions.md", "open": 8}])
 
-    def test_eleven_open_items_is_not_flagged(self):
-        lines = "\n".join(f"- [ ] Item {n}" for n in range(11))
+    def test_a_file_one_under_the_cap_is_not_flagged(self):
+        lines = "\n".join(f"- [ ] Item {n}" for n in range(7))
         write(self.root, "projects/acme/actions.md", f"# Acme - Actions\n\n{lines}\n")
         self.assertEqual(over_threshold_block(self.root), [])
 

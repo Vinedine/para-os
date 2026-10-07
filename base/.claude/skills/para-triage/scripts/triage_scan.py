@@ -44,7 +44,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        MIN_HASH_BYTES, WIP_THRESHOLD, abspath, action_files, hashes,
+        MIN_HASH_BYTES, OPEN_ITEM_CAP, abspath, action_files, hashes,
         ingest_ledger, ingest_logs, inbound_references, live_lines, log_instant, norm,
         note_name_parts, open_tasks, read_lines, registered_vault,
         registry, rel_posix, same_place, snapshot, thread_hash, triage_items, triage_sources,
@@ -749,7 +749,7 @@ def over_threshold_block(vault):
     out = []
     for path in action_files(vault):
         count = len(open_tasks(path))
-        if count >= WIP_THRESHOLD:
+        if count >= OPEN_ITEM_CAP:
             out.append({"file": rel_posix(vault, path), "open": count})
     return sorted(out, key=lambda r: -r["open"])
 
