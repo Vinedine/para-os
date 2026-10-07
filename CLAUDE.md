@@ -21,6 +21,7 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | `tools/coverage_report.py` | The same suites under coverage, with a floor CI enforces |
 | `CHANGELOG.md` | One entry per template revision; `/para-upgrade` executes each entry's Reaction |
 | `RELEASES.md` | The same revisions for people: what changes, and whether to do anything |
+| `changelog.d/` | One fragment per pull request, folded into both by `/release` |
 
 What ships is prose an agent reads every session in someone else's vault, so words are the
 product's running cost.
@@ -68,7 +69,7 @@ second job fails when coverage drops below its floor, and a third runs `actionli
   both ways.
 - **Revision markers agree.** Every template and the example vault carry the newest
   `CHANGELOG.md` revision, and `RELEASES.md` lists the same revisions in the same order; each integration's scripts agree with its row in
-  `integrations/README.md`.
+  `integrations/README.md`. Every `changelog.d/` fragment parses.
 
 ## Never ship
 
@@ -119,10 +120,10 @@ second job fails when coverage drops below its floor, and a third runs `actionli
   one narrating the incident.
 - **Turning a convention into enforcement machinery is a feature.** Open an issue before
   building it.
-- **A template change that an existing vault must react to gets a revision.** Wording that
-  changes no rule does not. Use `/release` to cut one. A `CHANGELOG.md` entry states what
-  changed and the Reaction; a reason earns a clause only where the migrating agent must judge
-  a case the Reaction does not cover.
+- **A template change that an existing vault must react to adds a fragment** to
+  `changelog.d/` ([format](changelog.d/README.md)), never an edit to `CHANGELOG.md` or
+  `RELEASES.md`; `/release` folds the fragments into a revision. Wording that changes no rule
+  adds none.
 - **Line endings are LF** (`.gitattributes`), except `.ps1`, which is CRLF. An installed copy is
   compared to its master byte for byte.
 - **Skill scripts use the Python standard library only.** An integration may need a package

@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""Fold the changelog.d/ fragments into CHANGELOG.md and RELEASES.md under one revision.
+
+    python3 fold_changelog.py <label>
+    py -3 fold_changelog.py <label>
+
+A pull request adds one fragment, `changelog.d/<issue>.md`, instead of editing the two files,
+so branches open at the same time never conflict over them. The format is in
+changelog.d/README.md. The fold:
+
+- appends each fragment's `## Changelog` paragraphs, verbatim, to the end of the `## <label>`
+  section of CHANGELOG.md, opening that section above the newest one when the label is new;
+- joins its `## What changes for you` and `## Do you need to do anything?` text onto the end
+  of the same revision's two one-line paragraphs in RELEASES.md;
+- deletes every fragment it folded. README.md stays.
+
+Fragments fold in the order git added them on the current branch, which on `main` is the
+order their pull requests merged; a fragment not yet committed folds last, by name. Nothing
+is written unless every fragment parses and the label is the newest revision in both files or
+newer than it.
+
+Standard library only.
+"""
+
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[4]   # .claude/skills/release/scripts/ -> repo root
+REVISION = re.compile(r"^\d{4}\.\d{2}\.\d{2}$")
+HEADING = re.compile(r"^##[ \t]+(\d{4}\.\d{2}\.\d{2})[ \t]*$", re.M)
+SECTION = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.M)
+
+CHANGELOG = "Changelog"
+WHAT = "What changes for you"
+TODO = "Do you need to do anything?"
+SECTIONS = (CHANGELOG, WHAT, TODO)
+# The bold lead each RELEASES.md paragraph opens with.
+LEADS = {WHAT: "**What changes for you.**", TODO: "**Do you need to do anything?**"}
+NEW_TODO = "Run `/para-upgrade`."
+
+
+class FoldError(Exception):
+    pass
+
+
+def parse_fragment(text):
+    """({section: body}, [problem]) for one fragment. A body is stripped of its blank edges."""
+    parts = SECTION.split(text)
+    sections, problems = {}, []
+    if parts[0].strip():
+        problems.append("text before the first `## ` section")
+    for name, body in zip(parts[1::2], parts[2::2]):
+        if name not in SECTIONS:
+            problems.append(f"unknown section `## {name}`; the sections are "
+                            + ", ".join(f"`## {s}`" for s in SECTIONS))
+        elif name in sections:
+            problems.append(f"`## {name}` appears twice")
+        else:
+            sections[name] = body.strip()
+    for name in (CHANGELOG, WHAT):
+        if not sections.get(name):
+            problems.append(f"`## {name}` is missing or empty")
+    if sections.get(CHANGELOG) and "Reaction:" not in sections[CHANGELOG]:
+        problems.append(f"`## {CHANGELOG}` states no `Reaction:`")
+    return sections, problems
+
+
+def fragment_paths(root):
+    """Every fragment in changelog.d/, unordered. README.md is the folder's format, not one."""
+    folder = root / "changelog.d"
+    if not folder.is_dir():
+        return []
+    return [p for p in folder.glob("*.md") if p.name != "README.md"]
+
+
+def merge_order(root, paths):
+    """`paths` oldest-added first, by the branch's history; untracked ones last, by name."""
+    try:
+        r = subprocess.run(["git", "log", "--reverse", "--diff-filter=A", "--name-only",
+                            "--format=", "--", "changelog.d"],
+                           cwd=root, capture_output=True, text=True, encoding="utf-8")
+        added = r.stdout.splitlines() if r.returncode == 0 else []
+    except FileNotFoundError:
+        added = []
+    # A name added, folded away and added again sorts by its latest add.
+    rank = {Path(name).name: i for i, name in enumerate(added) if name.strip()}
+    return sorted(paths, key=lambda p: (0, rank[p.name], "") if p.name in rank
+                  else (1, 0, p.name))
+
+
+def one_line(text):
+    return " ".join(line.strip() for line in text.splitlines() if line.strip())
+
+
+def newest(text, name):
+    m = HEADING.search(text)
+    if not m:
+        raise FoldError(f"{name} has no `## YYYY.MM.NN` revision heading")
+    return m
+
+
+def section_span(text, heading):
+    """(start, end) of the body under `heading`, up to the next revision heading or the end."""
+    following = HEADING.search(text, heading.end())
+    return heading.end(), following.start() if following else len(text)
+
+
+def fold_changelog(text, label, paragraphs):
+    top = newest(text, "CHANGELOG.md")
+    block = "\n\n".join(paragraphs)
+    if top.group(1) != label:
+        return f"{text[:top.start()]}## {label}\n\n{block}\n\n---\n\n{text[top.start():]}"
+    start, end = section_span(text, top)
+    body = text[start:end].rstrip()
+    if body.endswith("---"):
+        body = body[:-3].rstrip()
+    trailer = text[start + len(body):end]
+    return f"{text[:start]}{body}\n\n{block}{trailer}{text[end:]}"
+
+
+def fold_releases(text, label, what, todo):
+    top = newest(text, "RELEASES.md")
+    if top.group(1) != label:
+        todo_line = " ".join(filter(None, [NEW_TODO, todo]))
+        return (f"{text[:top.start()]}## {label}\n\n{LEADS[WHAT]} {what}\n\n"
+                f"{LEADS[TODO]} {todo_line}\n\n{text[top.start():]}")
+    start, end = section_span(text, top)
+    body = text[start:end]
+    for name, addition in ((WHAT, what), (TODO, todo)):
+        if not addition:
+            continue
+        m = re.search(rf"^{re.escape(LEADS[name])}.*$", body, re.M)
+        if not m:
+            raise FoldError(f"RELEASES.md `## {label}` has no `{LEADS[name]}` paragraph")
+        body = f"{body[:m.end()]} {addition}{body[m.end():]}"
+    return f"{text[:start]}{body}{text[end:]}"
+
+
+def fold(root, label):
+    """Fold every fragment under `root` into `label`; return the fragments folded, in order.
+    Raises FoldError, having written nothing, when the fold cannot be made whole."""
+    if not REVISION.match(label):
+        raise FoldError(f"`{label}` is not a YYYY.MM.NN revision label")
+    paths = merge_order(root, fragment_paths(root))
+    if not paths:
+        return []
+
+    parsed, problems = [], []
+    for p in paths:
+        sections, found = parse_fragment(p.read_text(encoding="utf-8"))
+        problems += [f"changelog.d/{p.name}: {problem}" for problem in found]
+        parsed.append(sections)
+    if problems:
+        raise FoldError("\n".join(problems))
+
+    changelog_path, releases_path = root / "CHANGELOG.md", root / "RELEASES.md"
+    changelog = changelog_path.read_text(encoding="utf-8")
+    releases = releases_path.read_text(encoding="utf-8")
+    current = newest(changelog, "CHANGELOG.md").group(1)
+    if newest(releases, "RELEASES.md").group(1) != current:
+        raise FoldError("CHANGELOG.md and RELEASES.md disagree on the newest revision; "
+                        "run tools/check.py")
+    if label < current:
+        raise FoldError(f"`{label}` is older than the newest revision, `{current}`")
+
+    paragraphs = [s[CHANGELOG] for s in parsed]
+    what = " ".join(one_line(s[WHAT]) for s in parsed)
+    todo = " ".join(one_line(s[TODO]) for s in parsed if s.get(TODO))
+    changelog = fold_changelog(changelog, label, paragraphs)
+    releases = fold_releases(releases, label, what, todo)
+
+    # Bytes, not text mode: Windows would write CRLF, and both files are LF.
+    changelog_path.write_bytes(changelog.encode("utf-8"))
+    releases_path.write_bytes(releases.encode("utf-8"))
+    for p in paths:
+        p.unlink()
+    return paths
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("label", help="the revision to fold into, YYYY.MM.NN")
+    parser.add_argument("--root", type=Path, default=ROOT, help=argparse.SUPPRESS)
+    args = parser.parse_args(argv)
+    try:
+        folded = fold(args.root, args.label)
+    except FoldError as e:
+        print(f"fold_changelog: {e}", file=sys.stderr)
+        return 1
+    if not folded:
+        print("No fragments in changelog.d/; nothing to fold.")
+    else:
+        print(f"Folded {len(folded)} fragment(s) into {args.label}: "
+              + ", ".join(p.name for p in folded))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
