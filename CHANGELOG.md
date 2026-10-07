@@ -48,6 +48,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **The dashboard can be kept current without a brief run.** `render_dashboard.py --mechanical` renders the page from the scan alone, Now ranked by the brief's own sort and every fired flag worded by the script, with one line in place of the Next action and the agenda. `scripts/refresh_dashboard.py` is the end-of-turn hook that re-renders it in the background when an action-bearing file, `triage/` or `resources/ideas/` changed, under `$PARAOS_HOME/cache/daily-brief/`; its docstring holds the hook recipe. Reaction: re-sync `/para-daily-brief`. Wiring the hook is the operator's harness setting, never proposed as a vault change.
 
+**A draft the operator will send has one rule.** `para-shared/drafting.md` says what it holds and how it pastes: the thread and message it answers, To and CC as real addresses from the thread or a contact card, a mail body in plain text with each paragraph on one unbroken line, no price, date or commitment the vault does not hold, an acknowledgement rather than a promise for a complaint, the structure of the latest sent instance of its kind, and no draft without a reason to write. `/para-triage` links it where it allows drafting, and the template's `## Memory` closes on a sentence pointing at it. Reaction: re-sync `para-shared/` and `/para-triage`, and add that closing sentence to the vault's own `## Memory`.
+
 ---
 
 ## 2026.09.07

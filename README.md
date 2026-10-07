@@ -33,7 +33,7 @@ Everything stays ordinary files (PDFs, scans, spreadsheets, Markdown) in ordinar
 
 ## What it looks like in practice
 
-**Running a business.** A scanned letter from the tax office lands in the inbox. You ask the assistant to process it: it reads the letter, files it under a proper name, and adds "respond before 1 July" to the to-do list. With your mail connected, it cross-references what it finds ("the accountant requested a postponement on 12 May") - and then does the next bit too: drafts the reply for you to send, and when the figures it needs are buried in a spreadsheet it can't parse cleanly, it writes a throwaway script on the spot to pull them. Next morning, your daily brief is one page of everything due, plus today's meetings.
+**Running a business.** A scanned letter from the tax office lands in the inbox. You ask the assistant to process it: it reads the letter, files it under a proper name, and adds "respond before 1 July" to the to-do list. With your mail connected, it cross-references what it finds ("the accountant requested a postponement on 12 May") - and then does the next bit too: drafts the reply [for you to paste and send](base/.claude/skills/para-shared/drafting.md), and when the figures it needs are buried in a spreadsheet it can't parse cleanly, it writes a throwaway script on the spot to pull them. Next morning, your daily brief is one page of everything due, plus today's meetings.
 
 **IT projects.** Connect Jira, Azure DevOps, and your mail. The morning brief checks your to-do list against the live sprint board; "what's still blocking the release?" is answered from the board plus your own files.
 
