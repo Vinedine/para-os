@@ -369,6 +369,22 @@ class Cut(unittest.TestCase):
     def test_a_link_keeps_its_label(self):
         self.assertEqual(cut("Read [the notes](a/b.md) twice"), "Read the notes twice")
 
+    def test_a_full_stop_before_a_number_or_a_lowercase_word_ends_no_sentence(self):
+        self.assertEqual(cut("Ask for the art. 12 statement, e.g. the fund. Then file it"),
+                         "Ask for the art. 12 statement, e.g. the fund")
+
+    def test_a_clause_end_inside_parentheses_is_kept(self):
+        self.assertEqual(cut("Call the notary (deed; date. Soon) about it; then wait"),
+                         "Call the notary (deed; date. Soon) about it")
+
+    def test_emphasis_keeps_its_text(self):
+        self.assertEqual(cut("Send the *signed* plans _(from the listing)_ to my_agent"),
+                         "Send the signed plans (from the listing) to my_agent")
+        out = cut("Ask for the art. 12 statement (reserve fund, arrears, three years of "
+                  "minutes, the last balance) _(suggested from the listing)_")
+        self.assertTrue(out.startswith("Ask for the art. 12 statement (reserve fund"))
+        self.assertNotIn("_", out)
+
 
 class RememberedUrl(DashboardCase):
 

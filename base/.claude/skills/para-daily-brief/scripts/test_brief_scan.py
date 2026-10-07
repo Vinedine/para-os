@@ -442,6 +442,15 @@ class IdeasAndTriage(VaultCase):
         self.assertEqual(stages["jv"], "idea (JV in planning. Not launched)")
         self.assertEqual(stages["hub"], "Proposal, see the offer and e.g. the call")
 
+    def test_a_full_stop_before_a_number_ends_no_sentence_and_emphasis_drops(self):
+        write(self.root, "resources/ideas/fund/brief.md", "# fund\n\nWaiting on the art. 12 "
+              "statement _(per the listing)_. Then decide.\n\nAsk for nr. 4 and revisit when "
+              "the statement is in, see p. 3. Then decide.\n")
+        idea = next(i for i in scan(self.root, TODAY)["ideas"] if i["name"] == "fund")
+        self.assertEqual(idea["stage"], "Waiting on the art. 12 statement (per the listing)")
+        self.assertEqual(idea["revisit"],
+                         "Ask for nr. 4 and revisit when the statement is in, see p. 3")
+
     def test_ideas_touched_the_same_day_list_by_name(self):
         for name in ("zeta", "alpha", "mid"):
             write(self.root, f"resources/ideas/{name}/brief.md", f"# {name}\n")

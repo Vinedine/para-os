@@ -52,6 +52,7 @@ try:
     from paraos_vault import (  # noqa: E402
         HEADLINE_CAP, OPEN_ITEM_CAP, PRIORITY_RANK, paraos_home_dir, scope_of,
     )
+    from brief_scan import EMPHASIS_RE, SENTENCE_END_RE, first_end  # noqa: E402
 except ImportError as missing:
     print(f"render_dashboard: {missing}. Write the page by hand with references/dashboard.md",
           file=sys.stderr)
@@ -65,7 +66,7 @@ MONTHS = ["January", "February", "March", "April", "May", "June", "July", "Augus
           "September", "October", "November", "December"]
 LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 BOLD_LEAD_RE = re.compile(r"^\*\*(.+?)\*\*")
-CLAUSE_END_RE = re.compile(r";| - |[.!?](?=\s|$)")
+CLAUSE_END_RE = re.compile(r";| - |" + SENTENCE_END_RE.pattern)
 DESCRIPTION = ("Daily vault-state dashboard: open actions per project and area, health flags, "
                "ideas, agenda.")
 
@@ -87,14 +88,12 @@ def inline(text):
 def cut(text):
     """A task cut, never wrapped: its bold lead where it has one, else its first clause,
     then to TEXT_CAP characters at a word boundary (output.md's line rules)."""
-    text = LINK_RE.sub(r"\1", text).strip()
+    text = EMPHASIS_RE.sub(r"\2", LINK_RE.sub(r"\1", text)).strip()
     lead = BOLD_LEAD_RE.match(text)
     if lead:
         text = lead.group(1).rstrip(".:")
     else:
-        end = CLAUSE_END_RE.search(text)
-        if end and end.start() > 0:
-            text = text[:end.start()]
+        text = text[:first_end(text, CLAUSE_END_RE) or None]
     text = text.replace("**", "").replace("`", "").strip()
     if len(text) > TEXT_CAP:
         text = text[:TEXT_CAP].rsplit(" ", 1)[0].rstrip(",;:") + "…"

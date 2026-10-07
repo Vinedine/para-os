@@ -63,8 +63,10 @@ except ImportError as missing:  # the skill falls back to scanning by hand
     sys.exit(2)
 
 LINK_TARGET_RE = re.compile(r"\]\([^)]*\)")
-SENTENCE_END_RE = re.compile(r"[.!?](?=\s+[^a-z\s]|\s*$)")
-SENTENCE_START_RE = re.compile(r"[.!?]\s+(?=[^a-z\s])")
+# signals.md's sentence end, which render_dashboard.py's task cut imports: `e.g. the call`,
+# `art. 12` and `€500.000` hold none.
+SENTENCE_END_RE = re.compile(r"[.!?](?=\s+[^a-z0-9\s]|\s*$)")
+EMPHASIS_RE = re.compile(r"(?<![\w*])([*_])(?![\s*])(.+?)(?<![\s*])\1(?![\w*])")
 REVISIT_RE = re.compile(r"\brevisit when\b", re.IGNORECASE)
 SENDER_RE = re.compile(r"^(?:[-*]\s+)?\**from\**:\**\s+(.+)$", re.IGNORECASE)
 NOTE_FIELD_RE = re.compile(r"^(?:[-*]\s+\**[A-Za-z][\w ]{0,30}\**:|\*\*[A-Za-z][\w ]{0,30}:\*\*)")
@@ -201,20 +203,26 @@ def aggregate(tasks):
 
 def short_stage(text):
     """An idea's stage cut to what fits one line: link syntax reduced to its label (a
-    target is relative to the brief's folder and breaks when rendered from the vault root),
-    then the first sentence, a full stop inside a parenthesis not counting as its end.
-    Kept here, not in the shared `stage_line`, which other skills read uncut."""
+    target is relative to the brief's folder and breaks when rendered from the vault root)
+    and `_x_` / `*x*` emphasis to its text, then the first sentence. Kept here, not in the
+    shared `stage_line`, which other skills read uncut."""
     if not text:
         return text
     for start, end, bracket in reversed(link_spans(text)):
         if bracket is not None:
             text = text[:bracket] + text[bracket + 1:start - 2] + text[end + 1:]
+    text = EMPHASIS_RE.sub(r"\2", text)
+    return text[:first_end(text, SENTENCE_END_RE)].strip()
+
+
+def first_end(text, end_re):
+    """Where `end_re` first matches outside parentheses, else None."""
     depth = 0
     for i, ch in enumerate(text):
         depth += (ch == "(") - (ch == ")")
-        if depth <= 0 and SENTENCE_END_RE.match(text, i):
-            return text[:i].strip()
-    return text.strip()
+        if depth <= 0 and end_re.match(text, i):
+            return i
+    return None
 
 
 def ideas_lane(vault, today):
@@ -252,7 +260,7 @@ def revisit_sentence(brief):
             continue
         m = REVISIT_RE.search(stripped)
         if m:
-            starts = [e.end() for e in SENTENCE_START_RE.finditer(stripped) if e.end() <= m.start()]
+            starts = [e.end() for e in SENTENCE_END_RE.finditer(stripped) if e.end() <= m.start()]
             return short_stage(re.sub(r"^[-*]\s+", "", stripped[starts[-1] if starts else 0:]))
     return None
 
