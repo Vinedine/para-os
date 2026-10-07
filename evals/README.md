@@ -1,7 +1,8 @@
 # Eval cases
 
-Behaviour tests for the skills in `base/.claude/skills/`, run by the vendor's
-`claude plugin eval` through [`tools/eval.py`](../tools/eval.py).
+Behaviour tests for the skills in `base/.claude/skills/`, the add-ons and `multi-vault/`, run
+by the vendor's `claude plugin eval` through [`tools/eval.py`](../tools/eval.py), which loads
+them side by side as an operator installs them.
 
 ```bash
 python3 tools/eval.py                                 # every case, three runs, two arms

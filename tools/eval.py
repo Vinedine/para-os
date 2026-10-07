@@ -9,9 +9,10 @@
 `claude plugin eval` only loads skills that belong to a plugin, and para-os deliberately
 ships no manifest: it is a template repo, not a marketplace entry, and `claude plugin
 validate` already reads base/.claude/skills/ as a plain skills folder. So this wrapper
-assembles a plugin in a temporary directory instead: base's skills, every add-on's skills
-beside them as a vault installs them, a generated manifest, and a copy of evals/. The repo
-keeps exactly what it had, and the harness gets the shape it needs.
+assembles a plugin in a temporary directory instead: base's skills, every add-on's and the
+multi-vault layer's skills beside them as an operator installs them, a generated manifest,
+and a copy of evals/. The repo keeps exactly what it had, and the harness gets the shape
+it needs.
 
 Results land in ${PARAOS_HOME:-~/.paraos}/data/eval-runs/<timestamp>/, where the repo
 already keeps what a run produced rather than what it ships. Nothing is written inside
@@ -37,6 +38,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SKILLS = ROOT / "base" / ".claude" / "skills"
 ADDON_SKILLS = ROOT / "addons"   # addons/<name>/.claude/skills/<skill>/
+MULTI_VAULT = ROOT / "multi-vault"   # multi-vault/<skill>/
 EVALS = ROOT / "evals"
 
 MANIFEST = {
@@ -161,7 +163,8 @@ def build_plugin(workdir):
     (plugin / ".claude-plugin" / "plugin.json").write_text(
         json.dumps(MANIFEST, indent=2) + "\n", encoding="utf-8")
     shutil.copytree(SKILLS, plugin / "skills")
-    for skill in sorted(ADDON_SKILLS.glob("*/.claude/skills/*/SKILL.md")):
+    for skill in sorted([*ADDON_SKILLS.glob("*/.claude/skills/*/SKILL.md"),
+                         *MULTI_VAULT.glob("*/SKILL.md")]):
         target = plugin / "skills" / skill.parent.name
         if target.exists():
             raise SystemExit(f"{skill.parent} has the name of a skill already loaded")
