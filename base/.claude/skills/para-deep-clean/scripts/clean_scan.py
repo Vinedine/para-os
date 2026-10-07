@@ -47,13 +47,14 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        FROZEN_MARKER_RE, STALE_FILE_DAYS, TASK_RE,
-        LINK_ROOTS, WIP_THRESHOLD, abspath, action_files, clone_ref, contact_names,
+        FROZEN_MARKER_RE, STALE_UNDATED_DAYS, TASK_RE,
+        LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, clone_ref, contact_names,
         dangling_links, duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
         iso, lifecycles, link_files, link_spans, live_lines, master_template,
         misplaced_checkboxes, norm,
-        open_tasks, over_grown_briefs, parse_date, read_lines, read_text, reference_shape,
+        open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
+        reference_shape,
         resolve_link, snapshot, stage_of, strip_code, table_cells,
         template_marker, triage_items,
     )
@@ -718,28 +719,8 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
 
 def over_threshold_from(files, vault):
     out = [{"file": f.relative_to(vault).as_posix(), "open": len(open_tasks(f))} for f in files]
-    out = [r for r in out if r["open"] >= WIP_THRESHOLD]
+    out = [r for r in out if r["open"] > OPEN_ITEM_CAP]
     return sorted(out, key=lambda r: -r["open"])
-
-
-def other_checkbox_paths(vault):
-    """Every `.md` under `projects/` and `areas/` that is not an action file or a contact
-    file (action_files() already covers both) and carries at least one open checkbox -
-    phase3-open-items.md Step 3.4's "every other file ... that carries open checkboxes",
-    not only actions.md."""
-    vault = Path(vault)
-    action_set = set(action_files(vault))
-    out = []
-    for bucket in ("projects", "areas"):
-        base = vault / bucket
-        if not base.is_dir():
-            continue
-        for path in sorted(base.rglob("*.md")):
-            if path in action_set or path.name == "actions.md":
-                continue
-            if open_tasks(path):
-                out.append(path)
-    return out
 
 
 def other_checkbox_files(vault, paths):
@@ -751,7 +732,7 @@ def other_checkbox_files(vault, paths):
 
 
 def stale_undated_from(vault, files, today):
-    """Each open, undated item untouched for STALE_FILE_DAYS, measured on its own line by
+    """Each open, undated item untouched for STALE_UNDATED_DAYS, measured on its own line by
     `git blame -L`, which follows the line's content through history rather than its
     current line number - a `git log -L` query loses a more recent edit once something
     else in the file shifts where the item sits - where the file is tracked, else the
@@ -787,7 +768,7 @@ def stale_undated_from(vault, files, today):
                     reason = "untracked, and the file's mtime could not be read"
             if date_str:
                 days = (today - parse_date(date_str)).days
-                if days >= STALE_FILE_DAYS:
+                if days >= STALE_UNDATED_DAYS:
                     entry.update(days=days, measured_by=measured_by)
                     items.append(entry)
             else:

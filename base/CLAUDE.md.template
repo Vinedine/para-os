@@ -41,7 +41,7 @@ Applied on the way in, audited by `/para-deep-clean`:
 
 ### Where a checkbox may live
 
-A checkbox is a commitment, so the bucket a file sits in decides whether it may hold one.
+A checkbox is a commitment, so the bucket a file sits in decides whether it may hold one. A folder whose work is tracked somewhere else (an external tracker, a generated file) gets its own row at `never`.
 
 | Bucket | `actions.md` | State |
 |---|---|---|
@@ -54,7 +54,7 @@ A dated go/no-go on an idea is a strategic action in the owning area's `actions.
 
 ### The actionable frontier
 
-A checkbox is something you could act on now or on its marked date, not a plan. Steps whose dependencies have not cleared stay prose (a `## Backlog` section in the same file, or the brief) and become checkboxes when their gate opens. Before appending to a file that already holds 12 or more open items, say so and propose grooming instead of adding. Triage and working sessions add at most one next step per inbound item, never a decomposition.
+A checkbox is something you could act on now or on its marked date, not a plan. Steps whose dependencies have not cleared stay prose (a `## Backlog` section in the same file, or the brief) and become checkboxes when their gate opens. A file holds at most 8 open items: at 8, adding one means closing or demoting one first. Triage and working sessions add at most one next step per inbound item, never a decomposition. An action is one line whose headline (its bold lead, or the whole line without one) stays under 120 characters; detail goes to a sub-bullet, the brief or the source note, and an item that moves is closed and its successor written as a new line, never appended to. When work on an entity ends, its open items are reconciled and any follow-up is offered as a checkbox, per `para-shared/operating-discipline.md`.
 
 ### The content frontier
 
@@ -72,7 +72,7 @@ A checkbox is something you could act on now or on its marked date, not a plan. 
 
 ### Task markers
 
-`📅 YYYY-MM-DD` due, `🛫` start, `⏳` scheduled, `🔁 every <cadence>` recurring (pair with `📅` for the next occurrence), `🔺 🔼 🔽 ⏬` priority (medium = no marker, `🔺` rare), `✅` completion (auto-filled). Markers go at the end of the line; free-text and fuzzy dates ("Q4") become one concrete marker. A `📅` records a real-world deadline (someone expects it, something renews), never an aspiration; work gated on an external event stays undated. One flattened `## Recurring` section per file.
+`📅 YYYY-MM-DD` due, `🛫` start, `⏳` scheduled, `🔁 every <cadence>` recurring (pair with `📅` for the next occurrence), `🔺 🔼 🔽 ⏬` priority (medium = no marker, `🔺` rare), `✅ YYYY-MM-DD` completion, written by whoever ticks the box. Markers go at the end of the line; free-text and fuzzy dates ("Q4") become one concrete marker. A `📅` records a real-world deadline (someone expects it, something renews), never an aspiration; work gated on an external event stays undated. One flattened `## Recurring` section per file.
 
 ## Filing and naming
 

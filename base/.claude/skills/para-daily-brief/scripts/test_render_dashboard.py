@@ -287,7 +287,7 @@ class Mechanical(DashboardCase):
         _, page = render(report)
         flags = re.search(r'<ul class="flags">(.*?)</ul>', page).group(1)
         self.assertEqual(flags.count("<details>"), len(fired))
-        self.assertIn("busy: 12 open", flags)
+        self.assertIn("busy: 12 open</b>, over the cap of 8", flags)
         self.assertIn("Weekly review", flags)
         self.assertIn("archive/old/actions.md", flags)
         self.assertIn("projects/acme-website/brief.md: 502 lines", flags)

@@ -21,7 +21,7 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from brief_scan import WIP_THRESHOLD, scan
+from brief_scan import OPEN_ITEM_CAP, scan
 
 
 def write(root, rel, text):
@@ -176,17 +176,32 @@ class WhatCounts(VaultCase):
 
 class HealthFlags(VaultCase):
 
-    def test_the_wip_flag_fires_at_the_threshold_not_above_it(self):
-        # The vault rule reads "12 or more open items"; the prose said "more than 12".
-        items = "\n".join(f"- [ ] Item {n}" for n in range(WIP_THRESHOLD))
+    def test_the_cap_flag_fires_one_past_the_cap(self):
+        # The vault rule: a file holds at most the cap; at it, adding means closing first.
+        items = "\n".join(f"- [ ] Item {n}" for n in range(OPEN_ITEM_CAP + 1))
         write(self.root, "projects/busy/actions.md", f"# busy\n\n{items}\n")
         self.assertEqual(scan(self.root, TODAY)["flags"]["over_threshold"],
-                         [{"file": "projects/busy/actions.md", "open": WIP_THRESHOLD}])
+                         [{"file": "projects/busy/actions.md", "open": OPEN_ITEM_CAP + 1}])
 
-    def test_one_item_below_the_threshold_stays_quiet(self):
-        items = "\n".join(f"- [ ] Item {n}" for n in range(WIP_THRESHOLD - 1))
+    def test_a_file_at_the_cap_stays_quiet(self):
+        items = "\n".join(f"- [ ] Item {n}" for n in range(OPEN_ITEM_CAP))
         write(self.root, "projects/busy/actions.md", f"# busy\n\n{items}\n")
         self.assertEqual(scan(self.root, TODAY)["flags"]["over_threshold"], [])
+
+    def test_a_headline_over_the_cap_is_flagged_and_a_bold_lead_is_the_headline(self):
+        long_line = "Send " + "the long story " * 10
+        write(self.root, "projects/wordy/actions.md", "# wordy\n\n"
+              f"- [ ] {long_line}\n"
+              f"- [ ] **Send the deck** {long_line}\n")
+        got = scan(self.root, TODAY)["flags"]["long_headlines"]
+        self.assertEqual([(r["line"], r["chars"]) for r in got], [(3, len(long_line.strip()))])
+
+    def test_open_boxes_outside_the_action_files_are_flagged_unless_frozen(self):
+        write(self.root, "projects/acme/log.md", "# Log\n\n- [ ] Proposed: chase the host\n")
+        write(self.root, "projects/acme/sources/20260901 Call.md",
+              "# Call\n\nThis is a frozen record.\n\n- [ ] Next step from the room\n")
+        got = scan(self.root, TODAY)["flags"]["stray_checkboxes"]
+        self.assertEqual(got, [{"file": "projects/acme/log.md", "open": 1}])
 
     def test_a_date_blown_by_more_than_a_month_reads_as_never_real(self):
         build_vault(self.root)

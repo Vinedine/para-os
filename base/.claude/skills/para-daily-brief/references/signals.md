@@ -6,7 +6,9 @@
 
 Emit each only when it fires:
 
-- **Over-threshold file:** an action file holding **12 or more open items**. Flag: `<scope>: N open - decomposed plan? Groom via /para-deep-clean`.
+- **Over the cap:** an action file holding **more than 8 open items**. Flag: `<scope>: N open, over the cap of 8 - close or demote before adding. /para-deep-clean grooms`.
+- **Long headline:** an open item whose headline (its bold lead, or the whole line without one) runs **past 120 characters**. Flag the count and the worst: `N actions over 120 characters - worst: <scope>:<line>, N`.
+- **Stray checkboxes:** open checkboxes in a file under `projects/` or `areas/` that is neither an action file nor a contact file (a log, a plan, a meeting note), frozen records skipped. Flag the total and the worst file: no brief counts them.
 - **Stale file:** an action file with open items whose date, by [Step 4b](task-scan.md#step-4b-aggregate-per-entity)'s rule, is **60+ days ago**. Flag with the date. Without a shell no date can be read: say the flag was not computed.
 - **Falsely-overdue candidates:** items overdue by **more than 30 days**. Flag the count and the worst offender.
 - **Stale recurrence:** a `🔁` item whose `📅` is more than one full cadence period in the past. Flag the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
