@@ -27,7 +27,7 @@ folder is a vault root, what the machine's registry says about it and its neighb
 a checkbox may live, what counts as one, what a task marker means, which folder a name
 resolves to, which names a contact card answers to, when a file was really last touched, what a link points at and what a move
 would have to rewrite, whether two files hold the same bytes (and whether two copies of one
-file differ in more than line endings), what a vault declares it is built from, the numbers a vault's own rules state, and the last day to give notice on a renewing agreement. A second implementation of any of those is a vault getting two answers to one
+file differ in more than line endings), what a vault declares it is built from and the locale it declares, the numbers a vault's own rules state, and the last day to give notice on a renewing agreement. A second implementation of any of those is a vault getting two answers to one
 question, which is the failure this repo exists to prevent.
 
 What does NOT live here: anything a single skill decides. Bucketing against a date,
@@ -963,6 +963,68 @@ def declarations(vault):
     return {"type": _declared(field_ci(fields, "Type")),
             "flavor": _declared(field_ci(fields, "Flavor")),
             "modules": [m for m in modules if m]}
+
+
+LOCALE_LINE_RE = re.compile(r"^\*\*Locale:?\*\*:?\s*(.*)$", re.IGNORECASE)
+LOCALE_FIELD_RE = re.compile(
+    r"^(country|currency|financial year ends|numbers|dates|time zone)\b\s*:?\s*(.*)$",
+    re.IGNORECASE)
+MONTHS = ("january", "february", "march", "april", "may", "june", "july", "august",
+          "september", "october", "november", "december")
+
+
+def locale(vault):
+    """The `**Locale:**` line a vault's `CLAUDE.md` declares (the template puts it under
+    `## Language`): {country, currency, year_end, numbers, dates, time_zone}, each the text
+    written after its label, `·`-separated. A field the line leaves out, or that still holds
+    a `{{placeholder}}`, is None; a vault with no such line answers {}. The prose after the
+    line's last field is not part of it.
+
+    Text only: `year_end_of` reads the year end, and the rest is read by the model.
+    """
+    keys = {"country": "country", "currency": "currency", "financial year ends": "year_end",
+            "numbers": "numbers", "dates": "dates", "time zone": "time_zone"}
+    for _, text in live_lines(read_lines(Path(vault) / "CLAUDE.md")):
+        m = LOCALE_LINE_RE.match(text.strip())
+        if not m:
+            continue
+        out = dict.fromkeys(keys.values())
+        for segment in m.group(1).split("·"):
+            f = LOCALE_FIELD_RE.match(segment.strip())
+            if not f:
+                continue
+            value = re.split(r"\.\s", f.group(2), maxsplit=1)[0].strip().rstrip(".").strip()
+            if value and "{{" not in value:
+                out[keys[f.group(1).lower()]] = value
+        return out
+    return {}
+
+
+def _month(word):
+    word = word.lower().rstrip(".")
+    hits = [n for n, name in enumerate(MONTHS, 1) if len(word) >= 3 and name.startswith(word)]
+    return hits[0] if len(hits) == 1 else None
+
+
+def year_end_of(text):
+    """A financial year's last day as (month, day), from `30 June`, `June 30`, `30th of Jun`
+    or `06-30` (`--06-30`), month names in English as structural files are. None where the
+    text is none of those or names no day of any year; 29 February is accepted."""
+    t = " ".join((text or "").split()).rstrip(".")
+    numeric = re.fullmatch(r"-{0,2}(\d{1,2})-(\d{1,2})", t)
+    day_first = re.fullmatch(r"(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?([A-Za-z]+\.?)", t)
+    month_first = re.fullmatch(r"([A-Za-z]+\.?)\s+(\d{1,2})(?:st|nd|rd|th)?", t)
+    if numeric:
+        month, day = int(numeric.group(1)), int(numeric.group(2))
+    elif day_first:
+        month, day = _month(day_first.group(2)), int(day_first.group(1))
+    elif month_first:
+        month, day = _month(month_first.group(1)), int(month_first.group(2))
+    else:
+        return None
+    if not month or not 1 <= month <= 12 or not 1 <= day <= calendar.monthrange(2000, month)[1]:
+        return None
+    return month, day
 
 
 def lifecycles(vault):

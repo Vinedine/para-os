@@ -13,7 +13,7 @@
 | `lifecycles[].empty_homes` | Declared homes that do not exist yet or hold nothing, each named once |
 | `lifecycles[].counts_by_stage` | `{stage, count}` for every live, non-terminal stage, in table order |
 | `lifecycles[].terminal_this_quarter` | Closed entities across every terminal stage whose Stage line dates them into the current quarter |
-| `lifecycles[].metrics` | Everything [render.md](render.md)'s metrics section reads: the quarter's name, opened, reached-promoting, the median, the terminal-stage reasons and the referrers table |
+| `lifecycles[].metrics` | Everything [render.md](render.md)'s metrics section reads: the quarter's name and its first and last day (`quarter`, `quarter_start`, `quarter_end`, of the financial year the vault's `**Locale:**` line declares), `year_end_unread` where that line's year end could not be read, opened, reached-promoting, the median, the terminal-stage reasons and the referrers table |
 
 Where the script cannot run, apply the rest of this file by hand.
 

@@ -11,8 +11,9 @@ to the vault and never ranks or words anything an operator reads - that stays wi
 skill, per references/scan.md and references/render.md.
 
 Why a script. Those two files describe a mechanical read: which folder or row belongs to
-which stage, where a next step lives, which dates fall in a quarter. Two correct runs have
-to agree, and instructions re-derived per run do not, so this pins the rules the same way
+which stage, where a next step lives, which dates fall in a quarter (of the financial year
+the vault's `**Locale:**` line declares, else the calendar's). Two correct runs have to
+agree, and instructions re-derived per run do not, so this pins the rules the same way
 brief_scan.py pins /para-daily-brief's.
 
 Reading the vault's primitives - Stage lines, header fields, register rows, lifecycle
@@ -31,7 +32,7 @@ import json
 import re
 import statistics
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -42,8 +43,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         DATE_RE, H1_RE, field_ci, first_link, header_fields, is_live, iso,
-        lifecycles, live_lines, open_tasks, parse_date, read_lines,
-        register_rows, stage_of, stage_parts,
+        lifecycles, live_lines, locale, open_tasks, parse_date, read_lines,
+        register_rows, stage_of, stage_parts, year_end_of,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"pipeline_scan: {missing}. The shared vault library belongs at "
@@ -455,17 +456,39 @@ def collect_entities(vault, lc, today):
 
 # -------------------------------------------------------------------------------- metrics
 
-def quarter_bounds(d):
-    q = (d.month - 1) // 3
-    start_month = q * 3 + 1
-    end_month = start_month + 2
-    start = date(d.year, start_month, 1)
-    end = date(d.year, end_month, calendar.monthrange(d.year, end_month)[1])
-    return start, end
+def year_start(year_end):
+    """(month, day) a financial year ending on `year_end` starts on. A year end on its
+    month's last day in a common year, 28 February included, starts the next month."""
+    month, day = year_end
+    if day >= calendar.monthrange(2001, month)[1]:
+        return month % 12 + 1, 1
+    return month, day + 1
 
 
-def quarter_name(d):
-    return f"{d.year}-Q{(d.month - 1) // 3 + 1}"
+def on_day(year, month, day):
+    """`month` may run past either end of `year`; `day` is clamped to the month's length."""
+    year, month = divmod(year * 12 + month - 1, 12)
+    month += 1
+    return date(year, month, min(day, calendar.monthrange(year, month)[1]))
+
+
+def quarter_of(d, year_end=None):
+    """The quarter holding `d`, of the financial year ending on `year_end` (month, day), the
+    calendar's where that is None: {name, start, end}. A calendar quarter is named as it
+    always was, `2026-Q3`; any other names the day its year ends."""
+    first_month, first_day = year_start(year_end or (12, 31))
+    back = (d.month - first_month) % 3
+    start = on_day(d.year, d.month - back, first_day)
+    if start > d:
+        start = on_day(d.year, d.month - back - 3, first_day)
+    end = on_day(start.year, start.month + 3, first_day) - timedelta(days=1)
+    number = (start.month - first_month) % 12 // 3 + 1
+    if (first_month, first_day) == (1, 1):
+        name = f"{start.year}-Q{number}"
+    else:
+        last = on_day(start.year, start.month - 3 * (number - 1) + 12, first_day)
+        name = f"Q{number} of the year ending {(last - timedelta(days=1)).isoformat()}"
+    return {"name": name, "start": start, "end": end}
 
 
 def won_outside_homes(vault, promoting_home):
@@ -570,8 +593,10 @@ def reason_declared(vault, reason_field):
                for p in sorted((vault / ".claude" / "rules").glob("*.md")))
 
 
-def compute_metrics(vault, today, lc, entities):
-    q_start, q_end = quarter_bounds(today)
+def compute_metrics(vault, today, lc, entities, year_end_text=None):
+    year_end = year_end_of(year_end_text)
+    quarter = quarter_of(today, year_end)
+    q_start, q_end = quarter["start"], quarter["end"]
     stages = lc["stages"]
     promoting = next((s for s in stages if s["home"].startswith("projects/")), None)
     archived_won = won_outside_homes(vault, promoting["home"]) if promoting else []
@@ -632,7 +657,9 @@ def compute_metrics(vault, today, lc, entities):
 
     terminal_this_quarter = sum(v["this_quarter"] for v in terminal.values())
     metrics = {
-        "quarter": quarter_name(today), "opened": opened,
+        "quarter": quarter["name"], "quarter_start": iso(q_start), "quarter_end": iso(q_end),
+        "year_end_unread": year_end_text if year_end_text and not year_end else None,
+        "opened": opened,
         "promoting_stage": promoting["name"] if promoting else None,
         "reached_promoting": reached_promoting,
         "median_days_opened_to_promoting": median_info,
@@ -653,9 +680,9 @@ def counts_by_stage(lc, entities):
 
 # ------------------------------------------------------------------------------- the report
 
-def scan_lifecycle(vault, lc, today):
+def scan_lifecycle(vault, lc, today, year_end_text=None):
     entities, no_stage, unknown_stage, empty_homes = collect_entities(vault, lc, today)
-    metrics, terminal_this_quarter = compute_metrics(vault, today, lc, entities)
+    metrics, terminal_this_quarter = compute_metrics(vault, today, lc, entities, year_end_text)
     return {
         "heading": lc["heading"], "noun": lc["noun"],
         "stages": [s["name"] for s in lc["stages"]],
@@ -685,7 +712,8 @@ def scan(vault, today, lifecycle=None):
             return report, 3
         declared = matched
 
-    report["lifecycles"] = [scan_lifecycle(vault, lc, today) for lc in declared]
+    year_end_text = locale(vault).get("year_end")
+    report["lifecycles"] = [scan_lifecycle(vault, lc, today, year_end_text) for lc in declared]
     return report, 0
 
 

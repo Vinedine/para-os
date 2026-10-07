@@ -47,7 +47,7 @@ A flag is an observation, not an instruction: it says what the file lacks, never
 
 ## The metrics
 
-Per lifecycle, computed from the records already collected, this quarter only (the calendar quarter containing today's date, named in the heading):
+Per lifecycle, computed from the records already collected, this quarter only: the quarter holding today's date, `quarter`, named in the heading. It is a quarter of the financial year the vault's `**Locale:**` line declares (the year starts the day after its year end, each quarter three months after the one before), the calendar's where it declares none; where `year_end_unread` holds the line's year end, nobody could read it, the quarter fell back to the calendar's, and a line under the heading says so.
 
 - **Opened this quarter**, from the `Opened` header field. A closed register row recording a move to a folder entity (by its Outcome link, else by name) is counted from the folder alone, here and in the referrers table.
 - **Reached the promoting stage**, the first stage in table order whose `PARA home` sits under `projects/`. A `Won` header date counts as reached wherever the entity now sits, including a delivery project archived outside every declared home once it ships - the script's own extra read of `archive/<promoting home>`, which also counts it as opened and in the referrers table. A vault whose lifecycle has none says so once and drops this line and the median.

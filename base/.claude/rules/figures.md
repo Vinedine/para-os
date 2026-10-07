@@ -6,7 +6,7 @@ paths:
 
 # Figures
 
-Where a number lives, and how a document that needs it gets it. A convention, not a document shape: it governs every figure in a brief or an entity README, whatever that document's structure.
+Where a number lives, how a document that needs it gets it, and how an amount is written and read. A convention, not a document shape: it governs every figure in a brief or an entity README, whatever that document's structure.
 
 ## One number, one home
 
@@ -30,3 +30,12 @@ When a second copy would be convenient, resolve it in this order:
 - In a registry: a date field per row, whose age the script reading it reports.
 
 A hand-maintained figure with no date is a defect: date it, or propose removing it.
+
+## Amounts
+
+The vault's `CLAUDE.md` declares a currency, a number convention, a date order and a financial year on its `**Locale:**` line. An amount is written and read by them.
+
+- **An amount carries its currency**: the declared currency's ISO 4217 code, or the symbol the line gives as this vault's own; an amount in any other currency carries its own code (`USD 1250`).
+- **A new amount is written in the declared number convention.** One already written in another stays as written: read, never rewritten.
+- **An amount whose separators are ambiguous on their own** (`1.666`, `1,666`) is read by the declared convention, or in a source document by the convention its other amounts show, and is confirmed against its source before use where a wrong reading would change a decision. A date whose order is ambiguous (`03/04`) is read the same way, by the declared date order.
+- **A quarter or a year is the declared financial year's**: `Q1` of a year ending 30 June runs July to September. With no year end declared, it is the calendar's.
