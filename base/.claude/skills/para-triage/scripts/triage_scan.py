@@ -14,7 +14,8 @@ declared Triage sources /para-ingest already covered and which still need a loca
 the run logs under `<paraos_home>/cache/ingest/runs/`; every loose file in `triage/` with its
 kind, its ingest-staged-note fields where it is one, its in-vault and cross-vault duplicates,
 and every inbound reference to it; the vault's subdirectories; which staged notes share a
-thread; the seen-ledger's shape; and, given `--threads`, whether a freshly fetched thread is
+thread; the seen-ledger's shape; what the vault lets a contact card hold, where a meeting
+record's next step may go; and, given `--threads`, whether a freshly fetched thread is
 already staged as a note, where its seen-ledger watermark stands, and how many working days
 a message of the operator's own has gone unanswered.
 
@@ -45,7 +46,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        MIN_HASH_BYTES, OPEN_ITEM_CAP, abspath, cap_count, action_files, hashes,
+        MIN_HASH_BYTES, OPEN_ITEM_CAP, abspath, cap_count, action_files, contact_card_level,
+        hashes,
         ingest_ledger, ingest_logs, inbound_references, live_lines, log_instant, norm,
         note_name_parts, open_tasks, read_lines, registered_vault,
         registry, rel_posix, same_place, snapshot, thread_hash, triage_items, triage_sources,
@@ -805,6 +807,7 @@ def plan(vault, paraos_home, now, threads_data):
         "vault": vault_info, "sources": sources, "ingest": ingest,
         "ingest_ledger": ingest_ledger_summary, "items": items,
         "seen_ledger": seen_ledger, "over_threshold": over_threshold_block(vault),
+        "contact_card_level": contact_card_level(vault),
         "snapshot": build_snapshot(vault),
         "snapshot_folders": [str(abspath(vault / "triage"))],
     }

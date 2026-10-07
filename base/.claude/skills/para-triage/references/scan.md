@@ -28,6 +28,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `seen_ledger` | `path`, `exists`, `entries`, `legacy`, `load_error` |
 | `threads` | Only with `--threads`: per fetched thread, `thread_id`, `thread_hash`, `staged_notes`, `ledger`, `watermark`, and `unanswered` (`since`, `working_days`, `waiting`; null unless `newest_own`) |
 | `over_threshold` | `{file, open}` for every action file at the cap, `OPEN_ITEM_CAP` (8), or past it |
+| `contact_card_level` | `yes`, `relationship only` or `never`: what a contact card may hold, which places a meeting record's next step ([after-a-meeting.md](after-a-meeting.md)) |
 | `snapshot`, `snapshot_folders` | Every file in `triage/` and the folder itself, read back by `paraos_vault.py changed <saved_to>` before each delete or move ([execute.md](execute.md)) |
 | `saved_to`, `save_error` | Where the scan kept its own copy of this output, under `$PARAOS_HOME/data/scans/` and never inside the vault (copies older than a week are pruned); or null, and why |
 
@@ -88,3 +89,6 @@ The rest of this file is the script's specification and the by-hand fallback.
   Monday to Friday only; `waiting` from 5.
 - **`over_threshold`**: [approval.md](approval.md)'s Add action flag, `file at N open -
   groom?`.
+- **`contact_card_level`**: the level the `areas/network/` row of `CLAUDE.md`'s
+  `### Where a checkbox may live` table opens on; with no row, `never` where `CLAUDE.md` has
+  a `## Who writes this vault` heading, else `yes`.

@@ -35,7 +35,7 @@ These paths also match ideas and projects that are not deals, which follow the v
 4. **Champion** - a link to the contact file of the person carrying this inside the company. The deal's next step is the earliest dated open item in that file, which is where `/para-pipeline` looks, so a deal without a champion file has nowhere to keep one.
 5. **Signer** - who can commit the money, `unknown` until named. It is flagged from the second stage on, because the person who is excited is often not the person who signs.
 6. **Value** - the internal number, with the basis in parentheses. It renders in a terminal and is never a public output.
-7. **Last touch** - `<date>, <what happened>`, rewritten by hand after every contact. It is the single field the staleness flag reads.
+7. **Last touch** - `<date>, <what happened>`, rewritten after every contact. It is the single field the staleness flag reads.
 8. **Won** - the day the first paid phase was agreed, written by the promotion to Goal and kept unchanged when the delivery project later archives, so `/para-pipeline` can still count the deal as reached wherever it now sits.
 
 **The next step is not a header line.** It lives where the vault's action rules already put it: the champion's contact file under its next-actions heading where the vault's `areas/network/` checkbox row allows it, an open item linking the deal brief, the project's `actions.md` once promoted, or the register row's own column. Written into the header as well it becomes the one field typed twice, and the copy is the one that goes stale.

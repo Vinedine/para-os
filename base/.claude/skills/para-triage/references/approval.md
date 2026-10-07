@@ -68,7 +68,7 @@ Per the shared format, one line per question:
 Subdirectories, not asked: triage/_handover-scans/ (12 files)
 ```
 
-After it, list the **follow-on edits** to each receiving entity's `README.md` or `brief.md` (new rows, source-list entries, sub-sections, a stated fact the filed item changes), naming the file and where. They are not separate questions: each applies only if its item is approved.
+After it, list the **follow-on edits** to each receiving entity's `README.md` or `brief.md` (new rows, source-list entries, sub-sections, a stated fact the filed item changes), naming the file and where, plus the set [after-a-meeting.md](after-a-meeting.md) adds for a meeting record. They are not separate questions: each applies only if its item is approved.
 
 ## The table path
 

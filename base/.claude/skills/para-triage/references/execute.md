@@ -47,3 +47,5 @@ For a connector thread and a staged mail note alike:
 ## Follow-ons (Step 8)
 
 For each receiving entity whose `README.md` or `brief.md` was flagged with follow-on edits: add table rows in the existing column order, source-list entries in the right sub-section in date order, and a new sub-section only where one is due, in the existing order. Match the nearby entries' voice and structure, and **rewrite nothing else**; in prose sections (Background, Open items) change only a stated fact the new file changes ("X document not on file" becomes "X document on file as ...").
+
+[after-a-meeting.md](after-a-meeting.md)'s set is written the same way: a header line or register cell rewritten in place as shown, a next step and a `Waiting on` line appended as **Add action** appends it. Its stage question and its draft write nothing.
