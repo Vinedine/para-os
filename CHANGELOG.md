@@ -48,6 +48,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **The dashboard can be kept current without a brief run.** `render_dashboard.py --mechanical` renders the page from the scan alone, Now ranked by the brief's own sort and every fired flag worded by the script, with one line in place of the Next action and the agenda. `scripts/refresh_dashboard.py` is the end-of-turn hook that re-renders it in the background when an action-bearing file, `triage/` or `resources/ideas/` changed, under `$PARAOS_HOME/cache/daily-brief/`; its docstring holds the hook recipe. Reaction: re-sync `/para-daily-brief`. Wiring the hook is the operator's harness setting, never proposed as a vault change.
 
+**`/para-audit` reports every registered vault in one table.** A read-only skill in `multi-vault/`, installed beside `/para-ingest`, measures each vault the registry lists against a para-os clone at a committed ref: its template revision, its `**Type:**` line against the entry's `kind`, its declaration lines and add-on names, the rule files base and its add-ons ship, its integration scripts, its bundled skill copies and its `CLAUDE.md` size, closing on the vault to upgrade first. A registry entry may carry `retired: true`, which the audit reports as excluded; `active: false` still only takes a vault out of `/para-ingest`. `upgrade_scan.py`'s `skills_block` reads a vault's bundled copies alone when given no user-level skills folder. Reaction: none for a vault; this revision's re-sync of `/para-upgrade` carries the script change.
+
 ---
 
 ## 2026.09.07

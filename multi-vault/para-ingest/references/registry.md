@@ -20,9 +20,10 @@ A JSON array of entries:
 |---|---|
 | `name` | The vault's folder basename. It is what ledger keys and run logs are keyed on, so it must match the folder exactly. |
 | `path` | Absolute path to the vault root, the folder holding `CLAUDE.md` and `triage/`. |
-| `kind` | A free-text label for the operator's own grouping. Nothing dispatches on it. |
+| `kind` | A free-text label for the operator's own grouping, the same word as the vault's `**Type:**` line, which `/para-audit` holds it against. Nothing dispatches on it. |
 | `purpose` | **The routing input.** One line saying what this vault is for, written for the router rather than for a human index. |
 | `active` | `false` keeps the entry and takes the vault out of the run: no sources pulled, nothing routed to it. |
+| `retired` | Optional. `true` marks a vault whose work is over: `/para-audit` reports it as excluded and reads nothing in it. It does not take a vault out of this skill's run; `active: false` does. |
 
 ## `purpose` is the field that does the work
 
