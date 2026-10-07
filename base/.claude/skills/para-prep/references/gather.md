@@ -16,6 +16,7 @@ The agenda is `/para-daily-brief`'s, read by [its Step 5c](../../para-daily-brie
 |---|---|
 | `vault`, `today`, `root` | The vault root, the date every age is measured against, and the root check (`root`, `missing`) |
 | `lifecycles` | The headings of the lifecycles the vault declares; empty where it declares none |
+| `cards_hold` | What a card may hold, from the checkbox table's `areas/network/` row: `yes`, `relationship only` or `never` |
 | `people[]` | One per `--person`, in the order given: `query`, the `name` and `email` read from it, `status` (`matched`, `ambiguous`, `no_card`) and `matched_by` |
 | `people[].candidates` | `ambiguous` only: the cards it could be |
 | `people[].card` | `matched` only: `path`, `name`, `aliases`, `kind` (the `**Kind:**` line, or null), `header`, `emails`, and `items`, its open checkboxes. An item under `## Next actions` carries the card's title as its `section` |

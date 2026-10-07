@@ -72,7 +72,7 @@ One prep per meeting: who, the objective per entity, open items both ways, last 
 - **Nothing left today**: say so in one line, naming the next meeting on the agenda if there is one.
 - **An event naming no attendees**: take the people its title or fields name; with none, ask who is coming rather than prepping an empty meeting.
 - **No attendee has a card**, or the cards tie to nothing: the prep is the short section [references/output.md](references/output.md#when-the-vault-knows-little) describes. A thin prep is a real answer.
-- **A vault whose contact cards carry no checkboxes** (its `## Who writes this vault` says so): what is open about a person lives in the entities' action files, which the scan's mentions already hold.
+- **A vault whose cards hold no checkboxes** (the scan's `cards_hold`, from the checkbox table's `areas/network/` row, reads `never`): what is open about a person lives in the entities' action files, which the scan's mentions already hold.
 - **The operator among the attendees** (the calendar's own address, or the vault's principal): left out of the prep.
 
 ## Related skills

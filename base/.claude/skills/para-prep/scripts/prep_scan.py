@@ -38,8 +38,9 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        EMAIL_RE, H1_RE, HEADING_RE, abspath, action_files, contact_names, extract_links,
-        field_ci, header_fields, lifecycles, live_lines, open_tasks, parse_date, read_lines,
+        EMAIL_RE, H1_RE, HEADING_RE, abspath, action_files, contact_card_level, contact_names,
+        extract_links, field_ci, header_fields, lifecycles, live_lines, open_tasks, parse_date,
+        read_lines,
         read_text, register_rows, rel_posix, resolve_link, stage_of, stage_parts, strip_code,
         vault_root,
     )
@@ -520,7 +521,8 @@ def scan(vault, people, today):
             person["rows"] = register_hits(vault, declared, who, today)
         out.append(person)
     return {"vault": vault.as_posix(), "today": today.isoformat(), "root": vault_root(vault),
-            "lifecycles": [lc["heading"] for lc in declared], "people": out,
+            "lifecycles": [lc["heading"] for lc in declared],
+            "cards_hold": contact_card_level(vault), "people": out,
             "entities": [entities[k] for k in sorted(entities)]}
 
 

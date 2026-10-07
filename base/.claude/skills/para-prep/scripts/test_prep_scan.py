@@ -480,6 +480,14 @@ class Report(VaultCase):
         self.assertEqual(report["today"], "2026-09-21")
         self.assertEqual(report["root"], {"root": False, "missing": ["areas/ or archive/"]})
         self.assertEqual(report["lifecycles"], ["Deal lifecycle"])
+        self.assertEqual(report["cards_hold"], "yes")
+
+    def test_what_a_card_may_hold_is_the_vaults_checkbox_row(self):
+        write(self.root, "CLAUDE.md", LIFECYCLE + "\n".join([
+            "### Where a checkbox may live", "",
+            "| Bucket | `actions.md` | State |", "|---|---|---|",
+            "| `areas/network/` | never | open items about a person live with the entity |", ""]))
+        self.assertEqual(self.scan("Ann Peeters")["cards_hold"], "never")
 
 
 class CommandLine(VaultCase):
