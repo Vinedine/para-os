@@ -1,7 +1,7 @@
 ---
 name: para-pipeline
 description: Render the board for every lifecycle the vault declares - each entity at its stage with days in stage, its next dated step and where it came from, the flags for what has stopped moving, the counts by stage and the quarter's metrics - closing on one next action. Use when the user asks "where does the pipeline stand", "what is in the funnel", "which deals have gone quiet", "what stage is <name> at", "show me the property pipeline", or types /para-pipeline [<lifecycle>].
-allowed-tools: Bash, PowerShell, Glob, Grep, Read
+allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read
 argument-hint: '[<lifecycle>] [--test]'
 ---
 

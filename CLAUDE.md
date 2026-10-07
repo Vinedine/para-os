@@ -64,9 +64,10 @@ second job fails when coverage drops below its floor, and a third runs `actionli
   check fails on any hit in shipped text.
 - **Line caps.** A `SKILL.md` stays under 130 lines: procedure moves to `references/`. A
   `CLAUDE.md.template` stays at or under 120 lines, and base is at the cap already.
-- **Skill contract.** Frontmatter `name` matches the folder, plus `description`, `allowed-tools`,
-  and an `argument-hint` offering `--test`; a `## Strict rules` block; every reference linked
-  both ways.
+- **Skill contract.** Frontmatter `name` matches the folder, plus `description`, `allowed-tools`
+  naming each shell command it runs (`Bash(git mv *)`, never bare `Bash` or `PowerShell`), and
+  an `argument-hint` offering `--test`; a `## Strict rules` block; every reference linked both
+  ways.
 - **Revision markers agree.** Every template and the example vault carry the newest
   `CHANGELOG.md` revision, and `RELEASES.md` lists the same revisions in the same order; each integration's scripts agree with its row in
   `integrations/README.md`. Every `changelog.d/` fragment parses.

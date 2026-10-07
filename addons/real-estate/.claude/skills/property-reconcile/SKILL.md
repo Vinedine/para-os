@@ -1,7 +1,7 @@
 ---
 name: property-reconcile
 description: Verify one property's dossier against its own source documents and the owner's books - parallel readers extract facts from every file in sources/ and the per-property ledger, each claim is checked, drift is corrected with a citation, and conflicts the documents cannot settle become open items. A fact the vault's source register lists as unobtainable is not an error. Use before a bid or deal sheet, after new sources land, when asked to reconcile or fact-check a brief, or on /property-reconcile <property>.
-allowed-tools: Agent, Bash, PowerShell, Glob, Grep, Read, Edit, Write, AskUserQuestion, TodoWrite
+allowed-tools: Agent, Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion, TodoWrite
 argument-hint: '<property-name> [--test]'
 ---
 

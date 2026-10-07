@@ -40,9 +40,9 @@ What it enforces, and why each one is machinery rather than prose:
                         nothing else notices falling behind. No copy is fine; a copy that
                         differs from base/.claude/skills/ fails.
 
-  Colocated tests       Each integration's own suite, and each add-on pipeline's and skill
-                        script folder's, run in place: `test_*.py` and `*.test.js` next to
-                        the script they cover. Shipping a revision is one command, not
+  Colocated tests       Each integration's own suite, and each add-on pipeline's, skill script
+                        folder's and this file's, run in place: `test_*.py` and `*.test.js`
+                        next to the script they cover. Shipping a revision is one command, not
                         three remembered ones. A suite whose runtime is missing FAILS rather
                         than skipping: an integration nobody could verify must not report as a
                         clean bill of health.
@@ -55,8 +55,9 @@ What it enforces, and why each one is machinery rather than prose:
                         CI and contributors without the CLI; a release is still checked with it.
 
   Skill contract        Every skill master keeps its frontmatter contract (name matching its
-                        folder, a description, allowed-tools, argument-hint offering `--test` and a
-                        link to para-shared/test-run.md), a `## Strict rules`
+                        folder, a description, allowed-tools naming a pattern per shell command
+                        and never a bare `Bash` or `PowerShell`, argument-hint offering `--test`
+                        and a link to para-shared/test-run.md), a `## Strict rules`
                         block, a spine under the line cap, and references that resolve both
                         ways - base's skills and each add-on's. The spine cap is
                         the load-bearing one: a SKILL.md body loads on
@@ -649,7 +650,7 @@ def skill_script_dirs():
 
 
 def check_tests():
-    suite_dirs = integration_dirs() + skill_script_dirs()
+    suite_dirs = integration_dirs() + skill_script_dirs() + [ROOT / "tools"]
     # An add-on's pipeline/ runs its suite where it ships one, but is not held to having one.
     pipelines = sorted(d for d in (ROOT / "addons").glob("*/pipeline") if d.is_dir())
     suites = [p for d in suite_dirs + pipelines for p in sorted(d.iterdir())
@@ -706,6 +707,7 @@ def addon_skill_dirs():
 
 EXTRA_SKILL_DIRS = (ROOT / "multi-vault",)   # optional layers that ship a skill of their own
 SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "argument-hint")
+ALLOWED_TOOL = re.compile(r"[\w-]+(?:\([^)]*\))?")   # `Read`, `Bash(git log *)`, an MCP tool name
 SPINE_MAX_LINES = 130      # current worst is 116; the cap catches regrowth, not today's shape
 DESCRIPTION_MAX_CHARS = 600
 TEST_RUN_DOC = "para-shared/test-run.md"   # what `--test` means, stated once for every skill
@@ -714,6 +716,14 @@ TEST_RUN_DOC = "para-shared/test-run.md"   # what `--test` means, stated once fo
 def skill_dirs(parent):
     """The skill folders directly under `parent` - a folder holding a SKILL.md is a skill."""
     return sorted(d for d in parent.iterdir() if (d / "SKILL.md").exists())
+
+
+def whole_shell_grants(allowed_tools):
+    """The entries of an `allowed-tools` value that pre-approve every command of a shell: `Bash`
+    or `PowerShell` bare, or with a pattern that is nothing but a wildcard (`Bash(*)`)."""
+    return [t for t in ALLOWED_TOOL.findall(allowed_tools)
+            if t.split("(")[0] in ("Bash", "PowerShell")
+            and not t.partition("(")[2].rstrip(")").strip(" *:")]
 
 
 def check_skills():
@@ -762,6 +772,11 @@ def check_skills():
         for key in SKILL_FRONTMATTER:
             if key not in fields:
                 bad(f"{rel(sk)}: frontmatter is missing `{key}:`")
+
+        shells = whole_shell_grants(fields.get("allowed-tools", ""))
+        if shells:
+            bad(f"{rel(sk)}: allowed-tools pre-approves a whole shell ({', '.join(shells)}). List "
+                f"a pattern per command the skill runs, such as `Bash(git mv *)`.")
 
         name = fields.get("name")
         if name and name != d.name:
