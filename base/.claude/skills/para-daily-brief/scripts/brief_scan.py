@@ -42,7 +42,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        STALE_FILE_DAYS, WIP_THRESHOLD, action_files, cadence_days, field_ci,
+        STALE_FILE_DAYS, WIP_THRESHOLD, action_files, cadence_days, entity_candidates, field_ci,
         file_dates, is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes,
         open_tasks, read_lines,
         over_grown_briefs, parse_date, register_rows, resolve_entity,
@@ -349,7 +349,7 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
         briefs = [b for b in briefs if b["file"].startswith(own)]
     flags = {"over_threshold": [], "stale_files": [], "falsely_overdue": [],
              "stale_recurrence": [], "undated_majority": None, "misplaced": None,
-             "over_grown_briefs": briefs[:3]}
+             "nothing_open": None, "over_grown_briefs": briefs[:3]}
 
     by_file = {}
     for t in tasks:
@@ -388,7 +388,26 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
         if len(tasks) >= UNDATED_MAJORITY_MIN and undated * 2 > len(tasks):
             flags["undated_majority"] = {"undated": undated, "open": len(tasks)}
         flags["misplaced"] = misplaced_checkboxes(vault)
+        flags["nothing_open"] = nothing_open(vault, tasks, per_file_dates)
     return flags
+
+
+def nothing_open(vault, tasks, per_file_dates):
+    """Every project and area with no open item anywhere under it, a recurring one counting
+    as open: finished, or stalled with no next step. Never `network/`, where a contact who
+    is owed nothing is the normal state. An entity with no `actions.md` leads, then the
+    oldest one."""
+    busy = {(t["bucket"], t["scope"].split("/")[0]) for t in tasks}
+    out = []
+    for e in entity_candidates(vault):
+        if (e["bucket"], e["label"]) in busy or (e["bucket"], e["label"]) == ("A", "network"):
+            continue
+        own = Path(vault) / e["path"] / "actions.md"
+        file = own.relative_to(vault).as_posix() if own.is_file() else None
+        out.append({"bucket": e["bucket"], "label": e["label"], "path": e["path"],
+                    "file": file, "touched": per_file_dates.get(own) if file else None})
+    out.sort(key=lambda r: (r["touched"] or "", r["path"]))
+    return out
 
 
 # ------------------------------------------------------------------------------- the report
