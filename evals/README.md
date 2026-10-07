@@ -112,7 +112,10 @@ runs.
 
 Runs start in an empty directory with none of your settings, skills, or connectors, and
 the vault's own `CLAUDE.md` is not loaded for them: a skill that needs a convention has to
-read the file, which is what the skills do anyway.
+read the file, which is what the skills do anyway. A `sources-*` case tests a rule of the
+template itself: its fixture's `CLAUDE.md` carries that rule word for word, and
+`append_system_prompt` in `prompt.md` tells the run to read the file in place of the load.
+No skill is involved, so one arm (`--ablation none`) is all it needs.
 
 ## Four limits worth knowing before writing a case
 
