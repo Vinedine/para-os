@@ -50,6 +50,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **A source document is read to its last page, and a source gone silent is flagged.** `para-shared/absent-is-not-zero.md` states that an empty, zero, truncated or failed answer is not good news, and how a document is read whole; `connectors.md` paging and `/property-reconcile`'s extraction link it instead of restating it. `/para-deep-clean` Step 3.1 reads every page through the Read tool, past ten in batches, and reports a value no page holds as `not found in N pages read`; its pypdf precondition is gone. A `## Triage sources` row may carry `🔁 every <period>` in its Type cell, which `paraos_vault.triage_sources` reads as `cadence`, and `/para-daily-brief` flags the row as a silent source once its own ledger holds nothing for this vault newer than that period: `data/<script>/synced.json` for a sync script, `/para-ingest`'s ledger for a mailbox. Reaction: re-sync `para-shared/`, `/para-deep-clean` and `/para-daily-brief`, and `/property-reconcile` in a real-estate vault. The cadence hint is the operator's to add, never added unasked.
 
+**An answer about the operator's own documents quotes them or says they are not on file.** `## Authoritative sources` adds two sentences: such an answer quotes the clause with its file name and page; a document not on file is said to be missing, and any general-knowledge answer is labelled as such; two source documents that disagree are both given, the cautious reading first. Reaction: append the two sentences to the vault's `## Authoritative sources` paragraph, its own wording otherwise kept.
+
 ---
 
 ## 2026.09.07
