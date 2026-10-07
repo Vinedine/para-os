@@ -212,6 +212,17 @@ class Reading(VaultCase):
         self.assertEqual(got["priority"], "🔺")
         self.assertFalse(got["malformed_date"])
 
+    def test_a_marker_written_first_is_read_and_kept_out_of_the_text(self):
+        got = parse_markers("🔺 **Send the lease.** Then call 📅 2026-09-01")
+        self.assertEqual(got["text"], "**Send the lease.** Then call")
+        self.assertEqual(got["priority"], "🔺")
+        self.assertEqual(got["due"], "2026-09-01")
+        self.assertEqual(parse_markers("🔺 Send the lease | the copy")["text"],
+                         "Send the lease | the copy")
+        got = parse_markers("📅 2026-09-01 🔼 Send the lease")
+        self.assertEqual(got["text"], "Send the lease")
+        self.assertEqual(got["due"], "2026-09-01")
+
     def test_a_date_shaped_string_that_is_no_date_says_so(self):
         got = parse_markers("Broken 📅 2026-13-45")
         self.assertIsNone(got["due"])
