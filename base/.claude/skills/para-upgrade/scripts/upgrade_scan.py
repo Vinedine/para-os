@@ -42,7 +42,7 @@ try:
         changelog_entries, clone_files, clone_read, clone_ref, clone_session, declarations,
         entries_between,
         find_clone, git, git_bytes, git_status_lines, git_untracked, integration_markers,
-        master_template, normalised, paraos_home_dir,
+        checkbox_rows, contact_card_level, master_template, normalised, paraos_home_dir,
         read_lines, read_text, registered_vault, registry, rel_posix, snapshot,
         template_marker, vault_root,
     )
@@ -704,6 +704,19 @@ def sections_block(vault, clone, ref, worktree, decl, baseline=None):
         rows.append({"name": name, "declared": name in declared,
                      "master": f"{root}/{SECTIONS_FILE}", "sections": sections})
     return rows
+
+
+def checkboxes_block(vault, clone, ref, worktree):
+    """Rows of the template's `Where a checkbox may live` table the vault's own table lacks,
+    each with the master's row as written, plus the contact-card level the vault has today
+    (`yes`, or `never` under a `## Who writes this vault` roster), which a missing
+    `areas/network/` row is written at."""
+    data = clone_read(clone, ref, BASE_TEMPLATE, worktree)
+    master = data.decode("utf-8", "replace") if data else ""
+    have = checkbox_rows(read_text(Path(vault) / "CLAUDE.md") or "")
+    missing = [{"bucket": k, "row": row} for k, row in checkbox_rows(master, raw=True).items()
+               if k not in have]
+    return {"missing": missing, "contact_card_level": contact_card_level(vault)}
 
 
 def _load_json_dict(text):
@@ -1700,6 +1713,7 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
     rules = rules_block(vault, clone, ref, worktree, masters["addons"])
     sections = sections_block(vault, clone, ref, worktree, decl, baseline["commit"])
     settings = settings_block(vault, clone, ref, worktree, user_settings)
+    checkboxes = checkboxes_block(vault, clone, ref, worktree)
     all_entries = _changelog_entries_at(clone, ref, worktree)
     skills = skills_block(vault, clone, ref, worktree, user_skills, decl, masters["addons"],
                           delta["master_marker"], all_entries)
@@ -1713,7 +1727,8 @@ def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_setti
 
     report.update({
         "masters": masters, "delta": delta, "baseline": baseline, "skeleton": skeleton,
-        "rules": rules, "sections": sections, "settings": settings, "skills": skills,
+        "rules": rules, "sections": sections, "settings": settings, "checkboxes": checkboxes,
+        "skills": skills,
         "integrations": integrations,
         "smoke": smoke, "snapshot": snap,
     })

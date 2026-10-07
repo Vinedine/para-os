@@ -1157,8 +1157,47 @@ def triage_sources(vault):
 FROZEN_MARKER_RE = re.compile(r"frozen record|third-party verbatim|kept as generated", re.IGNORECASE)
 
 
-def misplaced_checkboxes(vault):
-    """Open checkboxes where the vault forbids them, per bucket, worst file first.
+def checkbox_rows(text, raw=False):
+    """{bucket: cells} from the `Where a checkbox may live` table, the bucket cell stripped of
+    backticks and bold (`areas/network/`), the rest lowercased and stripped the same way.
+    With `raw`, {bucket: the row as written}."""
+    rows, inside = {}, False
+    for _, line in live_lines(split_lines(text)):
+        heading = HEADING_RE.match(line)
+        if heading:
+            inside = heading.group(2).strip().lower() == "where a checkbox may live"
+            continue
+        if not inside or not line.lstrip().startswith("|"):
+            continue
+        cells = [CELL_MARKS_RE.sub("", c).strip() for c in table_cells(line)]
+        if len(cells) > 1 and not is_separator_row(cells) and cells[0].lower() != "bucket":
+            rows[cells[0]] = line.strip() if raw else [c.lower() for c in cells[1:]]
+    return rows
+
+
+def contact_card_level(vault):
+    """What a contact card may hold: `yes`, `relationship only` or `never`, from the
+    `areas/network/` row of the vault's checkbox table. With no row, a `## Who writes this
+    vault` roster implies `never` and anything else is `yes`."""
+    text = read_text(Path(vault) / "CLAUDE.md") or ""
+    rows = checkbox_rows(text)
+    cells = rows.get("areas/network/") or rows.get("areas/network")
+    if cells:
+        return next((lv for lv in ("never", "relationship only") if cells[0].startswith(lv)), "yes")
+    return "never" if re.search(r"^## Who writes this vault\s*$", text, re.MULTILINE) else "yes"
+
+
+def _frozen(lines, first):
+    header = [text for n, text in live_lines(lines[:15]) if n < first]
+    return any(text.lstrip().startswith(">") for text in header) or \
+        any(FROZEN_MARKER_RE.search(text) for text in header)
+
+
+def misplaced_checkboxes(vault, with_closed=False):
+    """Open checkboxes where the vault forbids them, per bucket, worst file first: `archive`,
+    `resources`, and `areas/network` where the vault's contact-card level is `never`.
+    `with_closed` adds `closed`, the ticked checkboxes on those cards, which `never` forbids
+    too.
 
     A file is a frozen record - and left alone - by either of two independent triggers in
     its first fifteen live lines before the first checkbox: a blockquote (unchanged from
@@ -1168,25 +1207,32 @@ def misplaced_checkboxes(vault):
     a file with the marker text and no blockquote is exempt too.
     """
     vault = Path(vault)
-    out = {}
-    for parent in ("archive", "resources"):
+    out, closed = {}, {}
+    cards = contact_card_level(vault) == "never"
+    for parent in ("archive", "resources") + (("areas/network",) if cards else ()):
         base = vault / parent
-        rows = []
+        rows, ticked = [], []
         if base.is_dir():
-            for path in sorted(base.rglob("*.md")):
+            paths = base.glob("*.md") if parent == "areas/network" else base.rglob("*.md")
+            for path in sorted(paths):
+                if parent == "areas/network" and path.name.lower() == "readme.md":
+                    continue
                 lines = read_lines(path)
                 open_lines = [n for n, text in live_lines(lines) if TASK_RE.match(text)]
-                if not open_lines:
+                done = [n for n, text in live_lines(lines) if CLOSED_TASK_RE.match(text)] \
+                    if parent == "areas/network" else []
+                if not (open_lines or done) or _frozen(lines, min(open_lines + done)):
                     continue
-                first = open_lines[0]
-                header = [text for n, text in live_lines(lines[:15]) if n < first]
-                frozen = any(text.lstrip().startswith(">") for text in header) or \
-                    any(FROZEN_MARKER_RE.search(text) for text in header)
-                if frozen:
-                    continue
-                rows.append({"file": path.relative_to(vault).as_posix(),
-                             "open": len(open_lines)})
+                rel = path.relative_to(vault).as_posix()
+                if open_lines:
+                    rows.append({"file": rel, "open": len(open_lines)})
+                if done:
+                    ticked.append({"file": rel, "closed": len(done)})
         out[parent] = sorted(rows, key=lambda r: -r["open"])
+        if parent == "areas/network":
+            closed[parent] = sorted(ticked, key=lambda r: -r["closed"])
+    if with_closed:
+        out["closed"] = closed
     return out
 
 

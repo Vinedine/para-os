@@ -283,6 +283,17 @@ class Mechanical(DashboardCase):
         self.assertIn("<b>stalled: nothing open</b>, and 1 more - finished (archive) or stalled "
                       "(next step)?", flags)
 
+    def test_open_card_checkboxes_are_worded_as_the_vaults_own_rule(self):
+        write(self.root, "CLAUDE.md", "# BelFoot Vault Conventions\n\n"
+              "### Where a checkbox may live\n\n| Bucket | `actions.md` | State |\n|---|---|---|\n"
+              "| `areas/network/` | **never** | a checkbox on a card is a filing error |\n")
+        write(self.root, "areas/network/ann-smet.md", "# Ann\n\n## Next actions\n\n- [ ] Call\n")
+        _, page = render(self.report())
+        flags = re.search(r'<ul class="flags">(.*?)</ul>', page).group(1)
+        self.assertIn("2 under areas/network/ (worst: areas/network/ann-smet.md, 1)", flags)
+        self.assertIn("this vault's contact cards hold none", flags)
+        self.assertNotIn("archive hygiene", flags)
+
     def test_no_next_action_and_one_line_saying_where_it_comes_from(self):
         _, page = render(self.report())
         self.assertNotIn("Next action</strong>", page)

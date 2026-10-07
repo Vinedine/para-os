@@ -48,7 +48,7 @@ try:
     from paraos_vault import (  # noqa: E402
         DATE_RE, H1_RE, H2_RE, HEADING_RE, LINK_ROOTS, NOT_VAULT_CONTENT,
         abspath, blank_spans,
-        closed_tasks, extract_links, field_ci, git_untracked, header_fields,
+        closed_tasks, contact_card_level, extract_links, field_ci, git_untracked, header_fields,
         inbound_references, is_under, lifecycles, link_files, link_spans, live_lines,
         move_plan, open_tasks, parse_date, read_lines, read_text,
         registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
@@ -392,7 +392,17 @@ def actions_block(vault, entity_dir, kind, doc, today):
         "other_checkbox_files": other_checkbox_files(vault, entity_dir,
                                                       actions_path if has_file else None),
         "idea_holds_actions": bool(kind == "idea" and has_file),
+        "route_options": route_options(vault),
     }
+
+
+def route_options(vault):
+    """Step 4's destinations for a surviving item: a contact file only as far as the vault's
+    `areas/network/` checkbox row allows."""
+    card = {"yes": ["contact file"], "never": [],
+            "relationship only": ["contact file (relationship actions only)"]}
+    return ["successor idea", "existing project", "area", *card[contact_card_level(vault)],
+            "drop"]
 
 
 # -------------------------------------------------------------------------------- the gate

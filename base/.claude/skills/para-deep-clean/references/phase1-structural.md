@@ -48,6 +48,8 @@ Audit `archive/` against the vault's **Archive hygiene** conventions in CLAUDE.m
 - **Archived entities missing their minimum record** - no `brief.md` / `README.md` or status marker. Flag.
 - **Typos or wrong names in already-archived filenames** - the naming scan applies to archived files too. Propose a rename, preserving the source language.
 
+**Checkboxes on contact cards where the vault's `areas/network/` checkbox row says `never`** (`archive.misplaced_checkboxes`, its `areas/network` list for open items and its `closed` list for ticked ones) are filing errors, repaired one item at a time: a ticked item becomes a plain bullet in the card's `## History` section, placed before `## Next actions` and created if missing, its checkbox and `✅` marker stripped and `_(closed YYYY-MM-DD)_` appended; an open item is routed to the project or area it serves, or dropped. `## Next actions` keeps the empty sentinel.
+
 **Loose files at the resources root** (`resources_loose`): any file there but `README.md` and `.gitkeep`. Propose a destination for each: the area or project it serves when one owns it, else a kind folder, a new one if none fits. Repoint its inbound links in the same step.
 
 ## Step 1.3 - Present the issues table

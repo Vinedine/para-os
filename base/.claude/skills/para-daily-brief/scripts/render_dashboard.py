@@ -495,11 +495,14 @@ def mechanical_flags(scan):
                             + " - finished (archive) or stalled (next step)?",
                     "kind": "nothing_open"})
     mis = raised.get("misplaced") or {}
+    fired = [(bucket, rows) for bucket, rows in mis.items() if rows]
     parts = [f"{sum(r['open'] for r in rows)} under {bucket}/ (worst: {rows[0]['file']}, "
-             f"{rows[0]['open']})" for bucket, rows in mis.items() if rows]
+             f"{rows[0]['open']})" for bucket, rows in fired]
     if parts:
-        out.append({"text": f"**Open checkboxes {' and '.join(parts)}** - archive hygiene "
-                            f"requires zero, and `resources/` never holds one",
+        why = {"archive": "archive hygiene requires zero", "resources": "`resources/` never "
+               "holds one", "areas/network": "this vault's contact cards hold none"}
+        out.append({"text": f"**Open checkboxes {' and '.join(parts)}** - "
+                            + ", and ".join(why[b] for b, _ in fired if b in why),
                     "kind": "misplaced"})
     briefs = raised.get("over_grown_briefs") or []
     if briefs:

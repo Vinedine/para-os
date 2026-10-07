@@ -38,7 +38,8 @@ from upgrade_scan import (  # noqa: E402
     _rule_anchors,
     _rule_kind, _rule_master, _scope_files, _sweep_root,
     _unmarked_matches, baseline_block, build_report,
-    clone_block, compute_verdict, delta_block, integrations_block, main, masters_block,
+    checkboxes_block, clone_block, compute_verdict, delta_block, integrations_block, main,
+    masters_block,
     rules_block, sections_block, settings_block, since_block, skeleton_block, skills_block, smoke_block,
     snapshot_block, unmarked_scripts, vault_block,
 )
@@ -1400,6 +1401,39 @@ class RuleMasterCase(LayoutCase):
         for addons in (none_declared, folder_missing):
             self.assertEqual(_rule_master(self.clone, "main", False, "deal-brief.md", addons),
                              (None, None))
+
+
+# ============================================================================== checkboxes
+
+class CheckboxesBlockCase(unittest.TestCase):
+    """The template's checkbox table against the vault's, read from a worktree master."""
+
+    TABLE = ("### Where a checkbox may live\n\n| Bucket | `actions.md` | State |\n|---|---|---|\n"
+             "| `projects/`, `areas/` | yes | open + closed |\n")
+    ROW = "| `areas/network/` | yes | any action about the person |"
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.clone, self.vault = Path(tmp.name) / "clone", Path(tmp.name) / "vault"
+        write(self.clone, "base/CLAUDE.md.template", "# T\n\n" + self.TABLE + self.ROW + "\n")
+
+    def test_a_vault_without_the_network_row_is_offered_it_at_its_current_level(self):
+        write(self.vault, "CLAUDE.md", "# V\n\n" + self.TABLE)
+        got = checkboxes_block(self.vault, self.clone, None, True)
+        self.assertEqual(got["missing"], [{"bucket": "areas/network/", "row": self.ROW}])
+        self.assertEqual(got["contact_card_level"], "yes")
+
+    def test_a_roster_makes_the_missing_row_never(self):
+        write(self.vault, "CLAUDE.md", "# V\n\n" + self.TABLE + "\n## Who writes this vault\n")
+        self.assertEqual(checkboxes_block(self.vault, self.clone, None, True)
+                         ["contact_card_level"], "never")
+
+    def test_a_vault_that_declares_the_row_at_any_level_is_left_alone(self):
+        write(self.vault, "CLAUDE.md", "# V\n\n" + self.TABLE
+              + "| `areas/network/` | **never** | a checkbox on a card is a filing error |\n")
+        got = checkboxes_block(self.vault, self.clone, None, True)
+        self.assertEqual((got["missing"], got["contact_card_level"]), ([], "never"))
 
 
 # ================================================================================ settings

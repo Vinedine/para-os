@@ -51,7 +51,7 @@ A project's or area's `actions.md` carries the vault's heading shape and **one**
 
 **A date in the action never survives as free text.** "before the contract renews in November" is a real deadline written where no skill can read it, and most vaults forbid it outright. Convert it to the vault's marker, a renewal [dated on its last day to give notice](../../para-shared/operating-discipline.md#dating-a-renewing-agreement), and where the answer is a month or a quarter rather than a day, or the notice period is unknown, ask instead of guessing.
 
-An area whose only outstanding work is recurring gets that item under the vault's recurring heading and no open next step, which is a complete file rather than an empty one. A contact's outstanding item, if there is one, goes under the contact file's own next-actions heading; if there is none, the vault's empty sentinel goes there instead. Where the vault declares a `**Kind:**` line for contact cards, it goes directly under the file's title.
+An area whose only outstanding work is recurring gets that item under the vault's recurring heading and no open next step, which is a complete file rather than an empty one. A contact's outstanding item, if there is one, goes under the contact file's own next-actions heading as far as the vault's `areas/network/` checkbox row allows (`never`: none; `relationship only`: a reply, introduction, thanks or check-in), and otherwise to the project or area it serves; with none on the card, the vault's empty sentinel goes there instead. Where the vault declares a `**Kind:**` line for contact cards, it goes directly under the file's title.
 
 ## Cross-link before finishing
 
