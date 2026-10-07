@@ -22,7 +22,9 @@ For active entities: keep open items that represent real work to do; only remove
 
 ## Step 3.3 - Surface time-sensitive items
 
-Anything dated inside the next 30 days, plus anything already overdue. What those are is the vault's own domain: payments, renewals, inspection or filing deadlines, booked calls. Report them as a dated list.
+Anything dated inside the next 30 days, a last day to give notice inside the next 90, plus anything already overdue. What those are is the vault's own domain: payments, renewals, inspection or filing deadlines, booked calls. Report them as a dated list.
+
+**Every live contract, lease or policy with a renewal term** filed in a `sources/` folder under `projects/` or `areas/` has its next notice date as a `📅` in a live file, [dated so](../../para-shared/operating-discipline.md#dating-a-renewing-agreement). Read each one's term and notice clause; where no line carries that date, propose one for the owning entity's `actions.md` on the issues table, linking the document. One that has ended or been replaced needs none.
 
 **Reorder the file only where the vault declares an order**, moving these to the top of Open items. Where `CLAUDE.md` prescribes none, list them in the phase summary and leave the file alone.
 
