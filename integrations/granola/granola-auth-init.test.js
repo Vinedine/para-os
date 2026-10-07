@@ -38,9 +38,12 @@ test("macOS: the Keychain password unwraps storage.dek, whose key opens the stor
   assert.deepStrictEqual(JSON.parse(decrypt(storeBlob, unwrapped).toString()), STORE);
 });
 
-test("macOS: a wrong Keychain password fails rather than returning garbage", () => {
-  const dekBlob = macEncrypt(Buffer.from(crypto.randomBytes(32).toString("base64")), "right");
-  assert.throws(() => macDecrypt(dekBlob, macKey("wrong")));
+test("macOS: a wrong Keychain password never opens the store", () => {
+  // CBC carries no integrity check, so about one wrong password in 256 unpads cleanly. This data
+  // key is such a case for "wrong": it is the store's GCM tag that must refuse what comes out.
+  const dek = Buffer.alloc(32, "a"), storeBlob = gcmEncrypt(Buffer.from(JSON.stringify(STORE)), dek, "v10");
+  const garbage = macDecrypt(macEncrypt(Buffer.from(dek.toString("base64")), "right"), macKey("wrong"));
+  assert.throws(() => decrypt(storeBlob, Buffer.from(garbage.toString(), "base64")), /could not decrypt supabase\.json\.enc/);
 });
 
 test("macOS: a blob without Chromium's version prefix is refused by name", () => {
