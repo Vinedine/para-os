@@ -15,7 +15,8 @@ the run logs under `<paraos_home>/cache/ingest/runs/`; every loose file in `tria
 kind, its ingest-staged-note fields where it is one, its in-vault and cross-vault duplicates,
 and every inbound reference to it; the vault's subdirectories; which staged notes share a
 thread; the seen-ledger's shape; and, given `--threads`, whether a freshly fetched thread is
-already staged as a note and where its seen-ledger watermark stands.
+already staged as a note, where its seen-ledger watermark stands, and how many working days
+a message of the operator's own has gone unanswered.
 
 Reading the vault's primitives - the registry, run logs, staged-note names, thread hashes,
 watermarks, content hashes, tasks, links, snapshots - is not this script's own work:
@@ -48,7 +49,7 @@ try:
         ingest_ledger, ingest_logs, inbound_references, live_lines, log_instant, norm,
         note_name_parts, open_tasks, read_lines, registered_vault,
         registry, rel_posix, same_place, snapshot, thread_hash, triage_items, triage_sources,
-        vault_root, watermark, written_under,
+        unanswered, vault_root, watermark, written_under,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"triage_scan: {missing}. The shared vault library belongs at "
@@ -185,11 +186,13 @@ def _norm_script(path):
 
 
 def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs, vault_reason):
-    """`pull` / `run` / `skip` / `lookup` / `unknown` for one Triage sources row, per exactly
-    the conditions references/sources.md states. A drive row is never ingest's and always
-    `lookup`; an unrecognised row is `unknown`; everything else follows the vault's coverage
-    verdict, refined per row for a mailbox `declaring_vaults` does not list, a mailbox an
-    ingest error names, or a sync script `sync_runs` does not record without an error.
+    """`pull` / `run` / `skip` / `sent` / `lookup` / `unknown` for one Triage sources row, per
+    exactly the conditions references/sources.md states. A drive row is never ingest's and
+    always `lookup`; an unrecognised row is `unknown`; everything else follows the vault's
+    coverage verdict, refined per row for a mailbox `declaring_vaults` does not list, a
+    mailbox an ingest error names, or a sync script `sync_runs` does not record without an
+    error. A covered mailbox row asking for the sent pass is `sent`, not `skip`: /para-ingest
+    reads no sent mail, so that pass still runs here.
     """
     kind = row.get("kind")
     mailbox = row.get("mailbox")
@@ -212,6 +215,8 @@ def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs,
                 return "pull", f"declaring_vaults does not list {vault_name} for {mailbox}"
         if mailbox and any(mailbox in str(e) for e in errors_list):
             return "pull", f"an ingest error names {mailbox}"
+        if row.get("sent"):
+            return "sent", "ingest covered this mailbox's inbox; it reads no sent mail"
         return "skip", "ingest covered this mailbox"
 
     # sync-script
@@ -716,7 +721,10 @@ def seen_ledger_block(paraos_home, vault_name):
 
 # ---------------------------------------------------------------------------------- threads
 
-def threads_block(threads_data, seen_ledger_path, loose_items):
+def threads_block(threads_data, seen_ledger_path, loose_items, now):
+    """Each fetched thread folded against the staged notes and the seen-ledger, and, where
+    its entry says `newest_own`, how long the operator's newest message has gone unanswered
+    (`unanswered`, null otherwise)."""
     ledger_data = {}
     if seen_ledger_path.is_file():
         try:
@@ -739,7 +747,9 @@ def threads_block(threads_data, seen_ledger_path, loose_items):
         mark = watermark(entry, newest_date=thread.get("newest_date"),
                          newest_key=thread.get("newest_key"))
         out.append({"thread_id": thread_id, "thread_hash": the_hash, "staged_notes": staged,
-                    "ledger": entry, "watermark": mark})
+                    "ledger": entry, "watermark": mark,
+                    "unanswered": (unanswered(thread.get("newest_date"), now)
+                                   if thread.get("newest_own") else None)})
     return out
 
 
@@ -799,7 +809,7 @@ def plan(vault, paraos_home, now, threads_data):
         "snapshot_folders": [str(abspath(vault / "triage"))],
     }
     if threads_data is not None:
-        report["threads"] = threads_block(threads_data, Path(seen_ledger["path"]), loose)
+        report["threads"] = threads_block(threads_data, Path(seen_ledger["path"]), loose, now)
     return report
 
 

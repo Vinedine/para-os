@@ -352,6 +352,23 @@ class RowPlanning(VaultCase):
         self.assertEqual(plans["clean"], "skip")
         self.assertEqual(plans["broken"], "pull")
 
+    def test_a_covered_mailbox_asking_for_sent_mail_still_runs_the_sent_pass(self):
+        # /para-ingest reads the inbox only, so its coverage never covers the sent pass.
+        write(self.root, "CLAUDE.md", sources_claude_md([
+            "| plain | connector: google-workspace | plain@example-work.com | A. |",
+            "| sent | connector: google-workspace 📤 sent | sent@example-work.com | B. |",
+            "| stray | fetch-script 📤 sent | `stray@example-work.com` via `outlook.py` | C. |",
+        ]))
+        write_run(self.home, "20260922-090000.json", {
+            "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
+            "files_written": [str(self.root / "triage" / "x.md")],
+            "source_plan": {"declaring_vaults": {"plain@example-work.com": ["Alpha"],
+                                                "sent@example-work.com": ["Alpha"]}},
+        })
+        rows = {r["source"]: r for r in self.plan()["sources"]["rows"]}
+        self.assertEqual([(rows[s]["plan"], rows[s]["sent"]) for s in ("plain", "sent", "stray")],
+                         [("skip", False), ("sent", True), ("pull", True)])
+
     def test_a_sync_script_the_log_ran_without_error_skips(self):
         write(self.root, "CLAUDE.md", sources_claude_md([
             "| notes | sync-script | `resources/scripts/notes-sync.js` | Meetings. |",
@@ -1282,7 +1299,21 @@ class ThreadsFold(VaultCase):
         report = self.plan(threads=["1a0c556d2559b07c", {"newest_date": "2026-09-20T10:00:00Z"}])
         self.assertEqual(report["threads"], [{
             "thread_id": None, "thread_hash": None, "staged_notes": [], "ledger": None,
-            "watermark": {"verdict": "new", "legacy": False, "watermark": None}}])
+            "watermark": {"verdict": "new", "legacy": False, "watermark": None},
+            "unanswered": None}])
+
+    def test_a_thread_whose_newest_message_is_the_operators_counts_its_working_days(self):
+        # NOW is a Tuesday: a message sent the Tuesday before has waited five working days,
+        # one sent on the Thursday three, and a thread someone else wrote last is not timed.
+        report = self.plan(threads=[
+            {"thread_id": "a1", "newest_date": "2026-09-15T10:00:00+00:00", "newest_own": True},
+            {"thread_id": "b2", "newest_date": "2026-09-17T10:00:00+00:00", "newest_own": True},
+            {"thread_id": "c3", "newest_date": "2026-09-01T10:00:00+00:00"},
+        ])
+        self.assertEqual([t["unanswered"] for t in report["threads"]], [
+            {"since": "2026-09-15", "working_days": 5, "waiting": True},
+            {"since": "2026-09-17", "working_days": 3, "waiting": False},
+            None])
 
 
 # ------------------------------------------------------------------------------ command line

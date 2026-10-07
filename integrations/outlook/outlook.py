@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.09.07 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: outlook 2026.10.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 """Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph and hand the
 messages to a caller that decides what they mean. Writes nothing, anywhere, ever.
 
@@ -92,6 +92,7 @@ Usage (on Windows, `py` works in place of `python3`):
   python3 outlook.py accounts                   # login state + which accounts feed this vault
   python3 outlook.py login someone@outlook.com  # one-time browser login (machine-global)
   python3 outlook.py fetch --days 30            # candidates as JSON on stdout, counts on stderr
+  python3 outlook.py fetch --sent               # the same, the owner's Sent Items included
   python3 outlook.py search "contract renewal"  # search the mailboxes feeding this vault
   python3 outlook.py raw '/me/messages?$top=1'  # any Graph path, prints JSON (debug)
 """
@@ -598,6 +599,14 @@ def graph_get(token, path, prefer=None):
 # has already made, and re-surfacing them undoes that decision.
 FETCH_FOLDERS = ("inbox", "archive")
 
+# Sent Items, read only behind `fetch --sent`, for a vault whose Triage sources row asks for
+# the sent pass (para-shared/connectors.md). It joins the folders above rather than replacing
+# them, so a thread carries both sides and a reply shows as a reply. Its window is at least
+# SENT_MIN_DAYS: a message sent the week before last must still be read on the run after its
+# fifth working day without an answer, and the replies to it with it.
+SENT_FOLDER = "sentitems"
+SENT_MIN_DAYS = 14
+
 # A ceiling on one folder's fetch. `search` has always had `--limit`; this is the same bound
 # for the path that pages a whole window, because a busy inbox over 30 days is thousands of
 # messages, each carrying its full header block, and a run that dies of its own size has
@@ -611,8 +620,9 @@ FETCH_MAX_MESSAGES = 1000
 PAGE_SIZE = 100
 
 
-def fetch_messages(token, days, root="/me", limit=FETCH_MAX_MESSAGES):
-    """Recent messages from the inbox and the archive, newest first, within the day window.
+def fetch_messages(token, days, root="/me", limit=FETCH_MAX_MESSAGES, folders=None):
+    """Recent messages from the inbox and the archive (or `folders`), newest first, within
+    the day window.
 
     Pulls internetMessageHeaders along with the rest, which is how the caller sees
     List-Unsubscribe and therefore knows bulk mail for what it is. The header block is
@@ -623,6 +633,7 @@ def fetch_messages(token, days, root="/me", limit=FETCH_MAX_MESSAGES):
     mail the spam filter had caught and mail the operator had thrown away, and offered it
     back as a candidate (README.md has the measurements). The archive stays in scope
     because a fast archiver can file a real message between two runs, and it is cheap.
+    Sent Items comes back only where the caller names it, which `fetch --sent` does.
 
     Stops each folder at `limit` messages and says so on stderr, so a mailbox too big for one
     window truncates visibly instead of running until something breaks. The limit is per
@@ -630,7 +641,7 @@ def fetch_messages(token, days, root="/me", limit=FETCH_MAX_MESSAGES):
     """
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
     out, seen = [], set()
-    for folder in FETCH_FOLDERS:
+    for folder in folders or FETCH_FOLDERS:
         count = 0
         path = (f"{root}/mailFolders/{folder}/messages"
                 f"?$select={SELECT_FIELDS},internetMessageHeaders"
@@ -836,8 +847,17 @@ def cmd_fetch(cfg, args):
     survives. The reading happens here; the decision happens where the context is.
 
     stdout is pure JSON so a caller can parse it; every human-readable line goes to stderr.
+
+    `--sent` adds Sent Items to the folders read, over at least SENT_MIN_DAYS, so each thread
+    also carries the owner's own messages: what they promised, and what nobody answered.
     """
     feeds, missing = resolve_feeds(cfg, args.account)
+    folders, days = None, args.days
+    if args.sent:
+        folders, days = FETCH_FOLDERS + (SENT_FOLDER,), max(args.days, SENT_MIN_DAYS)
+        if days != args.days:
+            print(f"! --sent reads at least {SENT_MIN_DAYS} days: window widened from "
+                  f"{args.days}", file=sys.stderr)
 
     records, scanned_total, bulk_total, msg_total = [], 0, 0, 0
     failed = []
@@ -850,7 +870,7 @@ def cmd_fetch(cfg, args):
             owner = {email.lower()} | {a.lower() for a in acct.get("self", [])}
             token_account, root = mailbox_route(cfg, email)
             token = access_token(cfg, token_account)
-            msgs = fetch_messages(token, args.days, root)
+            msgs = fetch_messages(token, days, root, folders=folders)
         except (Exception, SystemExit) as e:
             # One unusable mailbox must not cost the run the ones already read. Nothing is
             # emitted until the end, so an exit here discarded every earlier mailbox and
@@ -919,7 +939,7 @@ def cmd_fetch(cfg, args):
                 "messages": group,
             })
         bulk_total += bulk
-        print(f"{email}  last {args.days}d: scanned {len(msgs)}, "
+        print(f"{email}  last {days}d: scanned {len(msgs)}, "
               f"{bulk} bulk skipped, {kept} candidates"
               f" in {len(threads)} thread{'' if len(threads) == 1 else 's'}", file=sys.stderr)
 
@@ -1006,6 +1026,9 @@ def main():
     fe.add_argument("--days", type=int, default=7, help="lookback window (default 7)")
     fe.add_argument("--include-bulk", action="store_true",
                     help="keep messages carrying a List-Unsubscribe header instead of skipping them")
+    fe.add_argument("--sent", action="store_true",
+                    help=f"also read Sent Items, so each thread carries the owner's own "
+                         f"messages (window at least {SENT_MIN_DAYS} days)")
 
     se = sub.add_parser("search", help="ad-hoc keyword search across the whole mailbox (read-only)")
     se.add_argument("query", help="words to look for; quote a phrase")

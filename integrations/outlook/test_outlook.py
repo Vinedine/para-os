@@ -505,6 +505,13 @@ class FetchMessagesFolderScope(unittest.TestCase):
         for folder in ("junkemail", "deleteditems", "sentitems", "drafts"):
             self.assertNotIn(folder, joined)
 
+    def test_sent_items_is_read_only_where_the_caller_names_it(self):
+        with mock.patch.object(osync, "graph_get", return_value={"value": []}) as g:
+            osync.fetch_messages("tok", 2, folders=osync.FETCH_FOLDERS + (osync.SENT_FOLDER,))
+        self.assertEqual([c.args[1].split("?")[0] for c in g.call_args_list],
+                         ["/me/mailFolders/inbox/messages", "/me/mailFolders/archive/messages",
+                          "/me/mailFolders/sentitems/messages"])
+
     def test_a_missing_folder_does_not_cost_the_run_the_other_folders(self):
         # A mailbox with no archive must still yield its inbox.
         resp = mock.Mock(status_code=404)
@@ -1316,7 +1323,7 @@ class CmdFetch(unittest.TestCase):
         while quietly testing a mock instead of the real function.
         """
         cfg = cfg or {"accounts": {"a@x.com": {"refresh_token": "t"}}}
-        args = argparse.Namespace(account=None, days=7, include_bulk=include_bulk)
+        args = argparse.Namespace(account=None, days=7, include_bulk=include_bulk, sent=False)
         out, err = io.StringIO(), io.StringIO()
         with mock.patch.object(osync, "require_vault"), \
                 mock.patch.object(osync, "load_vault_config", return_value={}), \
@@ -1511,6 +1518,117 @@ class CmdFetch(unittest.TestCase):
         self.assertEqual(tokens, ["a@x.com"])
         self.assertEqual({r["account"] for r in records}, {"a@x.com"})
         self.assertIn("1 mailbox(es) skipped (not logged in here): b@x.com", err)
+
+
+class FetchSent(unittest.TestCase):
+    """`fetch --sent` reads Sent Items beside the inbox and the archive, for a vault that
+    asks for the sent pass, and nothing else. Sent Items was taken out of the default read
+    because it re-surfaced handled mail, so the flag is the only way back in, and it reads
+    exactly as the rest does: Graph GETs, and nothing written anywhere.
+
+    The HTTP session is the mock here, not graph_get or fetch_messages, so every request the
+    command makes is the one it would send."""
+
+    OWN = {"id": "s1", "internetMessageId": "<s1@x>", "conversationId": "conv-p",
+           "receivedDateTime": "2026-09-25T09:00:00Z", "subject": "Proposal",
+           "bodyPreview": "Price to you Wednesday.",
+           "from": {"emailAddress": {"name": "Me", "address": "a@x.com"}},
+           "toRecipients": [{"emailAddress": {"address": "rosa@client.example"}}],
+           "ccRecipients": [], "webLink": "https://example/s1"}
+    REPLY = {"id": "r1", "internetMessageId": "<r1@x>", "conversationId": "conv-p",
+             "receivedDateTime": "2026-09-26T09:00:00Z", "subject": "RE: Proposal",
+             "bodyPreview": "Thanks, unrelated: the office moves.",
+             "from": {"emailAddress": {"name": "Rosa", "address": "rosa@client.example"}},
+             "toRecipients": [{"emailAddress": {"address": "a@x.com"}}],
+             "ccRecipients": [], "webLink": "https://example/r1"}
+
+    def run_fetch(self, sent, days=7):
+        """cmd_fetch against a mocked session: (records, stderr, session)."""
+        def get(url, **_kwargs):
+            body = {"value": [self.OWN] if "/sentitems/" in url
+                    else [self.REPLY] if "/inbox/" in url else []}
+            return mock.Mock(status_code=200, headers={}, json=lambda: body,
+                             raise_for_status=lambda: None)
+
+        session = mock.Mock()
+        session.get.side_effect = get
+        cfg = {"accounts": {"a@x.com": {"refresh_token": "t"}}}
+        args = argparse.Namespace(account=None, days=days, include_bulk=False, sent=sent)
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(osync, "require_vault"), \
+                mock.patch.object(osync, "load_vault_config", return_value={}), \
+                mock.patch.object(osync, "vault_accounts", return_value=["a@x.com"]), \
+                mock.patch.object(osync, "access_token", return_value="tok"), \
+                mock.patch.object(osync, "SESSION", session), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            osync.cmd_fetch(cfg, args)
+        return json.loads(out.getvalue()), err.getvalue(), session
+
+    @staticmethod
+    def folders(session):
+        return [urlparse(c.args[0]).path.split("/mailFolders/")[1].split("/")[0]
+                for c in session.get.call_args_list]
+
+    @staticmethod
+    def window_days(session):
+        query = parse_qs(urlparse(session.get.call_args_list[0].args[0]).query)
+        since = query["$filter"][0].split(" ge ")[1]
+        start = osync.datetime.strptime(since, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=osync.timezone.utc)
+        return round((osync.datetime.now(osync.timezone.utc) - start).total_seconds() / 86400)
+
+    def test_the_flag_adds_sent_items_to_the_inbox_and_the_archive(self):
+        _, _, session = self.run_fetch(sent=True)
+        self.assertEqual(self.folders(session), ["inbox", "archive", "sentitems"])
+
+    def test_without_the_flag_sent_items_is_never_read(self):
+        _, _, session = self.run_fetch(sent=False)
+        self.assertEqual(self.folders(session), ["inbox", "archive"])
+
+    def test_it_reads_no_disposal_folder_either_way(self):
+        for sent in (True, False):
+            _, _, session = self.run_fetch(sent=sent)
+            for folder in ("junkemail", "deleteditems", "drafts", "outbox"):
+                self.assertNotIn(folder, self.folders(session))
+
+    def test_every_request_is_a_graph_get_and_nothing_else(self):
+        _, err, session = self.run_fetch(sent=True)
+        self.assertEqual({c[0] for c in session.method_calls}, {"get"})
+        for call in session.get.call_args_list:
+            self.assertTrue(call.args[0].startswith(f"{osync.GRAPH}/me/mailFolders/"),
+                            call.args[0])
+        self.assertIn("nothing was written", err)
+
+    def test_the_module_sends_graph_nothing_but_a_get(self):
+        # Structural, like the removed write path: a POST, PATCH, PUT or DELETE against the
+        # mailbox would be a write, and the only POSTs here are to the sign-in endpoints.
+        source = SCRIPT.read_text(encoding="utf-8")
+        for verb in (".put(", ".patch(", ".delete(", ".request("):
+            self.assertNotIn(verb, source)
+        posts = [line for line in source.splitlines() if ".post(" in line]
+        self.assertTrue(posts)
+        for line in posts:
+            self.assertRegex(line, r"SESSION\.post\(f\"\{base\}/(?:token|devicecode)\"")
+
+    def test_the_sent_read_covers_at_least_fourteen_days(self):
+        _, err, session = self.run_fetch(sent=True, days=7)
+        self.assertEqual(self.window_days(session), osync.SENT_MIN_DAYS)
+        self.assertIn("window widened from 7", err)
+        _, err, session = self.run_fetch(sent=True, days=30)
+        self.assertEqual(self.window_days(session), 30)
+        self.assertNotIn("widened", err)
+        _, _, session = self.run_fetch(sent=False, days=7)
+        self.assertEqual(self.window_days(session), 7)
+
+    def test_a_thread_carries_the_owners_message_beside_the_reply_to_it(self):
+        records, _, _ = self.run_fetch(sent=True)
+        self.assertEqual(len(records), 1)
+        r = records[0]
+        self.assertEqual([(m["id"], m["from_owner"]) for m in r["messages"]],
+                         [("r1", False), ("s1", True)])
+        self.assertEqual(r["participants"], ["rosa@client.example"])
+        records, _, _ = self.run_fetch(sent=False)
+        self.assertEqual([m["id"] for m in records[0]["messages"]], ["r1"])
 
 
 class FeedResolution(unittest.TestCase):

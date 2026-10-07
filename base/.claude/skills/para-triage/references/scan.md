@@ -15,7 +15,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | Field | Holds |
 |---|---|
 | `vault` | `path`, `root`, `missing`, `hint`, `name`, `registered`, `active` - Step 1's whole check |
-| `sources.declared`, `sources.rows` | The `## Triage sources` table, each row gaining `plan` (`pull`/`run`/`skip`/`lookup`/`unknown`) and `reason` |
+| `sources.declared`, `sources.rows` | The `## Triage sources` table, each row gaining `plan` (`pull`/`run`/`skip`/`sent`/`lookup`/`unknown`) and `reason`; `sent` is true for a row declaring the sent pass |
 | `ingest` | `registered`, `active`, `newest_write`, `newest_any`, `covered`, `reason`, `staged_here`, `count_for_vault`, `log_errors` - the coverage verdict every row's `plan` reads |
 | `ingest_ledger` | `path`, `exists`, `load_error` for `/para-ingest`'s central ledger; `items.loose[].note.routed_vaults` is what reads its `mailboxes` map, per note |
 | `items.loose` | One entry per top-level file (`.gitkeep` dropped, a PDF's `.md` twin folded on): `name`, `size`, `kind`, `readme`, `twin`, `note`, `duplicates`, `hash_skipped`, `cross_vault`, `inbound` |
@@ -26,7 +26,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `items.empty`, `items.only_subdirectories` | The two stop conditions Step 2 checks last |
 | `items.same_thread` | `{key: [names]}` for every thread hash or `Conversation id` two or more notes share, keyed by the conversation id where one joins them |
 | `seen_ledger` | `path`, `exists`, `entries`, `legacy`, `load_error` |
-| `threads` | Only with `--threads`: per fetched thread, `thread_id`, `thread_hash`, `staged_notes`, `ledger`, `watermark` |
+| `threads` | Only with `--threads`: per fetched thread, `thread_id`, `thread_hash`, `staged_notes`, `ledger`, `watermark`, and `unanswered` (`since`, `working_days`, `waiting`; null unless `newest_own`) |
 | `over_threshold` | `{file, open}` for every action file at the cap, `OPEN_ITEM_CAP` (8), or past it |
 | `snapshot`, `snapshot_folders` | Every file in `triage/` and the folder itself, read back by `paraos_vault.py changed <saved_to>` before each delete or move ([execute.md](execute.md)) |
 | `saved_to`, `save_error` | Where the scan kept its own copy of this output, under `$PARAOS_HOME/data/scans/` and never inside the vault (copies older than a week are pruned); or null, and why |
@@ -83,6 +83,8 @@ The rest of this file is the script's specification and the by-hand fallback.
     checked needlessly costs one walk, a vault missed is a silent duplicate.
 - **`items.subdirectories`, `items.same_thread`**: [approval.md](approval.md)'s
   subdirectory rule and "What 'linked' means here".
-- **`seen_ledger`, `threads`**: [sources.md](sources.md#the-seen-ledger).
+- **`seen_ledger`, `threads`**: [sources.md](sources.md#the-seen-ledger). `unanswered`
+  counts the days after the sent day, in the run's own timezone, up to and including today,
+  Monday to Friday only; `waiting` from 5.
 - **`over_threshold`**: [approval.md](approval.md)'s Add action flag, `file at N open -
   groom?`.

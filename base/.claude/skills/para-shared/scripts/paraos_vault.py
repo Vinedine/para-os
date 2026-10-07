@@ -16,6 +16,7 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
     py -3 paraos_vault.py sources [--vault .]
     py -3 paraos_vault.py ingest-logs [--paraos-home DIR]
     py -3 paraos_vault.py notice-date <renewal> "<n> months" [--term "1 year"] [--today D]
+    py -3 paraos_vault.py weekday-after <day> <weekday>
 
     import sys
     from pathlib import Path
@@ -27,7 +28,7 @@ folder is a vault root, what the machine's registry says about it and its neighb
 a checkbox may live, what counts as one, what a task marker means, which folder a name
 resolves to, which names a contact card answers to, when a file was really last touched, what a link points at and what a move
 would have to rewrite, whether two files hold the same bytes (and whether two copies of one
-file differ in more than line endings), what a vault declares it is built from and the locale it declares, the numbers a vault's own rules state, and the last day to give notice on a renewing agreement. A second implementation of any of those is a vault getting two answers to one
+file differ in more than line endings), what a vault declares it is built from and the locale it declares, the numbers a vault's own rules state, the last day to give notice on a renewing agreement, the date a promised weekday points at, and how many working days a sent message has waited. A second implementation of any of those is a vault getting two answers to one
 question, which is the failure this repo exists to prevent.
 
 What does NOT live here: anything a single skill decides. Bucketing against a date,
@@ -60,6 +61,7 @@ BRIEF_LINE_CAP = 500        # a brief past this is over-grown
 STALE_FILE_DAYS = 60        # an action file with open items, untouched this long
 STALE_UNDATED_DAYS = 30     # an open, undated item untouched this long: offered for demotion
 WAITING_FLAG_DAYS = 14      # a wait on someone else this old asks: chase or drop?
+UNANSWERED_WORKING_DAYS = 5 # a sent message unanswered this many working days is a wait
 CLUSTER_SECONDS = 60        # mtimes this close mean a bulk write, not an edit
 
 # --- what a task looks like ---------------------------------------------------------------
@@ -392,6 +394,39 @@ def shift(day, period, times=1):
     if unit in ("day", "week"):
         return day + timedelta(days=count * (7 if unit == "week" else 1))
     return add_months(day, count * (12 if unit == "year" else 1))
+
+
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
+def weekday_index(name):
+    """0 for Monday to 6 for Sunday, from an English day name, its first three letters or
+    more, or an ISO number 1 to 7. ValueError on anything else: a day written in another
+    language is the caller's to translate, never guessed here."""
+    text = str(name).strip().lower()
+    if text.isdigit() and 1 <= int(text) <= 7:
+        return int(text) - 1
+    for index, day in enumerate(WEEKDAYS):
+        if len(text) >= 3 and day.startswith(text):
+            return index
+    raise ValueError(f"not a weekday: {name!r}; write an English day name or 1 to 7")
+
+
+def weekday_after(day, weekday):
+    """The first `weekday` (0 for Monday) strictly after `day`: the date a promise naming a
+    weekday points at, so a Wednesday promised on a Wednesday is the one a week on."""
+    return day + timedelta(days=(weekday - day.weekday() - 1) % 7 + 1)
+
+
+def working_days(since, until):
+    """Working days after `since`, up to and including `until`, counting Monday to Friday.
+    Public holidays are not known here and count as working days. 0 where `until` is not
+    later than `since`."""
+    if until <= since:
+        return 0
+    weeks, rest = divmod((until - since).days, 7)
+    return weeks * 5 + sum(1 for i in range(1, rest + 1)
+                           if (since + timedelta(days=i)).weekday() < 5)
 
 
 def notice_date(renewal, notice, term=None, today=None):
@@ -1099,6 +1134,7 @@ SCRIPT_SUFFIXES = (".py", ".js", ".mjs", ".ps1", ".sh")
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 BACKTICK_SPAN_RE = re.compile(r"`([^`]+)`")
 CADENCE_HINT_RE = re.compile(r"🔁️?\s*(every(?:\s+\d+)?\s+[A-Za-z]+)")
+SENT_HINT_RE = re.compile(r"📤️?\s*sent\b", re.IGNORECASE)
 
 
 def _md_cell(text):
@@ -1149,7 +1185,8 @@ def _triage_kind(type_text):
         if lowered.startswith(kind):
             return kind, None
     if lowered.startswith("connector"):
-        after = type_text.split(":", 1)[1].strip() if ":" in type_text else ""
+        after = type_text.split(":", 1)[1] if ":" in type_text else ""
+        after = SENT_HINT_RE.sub("", CADENCE_HINT_RE.sub("", after)).strip()
         return "connector", _normalize_connector(after)
     return "unknown", None
 
@@ -1196,6 +1233,7 @@ def _triage_row(header, cells, lineno):
         "mailbox": _first_email(endpoint_text),
         "drive_id": _triage_drive_id(endpoint_raw) if kind == "drive" else None,
         "relevant_when": cell("relevant").strip(), "cadence": cadence,
+        "sent": bool(SENT_HINT_RE.search(type_text)),
     }
 
 
@@ -1207,6 +1245,8 @@ def triage_sources(vault):
     vault whose table merely holds no rows. A table inside a fenced block is a sample, not a
     declaration, and is skipped the way `live_lines` skips it everywhere else. `cadence` is
     a row's `🔁 every <period>` hint, in any cell: how often the source should deliver.
+    `sent` is whether its Type cell carries `📤 sent`, asking for the sent-mail pass of
+    connectors.md; neither hint changes the row's `kind` or `connector`.
     """
     path = Path(vault) / "CLAUDE.md"
     if not path.is_file():
@@ -2541,6 +2581,24 @@ def watermark(entry, newest_date=None, newest_key=None):
             "watermark": watermark_iso}
 
 
+def unanswered(sent, now):
+    """How long a message the operator sent, newest in its thread, has gone without a reply:
+    `{"since", "working_days", "waiting"}`, `since` the day it went out in `now`'s timezone
+    and `waiting` true from UNANSWERED_WORKING_DAYS on (connectors.md's sent pass). `sent`
+    is an ISO-8601 instant, or a bare `YYYY-MM-DD` read as that day. One that reads as
+    neither leaves all three None, never a count of zero."""
+    instant = _parse_instant(sent)
+    if instant is not None:
+        since = instant.astimezone(now.tzinfo).date()
+    else:
+        since = parse_date(sent) if _is_bare_date(sent) else None
+    if since is None:
+        return {"since": None, "working_days": None, "waiting": None}
+    count = working_days(since, now.date())
+    return {"since": iso(since), "working_days": count,
+            "waiting": count >= UNANSWERED_WORKING_DAYS}
+
+
 # --- from the command line ------------------------------------------------------------------
 
 def answer_for(args, root):
@@ -2607,6 +2665,10 @@ def main(argv=None):
                                                    "and its successor")
     recur.add_argument("line", help="the task line as written")
     recur.add_argument("--today", help="YYYY-MM-DD (default: the system clock)")
+    promised = sub.add_parser("weekday-after", help="the date a promise naming a weekday "
+                                                    "points at: the first one after a day")
+    promised.add_argument("day", help="the day the promise was made, YYYY-MM-DD")
+    promised.add_argument("weekday", help="an English day name, or 1 (Monday) to 7")
     for parser in (resolve, declared, dangling, inbound, plan, digests, reg, sources, items):
         parser.add_argument("--vault", default=".", help="vault root (default: .)")
     args = ap.parse_args(argv)
@@ -2643,6 +2705,20 @@ def main(argv=None):
             answer = notice_date(renewal, args.notice, args.term, today)
         except ValueError as err:
             ap.error(str(err))
+        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
+
+    if args.command == "weekday-after":
+        day = parse_date(args.day)
+        if not day:
+            ap.error(f"dates are YYYY-MM-DD: {args.day!r}")
+        try:
+            weekday = weekday_index(args.weekday)
+        except ValueError as err:
+            ap.error(str(err))
+        answer = {"after": iso(day), "weekday": WEEKDAYS[weekday].capitalize(),
+                  "date": iso(weekday_after(day, weekday))}
         json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 0

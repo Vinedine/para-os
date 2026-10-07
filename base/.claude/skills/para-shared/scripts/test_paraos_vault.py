@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -39,7 +39,8 @@ from paraos_vault import (
     parse_markers, register_rows, registered_vault, registry,
     registry_holding, rel_posix, resolve_entity, resolve_link, scope_of, snapshot, split_lines,
     stage_line, stage_of, strip_code, table_cells, template_marker, thread_hash, triage_items, triage_sources, vault_root,
-    watermark, written_under, year_end_of,
+    unanswered, watermark, weekday_after, weekday_index, working_days, written_under,
+    year_end_of,
 )
 
 SCRIPT = Path(__file__).resolve().parent / "paraos_vault.py"
@@ -1962,6 +1963,97 @@ TRIAGE_LINES = [
 ]
 
 
+class SentMailDates(unittest.TestCase):
+    """The two dates connectors.md's sent pass hands to code: the day a promised weekday
+    points at, and how many working days a sent message has gone unanswered."""
+
+    FRIDAY, WEDNESDAY = date(2026, 10, 2), date(2026, 10, 7)
+
+    def test_the_named_weekday_is_the_first_one_after_the_day(self):
+        self.assertEqual(weekday_after(self.FRIDAY, 2), self.WEDNESDAY)
+        self.assertEqual(weekday_after(date(2026, 10, 5), 1), date(2026, 10, 6))
+
+    def test_a_weekday_promised_on_that_same_weekday_is_the_one_a_week_on(self):
+        self.assertEqual(weekday_after(self.WEDNESDAY, 2), date(2026, 10, 14))
+
+    def test_a_weekday_reads_as_an_english_name_its_short_form_or_an_iso_number(self):
+        for name in ("Wednesday", "wed", "WEDN", " wednesday ", "3"):
+            with self.subTest(name=name):
+                self.assertEqual(weekday_index(name), 2)
+        self.assertEqual((weekday_index("sun"), weekday_index("1")), (6, 0))
+
+    def test_a_weekday_in_another_language_or_out_of_range_is_refused(self):
+        for name in ("woensdag", "mercredi", "we", "8", "0", ""):
+            with self.subTest(name=name):
+                with self.assertRaises(ValueError):
+                    weekday_index(name)
+
+    def test_seven_days_on_from_any_day_are_five_working_days(self):
+        for offset in range(7):
+            start = self.FRIDAY + timedelta(days=offset)
+            with self.subTest(start=start):
+                self.assertEqual(working_days(start, start + timedelta(days=7)), 5)
+                self.assertEqual(working_days(start, start + timedelta(days=14)), 10)
+
+    def test_a_weekend_holds_no_working_day(self):
+        self.assertEqual(working_days(self.FRIDAY, date(2026, 10, 4)), 0)
+        self.assertEqual(working_days(self.FRIDAY, date(2026, 10, 5)), 1)
+        self.assertEqual(working_days(date(2026, 10, 3), date(2026, 10, 5)), 1)
+
+    def test_a_public_holiday_counts_as_a_working_day(self):
+        # No holiday calendar is known: a Thursday to the Monday over a Friday holiday is two.
+        self.assertEqual(working_days(date(2026, 12, 24), date(2026, 12, 28)), 2)
+
+    def test_a_day_that_is_not_later_has_none(self):
+        self.assertEqual(working_days(self.WEDNESDAY, self.WEDNESDAY), 0)
+        self.assertEqual(working_days(self.WEDNESDAY, self.FRIDAY), 0)
+
+    NOW = datetime(2026, 10, 9, 12, 0, tzinfo=timezone(timedelta(hours=2)))
+
+    def test_a_message_sent_a_week_ago_with_no_reply_is_waiting(self):
+        self.assertEqual(unanswered("2026-10-02T10:00:00+00:00", self.NOW),
+                         {"since": "2026-10-02", "working_days": 5, "waiting": True})
+
+    def test_four_working_days_is_not_yet_waiting(self):
+        self.assertEqual(unanswered("2026-10-05T10:00:00Z", self.NOW),
+                         {"since": "2026-10-05", "working_days": 4, "waiting": False})
+
+    def test_the_day_it_went_out_is_read_in_the_runs_own_timezone(self):
+        # 23:30 UTC on Thursday the 1st is already Friday the 2nd at +02:00: four, not five.
+        now = self.NOW - timedelta(days=1)
+        got = unanswered("2026-10-01T23:30:00+00:00", now)
+        self.assertEqual((got["since"], got["working_days"]), ("2026-10-02", 4))
+
+    def test_a_bare_day_is_read_as_that_day(self):
+        self.assertEqual(unanswered("2026-10-02", self.NOW)["working_days"], 5)
+
+    def test_a_date_that_does_not_read_is_unknown_never_zero(self):
+        for sent in (None, "", "last Friday", "2026-10-02T10:00:00"):
+            with self.subTest(sent=sent):
+                self.assertEqual(unanswered(sent, self.NOW),
+                                 {"since": None, "working_days": None, "waiting": None})
+
+    def run_main(self, argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(argv)
+        return code, out.getvalue()
+
+    def test_the_command_prints_the_promised_day_with_its_inputs(self):
+        code, out = self.run_main(["weekday-after", "2026-10-02", "wednesday"])
+        self.assertEqual((code, json.loads(out)), (0, {
+            "after": "2026-10-02", "weekday": "Wednesday", "date": "2026-10-07"}))
+
+    def test_the_command_refuses_what_it_cannot_read_with_exit_2(self):
+        for argv in (["weekday-after", "2 October", "wednesday"],
+                     ["weekday-after", "2026-10-02", "woensdag"]):
+            with self.subTest(argv=argv):
+                with contextlib.redirect_stderr(io.StringIO()), \
+                        self.assertRaises(SystemExit) as stop:
+                    self.run_main(argv)
+                self.assertEqual(stop.exception.code, 2)
+
+
 class TriageSourcesTable(VaultCase):
 
     def write_claude(self, lines):
@@ -2091,6 +2183,18 @@ class TriageSourcesTable(VaultCase):
             "| work | connector: google-workspace | `ann@example.com` | Clients. |")
         self.assertEqual([(r["kind"], r["cadence"]) for r in got],
                          [("sync-script", "every 2 weeks"), ("connector", None)])
+
+    def test_a_sent_hint_is_read_and_leaves_the_kind_and_connector_alone(self):
+        got = self.rows(
+            "| home | connector: claude.ai Gmail 📤 sent | ann@example.com | Clients. |",
+            "| work | fetch-script 📤 Sent | `resources/scripts/outlook.py fetch` | Clients. |",
+            "| mcp | connector: outlook-mcp 📤 sent 🔁 every week | b@example.com | Mail. |",
+            "| shop | connector: google-workspace | c@example.com | Orders sent out. |")
+        self.assertEqual([(r["kind"], r["connector"], r["sent"]) for r in got],
+                         [("connector", "claude_ai_Gmail", True), ("fetch-script", None, True),
+                          ("connector", "outlook-mcp", True),
+                          ("connector", "google-workspace", False)])
+        self.assertEqual(got[2]["cadence"], "every week")
 
     def test_a_script_row_naming_no_script_has_no_path(self):
         got = self.rows("| mail | fetch-script | ask Alex which script, `TBD` | Leads. |",
