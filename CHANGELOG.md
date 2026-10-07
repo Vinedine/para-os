@@ -50,6 +50,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **`/para-daily-brief` flags a project or area with nothing open.** A folder under `projects/` or `areas/`, `areas/network/` aside, with no open item anywhere under it, a `🔁` counting as open, had no Vault state row and so vanished from the brief. The scan now reports it as `nothing_open`, those with no `actions.md` first, and the brief and dashboard flag it: `<entity>: nothing open - finished (archive) or stalled (next step)?` Reaction: re-sync `/para-daily-brief`.
 
+**An answer about the operator's own documents quotes them or says they are not on file.** `## Authoritative sources` adds two sentences: such an answer quotes the clause with its file name and page; a document not on file is said to be missing, and any general-knowledge answer is labelled as such; two source documents that disagree are both given, the cautious reading first. Reaction: append the two sentences to the vault's `## Authoritative sources` paragraph, its own wording otherwise kept.
+
 ---
 
 ## 2026.09.07
