@@ -48,7 +48,10 @@ def setUpModule():
     TEMPLATE.mkdir()
     git(TEMPLATE, "init", "-q")
     for key, value in (("user.name", "t"), ("user.email", "t@example.invalid"),
-                       ("core.autocrlf", "false"), ("core.excludesFile", str(ignore))):
+                       ("core.autocrlf", "false"), ("core.excludesFile", str(ignore)),
+                       # No background gc or maintenance: it writes into .git/objects after
+                       # a commit returns, under a test that asserts nothing changed.
+                       ("gc.auto", "0"), ("maintenance.auto", "false")):
         git(TEMPLATE, "config", key, value)
 
 
@@ -331,12 +334,16 @@ class Unreadable(MirrorCase):
 
 
 class LongPaths(MirrorCase):
-    def test_long_path_is_extended_on_windows_only(self):
+    def test_long_path_is_unchanged_off_windows(self):
         with mock.patch.object(mirror.os, "name", "posix"):
             self.assertIs(mirror.long_path(self.root), self.root)
-        with mock.patch.object(mirror.os, "name", "nt"):
-            forms = [str(mirror.long_path(Path(p))) for p in
-                     ("C:\\v\\a.md", "\\\\?\\C:\\v\\a.md", "\\\\server\\share\\v")]
+
+    # Not by patching os.name: before Python 3.12, pathlib picks WindowsPath from it and
+    # refuses to build one anywhere else.
+    @unittest.skipUnless(os.name == "nt", "the extended-length prefix is Windows' own")
+    def test_long_path_is_extended_on_windows(self):
+        forms = [str(mirror.long_path(Path(p))) for p in
+                 ("C:\\v\\a.md", "\\\\?\\C:\\v\\a.md", "\\\\server\\share\\v")]
         self.assertEqual(forms, ["\\\\?\\C:\\v\\a.md", "\\\\?\\C:\\v\\a.md",
                                  "\\\\?\\UNC\\server\\share\\v"])
 
