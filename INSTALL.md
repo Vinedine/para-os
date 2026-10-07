@@ -38,7 +38,7 @@ Read `bootstrap-prompt.md` in the vault root and follow the block below its `---
 
 ## 5. Hand over
 
-Tell the operator the vault is ready and to run `/para-daily-brief`, and where the kit is. If that skill is not recognised in this session, open a new session in the same folder.
+The bootstrap's [Finish](base/bootstrap-prompt.md#finish) ends on the operator's own material, filed, and a first `/para-daily-brief`. Tell them where the kit is, and that the brief is how to come back in. If a skill is not recognised when they type it, open a new session in the same folder.
 
 Say once where the skills live: bundled in the vault's own `.claude/skills/`. An operator who runs several vaults can move them to `~/.claude/skills/` instead, so one copy serves them all.
 

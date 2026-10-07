@@ -242,8 +242,10 @@ file there instead, and these cases stop at setup saying so: turn on git's `core
 and check out again, or run them under WSL2. They carry no `native` tag for that reason.
 
 No skill carries the bootstrap: both arms read the same `bootstrap-prompt.md` from the
-fixture, so both score the same and the baseline arm buys nothing. Run them on one arm:
+fixture, so both score the same and the baseline arm buys nothing. Run them on one arm, with
+`--shell` for `install-first-session-files-own-material`, which runs the bootstrap through its
+Finish, moving files and running the skills' scans:
 
 ```bash
-python3 tools/eval.py --case 'install-*' -- --ablation none
+python3 tools/eval.py --shell --case 'install-*' -- --ablation none
 ```
