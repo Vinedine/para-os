@@ -89,7 +89,7 @@ A checkbox is something you could act on now or on its marked date, not a plan. 
 
 ## Entity structures
 
-- **Briefs** - a workstream brief fixes its section order (`Why now` / `Scope` / `Stakeholders` / `Deadline` / optional `Vendor` / optional `Risks (live)` / `Status`); an idea brief follows its own fixed shape with a required `**Stage:**` line. The full shape is in [.claude/rules/brief-structure.md](.claude/rules/brief-structure.md), which loads on its own when a brief is read; read it explicitly before creating one.
+- **Briefs** - a workstream brief fixes its section order (`Why now` / `Scope` / `Stakeholders` / `Deadline` / optional `Vendor` / optional `Risks (live)` / optional `Development log` / `Status`); an idea brief follows its own fixed shape with a required `**Stage:**` line. The full shape is in [.claude/rules/brief-structure.md](.claude/rules/brief-structure.md), which loads on its own when a brief is read; read it explicitly before creating one.
 
 ## Vendor lifecycle
 

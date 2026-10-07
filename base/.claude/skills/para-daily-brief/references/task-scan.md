@@ -14,12 +14,13 @@ Everything between "the vault is a folder of markdown" and "a set of bucketed, p
 | `mentioned_elsewhere` | Under an entity scope only: open items naming it that live in another file |
 | `file_dates` | Each action file's date, by the rule in [Step 4b](#step-4b-aggregate-per-entity) |
 | `flags`, `ideas`, `triage`, `triage_preview`, `lifecycles` | Everything [signals.md](signals.md) computes from files |
+| `review` | Under `--review` only: `window` (`start`, `end`, `days`), `done` (`count`, `undated`, `by_entity` rows of `items`), `slipped`, `moved` (one entry per lifecycle: `count`, `entities`), `stuck` (`overdue` references, `no_next_step` entities) and `decisions`, by [the review window](#the-review-window); null for an entity name that did not resolve |
 
 Where the script cannot run, apply the rest of this file by hand.
 
 ## Step 1b: Resolve an entity scope
 
-Runs only when the argument is not one of the four reserved scope words **and reads like an entity name** (SKILL.md, Arguments). The scope words win on a collision, so an entity genuinely named `all` is reached by its path (`/para-daily-brief projects/all`).
+Runs only when the argument, or what follows `review` and its window, is not a reserved scope word **and reads like an entity name** (SKILL.md, Arguments). The scope words win on a collision, so an entity genuinely named `all` is reached by its path (`/para-daily-brief projects/all`).
 
 Build the candidate list from the direct subfolders of `projects/` and `areas/`, one Bash call:
 
@@ -121,3 +122,13 @@ A **past `🛫`** (start-gate already open) is not "waiting": ignore it and buck
 Group the task records by scope label. **Aggregate all contact files into one `network` row** (with the file count). Per entity compute: bucket (`[P]` / `[A]`), open count, and three counts that **partition** it: **overdue**, **upcoming** (carries a `D`, a `🔁` or a future `🛫`, and is not overdue), **undated**. They sum to the open count wherever they are reported, the dashboard's bar segments included; never report a "dated" count that also contains the overdue ones.
 
 Date each action file, and each idea brief for Step 4d, by its mtime, in one Bash call (`stat -c '%y' <files>` on Linux or Git Bash, `stat -f '%Sm'` on macOS; fall back to `ls -l --time-style=+%Y-%m-%d`), never by a folder. **A bulk write resets mtimes too:** where a file's mtime is within 60 seconds of at least two others of its kind, a checkout or sync wrote them together, so in a vault with `.git` date it by `git log -1 --follow --format=%as -- <path>` at its current path, unless `git status` shows it modified. A vault whose history lives in a separate one-way mirror runs that `git log` in the mirror instead. Where git returns nothing, the mtime stands, and the brief says those dates may be a sync's.
+
+## The review window
+
+Under `review` only. The window runs from its start to today, both counted in: `week` is the seven days ending today, `month` the thirty, `since <date>` every day from that date. Every rule reads the vault, or under an entity scope that entity's own folder.
+
+- **Done**: each `- [x]` whose `✅ YYYY-MM-DD` falls in the window, in Step 2's files and, vault-wide, every `archive/**/actions.md`, grouped by entity as in Step 4b. A close in a live file with no `✅` is counted as undated and placed in no window; an archived one is not counted.
+- **Slipped**: each open item whose `📅` falls in the window before today. A `⏳` is a plan, not a deadline.
+- **Moved**: per declared lifecycle, each entity in its homes, terminal ones and closed register rows included, whose Stage line or Stage cell carries a `since <date>` in the window. No `since`, no move.
+- **Stuck**: the 🔴 lane, and every entity with nothing open (signals.md Step 4c); under an entity scope, the entity itself when it has no open item.
+- **Decisions**: each entry dated in the window in a development log, the section under a `Development log`, `Dev log`, `Decision log`, `Log` or `Decisions` heading (a trailing parenthetical aside) down to the next heading of its level, or a whole file so named (`development-log.md`), in any note under `projects/` or `areas/` outside a `sources/` folder. An entry is a line, list item, heading or table row opening on its date; a date alone on its line takes the next line as its text.

@@ -1,8 +1,8 @@
 ---
 name: para-daily-brief
-description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Naming one project or area instead scopes the whole brief to it. Use when user asks "what should I work on today" (the full brief, not the `today` scope), "what's overdue", "where does the vault stand", "where does <project> stand", "what's open on <project>", or types /para-daily-brief [today|week|overdue|all|<entity>].
+description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Naming one project or area scopes the brief to it; `review` reports what closed, slipped and moved in a window. Use when user asks "what should I work on today" (the full brief, not the `today` scope), "what's overdue", "where does <project> stand", "what did I get done this week", or types /para-daily-brief [today|week|overdue|all|review|<entity>].
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git log *), Bash(git status *), Bash(stat *), Bash(ls *), Bash(wc *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
-argument-hint: '[today|week|overdue|all|<entity>] [--test]'
+argument-hint: '[today|week|overdue|all|<entity>|review [week|month|since <date>] [<entity>]] [--test]'
 ---
 
 # Daily Brief
@@ -17,7 +17,7 @@ A single-pass, date-aware picture of **where the vault stands**: which projects 
 
 ## Arguments
 
-Optional single scope argument. The four scope words are reserved, and count only as the operator typed them after the command: one lifted from their sentence ("what should I work on today?") is prose, and the default view renders; an `<entity>` is one to three words or a `projects/<name>` / `areas/<name>` path, and any other leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
+Optional single scope argument. The five scope words are reserved, and count only as the operator typed them after the command: one lifted from their sentence ("what should I work on today?") is prose, and the default view renders, except that a request to look back ("what did I get done this week?") is `review`; an `<entity>` is one to three words or a `projects/<name>` / `areas/<name>` path, and any other leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
 
 | Arg | Renders |
 |---|---|
@@ -26,7 +26,8 @@ Optional single scope argument. The four scope words are reserved, and count onl
 | `week` | 🗓 Agenda (today + week) + 🎯 Now (max 5) + Later counts + 📥 Triage + Next action (no artifact) |
 | `overdue` | 🔴 Overdue only, **uncapped** - the strict "what's late" view (no Agenda, no artifact) |
 | `all` | Full expansion: everything in the default view, plus every bucket as a full list (the audit view), artifact included |
-| `<entity>` | **One project or area, uncapped**: its open work by bucket, its own health flags, Next action. No Vault state, Agenda, Ideas, Triage or artifact - those are vault-wide questions and this is not a vault-wide view (Step 1c) |
+| `<entity>` | **One project or area, uncapped**: its open work by bucket, its own health flags, Next action. No Vault state, Agenda, Ideas, Triage or artifact - those are vault-wide questions and this is not a vault-wide view (Step 1b) |
+| `review [week\|month\|since <date>] [<entity>]` | **A look back** over the window (`week` when none is named): ✅ Done · ⚠️ Slipped · 🔀 Moved · 🧱 Stuck · 🧭 Decisions, then Next action; for one entity, the offer of a status update. No artifact (Step 1c) |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 Sections with no content are omitted.
@@ -39,19 +40,23 @@ One call from the vault root, per [para-shared/scripts.md](../para-shared/script
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/brief_scan.py" --vault . [--entity <name>] [--today YYYY-MM-DD] > <scan output path>
+python3 "<this skill's base directory>/scripts/brief_scan.py" --vault . [--entity <name>] [--review week|month|YYYY-MM-DD] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Pass `--entity` only under an entity scope. **Field table, and the by-hand fallback where the script cannot run: [references/task-scan.md](references/task-scan.md).**
+Pass `--entity` only under an entity scope, and `--review` only under `review`, with its window (`since <date>` passes the date). **Field table, and the by-hand fallback where the script cannot run: [references/task-scan.md](references/task-scan.md).**
 
 ### Step 1b: Resolve an entity scope
 
-Only when the argument is not one of the four scope words **and reads like an entity name** by the test in Arguments above. Pass it as `--entity`; the scan answers in `entity.status`, and nothing else decides it:
+Only when the argument, or what follows `review` and its window, is not a scope word **and reads like an entity name** by the test in Arguments above. Pass it as `--entity`; the scan answers in `entity.status`, and nothing else decides it:
 
 - `resolved` - its `match` is the one folder, and every count below is already scoped to it, with `mentioned_elsewhere` beside them.
 - `ambiguous` - list `candidates`, one per line, and ask which. **Never pick.**
 - `elsewhere` - the name is an idea or sits in `archive/`; report where it lives, with no task list.
 - `unresolved` - say so, offer `nearest`, and **never fall back to the whole vault**.
+
+### Step 1c: The review scope
+
+Only under `review`. The scan's `review` block holds every count, for the vault or for the entity Step 1b resolved; render it per [references/output.md](references/output.md#the-review-scope), with no Agenda, Ideas, Triage or artifact. A review looks back, so Steps 4c to 5c and 7 do not run; Step 4e still breaks the Next action's ties. **The rules it applies, and the by-hand fallback: [references/task-scan.md](references/task-scan.md#the-review-window).**
 
 ### Steps 2 to 4b: Scan, parse, bucket, aggregate
 
@@ -85,10 +90,10 @@ Render the page with `scripts/render_dashboard.py` from the scan and a small jud
 
 ## Strict rules
 
-- **Do not parse completed items (`- [x]`)** - they're history.
-- **Do not rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`; this skill never applies them.
-- **Do not follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, an idea brief's stage line and revisit sentence, and the head of each triage item, the last two read by the scan for the dashboard.)
-- **Do not add commentary or recommendations** beyond the Health flags and the single Next action. Decisions are the operator's.
+- **Do not parse completed items (`- [x]`)** outside `review`, which reads them by their `✅` date alone: a close without one is counted as undated, never given a date.
+- **Do not rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`; this skill never applies them. A review and its status update go to chat, never to a file.
+- **Do not follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, an idea brief's stage line and revisit sentence, and the head of each triage item, the last two read by the scan for the dashboard; under `review`, the development logs the scan reads and the contact cards a status update is addressed to.)
+- **Do not add commentary or recommendations** beyond the Health flags, the single Next action and, closing one entity's review, the status update offer. Decisions are the operator's.
 - **Do not dedupe cross-referenced items** (same task in two files). Show both.
 - **Meetings: today and future only, never invented.** Render only what the calendar or `meetings.md` line contains - never fabricate a meeting, time, or attendee. Calendars are read-only.
 - **Do not include `**Status:**` lines** from actions files.

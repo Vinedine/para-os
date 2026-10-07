@@ -34,7 +34,7 @@ import json
 import os
 import re
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 # The shared library sits beside this skill, in the skills folder both were installed into.
@@ -55,6 +55,7 @@ try:
     from paraos_vault import (  # noqa: E402
         ingest_ledger, paraos_home_dir, same_place, triage_sources,
     )
+    from paraos_vault import HEADING_RE, closed_tasks, table_cells  # noqa: E402
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"brief_scan: {missing}. The shared vault library belongs at "
           f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or scan "
@@ -513,9 +514,228 @@ def nothing_open(vault, tasks, per_file_dates):
     return out
 
 
+# ------------------------------------------------------------------------- the review scope
+# What closed, slipped, moved and was decided inside a window. Every function here only
+# reads: the lanes and flags above are the brief's, and the review adds its own report key.
+
+REVIEW_DAYS = {"week": 7, "month": 30}
+# A development log's heading or file name, separators read as spaces and a trailing
+# parenthetical dropped: `## Development log (newest first)`, `decision-log.md`, `## Log`.
+LOG_NAME_RE = re.compile(r"^(?:(?:development|dev|decisions?) )?log$|^decisions$", re.IGNORECASE)
+LOG_ENTRY_RE = re.compile(r"^(?:[-*+]\s+|#{2,6}\s+)?[*_]{0,2}(\d{4}-\d{2}-\d{2})[*_]{0,2}"
+                          r"(?![\d-])[\s:,.)\u2013\u2014-]*(.*)$")
+NAME_LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+
+
+def review_window(arg, today):
+    """The window a `--review` argument names, both ends counted in: `week` is the seven
+    days ending today, `month` the thirty, and a YYYY-MM-DD date every day since it. None for
+    anything else, a date after today included."""
+    key = (arg or "").strip().lower()
+    if key in REVIEW_DAYS:
+        start, name = today - timedelta(days=REVIEW_DAYS[key] - 1), key
+    else:
+        start, name = parse_date(key), "since"
+        if not start or start > today:
+            return None
+    return {"name": name, "start": start.isoformat(), "end": today.isoformat(),
+            "days": (today - start).days + 1}
+
+
+def archived_scope(rel):
+    """(bucket letter, entity label) for an action file under archive/: the entity it was."""
+    parts = Path(rel).parts
+    letter = {"projects": "P", "areas": "A", "ideas": "I"}.get(parts[1] if len(parts) > 2 else "")
+    return letter or "?", "/".join(parts[2:-1]) or "/".join(parts[1:-1])
+
+
+def done_in_window(vault, files, archived, start, end):
+    """Every close whose `✅` date falls inside the window, one row per entity. A close with no
+    date is counted as undated and never placed in any window. An archived file's closes
+    count only when dated: its undated ones are the entity's whole history, not this window's."""
+    rows, undated = {}, 0
+    for path, gone in [(p, False) for p in files] + [(p, True) for p in archived]:
+        rel = path.relative_to(vault).as_posix()
+        bucket, label = archived_scope(rel) if gone else scope_of(vault, path)
+        for task in closed_tasks(path):
+            done = parse_date(task["done"])
+            if not done:
+                undated += not gone
+                continue
+            if not start <= done <= end:
+                continue
+            row = rows.setdefault((bucket, label, gone), {
+                "bucket": bucket, "label": label, "archived": gone, "count": 0, "items": []})
+            row["count"] += 1
+            row["items"].append({"file": rel, "line": task["line"], "text": task["text"],
+                                 "done": task["done"], "section": task["section"],
+                                 "person": path.stem if label == "network" and not gone else None})
+    out = sorted(rows.values(), key=lambda r: (-r["count"], r["archived"], r["label"]))
+    for row in out:
+        row["items"].sort(key=lambda i: (i["done"], i["file"], i["line"]))
+    return {"count": sum(r["count"] for r in out), "undated": undated, "by_entity": out}
+
+
+def slipped(tasks, start, end):
+    """Open items whose `📅` fell inside the window, before today: a deadline the window let
+    pass. One due today has not slipped yet, and a `⏳` is a plan, not a deadline."""
+    out = [{"file": t["file"], "line": t["line"], "bucket": t["bucket"], "scope": t["scope"],
+            "person": t["person"], "text": t["text"], "due": t["due"],
+            "days_late": (end - parse_date(t["due"])).days, "recurring": t["recurring"]}
+           for t in tasks if t["due"] and start <= parse_date(t["due"]) < end]
+    out.sort(key=lambda s: (s["due"], s["file"], s["line"]))
+    return out
+
+
+def staged_entities(vault, lc):
+    """Every entity in one lifecycle's homes, terminal ones included, read the way
+    /para-pipeline reads them: a folder's Stage line, a register row's Stage cell, matched
+    against the declared names. A row under a register's `## Closed` is closed."""
+    by_name = {s["name"].lower(): s for s in lc["stages"]}
+    out, seen = {}, set()
+    for s in lc["stages"]:
+        if not s["home"] or s["home"] in seen:
+            continue
+        seen.add(s["home"])
+        if s["row"]:
+            reg = vault / s["home"]
+            for row in register_rows(reg) if reg.is_file() else []:
+                raw = re.sub(r"[*_]", "", field_ci(row, "Stage") or "").strip()
+                info = stage_parts(raw, raw)
+                matched = by_name.get(info["name"].lower())
+                if matched:
+                    closed = (row.get("section") or "").strip().lower() == "closed"
+                    out[(s["home"], row["line"])] = {
+                        "name": NAME_LINK_RE.sub(r"\1", row["name"]).strip(), "path": s["home"],
+                        "line": row["line"], "stage": matched["name"], "since": info["since"],
+                        "terminal": matched["terminal"], "closed": closed or matched["terminal"]}
+            continue
+        for d in sorted(vault.glob(re.sub(r"<[^>]+>", "*", s["home"].rstrip("/")))):
+            doc = d / "README.md" if (d / "README.md").is_file() else d / "brief.md"
+            info = stage_of(doc) if doc.is_file() else None
+            matched = by_name.get(info["name"].strip().lower()) if info else None
+            if matched:
+                rel = doc.relative_to(vault).as_posix()
+                out[(rel, None)] = {
+                    "name": d.name, "path": rel, "line": None, "stage": matched["name"],
+                    "since": info["since"], "terminal": matched["terminal"],
+                    "closed": matched["terminal"]}
+    return list(out.values())
+
+
+def moved_in_window(vault, start, end, own=None):
+    """Per declared lifecycle, the entities whose `since` date falls inside the window: a
+    stage entered, a terminal one included. A Stage line with no `since` never moves, its
+    date being unknown. Every lifecycle gets its entry, a quiet one with a count of 0."""
+    out = []
+    for lc in lifecycles(vault):
+        moved = [e for e in staged_entities(vault, lc)
+                 if e["since"] and start <= parse_date(e["since"]) <= end
+                 and (own is None or e["path"].startswith(own))]
+        moved.sort(key=lambda e: (e["since"], e["name"].lower()))
+        out.append({"heading": lc["heading"], "count": len(moved), "entities": moved})
+    return out
+
+
+def log_name(text):
+    name = re.sub(r"\s*\([^)]*\)$", "", re.sub(r"[*_`]", "", text))
+    return bool(LOG_NAME_RE.match(re.sub(r"[-_\s]+", " ", name).strip()))
+
+
+def log_entries(path):
+    """(line, date, text) for each dated entry in a development log: the section under a
+    heading `LOG_NAME_RE` reads as one, down to the next heading of its level or above, or
+    the whole of a file named as one. An entry is a line, list item or heading opening on
+    its date, or a table row whose first cell is one; a date alone on its line takes the
+    next line as its text."""
+    whole = log_name(path.stem)
+    level, pending, out = None, None, []
+    for lineno, text in live_lines(read_lines(path)):
+        line = text.strip()
+        if not line:
+            continue
+        entry = LOG_ENTRY_RE.match(line)
+        heading = HEADING_RE.match(line)
+        if heading and not entry:
+            pending = None
+            if not whole:
+                depth = len(heading.group(1))
+                if level is not None and depth <= level:
+                    level = None
+                if level is None and depth > 1 and log_name(heading.group(2)):
+                    level = depth
+            continue
+        if level is None and not whole:
+            continue
+        if line.startswith("|"):
+            cells = table_cells(line)
+            day = re.sub(r"[*_]", "", cells[0]) if cells else ""
+            if parse_date(day):
+                out.append((lineno, day, " - ".join(c for c in cells[1:] if c)))
+        elif entry and parse_date(entry.group(1)):
+            body = entry.group(2).strip()
+            pending = None if body else (lineno, entry.group(1))
+            if body:
+                out.append((lineno, entry.group(1), body))
+        elif pending:
+            out.append((pending[0], pending[1], line))
+            pending = None
+    return out
+
+
+def log_files(vault, own=None):
+    """Every note a development log may sit in: the markdown under projects/ and areas/, or
+    under one entity, leaving out each `sources/` folder, whose records are not the log."""
+    roots = [vault / own] if own else [vault / "projects", vault / "areas"]
+    return [p for root in roots if root.is_dir() for p in sorted(root.rglob("*.md"))
+            if "sources" not in p.relative_to(vault).parts[:-1]]
+
+
+def decisions_in_window(vault, start, end, own=None):
+    out = []
+    for path in log_files(vault, own):
+        bucket, label = scope_of(vault, path)
+        for lineno, day, text in log_entries(path):
+            if start <= parse_date(day) <= end:
+                out.append({"file": path.relative_to(vault).as_posix(), "line": lineno,
+                            "date": day, "text": text, "bucket": bucket, "scope": label})
+    out.sort(key=lambda d: (d["date"], d["file"], d["line"]))
+    return out
+
+
+def stuck(report, tasks, match):
+    """What is not moving, from what the brief already computed: the overdue lane, and each
+    entity with nothing open, which has no next step. The `waiting` lane is a start gate
+    still ahead, not a wait on someone, so it is not stuck."""
+    # A wait on someone else, once the vault writes one in a form of its own, is a third list.
+    if match:
+        none = [] if tasks else [match]
+    else:
+        none = report["flags"].get("nothing_open") or []
+    return {"overdue": report["lanes"].get("overdue", []),
+            "no_next_step": [{"bucket": e["bucket"], "label": e["label"], "path": e["path"]}
+                             for e in none]}
+
+
+def review_block(vault, window, files, tasks, report, match):
+    """The `review` key: the window, then done, slipped, moved, stuck and decisions inside
+    it, for the vault or, given a resolved entity, for that entity alone."""
+    start, end = parse_date(window["start"]), parse_date(window["end"])
+    own = match["path"] + "/" if match else None
+    if own:
+        files = [p for p in files if p.relative_to(vault).as_posix().startswith(own)]
+    archived = [] if own else sorted(p for p in vault.glob("archive/**/actions.md") if p.is_file())
+    return {"window": window,
+            "done": done_in_window(vault, files, archived, start, end),
+            "slipped": slipped(tasks, start, end),
+            "moved": moved_in_window(vault, start, end, own),
+            "stuck": stuck(report, tasks, match),
+            "decisions": decisions_in_window(vault, start, end, match["path"] if match else None)}
+
+
 # ------------------------------------------------------------------------------- the report
 
-def scan(vault, today, entity=None, paraos_home=None):
+def scan(vault, today, entity=None, paraos_home=None, review=None):
     vault = Path(vault).resolve()
     files = action_files(vault)
     report = {
@@ -574,6 +794,13 @@ def scan(vault, today, entity=None, paraos_home=None):
         report["triage"] = triage_items(vault)
         report["triage_preview"] = triage_preview(vault, report["triage"])
         report["lifecycles"] = lifecycle_counts(vault)
+    if review:
+        window = review_window(review, today)
+        if window is None:
+            raise ValueError(f"no review window in {review!r}")
+        match = resolution["match"] if resolution else None
+        report["review"] = None if resolution and not match else \
+            review_block(vault, window, files, scoped_tasks, report, match)
     return report
 
 
@@ -582,6 +809,8 @@ def main(argv=None):
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
     ap.add_argument("--today", help="date to bucket against (default: the system date)")
     ap.add_argument("--entity", help="scope to one project or area")
+    ap.add_argument("--review", metavar="WINDOW",
+                    help="add the review block: week, month, or a YYYY-MM-DD date to review since")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     args = ap.parse_args(argv)
@@ -599,8 +828,10 @@ def main(argv=None):
     root = Path(args.vault)
     if not root.is_dir():
         ap.error(f"no such vault: {root}")
+    if args.review is not None and not review_window(args.review, today):
+        ap.error("--review wants week, month, or a YYYY-MM-DD date no later than today")
 
-    report = scan(root, today, args.entity, args.paraos_home)
+    report = scan(root, today, args.entity, args.paraos_home, args.review)
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     return 0
