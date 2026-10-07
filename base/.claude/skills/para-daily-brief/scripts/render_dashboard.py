@@ -280,6 +280,13 @@ def flag_drill(scan, flag):
         return (f'<ol class="drill"><li><span>{html.escape(row["ledger"])}</span>'
                 f'<span class="meta">newest {row["newest"] or "unread"} · expected '
                 f'{html.escape(row["cadence"])}</span></li></ol>')
+    if kind == "nothing_open":
+        if not raised.get(kind):
+            raise JudgmentError(f"flag {kind} is one the scan did not raise")
+        lis = "".join(f'<li><span>{html.escape(r["path"])}</span><span class="meta">'
+                      f'{"since " + r["touched"] if r["touched"] else "no actions.md"}</span></li>'
+                      for r in raised[kind])
+        return f'<ol class="drill">{lis}</ol>'
     raise JudgmentError(f"flag kind {kind!r} is not a scan flag")
 
 
@@ -481,6 +488,12 @@ def mechanical_flags(scan):
         out.append({"text": f"**{um['undated']} of {um['open']} open items are undated** - the "
                             f"backlog is bigger than the brief can date. `/para-deep-clean` grooms",
                     "kind": "undated_majority"})
+    idle = raised.get("nothing_open") or []
+    if idle:
+        out.append({"text": f"**{idle[0]['label']}: nothing open**"
+                            + (f", and {len(idle) - 1} more" if len(idle) > 1 else "")
+                            + " - finished (archive) or stalled (next step)?",
+                    "kind": "nothing_open"})
     mis = raised.get("misplaced") or {}
     parts = [f"{sum(r['open'] for r in rows)} under {bucket}/ (worst: {rows[0]['file']}, "
              f"{rows[0]['open']})" for bucket, rows in mis.items() if rows]
