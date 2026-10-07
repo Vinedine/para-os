@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: dealsheet-missing-figure-is-not-computed
+tags: [dealsheet, write]
+context:
+  scaffold_script: setup.sh

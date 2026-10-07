@@ -106,6 +106,10 @@ second job fails when coverage drops below its floor, and a third runs `actionli
   counting belong in a skill's `scripts/*_scan.py`, with tests beside it. A `SKILL.md` says what
   to do with the scan's output and keeps a by-hand fallback for when the script cannot run. The
   script, its test and the reference holding that fallback change together, or none changes.
+- **A skill that derives a figure runs the calculation in code**, inputs beside the result, and
+  a skill that renders figures derives none: the real-estate flavor's
+  [Derived figures](addons/real-estate/.claude/rules/property-dossier.md#derived-figures) is the
+  rule as a vault carries it.
 - **Rules governing a script live in that script's README or docstring**, not in a `SKILL.md`.
 - **A defect becomes a test before it is fixed**: a unit test when it is mechanical, an eval
   case in `evals/` when it is judgment.

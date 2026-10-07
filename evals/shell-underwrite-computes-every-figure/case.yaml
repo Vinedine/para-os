@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: shell-underwrite-computes-every-figure
+tags: [underwrite, shell]
+context:
+  scaffold_script: setup.sh
