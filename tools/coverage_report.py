@@ -30,7 +30,7 @@ import check  # noqa: E402  (the discovery lives there; importing it runs no che
 
 ROOT = check.ROOT
 
-# Node prints one row per file: `name | line % | branch % | funcs % | uncovered lines`,
+# Node's TAP prints one row per file: `name | line % | branch % | funcs % | uncovered lines`,
 # indented under folder rows on newer versions. Only the rows naming a file are read.
 NODE_ROW = re.compile(r"^#\s*(\S+\.m?js)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|")
 
@@ -70,7 +70,7 @@ def python_coverage(folders, tmp, fail_under):
             if r.returncode != 0:
                 ok = False
                 print(f"FAIL  {check.rel(t)}: suite failed under coverage (exit {r.returncode})")
-                print(check.tail(f"{r.stdout}\n{r.stderr}".strip()))
+                print(check.failure_report(f"{r.stdout}\n{r.stderr}".strip()))
     subprocess.run(cov + ["combine", f"--rcfile={rc}", "-q"], cwd=ROOT, check=True)
 
     def report(*extra):
@@ -92,12 +92,13 @@ def js_coverage(folders, fail_under):
     ok = True
     rows = []
     for d, tests in folders.items():
-        r = subprocess.run(["node", "--test", "--experimental-test-coverage", *[t.name for t in tests]],
+        r = subprocess.run(["node", "--test", "--test-reporter=tap", "--experimental-test-coverage",
+                            *[t.name for t in tests]],
                            cwd=d, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if r.returncode != 0:
             ok = False
             print(f"FAIL  {check.rel(d)}: node suite failed under coverage (exit {r.returncode})")
-            print(check.tail(f"{r.stdout}\n{r.stderr}".strip()))
+            print(check.failure_report(f"{r.stdout}\n{r.stderr}".strip()))
         for line in r.stdout.splitlines():
             m = NODE_ROW.match(line)
             if m and ".test." not in m.group(1):

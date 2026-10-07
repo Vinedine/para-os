@@ -140,6 +140,28 @@ def tail(text, n=15, transform=str):
     return "\n".join(f"        {transform(ln)}" for ln in text.splitlines()[-n:])
 
 
+# The line each runner gives a failing test: node's TAP `not ok`, unittest's FAIL and ERROR.
+FAILED_TEST = re.compile(r"^\s*not ok \d+|^(?:FAIL|ERROR): ")
+
+
+def failure_report(text, transform=str):
+    """A failed suite's output: the line naming each failing test, with the location and error
+    TAP gives it, then the tail. The tail alone is counts and coverage, and names no test."""
+    named, block = [], None  # block: the indent of the TAP key whose value is being copied
+    for ln in text.splitlines():
+        indent, s = len(ln) - len(ln.lstrip()), ln.strip()
+        if block is not None and indent > block:
+            named.append(f"  {ln[block:].rstrip()}")
+            continue
+        block = None
+        if FAILED_TEST.match(ln):
+            named.append(s)
+        elif named and s.startswith(("location:", "error:")):
+            named.append(f"  {s}")
+            block = indent
+    return "\n".join([f"        {transform(ln)}" for ln in named] + [tail(text, transform=transform)])
+
+
 def is_test_file(p):
     return p.name.startswith("test_") or ".test." in p.name
 
@@ -585,9 +607,10 @@ def check_never_ship():
 
 # sys.executable, not "python": the interpreter running this file is known to exist, which
 # `python` on a Windows PATH is not. Node has no such trick, so a missing `node` is reported.
+# TAP, which failure_report() reads: Node 23 and later default to spec even when piped.
 RUNNERS = {".py": lambda p: [sys.executable, str(p)],
-           ".js": lambda p: ["node", "--test", str(p)],
-           ".mjs": lambda p: ["node", "--test", str(p)]}
+           ".js": lambda p: ["node", "--test", "--test-reporter=tap", str(p)],
+           ".mjs": lambda p: ["node", "--test", "--test-reporter=tap", str(p)]}
 
 # unittest writes "Ran 39 tests" to stderr; node --test writes "pass 35" to stdout. The count
 # is reported so a suite that quietly stopped covering anything is visible at a glance. It is
@@ -618,7 +641,7 @@ def check_tests():
     for p in suites:
         cmd = RUNNERS[p.suffix](p)
         try:
-            # utf-8 explicitly: node --test emits box-drawing and ℹ, which a cp1252 console
+            # utf-8 explicitly: test names and output carry characters a cp1252 console
             # default cannot decode, and a UnicodeDecodeError here would read as a test failure.
             returncode, combined = run_captured(cmd, timeout=300)
         except FileNotFoundError:
@@ -631,7 +654,7 @@ def check_tests():
 
         count = next((int(m.group(1)) for m in (c.search(combined) for c in COUNTS) if m), None)
         if returncode != 0:
-            bad(f"{rel(p)}: suite failed (exit {returncode})\n{tail(combined, transform=console_safe)}")
+            bad(f"{rel(p)}: suite failed (exit {returncode})\n{failure_report(combined, console_safe)}")
         elif count == 0:
             bad(f"{rel(p)}: ran 0 tests - discovery found nothing to run")
         elif count is None:
