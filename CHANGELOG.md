@@ -58,6 +58,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **An answer about the operator's own documents quotes them or says they are not on file.** `## Authoritative sources` adds two sentences: such an answer quotes the clause with its file name and page; a document not on file is said to be missing, and any general-knowledge answer is labelled as such; two source documents that disagree are both given, the cautious reading first. Reaction: append the two sentences to the vault's `## Authoritative sources` paragraph, its own wording otherwise kept.
 
+**A task that opens on a marker keeps its text.** `parse_markers()` cut the text from the first marker on the line to its end, so `- [ ] 🔺 Call Jan` scanned with no text, and a line holding a `|` kept its leading `🔺` and showed it twice. A priority or dated marker written before the text is now stripped as a marker. Reaction: re-sync `para-shared/`.
+
 ---
 
 ## 2026.09.07
