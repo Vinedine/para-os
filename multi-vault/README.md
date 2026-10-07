@@ -1,8 +1,16 @@
-# multi-vault - the cross-vault ingest layer
+# multi-vault - the cross-vault layer
 
 An **optional layer**, not part of the base skeleton. Most people run one vault and need none of this.
 
-It is for the case where you run several vaults and they draw on the same inputs. Per vault the design works: each declares its own sources in its own `## Triage sources` block and `/para-triage` pulls them. Across vaults it stops working, because the inbox is not vault-shaped. One mailbox declared by six vaults is fetched six times, a thread belonging to the seventh is dismissed six times without being recorded anywhere, and the knowledge of which vault a given item belongs to lives nowhere except in your head.
+It is for the case where you run several vaults. It ships two skills over one registry of them: `/para-ingest` reads their shared inputs once, and `/para-audit` reports how far each has drifted from the template.
+
+## /para-audit
+
+`/para-audit` reads every vault the registry lists and reports, in one table, each vault's template revision, its declared type against the registry, its machine-read lines, the rule files base and its add-ons ship, its integration scripts, its bundled skill copies and its `CLAUDE.md` size, then names the vault to upgrade first. Every finding names its fix, nearly always `/para-upgrade` in that vault. **It never writes to a vault, and writes nothing anywhere else either.** A vault the registry marks `retired: true` is listed as excluded, and one it cannot reach is listed as unreachable, never left out.
+
+## /para-ingest
+
+The rest of this README is about `/para-ingest`, for vaults that draw on the same inputs. Per vault the design works: each declares its own sources in its own `## Triage sources` block and `/para-triage` pulls them. Across vaults it stops working, because the inbox is not vault-shaped. One mailbox declared by six vaults is fetched six times, a thread belonging to the seventh is dismissed six times without being recorded anywhere, and the knowledge of which vault a given item belongs to lives nowhere except in your head.
 
 This layer puts that knowledge in one place and reads each source once.
 
@@ -17,13 +25,12 @@ That boundary is the whole design. It never classifies an item, drafts an action
 ## What it does not do
 
 - It does not reduce the number of vaults you sit down with. It removes duplicated reading and the routing decision, which is a different saving, and it will make some `triage/` folders fuller than they were, because items that previously surfaced nowhere now land somewhere.
-- It does not give you one view across your vaults. That is a separate thing and this layer does not ship it.
 - It does not run unattended out of the box. See the preview week below.
 
 ## Installing
 
-1. **Create the registry.** Copy `vaults.json.template` to `${PARAOS_HOME:-~/.paraos}/vaults.json` and fill in one entry per vault. The `purpose` line is the field that does the work: it is what an item's subject is judged against when nothing else decides. `registry.md` in the skill's references explains the rest of the schema.
-2. **Install the skill.** Copy `para-ingest/` next to your other `para-*` skills, wherever those live for you. It reads `para-shared/connectors.md` from beside itself, so `para-shared/` has to be installed too; if you run any other `para-*` skill it already is.
+1. **Create the registry.** Copy `vaults.json.template` to `${PARAOS_HOME:-~/.paraos}/vaults.json` and fill in one entry per vault. The `purpose` line is the field that does the work: it is what an item's subject is judged against when nothing else decides. `registry.md` in `para-ingest`'s references explains the rest of the schema.
+2. **Install the skills.** Copy `para-ingest/` and `para-audit/` next to your other `para-*` skills, wherever those live for you. `para-ingest` reads `para-shared/connectors.md` from beside itself, and `para-audit` runs over the scripts in `para-shared/` and `para-upgrade/`, so those have to be installed too; if you run the bundled `para-*` skills they already are.
 3. **Run it by hand, in preview, and read the run log.** Do this before anything else.
 
 ## The three kinds of source

@@ -1230,7 +1230,7 @@ def _plan_skill_tree_row(clone, ref, worktree, name, location, copy_dir, addons_
     # With a copy in both places the vault's bundled one shadows the user-level install
     # (derived-copies.md), so both rows name it: `wins` answers for the pair, not the row.
     other_dir = user_dir if location == "bundled" else bundled_dir
-    wins = "bundled" if (other_dir / name).is_dir() else None
+    wins = "bundled" if other_dir and (other_dir / name).is_dir() else None
 
     master_root, master_files = _skill_master_root(clone, ref, worktree, name, addons_rows)
     copy_files = _tree_files(copy_dir)
@@ -1343,17 +1343,18 @@ def _finish_skill_tree_row(plan, batch, master_marker, all_entries):
 
 def skills_block(vault, clone, ref, worktree, user_skills_dir, decl, addons_rows, master_marker,
                  all_entries):
+    """`user_skills_dir` None reads the vault's bundled copies alone."""
     vault = Path(vault)
     bundled_dir = vault / ".claude" / "skills"
-    user_dir = Path(user_skills_dir)
+    user_dir = Path(user_skills_dir) if user_skills_dir else None
+    locations = [("bundled", bundled_dir)] + ([("user", user_dir)] if user_dir else [])
     declared_names = {n for n in (decl.get("flavor"), *(decl.get("modules") or [])) if n}
     batch = HistoryBatch(clone, ref, worktree)
 
-    library_targets = [("library", "para-shared", loc, d) for loc, d in
-                       (("bundled", bundled_dir / "para-shared"),
-                        ("user", user_dir / "para-shared")) if d.is_dir()]
+    library_targets = [("library", "para-shared", loc, d / "para-shared") for loc, d in locations
+                       if (d / "para-shared").is_dir()]
     skill_targets, ignored = [], []
-    for loc, d in (("bundled", bundled_dir), ("user", user_dir)):
+    for loc, d in locations:
         if not d.is_dir():
             continue
         for child in sorted(d.iterdir()):

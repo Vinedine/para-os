@@ -1848,6 +1848,22 @@ class SkillsBlockCase(CloneCase):
         self.assertEqual(row["verdict"], "behind")
         self.assertEqual(row["revisions_behind"], 2)
 
+    def test_no_user_skills_folder_reads_the_bundled_copies_alone(self):
+        # /para-audit's call: a vault's bundled copies, never the machine's user-level ones.
+        vault = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
+        skill_dir = vault / ".claude" / "skills" / "widget-skill"
+        write_at(skill_dir / "SKILL.md",
+                "---\nname: widget-skill\n---\n# Widget skill\n\nscripts/run.py\n")
+        write_at(skill_dir / "scripts" / "run.py", "print('v3')\n")
+        got = skills_block(vault, self.clone, "main", False, None,
+                           {"flavor": None, "modules": []}, [], "2026.09.01",
+                           changelog_entries(CHANGELOG_TEXT))
+        self.assertEqual([(r["name"], r["location"]) for r in got["rows"][1:]],
+                         [("widget-skill", "bundled")])
+        self.assertIsNone(got["rows"][1]["wins"])
+        self.assertEqual(got["rows"][0]["copies"], [])
+
     def test_revisions_behind_is_null_when_the_verdict_is_not_behind(self):
         vault = Path(tempfile.mkdtemp())
         self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
