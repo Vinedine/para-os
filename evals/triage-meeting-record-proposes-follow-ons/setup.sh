@@ -19,6 +19,10 @@ touch triage/.gitkeep
 
 cat >> CLAUDE.md <<'EOF'
 
+## Task markers
+
+Something owed by someone else is `- [ ] Waiting on [<person>](<card>): <what> (since YYYY-MM-DD)`, with no `📅`.
+
 ## Filing
 
 Source documents: `YYYYMMDD <Subject> - <Description>.<ext>` into the owning entity's
