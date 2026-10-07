@@ -1,7 +1,7 @@
 ---
 name: para-activity-review
 description: Read a vault's activity ledger and report how the vault is actually being used - which skills get invoked and which never, where sessions stall or fail, which parts of the structure nobody touches, and where use contradicts the vault's own rules. Every finding names a change to make. Use when the user asks "how are they using the vault", "is anyone actually using this", "what should I fix about the vault", "review the usage log", "which skills does nobody use", or types /para-activity-review.
-allowed-tools: Bash, Glob, Grep, Read, Write, AskUserQuestion
+allowed-tools: Bash(python3 *), Bash(py *), Bash(git rm *), Bash(pwd *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Write, AskUserQuestion
 argument-hint: '[<vault-path>] [days] [--test]'
 ---
 

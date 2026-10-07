@@ -1,7 +1,7 @@
 ---
 name: para-audit
 description: Read every vault the registry lists and report in one table how each stands against the para-os template - revision, declared type against the registry, machine-read lines, shipped rule files, integration scripts, bundled skill copies and CLAUDE.md size - every finding with its fix, closing on the vault to upgrade first. Never writes to a vault. Use when the operator runs several vaults and asks to "audit all my vaults", "which of my vaults are behind", "are my vaults up to date", "which vault should I upgrade first", or types /para-audit.
-allowed-tools: Bash, PowerShell, Glob, Grep, Read
+allowed-tools: Bash(python3 *), Bash(py *), Glob, Grep, Read
 argument-hint: '[ref=<git-ref>] [--clone <path>] [--test]'
 ---
 

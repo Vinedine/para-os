@@ -15,6 +15,7 @@ The first tier has an undo, so the agent works freely inside it and version hist
 ## What para-os does not enforce
 
 - **Every rule above is prose** the agent reads each session: the approval discipline and the delete rule in `para-shared/operating-discipline.md`, the commit rule beside them, and each skill's read-only contract. A model follows them reliably, but prose is not a lock.
+- **Each skill pre-approves only the shell commands it runs**, one pattern each in its `allowed-tools` (`Bash(git mv *)`), so any other command asks first unless the operator's harness allows it.
 - **para-os ships no hooks and no permission rules.** Its only shipped setting turns off auto-memory. A hook or a deny rule belongs to the operator's own harness configuration, because it names the operator's own remotes and connectors.
 - **Version history is the operator's to keep.** A vault on a folder with no history has no undo, and [the requirements](../README.md#requirements) ask for one for that reason.
 

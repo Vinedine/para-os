@@ -1,7 +1,7 @@
 ---
 name: para-upgrade
 description: Bring a vault in line with a newer para-os template revision - reads the vault's template marker, diffs it against a para-os clone at an explicit ref, then applies the intervening changelog entries as a reviewed migration (structure, skeleton files, stale rule and integration-script copies, and rule-driven content violations). Use when the user asks to "upgrade the vault", "align this vault to para-os", "is this vault on the latest structure", "apply the new para-os structure", or types /para-upgrade.
-allowed-tools: Bash, PowerShell, Glob, Grep, Read, Edit, Write
+allowed-tools: Bash(python3 *), Bash(py *), Bash(node *), Bash(git fetch *), Bash(git show *), Bash(git log *), Bash(git rev-parse *), Bash(git status *), Bash(git ls-files *), Bash(git check-ignore *), Bash(git mv *), Bash(git rm *), Bash(mv *), Bash(diff *), Bash(tr *), Bash(grep *), Bash(ls *), Bash(test *), Bash(wc *), Bash(pwd *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write
 argument-hint: '[--ref <git-ref>] [--clone <path>] [audit] [--test]'
 ---
 
