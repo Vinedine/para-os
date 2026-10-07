@@ -84,7 +84,8 @@ sys.path[:0] = [str(SKILLS_ROOT / lib / "scripts") for lib in ("para-shared", "p
 
 try:
     from paraos_vault import (  # noqa: E402
-        HEADER_FIELD_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, clone_read, declarations,
+        HEADER_FIELD_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, clone_read, clone_session,
+        declarations,
         find_clone, header_fields, live_lines, master_template, norm, paraos_home_dir,
         read_lines, registry,
     )
@@ -430,6 +431,7 @@ def upgrade_first(rows):
 
 # =========================================================================== the report
 
+@clone_session()
 def build_report(registry_path, entries, clone, ref_arg, clone_source, default_clone):
     report = {"registry": {"path": str(registry_path),
                            "entries": len(entries) if isinstance(entries, list) else None}}

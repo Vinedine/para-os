@@ -39,7 +39,8 @@ try:
     from paraos_vault import (  # noqa: E402
         ADDONS_DIR, BASE_TEMPLATE, H2_RE, INTEGRATION_MARKER_RE, MARKED_SUFFIXES,
         OLDER_ADDON_DIRS, addon_root, changed,
-        changelog_entries, clone_files, clone_read, clone_ref, declarations, entries_between,
+        changelog_entries, clone_files, clone_read, clone_ref, clone_session, declarations,
+        entries_between,
         find_clone, git, git_bytes, git_status_lines, git_untracked, integration_markers,
         master_template, normalised, paraos_home_dir,
         read_lines, read_text, registered_vault, registry, rel_posix, snapshot,
@@ -1667,6 +1668,7 @@ def since_block(earlier_doc, current_snapshot, current_smoke):
 
 # =========================================================================== the plan
 
+@clone_session()
 def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_settings,
                  unchanged_path, entries, clone_source="explicit", default_clone=None):
     vault = Path(vault).resolve()

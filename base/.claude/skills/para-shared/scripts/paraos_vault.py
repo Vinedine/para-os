@@ -43,6 +43,7 @@ import os
 import re
 import subprocess
 import sys
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote
@@ -1744,6 +1745,123 @@ def _z_paths(out):
     return [p.decode("utf-8", errors="replace") for p in out.split(b"\0") if p]
 
 
+_SESSION = None                 # the open clone session, if any; see clone_session()
+_UNBATCHED = object()           # no session reader can answer: ask git directly
+_OBJECT_TYPES = (b"blob", b"tree", b"commit", b"tag")
+
+
+class _CloneSession:
+    def __init__(self):
+        self.readers = {}       # clone -> its `cat-file --batch` process, None once unusable
+        self.objects = {}       # (clone, "<ref>:<path>") -> (type, bytes), None for no object
+        self.listings = {}      # (clone, ref) -> `ls-tree -r` output, None where git refused
+        self.refs = {}          # (clone, ref) -> clone_ref's answer
+
+    def close(self):
+        for proc in self.readers.values():
+            if proc is not None:
+                _close_batch(proc)
+
+
+@contextmanager
+def clone_session():
+    """Read every clone once per question for the length of a scan.
+
+    Starting git costs tens of milliseconds on Windows, and a scan asks its clone hundreds
+    of questions. Inside a session `clone_read` and the folder check go through one
+    long-lived `git cat-file --batch` per clone, `clone_files` filters one `ls-tree` of the
+    whole tree per ref, `clone_ref` resolves each ref once, and every answer is kept.
+    Working-tree reads are never kept: they go to the disk each time.
+
+    The session assumes no clone changes while it is open, so it is for a caller that only
+    reads its clones. Leaving it stops every reader it started, which Windows needs before
+    a clone's folder can be deleted. A session opened inside another one joins it. Works as
+    a decorator too.
+    """
+    global _SESSION
+    if _SESSION is not None:
+        yield
+        return
+    _SESSION = _CloneSession()
+    try:
+        yield
+    finally:
+        session, _SESSION = _SESSION, None
+        session.close()
+
+
+def _open_batch(clone):
+    try:
+        return subprocess.Popen(["git", "-C", str(clone), "cat-file", "--batch"],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL)
+    except OSError:
+        return None
+
+
+def _close_batch(proc):
+    for pipe in (proc.stdin, proc.stdout):
+        try:
+            pipe.close()
+        except OSError:
+            pass
+    proc.kill()
+    proc.wait()
+
+
+def _session_key(clone, value):
+    return os.path.abspath(str(clone)), value
+
+
+def _batch_object(clone, ref, rel):
+    """(type, bytes) of `<ref>:<rel>` from the open session's reader, None where it names
+    no object, or _UNBATCHED where no session or reader can answer."""
+    spec = f"{ref}:{rel}"
+    if _SESSION is None or "\n" in spec or "\r" in spec:
+        return _UNBATCHED
+    key = _session_key(clone, spec)
+    if key in _SESSION.objects:
+        return _SESSION.objects[key]
+    if key[0] not in _SESSION.readers:
+        _SESSION.readers[key[0]] = _open_batch(clone)
+    proc = _SESSION.readers[key[0]]
+    if proc is None:
+        return _UNBATCHED
+    try:
+        proc.stdin.write(spec.encode("utf-8") + b"\n")
+        proc.stdin.flush()
+        header = proc.stdout.readline()
+        found = header.rstrip(b"\n").rsplit(b" ", 2)
+        if len(found) == 3 and found[1] in _OBJECT_TYPES and found[2].isdigit():
+            size = int(found[2])
+            data = proc.stdout.read(size + 1)[:size]   # the content, then git's newline
+            result = (found[1].decode("ascii"), data) if len(data) == size else _UNBATCHED
+        else:
+            # `<spec> missing` or `ambiguous`; nothing at all once git has exited, as it
+            # does at once in a folder that is no repository
+            result = None if header.endswith((b" missing\n", b" ambiguous\n")) else _UNBATCHED
+    except OSError:
+        result = _UNBATCHED
+    if result is _UNBATCHED:
+        _close_batch(proc)
+        _SESSION.readers[key[0]] = None
+        return result
+    _SESSION.objects[key] = result
+    return result
+
+
+def _session_listing(clone, ref):
+    """The whole tree's `ls-tree -r` output at a ref, once per session; _UNBATCHED outside
+    one."""
+    if _SESSION is None:
+        return _UNBATCHED
+    key = _session_key(clone, ref)
+    if key not in _SESSION.listings:
+        _SESSION.listings[key] = git_bytes(clone, ["--literal-pathspecs", "ls-tree", "-r",
+                                                   "--name-only", "-z", ref])
+    return _SESSION.listings[key]
+
+
 def clone_ref(clone, ref):
     """The commit a ref names in a clone, as {ref, commit}: `ref` as given, `commit` its
     full hash. None where it names no commit (a typo, a branch never fetched) or `clone` is
@@ -1752,9 +1870,15 @@ def clone_ref(clone, ref):
     """
     if not _usable_ref(ref):
         return None
+    key = _session_key(clone, ref)
+    if _SESSION is not None and key in _SESSION.refs:
+        return _SESSION.refs[key] and dict(_SESSION.refs[key])
     out = git(clone, ["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"])
     commit = out.strip() if out else ""
-    return {"ref": ref, "commit": commit} if commit else None
+    answer = {"ref": ref, "commit": commit} if commit else None
+    if _SESSION is not None:
+        _SESSION.refs[key] = answer and dict(answer)
+    return answer
 
 
 def clone_read(clone, ref, path, worktree=False):
@@ -1777,6 +1901,9 @@ def clone_read(clone, ref, path, worktree=False):
             return None
     if not _usable_ref(ref):
         return None
+    found = _batch_object(clone, ref, rel)
+    if found is not _UNBATCHED:
+        return found[1] if found and found[0] == "blob" else None
     return git_bytes(clone, ["cat-file", "blob", f"{ref}:{rel}"])
 
 
@@ -1802,8 +1929,10 @@ def clone_files(clone, ref, prefix, worktree=False):
         out = git_bytes(clone, ["--literal-pathspecs", "ls-files", "-z", "--cached",
                                 "--others", "--exclude-standard"] + spec)
     elif _usable_ref(ref):
-        out = git_bytes(clone, ["--literal-pathspecs", "ls-tree", "-r", "--name-only", "-z",
-                                ref] + spec)
+        out = _session_listing(clone, ref)
+        if out is _UNBATCHED:
+            out = git_bytes(clone, ["--literal-pathspecs", "ls-tree", "-r", "--name-only",
+                                    "-z", ref] + spec)
     else:
         out = None
     if out is None:
@@ -1826,6 +1955,9 @@ def _clone_holds_folder(clone, ref, path, worktree):
         return bool(clone_files(clone, ref, path, worktree=True))
     if not _usable_ref(ref):
         return False
+    found = _batch_object(clone, ref, path)
+    if found is not _UNBATCHED:
+        return bool(found) and found[0] == "tree"
     out = git(clone, ["cat-file", "-t", f"{ref}:{path}"])
     return bool(out) and out.strip() == "tree"
 
