@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: voice-build-sign-off-is-not-the-signature
+tags: [voice, native]
+context:
+  scaffold_script: setup.sh

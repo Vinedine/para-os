@@ -6,7 +6,7 @@ Master document for the BelFoot IT modernisation engagement. Single source of tr
 
 ## Identity
 
-External consultant engagement for **BelFoot Royal Sporting Club** ("BelFoot FC"), a Belgian Pro League football club. Engaged Q1 2026 as programme lead for the club's multi-stream IT modernisation, running through 2027. Single consultant (Bram), reporting to the Managing Director; day-to-day counterpart is [Sofie Vanhove](areas/network/sofie-vanhove.md) (IT Director).
+External consultant engagement for **BelFoot Royal Sporting Club** ("BelFoot FC"), a Belgian Pro League football club. Engaged Q1 2026 as programme lead for the club's multi-stream IT modernisation, running through 2027. Single consultant (Bram Lemmens), reporting to the Managing Director; day-to-day counterpart is [Sofie Vanhove](areas/network/sofie-vanhove.md) (IT Director).
 
 ## Operating model
 

@@ -499,6 +499,12 @@ class TopicFileCase(CloneCase):
     def test_with_no_sibling_of_the_same_kind_there_is_nothing_to_compare(self):
         self.assertEqual(self.fleet(("filing.md",), sibling_kind="other")["observations"], [])
 
+    def test_a_voice_profile_is_one_person_s_and_never_a_topic(self):
+        build_vault(self.work / "a", rules=("filing.md", "voice-ada-peeters.md"))
+        build_vault(self.work / "b", rules=("filing.md",))
+        report, _ = self.run_audit([self.entry("a"), self.entry("b")])
+        self.assertEqual(self.vault_row(report, "a")["observations"], [])
+
 
 # ======================================================================= the registry
 

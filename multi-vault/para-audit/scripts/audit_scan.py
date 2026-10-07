@@ -41,6 +41,8 @@ The seven checks, one cell each in `cells`, every defect a `finding` with its `f
 4. rules         Each `.claude/rules/` file base or a declared add-on ships, present. A rule
                  file no master ships that no other audited vault of the same `kind` carries
                  is an `observation`, never a finding, and only where such a sibling exists.
+                 A `voice-*.md` profile is one person's (para-shared/voice-profile.md), never
+                 a topic file.
 5. integrations  Each `para-os-integration:` script against its master, upgrade_scan's
                  verdict. `none` where the vault carries none.
 6. skills        Each bundled `.claude/skills/` copy with a master, or named `para-*`,
@@ -275,7 +277,8 @@ def rules_check(vault, clone, ref, addons_rows):
                if vp.startswith(".claude/rules/")}
     found = [finding("rules", f"`{vp}` is missing; the master ships it as `{m}`")
              for vp, m in sorted(shipped.items()) if not (vault / vp).is_file()]
-    topics = sorted(name for name in rule_files(vault) if f".claude/rules/{name}" not in shipped)
+    topics = sorted(name for name in rule_files(vault) if f".claude/rules/{name}" not in shipped
+                    and not name.startswith("voice-"))
     return found, topics
 
 

@@ -9,3 +9,4 @@ Read before drafting anything the operator will paste and send: a mail, a messag
 5. **A complaint gets an acknowledgement**, not a promise.
 6. **Follow the house format.** A proposal, quote or letter of a kind the vault already holds follows the structure of the latest sent instance, not its line breaks; name any section you would add.
 7. **No reason, no draft.** With nothing in the vault saying why to write now, ask for the reason instead of drafting generic copy.
+8. **In the sender's voice.** Where a `.claude/rules/voice-*.md` profile names the account the draft goes out from, read it and follow it: the greeting and sign-off for the thread's language, the tone for this recipient, none of its never-uses phrases. [voice-profile.md](voice-profile.md) builds one when asked and turns a correction into a line.
