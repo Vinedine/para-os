@@ -73,6 +73,7 @@ RECUR_RE = re.compile(r"🔁️?\s*(every [^📅🛫⏳🔺🔼🔽⏬✅➕❌\
 PRIORITY_RE = re.compile(r"[🔺🔼🔽⏬]")
 ANY_DATE_RE = re.compile(r"[📅🛫⏳]️?\s*(\S+)")
 MARKERS_RE = re.compile(r"\s*[📅🛫⏳🔁🔺🔼🔽⏬✅][^|]*$")
+LEADING_MARKERS_RE = re.compile(r"^(?:\s*(?:[🔺🔼🔽⏬]|[📅🛫⏳✅]️?\s*\d\S*))+")
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 LINK_TITLE_RE = re.compile(r"""\s+(?:"[^"]*"|'[^']*')$""")
 DONE_RE = re.compile(r"✅️?\s*(\d{4}-\d{2}-\d{2})")
@@ -413,7 +414,8 @@ def parse_markers(body):
     A date-shaped marker still has to be a real date: `2026-13-45` matches the shape and
     names no day, so it comes back as no date with `malformed_date` set, never silently.
     Every date marker on the line is checked, so `⏳ tomorrow` is flagged even where a
-    valid `📅` sits beside it.
+    valid `📅` sits beside it. The text drops the markers trailing it and any written
+    before it, so `🔺 Call Jan` reads as `Call Jan`.
     """
     dates = {}
     for field, pattern in (("due", DUE_RE), ("scheduled", SCHEDULED_RE), ("start", START_RE)):
@@ -424,7 +426,7 @@ def parse_markers(body):
     recur = RECUR_RE.search(body)
     prio = PRIORITY_RE.search(body)
     return {
-        "text": MARKERS_RE.sub("", body).strip(),
+        "text": MARKERS_RE.sub("", LEADING_MARKERS_RE.sub("", body)).strip(),
         "due": dates["due"],
         "scheduled": dates["scheduled"],
         "start": dates["start"],
