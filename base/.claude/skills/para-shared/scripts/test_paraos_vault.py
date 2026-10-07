@@ -24,7 +24,7 @@ from pathlib import Path
 from unittest import mock
 
 from paraos_vault import (
-    abspath, action_files, add_months, addon_root, arrived, cadence_days, changed,
+    abspath, action_files, add_months, addon_root, arrived, cadence_days, changed, contact_names,
     changelog_entries, clone_files, clone_read, clone_ref, clone_session, closed_tasks,
     dangling_links,
     declarations, duplicates, entries_between, extract_links, field_ci, file_dates,
@@ -309,6 +309,23 @@ class FieldCI(VaultCase):
 
     def test_a_missing_field_is_none(self):
         self.assertIsNone(field_ci({"Stage": "Qualified"}, "signer"))
+
+
+class ContactNames(VaultCase):
+
+    def test_the_h1_then_every_alias_either_line_lists(self):
+        card = write(self.root, "areas/network/marten-van-oost.md", "\n".join([
+            "# Marten Van Oost", "",
+            "**Aliases:** Marten Vanoost; M. Van Oost", "",
+            "Also: Tinus", "",
+            "# A second heading is not a name", ""]))
+        self.assertEqual(contact_names(card),
+                         ["Marten Van Oost", "Marten Vanoost", "M. Van Oost", "Tinus"])
+
+    def test_a_name_inside_a_fence_is_a_sample(self):
+        card = write(self.root, "areas/network/a.md",
+                     "```\n# Sample Person\n**Aliases:** Sample\n```\n\n# Ann Peeters\n")
+        self.assertEqual(contact_names(card), ["Ann Peeters"])
 
 
 class Git(VaultCase):

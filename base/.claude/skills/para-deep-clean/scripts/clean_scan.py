@@ -47,9 +47,9 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        FROZEN_MARKER_RE, H1_RE, STALE_FILE_DAYS, TASK_RE,
-        LINK_ROOTS, WIP_THRESHOLD, abspath, action_files, clone_ref, dangling_links,
-        duplicates, find_clone,
+        FROZEN_MARKER_RE, STALE_FILE_DAYS, TASK_RE,
+        LINK_ROOTS, WIP_THRESHOLD, abspath, action_files, clone_ref, contact_names,
+        dangling_links, duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
         iso, lifecycles, link_files, link_spans, live_lines, master_template,
         misplaced_checkboxes, norm,
@@ -82,8 +82,6 @@ def in_live_scope(rel):
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 BULLET_RE = re.compile(r"^\s*-\s+(.*)$")
-ALIASES_RE = re.compile(r"^\*\*Aliases:\*\*\s*(.+)$", re.IGNORECASE)
-ALSO_RE = re.compile(r"^Also:\s*(.+)$", re.IGNORECASE)
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]")
 # A figure ends on a digit, a `k` or a `%` - never on the space or the sentence's own
 # `.`/`,` after it - so "€1,200 total" and "€1,200." read as the same figure.
@@ -353,23 +351,6 @@ def find_wikilinks(vault, roots=("projects", "areas", "resources", "triage")):
 
 
 # ------------------------------------------------------------------------ contact cards
-
-def contact_names(card):
-    """The card's H1 name, plus every alias a `**Aliases:**` or `Also:` line lists -
-    scan.md-style name recovery, generalised to a contact card."""
-    lines = [t for _, t in live_lines(read_lines(card))]
-    names = []
-    for t in lines:
-        m = H1_RE.match(t.strip())
-        if m:
-            names.append(m.group(1).strip())
-            break
-    for t in lines:
-        m = ALIASES_RE.match(t.strip()) or ALSO_RE.match(t.strip())
-        if m:
-            names += [a.strip() for a in re.split(r"[,;]", m.group(1)) if a.strip()]
-    return names
-
 
 def link_targets(path):
     """Every file a link anywhere in `path` resolves to: a link to the card cites every

@@ -25,7 +25,7 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
 What lives here is what two skills would otherwise each answer their own way: whether a
 folder is a vault root, what the machine's registry says about it and its neighbours, where
 a checkbox may live, what counts as one, what a task marker means, which folder a name
-resolves to, when a file was really last touched, what a link points at and what a move
+resolves to, which names a contact card answers to, when a file was really last touched, what a link points at and what a move
 would have to rewrite, whether two files hold the same bytes (and whether two copies of one
 file differ in more than line endings), what a vault declares it is built from, the numbers a vault's own rules state, and the last day to give notice on a renewing agreement. A second implementation of any of those is a vault getting two answers to one
 question, which is the failure this repo exists to prevent.
@@ -886,6 +886,28 @@ def field_ci(fields, name):
         if k.strip().lower() == name:
             return v
     return None
+
+
+ALIASES_RE = re.compile(r"^\*\*Aliases:\*\*\s*(.+)$", re.IGNORECASE)
+ALSO_RE = re.compile(r"^Also:\s*(.+)$", re.IGNORECASE)
+
+
+def contact_names(card):
+    """A contact card's names: its H1, plus every alias a `**Aliases:**` or `Also:` line
+    lists, split on commas and semicolons. One reading for every skill that looks a person
+    up, so a card answers to the same names wherever it is asked."""
+    lines = [t for _, t in live_lines(read_lines(card))]
+    names = []
+    for t in lines:
+        m = H1_RE.match(t.strip())
+        if m:
+            names.append(m.group(1).strip())
+            break
+    for t in lines:
+        m = ALIASES_RE.match(t.strip()) or ALSO_RE.match(t.strip())
+        if m:
+            names += [a.strip() for a in re.split(r"[,;]", m.group(1)) if a.strip()]
+    return names
 
 
 def register_rows(path):
