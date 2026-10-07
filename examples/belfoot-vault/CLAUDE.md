@@ -106,7 +106,7 @@ A vendor in selection is one row in [areas/stadium/vendors.md](areas/stadium/ven
 
 ## Authoritative sources
 
-Name the owning surface *before* answering. Check `triage/` before searching by date: an item waiting to be filed is usually the current one. Source documents beat hand-maintained summaries in briefs: vendor pricing and scope come from the RFP responses and the signed SOW in `sources/`, not from a comparison table typed into a brief, and when they disagree the source document wins and the brief gets corrected.
+Name the owning surface *before* answering. Check `triage/` before searching by date: an item waiting to be filed is usually the current one. Source documents beat hand-maintained summaries in briefs: vendor pricing and scope come from the RFP responses and the signed SOW in `sources/`, not from a comparison table typed into a brief, and when they disagree the source document wins and the brief gets corrected. Answer a question about the engagement's documents (the signed SOW, a vendor's RFP response) by quoting the clause with its file name and page. If the document is not on file, say so and label any general-knowledge answer as such; if two source documents disagree, give both, the cautious reading first.
 
 | Question | Authoritative source |
 |---|---|

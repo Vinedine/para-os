@@ -50,6 +50,8 @@ An entry's **Integrations** line says which ones moved and why. That marker is r
 
 **A draft the operator will send has one rule.** `para-shared/drafting.md` says what it holds and how it pastes: the thread and message it answers, To and CC as real addresses from the thread or a contact card, a mail body in plain text with each paragraph on one unbroken line, no price, date or commitment the vault does not hold, an acknowledgement rather than a promise for a complaint, the structure of the latest sent instance of its kind, and no draft without a reason to write. `/para-triage` links it where it allows drafting, and the template's `## Memory` closes on a sentence pointing at it. Reaction: re-sync `para-shared/` and `/para-triage`, and add that closing sentence to the vault's own `## Memory`.
 
+**An answer about the operator's own documents quotes them or says they are not on file.** `## Authoritative sources` adds two sentences: such an answer quotes the clause with its file name and page; a document not on file is said to be missing, and any general-knowledge answer is labelled as such; two source documents that disagree are both given, the cautious reading first. Reaction: append the two sentences to the vault's `## Authoritative sources` paragraph, its own wording otherwise kept.
+
 ---
 
 ## 2026.09.07
