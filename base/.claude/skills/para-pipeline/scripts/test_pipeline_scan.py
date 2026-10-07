@@ -882,6 +882,85 @@ class Metrics(VaultCase):
         self.assertNotIn("Lost", counts)
 
 
+def locale_line(year_end):
+    return ("\n## Language\n\nFolders in English.\n\n**Locale:** country Freedonia · currency"
+            f" FRD · financial year ends {year_end} · numbers 1,234.56 · dates day-month-year"
+            " · time zone Europe/Brussels. This line is the one home of these six.\n")
+
+
+class FinancialYear(VaultCase):
+    """Issue #264: the quarter is one of the financial year the Locale line declares."""
+
+    def declare(self, year_end):
+        write(self.root, "CLAUDE.md", LIFECYCLE + locale_line(year_end))
+
+    def test_with_a_30_june_year_end_a_deal_won_in_august_counts_in_q1(self):
+        self.declare("30 June")
+        write(self.root, "archive/projects/nova/brief.md",
+              "# Nova\n\n**Won:** 2026-08-15\n**Opened:** 2026-07-20\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["quarter"], "Q1 of the year ending 2027-06-30")
+        self.assertEqual((m["quarter_start"], m["quarter_end"]), ("2026-07-01", "2026-09-30"))
+        self.assertEqual(m["reached_promoting"], 1)
+        self.assertEqual(self.deal(today=date(2026, 10, 5))["metrics"]["reached_promoting"], 0)
+
+    def test_a_year_end_off_the_calendar_quarters_moves_every_boundary(self):
+        # Year ending 31 January: Aug to Oct is Q3, so a July win is last quarter's.
+        self.declare("31 January")
+        write(self.root, "archive/projects/august/brief.md", "# August\n\n**Won:** 2026-08-15\n")
+        write(self.root, "archive/projects/july/brief.md", "# July\n\n**Won:** 2026-07-20\n")
+        m = self.deal()["metrics"]
+        self.assertEqual(m["quarter"], "Q3 of the year ending 2027-01-31")
+        self.assertEqual((m["quarter_start"], m["quarter_end"]), ("2026-08-01", "2026-10-31"))
+        self.assertEqual(m["reached_promoting"], 1)
+
+    def test_a_year_end_inside_a_month_starts_each_quarter_the_day_after(self):
+        self.declare("5 April")
+        m = self.deal(today=date(2026, 7, 3))["metrics"]
+        self.assertEqual(m["quarter"], "Q1 of the year ending 2027-04-05")
+        self.assertEqual((m["quarter_start"], m["quarter_end"]), ("2026-04-06", "2026-07-05"))
+        m = self.deal(today=date(2026, 7, 6))["metrics"]
+        self.assertEqual((m["quarter"], m["quarter_start"]),
+                         ("Q2 of the year ending 2027-04-05", "2026-07-06"))
+
+    def test_a_28_february_year_end_is_the_end_of_february_in_a_leap_year_too(self):
+        self.declare("28 February")
+        m = self.deal(today=date(2028, 2, 29))["metrics"]
+        self.assertEqual((m["quarter"], m["quarter_end"]),
+                         ("Q4 of the year ending 2028-02-29", "2028-02-29"))
+
+    def test_with_no_locale_line_the_quarter_is_the_calendar_one(self):
+        m = self.deal()["metrics"]
+        self.assertEqual((m["quarter"], m["quarter_start"], m["quarter_end"]),
+                         ("2026-Q3", "2026-07-01", "2026-09-30"))
+        self.assertIsNone(m["year_end_unread"])
+
+    def test_a_31_december_year_end_is_the_calendar(self):
+        self.declare("31 December")
+        self.assertEqual(self.deal()["metrics"]["quarter"], "2026-Q3")
+
+    def test_a_year_end_nobody_can_read_falls_back_to_the_calendar_and_says_so(self):
+        self.declare("end of the season")
+        m = self.deal()["metrics"]
+        self.assertEqual((m["quarter"], m["year_end_unread"]), ("2026-Q3", "end of the season"))
+
+    def test_the_template_placeholder_is_no_declaration(self):
+        self.declare("{{day and month, e.g. 31 December}}")
+        m = self.deal()["metrics"]
+        self.assertEqual((m["quarter"], m["year_end_unread"]), ("2026-Q3", None))
+
+    def test_opened_and_terminal_counts_follow_the_financial_quarter(self):
+        self.declare("31 January")
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-08-02)\n**Opened:** 2026-07-31\n")
+        write(self.root, "archive/ideas/omega/brief.md",
+              "# Omega\n\n**Stage:** Lost (since 2026-08-01)\n"
+              "**Lost reason:** timing, not now\n**Opened:** 2026-08-01\n")
+        lc = self.deal()
+        self.assertEqual(lc["metrics"]["opened"], 1)
+        self.assertEqual(lc["terminal_this_quarter"], 1)
+
+
 PROPERTY_LIFECYCLE = "\n".join([
     "# Vault", "",
     "## Property lifecycle", "",

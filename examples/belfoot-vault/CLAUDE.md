@@ -119,6 +119,8 @@ Name the owning surface *before* answering. Check `triage/` before searching by 
 
 Folders and structural files in English. Stakeholder notes, meeting records, and source documents may be in Dutch, French, or English, matching the source; don't translate unless asked. The operator's language is English: explain, summarize, and answer in it whatever the source document's language, quoting the original only where the exact wording is load-bearing (a contract clause, a term of art, a figure).
 
+**Locale:** country Belgium · currency EUR (€) · financial year ends 31 December · numbers 1,234.56 · dates day-month-year · time zone Europe/Brussels. This line is the one home of these six: `README.md`'s Identity links here rather than restating one. How an amount is written and read by them is in [.claude/rules/figures.md](.claude/rules/figures.md), and a time shown or written follows `para-shared/timestamps.md`, installed beside the `/para-*` skills.
+
 ## Memory
 
 This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files. Durable facts belong in the file they describe: conventions here, scope and stakeholders in `README.md`, everything else in the relevant workstream, idea, or contact note. How the operator likes to work (tone, format, what to lead with or leave out) is the one thing kept apart from those files: it is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. It changes only with the operator's approval. A draft the operator will send also follows `para-shared/drafting.md`, installed beside the `/para-*` skills.

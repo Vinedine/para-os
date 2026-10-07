@@ -65,6 +65,7 @@ Two sources, merged. Entries from different sources dedupe by (date, start time)
 - Any other calendar connector: ToolSearch for the tool *suffix* (`list_events`, `search_events`, `get_events`), never a full tool name. Only when that search comes back empty is the connector absent: skip the source and note it (`<source> declared but not connected - skipped`).
 - **A source that answers with an error is not absent.** Carry on with the other sources and print one line under the agenda naming the source, what failed, and the remedy the error gives.
 - Apply the row's `Relevant when` filter, drop all-day "free" placeholders, and never write, accept, or decline anything.
+- Convert every start into the vault's declared time zone before bucketing or printing it, per [para-shared/timestamps.md](../../para-shared/timestamps.md).
 
 **2. `meetings.md` - the manual fallback.** Grep the vault: `pattern`: `^- 🗓 `, `glob`: `{**/meetings.md,**/*__meetings.md}`, content mode, unlimited. Discard `archive/` paths, decoded. Parse `- 🗓 <date> [<time>] · <title> [· <field>...] [🔁 every <cadence>]`.
 

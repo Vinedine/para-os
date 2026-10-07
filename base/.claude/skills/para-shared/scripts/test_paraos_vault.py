@@ -31,7 +31,7 @@ from paraos_vault import (
     find_clone, first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
     git_untracked, hashes, header_fields,
     inbound_references, ingest_ledger, ingest_logs, integration_markers,
-    contact_card_level, headline, lifecycles, live_lines, log_instant, main,
+    contact_card_level, headline, lifecycles, live_lines, locale, log_instant, main,
     master_template, misplaced_checkboxes, next_occurrence, open_items, waiting_on,
     cap_count,
     match_encoding, move_plan, norm, normalised, note_name_parts, notice_date, open_tasks,
@@ -39,7 +39,7 @@ from paraos_vault import (
     parse_markers, register_rows, registered_vault, registry,
     registry_holding, rel_posix, resolve_entity, resolve_link, scope_of, snapshot, split_lines,
     stage_line, stage_of, strip_code, table_cells, template_marker, thread_hash, triage_items, triage_sources, vault_root,
-    watermark, written_under,
+    watermark, written_under, year_end_of,
 )
 
 SCRIPT = Path(__file__).resolve().parent / "paraos_vault.py"
@@ -2686,6 +2686,48 @@ class Declarations(VaultCase):
 
     def test_a_folder_with_no_claude_md_answers_rather_than_raising(self):
         self.assertEqual(declarations(self.root), {"type": None, "flavor": None, "modules": []})
+
+
+LOCALE_LINE = ("**Locale:** country Freedonia · currency FRD (ƒ) · financial year ends 30 June"
+               " · numbers 1.234,56 · dates day-month-year · time zone Europe/Brussels. This"
+               " line is the one home of these six. Amounts follow figures.md.")
+
+
+class Locale(VaultCase):
+
+    def test_every_field_is_read_and_the_prose_after_the_line_is_not(self):
+        write(self.root, "CLAUDE.md", conventions("**Type:** vault") +
+              "\n## Language\n\nFolders in English.\n\n" + LOCALE_LINE + "\n")
+        self.assertEqual(locale(self.root), {
+            "country": "Freedonia", "currency": "FRD (ƒ)", "year_end": "30 June",
+            "numbers": "1.234,56", "dates": "day-month-year", "time_zone": "Europe/Brussels"})
+
+    def test_a_placeholder_or_a_missing_field_is_none(self):
+        write(self.root, "CLAUDE.md", conventions("**Type:** vault") +
+              "\n**Locale:** country {{country}} · currency EUR · time zone {{IANA name}}.\n")
+        got = locale(self.root)
+        self.assertEqual((got["country"], got["currency"], got["year_end"], got["time_zone"]),
+                         (None, "EUR", None, None))
+
+    def test_a_vault_with_no_line_declares_nothing(self):
+        write(self.root, "CLAUDE.md", conventions("**Type:** vault"))
+        self.assertEqual(locale(self.root), {})
+        self.assertEqual(locale(self.root / "missing"), {})
+
+    def test_a_fenced_line_declares_nothing(self):
+        write(self.root, "CLAUDE.md", conventions("**Type:** vault") +
+              "\n```\n" + LOCALE_LINE + "\n```\n")
+        self.assertEqual(locale(self.root), {})
+
+    def test_a_year_end_is_read_in_every_written_order(self):
+        for text in ("30 June", "June 30", "30th of June", "30 Jun.", "--06-30", "06-30"):
+            self.assertEqual(year_end_of(text), (6, 30), text)
+        self.assertEqual(year_end_of("29 February"), (2, 29))
+        self.assertEqual(year_end_of("31 december"), (12, 31))
+
+    def test_a_year_end_that_names_no_day_is_none(self):
+        for text in (None, "", "30 Juni", "31 June", "Ju 30", "13-01", "end of the season"):
+            self.assertIsNone(year_end_of(text), text)
 
 
 # ------------------------------------------------------------------- a para-os clone

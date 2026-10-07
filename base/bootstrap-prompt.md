@@ -1,6 +1,6 @@
 # Bootstrap prompt - stand up a new para-os vault
 
-Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks three short choice questions (a fourth for a business) and two open ones, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), cleans up after itself, and ends by filing a few of your own papers and your current to-do list.
+Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks three short choice questions (a fourth for a business) and three open ones, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), cleans up after itself, and ends by filing a few of your own papers and your current to-do list.
 
 ---
 
@@ -12,7 +12,7 @@ Onboarding runs in three phases. **You run phase 1 now**, in this session. Phase
 
 ## Phase 1 - Setup (now)
 
-**Ask before you write anything.** Call `AskUserQuestion` now, as your first action, and write no file until my answers are in. The questions are where you learn what this vault is; the install prompt carries nothing about it. Where the session has no `AskUserQuestion`, ask all five questions below as one short numbered message and stop there until I reply.
+**Ask before you write anything.** Call `AskUserQuestion` now, as your first action, and write no file until my answers are in. The questions are where you learn what this vault is; the install prompt carries nothing about it. Where the session has no `AskUserQuestion`, ask all six questions below as one short numbered message and stop there until I reply.
 
 **First, one call of three short choice questions** - I'm new to this. **Other** is always where I type my own answer. The rule behind the shapes is `.claude/skills/para-shared/asking.md` (`## A question with a suggested answer`):
 
@@ -26,10 +26,11 @@ Onboarding runs in three phases. **You run phase 1 now**, in this session. Phase
 
 **Where `Purpose` is a business I run** (or my Other answer describes one), follow with one more call: `Sales`, "Do you sell to clients, and want to track prospects, demos and deals?", options yes, add the sales module `(Recommended)` · not now. Without the tool, ask it as one line after my reply.
 
-**Then two open questions as one short numbered message**:
+**Then three open questions as one short numbered message**:
 
 1. In one line, what does this vault cover?
 2. Is there a website or profile I can read to learn about it - a company site, a LinkedIn page, a listing? (Optional; "none" is fine.)
+3. Which country is it based in, and when does its financial or tax year end, if not on 31 December?
 
 Do **not** ask about project definitions, extra `areas/` folders, naming conventions, vault type, or README framing or ownership. Those all get sensible defaults (below); they are decisions I make later when a real need appears, not on day zero.
 
@@ -43,6 +44,7 @@ Then fill the templates:
   - **source-document naming** = `YYYYMMDD <Who> <Description>.<ext>`, the same default `.claude/rules/filing.md` states. Leave that file and `.claude/rules/figures.md` in place: they are conventions the vault needs from its first filed document, not shapes waiting for a second instance. Leave `.claude/rules/working-preferences.md` in place too, its `## Preferences` empty: it fills as I state how I like to work.
   - **archive `projects/`** = omit unless I said the vault archives finished projects.
   - **`{{operator language}}`** = the language I picked; default to English.
+  - **The `**Locale:**` line** = the country and year end I gave (31 December where I gave none), and that country's currency (its ISO 4217 code and symbol), number convention, date order and time zone, each value I did not state flagged as inferred so I can correct it. `README.md` restates none of the six: where its Identity needs one, it links this line. Ask about the time zone only where the country has several and my answers do not settle which.
   - **"Do not add"** = the standing items only, plus the accounting line if this is a business or financial vault.
   - **`{{vault-type}}`** = default to `vault`. It's a stable label for telling one class of vault from another when I run several; my own tooling may key off it. Leave the `<!-- para-os-template: -->` comment above it exactly as it is - it records which template revision this vault was built from, and `/para-upgrade` reads it later.
 - **Rename each template to drop the `.template` suffix** (`CLAUDE.md`, `README.md`).
