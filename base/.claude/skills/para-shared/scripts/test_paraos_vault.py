@@ -1854,6 +1854,13 @@ class TriageSourcesTable(VaultCase):
                           "resources/scripts/outlook.py"])
         self.assertEqual(got[2]["mailbox"], "info@example-biz.com")
 
+    def test_a_cadence_hint_is_read_and_leaves_the_kind_alone(self):
+        got = self.rows(
+            "| granola | sync-script 🔁 every 2 weeks | `resources/scripts/granola.js` | Meetings. |",
+            "| work | connector: google-workspace | `ann@example.com` | Clients. |")
+        self.assertEqual([(r["kind"], r["cadence"]) for r in got],
+                         [("sync-script", "every 2 weeks"), ("connector", None)])
+
     def test_a_script_row_naming_no_script_has_no_path(self):
         got = self.rows("| mail | fetch-script | ask Alex which script, `TBD` | Leads. |",
                         "| notes | sync-script | | Meetings. |")

@@ -965,6 +965,7 @@ TRIAGE_HEADING_RE = re.compile(r"triage sources", re.IGNORECASE)
 SCRIPT_SUFFIXES = (".py", ".js", ".mjs", ".ps1", ".sh")
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 BACKTICK_SPAN_RE = re.compile(r"`([^`]+)`")
+CADENCE_HINT_RE = re.compile(r"🔁️?\s*(every(?:\s+\d+)?\s+[A-Za-z]+)")
 
 
 def _md_cell(text):
@@ -1055,12 +1056,13 @@ def _triage_row(header, cells, lineno):
     type_text, endpoint_text = _md_cell(type_raw), _md_cell(endpoint_raw)
     kind, connector = _triage_kind(type_text)
     path = _triage_path(endpoint_raw) if kind in ("sync-script", "fetch-script") else None
+    cadence = next((m.group(1) for m in map(CADENCE_HINT_RE.search, cells) if m), None)
     return {
         "line": lineno, "source": cell("source").strip(), "type": type_text, "kind": kind,
         "connector": connector, "endpoint": endpoint_text, "path": path,
         "mailbox": _first_email(endpoint_text),
         "drive_id": _triage_drive_id(endpoint_raw) if kind == "drive" else None,
-        "relevant_when": cell("relevant").strip(),
+        "relevant_when": cell("relevant").strip(), "cadence": cadence,
     }
 
 
@@ -1070,7 +1072,8 @@ def triage_sources(vault):
     answer the same question about it from one reading rather than two. `declared` says
     whether the section exists at all, so a vault with none is not reported the same as a
     vault whose table merely holds no rows. A table inside a fenced block is a sample, not a
-    declaration, and is skipped the way `live_lines` skips it everywhere else.
+    declaration, and is skipped the way `live_lines` skips it everywhere else. `cadence` is
+    a row's `🔁 every <period>` hint, in any cell: how often the source should deliver.
     """
     path = Path(vault) / "CLAUDE.md"
     if not path.is_file():
