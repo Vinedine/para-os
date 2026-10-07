@@ -120,7 +120,7 @@ Folders and structural files in English. Stakeholder notes, meeting records, and
 
 ## Memory
 
-This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files. Durable facts belong in the file they describe: conventions here, scope and stakeholders in `README.md`, everything else in the relevant workstream, idea, or contact note. How the operator likes to work (tone, format, what to lead with or leave out) is the one thing kept apart from those files: it is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. It changes only with the operator's approval.
+This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files. Durable facts belong in the file they describe: conventions here, scope and stakeholders in `README.md`, everything else in the relevant workstream, idea, or contact note. How the operator likes to work (tone, format, what to lead with or leave out) is the one thing kept apart from those files: it is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. It changes only with the operator's approval. A draft the operator will send also follows `para-shared/drafting.md`, installed beside the `/para-*` skills.
 
 ## File formats
 
