@@ -141,6 +141,9 @@ EOF
 (
   cd vault
   git init -q -b main .
+  # No auto maintenance in any fixture repository: its detached run writes into .git mid-run.
+  git config gc.auto 0
+  git config maintenance.auto false
   git add -A -f  # -f: a global gitignore of .claude/ must not drop the rule file
   git -c user.name=t -c user.email=t@example.invalid commit -q -m "vault"
 )
@@ -149,11 +152,15 @@ EOF
 
 mkdir -p .clone-origin.git
 git init -q --bare .clone-origin.git
+git -C .clone-origin.git config gc.auto 0
+git -C .clone-origin.git config maintenance.auto false
 
 mkdir -p para-os-clone
 (
   cd para-os-clone
   git init -q -b main .
+  git config gc.auto 0
+  git config maintenance.auto false
   git remote add origin "$(cd ../.clone-origin.git && pwd)"
 
   # Commit 1: revision 2026.08.01, the revision the vault is stamped at.

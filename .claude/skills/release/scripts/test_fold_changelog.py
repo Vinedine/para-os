@@ -65,8 +65,10 @@ def fragment(changelog, what, todo=None):
 
 
 def fixture_git(root, *args):
+    # No auto maintenance: its detached run writes into .git while a test reads or deletes it.
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-                    "-c", "core.autocrlf=false", "-c", "core.excludesFile=", *args],
+                    "-c", "core.autocrlf=false", "-c", "core.excludesFile=",
+                    "-c", "gc.auto=0", "-c", "maintenance.auto=false", *args],
                    cwd=root, check=True, capture_output=True)
 
 

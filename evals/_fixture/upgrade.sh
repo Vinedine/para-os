@@ -115,11 +115,16 @@ EOF
 
 mkdir -p .clone-origin.git
 git init -q --bare .clone-origin.git
+# No auto maintenance in any fixture repository: its detached run writes into .git mid-run.
+git -C .clone-origin.git config gc.auto 0
+git -C .clone-origin.git config maintenance.auto false
 
 mkdir -p para-os-clone
 (
   cd para-os-clone
   git init -q -b main .
+  git config gc.auto 0
+  git config maintenance.auto false
   git remote add origin "$(cd ../.clone-origin.git && pwd)"
 
   # Commit 1 - revision 2026.08.01, the baseline every drifted copy in the vault matches.
