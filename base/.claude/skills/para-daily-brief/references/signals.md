@@ -30,7 +30,7 @@ If `resources/ideas/` exists, list its direct subfolders, then read each one's `
 2. under a `## Status` heading, when the first non-empty line starts with `|`, the section is a **table**: take the cell of the row whose first column is `Stage`, or the term the vault's brief shape file uses for it, case-insensitively. **Never the header row** - `| Detail | Value |` is a column label, not a stage;
 3. otherwise that first non-empty line, trimmed to one line.
 
-Then cut the line: link syntax reduced to its label, then everything from the first sentence end dropped. A sentence end is a `.`, `!` or `?` outside parentheses, at the line's end or followed by a space and anything but a lowercase letter: `€500.000` and `e.g. the call` hold none.
+Then cut the line: link syntax reduced to its label and `_x_` / `*x*` emphasis to its text, then everything from the first sentence end dropped. A sentence end is a `.`, `!` or `?` outside parentheses, at the line's end or followed by a space and anything but a lowercase letter or a digit: `€500.000`, `e.g. the call` and `art. 12` hold none.
 
 An idea with no stage line renders as name and date.
 
