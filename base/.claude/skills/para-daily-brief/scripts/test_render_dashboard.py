@@ -213,6 +213,18 @@ class Drilldowns(DashboardCase):
         self.assertIn("From Ann &lt;ann@example.be&gt;", card)
         self.assertIn("The quote is attached.", card)
 
+    def test_sign_in_codes_are_counted_and_never_named(self):
+        write(self.root, "triage/20260914 Your verification code 482913.md",
+              "# Your verification code\n\nYour verification code is 482913.\n")
+        write(self.root, "triage/20260914 Mail - Quote.md", "# Quote\n\nThe quote is attached.\n")
+        _, page = render(self.report(), self.judgment(self.report()))
+        triage = page[page.index('<h2 id="triage">'):]
+        self.assertIn("Triage · 3 to process", triage)
+        self.assertIn("sign-in and security codes: 1", triage)
+        self.assertNotIn("482913", page)
+        self.assertNotIn("verification code", page.lower())
+        self.assertIn("20260914 Mail - Quote", triage)
+
 
 class Judgment(DashboardCase):
 

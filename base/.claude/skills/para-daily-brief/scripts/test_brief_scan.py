@@ -452,6 +452,28 @@ class IdeasAndTriage(VaultCase):
                                         "excerpt": "Hello, the quote is attached."})
         self.assertNotIn("scan.docx", got)
 
+    def test_a_sign_in_code_or_reset_link_is_marked_auth_and_never_previewed(self):
+        build_vault(self.root)
+        write(self.root, "triage/20260920 Your code 1a2b3c.md",
+              "# Your code\n\n- **From:** Shop <noreply@shop.example>\n\n"
+              "Your verification code is 482913.\n")
+        write(self.root, "triage/reset.eml", "From: Bank <noreply@bank.example>\n"
+              "Subject: Account notice\nContent-Type: text/plain; charset=utf-8\n\n"
+              "Reset your password: https://bank.example/reset?token=9f8e7d\n")
+        (self.root / "triage" / "Your sign-in link 774411.pdf").write_bytes(b"%PDF-1.4")
+        got = scan(self.root, TODAY)["triage_preview"]
+        for name in ("20260920 Your code 1a2b3c.md", "reset.eml", "Your sign-in link 774411.pdf"):
+            self.assertEqual(got[name], {"auth": True}, name)
+        for secret in ("482913", "9f8e7d", "noreply@"):
+            self.assertNotIn(secret, json.dumps(got))
+
+    def test_a_booking_confirmation_code_is_not_a_sign_in_code(self):
+        build_vault(self.root)
+        write(self.root, "triage/booking.md", "# Your booking\n\n"
+              "Your booking confirmation code is K7Q2. The invoice is attached.\n")
+        got = scan(self.root, TODAY)["triage_preview"]["booking.md"]
+        self.assertNotIn("auth", got)
+
     def test_a_pdf_previews_through_its_markdown_twin(self):
         build_vault(self.root)
         (self.root / "triage" / "invoice.pdf").write_bytes(b"%PDF-1.4")

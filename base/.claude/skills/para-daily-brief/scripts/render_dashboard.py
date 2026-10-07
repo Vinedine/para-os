@@ -410,14 +410,19 @@ def triage(scan):
     if not items:
         return ""
     previews = scan.get("triage_preview") or {}
-    rows = []
+    rows, codes = [], 0
     for n in items:
         p = previews.get(n) or {}
+        if p.get("auth"):  # counted, never named: para-shared/connectors.md
+            codes += 1
+            continue
         more = "".join(f'<div class="facts">{label} {html.escape(p[k])}</div>'
                        for k, label in (("from", "From"), ("subject", "Subject:")) if p.get(k))
         if p.get("excerpt"):
             more += f'<div class="excerpt">{html.escape(p["excerpt"])}</div>'
         rows.append(item(f'<span>{html.escape(re.sub(r"[.]md$", "", n))}</span>', more))
+    if codes:
+        rows.append(item(f"<span>sign-in and security codes: {codes}</span>", ""))
     return (f'<h2 id="triage">Triage · {len(items)} to process</h2>'
             f'<div class="list">{"".join(rows)}</div>')
 
