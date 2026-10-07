@@ -25,7 +25,8 @@ from unittest import mock
 
 from paraos_vault import (
     abspath, action_files, add_months, addon_root, arrived, cadence_days, changed,
-    changelog_entries, clone_files, clone_read, clone_ref, closed_tasks, dangling_links,
+    changelog_entries, clone_files, clone_read, clone_ref, clone_session, closed_tasks,
+    dangling_links,
     declarations, duplicates, entries_between, extract_links, field_ci, file_dates,
     find_clone, first_link, git, git_blame_line_date, git_bytes, git_last_commit_date, git_modified,
     git_untracked, hashes, header_fields,
@@ -2812,6 +2813,100 @@ class MasterTemplate(CloneCase):
         got = master_template(self.clone, "no-such-ref")
         self.assertEqual((got["source"], got["marker"], got["raw_marker"]), (None, None, None))
 
+
+class CloneSession(CloneCase):
+    """Inside a session the readers answer from one git reader and one listing per ref,
+    and must answer exactly as they do outside it."""
+
+    READS = [("HEAD", "addons/sales/crlf.txt"), ("HEAD", "addons/sales/Réunion notes.md"),
+             ("HEAD", "addons/sales"), ("HEAD", "base/no-such-file.md"),
+             ("no-such-ref", "base/CLAUDE.md.template"), ("HEAD", "./addons\\sales/crlf.txt"),
+             ("layout-flavors", "flavors/real-estate/.claude/rules/property-dossier.md"),
+             ("v2026.09.04", "base/CLAUDE.md.template"), ("HEAD", ""), ("HEAD", "bad\npath")]
+    LISTS = [("HEAD", "addons/sales"), ("HEAD", "addons/sales/"), ("HEAD", ""),
+             ("HEAD", "base/CLAUDE.md.template"), ("layout-flavors", "addons"),
+             ("no-such-ref", "addons"), ("layout-flavors", "")]
+
+    def answers(self):
+        return ([clone_read(self.clone, r, p) for r, p in self.READS],
+                [clone_files(self.clone, r, p) for r, p in self.LISTS],
+                [clone_ref(self.clone, r) for r in ("HEAD", "v2026.09.04", "origin/main")],
+                [addon_root(self.clone, r, n) for r, n in
+                 (("HEAD", "sales"), ("HEAD", "legacy-kit"), ("layout-flavors", "real-estate"))],
+                master_template(self.clone, "HEAD"),
+                clone_read(self.clone, "HEAD", "base/CLAUDE.md.template", worktree=True),
+                clone_files(self.clone, "HEAD", "addons/sales", worktree=True))
+
+    def spawned(self):
+        """Every process started while the returned patch is active."""
+        started = []
+        real = subprocess.Popen
+
+        def spy(*args, **kwargs):
+            proc = real(*args, **kwargs)
+            started.append(proc)
+            return proc
+        return started, mock.patch("paraos_vault.subprocess.Popen", side_effect=spy)
+
+    def test_every_reader_answers_the_same_inside_a_session(self):
+        outside = self.answers()
+        with clone_session():
+            inside = self.answers()
+            again = self.answers()
+        self.assertEqual(inside, outside)
+        self.assertEqual(again, outside)
+
+    def test_a_session_reads_one_ref_with_a_handful_of_git_processes(self):
+        started, spy = self.spawned()
+        with spy, clone_session():
+            for _ in range(3):
+                for path in ("addons/sales/crlf.txt", "addons/sales/README.md", "CHANGELOG.md"):
+                    clone_read(self.clone, "HEAD", path)
+                for prefix in ("addons/sales", "addons", "base", ""):
+                    clone_files(self.clone, "HEAD", prefix)
+                addon_root(self.clone, "HEAD", "sales")
+                clone_ref(self.clone, "HEAD")
+        # one batch reader, one tree listing, one ref resolution
+        self.assertEqual(len(started), 3)
+
+    def test_no_git_process_outlives_its_session(self):
+        started, spy = self.spawned()
+        with spy:
+            with clone_session():
+                clone_read(self.clone, "HEAD", "CHANGELOG.md")
+                with tempfile.TemporaryDirectory() as other:
+                    self.assertIsNone(clone_read(other, "HEAD", "CHANGELOG.md"))
+                    self.assertIsNone(clone_files(other, "HEAD", ""))
+        self.assertTrue(started)
+        self.assertTrue(all(proc.poll() is not None for proc in started))
+
+    def test_a_nested_session_leaves_the_outer_one_open(self):
+        started, spy = self.spawned()
+        with spy, clone_session():
+            clone_read(self.clone, "HEAD", "CHANGELOG.md")
+            with clone_session():
+                clone_read(self.clone, "HEAD", "base/CLAUDE.md.template")
+            self.assertEqual(clone_read(self.clone, "HEAD", "addons/sales/crlf.txt"),
+                             b"caf\xe9\r\nline\r\n")
+        self.assertEqual(len(started), 1)
+
+    def test_worktree_reads_stay_live_inside_a_session(self):
+        path = "addons/sales/untracked.md"
+        before = (self.clone / path).read_bytes()
+        with clone_session():
+            self.assertEqual(clone_read(self.clone, "HEAD", path, worktree=True), before)
+            write_bytes(self.clone, path, b"# Changed")
+            try:
+                self.assertEqual(clone_read(self.clone, "HEAD", path, worktree=True),
+                                 b"# Changed")
+            finally:
+                write_bytes(self.clone, path, before)
+
+    def test_a_reader_that_cannot_start_falls_back_to_one_call_per_read(self):
+        with clone_session(), mock.patch("paraos_vault._open_batch", return_value=None):
+            self.assertEqual(clone_read(self.clone, "HEAD", "addons/sales/crlf.txt"),
+                             b"caf\xe9\r\nline\r\n")
+            self.assertEqual(addon_root(self.clone, "HEAD", "sales"), "addons/sales")
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
