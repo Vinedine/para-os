@@ -19,7 +19,7 @@ A script that writes new items into `triage/` (e.g. `granola.js`). It defaults t
 
 ## fetch-script sources
 
-A mailbox with no MCP connector, reached by a script that **prints candidates and writes nothing** (`<script> fetch --days N`, JSON on stdout). **It is a mailbox, not a sync source**: follow [../../para-shared/connectors.md](../../para-shared/connectors.md) as for a connector (`fetch` is the search step; records arrive grouped by `thread_id`), then judge the surviving threads as below.
+A mailbox with no MCP connector, reached by a script that **prints candidates and writes nothing** (`<script> fetch`, with the `--days N` its row passes, JSON on stdout). **It is a mailbox, not a sync source**: follow [../../para-shared/connectors.md](../../para-shared/connectors.md) as for a connector (`fetch` is the search step; records arrive grouped by `thread_id`), then judge the surviving threads as below.
 
 **Never run it with `--write` or any other writing flag**: that files mail unjudged. A vault that wants wholesale import declares a `sync-script` row instead.
 

@@ -14,6 +14,18 @@ This file is the **fetch protocol**, shared by every skill that reads a mailbox 
 | `connector: google-workspace` | `search_gmail_messages` (pass the Endpoint as `user_google_email`) | `get_gmail_messages_content_batch` | messages - **must group by `threadId`** |
 | `fetch-script` | the script's `fetch` subcommand, run from the vault root with whichever launcher runs (`py`, `python3`: a `python` reporting "not found" can be an OS stub) | the `preview` field it already returns | **threads (the script groups)** - one record is one conversation, carrying `message_count`, `messages` and `participants` |
 
+**What each source reads as a candidate:**
+
+| Type | Folders read | Bulk mail dropped on | Window | Dedup key (step 6) |
+|---|---|---|---|---|
+| `connector: claude.ai Gmail` | the inbox | Gmail's promotions and social categories | the caller's: 30 days for `/para-triage`, per mode for `/para-ingest` | the content key: this connector exposes no `Message-ID` |
+| `connector: google-workspace` | the inbox | the same categories | the caller's | `Message-ID` |
+| `fetch-script` (`outlook.py fetch`) | the inbox and the archive | the RFC 2369 `List-Unsubscribe` header | the `--days` the row's Endpoint passes, else the script's own 7; `/para-ingest` passes its own | `Message-ID` |
+
+- **Mail the operator archived is handled** and is not picked up, so the connectors read the inbox only. `outlook.py` reads the archive too, on purpose: the mailboxes it reaches are often someone else's, read on the operator's behalf, and a fast archiver files real mail between two runs, at a cost of a few messages a month (the script's README has the measurement).
+- **Each source cuts bulk on the signal it can apply before the judgment**: a Gmail search can name a category but not a header, and Graph has no categories. A newsletter that passes Gmail's categories run after run is excluded by its sender in the exclusions file (step 3), never by a broader query.
+- **The script's shorter window is a cost bound**: Graph filters nothing server-side, so a busy mailbox outruns the script's per-folder cap over 30 days. The seen-ledger makes 7 days enough for a vault triaged weekly; a vault triaged less often passes `--days` in its row's Endpoint.
+
 **Match on the tool suffix, not the full name.** The `<server>` half of `mcp__<server>__<tool>` is not stable across clients: the same connector may appear as `mcp__claude_ai_Gmail__*` or under an opaque UUID. If schemas are deferred, search for the suffix to load them. Only when that search comes back empty is the connector genuinely absent: skip the source, note it in the summary ("`<source>` declared but not connected - skipped"), and do not fail the run.
 
 **Per connector source:**
