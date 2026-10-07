@@ -45,7 +45,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        HEADLINE_CAP, OPEN_ITEM_CAP, STALE_FILE_DAYS, action_files, cadence_days,
+        HEADLINE_CAP, OPEN_ITEM_CAP, STALE_FILE_DAYS, WAITING_FLAG_DAYS, action_files,
+        cadence_days, cap_count, waiting_on,
         entity_candidates, field_ci, headline, stray_checkboxes,
         file_dates, is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes,
         open_tasks, read_lines,
@@ -101,6 +102,12 @@ def bucket_task(task, today):
         return task
     if start and start > today:
         task["lane"] = "waiting"
+        return task
+    wait = waiting_on(task["text"])
+    if wait and not effective:
+        since = parse_date(wait["since"])
+        task["lane"] = "waiting_on"
+        task["waiting_on"] = dict(wait, days=(today - since).days if since else None)
         return task
     if not effective:
         task["lane"] = "undated"
@@ -372,15 +379,15 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
     flags = {"over_threshold": [], "stale_files": [], "falsely_overdue": [],
              "stale_recurrence": [], "undated_majority": None, "misplaced": None,
              "nothing_open": None, "over_grown_briefs": briefs[:3], "long_headlines": [],
-             "stray_checkboxes": None}
+             "stray_checkboxes": None, "waiting_too_long": []}
 
     by_file = {}
     for t in tasks:
         by_file.setdefault(t["file"], []).append(t)
 
     for name, items in sorted(by_file.items()):
-        if len(items) > OPEN_ITEM_CAP:
-            flags["over_threshold"].append({"file": name, "open": len(items)})
+        if cap_count(items) > OPEN_ITEM_CAP:
+            flags["over_threshold"].append({"file": name, "open": cap_count(items)})
         touched = parse_date(per_file_dates.get(Path(vault) / name))
         if touched and (today - touched).days >= STALE_FILE_DAYS:
             flags["stale_files"].append({"file": name, "touched": iso(touched),
@@ -388,6 +395,11 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
                                          "open": len(items)})
 
     for t in tasks:
+        wait = t.get("waiting_on")
+        if wait and wait["days"] is not None and wait["days"] >= WAITING_FLAG_DAYS:
+            flags["waiting_too_long"].append({"file": t["file"], "line": t["line"],
+                                              "person": wait["person"], "what": wait["what"],
+                                              "days": wait["days"]})
         chars = len(headline(t["text"]))
         if chars > HEADLINE_CAP:
             flags["long_headlines"].append({"file": t["file"], "line": t["line"],
@@ -408,6 +420,7 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
                         {"file": t["file"], "line": t["line"], "cadence": t["recurring"],
                          "date": t["effective_date"], "periods_behind": behind})
     flags["long_headlines"].sort(key=lambda r: -r["chars"])
+    flags["waiting_too_long"].sort(key=lambda r: -r["days"])
     flags["falsely_overdue"].sort(key=lambda r: -r["days"])
     flags["stale_recurrence"].sort(key=lambda r: -r["periods_behind"])
 

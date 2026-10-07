@@ -14,6 +14,7 @@ See [brief.md](brief.md) for scope. Deadline: full live 2026-08-09.
 - [ ] Confirm hardware install complete across all 59 terminals 🔺 📅 2026-07-15
 - [ ] Soft-launch friendly: confirm fixture and ticketing 🛫 2026-07-27 📅 2026-07-30
 - [ ] AML reporting hooks: draft the design for the regulator-liaison review 🔽 📅 2026-09-15
+- [ ] Waiting on [Sofie Vanhove](../../areas/network/sofie-vanhove.md): the signed site-access permits for the south-stand install (since 2026-06-10)
 
 ## Recurring
 

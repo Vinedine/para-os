@@ -259,7 +259,8 @@ def flag_drill(scan, flag):
             raise JudgmentError(f"flag {kind} names {flag.get('file')}, which the scan "
                                 f"did not flag")
         return drill_list(scan, [t for t in scan["tasks"] if t["file"] == flag["file"]])
-    if kind in ("falsely_overdue", "stale_recurrence", "undated_majority", "long_headlines"):
+    if kind in ("falsely_overdue", "stale_recurrence", "undated_majority", "long_headlines",
+                "waiting_too_long"):
         if not raised.get(kind):
             raise JudgmentError(f"flag {kind} is one the scan did not raise")
         if kind == "undated_majority":
@@ -323,7 +324,7 @@ def later_line(scan, now_keys):
     counts = [(left("overdue", "today", "this_week"), "this week"),
               (left("next_30"), "next 30 days"), (left("later"), "later"),
               (left("recurring"), "recurring"), (left("waiting"), "waiting"),
-              (left("undated"), "undated")]
+              (left("waiting_on"), "waiting on others"), (left("undated"), "undated")]
     return ('<p class="later"><b>Later:</b> '
             + " · ".join(f"{n} {label}" for n, label in counts) + "</p>")
 
@@ -512,6 +513,13 @@ def mechanical_flags(scan):
         out.append({"text": f"**Open checkboxes {' and '.join(parts)}** - "
                             + ", and ".join(why[b] for b, _ in fired if b in why),
                     "kind": "misplaced"})
+    late = raised.get("waiting_too_long") or []
+    if late:
+        w = late[0]
+        out.append({"text": f"**{w['what'] or 'what was owed'} from {w['person']}: {w['days']} days**"
+                            + (f", and {len(late) - 1} more" if len(late) > 1 else "")
+                            + " - chase or drop?",
+                    "kind": "waiting_too_long"})
     stray = raised.get("stray_checkboxes") or []
     if stray:
         out.append({"text": f"**{sum(r['open'] for r in stray)} open checkboxes outside the action "

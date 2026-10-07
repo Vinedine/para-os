@@ -59,6 +59,7 @@ DORMANT_ENTITY_DAYS = 180   # untouched this long: a retirement candidate
 BRIEF_LINE_CAP = 500        # a brief past this is over-grown
 STALE_FILE_DAYS = 60        # an action file with open items, untouched this long
 STALE_UNDATED_DAYS = 30     # an open, undated item untouched this long: offered for demotion
+WAITING_FLAG_DAYS = 14      # a wait on someone else this old asks: chase or drop?
 CLUSTER_SECONDS = 60        # mtimes this close mean a bulk write, not an edit
 
 # --- what a task looks like ---------------------------------------------------------------
@@ -1298,6 +1299,30 @@ def stray_checkboxes(vault):
 
 
 BOLD_LEAD_RE = re.compile(r"^\*\*(.+?)\*\*")
+
+
+WAITING_ON_RE = re.compile(r"^\**\s*waiting on\b\**\s*(.+)$", re.IGNORECASE)
+
+
+def waiting_on(text):
+    """`{person, what, since}` for an item owed by someone else, written `Waiting on
+    <person>: <what> (since YYYY-MM-DD)`, else None. The person is a link's label where the
+    line links a card; `since` is None where the line names no date."""
+    m = WAITING_ON_RE.match(text.strip())
+    if not m:
+        return None
+    rest = m.group(1)
+    who, _, what = rest.partition(":")
+    label = re.match(r"^\s*\[([^\]]+)\]", who)
+    since = SINCE_RE.search(rest)
+    what = re.sub(r"\(\s*since\s+\d{4}-\d{2}-\d{2}\s*\)", "", what).strip(" .")
+    return {"person": (label.group(1) if label else who).strip(" *"), "what": what or None,
+            "since": since.group(1) if since else None}
+
+
+def cap_count(tasks):
+    """The open items a file's cap counts: every one but a wait on someone else."""
+    return sum(1 for t in tasks if not waiting_on(t["text"]))
 
 
 def headline(text):
