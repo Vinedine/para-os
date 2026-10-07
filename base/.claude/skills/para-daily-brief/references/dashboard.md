@@ -30,6 +30,7 @@ Exit 2 means the script cannot run or the judgment named a task the scan does no
 - **Self-contained.** No external scripts, stylesheets, images, or fonts (system font stack). No JavaScript: every drilldown is a native `<details>` or a hidden checkbox and its label. **This overrides any artifact-design guidance to pair webfonts**: hierarchy comes from weight, size, and letter-spacing on the system stack.
 - **Theme-aware.** Define the light palette as CSS custom properties on `:root`; redefine the tokens under `@media (prefers-color-scheme: dark)` guarded as `:root:not([data-theme="light"])`, and again under `:root[data-theme="dark"]`. Give `body` an explicit token background. Muted, calm palette; red only for overdue and health flags.
 - **Responsive.** Relative units, flexbox/grid, nothing forcing horizontal page scroll; wide content scrolls inside its own container.
+- **Vault text is escaped.** A task, name, sender or excerpt goes in as plain text, never markup ([para-shared/untrusted-content.md](../../para-shared/untrusted-content.md)).
 
 - **No links.** The artifact viewer in Claude Desktop opens no custom-scheme link (a `claude-cli://` deep link does nothing), and an in-page `#anchor` blanks the page.
 
