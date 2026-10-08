@@ -4,7 +4,7 @@ Three artefacts, in this order: the note into the vault, the ledger entry, the r
 
 ## The staged note
 
-One file per routed thread per vault, into `<vault>/triage/`. It follows the shape the sync-script integrations already write, so everything sitting in a `triage/` folder looks alike whatever put it there. A sign-in or security code is never staged, and its ledger and run-log entries carry no subject ([connectors.md](../../../base/.claude/skills/para-shared/connectors.md#sign-in-and-security-codes)).
+One file per routed thread per vault, into `<vault>/triage/`. It follows the shape the sync-script integrations already write, so everything sitting in a `triage/` folder looks alike whatever put it there. A sign-in or security code is never staged, and its ledger and run-log entries carry no subject ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 
 **Filename:** `YYYYMMDD <subject, filesystem-safe> <6 hex>.md`: the received date, the subject with the path-hostile characters `<>:"/\|?*` replaced by spaces and runs of whitespace collapsed, and **the first six characters of `sha1(threadId)`**.
 
