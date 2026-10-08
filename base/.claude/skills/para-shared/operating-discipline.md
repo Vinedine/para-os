@@ -46,10 +46,10 @@ The safety discipline **every file-mutating skill** follows. A read-only skill d
 
 ## Closing and adding actions
 
-- **Every tick writes its date**: `- [x] ... ✅ <today>`. An operator's completion statement ("sent", "paid", "done") closes the matching item at once, dated today. A close found rather than stated (a reply in mail, a receipt in a file) is proposed, citing a dated item with a named actor; a bare "probably done" closes nothing.
+- **Every tick writes its date**: `- [x] ... ✅ <today>`. An operator's completion statement ("sent", "paid", "done") closes the matching item at once, dated today: the statement is the approval for that line, and the reply names the line it closed. A close found rather than stated (a reply in mail, a receipt in a file) is proposed, citing a dated item with a named actor; a bare "probably done" closes nothing.
 - **A ticked `🔁` item is rolled forward in code**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" next-occurrence "<the line>"` (Windows: `py -3`) prints the closed line and its successor, one cadence on; write both, the successor first.
-- **When work on an entity ends, reconcile it.** `paraos_vault.py open-items --vault <root> [<files>]` lists the open items and `## Backlog` bullets of every entity the session touched (default: the files git reports changed). Propose its closes, re-dates and its one next step in one batched question before the session ends.
-- **A follow-up the work ends with is offered as a checkbox**, all of them in one yes/no question, never left as prose or a "say the word" offer. A waiting state ("watch for", "chase if no reply") is a `Waiting on` line, per the vault's task markers, or a dated follow-up; never prose.
+- **When work on an entity ends, reconcile it.** `paraos_vault.py open-items --vault <root> [<files>]` lists the open items and `## Backlog` bullets of every entity the session touched (default: the files git reports changed). Propose its closes, re-dates and its one next step before the session ends, each close its own question (several can share one `AskUserQuestion` call, per [asking.md](asking.md#grouping)).
+- **A follow-up the work ends with is offered as a checkbox**, grouped per [asking.md](asking.md#grouping), never left as prose or a "say the word" offer. A waiting state ("watch for", "chase if no reply") is a `Waiting on` line, per the vault's task markers, or a dated follow-up; never prose.
 - **A folder the vault's checkbox table declares `never` gets no checkbox**: the item goes to the entity it serves, or is dropped.
 
 ## Dating a renewing agreement
