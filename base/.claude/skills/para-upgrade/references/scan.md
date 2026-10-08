@@ -36,7 +36,7 @@ python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <path> [
 | | `unverified`: the master's own marker could not be read (`master_marker: null`: no `<!-- para-os-template: -->` comment in the resolved template, or the read failed). Report it as that, not as a vault-side problem. |
 | `baseline` | `commit`, `source` (`ref-tip`\|`log-S`\|`null`), `template`, `reason` |
 | `skeleton` | `rows`: one per file the resolved master ships (`vault_path`, `master`, `present`, `identical`, `folder_has_content`); `triage_readme` |
-| `rules` | One row per `.claude/rules/*.md` the vault has: `file`, `master`, `paths`, `paths_retired` (globs no master carries any more, taken out of `paths`), `master_paths`, `paths_missing`, `paths_extra` (both `null` with no `master`), `kind` (`shape`\|`convention`\|`mixed`), `anchors`, `pointer` |
+| `rules` | One row per `.claude/rules/*.md` the vault has: `file`, `master`, `paths`, `paths_retired` (globs opening on `resources/mds/`, the retired collected-state twins, taken out of `paths`), `master_paths`, `paths_missing`, `paths_extra` (both `null` with no `master`), `kind` (`shape`\|`convention`\|`mixed`), `anchors`, `pointer` |
 | `sections` | One row per flavor or module whose `CLAUDE.md.sections` the ref carries, declared or not (`declared`; an undeclared one only where the vault states a paragraph of some version of it): `name`, `master`, and per `## ` heading `verdict` (`absent`\|`current`\|`behind`\|`differs`), `behind` (vault paragraphs matching only an earlier version along the ref: `paragraph`, `commit`, `revision`), `missing` (current paragraphs the vault lacks), `missing_new` (those the addon did not state under that heading at `baseline.commit`; `null` with no baseline), `local` (vault paragraphs no version states), `localised` (a `local` and a `missing` paragraph that are one paragraph the vault reworded, paired and taken out of both: `paragraph`, `shipped`). Paragraphs compare with whitespace collapsed, a `{{placeholder}}` matching what the vault filled in |
 | `settings` | `master_keys`, `user_level` (`path`, `matching`), `vault_level` (`present`, `keys`), `missing_effective` |
 | `checkboxes` | `missing` (each `bucket` and the master's `row` as written), `contact_card_level` |
@@ -85,7 +85,7 @@ diffed - searched under whichever addon layout the ref actually carries (`addons
 older `flavors/`).
 
 **The rest of this file is that script's specification, and the fallback when it cannot run**
-(no Python, a missing file, exit 2, any non-zero exit other than 3, 4 and 5). Read this file
+(no Python, a missing file, exit 2, any non-zero exit other than 3, 4, 5 and 6). Read this file
 when a result looks wrong or when running the scan by hand. A hand-run scan says so in the summary, in one line.
 
 ## By hand, where each rule actually lives, and the commands
