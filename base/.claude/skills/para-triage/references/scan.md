@@ -88,7 +88,7 @@ The rest of this file is the script's specification and the by-hand fallback.
   counts the days after the sent day, in the run's own timezone, up to and including today,
   Monday to Friday only; `waiting` from 5.
 - **`over_threshold`**: [approval.md](approval.md)'s Add action flag, `file at N open -
-  groom?`.
+  close one first?`.
 - **`contact_card_level`**: the level the `areas/network/` row of `CLAUDE.md`'s
   `### Where a checkbox may live` table opens on; with no row, `never` where `CLAUDE.md` has
   a `## Who writes this vault` heading, else `yes`.

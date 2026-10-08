@@ -84,7 +84,7 @@ One line per category: N files moved (each linked to its new path), N deleted wi
 - **Mail is read-only.** Never send, reply, archive, or apply a label; surface and draft only, any draft per [para-shared/drafting.md](../para-shared/drafting.md). The only writes for a mailbox source are the local `triage/` note, the `actions.md` line or register row, and the ledger.
 - **Connector items land in `triage/`, `actions.md` or a register row, never straight into `projects/` or an entity folder, and never into a *different* vault**: a thread for elsewhere is **Dismiss (other vault)**, or for a staged note whose vault does not read its mailbox, **Stage in other vault** ([approval.md](references/approval.md)).
 - **Fuzzy-match before creating.** Check existing contacts, projects, register rows and open `actions.md` items first; a thread bearing on tracked work is **Update existing**, not a duplicate.
-- **One next step per thread, and flag fat files.** A thread yields at most one new checkbox, and appending to a file at 12+ open items gets the WIP flag, pointing at `/para-deep-clean`.
+- **One next step per thread.** A thread yields at most one new checkbox, and a file at the cap (`over_threshold`) gets [approval.md](references/approval.md)'s flag.
 
 ## Edge cases
 
