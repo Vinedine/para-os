@@ -65,7 +65,12 @@ What it enforces, and why each one is machinery rather than prose:
                         it may never reach - which is the 1106 lines the 2026.08.03 split
                         removed, and nothing else stops them coming back.
 
-  Script launchers      A `python3 ` command in a skill's markdown, fenced or in a code span,
+  Installed links       Every relative link in a shipped skill's markdown, outside code,
+                        resolves where the skill is installed: every skill, para-shared/
+                        included, side by side in one folder. A link that reaches its file
+                        only through the repo's own layout reaches nothing in a vault.
+
+  Script launchers     A `python3 ` command in a skill's markdown, fenced or in a code span,
                         states `py -3` on its own line or the line above: on Windows `python3`
                         is often a Store stub, and a command that hides the Windows form costs a
                         failed call per run before the agent retries.
@@ -819,6 +824,71 @@ def check_skills():
             ok(f"{rel(d)}/ contract holds ({lines} spine lines, {len(on_disk)} reference(s))")
 
 
+# --- installed links -------------------------------------------------------------------
+
+MD_LINK = re.compile(r"\]\(\s*<?([^)>\s]+)>?(?:\s+\"[^\"]*\")?\)")
+URL_SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*:")
+
+
+def installed_skill_folders():
+    """What an install puts side by side in one skills folder, by the name it goes in under:
+    base's skills and para-shared/, each add-on's skills, and the multi-vault skills."""
+    folders = [d for d in SKILLS_DIR.iterdir() if d.is_dir()] if SKILLS_DIR.is_dir() else []
+    for extra_skills in addon_skill_dirs():
+        folders += [d for d in extra_skills.iterdir() if d.is_dir()]
+    for extra in EXTRA_SKILL_DIRS:
+        if extra.is_dir():
+            folders += skill_dirs(extra)
+    return {d.name: d for d in folders if d.name not in WALK_SKIP_DIRS}
+
+
+def check_installed_links():
+    """A relative link in a shipped skill has to resolve where the skill is installed. From the
+    repo, `../../../base/.claude/skills/para-shared/x.md` and `../../para-shared/x.md` both reach
+    a file, but only the second exists in a vault, where every skill sits in one folder. Links
+    inside code are examples of a vault's own links, not the skill's, so they are left alone."""
+    folders = installed_skill_folders()
+    count, before = 0, len(failures)
+    for name, d in sorted(folders.items()):
+        for f in sorted(d.rglob("*.md")):
+            if WALK_SKIP_DIRS & set(f.relative_to(d).parts):
+                continue
+            fenced = False
+            for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+                if FENCE.match(line):
+                    fenced = not fenced
+                    continue
+                if fenced:
+                    continue
+                for target in MD_LINK.findall(CODE_SPAN.sub("", line)):
+                    if target.startswith(("#", "/")) or URL_SCHEME.match(target):
+                        continue
+                    count += 1
+                    # The path from the skills folder, walked step by step: a `..` past its top
+                    # leaves the folder an install creates.
+                    parts = [name, *f.relative_to(d).parent.parts]
+                    for step in target.split("#")[0].split("/"):
+                        if step in ("", "."):
+                            continue
+                        if step != "..":
+                            parts.append(step)
+                        elif parts:
+                            parts.pop()
+                        else:
+                            parts = None
+                            break
+                    if not parts or parts[0] not in folders:
+                        reason = "leaves the skills folder"
+                    elif not folders[parts[0]].joinpath(*parts[1:]).exists():
+                        reason = "names no file"
+                    else:
+                        continue
+                    bad(f"{rel(f)}:{n}: `{target}` {reason} once installed, where every skill "
+                        f"sits beside para-shared/ in one folder")
+    if len(failures) == before:
+        ok(f"{count} relative link(s) in shipped skills resolve where they are installed")
+
+
 # --- script launchers ------------------------------------------------------------------
 
 PY3_COMMAND = re.compile(r"`python3 ")
@@ -994,6 +1064,7 @@ def main():
     check_never_ship()
     check_example_skill_copies()
     check_skills()
+    check_installed_links()
     check_launchers()
     check_rules_contract()
     check_skill_validator()
