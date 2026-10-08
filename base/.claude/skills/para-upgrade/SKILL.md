@@ -80,7 +80,7 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 - **Never remove vault-local additions** - sections, rules, markers, or the `**Type:**`, `**Flavor:**` and `**Modules:**` lines. The template is a floor.
 - **Never create a redundant `.claude/settings.json`** when the user-level settings already set the same keys, and never create a `triage/README.md` at all.
 - **Never invent content.** A missing brief is written from what's on disk, or left missing with the gap stated. A missing date stays missing.
-- **Never write to an installed script without the four-condition gate** - anything carrying (or identified as needing) a `para-os-integration:` marker, wherever it sits in the vault. The general rule is report drift and let the user merge it; the one permitted write is the marker line itself, plus the **one sanctioned overwrite** described in Phase 3 (user asked, mechanical equivalence proven, copy not ahead, verified after write).
+- **Never write to an installed script without the four-condition gate** - anything carrying (or identified as needing) a `para-os-integration:` marker, wherever it sits in the vault. The general rule is report drift and let the user merge it; the one permitted write is the marker line itself, plus the **one sanctioned overwrite** described in Phase 3 (user asked, mechanical equivalence proven, copy not ahead, verified after write). Removing a script a collected entry retires is not a write to it ([references/derived-copies.md](references/derived-copies.md)).
 
 ## Edge cases
 
