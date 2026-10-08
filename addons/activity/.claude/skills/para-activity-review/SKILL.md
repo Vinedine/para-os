@@ -56,7 +56,7 @@ Read the reviewed vault's CLAUDE.md, then look for the specific contradictions i
 
 ### Step 4 - Write the report
 
-One dated Markdown file, findings ranked by what they would change, each tied to a concrete edit to a skill, a template, a convention or the onboarding. **Full shape: [references/report.md](references/report.md).**
+One dated Markdown file, findings ranked by what they would change, each tied to a concrete edit to a skill, a template, a convention or the onboarding. Propose its path and write it only after a yes. **Full shape: [references/report.md](references/report.md).**
 
 ### Step 5 - Propose pruning, never perform it
 
