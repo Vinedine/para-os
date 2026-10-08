@@ -7,4 +7,4 @@ A time read from outside the vault (a calendar event, a mail's received time, a 
 - **An offset contradicting the zone label beside it** (an event labelled with one zone, carrying an offset that zone does not have on that date) is reported with both named, never resolved by picking one.
 - **A timestamp with no offset** is read in the zone its label names. With no label either, it is not an instant: show it as written, and say so.
 - **With no time zone declared**, convert into the session's own zone and say once that the vault declares none.
-- **A comparison is never converted.** A watermark or a dedup key ([connectors.md](connectors.md)) compares instants as written, never days.
+- **A comparison never takes the declared zone.** A watermark compares as an instant and a content key takes its received time in UTC, both per [connectors.md](connectors.md) steps 5 and 6, never by day.

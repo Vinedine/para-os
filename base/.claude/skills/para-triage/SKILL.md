@@ -85,7 +85,7 @@ One line per category: N files moved (each linked to its new path), N deleted wi
 - **Connector items land in `triage/`, `actions.md` or a register row, never straight into `projects/` or an entity folder, and never into a *different* vault**: a thread for elsewhere is **Dismiss (other vault)**, or for a staged note whose vault does not read its mailbox, **Stage in other vault** ([approval.md](references/approval.md)).
 - **A staged note whose `Content` line says the operator's own messages were not fetched names no reply as owed** (no action to answer the sender, no draft) unless a re-read at its source shows they have not answered ([references/filing.md](references/filing.md)).
 - **Fuzzy-match before creating.** Check existing contacts, projects, register rows and open `actions.md` items first; a thread bearing on tracked work is **Update existing**, not a duplicate.
-- **One next step per thread, and flag fat files.** A thread yields at most one new checkbox, and appending to a file at 12+ open items gets the WIP flag, pointing at `/para-deep-clean`.
+- **One next step per thread.** A thread yields at most one new checkbox, and a file at the cap (`over_threshold`) gets [approval.md](references/approval.md)'s flag.
 
 ## Edge cases
 

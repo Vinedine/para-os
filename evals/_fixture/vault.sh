@@ -18,8 +18,8 @@ cat > CLAUDE.md <<'EOF'
 ## Actions
 
 A checkbox may live in `projects/` and `areas/` only, never in `resources/`, and every
-checkbox under `archive/` must be closed. Before appending to a file that already holds
-12 or more open items, say so and propose grooming instead of adding.
+checkbox under `archive/` must be closed. A file holds at most 8 open items, waits on
+others aside: at 8, adding one means closing or demoting one first.
 EOF
 
 cat > README.md <<'EOF'
