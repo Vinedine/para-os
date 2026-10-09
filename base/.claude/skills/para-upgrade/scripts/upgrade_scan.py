@@ -23,11 +23,13 @@ files     Every vault file the kit owns or ships that is not `current`: `path` (
                  `para-os-integration:` marker, its master under integrations/ or an add-on's
                  pipeline/. skeleton: every other file base or a declared add-on ships, listed
                  only when missing, never a placeholder whose folder holds other content.
-          state  current: the ref's bytes. untouched: bytes the kit held at some commit along
-                 the ref, so nothing local is lost by a re-copy. edited: bytes it never held,
-                 with `diff` from the master to the copy. missing. no-master: an integration the
-                 ref ships no master for. retired: a file a changelog `Retired:` line names that
-                 the kit no longer ships; `master` null.
+          state  current: nothing to take from the kit, the ref's bytes or those bytes with
+                 lines of the vault's own added (a rule file the vault writes into). untouched:
+                 bytes the kit held at some commit along the ref, so a re-copy loses nothing
+                 local. edited: any other bytes, with `diff` from the master to the copy.
+                 missing. no-master: an integration the ref ships no master for. retired: a
+                 file a changelog `Retired:` line names that the kit no longer ships, `master`
+                 null.
           Bytes are compared as git blob ids, line endings and a byte-order mark normalised.
 contract  The change to base/CLAUDE.md.template, and each declared add-on's CLAUDE.md.sections,
           from `baseline` to the ref: one row per `## ` section that changed (`file`,
@@ -87,7 +89,7 @@ class Kit:
 
     def __init__(self, clone, commit):
         self.clone, self.commit = clone, commit
-        self.tree, self._shipped = {}, None
+        self.tree, self._shipped, self.master = {}, None, None
         for item in (git_bytes(clone, ["ls-tree", "-r", "-z", commit]) or b"").split(b"\0"):
             if b"\t" in item:
                 meta, path = item.split(b"\t", 1)
@@ -271,7 +273,13 @@ def state_of(path, kit, master):
         return "missing"
     data = path.read_bytes()
     ids = {blob_id(data), blob_id(normalised(data))}
-    return "current" if kit.tree[master] in ids else "untouched" if ids & kit.shipped else "edited"
+    if kit.tree[master] in ids:
+        return "current"
+    if ids & kit.shipped:
+        return "untouched"
+    a, b = (lines_of(d) for d in (clone_read(kit.clone, kit.commit, master), data))
+    ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    return "current" if all(op[0] in ("equal", "insert") for op in ops) else "edited"
 
 
 def retired_paths(vault, kit, user_dir):
@@ -329,10 +337,13 @@ def shown(path, vault):
         return str(path)
 
 
+def lines_of(data):
+    return [ln if ln.endswith("\n") else ln + "\n"
+            for ln in normalised(data or b"").decode("utf-8", "replace").splitlines(True)]
+
+
 def diff(master_bytes, copy_bytes, master, path):
-    a, b = ([ln if ln.endswith("\n") else ln + "\n"
-             for ln in normalised(d).decode("utf-8", "replace").splitlines(True)]
-            for d in (master_bytes or b"", copy_bytes))
+    a, b = lines_of(master_bytes), lines_of(copy_bytes)
     lines = list(difflib.unified_diff(a, b, master, path))
     if len(lines) > DIFF_CAP:
         lines = lines[:DIFF_CAP] + [f"... {len(lines) - DIFF_CAP} more lines\n"]

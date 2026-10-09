@@ -41,7 +41,7 @@ By `revision.verdict`:
 - **equal**: a kit file drifts on its own, so `files` still counts. With nothing in it, say the vault is on revision X with nothing to do, and suggest `/para-deep-clean` for a cleanup.
 - **ahead**: stop and ask. The ref is stale, or the marker was edited by hand. Never downgrade a vault.
 
-**Present the plan before touching anything**: the `files` rows by state, the `contract` rows, and the Reactions in `revision.entries` that change the vault's own content. That is the scope: drift it does not name belongs to `/para-deep-clean`. With `audit`, report the plan and stop.
+**Present the plan before touching anything**: the `files` rows by state, the `contract` rows, and the Reactions in `revision.entries` that change the vault's own content. With `audit`, report the plan and stop.
 
 ## Step 2 - Kit files
 
@@ -71,14 +71,14 @@ A Reaction in `revision.entries` that asks the vault to change its own content (
 
 1. **Re-run the scan.** A row the operator approved is gone from `files`; one still there names what did not land.
 2. **Write the master's marker** into the vault's `CLAUDE.md`, only once the steps above applied: the next run trusts it.
-3. **Check the result**: `paraos_vault.py links dangling --vault <root>` finds no dangling link the run made, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
+3. **Check the result**: `paraos_vault.py links dangling --vault <root>`, in `para-shared/scripts/`, finds no dangling link the run made, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
 4. **Report** what changed per step, what was proposed and declined, and what you did not verify.
 
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** Specific to this skill:
 
-- **The scan is the scope.** Never fix what it and the collected Reactions do not name.
+- **The plan is the scope.** Drift it does not name belongs to `/para-deep-clean`.
 - **Never overwrite an edited file, or a user-level install, without the operator's yes for that file.**
 - **Never write the marker before the work it claims.** A marker written early hides the rest from every later run.
 

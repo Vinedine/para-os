@@ -164,11 +164,11 @@ class BehindCase(CloneCase):
             ".claude/skills/para-notes/old.md": "Old.\n",
             ".claude/skills/para-shared/scripts/lib.py": "LIB = 1\n",
             ".claude/rules/filing.md": RULE.format("v1"),
-            ".claude/rules/deal.md": "---\npaths:\n  - \"deals/**\"\n---\n# Deal\nOur line.\n",
+            ".claude/rules/deal.md": "---\npaths:\n  - \"deals/**\"\n---\n# Our deals\n",
             "projects/refit/brief.md": "# Refit\n",
             "resources/scripts/logbook.py": logbook("2026.09.01", "v1"),
             "resources/scripts/other.py": "# para-os-integration: nonesuch 2026.09.01\n",
-            "resources/scripts/tally.py": "# para-os-integration: sales 2026.09.01\nmine\n",
+            "resources/scripts/tally.py": "# para-os-integration: sales 2026.09.01, ours\n",
             "triage/README.md": "# Triage\n",
         })
         write(cls.v, ".claude/rules/filing.md", RULE.format("v1"), newline="\r\n")
@@ -223,7 +223,7 @@ class BehindCase(CloneCase):
 
     def test_an_edited_copy_carries_the_diff_from_its_master(self):
         row = next(r for r in self.report["files"] if r["path"] == ".claude/rules/deal.md")
-        self.assertIn("+Our line.", row["diff"])
+        self.assertIn("+# Our deals", row["diff"])
         self.assertNotIn("diff", next(r for r in self.report["files"] if r["state"] != "edited"))
 
     def test_a_placeholder_whose_folder_holds_content_is_not_missing(self):
@@ -277,6 +277,10 @@ class StatesCase(CloneCase):
                       [r["path"] for r in files])
         self.assertFalse(any(r["path"].startswith(".claude/skills") for r in files))
 
+    def test_a_copy_that_only_adds_lines_to_its_master_has_nothing_to_take(self):
+        v = self.vault("adds", files={".claude/rules/filing.md": RULE.format("v2") + "Ours.\n"})
+        self.assertNotIn(".claude/rules/filing.md", self.states(self.scan(v)[0]))
+
     def test_a_vault_with_no_skill_home_gets_no_skill_rows(self):
         v = self.vault("no-skills")
         self.assertFalse(any(r["kind"] == "skill" for r in self.scan(v)[0]["files"]))
@@ -303,7 +307,8 @@ class StatesCase(CloneCase):
 
 class RevisionCase(CloneCase):
     def test_equal_has_no_entries_and_no_contract(self):
-        report, _ = self.scan(self.vault("equal", marker="2026.10.01"))
+        report, _ = self.scan(self.vault("equal", marker="2026.10.01",
+                                         header="**Modules:** nonesuch\n"))
         self.assertEqual(report["revision"]["verdict"], "equal")
         self.assertEqual(report["revision"]["baseline"], self.rev_b)
         self.assertEqual((report["revision"]["entries"], report["contract"]), ([], []))
@@ -401,7 +406,10 @@ class CliCase(CloneCase):
         self.assertEqual(code, 4)
         self.assertIn("nope", err)
 
-    def test_without_the_shared_library_it_exits_2(self):
+    def test_run_as_a_command_it_exits_3_or_2_without_the_shared_library(self):
+        done = subprocess.run([sys.executable, str(SCRIPT), "--vault", str(self.tmp),
+                               "--clone", str(self.clone)], capture_output=True, text=True)
+        self.assertEqual(done.returncode, 3)
         alone = self.tmp / "skills" / "para-upgrade" / "scripts"
         alone.mkdir(parents=True)
         shutil.copy(SCRIPT, alone / SCRIPT.name)

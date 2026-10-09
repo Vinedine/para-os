@@ -11,8 +11,8 @@
 # NOT_VAULT_CONTENT excludes only `.git` and `.claude/skills`), so a clone checked out
 # inside the vault would plant its own master copies as second, spurious "installed" rows.
 #
-# The case this fixture drives is the **Equal-markers check** (SKILL.md Phase 0,
-# references/delta.md "Equal markers"), not a migration plan: the vault's marker already
+# The case this fixture drives is the **equal verdict** (SKILL.md Step 1), not a
+# migration plan: the vault's marker already
 # equals the clone's current revision, so there is nothing left in the changelog to apply.
 # Asked "is this vault up to date", a bare model reads the marker, sees it match, and stops
 # there. The skill does not stop there - it still diffs installed integration scripts and

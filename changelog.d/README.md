@@ -24,6 +24,8 @@ Only what `/para-upgrade` cannot do for them. Leave the section out when it does
   unbroken line with its `Reaction:` (`none for an existing vault` when there is nothing to
   do). A reason earns a clause only where the migrating agent must judge a case the Reaction
   does not cover. An integration whose script moved gets an `**Integrations.**` paragraph.
+- **A file the kit stops shipping** goes on a line of its own,
+  ``Retired: `<vault path, folder or glob>`, ...``, and `/para-upgrade` proposes its deletion.
 - The other two sections are joined onto the revision's two paragraphs in `RELEASES.md`:
   plain words, no file path a non-programmer would not recognise.
 - No calendar dates, and no em or en dashes. `tools/check.py` fails a fragment the fold
