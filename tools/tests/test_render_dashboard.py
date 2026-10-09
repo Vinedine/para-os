@@ -13,10 +13,15 @@ import contextlib
 import io
 import json
 import re
+import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 from brief_scan import scan
 from render_dashboard import JudgmentError, cut, main, remember, remembered_url, render

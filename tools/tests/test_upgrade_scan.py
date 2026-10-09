@@ -26,8 +26,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "para-shared" / "scripts"))
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-upgrade" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 import upgrade_scan  # noqa: E402
 from upgrade_scan import (  # noqa: E402
@@ -45,7 +46,7 @@ from upgrade_scan import (  # noqa: E402
 )
 from paraos_vault import changelog_entries, clone_read, integration_markers  # noqa: E402
 
-SCRIPT = Path(__file__).resolve().parent / "upgrade_scan.py"
+SCRIPT = SCRIPTS / "upgrade_scan.py"
 
 
 # ================================================================== small local helpers
@@ -1964,12 +1965,31 @@ class SkillsBlockCase(CloneCase):
         skill_dir = vault / ".claude" / "skills" / "widget-skill"
         write_at(skill_dir / "SKILL.md", "---\nname: widget-skill\n---\n# Widget skill\n")
         write_at(skill_dir / "scripts" / "run.py", "print('v3')\n")
-        # helper.py and test_run.py deliberately not copied
+        # helper.py and test_run.py deliberately not copied: the helper is missing, the test
+        # is not, since an install leaves every test_*.py in the kit.
         got = skills_block(vault, self.clone, "main", False, str(vault / "no-user-skills"),
                            {"flavor": None, "modules": []}, [], "2026.09.01", [])
         row = next(r for r in got["rows"] if r.get("name") == "widget-skill")
-        self.assertIn("scripts/helper.py", row["missing"])
-        self.assertIn("scripts/test_run.py", row["missing"])
+        self.assertEqual(row["missing"], ["scripts/helper.py"])
+
+    def test_a_test_file_in_the_copy_is_neither_extra_nor_compared(self):
+        # An older install copied the tests along; a leftover one, the master's or the copy's
+        # own, never makes the copy `extra` or `ahead`.
+        vault = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: __import__("shutil").rmtree(vault, ignore_errors=True))
+        skill_dir = vault / ".claude" / "skills" / "widget-skill"
+        write_at(skill_dir / "SKILL.md",
+                "---\nname: widget-skill\n---\n# Widget skill\n\nscripts/run.py\n")
+        write_at(skill_dir / "scripts" / "run.py", "print('v3')\n")
+        write_at(skill_dir / "scripts" / "helper.py", "# helper v1\n")
+        write_at(skill_dir / "scripts" / "test_run.py", "# tests, edited locally\n")
+        write_at(skill_dir / "scripts" / "test_leftover.py", "# a test the master never had\n")
+        got = skills_block(vault, self.clone, "main", False, str(vault / "no-user-skills"),
+                           {"flavor": None, "modules": []}, [], "2026.09.01", [])
+        row = next(r for r in got["rows"] if r.get("name") == "widget-skill")
+        self.assertEqual(row["verdict"], "identical")
+        self.assertEqual(row["extra"], [])
+        self.assertNotIn("suite", row)
 
     def test_a_name_with_no_master_and_no_source_anywhere_is_unmatched(self):
         vault = Path(tempfile.mkdtemp())
@@ -2050,7 +2070,6 @@ class LayoutSkillsCase(LayoutCase):
         self.assertEqual(row["master"], "addons/sales/.claude/skills/deal-skill")
         self.assertEqual(row["verdict"], "identical")
         self.assertIsNone(row["wins"])  # no user-level copy to shadow
-        self.assertIsNone(row["suite"])  # no scripts/ folder, nothing to run
 
     def test_with_a_copy_in_both_places_both_rows_name_the_bundled_one_as_winning(self):
         # derived-copies.md: the vault's bundled copy shadows the user-level install. Each row

@@ -12,7 +12,7 @@ a real vault, and nothing calls a model. The date is passed in, never taken from
 except in the one mtime-fallback test that has to measure against a real file timestamp.
 
 What paraos_vault.py itself decides (fenced-block-aware scanning, link extraction, content
-hashing) is tested beside it, in para-shared/scripts/test_paraos_vault.py. What is tested
+hashing) is tested in test_paraos_vault.py. What is tested
 here is what this skill alone decides: file scope, contact-citation counting, what an
 "entity folder" is under archive/, and how a stale item's date is measured.
 """
@@ -31,6 +31,10 @@ from datetime import date
 from pathlib import Path
 from unittest import mock
 
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-deep-clean" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+
 import clean_scan
 from clean_scan import (
     DEFAULT_DATED_PATTERN, DEFAULT_NEXT_STEPS_HEADINGS, main, scan,
@@ -38,8 +42,8 @@ from clean_scan import (
 from paraos_vault import STALE_FILE_DAYS, changed, scan_snapshot  # made importable by clean_scan's own guard
 
 TODAY = date(2026, 9, 22)
-SCRIPT = Path(__file__).resolve().parent / "clean_scan.py"
-SHARED_SCRIPT = Path(__file__).resolve().parents[2] / "para-shared" / "scripts" / "paraos_vault.py"
+SCRIPT = SCRIPTS / "clean_scan.py"
+SHARED_SCRIPT = SCRIPTS.parents[1] / "para-shared" / "scripts" / "paraos_vault.py"
 
 
 def write(root, rel, text):
@@ -1436,7 +1440,7 @@ class ScriptRun(VaultCase):
 class MissingLibrary(unittest.TestCase):
 
     def test_missing_shared_library_exits_2(self):
-        script = Path(__file__).resolve().parent / "clean_scan.py"
+        script = SCRIPT
         with tempfile.TemporaryDirectory() as tmp:
             isolated = Path(tmp) / "skills" / "para-deep-clean" / "scripts"
             isolated.mkdir(parents=True)

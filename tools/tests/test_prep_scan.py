@@ -9,7 +9,7 @@ throwaway vault in a temporary directory, with synthetic names only: nothing rea
 a real vault, and nothing calls a model. The date is passed in, never taken from the clock.
 
 What paraos_vault.py itself decides (a card's names, Stage lines, header fields, lifecycle
-tables, open tasks, links) is tested beside it, in para-shared/scripts/test_paraos_vault.py.
+tables, open tasks, links) is tested in test_paraos_vault.py.
 What is tested here is what this skill alone decides: which card a person is, which entities
 and records belong to them, and which open items name them.
 """
@@ -26,10 +26,14 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-prep" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+
 from prep_scan import RECORDS_SHOWN, main, parse_person, scan
 
 TODAY = date(2026, 9, 21)
-SCRIPT = Path(__file__).resolve().parent / "prep_scan.py"
+SCRIPT = SCRIPTS / "prep_scan.py"
 
 LIFECYCLE = "\n".join([
     "# Vault", "",

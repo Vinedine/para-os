@@ -13,11 +13,16 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
 from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 import refresh_dashboard
 from refresh_dashboard import cache_paths, find_vault, is_current, main, render_now

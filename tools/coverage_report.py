@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure what the colocated test suites actually exercise. CI's coverage job runs this.
+"""Measure what the test suites actually exercise. CI's coverage job runs this.
 
     python3 tools/coverage_report.py                            # report only
     python3 tools/coverage_report.py --fail-under 90 --fail-under-js 60
@@ -38,7 +38,7 @@ NODE_ROW = re.compile(r"^#\s*(\S+\.m?js)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*
 def suites():
     """{suite folder: [test files]} for every folder check.py runs a suite in."""
     found = {}
-    for d in check.integration_dirs() + check.skill_script_dirs():
+    for d in check.integration_dirs() + [check.TESTS_DIR]:
         tests = sorted(p for p in d.iterdir() if check.is_test_file(p) and p.suffix in check.RUNNERS)
         if tests:
             found[d] = tests
@@ -46,9 +46,10 @@ def suites():
 
 
 def python_coverage(folders, tmp, fail_under):
-    """Run every Python suite under coverage.py; return (ok, text report, Markdown report)."""
+    """Run every Python suite under coverage.py; return (ok, text report, Markdown report).
+    What is measured is the scripts: the integrations and every skill's scripts/ folder."""
     rc = tmp / "coveragerc"
-    sources = "\n    ".join(str(d) for d in folders)
+    sources = "\n    ".join(str(d) for d in check.integration_dirs() + check.skill_script_dirs())
     rc.write_text(
         "[run]\n"
         "branch = True\n"

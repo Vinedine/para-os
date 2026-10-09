@@ -10,16 +10,21 @@ nothing calls a model. The date is passed in, never taken from the clock, so a r
 year's time scores what it scores now.
 
 What the shared library owns is tested beside it, in
-`para-shared/scripts/test_paraos_vault.py`: name matching, fenced lines, markers, file
+`test_paraos_vault.py`: name matching, fenced lines, markers, file
 dates, hygiene sweeps. What is tested here is what the brief itself decides, and what the
 two produce together.
 """
 
 import json
+import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 from brief_scan import OPEN_ITEM_CAP, review_window, scan
 

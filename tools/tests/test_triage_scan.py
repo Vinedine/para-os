@@ -11,7 +11,7 @@ nothing calls a model. `--now` is always passed in, never the clock.
 
 What paraos_vault.py itself decides (the registry, run-log reading, staged-note naming,
 watermarks, content hashes, tasks, links, snapshots) is tested beside it, in
-para-shared/scripts/test_paraos_vault.py. What is tested here is what this skill alone
+test_paraos_vault.py. What is tested here is what this skill alone
 decides: a source row's `plan`, how a staged note's two header shapes are read, when its
 Content line calls itself incomplete, which registered vaults its Routed line names, and how
 a fetched thread folds against an already-staged note.
@@ -23,10 +23,15 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-triage" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 import triage_scan
 from triage_scan import (
@@ -37,11 +42,9 @@ from triage_scan import (
     _routed_from_ledger,
 )
 
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "para-shared" / "scripts"))
-from paraos_vault import changed, registry, thread_hash  # noqa: E402
+from paraos_vault import changed, registry, thread_hash  # noqa: E402  (on the path by triage_scan's guard)
 
-SCRIPT = Path(__file__).resolve().parent / "triage_scan.py"
+SCRIPT = SCRIPTS / "triage_scan.py"
 NOW = datetime(2026, 9, 22, 12, 0, 0, tzinfo=timezone.utc)
 
 

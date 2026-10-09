@@ -40,12 +40,13 @@ What it enforces, and why each one is machinery rather than prose:
                         nothing else notices falling behind. No copy is fine; a copy that
                         differs from base/.claude/skills/ fails.
 
-  Colocated tests       Each integration's own suite, and each add-on pipeline's, skill script
-                        folder's and this file's, run in place: `test_*.py` and `*.test.js`
-                        next to the script they cover. Shipping a revision is one command, not
-                        three remembered ones. A suite whose runtime is missing FAILS rather
-                        than skipping: an integration nobody could verify must not report as a
-                        clean bill of health.
+  Test suites           Every script under a skill's `scripts/` folder has its suite at
+                        `tools/tests/test_<script>.py`, so `base/` is exactly what a vault
+                        receives. An integration's suite, and an add-on pipeline's, sits beside
+                        its script: those folders are installed file by file, never copied
+                        whole. All of them run from this one command. A suite whose runtime is
+                        missing FAILS rather than skipping: an integration nobody could verify
+                        must not report as a clean bill of health.
 
   Vendor validator      `claude plugin validate` over the same folder, which is a linter and
                         not a distribution step: no manifest, no marketplace, nothing
@@ -629,7 +630,7 @@ def check_never_ship():
         ok(f"no never-ship terms in shipped text ({len(terms)} terms)")
 
 
-# --- colocated test suites --------------------------------------------------------------
+# --- test suites ------------------------------------------------------------------------
 
 # sys.executable, not "python": the interpreter running this file is known to exist, which
 # `python` on a Windows PATH is not. Node has no such trick, so a missing `node` is reported.
@@ -645,17 +646,20 @@ RUNNERS = {".py": lambda p: [sys.executable, str(p)],
 COUNTS = (re.compile(r"^Ran (\d+) tests?", re.M), re.compile(r"^\D*pass (\d+)$", re.M))
 
 
+TESTS_DIR = ROOT / "tools" / "tests"   # one suite per skill script, test_<script>.py
+
+
 def skill_script_dirs():
     """Each skill's scripts/ folder, wherever skills ship from, and the maintainer's own. A
     skill that hands a mechanical step to a script is testable in the way prose never was, so
-    the suite runs here with the integrations rather than waiting for someone to remember it."""
+    its suite runs here with the integrations rather than waiting for someone to remember it."""
     roots = [ROOT / "base" / ".claude" / "skills"] + addon_skill_dirs() + \
         [d for d in EXTRA_SKILL_DIRS if d.is_dir()] + [MAINTAINER_SKILLS]
     return sorted(d for root in roots for d in root.glob("*/scripts") if d.is_dir())
 
 
 def check_tests():
-    suite_dirs = integration_dirs() + skill_script_dirs() + [ROOT / "tools"]
+    suite_dirs = integration_dirs() + [TESTS_DIR]
     # An add-on's pipeline/ runs its suite where it ships one, but is not held to having one.
     pipelines = sorted(d for d in (ROOT / "addons").glob("*/pipeline") if d.is_dir())
     suites = [p for d in suite_dirs + pipelines for p in sorted(d.iterdir())
@@ -663,6 +667,10 @@ def check_tests():
     for d in suite_dirs:
         if not any(p.parent == d for p in suites):
             bad(f"{rel(d)}/ ships no test suite")
+    for d in skill_script_dirs():
+        for script in sorted(d.glob("*.py")):
+            if not (TESTS_DIR / f"test_{script.stem}.py").is_file():
+                bad(f"{rel(script)} has no suite at tools/tests/test_{script.stem}.py")
 
     def run_suite(p):
         try:

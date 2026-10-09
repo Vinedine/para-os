@@ -38,7 +38,7 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | `examples/belfoot-vault/` | The example vault: a working instance of everything base ships. Read it, never copy it |
 | `evals/` | Behaviour cases for the skills, run by `tools/eval.py` |
 | `docs/` | Design notes for maintainers; never copied into a vault |
-| `tools/check.py` | Contract checks plus every unit test suite |
+| `tools/check.py`, `tools/tests/` | Contract checks, and the unit suite of every skill script |
 | `tools/coverage_report.py` | The same suites under coverage, with a floor CI enforces |
 | `CHANGELOG.md` | One entry per template revision; `/para-upgrade` executes each entry's Reaction |
 | `RELEASES.md` | The same revisions for people: what changes, and whether to do anything |
@@ -58,7 +58,7 @@ second job fails when coverage drops below its floor, and a third runs `actionli
 
 What the checks enforce, and why each is machinery rather than prose, is the docstring of
 `tools/check.py`: dashes, dates, never-ship terms, line caps, the skill and rule-file contracts,
-revision markers, fragments, colocated tests. A rule a check enforces is stated there and
+revision markers, fragments, test suites. A rule a check enforces is stated there and
 nowhere else.
 
 ## Branches
@@ -104,7 +104,7 @@ nowhere else.
   or it has forked. Everything base ships has a working instance in `examples/belfoot-vault/`;
   base functionality with no instance there is unfinished.
 - **Scripts do the mechanics, prose does the judgment.** Parsing, dating, bucketing, counting
-  and every derived figure belong in a skill's `scripts/*_scan.py`, with tests beside it. A
+  and every derived figure belong in a skill's `scripts/*_scan.py`, its suite in `tools/tests/`. A
   `SKILL.md` says what to do with the scan's output and keeps a by-hand fallback for when the
   script cannot run. A scan emits only what a step of its skill reads. The script, its test and
   the reference holding that fallback change together, or none changes.
@@ -125,5 +125,5 @@ nowhere else.
 - **Skill scripts use the Python standard library only.** An integration may need a package
   (`outlook` needs `requests`) and says so in its README. Every script must run on Windows
   (`py -3`) and macOS, under Python 3.9 or later.
-- `examples/belfoot-vault/.claude/skills/` is an untracked copy of base's skills. If it exists,
-  it must match base exactly, or the check fails.
+- `examples/belfoot-vault/.claude/skills/` is an untracked copy of base's skills, made per
+  `INSTALL.md`. If it exists, it must match base exactly, or the check fails.
