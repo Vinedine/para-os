@@ -33,7 +33,7 @@ The terminal brief lists the scan's `triage` by name only; `triage_preview`, eac
 
 ## Step 5c: Build the agenda
 
-Two sources, merged. Entries from different sources dedupe by (date, start time), keeping the longer title; within one source only by (date, start time, title). An entry with no time dedupes by (date, title).
+Two sources, merged. Entries dedupe by (date, start time, normalised title), case and spacing ignored, or by a shared iCalUID; two entries at the same time with different titles both show. An entry with no time dedupes by (date, title).
 
 **1. Calendar connectors - the optional `## Agenda sources` block.** If the vault's CLAUDE.md has one, it is a table `| Source | Type | Endpoint | Relevant when |`, the same shape as `## Triage sources`. For each `connector:` row, read the calendar **read-only**:
 
