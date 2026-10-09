@@ -17,7 +17,7 @@ How to ask is [asking.md](../../para-shared/asking.md); an option comes from thi
 **Connector threads:**
 
 - **Update existing**, the default in an active vault: annotate the tracked `actions.md` line or note, or rewrite a register row's last touch and next step. A reply bringing what a `Waiting on` line waits for closes it, dated today.
-- **Add action**: one next step with no tracked home, on a contact card only as far as `contact_card_level` allows. A destination at the cap (`over_threshold`) is named in the option, offering to close or demote one first. Never in a notes-only vault.
+- **Add action**: one next step with no tracked home, on a contact card only as far as `contact_card_level` allows. A destination at the cap (`over_threshold`) is named in the option, offering to close or demote one first. Not offered where no `actions.md` can receive it ([execute.md](execute.md#connector-items)).
 - **Add register row**: a counterparty new to a lifecycle whose first stage is [a row home](../../para-shared/lifecycles.md#folder-homes-and-row-homes), where that register exists. One row in its column order, each cell as its rule file shapes it: the first stage, the message's date for opening and last touch, one next step, a placeholder only where the mail leaves a cell open. Shown in full.
 - **Note to triage**: worth keeping, filed on a later pass.
 - **Dismiss (noise)**: never action-worthy anywhere; ledgered. A sign-in or security code is always this, counted and never named ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
