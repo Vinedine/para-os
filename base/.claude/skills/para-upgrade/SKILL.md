@@ -41,7 +41,7 @@ By `revision.verdict`:
 - **equal**: a kit file drifts on its own, so `files` still counts. With nothing in it, say the vault is on revision X with nothing to do, and suggest `/para-deep-clean` for a cleanup.
 - **ahead**: stop and ask. The ref is stale, or the marker was edited by hand. Never downgrade a vault.
 
-**Present the plan before touching anything**: the `files` rows by state, the `contract` rows, and the Reactions in `revision.entries` that change the vault's own content. With `audit`, report the plan and stop.
+**Present the plan before touching anything**: the `files` rows by state, the `contract` rows, and the Reactions in `revision.entries`. With `audit`, report the plan and stop.
 
 ## Step 2 - Kit files
 
@@ -65,7 +65,7 @@ A `path` outside the vault is a user-level install, shared by every vault on the
 
 ## Step 4 - Content changes
 
-A Reaction in `revision.entries` that asks the vault to change its own content (a sentence outside `CLAUDE.md`, a file to move, notes to delete) is its own item with its own approval. A Reaction that re-syncs or copies a kit file is Step 2's table, and one for an add-on the vault does not declare does not apply: say so in one line each. Reclassifying or retiring the vault's own entities is proposed, never applied, and every move repoints inbound links in the same pass.
+Each Reaction in `revision.entries` changes the vault's own content (a declaration line, a file to move, notes to delete) and is its own item with its own approval. One whose condition the vault does not meet does not apply: say so in one line. Reclassifying or retiring the vault's own entities is proposed, never applied, and every move repoints inbound links in the same pass.
 
 ## Step 5 - Stamp and verify
 

@@ -8,7 +8,8 @@ fragment into the revision it cuts and deletes it. A change to nothing a vault h
 ```markdown
 ## Changelog
 
-**What changed, in one bold sentence.** What an agent needs to know. Reaction: what an existing vault does.
+- <what the vault does>: <file or section>
+Retired: `<vault path, folder or glob>`, ...
 
 ## What changes for you
 
@@ -19,13 +20,12 @@ One or two plain sentences for people.
 Only what `/para-upgrade` cannot do for them. Leave the section out when it does everything.
 ```
 
-- **Changelog** is copied verbatim into `CHANGELOG.md`, which `/para-upgrade` executes, so it
-  is an instruction to an agent, not a summary. One bold-led paragraph per change, each one
-  unbroken line with its `Reaction:` (`none for an existing vault` when there is nothing to
-  do). A reason earns a clause only where the migrating agent must judge a case the Reaction
-  does not cover. An integration whose script moved gets an `**Integrations.**` paragraph.
-- **A file the kit stops shipping** goes on a line of its own,
-  ``Retired: `<vault path, folder or glob>`, ...``, and `/para-upgrade` proposes its deletion.
+- **Changelog** lines go into `CHANGELOG.md`, which `/para-upgrade` executes: one line per
+  change a vault makes to its own content, its condition first ("In a real-estate vault, ...").
+  Re-copying a file the kit owns, or taking a template sentence, gets no line: the upgrade
+  compares the first by hash and shows the second as a diff. A file the kit stops shipping goes
+  on a `Retired:` line, and the upgrade proposes deleting it. With nothing else for a vault to
+  do, leave the section out. The fold ends each `- ` line on the fragment's number.
 - The other two sections are joined onto the revision's two paragraphs in `RELEASES.md`:
   plain words, no file path a non-programmer would not recognise.
 - No calendar dates, and no em or en dashes. `tools/check.py` fails a fragment the fold

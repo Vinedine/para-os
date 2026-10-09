@@ -11,7 +11,7 @@ never the clone's working tree.
 clone     `path`, `ref`, `commit` (the ref's commit, which a re-copy reads), `error` on exit 4-6.
 revision  The vault's template marker (`vault`) against the master's (`master`): `verdict`
           equal, behind, ahead or no-marker. `entries`: each changelog revision after the
-          vault's, up to the master's, with the `Reaction:` sentence of each paragraph.
+          vault's, up to the master's, with its `- ` lines as `reactions`, the lead dropped.
           `baseline`: the commit whose template carries the vault's marker, the ref's own where
           it still does, else the parent of the newest commit changing it; null where none.
 files     Every vault file the kit owns or ships that is not `current`: `path` (vault-relative,
@@ -77,8 +77,7 @@ STABLE = "origin/stable"
 SECTIONS = "CLAUDE.md.sections"
 DIFF_CAP = 200
 PLACEHOLDER = b"<!-- Placeholder"
-REACTION_RE = re.compile(r".*(Reactions?:.*)", re.S)   # the last one: prose may cite another
-PARAGRAPH_RE = re.compile(r"\n\s*\n|\n(?=[-*]\s)")
+REACTION_RE = re.compile(r"^- (.+?)[ \t]*$", re.M)
 RETIRED_RE = re.compile(r"^Retired:(.*)$", re.M)
 BACKTICK_RE = re.compile(r"`([^`]+)`")
 
@@ -148,13 +147,8 @@ def revision_block(vault, kit):
     collected = [e for e in kit_entries(kit) if mine is None or e["revision"] > mine]
     return {"vault": mine, "master": kit.master, "verdict": verdict,
             "baseline": baseline(kit, raw, mine),
-            "entries": [{"revision": e["revision"], "reactions": reactions(e["body"])}
+            "entries": [{"revision": e["revision"], "reactions": REACTION_RE.findall(e["body"])}
                         for e in collected]}
-
-
-def reactions(body):
-    found = (REACTION_RE.match(p) for p in PARAGRAPH_RE.split(body))
-    return [" ".join(m.group(1).split()) for m in found if m]
 
 
 def baseline(kit, raw, mine):

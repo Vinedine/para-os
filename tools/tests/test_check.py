@@ -105,5 +105,34 @@ class InstalledLinks(unittest.TestCase):
             "`[x](../../../nowhere.md)`\n\n```\n[y](../../../nowhere.md)\n```\n"), [])
 
 
+class Fragments(unittest.TestCase):
+    def failures_for(self, changelog, fragments):
+        """check_fragments()'s failures over a CHANGELOG.md and changelog.d/ fragments."""
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        (root / "changelog.d").mkdir()
+        (root / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
+        for name, text in fragments.items():
+            (root / "changelog.d" / name).write_text(text, encoding="utf-8")
+        with mock.patch.object(check, "ROOT", root), mock.patch.object(check, "failures", []):
+            check.check_fragments()
+            return check.failures
+
+    def test_entries_and_fragments_in_the_shape_pass(self):
+        self.assertEqual(self.failures_for(
+            "# Changelog\n\nProse.\n\n## 2026.02.01\n\n- Do: `a`\nRetired: `b`\n\n## 2026.01.01\n",
+            {"1.md": "## Changelog\n\n- Do: `a`\n\n## What changes for you\n\nX.\n",
+             "README.md": "# Not a fragment\n"}), [])
+
+    def test_a_paragraph_fails_in_an_entry_and_in_a_fragment(self):
+        self.assertEqual(self.failures_for(
+            "# Changelog\n\n## 2026.01.01\n\n**A.** Reaction: none.\n",
+            {"1.md": "## Changelog\n\n**A.** Reaction: none.\n\n## What changes for you\n\nX.\n"}),
+            ["CHANGELOG.md: `## 2026.01.01` line 1 is neither a `- ` Reaction line nor a "
+             "`Retired:` line naming a backticked path: `**A.** Reaction: none.`",
+             "changelog.d/1.md: `## Changelog` line 1 is neither a `- ` Reaction line nor a "
+             "`Retired:` line naming a backticked path: `**A.** Reaction: none.`"])
+
+
 if __name__ == "__main__":
     unittest.main()
