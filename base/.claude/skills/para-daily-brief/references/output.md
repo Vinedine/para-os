@@ -48,7 +48,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 
 **A triage item the scan's `triage_preview` marks `auth` is never listed**: it is counted on the codes line, which is omitted at zero ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 
-The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block. Bar rows: width 10, the row's `bar` filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append the full bucket sections (🔴 🟠 🟡 🔵 ⚪ 🔁 ⏳ ❓, each a complete list in the Now line format) after Health flags.
+The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block. Bar rows: width 10, the row's `bar` filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append one full section per bucket, each a complete list in the Now line format, after Health flags.
 
 **Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>`, or `<person>:<line>` from the scan's `person` field for a contact item; relative link targets from CWD. **A long task text is cut, never wrapped:** link syntax and emphasis reduced to their text, then to its bold lead where it has one, else to its first clause (up to the first `;`, ` - ` or [sentence end](signals.md#step-4d-ideas-lane) outside parentheses), and to 100 characters at a word boundary with `…` if still longer. **A heading's `(N)` counts the items rendered under it**: a recurring item overdue or due today counts under both its date bucket and `🔁 Recurring`, while `Totals:` counts it once, under Recurring.
 
@@ -70,7 +70,7 @@ The bucket letter and path are the resolved entity's, `[A] areas/<entity>` for a
 
 ## 🟠 Today (N)
 ## 🟡 This week (N)
-## 🔵 Next 30 days (N) · ⚪ Later (N) · 🔁 Recurring (N) · ⏳ Waiting (N)
+## 🔵 Next 30 days (N) · ⚪ Later (N) · 🔁 Recurring (N) · ⏳ Waiting (N) · Waiting on others (N)
 ## ❓ Undated (N)
 
 ## 🔗 Mentioned elsewhere (N)
@@ -85,7 +85,7 @@ The bucket letter and path are the resolved entity's, `[A] areas/<entity>` for a
 
 Rules specific to this scope:
 
-- **The four low-urgency buckets share one heading line** while each is small; any of them past five items gets its own section.
+- **The low-urgency buckets share one heading line** while each is small; any of them past five items gets its own section.
 - **`🔗 Mentioned elsewhere` is not this entity's work.** It is the scan's `mentioned_elsewhere`, five lines then `(+N more)`. Its counts never join the header totals, and each line names the file that owns it.
 - **The Next action still closes it**, chosen from this entity's own items only, never from `🔗 Mentioned elsewhere`.
 
