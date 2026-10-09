@@ -53,7 +53,7 @@ Every `files` row, by `state`:
 - **retired**: the kit no longer ships it. Each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
 - **no-master**: an integration the ref ships nothing for. Report it and leave it, unless a collected Reaction retires it: then its deletion is its own question.
 
-A `path` outside the vault is a user-level install, shared by every vault on the machine: say so when proposing it. Before each write run `paraos_vault.py changed <scan output path>`, per [operating-discipline.md](../para-shared/operating-discipline.md#a-synced-vault-can-change-mid-run), then copy with `git -C <clone> show <clone.commit>:<master> > <path>`, creating its folder first where it has none.
+A `path` outside the vault is a user-level install, shared by every vault on the machine: say so when proposing it. Before each write run `paraos_vault.py changed <scan output path>`, per [operating-discipline.md](../para-shared/operating-discipline.md#a-synced-vault-can-change-mid-run), then copy with `git -C <clone> show <clone.commit>:<master> > <path>` in Bash, never PowerShell, whose `>` re-encodes the file, creating its folder first where it has none.
 
 ## Step 3 - The contract
 
