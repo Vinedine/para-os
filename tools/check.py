@@ -7,96 +7,71 @@
 
 What it enforces, and why each one is machinery rather than prose:
 
-  Integration markers   The versioning scheme in integrations/README.md only works if every
-                        shipped script carries `para-os-integration: <name> <revision>` and
-                        the folder's revision matches its row in the Available table.
-                        /para-upgrade finds an installed copy's master by that marker, and a
-                        reader dates it by it, so a marker that disagrees with the table
-                        misleads every vault, silently.
+  Integration markers   Every shipped integration script carries `para-os-integration: <name>
+                        <revision>`, and the revision matches its row in integrations/README.md.
+                        /para-upgrade finds an installed copy's master by that marker, so one that
+                        disagrees with the table misleads every vault, silently. Config files are
+                        named `<folder>.config.json`, never the machine-global secret's name.
 
   Template revisions    base/ and each example vault stamp a `<!-- para-os-template: -->`
-                        marker. They must agree with the newest CHANGELOG entry: a template
-                        left a revision behind means /para-upgrade reads a stale master and
-                        reports "nothing to do" on a vault that genuinely needs migrating.
+                        marker that must equal the newest CHANGELOG entry, whose headings run
+                        newest first: a stale template makes /para-upgrade report "nothing to do"
+                        on a vault that needs migrating.
 
-  Release notes         RELEASES.md tells people what each revision changes; CHANGELOG.md
-                        tells /para-upgrade what to do. Both list the same revisions in the
-                        same order, so a revision cut without its note fails here rather than
-                        reaching an operator unexplained.
+  Release notes         RELEASES.md lists the same revisions as CHANGELOG.md, in the same order.
 
-  Changelog fragments   A pull request adds `changelog.d/<issue>.md` instead of editing those
-                        two files, and /release folds it in. A fragment the fold cannot parse
-                        fails here, in the pull request that wrote it, not at the release; so
-                        does a CHANGELOG.md entry line that is not a Reaction or `Retired:`
-                        line, the only lines /para-upgrade reads.
+  Changelog fragments   A fragment in `changelog.d/` the fold cannot parse fails in the pull
+                        request that wrote it, not at the release; so does a CHANGELOG.md entry
+                        line that is not a Reaction or `Retired:` line.
 
-  Dashes                CLAUDE.md makes this a hard rule for shipped prose, and it is the one
-                        style rule a reader notices immediately.
+  Word caps             A starting template, a finished vault CLAUDE.md and a SKILL.md spine each
+                        have a word cap: all three load every session, and a line cap passes a
+                        short file that holds a long one.
 
-  Dates                 An ISO-style date, a month or quarter with its year in shipped prose: a
-                        document's text outside fences and code spans, and a script's comments
-                        and docstrings. A rule states what is true, not when someone learned it.
-                        examples/ is set at a frozen date by design and is not scanned.
+  Dashes                CLAUDE.md makes em and en dashes a hard rule for shipped prose.
 
-  Example skill copies  An example vault runs base's skills from an untracked copy, which
-                        nothing else notices falling behind. No copy is fine; a copy that
-                        differs from base/.claude/skills/ fails.
+  Dates                 No ISO date, month or quarter with its year in a document's prose or a
+                        script's comments and docstrings. A rule states what is true, not when
+                        someone learned it. examples/ is set at a frozen date and is not scanned.
 
-  Test suites           Every script under a skill's `scripts/` folder has its suite at
-                        `tools/tests/test_<script>.py`, so `base/` is exactly what a vault
-                        receives. An integration's suite, and an add-on pipeline's, sits beside
-                        its script: those folders are installed file by file, never copied
-                        whole. All of them run from this one command. A suite whose runtime is
-                        missing FAILS rather than skipping: an integration nobody could verify
-                        must not report as a clean bill of health.
+  Never-ship terms      Every file git would ship is scanned for the terms in
+                        `$PARAOS_HOME/never-ship.txt` (default `~/.paraos/`): one per line, matched
+                        case-insensitively as a whole word. The list lives outside the repo because
+                        the terms are the private data it guards. No list skips the check and says
+                        so on every run.
 
-  Vendor validator      `claude plugin validate` over the same folder, which is a linter and
-                        not a distribution step: no manifest, no marketplace, nothing
-                        published. It enforces whatever the tool currently requires of a
-                        SKILL.md, which moves release to release - the part the checks above
-                        cannot keep up with by hand. `--no-vendor` skips it and says so, for
-                        CI and contributors without the CLI; a release is still checked with it.
+  Example skill copies  An example vault runs base's skills from an untracked copy that nothing
+                        else notices falling behind. No copy is fine; one that differs fails.
 
-  Skill contract        Every skill master keeps its frontmatter contract (name matching its
-                        folder, a description, allowed-tools naming a pattern per shell command
-                        and never a bare `Bash` or `PowerShell`, argument-hint offering `--test`
-                        and a link to para-shared/test-run.md), a `## Strict rules`
-                        block, a spine under the line cap, and references that resolve both
-                        ways - base's skills and each add-on's. The spine cap is
-                        the load-bearing one: a SKILL.md body loads on
-                        every invoke, so a skill that regrows charges every run for procedure
-                        it may never reach - which is the 1106 lines the 2026.08.03 split
-                        removed, and nothing else stops them coming back.
+  Skill contract        Every skill master (base, each add-on, multi-vault) keeps its frontmatter
+                        (name matching its folder, description, allowed-tools naming a pattern per
+                        shell command and never a bare `Bash` or `PowerShell`, argument-hint
+                        offering `--test`), a link to para-shared/test-run.md, a `## Strict rules`
+                        block, and references that resolve both ways.
 
-  Installed links       Every relative link in a shipped skill's markdown, outside code,
-                        resolves where the skill is installed: every skill, para-shared/
-                        included, side by side in one folder. A link that reaches its file
-                        only through the repo's own layout reaches nothing in a vault.
+  Installed links       Every relative link in a shipped skill's markdown, outside code, resolves
+                        where the skills are installed, all side by side in one folder.
 
-  Script launchers     A `python3 ` command in a skill's markdown, fenced or in a code span,
-                        states `py -3` on its own line or the line above: on Windows `python3`
-                        is often a Store stub, and a command that hides the Windows form costs a
-                        failed call per run before the agent retries.
+  Script launchers      A `python3 ` command in a skill's markdown states `py -3` on its own line
+                        or the line above: on Windows `python3` is often a Store stub.
 
-  Rules contract        Every `.claude/rules/*.md` file carries a non-empty `paths:` frontmatter
-                        list, and it and its vault's CLAUDE.md point at each other, both ways,
-                        base's shipped rule files against base's template included.
-                        A rule file with no pointer is invisible to a skill that resolves shape
-                        from CLAUDE.md alone, and a pointer to a file that was renamed or
-                        deleted sends a reader to nothing.
+  Rules contract        Every `.claude/rules/*.md` carries a non-empty `paths:` frontmatter list,
+                        and it and its CLAUDE.md point at each other, both ways.
 
-  Never-ship terms      Every file git would ship (tracked, plus untracked and not ignored) is
-                        scanned for the terms in `$PARAOS_HOME/never-ship.txt` (default
-                        `~/.paraos/`): one term per line, `#` comments, matched case-insensitively
-                        as a whole word. The list lives outside the repo because the terms are the
-                        private data it guards. No list skips the check and says so on every run,
-                        so a contributor without one is not blocked and a lost list is not silent.
+  Vendor validator      `claude plugin validate` over the skills folders: whatever the tool
+                        currently requires of a SKILL.md, which moves release to release.
+                        `--no-vendor` skips it and says so.
+
+  Test suites           Every skill script has its suite at `tools/tests/test_<script>.py`; an
+                        integration's suite and an add-on pipeline's sit beside the script. All
+                        run from here. A suite whose runtime is missing FAILS rather than skips.
 
 Deliberately NOT checked: anything requiring judgement (privacy beyond a known term, bloat,
 whether a rule earns its words). Those are review, not a script.
 """
 import io
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -130,21 +105,18 @@ def rel(p):
     return p.relative_to(ROOT).as_posix()
 
 
-def console_safe(s):
-    """Drop what a Windows console cannot encode.
+def listed(hits, limit=8):
+    return ", ".join(hits[:limit]) + (f" (+{len(hits) - limit} more)" if len(hits) > limit else "")
 
-    The vendor validator reports with box-drawing and warning glyphs. Quoting them back
-    verbatim in a failure message kills the whole run on a cp1252 console: the first FAIL
-    line prints, the UnicodeEncodeError lands, and the summary never appears - so a report
-    whose job is making failures visible would hide them behind a crash.
-    """
+
+def console_safe(s):
+    """Drop what a Windows console cannot encode: the vendor validator reports with glyphs
+    that kill the run on a cp1252 console, and the summary with it."""
     return s.encode("ascii", "replace").decode("ascii")
 
 
 def run_captured(cmd, timeout):
-    """Run a command the way every subprocess-backed check here needs: from ROOT, stdout and
-    stderr combined into one string. Raises FileNotFoundError / subprocess.TimeoutExpired,
-    same as a bare subprocess.run - callers still handle those per command."""
+    """Run a command from ROOT, stdout and stderr combined into one string."""
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=timeout)
     return r.returncode, f"{r.stdout or ''}\n{r.stderr or ''}".strip()
@@ -200,13 +172,10 @@ def available_table():
 def check_config_naming(d, scripts):
     """One name for a vault config, across every integration: `<folder>.config.json`.
 
-    The convention is stated in base/resources/scripts/README.md, and it is load-bearing in
-    two directions. `<folder>` rather than the script's own basename, because /para-upgrade
-    resolves an installed copy by the integration name in its marker, so that is the name a
-    reader already has. And `.config.json` rather than the bare `<name>.json`, which is the
-    machine-global secret: two files sharing one name across opposite trust zones is how a
-    credential ends up inside a folder that syncs. Left to per-integration taste this drifted
-    three ways in one revision, which is why it is a check and not a paragraph.
+    `<folder>` because /para-upgrade resolves an installed copy by the integration name in its
+    marker; `.config.json` because the bare `<name>.json` is the machine-global secret, and two
+    files sharing one name across opposite trust zones is how a credential ends up in a folder
+    that syncs (base/resources/scripts/README.md).
     """
     want = f"{d.name}.config.json"
     referenced = {m for p in scripts
@@ -258,63 +227,53 @@ def check_integrations():
 
         distinct = set(revisions.values())
         if len(distinct) > 1:
-            listed = ", ".join(f"{p.name}={v}" for p, v in sorted(revisions.items()))
-            bad(f"integrations/{d.name}/: scripts disagree on the revision ({listed}). "
+            listing = ", ".join(f"{p.name}={v}" for p, v in sorted(revisions.items()))
+            bad(f"integrations/{d.name}/: scripts disagree on the revision ({listing}). "
                 f"The version is per integration, not per file.")
         elif distinct:
             got = distinct.pop()
             want = table.get(d.name)
             if want and got != want:
-                bad(f"integrations/{d.name}/: scripts say {got}, "
-                    f"Available table says {want}")
+                bad(f"integrations/{d.name}/: scripts say {got}, Available table says {want}")
             else:
                 ok(f"integrations/{d.name}/ at {got}, {len(revisions)} script(s) stamped")
 
 
-# --- template revisions ----------------------------------------------------------------
+# --- revisions and changelog -----------------------------------------------------------
 
-def changelog_revisions():
-    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+def revision_headings(name):
+    text = (ROOT / name).read_text(encoding="utf-8")
     return re.findall(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$", text, re.M)
 
 
 def template_files():
     files = [ROOT / "base" / "CLAUDE.md.template"]
     files += sorted(p / "CLAUDE.md" for p in (ROOT / "examples").iterdir()
-                    if p.is_dir() and (p / "CLAUDE.md").exists())
-    return [f for f in files if f.exists()]
+                    if (p / "CLAUDE.md").exists())
+    return files
 
 
 def check_template_revisions():
-    revisions = changelog_revisions()
+    revisions = revision_headings("CHANGELOG.md")
     if not revisions:
         bad("CHANGELOG.md: no `## YYYY.MM.NN` revision headings found")
         return
-    if revisions != sorted(revisions, reverse=True):
-        bad(f"CHANGELOG.md: revisions are not newest-first ({', '.join(revisions)})")
-    if len(set(revisions)) != len(revisions):
-        bad("CHANGELOG.md: a revision heading appears twice")
-    current = revisions[0]
+    if revisions != sorted(set(revisions), reverse=True):
+        bad(f"CHANGELOG.md: revisions are not unique and newest-first ({', '.join(revisions)})")
 
     for f in template_files():
         m = re.search(r"<!--\s*para-os-template:\s*(\S+)\s*-->",
                       f.read_text(encoding="utf-8", errors="ignore"))
         if not m:
             bad(f"{rel(f)}: no `<!-- para-os-template: -->` marker")
-        elif m.group(1) != current:
-            bad(f"{rel(f)}: stamped {m.group(1)}, newest changelog revision is {current}")
+        elif m.group(1) != revisions[0]:
+            bad(f"{rel(f)}: stamped {m.group(1)}, newest changelog revision is {revisions[0]}")
         else:
-            ok(f"{rel(f)} at {current}")
+            ok(f"{rel(f)} at {revisions[0]}")
 
 
 def check_release_notes():
-    path = ROOT / "RELEASES.md"
-    if not path.is_file():
-        bad("RELEASES.md is missing: every CHANGELOG revision needs a note for people")
-        return
-    notes = re.findall(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$",
-                       path.read_text(encoding="utf-8"), re.M)
-    revisions = changelog_revisions()
+    notes, revisions = revision_headings("RELEASES.md"), revision_headings("CHANGELOG.md")
     if notes == revisions:
         ok(f"RELEASES.md lists the {len(notes)} CHANGELOG revision(s), in order")
         return
@@ -347,27 +306,22 @@ def check_fragments():
             ok(f"{rel(p)} parses")
 
 
-TEMPLATE_MAX_LINES = 120   # a starting point; worst today is base at 119
-FINISHED_MAX_LINES = 200   # a populated vault's own CLAUDE.md, at the adherence target
+# --- word caps -------------------------------------------------------------------------
+
+# Each a little above the largest real file of its kind, so the cap catches regrowth.
+TEMPLATE_MAX_WORDS = 1650   # base's CLAUDE.md.template: a vault starts here and adds its own
+FINISHED_MAX_WORDS = 2250   # a populated vault's own CLAUDE.md, which the example is
+SPINE_MAX_WORDS = 2300      # a SKILL.md: its body loads on every invoke
 
 
 def check_template_size():
-    """A vault starts at a template's length and adds its own sections on top.
-
-    The adherence target for a CLAUDE.md is 200 lines. A **template**, base's, becomes an
-    adopter's vault CLAUDE.md and is then extended, so it has to leave
-    room below that target for what the vault adds. A **finished** vault CLAUDE.md, which is
-    what the example is, is held to the target itself: an example over 200 lines contradicts
-    the rule it ships. Rules only: procedure belongs to the script or skill that runs it,
-    rationale to git history.
-    """
     for f in template_files():
-        cap = TEMPLATE_MAX_LINES if f.suffix == ".template" else FINISHED_MAX_LINES
-        n = len(f.read_text(encoding="utf-8", errors="ignore").splitlines())
+        cap = TEMPLATE_MAX_WORDS if f.suffix == ".template" else FINISHED_MAX_WORDS
+        n = len(f.read_text(encoding="utf-8", errors="ignore").split())
         if n > cap:
-            bad(f"{rel(f)}: {n} lines, cap is {cap}. Cut procedure and rationale, not rules.")
+            bad(f"{rel(f)}: {n} words, cap is {cap}. Cut procedure and rationale, not rules.")
         else:
-            ok(f"{rel(f)} at {n} lines (cap {cap})")
+            ok(f"{rel(f)} at {n} words (cap {cap})")
 
 
 # --- style -----------------------------------------------------------------------------
@@ -375,19 +329,13 @@ def check_template_size():
 DASHES = ("\u2014", "\u2013")  # em, en: escaped so this file passes its own check.
 FENCE = re.compile(r"^\s*(?:```|~~~)")
 CODE_SPAN = re.compile(r"`[^`]*`")
-
-
 WALK_SKIP_DIRS = {".git", "node_modules", "__pycache__", ".pytest_cache"}
-OS_LITTER = {"desktop.ini", "Thumbs.db"}
 PROSE_SUFFIXES = {".md", ".template", ".sections", ".py", ".js", ".mjs", ".json", ".ps1"}
 
 
 def prose_files():
-    """Every file in the repo this script may read, with the noise pruned at descent.
-
-    `.git` alone holds roughly eight times as many files as the repo does, so an rglob that
-    enumerates it and filters afterwards spends most of its stats on objects no check reads.
-    """
+    """Every file this script may read, with the noise pruned at descent: `.git` alone holds
+    roughly eight times as many files as the repo."""
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in WALK_SKIP_DIRS]
         for name in filenames:
@@ -398,8 +346,7 @@ def prose_files():
 
 def check_dashes():
     """The rule is about *prose*, so code is out of scope: a regex that matches an en dash in
-    someone's calendar entry, inside a regex character class, is parsing data,
-    not writing prose."""
+    someone's calendar entry is parsing data, not writing prose."""
     hits = []
     for p in prose_files():
         try:
@@ -410,15 +357,10 @@ def check_dashes():
         for n, line in enumerate(text.splitlines(), 1):
             if FENCE.match(line):
                 in_fence = not in_fence
-                continue
-            if in_fence:
-                continue
-            prose = CODE_SPAN.sub("", line)
-            if any(d in prose for d in DASHES):
+            elif not in_fence and any(d in CODE_SPAN.sub("", line) for d in DASHES):
                 hits.append(f"{rel(p)}:{n}")
     if hits:
-        shown = ", ".join(hits[:8]) + (f" (+{len(hits) - 8} more)" if len(hits) > 8 else "")
-        bad(f"em/en dash in shipped text: {shown}")
+        bad(f"em/en dash in shipped text: {listed(hits)}")
     else:
         ok("no em/en dashes in shipped text")
 
@@ -426,8 +368,8 @@ def check_dashes():
 def shippable_names(check):
     """Every file git would ship (tracked, plus untracked and not ignored), or None once the
     failure is reported under `check`: a scan that could not list its files has not passed."""
-    # -z and stdout alone: git quotes a non-ASCII path otherwise, and a quoted path would not
-    # open, so that file would drop out of the scan without a word.
+    # -z and stdout alone: git quotes a non-ASCII path otherwise, and that file would drop
+    # out of the scan without a word.
     try:
         r = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
                            cwd=ROOT, capture_output=True, timeout=60)
@@ -509,21 +451,11 @@ def script_comments(text, line, block, escapes):
 
 
 def prose_lines(suffix, text):
-    """(line number, text) for each line of prose in a shipped file.
-
-    In a document: outside fences and code spans. In a script: comments and docstrings only,
-    since its string literals are test data.
-    """
+    """(line number, text) for each line of prose in a shipped file: in a document, outside
+    fences and code spans; in a script, comments and docstrings only, since its string
+    literals are test data."""
     if suffix == ".py":
-        try:
-            found = py_prose(text)
-        except (tokenize.TokenError, SyntaxError):   # unparseable: whole-line comments, and
-            found, inside = {}, False                  # anything touching a triple quote
-            for n, ln in enumerate(text.splitlines(), 1):
-                quotes = ln.count('"""') + ln.count("'''")
-                if inside or quotes or ln.strip().startswith("#"):
-                    found[n] = ln
-                inside ^= quotes % 2 == 1
+        found = py_prose(text)
     elif suffix == ".ps1":
         found = script_comments(text, "#", ("<#", "#>"), {"'": None, '"': "`"})
     elif suffix in DATE_SCRIPT_SUFFIXES:
@@ -540,9 +472,6 @@ def prose_lines(suffix, text):
 
 
 def check_dates():
-    """A rule states what is true, not when someone learned it (CLAUDE.md, Never ship), so a
-    date in shipped prose is a finding. The example vaults are set at a frozen date by design
-    and are not scanned."""
     names = shippable_names("dates in prose")
     if names is None:
         return
@@ -560,42 +489,9 @@ def check_dates():
             if m:
                 hits.append(f"{name}:{n} ({m.group(0)})")
     if hits:
-        shown = ", ".join(hits[:8]) + (f" (+{len(hits) - 8} more)" if len(hits) > 8 else "")
-        bad(f"date in shipped prose: {shown}. State what is true; git records when.")
+        bad(f"date in shipped prose: {listed(hits)}. State what is true; git records when.")
     else:
         ok("no dates in shipped prose")
-
-
-# --- example skill copies ---------------------------------------------------------------
-
-def check_example_skill_copies():
-    """An example vault runs base's skills from an untracked copy (examples/README.md), and
-    nothing else notices it fall behind: a demo run then exercises skills the repo no longer
-    ships. No copy is fine. A copy must match base file for file, line endings aside."""
-    master = ROOT / "base" / ".claude" / "skills"
-
-    def tree(root):
-        return {p.relative_to(root).as_posix(): p for p in root.rglob("*")
-                if p.is_file() and p.name not in OS_LITTER
-                and not WALK_SKIP_DIRS.intersection(p.relative_to(root).parts)}
-
-    def body(p):
-        return p.read_bytes().replace(b"\r\n", b"\n")
-
-    want = tree(master)
-    for copy in sorted((ROOT / "examples").glob("*/.claude/skills")):
-        have = tree(copy)
-        stale = sorted(n for n in want.keys() & have.keys() if body(want[n]) != body(have[n]))
-        missing = sorted(want.keys() - have.keys())
-        extra = sorted(have.keys() - want.keys())
-        if stale or missing or extra:
-            parts = [f"{label} {', '.join(names[:4])}{' (+%d more)' % (len(names) - 4) if len(names) > 4 else ''}"
-                     for label, names in (("differs:", stale), ("missing:", missing), ("not in base:", extra))
-                     if names]
-            bad(f"{rel(copy)}/ is not a copy of base/.claude/skills/ ({'; '.join(parts)}). "
-                f"Replace it with a fresh copy of base/.claude/skills/.")
-        else:
-            ok(f"{rel(copy)}/ matches base/.claude/skills/ ({len(have)} files)")
 
 
 # --- never-ship terms -------------------------------------------------------------------
@@ -632,106 +528,24 @@ def check_never_ship():
             if m:
                 hits.append(f"{name}:{n} ({m.group(0)})")
     if hits:
-        shown = ", ".join(hits[:8]) + (f" (+{len(hits) - 8} more)" if len(hits) > 8 else "")
-        bad(f"never-ship term in shipped text: {shown}")
+        bad(f"never-ship term in shipped text: {listed(hits)}")
     else:
         ok(f"no never-ship terms in shipped text ({len(terms)} terms)")
-
-
-# --- test suites ------------------------------------------------------------------------
-
-# sys.executable, not "python": the interpreter running this file is known to exist, which
-# `python` on a Windows PATH is not. Node has no such trick, so a missing `node` is reported.
-# TAP, which failure_report() reads: Node 23 and later default to spec even when piped.
-RUNNERS = {".py": lambda p: [sys.executable, str(p)],
-           ".js": lambda p: ["node", "--test", "--test-reporter=tap", str(p)],
-           ".mjs": lambda p: ["node", "--test", "--test-reporter=tap", str(p)]}
-
-# unittest writes "Ran 39 tests" to stderr; node --test writes "pass 35" to stdout. The count
-# is reported so a suite that quietly stopped covering anything is visible at a glance. It is
-# not a guarantee: `node --test <file>` scores a file with no tests in it as one passing test,
-# so only a runner that reports a real 0 (unittest does, and exits non-zero too) is caught.
-COUNTS = (re.compile(r"^Ran (\d+) tests?", re.M), re.compile(r"^\D*pass (\d+)$", re.M))
-
-
-TESTS_DIR = ROOT / "tools" / "tests"   # one suite per skill script, test_<script>.py
-
-
-def skill_script_dirs():
-    """Each skill's scripts/ folder, wherever skills ship from, and the maintainer's own. A
-    skill that hands a mechanical step to a script is testable in the way prose never was, so
-    its suite runs here with the integrations rather than waiting for someone to remember it."""
-    roots = [ROOT / "base" / ".claude" / "skills"] + addon_skill_dirs() + \
-        [d for d in EXTRA_SKILL_DIRS if d.is_dir()] + [MAINTAINER_SKILLS]
-    return sorted(d for root in roots for d in root.glob("*/scripts") if d.is_dir())
-
-
-def check_tests():
-    suite_dirs = integration_dirs() + [TESTS_DIR]
-    # An add-on's pipeline/ runs its suite where it ships one, but is not held to having one.
-    pipelines = sorted(d for d in (ROOT / "addons").glob("*/pipeline") if d.is_dir())
-    suites = [p for d in suite_dirs + pipelines for p in sorted(d.iterdir())
-              if p.suffix in RUNNERS and is_test_file(p)]
-    for d in suite_dirs:
-        if not any(p.parent == d for p in suites):
-            bad(f"{rel(d)}/ ships no test suite")
-    for d in skill_script_dirs():
-        for script in sorted(d.glob("*.py")):
-            if not (TESTS_DIR / f"test_{script.stem}.py").is_file():
-                bad(f"{rel(script)} has no suite at tools/tests/test_{script.stem}.py")
-
-    def run_suite(p):
-        try:
-            # utf-8 explicitly: test names and output carry characters a cp1252 console
-            # default cannot decode, and a UnicodeDecodeError here would read as a test failure.
-            return run_captured(RUNNERS[p.suffix](p), timeout=300)
-        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
-            return e
-
-    # The suites share nothing but the machine, and the slow ones spend their time waiting on
-    # the git processes they start, so they run side by side. Results report in suite order.
-    with ThreadPoolExecutor(max_workers=max(2, os.cpu_count() or 2)) as pool:
-        results = list(pool.map(run_suite, suites))
-
-    for p, result in zip(suites, results):
-        if isinstance(result, FileNotFoundError):
-            bad(f"{rel(p)}: cannot run, `{RUNNERS[p.suffix](p)[0]}` is not on PATH. A suite "
-                f"that could not run has not passed.")
-            continue
-        if isinstance(result, subprocess.TimeoutExpired):
-            bad(f"{rel(p)}: timed out after 300s")
-            continue
-        returncode, combined = result
-
-        count = next((int(m.group(1)) for m in (c.search(combined) for c in COUNTS) if m), None)
-        if returncode != 0:
-            bad(f"{rel(p)}: suite failed (exit {returncode})\n{failure_report(combined, console_safe)}")
-        elif count == 0:
-            bad(f"{rel(p)}: ran 0 tests - discovery found nothing to run")
-        elif count is None:
-            ok(f"{rel(p)}: passed, test count not reported")
-        else:
-            ok(f"{rel(p)}: {count} test(s) passed")
 
 
 # --- skill masters ---------------------------------------------------------------------
 
 SKILLS_DIR = ROOT / "base" / ".claude" / "skills"
-
-
-def addon_skill_dirs():
-    """Each add-on's skills folder, under .claude/ like base's. An add-on need not ship one:
-    sales ships a lifecycle and a rule file and borrows /para-pipeline from base, so a short
-    result here is the normal case rather than a miss."""
-    return sorted(d for d in (ROOT / "addons").glob("*/.claude/skills") if d.is_dir())
-
-
 EXTRA_SKILL_DIRS = (ROOT / "multi-vault",)   # optional layers that ship a skill of their own
 SKILL_FRONTMATTER = ("name", "description", "allowed-tools", "argument-hint")
 ALLOWED_TOOL = re.compile(r"[\w-]+(?:\([^)]*\))?")   # `Read`, `Bash(git log *)`, an MCP tool name
-SPINE_MAX_LINES = 130      # current worst is 116; the cap catches regrowth, not today's shape
 DESCRIPTION_MAX_CHARS = 600
 TEST_RUN_DOC = "para-shared/test-run.md"   # what `--test` means, stated once for every skill
+
+
+def addon_skill_dirs():
+    """Each add-on's skills folder, under .claude/ like base's. An add-on need not ship one."""
+    return sorted(d for d in (ROOT / "addons").glob("*/.claude/skills") if d.is_dir())
 
 
 def skill_dirs(parent):
@@ -747,48 +561,31 @@ def whole_shell_grants(allowed_tools):
             and not t.partition("(")[2].rstrip(")").strip(" *:")]
 
 
+def skill_script_dirs():
+    """Each skill's scripts/ folder, wherever skills ship from, and the maintainer's own."""
+    roots = [SKILLS_DIR, *addon_skill_dirs(), *EXTRA_SKILL_DIRS, MAINTAINER_SKILLS]
+    return sorted(d for root in roots for d in root.glob("*/scripts") if d.is_dir())
+
+
 def check_skills():
-    if not SKILLS_DIR.is_dir():
-        bad("base/.claude/skills/ is missing")
-        return
-
-    masters = skill_dirs(SKILLS_DIR)
-    if not masters:
-        bad("base/.claude/skills/ ships no SKILL.md")
-        return
-
     if not (SKILLS_DIR / TEST_RUN_DOC).is_file():
         bad(f"base/.claude/skills/{TEST_RUN_DOC} is missing, and every skill's `--test` points at it")
 
-    # An optional layer beside base ships a skill too, and it is the likeliest one to rot: it
-    # sits outside base/, so without this nothing in this file ever looks at it. Same contract,
-    # same caps - a skill an adopter installs beside the bundled ones is held to what they are
-    # held to. A listed folder that is not there FAILS rather than being skipped: a rename would
-    # otherwise degrade to a clean pass over a skill nothing looked at.
-    # The vendor validator below is deliberately NOT pointed here: it picks its mode from the
-    # path, and a skills folder outside .claude/ is read as a plugin directory and fails for
-    # having no manifest. That is a tool constraint, not a reason to leave the add-on unchecked.
-    for extra_skills in addon_skill_dirs():
-        masters += skill_dirs(extra_skills)
-
-    for extra in EXTRA_SKILL_DIRS:
-        if extra.is_dir():
-            masters += skill_dirs(extra)
-        else:
-            bad(f"{rel(extra)}/ is in EXTRA_SKILL_DIRS but does not exist. Drop the entry, or "
-                f"restore the folder - as it stands its skill is checked by nothing.")
+    masters = skill_dirs(SKILLS_DIR)
+    for extra in [*addon_skill_dirs(), *EXTRA_SKILL_DIRS]:
+        masters += skill_dirs(extra)
 
     for d in masters:
         sk = d / "SKILL.md"
         text = sk.read_text(encoding="utf-8")
+        words = len(text.split())
         before = len(failures)
 
         m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
         if not m:
             bad(f"{rel(sk)}: no YAML frontmatter")
             continue
-        fm = m.group(1)
-        fields = {k: v.strip() for k, v in re.findall(r"^([\w-]+):\s*(.*)$", fm, re.M)}
+        fields = {k: v.strip() for k, v in re.findall(r"^([\w-]+):\s*(.*)$", m.group(1), re.M)}
 
         for key in SKILL_FRONTMATTER:
             if key not in fields:
@@ -809,13 +606,10 @@ def check_skills():
             bad(f"{rel(sk)}: description is {len(desc)} chars "
                 f"(cap {DESCRIPTION_MAX_CHARS}). It sits in context every turn.")
 
-        lines = text.count("\n") + 1
-        if lines > SPINE_MAX_LINES:
-            bad(f"{rel(sk)}: {lines} lines (cap {SPINE_MAX_LINES}). A SKILL.md is a loader "
+        if words > SPINE_MAX_WORDS:
+            bad(f"{rel(sk)}: {words} words (cap {SPINE_MAX_WORDS}). A SKILL.md is a loader "
                 f"spine; per-step procedure belongs in references/.")
 
-        # A test run is how a revision gets tried on real vaults before it ships, so a skill
-        # that does not take `--test` is one whose defects surface only when someone thinks to ask.
         if "--test" not in fields.get("argument-hint", ""):
             bad(f"{rel(sk)}: argument-hint does not offer `[--test]`, the test-run argument every "
                 f"skill takes")
@@ -828,7 +622,7 @@ def check_skills():
                 f"never do, not only what it does.")
 
         refs = d / "references"
-        on_disk = {p.name for p in refs.glob("*.md")} if refs.is_dir() else set()
+        on_disk = {p.name for p in refs.glob("*.md")}
         linked = set(re.findall(r"references/([A-Za-z0-9_.-]+\.md)", text))
         for orphan in sorted(on_disk - linked):
             bad(f"{rel(refs / orphan)}: on disk but never linked from SKILL.md, so no step "
@@ -837,7 +631,32 @@ def check_skills():
             bad(f"{rel(sk)}: links references/{dangling}, which does not exist")
 
         if len(failures) == before:
-            ok(f"{rel(d)}/ contract holds ({lines} spine lines, {len(on_disk)} reference(s))")
+            ok(f"{rel(d)}/ contract holds ({words} words, {len(on_disk)} reference(s))")
+
+
+# --- example skill copies ---------------------------------------------------------------
+
+def check_example_skill_copies():
+    """An example vault runs base's skills from an untracked copy (examples/README.md) that
+    nothing else notices fall behind. No copy is fine; a copy must match base file for file,
+    line endings aside."""
+    def tree(root):
+        return {p.relative_to(root).as_posix(): p.read_bytes().replace(b"\r\n", b"\n")
+                for p in root.rglob("*")
+                if p.is_file() and not WALK_SKIP_DIRS.intersection(p.relative_to(root).parts)}
+
+    want = tree(SKILLS_DIR)
+    for copy in sorted((ROOT / "examples").glob("*/.claude/skills")):
+        have = tree(copy)
+        diffs = (("differs:", sorted(n for n in want.keys() & have.keys() if want[n] != have[n])),
+                 ("missing:", sorted(want.keys() - have.keys())),
+                 ("not in base:", sorted(have.keys() - want.keys())))
+        parts = [f"{label} {listed(names, 4)}" for label, names in diffs if names]
+        if parts:
+            bad(f"{rel(copy)}/ is not a copy of base/.claude/skills/ ({'; '.join(parts)}). "
+                f"Replace it with a fresh copy of base/.claude/skills/.")
+        else:
+            ok(f"{rel(copy)}/ matches base/.claude/skills/ ({len(have)} files)")
 
 
 # --- installed links -------------------------------------------------------------------
@@ -849,12 +668,11 @@ URL_SCHEME = re.compile(r"^[a-z][a-z0-9+.-]*:")
 def installed_skill_folders():
     """What an install puts side by side in one skills folder, by the name it goes in under:
     base's skills and para-shared/, each add-on's skills, and the multi-vault skills."""
-    folders = [d for d in SKILLS_DIR.iterdir() if d.is_dir()] if SKILLS_DIR.is_dir() else []
+    folders = [d for d in SKILLS_DIR.iterdir() if d.is_dir()]
     for extra_skills in addon_skill_dirs():
         folders += [d for d in extra_skills.iterdir() if d.is_dir()]
     for extra in EXTRA_SKILL_DIRS:
-        if extra.is_dir():
-            folders += skill_dirs(extra)
+        folders += skill_dirs(extra)
     return {d.name: d for d in folders if d.name not in WALK_SKIP_DIRS}
 
 
@@ -880,22 +698,14 @@ def check_installed_links():
                     if target.startswith(("#", "/")) or URL_SCHEME.match(target):
                         continue
                     count += 1
-                    # The path from the skills folder, walked step by step: a `..` past its top
-                    # leaves the folder an install creates.
-                    parts = [name, *f.relative_to(d).parent.parts]
-                    for step in target.split("#")[0].split("/"):
-                        if step in ("", "."):
-                            continue
-                        if step != "..":
-                            parts.append(step)
-                        elif parts:
-                            parts.pop()
-                        else:
-                            parts = None
-                            break
-                    if not parts or parts[0] not in folders:
+                    # The path from the skills folder: a `..` past its top leaves the folder
+                    # an install creates.
+                    path = posixpath.normpath(posixpath.join(
+                        name, *f.relative_to(d).parent.parts, target.split("#")[0]))
+                    top, _, rest = path.partition("/")
+                    if path.startswith("..") or top == "." or top not in folders:
                         reason = "leaves the skills folder"
-                    elif not folders[parts[0]].joinpath(*parts[1:]).exists():
+                    elif not (folders[top] / rest).exists():
                         reason = "names no file"
                     else:
                         continue
@@ -911,9 +721,8 @@ PY3_COMMAND = re.compile(r"`python3 ")
 
 
 def check_launchers():
-    roots = [SKILLS_DIR, *addon_skill_dirs(), *(d for d in EXTRA_SKILL_DIRS if d.is_dir())]
     hits = []
-    for root in roots:
+    for root in [SKILLS_DIR, *addon_skill_dirs(), *EXTRA_SKILL_DIRS]:
         for p in sorted(root.rglob("*.md")):
             prev, in_fence = "", False
             for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
@@ -938,38 +747,22 @@ RULES_POINTER = re.compile(r"\.claude/rules/([A-Za-z0-9_.-]+\.md)")
 
 
 def vault_roots_with_rules():
-    """Every CLAUDE.md, or CLAUDE.md.template, paired with the `.claude/rules/` it points into.
-
-    `.claude/rules/` is where a vault's own CLAUDE.md extraction sends procedure
-    (base/.claude/skills/para-shared/rule-files.md): a rule file, and a one-line pointer left
-    behind in CLAUDE.md. Walked rather than hardcoded, so a second example that grows a
-    rules/ folder is picked up with no edit here.
-
-    Templates count too, because base ships rule files of its own: matching only `CLAUDE.md`
-    would leave the one set every new vault receives checked by nothing.
-    """
+    """Every CLAUDE.md, template or add-on sections file, paired with the `.claude/rules/` it
+    points into. Walked rather than listed, so a second example that grows a rules/ folder is
+    picked up with no edit here."""
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in WALK_SKIP_DIRS]
         here = Path(dirpath)
         for name in ("CLAUDE.md", "CLAUDE.md.template", "CLAUDE.md.sections"):
-            if name not in filenames:
-                continue
-            rules_dir = here / ".claude" / "rules"
-            if rules_dir.is_dir():
-                yield here / name, rules_dir
+            if name in filenames and (here / ".claude" / "rules").is_dir():
+                yield here / name, here / ".claude" / "rules"
 
 
 def check_rules_contract():
     """A rule file and its vault's CLAUDE.md must agree, both ways, and the file itself must
-    carry the one piece of frontmatter that makes it load at all.
-
-    Mirrors check_skills()'s on_disk/linked reconciliation: an orphaned rule file is exactly
-    as invisible as an unlinked reference doc, and a dangling pointer sends a reader (human or
-    skill) to a file that is not there.
-    """
-    seen = False
+    carry the frontmatter that makes it load at all. An orphaned rule file is as invisible as
+    an unlinked reference doc, and a dangling pointer sends a reader to a file that is gone."""
     for claude_md, rules_dir in sorted(vault_roots_with_rules()):
-        seen = True
         before = len(failures)
         claude_text = claude_md.read_text(encoding="utf-8", errors="ignore")
         on_disk = {p.name for p in rules_dir.glob("*.md")}
@@ -986,35 +779,23 @@ def check_rules_contract():
             m = RULES_FRONTMATTER.match(f.read_text(encoding="utf-8", errors="ignore"))
             if not m:
                 bad(f"{rel(f)}: no YAML frontmatter")
-                continue
-            pm = RULES_PATHS_LIST.search(m.group(1))
-            if not pm:
+            elif not RULES_PATHS_LIST.search(m.group(1)):
                 bad(f"{rel(f)}: frontmatter has no non-empty `paths:` list, so this rule "
                     f"never auto-loads for any session")
 
         if len(failures) == before:
             ok(f"{rel(claude_md)}: .claude/rules/ contract holds ({len(on_disk)} file(s))")
 
-    if not seen:
-        ok("no .claude/rules/ folders shipped yet")
 
+# --- vendor validator ------------------------------------------------------------------
 
 def check_skill_validator():
-    """Run the vendor's own validator over the skills directory.
+    """Run `claude plugin validate` over each skills directory: a linter, not a distribution
+    step, and the part of the contract a hand-written check cannot keep up with.
 
-    Deliberately not a plugin step: `claude plugin validate <dir>` reads a plain folder of
-    skills, needs no manifest and no marketplace, and publishes nothing. It complements the
-    checks above rather than repeating them - those enforce this repo's conventions, this one
-    enforces whatever the tool currently requires of a SKILL.md, which moves release to release
-    and is the part a hand-written check cannot keep up with.
-
-    Two things the tool does that this wrapper has to correct for, both measured rather than
-    assumed. It picks its mode from the path - a folder under .claude/ validates as components,
-    the same folder elsewhere is treated as a plugin directory and fails for having no manifest -
-    so the run is only meaningful once the output says which mode it chose. And it exits 0 on
-    warnings: a SKILL.md with a malformed name and no description reports "passed with warnings"
-    and returns success. Keying on the exit code alone would be a check that runs, passes, and
-    measures nothing.
+    Two things the tool does are corrected for here. It picks its mode from the path, so the
+    run is only meaningful once the output says it validated components. And it exits 0 on
+    warnings, so the exit code alone would be a check that passes and measures nothing.
     """
     if "--no-vendor" in sys.argv:
         skip("vendor skill validator: --no-vendor given, `claude plugin validate` not run. "
@@ -1051,9 +832,8 @@ def validate_skills_dir(claude, skills_dir):
     found = re.findall(r"Found (\d+) (error|warning)", out)
     counts = ", ".join(f"{n} {kind}(s)" for n, kind in found)
 
-    # The CLI's own pass/fail phrasing is the closer thing to a stable contract; "Found N" is
-    # supporting detail. Fail CLOSED on anything that isn't a recognized clean pass: a future
-    # wording change must read as "could not confirm clean", never as "nothing to report".
+    # Fail CLOSED on anything that isn't a recognized clean pass: a future wording change must
+    # read as "could not confirm clean", never as "nothing to report".
     if returncode != 0 or "Validation failed" in out:
         bad(f"claude plugin validate: failed (exit {returncode})"
             f"{': ' + counts if counts else ''}\n{out_tail}")
@@ -1066,6 +846,69 @@ def validate_skills_dir(claude, skills_dir):
         bad(f"claude plugin validate: output did not match a recognized pass/fail shape "
             f"(exit {returncode}). Treating as failed rather than silently reporting "
             f"clean - the vendor CLI's wording may have changed.\n{out_tail}")
+
+
+# --- test suites ------------------------------------------------------------------------
+
+# sys.executable, not "python": the interpreter running this file is known to exist, which
+# `python` on a Windows PATH is not. Node has no such trick, so a missing `node` is reported.
+# TAP, which failure_report() reads: Node 23 and later default to spec even when piped.
+RUNNERS = {".py": lambda p: [sys.executable, str(p)],
+           ".js": lambda p: ["node", "--test", "--test-reporter=tap", str(p)],
+           ".mjs": lambda p: ["node", "--test", "--test-reporter=tap", str(p)]}
+
+# unittest writes "Ran 39 tests" to stderr; node --test writes "pass 35" to stdout. The count
+# makes a suite that quietly stopped covering anything visible. `node --test <file>` scores a
+# file with no tests as one passing test, so only unittest's real 0 is caught.
+COUNTS = (re.compile(r"^Ran (\d+) tests?", re.M), re.compile(r"^\D*pass (\d+)$", re.M))
+
+TESTS_DIR = ROOT / "tools" / "tests"   # one suite per skill script, test_<script>.py
+
+
+def check_tests():
+    suite_dirs = integration_dirs() + [TESTS_DIR]
+    # An add-on's pipeline/ runs its suite where it ships one, but is not held to having one.
+    pipelines = sorted(d for d in (ROOT / "addons").glob("*/pipeline") if d.is_dir())
+    suites = [p for d in suite_dirs + pipelines for p in sorted(d.iterdir())
+              if p.suffix in RUNNERS and is_test_file(p)]
+    for d in suite_dirs:
+        if not any(p.parent == d for p in suites):
+            bad(f"{rel(d)}/ ships no test suite")
+    for d in skill_script_dirs():
+        for script in sorted(d.glob("*.py")):
+            if not (TESTS_DIR / f"test_{script.stem}.py").is_file():
+                bad(f"{rel(script)} has no suite at tools/tests/test_{script.stem}.py")
+
+    def run_suite(p):
+        try:
+            return run_captured(RUNNERS[p.suffix](p), timeout=300)
+        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+            return e
+
+    # The suites share nothing but the machine, and the slow ones wait on the git processes
+    # they start, so they run side by side. Results report in suite order.
+    with ThreadPoolExecutor(max_workers=max(2, os.cpu_count() or 2)) as pool:
+        results = list(pool.map(run_suite, suites))
+
+    for p, result in zip(suites, results):
+        if isinstance(result, FileNotFoundError):
+            bad(f"{rel(p)}: cannot run, `{RUNNERS[p.suffix](p)[0]}` is not on PATH. A suite "
+                f"that could not run has not passed.")
+            continue
+        if isinstance(result, subprocess.TimeoutExpired):
+            bad(f"{rel(p)}: timed out after 300s")
+            continue
+        returncode, combined = result
+
+        count = next((int(m.group(1)) for m in (c.search(combined) for c in COUNTS) if m), None)
+        if returncode != 0:
+            bad(f"{rel(p)}: suite failed (exit {returncode})\n{failure_report(combined, console_safe)}")
+        elif count == 0:
+            bad(f"{rel(p)}: ran 0 tests - discovery found nothing to run")
+        elif count is None:
+            ok(f"{rel(p)}: passed, test count not reported")
+        else:
+            ok(f"{rel(p)}: {count} test(s) passed")
 
 
 def main():

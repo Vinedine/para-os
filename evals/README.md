@@ -23,7 +23,7 @@ cannot:
 
 | Layer | Covers | Cost |
 |---|---|---|
-| `tools/check.py` | Structure: frontmatter, markers, revisions, line caps, shipped prose | Free |
+| `tools/check.py` | Structure: frontmatter, markers, revisions, word caps, shipped prose | Free |
 | `tools/tests/` | The mechanical logic a skill hands to a script, and the shared library under `para-shared/scripts/` | Free |
 | `evals/` (this folder) | Whether a skill triggers, and whether its answer is right | A model call per run |
 | `--test` on a real vault | What nobody thought to test | A session |

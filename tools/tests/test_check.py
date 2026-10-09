@@ -27,13 +27,14 @@ argument-hint: '[--test]'
 
 
 class SkillContractAllowedTools(unittest.TestCase):
-    def failures_for(self, tools):
-        """check_skills()'s failures over one fixture skill whose allowed-tools is `tools`."""
+    def failures_for(self, tools, extra=""):
+        """check_skills()'s failures over one fixture skill whose allowed-tools is `tools`,
+        with `extra` appended to its body."""
         root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, root)
         skills = root / "base" / ".claude" / "skills"
         (skills / "demo").mkdir(parents=True)
-        (skills / "demo" / "SKILL.md").write_text(SKILL.format(tools=tools), encoding="utf-8")
+        (skills / "demo" / "SKILL.md").write_text(SKILL.format(tools=tools) + extra, encoding="utf-8")
         (skills / "para-shared").mkdir()
         (skills / "para-shared" / "test-run.md").write_text("# Test runs\n", encoding="utf-8")
         with mock.patch.object(check, "ROOT", root), \
@@ -54,6 +55,13 @@ class SkillContractAllowedTools(unittest.TestCase):
             "Bash(python3 *), Bash(py *), Bash(git mv *), "
             "Bash(osascript -e 'tell application \"Finder\" to delete POSIX file *), "
             "Glob, Read, mcp__google-workspace__get_events"), [])
+
+    def test_a_spine_over_the_word_cap_fails(self):
+        with mock.patch.object(check, "SPINE_MAX_WORDS", 50):
+            self.assertEqual(self.failures_for("Read", "word " * 20), [])
+            failures = self.failures_for("Read", "word " * 60)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("words (cap 50)", failures[0])
 
     def test_a_pattern_that_is_only_a_wildcard_is_the_whole_shell(self):
         self.assertEqual(check.whole_shell_grants("Bash(*), PowerShell(:*), Bash(ls *), Read"),
@@ -132,6 +140,88 @@ class Fragments(unittest.TestCase):
              "`Retired:` line naming a backticked path: `**A.** Reaction: none.`",
              "changelog.d/1.md: `## Changelog` line 1 is neither a `- ` Reaction line nor a "
              "`Retired:` line naming a backticked path: `**A.** Reaction: none.`"])
+
+
+class WordCaps(unittest.TestCase):
+    def failures_for(self, template_words, finished_words):
+        """check_template_size()'s failures over a base template and one example vault
+        CLAUDE.md of the given lengths, under caps of 100 and 200 words."""
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        (root / "base").mkdir()
+        (root / "base" / "CLAUDE.md.template").write_text("w " * template_words, encoding="utf-8")
+        (root / "examples" / "demo").mkdir(parents=True)
+        (root / "examples" / "demo" / "CLAUDE.md").write_text("w " * finished_words, encoding="utf-8")
+        with mock.patch.object(check, "ROOT", root), \
+                mock.patch.object(check, "TEMPLATE_MAX_WORDS", 100), \
+                mock.patch.object(check, "FINISHED_MAX_WORDS", 200), \
+                mock.patch.object(check, "failures", []):
+            check.check_template_size()
+            return check.failures
+
+    def test_files_within_their_caps_pass(self):
+        self.assertEqual(self.failures_for(100, 200), [])
+
+    def test_a_template_over_its_cap_fails(self):
+        failures = self.failures_for(101, 200)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("base/CLAUDE.md.template: 101 words, cap is 100", failures[0])
+
+    def test_a_finished_vault_over_its_cap_fails(self):
+        failures = self.failures_for(100, 201)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("examples/demo/CLAUDE.md: 201 words, cap is 200", failures[0])
+
+
+class TemplateRevisions(unittest.TestCase):
+    def failures_for(self, changelog, stamp):
+        """check_template_revisions()'s failures over a CHANGELOG.md and a base template."""
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        (root / "base").mkdir()
+        (root / "examples").mkdir()
+        (root / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
+        (root / "base" / "CLAUDE.md.template").write_text(stamp, encoding="utf-8")
+        with mock.patch.object(check, "ROOT", root), mock.patch.object(check, "failures", []):
+            check.check_template_revisions()
+            return check.failures
+
+    def test_a_template_at_the_newest_revision_passes(self):
+        self.assertEqual(self.failures_for(
+            "## 2026.02.01\n\n## 2026.01.01\n", "<!-- para-os-template: 2026.02.01 -->"), [])
+
+    def test_a_stale_stamp_a_missing_stamp_and_misordered_headings_fail(self):
+        stale = self.failures_for("## 2026.02.01\n", "<!-- para-os-template: 2026.01.01 -->")
+        self.assertIn("stamped 2026.01.01, newest changelog revision is 2026.02.01", stale[0])
+        self.assertIn("no `<!-- para-os-template: -->` marker",
+                      self.failures_for("## 2026.02.01\n", "")[0])
+        self.assertIn("not unique and newest-first", self.failures_for(
+            "## 2026.01.01\n\n## 2026.02.01\n", "<!-- para-os-template: 2026.01.01 -->")[0])
+
+
+class RulesContract(unittest.TestCase):
+    def failures_for(self, pointer, rule):
+        """check_rules_contract()'s failures over a vault whose CLAUDE.md holds `pointer` and
+        whose one rule file holds `rule`."""
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        (root / ".claude" / "rules").mkdir(parents=True)
+        (root / "CLAUDE.md").write_text(pointer, encoding="utf-8")
+        (root / ".claude" / "rules" / "a.md").write_text(rule, encoding="utf-8")
+        with mock.patch.object(check, "ROOT", root), mock.patch.object(check, "failures", []):
+            check.check_rules_contract()
+            return check.failures
+
+    def test_a_pointed_at_rule_with_paths_passes(self):
+        self.assertEqual(self.failures_for(
+            "See .claude/rules/a.md.", "---\npaths:\n  - x/**\n---\nBody.\n"), [])
+
+    def test_an_orphan_a_dangling_pointer_and_a_pathless_rule_fail(self):
+        failures = self.failures_for("See .claude/rules/b.md.", "---\ndescription: x\n---\n")
+        self.assertEqual(len(failures), 3, failures)
+        self.assertIn("a.md: on disk but not pointed at", failures[0])
+        self.assertIn("points at .claude/rules/b.md, which does not exist", failures[1])
+        self.assertIn("no non-empty `paths:` list", failures[2])
 
 
 if __name__ == "__main__":
