@@ -15,7 +15,7 @@ For a vault whose business is property: buying, renovating, selling, or holding 
 
 - **The source register, filled in.** Which facts are free, behind a login, or settled only by a paid request; any local lookup script; the listing portals; transaction costs; the local traps.
 - **An analyst persona**: one folder under `resources/prompts/` holding a `*.core.md` (strategy, priorities, guardrails), `adapters/claude-code.md`, and `knowledge/` (tax, legal structure and market reference for the vault's jurisdiction).
-- **Optionally, the owner's books**, named on the books line of `## Deal sheets`.
+- **Optionally, the owner's books and a capital page**, named on the books and capital lines of `## Deal sheets`.
 
 ## Setup
 

@@ -4,8 +4,8 @@
 
 The dossier must carry:
 
-- **The deal's figures**: price or prices, plus a bid zone and walk-away while the price is open, or the cost ceiling and sale or rent floor once it is contracted; capital deployed as booked, with its as-of date, for a held property
-- **A verdict** backed by underwriting numbers (yield or margin, and the scenarios; while a permit is undecided, the scenarios are its outcomes)
+- **The deal's figures**: price or prices, plus a bid zone and walk-away while the price is open, or, once it is contracted, the cost ceiling and sale or rent floor (the works ceiling for an own home); capital deployed as booked, with its as-of date, for a held property
+- **A verdict** backed by underwriting numbers (yield or margin, or the equity at risk for an own home, and the scenarios; while a permit is undecided, the scenarios are its outcomes)
 - **A rent roll or a renovation scope**, per the stage variant
 - **Key facts**: parcel or title identifier with the building and unit count, the parties (agent, seller, whoever executes the deed), financing (while Prospecting, the funding route wherever the dossier states it: a prospect carries no financing section yet), and the energy rating
 - **Every figure the sheet prints**, written in the dossier: the cost basis and each of its lines, each scenario's margin or yields, the per-unit amounts. One the sheet would have to work out from others is missing, however easily the dossier's numbers give it, and so is a total whose parts, summed by running code, do not equal it, as `property-dossier.md`'s Derived figures says

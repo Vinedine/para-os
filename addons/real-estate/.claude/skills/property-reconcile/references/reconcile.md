@@ -18,7 +18,7 @@ Where the vault names its books, run this as its own pass:
 - **Cost basis.** Does the dossier's cost match the ledger at the ledger's latest as-of date, rather than an older interim one? A cost basis with no as-of date is itself a defect.
 - **Realised margin.** Is a margin called realised stated against a booked sale and a booked cost, or against an estimate?
 - **Portfolio file.** Does the dossier agree with the portfolio-level file that quotes the same figure? Two files disagreeing is drift even when neither can be checked against a document.
-- **Derived figures.** Where a booked figure has to be derived (cost released against units sold), reconcile it two independent ways, write both down, and say in the dossier that it is derived and what would settle it.
+- **Derived booked figures.** Where a booked figure has to be derived (cost released against units sold), compute it two independent ways in code, per `property-dossier.md`'s Derived figures, write both down, and say in the dossier that it is derived and what would settle it.
 
 Money follows the same classes, plus one case: a figure the books cannot carry yet because the deed has not passed is not drift. It sits under prepayments, and the dossier says so.
 
