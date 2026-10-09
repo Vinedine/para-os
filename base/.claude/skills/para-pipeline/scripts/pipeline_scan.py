@@ -242,14 +242,19 @@ def build_flags(entity, next_step, stage_idx, today):
     expiring = [f for f in entity["dated_facts"]
                 if f["days_ahead"] is not None and 0 <= f["days_ahead"] <= EXPIRING_DAYS]
 
-    last_touch_date = parse_date(entity["last_touch"]["date"])
-    since_date = parse_date(entity["since"])
-    if last_touch_date:
-        basis, days = "last_touch", (today - last_touch_date).days
-    elif since_date:
-        basis, days = "stage", (today - since_date).days
-    else:
-        basis, days = None, None
+    # The latest movement: a last touch, the stage's `since`, or a first-stage Opened.
+    moves = []
+    if entity["last_touch"]["date"]:
+        moves.append(("last_touch", parse_date(entity["last_touch"]["date"])))
+    if entity["since"]:
+        moves.append(("opened" if entity["since_from"] == "opened" else "stage",
+                      parse_date(entity["since"])))
+    elif stage_idx == 0 and entity["opened"]:
+        moves.append(("opened", parse_date(entity["opened"])))
+    basis, days = None, None
+    if moves:
+        basis, moved = max(moves, key=lambda m: m[1])
+        days = (today - moved).days
 
     stale = None
     if basis and days is not None and days >= STALE_DAYS:

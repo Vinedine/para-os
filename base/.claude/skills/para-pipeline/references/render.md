@@ -37,7 +37,7 @@ One block per lifecycle, in the order `CLAUDE.md` declares them, then the close.
 One line each, naming the entity and the edit that clears it, never what to decide about the entity itself:
 
 - **`no_next_step`.**
-- **`stale`**: no movement in 14 days, saying which `basis` it was measured by, last touch or days in stage.
+- **`stale`**: no movement in 14 days, saying which `basis` it was measured by.
 - **`expiring`**: a dated fact in the Stage qualifier due within 14 days, its clause printed as written.
 - **`signer_unknown`**: the `Signer` field reads `unknown`.
 - **`home_mismatch`**, naming both paths; **`name_collision`**, each with its path; **`row_missing_columns`**, the row rendered with what it has.

@@ -551,12 +551,36 @@ class Flags(VaultCase):
         flags = find(self.deal()["entities"], "acme")["flags"]
         self.assertIsNone(flags["stale"])   # 6 days since last touch, well under 14
 
-    def test_an_old_last_touch_is_stale_on_its_own_basis_whatever_the_stage_date(self):
+    def test_an_old_last_touch_is_stale_on_its_own_basis_when_the_stage_is_older_still(self):
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Qualified (since 2026-07-01)\n**Opened:** 2026-05-01\n"
+              "**Last touch:** 2026-08-21, emailed\n")
+        flags = find(self.deal()["entities"], "acme")["flags"]
+        self.assertEqual(flags["stale"], {"basis": "last_touch", "days": 31})
+
+    def test_a_recent_stage_date_outweighs_an_old_last_touch(self):
         write(self.root, "resources/ideas/acme/brief.md",
               "# Acme\n\n**Stage:** Qualified (since 2026-09-15)\n**Opened:** 2026-05-01\n"
               "**Last touch:** 2026-08-21, emailed\n")
         flags = find(self.deal()["entities"], "acme")["flags"]
-        self.assertEqual(flags["stale"], {"basis": "last_touch", "days": 31})
+        self.assertIsNone(flags["stale"])
+
+    def lead_flags(self, opened, last_touch):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            f"| Alpha Co | Ray | outreach | {opened} | Lead |  | {last_touch}, x | open |",
+            "",
+        ]) + "\n")
+        return find(self.deal()["entities"], "Alpha Co")["flags"]
+
+    def test_a_row_opened_this_week_from_an_old_contact_is_not_stale(self):
+        self.assertIsNone(self.lead_flags("2026-09-17", "2025-08-17")["stale"])
+
+    def test_an_older_row_is_stale_on_its_opened_date(self):
+        flags = self.lead_flags("2026-09-01", "2025-08-17")
+        self.assertEqual(flags["stale"], {"basis": "opened", "days": 20})
 
     def test_a_dated_next_step_already_past_does_not_suppress_stale(self):
         write(self.root, "projects/acme/brief.md",
