@@ -237,8 +237,8 @@ def next_step_for_row(vault, today, reg_path, row, header_cols):
 def build_flags(entity, next_step, stage_idx, today):
     fields = entity["fields"]
     signer_raw = field_ci(fields, "Signer")
-    signer_unknown = bool(signer_raw and signer_raw.strip().lower() == "unknown"
-                          and stage_idx >= 1)
+    first_clause = re.split(r"[;,(]| - ", signer_raw or "")[0]
+    signer_unknown = first_clause.strip().lower() == "unknown" and stage_idx >= 1
     expiring = [f for f in entity["dated_facts"]
                 if f["days_ahead"] is not None and 0 <= f["days_ahead"] <= EXPIRING_DAYS]
 

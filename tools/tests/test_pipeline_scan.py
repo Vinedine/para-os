@@ -620,6 +620,17 @@ class Flags(VaultCase):
         self.assertFalse(find(entities, "Lead Co")["flags"]["signer_unknown"])
         self.assertTrue(find(entities, "acme")["flags"]["signer_unknown"])
 
+    def test_signer_reads_unknown_from_its_first_clause(self):
+        for value, expected in (("unknown; four owners decide", True),
+                                ("Unknown (the money holder)", True),
+                                ("unknown - to ask", True),
+                                ("Kim Lee, unknown title", False)):
+            write(self.root, "resources/ideas/acme/brief.md",
+                  "# Acme\n\n**Stage:** Qualified (since 2026-08-01)\n**Opened:** 2026-08-01\n"
+                  "**Signer:** " + value + "\n")
+            e = find(self.deal()["entities"], "acme")
+            self.assertEqual(e["flags"]["signer_unknown"], expected, value)
+
     def test_name_collision_across_homes(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Open", "",
