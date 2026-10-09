@@ -86,6 +86,17 @@ class Names(VaultCase):
         self.assertEqual(got["status"], "resolved")
         self.assertEqual(got["match"]["path"], "projects/para-os-2026-09-04")
 
+    def test_a_bucket_path_resolves_to_exactly_that_folder(self):
+        write(self.root, "projects/acme/actions.md", "# a\n")
+        write(self.root, "areas/acme/actions.md", "# b\n")
+        write(self.root, "areas/week/actions.md", "# c\n")
+        for query, path in (("projects/acme", "projects/acme"), ("areas/acme/", "areas/acme"),
+                            ("Areas/Week", "areas/week")):
+            with self.subTest(query=query):
+                got = resolve_entity(self.root, query)
+                self.assertEqual(got["status"], "resolved")
+                self.assertEqual(got["match"]["path"], path)
+
     def test_exact_match_wins_over_a_longer_neighbour(self):
         write(self.root, "projects/acme-website/actions.md", "# a\n")
         write(self.root, "projects/acme-website-v2/actions.md", "# b\n")
@@ -1352,6 +1363,21 @@ class Dangling(VaultCase):
         write(self.root, "resources/Orchard VAT (Notes).md", "# vat\n")
         write(self.root, "README.md", "[VAT](resources/Orchard%20VAT%20(Notes).md)\n")
         self.assertEqual(dangling_links(self.root), [])
+
+    def test_a_target_the_os_cannot_stat_is_dangling_not_a_crash(self):
+        # Windows raises OSError for an unreachable UNC share, where Path.exists() is
+        # documented to say False; a link to one used to stop the scan with a traceback.
+        write(self.root, "README.md", "[share](//nohost/share/x.md) and [gone](gone.md)\n")
+        real = Path.exists
+
+        def exists(path, *args, **kwargs):
+            if "nohost" in path.as_posix():
+                raise OSError(53, "The network path was not found")
+            return real(path, *args, **kwargs)
+
+        with mock.patch.object(Path, "exists", exists):
+            got = dangling_links(self.root)
+        self.assertEqual([g["href"] for g in got], ["//nohost/share/x.md", "gone.md"])
 
     def test_a_broken_link_inside_a_fence_is_a_sample(self):
         write(self.root, "README.md", "```\n[x](projects/nothing/brief.md)\n```\n")

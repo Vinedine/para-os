@@ -620,7 +620,12 @@ def resolve_entity(vault, query, buckets=("projects", "areas")):
     vault = Path(vault)
     key = norm(query)
     candidates = entity_candidates(vault, buckets)
-    exact = [c for c in candidates if c["key"] == key]
+
+    def folded(path):
+        return "/".join(norm(part) for part in str(path).strip().strip("/").split("/"))
+
+    exact = [c for c in candidates if folded(c["path"]) == folded(query)] or \
+        [c for c in candidates if c["key"] == key]
     if len(exact) == 1:
         return {"query": query, "status": "resolved", "match": exact[0]}
     partial = [c for c in candidates if key and key in c["key"]]
@@ -1638,6 +1643,15 @@ def resolve_link(from_file, href):
     return abspath(Path(from_file).parent / href)
 
 
+def link_target_exists(target):
+    """Whether a link's target exists. A path the OS cannot even stat (an unreachable UNC
+    share on Windows raises OSError) names nothing, so it reads as absent."""
+    try:
+        return Path(target).exists()
+    except OSError:
+        return False
+
+
 def link_files(vault, roots):
     """Every markdown file a link scan covers: the named roots, plus the root-level files,
     which sit in no bucket and link out as much as any of them."""
@@ -1661,7 +1675,7 @@ def dangling_links(vault, roots=LINK_ROOTS):
     for path in link_files(vault, roots):
         for line, href, _ in extract_links(strip_code(read_text(path))):
             target = resolve_link(path, href)
-            if not target.exists():
+            if not link_target_exists(target):
                 out.append({"file": rel_posix(vault, path), "line": line, "href": href,
                             "resolved": rel_posix(vault, target)})
     return out
