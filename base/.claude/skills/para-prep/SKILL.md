@@ -47,7 +47,7 @@ One call, every attendee of every meeting being prepped, each once, per [para-sh
 python3 "<this skill's base directory>/scripts/prep_scan.py" --vault <root> --person "<name, address, or Name <address>>" [--person ...] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-**Field table, the matching rules, and the by-hand fallback where the script cannot run: [references/gather.md](references/gather.md).** Then read what the prep cites: each matched card, the newest record per meeting, and an entity's brief where its stage or do-not-raise list is quoted.
+**Field table and what each match means: [references/gather.md](references/gather.md).** Then read what the prep cites: each matched card, the newest record per meeting, and an entity's brief where its stage or do-not-raise list is quoted.
 
 An `ambiguous` attendee is asked about, naming the candidate cards, before that meeting's prep renders.
 

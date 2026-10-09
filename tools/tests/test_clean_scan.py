@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for clean_scan.py. Each one pins a rule references/phase1-structural.md,
-phase3-open-items.md or phase4-audit.md states in prose, or a finding from one of the two
+"""Tests for clean_scan.py. Each one pins a rule of the script, which is the
+specification, or a finding from one of the two
 recorded --test runs of this skill.
 
     python3 test_clean_scan.py
@@ -1446,6 +1446,8 @@ class MissingLibrary(unittest.TestCase):
                 capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 2)
             self.assertIn("clean_scan:", result.stderr)
+            self.assertIn("install para-shared", result.stderr)
+            self.assertNotIn("by hand", result.stderr)
 
 
 if __name__ == "__main__":

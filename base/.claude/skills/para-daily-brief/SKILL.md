@@ -1,7 +1,7 @@
 ---
 name: para-daily-brief
 description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Naming one project or area scopes the brief to it; `review` reports what closed, slipped and moved in a window. Use when user asks "what should I work on today" (the full brief, not the `today` scope), "what's overdue", "where does <project> stand", "what did I get done this week", or types /para-daily-brief [today|week|overdue|all|review|<entity>].
-allowed-tools: Bash(python3 *), Bash(py *), Bash(git log *), Bash(git status *), Bash(stat *), Bash(ls *), Bash(wc *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
+allowed-tools: Bash(python3 *), Bash(py *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
 argument-hint: '[today|week|overdue|all|<entity>|review [week|month|since <date>] [<entity>]] [--test]'
 ---
 
@@ -43,7 +43,7 @@ One call from the vault root, per [para-shared/scripts.md](../para-shared/script
 python3 "<this skill's base directory>/scripts/brief_scan.py" --vault . [--entity <name>] [--review week|month|YYYY-MM-DD] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Pass `--entity` only under an entity scope, and `--review` only under `review`, with its window (`since <date>` passes the date). **Field table, and the by-hand fallback where the script cannot run: [references/task-scan.md](references/task-scan.md).**
+Pass `--entity` only under an entity scope, and `--review` only under `review`, with its window (`since <date>` passes the date). **Field table: [references/task-scan.md](references/task-scan.md).**
 
 ### Step 1b: Resolve an entity scope
 
@@ -56,11 +56,11 @@ Only when the argument, or what follows `review` and its window, is not a scope 
 
 ### Step 1c: The review scope
 
-Only under `review`. The scan's `review` block holds every count, for the vault or for the entity Step 1b resolved; render it per [references/output.md](references/output.md#the-review-scope), with no Agenda, Ideas, Triage or artifact. A review looks back, so Steps 4c to 5c and 7 do not run; Step 4e still breaks the Next action's ties. **The rules it applies, and the by-hand fallback: [references/task-scan.md](references/task-scan.md#the-review-window).**
+Only under `review`. The scan's `review` block holds every count, for the vault or for the entity Step 1b resolved; render it per [references/output.md](references/output.md#the-review-scope), with no Agenda, Ideas, Triage or artifact. A review looks back, so Steps 4c to 5c and 7 do not run; Step 4e still breaks the Next action's ties.
 
 ### Steps 2 to 4b: Scan, parse, bucket, aggregate
 
-Done by the scan. **What it implements, and the fallback when it cannot run: [references/task-scan.md](references/task-scan.md).**
+Done by the scan.
 
 ### Steps 4c to 4f: Health flags, ideas lane, Vision, lifecycle counts
 
@@ -86,7 +86,7 @@ Exact layout, line rules, and the single Next action close. **Full spec: [refere
 
 Default and `all` scopes only (never an entity scope), and **only when an Artifact tool is available in the harness** - if it is not, the last edge case below applies.
 
-Render the page with `scripts/render_dashboard.py` from the scan and a small judgment file, per [references/dashboard.md](references/dashboard.md), which owns the page spec, the remembered URL and the title match that updates yesterday's page in place. The page goes to the harness's scratchpad or temp directory, **never inside the vault**. Publish it and give the user the link on one line.
+Render the page with `scripts/render_dashboard.py` from the scan and a small judgment file, per [references/dashboard.md](references/dashboard.md), which owns what the judgment holds, the remembered URL and the title match that updates yesterday's page in place. The page goes to the harness's scratchpad or temp directory, **never inside the vault**. Publish it and give the user the link on one line.
 
 ## Strict rules
 
@@ -103,7 +103,7 @@ Render the page with `scripts/render_dashboard.py` from the scan and a small jud
 ## Edge cases
 
 - **Vault with no action files:** with empty or absent `triage/`, say `No action-bearing files found in <cwd>.` and stop; with a populated triage, render only 📥 Triage.
-- **Every marker case is the scan's**, gate, cadence and malformed date alike: render the `lane` it returns, and a task carrying `malformed_date` reads "(malformed date)". Where the fallback is running instead, [references/task-scan.md](references/task-scan.md) holds the same rules.
+- **Every marker case is the scan's**, gate, cadence and malformed date alike: render the `lane` it returns, and a task carrying `malformed_date` reads "(malformed date)".
 - **Recurring item without a date:** counts in Recurring; in `all`, show "next: -".
 - **Fewer than 5 Now candidates:** show what exists; never pad the list from Undated.
 - **`resources/ideas/` missing or empty:** omit the Ideas lane.

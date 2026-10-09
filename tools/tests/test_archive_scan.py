@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for archive_scan.py. Each one pins a rule references/reconcile.md or
-references/move.md states in prose.
+"""Tests for archive_scan.py. Each one pins a rule of the script, which is the
+specification the skill's references rely on.
 
     python3 test_archive_scan.py
     py -3 test_archive_scan.py
@@ -1196,8 +1196,8 @@ class RunAsAScript(unittest.TestCase):
         report = json.loads(result.stdout.decode("utf-8"))
         self.assertEqual(report["actions"]["open"][0]["text"], "Bestel café voor de opening")
 
-    def test_a_missing_shared_library_exits_2_and_names_the_fallback(self):
-        # scripts.md: a missing shared library is a by-hand fallback, never a traceback.
+    def test_a_missing_shared_library_exits_2_and_says_where_it_belongs(self):
+        # scripts.md: a missing shared library stops the skill, never a traceback.
         isolated = self.base / "skills" / "para-archive" / "scripts"
         isolated.mkdir(parents=True)
         shutil.copy(SCRIPT, isolated / "archive_scan.py")
@@ -1208,7 +1208,8 @@ class RunAsAScript(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, "")
         self.assertIn("archive_scan:", result.stderr)
-        self.assertIn("scan by hand", result.stderr)
+        self.assertIn("install para-shared", result.stderr)
+        self.assertNotIn("by hand", result.stderr)
 
 
 if __name__ == "__main__":

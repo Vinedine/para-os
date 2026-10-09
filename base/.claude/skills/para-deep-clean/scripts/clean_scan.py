@@ -58,10 +58,9 @@ try:
         template_marker, triage_items,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
-except ImportError as missing:  # the skill falls back to scanning by hand
+except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"clean_scan: {missing}. The shared vault library belongs at "
-          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or scan "
-          f"by hand with the phase's own reference", file=sys.stderr)
+          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 

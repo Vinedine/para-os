@@ -1,5 +1,5 @@
 schema_version: "1.1"
 name: voice-draft-uses-the-recorded-greeting
-tags: [triage, voice, native]
+tags: [triage, voice, shell]
 context:
   scaffold_script: setup.sh

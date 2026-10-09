@@ -56,10 +56,9 @@ try:
     from paraos_vault import paraos_home_dir, same_place, triage_sources  # noqa: E402
     from paraos_mail import ingest_ledger  # noqa: E402
     from paraos_vault import HEADING_RE, closed_tasks, table_cells  # noqa: E402
-except ImportError as missing:  # the skill falls back to scanning by hand
+except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"brief_scan: {missing}. The shared vault library belongs at "
-          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or scan "
-          f"by hand with references/task-scan.md", file=sys.stderr)
+          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 LINK_TARGET_RE = re.compile(r"\]\([^)]*\)")

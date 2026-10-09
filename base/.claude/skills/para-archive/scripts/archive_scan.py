@@ -54,10 +54,9 @@ try:
         registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
         snapshot, stage_line, stage_of, strip_code, vault_root,
     )
-except ImportError as missing:  # the skill falls back to scanning by hand
+except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"archive_scan: {missing}. The shared vault library belongs at "
-          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or scan "
-          f"by hand with the skill's own reference procedure", file=sys.stderr)
+          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 
@@ -294,8 +293,8 @@ SETTLE_PATTERNS = tuple(
 
 def settle_check(text):
     """Whether a Backlog item is settled: a capitalised Done, Decided or Resolved as a whole
-    word anywhere in it, or a lowercase one opening the item or a clause ("decided: x"), per
-    reconcile.md Step 2. `by` names the leftmost match among the three."""
+    word anywhere in it, or a lowercase one opening the item or a clause ("decided: x").
+    `by` names the leftmost match among the three."""
     best = None
     for label, pattern in SETTLE_PATTERNS:
         m = pattern.search(text)

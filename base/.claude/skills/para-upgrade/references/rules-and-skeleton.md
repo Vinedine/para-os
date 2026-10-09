@@ -6,7 +6,7 @@ Diff the vault's `CLAUDE.md` against the template at the ref ([resolved per delt
 
 **A row the vault's checkbox table lacks is the scan's `checkboxes.missing`**: add it as the master writes it, an `areas/network/` row at `checkboxes.contact_card_level`. A row the vault already has is never changed: the template is a floor.
 
-**Read the template at the vault's own marker too, as a baseline.** Where the vault departs from its *own* baseline, that departure is a decision: carry it forward rather than flattening it back to the template. The scan's `baseline` block resolves the commit - [scan.md](scan.md) states the walk, always from commits even where the master itself is read from the working tree. A vault with no marker, or one never committed, has no baseline (`baseline.commit` null): diff against the new template alone and say so. Normalise line endings on both sides of both diffs.
+**Read the template at the vault's own marker too, as a baseline.** Where the vault departs from its *own* baseline, that departure is a decision: carry it forward rather than flattening it back to the template. The scan's `baseline` block ([scan.md](scan.md)) resolves the commit, always from commits even where the master itself is read from the working tree. A vault with no marker, or one never committed, has no baseline (`baseline.commit` null): diff against the new template alone and say so. Normalise line endings on both sides of both diffs.
 
 **The marker line is never part of the text you carry over.** It is line 3 of the template, so a section-by-section replacement picks it up. Hold the vault's existing marker through every phase and let Phase 5 write the new one.
 

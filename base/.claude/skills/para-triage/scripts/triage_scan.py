@@ -54,10 +54,9 @@ try:
         ingest_ledger, ingest_logs, log_instant, note_name_parts, thread_hash, unanswered,
         watermark, written_under,
     )
-except ImportError as missing:  # the skill falls back to scanning by hand
+except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"triage_scan: {missing}. The shared vault library belongs at "
-          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or scan "
-          f"by hand with the skill's own reference procedure", file=sys.stderr)
+          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 
@@ -121,8 +120,7 @@ def _log_summary(record, now):
 
 
 def ingest_block(vault, entries, vault_name, paraos_home, now):
-    """Whether /para-ingest already covered this vault's mailboxes and sync scripts, per the
-    three bullets of references/sources.md: registered and active, a write log within 48
+    """Whether /para-ingest already covered this vault's mailboxes and sync scripts: registered and active, a write log within 48
     hours, and that log actually reaching this root (a `files_written` entry under this
     vault's `triage/`, or an explicit `0` in `counts.per_vault` for this vault's name). A
     positive count with nothing written under this root is the opposite of coverage - the
@@ -145,7 +143,7 @@ def ingest_block(vault, entries, vault_name, paraos_home, now):
     if newest_write and isinstance(newest_write.get("per_vault"), dict):
         count_for_vault = newest_write["per_vault"].get(vault_name)
 
-    # references/sources.md names exactly four phrasings: "pulled as normal" for a vault the
+    # Exactly four phrasings: "pulled as normal" for a vault the
     # registry does not cover at all (unregistered or inactive - nothing to report on either),
     # "pulled locally" for a registered, active vault ingest still did not cover, in the two
     # shapes its own bullets name (a stale/missing/preview-only log, or a positive count staged
@@ -189,8 +187,8 @@ def _norm_script(path):
 
 
 def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs, vault_reason):
-    """`pull` / `run` / `skip` / `sent` / `lookup` / `unknown` for one Triage sources row, per
-    exactly the conditions references/sources.md states. A drive row is never ingest's and
+    """`pull` / `run` / `skip` / `sent` / `lookup` / `unknown` for one Triage sources row, by
+    these conditions. A drive row is never ingest's and
     always `lookup`; an unrecognised row is `unknown`; everything else follows the vault's
     coverage verdict, refined per row for a mailbox `declaring_vaults` does not list, a
     mailbox an ingest error names, or a sync script `sync_runs` does not record without an
@@ -348,8 +346,8 @@ def _extract_mailbox(source_value):
 
 def _content_incomplete(text):
     """`(True/False/None, matched phrase)` from a note's `Content` line. The vocabulary is
-    this script's own - stated in references/scan.md's by-hand section, not in
-    references/filing.md or references/approval.md, which only name the field. An incomplete
+    this script's own, not stated in references/filing.md or references/approval.md, which
+    only name the field. An incomplete
     signal wins even where a "held" phrase is also present, since "false" means the body is
     held *with none* of the incomplete signals. Only the clauses describing the body are
     read: a clause naming an attachment or linked document ("26 image attachments not read")

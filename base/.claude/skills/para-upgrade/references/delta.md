@@ -6,7 +6,7 @@ The scan's `clone` block names the ref read, the clone's checked-out branch and 
 
 ## Resolving the master
 
-The master for the marker and Phase 1 is `base/CLAUDE.md.template`, and Phase 2's is `base/`. A vault declares a flavor and its modules each on its own line under `**Type:**`. The scan's `masters` block resolves each to a root - [scan.md](scan.md) states the walk. What the resolution *means*:
+The master for the marker and Phase 1 is `base/CLAUDE.md.template`, and Phase 2's is `base/`. A vault declares a flavor and its modules each on its own line under `**Type:**`. The scan's `masters` block resolves each to a root ([scan.md](scan.md)). What the resolution *means*:
 
 - **Flavor** (what the vault is about): never supplies a `CLAUDE.md` master. Its addon adds sections, rule and skeleton files, and skill masters on top, each checked in the phase that checks its kind.
 - **Modules** (what a vault does beside that): read exactly like a flavor, once per named module. A vault takes none, one or several, and they never replace a base or flavor section. A module the scan reports with no folder at the ref is skipped, never guessed at; one it reports `carried_forward` (the ref predates `addons/` entirely) is likewise left untouched.
@@ -18,7 +18,7 @@ Read the scan's `skills` and `integrations` verdicts (`## Installed integration 
 
 ## Smoke-test baseline
 
-**This runs on every Phase 0, whatever the Equal-markers check above decided**, including the run that stops there: a migration that does nothing still has to prove it did nothing. The scan's own `smoke` block is this baseline - [scan.md](scan.md) states what it keeps and its fallback.
+**This runs on every Phase 0, whatever the Equal-markers check above decided**, including the run that stops there: a migration that does nothing still has to prove it did nothing. The scan's own `smoke` block is this baseline - [scan.md](scan.md) states what it keeps.
 
 ## Checkpoints
 

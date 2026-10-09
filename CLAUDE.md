@@ -102,9 +102,8 @@ nowhere else.
   base functionality with no instance there is unfinished.
 - **Scripts do the mechanics, prose does the judgment.** Parsing, dating, bucketing, counting
   and every derived figure belong in a skill's `scripts/*_scan.py`, its suite in `tools/tests/`. A
-  `SKILL.md` says what to do with the scan's output and keeps a by-hand fallback for when the
-  script cannot run. A scan emits only what a step of its skill reads. The script, its test and
-  the reference holding that fallback change together, or none changes.
+  `SKILL.md` says what to do with the scan's output; the script and its suite are the
+  specification, and no prose restates them. A scan emits only what a step of its skill reads.
 - **Rules governing a script live in that script's README or docstring**, not in a `SKILL.md`.
 - **A defect in a script becomes a test before it is fixed.** A defect in prose is first a
   question: delete the rule, or rewrite it shorter. It earns an eval case in `evals/` only when

@@ -1,5 +1,5 @@
 schema_version: "1.1"
 name: deep-clean-audit-reports-only
-tags: [deep-clean, native]
+tags: [deep-clean, shell]
 context:
   scaffold_script: setup.sh

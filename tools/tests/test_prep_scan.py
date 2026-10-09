@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for prep_scan.py. Each one pins a rule references/gather.md states in prose.
+"""Tests for prep_scan.py. Each one pins a rule of the script, which is the specification.
 
     python3 test_prep_scan.py
     py -3 test_prep_scan.py
@@ -552,8 +552,8 @@ class ScriptRun(VaultCase):
 
 class MissingLibrary(unittest.TestCase):
 
-    def test_missing_shared_library_exits_2_and_names_the_fallback(self):
-        # SKILL.md falls back to references/gather.md on exit 2; the message says so.
+    def test_missing_shared_library_exits_2_and_says_where_it_belongs(self):
+        # scripts.md: exit 2 stops the skill; the message names what to install.
         with tempfile.TemporaryDirectory() as tmp:
             isolated = Path(tmp) / "skills" / "para-prep" / "scripts"
             isolated.mkdir(parents=True)
@@ -563,7 +563,8 @@ class MissingLibrary(unittest.TestCase):
                  "--person", "Ann"], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 2)
             self.assertTrue(result.stderr.startswith("prep_scan: "), result.stderr)
-            self.assertIn("references/gather.md", result.stderr)
+            self.assertIn("install para-shared", result.stderr)
+            self.assertNotIn("by hand", result.stderr)
             self.assertEqual(result.stdout, "")
 
 

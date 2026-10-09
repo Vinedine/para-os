@@ -6,7 +6,7 @@
 # builds, so they can archive cleanly without tripping another case's fixtures.
 #
 # harborlight-crm: a clean preview case. Its actions.md holds exactly one closed checkbox,
-# one settled Backlog line (a bold "Decided" prefix, per reconcile.md's rule that a Backlog
+# one settled Backlog line (a bold "Decided" prefix, per archive_scan.py's rule that a Backlog
 # item already carrying a disposition is closed, never open), and one open undated checkbox.
 # A contact file links to its brief.md, so the inbound-link scan has something to find.
 #

@@ -46,7 +46,7 @@ One call per lifecycle scope, after Step 1 has the declared lifecycles, per [par
 python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault <root> [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Pass `--lifecycle` only under a lifecycle scope. Exit 3 is a `--lifecycle` matching no declared heading or noun (`{"error": "no such lifecycle", "declared": [...]}`): stop and ask, as in Step 1. **Field table, and the by-hand fallback where the script cannot run: [references/scan.md](references/scan.md).**
+Pass `--lifecycle` only under a lifecycle scope. Exit 3 is a `--lifecycle` matching no declared heading or noun (`{"error": "no such lifecycle", "declared": [...]}`): stop and ask, as in Step 1. **Field table: [references/scan.md](references/scan.md).**
 
 ### Step 4: Render
 
@@ -67,7 +67,7 @@ Word what the script computed into the board by stage, the flags, the counts, th
 - **A declared home that does not exist yet** (the register file, an `archive/` folder): count it as empty and say so once, rather than reporting an error per stage.
 - **An entity whose folder sits in the wrong home for its stage**: render it under the stage its Stage line names and flag the mismatch, naming both paths.
 - **Two entities with the same name** in different homes: render both, each with its path, and flag the collision.
-- **A document in a declared home with no Stage line** (`no_stage`) **or a Stage line naming no declared stage** (`unknown_stage`, with the name read): list it by path under a closing line. Only one that looks like a filing gap is reported, never an ordinary project or area sharing the home ([scan.md](references/scan.md) Step 2).
+- **A document in a declared home with no Stage line** (`no_stage`) **or a Stage line naming no declared stage** (`unknown_stage`, with the name read): list it by path under a closing line.
 - **A register row missing a column** the table declares: render what it has, and flag the row rather than dropping it.
 - **A lifecycle with no live entity at all**: say in one line that nothing is live. An empty pipeline is a real answer.
 

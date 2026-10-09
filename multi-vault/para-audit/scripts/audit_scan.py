@@ -54,7 +54,7 @@ The seven checks, one cell each in `cells`, every defect a `finding` with its `f
 `upgrade_first` is the vault with an `upgrade` finding that is furthest behind, then has the
 most findings, registry order breaking a tie; null where no vault has one.
 
-Exit codes: 0 answered; 2 the libraries are missing (scan by hand); 3 no registry, or one
+Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one
 listing no entry; 4 the clone or the ref cannot be read, or its template carries no marker;
 5 no `--ref` and the clone has no `origin/stable`; 6 no clone found.
 """
@@ -79,8 +79,8 @@ def _skills_root():
 
 SKILLS_ROOT = _skills_root()
 if SKILLS_ROOT is None:
-    print("audit_scan: para-shared/ and para-upgrade/ belong beside this skill. Install them, "
-          "or audit by hand with references/checks.md", file=sys.stderr)
+    print("audit_scan: para-shared/ and para-upgrade/ belong beside this skill. Install them",
+          file=sys.stderr)
     sys.exit(2)
 sys.path[:0] = [str(SKILLS_ROOT / lib / "scripts") for lib in ("para-shared", "para-upgrade")]
 
@@ -95,7 +95,8 @@ try:
         integrations_block, masters_block, skills_block,
     )
 except ImportError as missing:
-    print(f"audit_scan: {missing}. Audit by hand with references/checks.md", file=sys.stderr)
+    print(f"audit_scan: {missing}. install para-shared and para-upgrade beside this skill",
+          file=sys.stderr)
     sys.exit(2)
 
 COLUMNS = ("revision", "type", "declarations", "rules", "integrations", "skills", "size")

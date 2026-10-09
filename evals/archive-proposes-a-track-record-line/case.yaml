@@ -1,5 +1,5 @@
 schema_version: "1.1"
 name: archive-proposes-a-track-record-line
-tags: [archive, native]
+tags: [archive, shell]
 context:
   scaffold_script: setup.sh

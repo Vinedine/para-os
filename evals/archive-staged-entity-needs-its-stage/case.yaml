@@ -1,5 +1,5 @@
 schema_version: "1.1"
 name: archive-staged-entity-needs-its-stage
-tags: [archive, native, write]
+tags: [archive, shell, write]
 context:
   scaffold_script: setup.sh

@@ -6,17 +6,15 @@
 - **Skill names** in `README.md`, `meetings.md`, briefs, and other skills. Verify each name still exists as a skill before repointing; drop references to skills that no longer exist rather than guessing a replacement. **The sweep's scope is the renames and removals the collected entries name**: an unresolved name no entry explains predates this delta, and is listed as a vault observation rather than repointed.
 - **Installed skill copies**, in both places they can live, because each goes stale on its own:
   - *The vault's bundled `.claude/skills/`*. **These are skeleton content and this phase audits them like any other skeleton file.** They also shadow the user-level install, so a stale one silently overrides a correct global skill for every session in that vault. Diff each against the ref's master and report; call out by name a bundled skill the scan's `revisions_behind` puts at more than one revision behind.
-  - *The user-level install*, if the vault runs on that instead. Diff against the ref's masters (`base/.claude/skills/`, `multi-vault/*/` for an installed cross-vault skill, plus `addons/<name>/.claude/skills/` for the declared flavor and each declared module) and report drift. Syncing them is a machine-level action, so propose it, don't do it silently.
+  - *The user-level install*, if the vault runs on that instead. Report its drift the same way. Syncing them is a machine-level action, so propose it, don't do it silently.
 
   If both exist, say which one actually wins for this vault before reporting either as stale. **A copy that differs from the ref but matches the clone's working tree or another of its branches is ahead of the ref**, synced from there: report it that way, in the verdicts under `## Installed integration scripts`, never as drift. Installed flavor skills are checked only for a vault declaring that flavor.
 
-  **Diff a skill as a tree, never as its markdown files.** A skill may ship a `scripts/` folder beside its `SKILL.md` and hand it the mechanical half of its work, as `para-daily-brief/scripts/brief_scan.py` does. The scan's `skills` block already enumerates the **master's** files and tests each against the copy ([scan.md](scan.md)), so a file the master has and the copy lacks is reported under `missing`: a walk of the copy alone is exactly the walk that cannot see a new one. A copy whose `SKILL.md` names a script it does not have (`names_missing_script`) still runs - the skill says so and falls back to its prose procedure - but it runs slower, and a fallback that cannot reach what the script reads loses part of the answer, so report it with what the operator loses rather than as a missing file.
+  **A skill is compared as a tree**, its `scripts/` folder included: a file the master has and the copy lacks is under the row's `missing` ([scan.md](scan.md)). A copy whose `SKILL.md` names a script it does not have (`names_missing_script`) stops where it would run it, per [para-shared/scripts.md](../../para-shared/scripts.md): report the skill as unusable until synced, not as a missing file.
 
   **A skill script is not an installed integration.** It carries no `para-os-integration:` marker, no vault config and no local fixes, and it is matched to its master by path rather than by marker, so the four-condition gate below does not govern it: syncing one is the plain copy the user asks for. Verify it by re-running the scan, which reports the copy `identical`.
 
   **`para-shared/scripts/` is a dependency of the others, not a skill of its own.** It holds the library every skill script reads the vault with. Check it first and name it once, rather than per skill.
-
-  **Normalize line endings on these diffs too**, as the integration scripts below do (the scan's own `normalised()` compare, [scan.md](scan.md)): LF from `git show` against CRLF in a Windows checkout otherwise reports every file as drifted.
 - **The vault's own `CLAUDE.md` claims about itself.** Enumerate the claims first, then verify each with a command, and report the list with a verdict per row rather than a sentence saying they were checked.
 
   | Claim shape | How it reads | The check |
@@ -35,17 +33,11 @@
 
 ## Installed integration scripts
 
-Every script a para-os integration ships carries `para-os-integration: <name> <revision>` in its header. An integration whose README installs it outside any vault (a machine-level hook) is checked where that README says it lives, once per machine, and reported as such. **Grep the whole vault for that marker, not just `resources/scripts/`** - an add-on may install its scripts elsewhere, and a folder-scoped grep would never see them.
+Every script a para-os integration ships carries `para-os-integration: <name> <revision>` in its header. An integration whose README installs it outside any vault (a machine-level hook) is checked where that README says it lives, once per machine, and reported as such.
 
-**Compare the content, never the marker string.** The marker says which integration a file came from; it does not say what the file contains. A copy whose header was bumped by hand while the code stayed old reports clean under a string compare. The scan's `integrations` block already carries the normalised diff, `diff_stat`, and the verdict for every marked script ([scan.md](scan.md), "The verdict"); where it cannot run, diff by hand:
+**Compare the content, never the marker string.** The marker says which integration a file came from; it does not say what the file contains. A copy whose header was bumped by hand while the code stayed old reports clean under a string compare. The scan's `integrations` block carries the normalised diff, `diff_stat`, and the verdict for every marked script ([scan.md](scan.md), "The verdict").
 
-```bash
-diff <(git show <ref>:integrations/<name>/<file> | tr -d '\r') <(tr -d '\r' < "<vault>/<path-to-copy>")
-```
-
-**Run this via bash (Git Bash or WSL), never PowerShell:** the `<(...)` process substitution above is bash-only. Where only PowerShell is available, write both normalised sides to temp files first and diff those instead.
-
-**Resolving `<name>` to a master** follows the order [scan.md](scan.md) states: `integrations/<name>/<file>` first, then the addon's `pipeline/<file>`, which carries the same marker. If neither path exists at the ref but the *folder* does, the file was **renamed upstream**: when that folder ships exactly one non-test script, that is the master - diff against it and report the rename as part of the verdict (the scan's `renamed: true`). If the folder ships several, name them and ask which (`ambiguous-rename`, with `candidates`). Only when the folder itself is absent is the marker unresolvable (`unresolvable`): report it, leave the script alone, and never match it to a folder with a similar name. A marker whose integration a collected entry retires is removed as that entry's Reaction says, one approval per file: the gate governs overwrites, not that removal.
+**A script renamed upstream** (`renamed: true`, its folder's one script read as the master) is reported as part of the verdict. Where the folder ships several (`ambiguous-rename`), name the `candidates` and ask which. An `unresolvable` marker, its folder gone: report it, leave the script alone, and never match it to a folder with a similar name. A marker whose integration a collected entry retires is removed as that entry's Reaction says, one approval per file: the gate governs overwrites, not that removal.
 
 Report from the line-ending-normalised diff:
 
@@ -67,7 +59,7 @@ Report from the line-ending-normalised diff:
 A user who reads the diff may say "sync it". An overwrite needs **all four**:
 
 1. **The user asked**, in this session, for that script or for the integrations generally. Never infer it from a general "upgrade the vault".
-2. **Equivalence is proven mechanically, not read.** The scan's `overwrite` field already runs this proof: the strongest is a normalised copy byte-identical to the master file at a commit in its history (`proof: "history-match"`, which also settles condition 3), then, for Python, identical `ast.dump` trees with every module, class and function docstring stripped first, so a copy whose only change is a reworded docstring still proves equivalent (`"ast"`), then equal after normalising line endings and trailing whitespace (`"whitespace"`). Any other difference is drift for the user to judge, so fall back to reporting (`eligible: false`). **Print the verdict.**
+2. **Equivalence is proven mechanically, not read.** The scan's `overwrite` field runs this proof against a commit in the master's history: `proof` is `history-match` (byte-identical, normalised, which also settles condition 3), `ast` (Python with identical syntax trees, docstrings aside) or `whitespace` (equal but for line endings and trailing whitespace). Any other difference is drift for the user to judge (`eligible: false`): report it. **Print the verdict.**
 3. **The copy is not *ahead*.** Divergence means local work exists, and only the user can decide what survives - the scan never marks `eligible: true` for a verdict of `ahead`, `both`, or `marker-matches-content-differs`.
 4. **It is verified after the write**, by re-diffing against the master and running the integration's own test suite (its `suite.runner`, with the suite's `files` and `fixtures` copied beside the installed copy) against the installed copy, not against the master - **from a scratch directory with no vault config present**, not in place. Run in place, the suite picks up whatever real config the installed copy resolves relative to itself (a multi-vault routing table, a live API key), which can fail assertions the fixture never anticipated even though the copy is provably correct. A failure that traces to config content rather than the script's own logic is inconclusive, not a failed verification - diagnose which before reporting either way.
 

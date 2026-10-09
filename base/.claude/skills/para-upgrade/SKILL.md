@@ -24,7 +24,7 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 
 1. **A local para-os clone**, found per [para-shared/scripts.md](../para-shared/scripts.md). Where none is (the scan's exit 6), ask the user for its path. Every master is read from it, per [references/delta.md](references/delta.md).
 2. **An explicit ref, defaulting to `origin/stable`,** what users get; `origin/main` is where work merges before a release. Run `git fetch` first so `origin/stable` is current. With no ref named, a clone not on `stable` (the Phase 0 scan's `clone.checked_out.branch`, or its exit 5) was made before releases moved there: offer the one-time switch, `git -C <clone> fetch origin` then `git -C <clone> checkout stable`, so its later pulls follow `stable`.
-3. **The ref should be committed.** If the user names a working branch, read the Phase 0 scan's `clone.dirty_masters` (by hand: [references/scan.md](references/scan.md)). If the master is uncommitted, name the files and ask whether to proceed anyway or commit first. Never commit on the user's behalf.
+3. **The ref should be committed.** If the user names a working branch, read the Phase 0 scan's `clone.dirty_masters`. If the master is uncommitted, name the files and ask whether to proceed anyway or commit first. Never commit on the user's behalf.
 4. **Vault has a `CLAUDE.md`.** If missing, this is a bootstrap, not an upgrade: point at `bootstrap-prompt.md` and stop.
 5. **A clean-enough vault working tree, and a way to undo.** This skill produces a large diff. If the vault already has substantial uncommitted changes, tell the user, so the migration doesn't get tangled with unrelated edits. Git undoes only what it tracks: check `CLAUDE.md` and `.claude/` with `git ls-files` and `git check-ignore`, and name any file in scope that git does not track. Where neither git nor a drive's version history covers a file, say so plainly and get an explicit go-ahead before Phase 1.
 6. **No live peer on the vault.** Another session writing the same `CLAUDE.md` mid-run is not a sync client, and nothing in the file says it happened. Where the harness lists running sessions or agents, read that listing before Phase 1 and name any working in this vault; the operator decides whether to wait. The checkpoint scans catch one that starts later.
@@ -38,7 +38,7 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> [--clone <path>] [--ref <ref>] > <scan output path>
 ```
 
-**Exit codes**: 0 answered; 2 fall back to [references/scan.md](references/scan.md)'s by-hand procedure; 3 `--vault` is not a vault root (one with no `CLAUDE.md` is Precondition 4's bootstrap stop); 4 the clone or the ref cannot be read (ask for the clone's path or a ref that resolves, never guess one); 5 no ref was named and the clone has no `origin/stable`: Precondition 2's switch, then scan again; 6 no clone found: Precondition 1.
+**Exit codes**: 0 answered; 3 `--vault` is not a vault root (one with no `CLAUDE.md` is Precondition 4's bootstrap stop); 4 the clone or the ref cannot be read (ask for the clone's path or a ref that resolves, never guess one); 5 no ref was named and the clone has no `origin/stable`: Precondition 2's switch, then scan again; 6 no clone found: Precondition 1.
 
 Read the `delta` block for the vault's marker, the master's, the verdict and the collected entries, and the `clone` block for the ref read, the checked-out branch and `origin/stable`, each with its commit. Reading and resolving the master, the Equal case (which also reads Phase 3's `skills` and `integrations` blocks) and the smoke-test baseline: [references/delta.md](references/delta.md).
 
@@ -59,7 +59,7 @@ Diff the vault's `CLAUDE.md` against the template at both the new ref and the va
 
 ## Phase 3 - Derived copies: rules and scripts
 
-The phase that pays for the skill: vault-local skills restating changed rules, stale skill names, bundled and user-level skill copies, and installed integration scripts diffed by **content** rather than by their marker string. Read the scan's `skills` and `integrations` blocks for every verdict, diff, overwrite-eligibility, `revisions_behind` and suite locator - the shared five-rule verdict is stated once in [references/scan.md](references/scan.md). Read-only - drift is reported and the user merges it. **Full procedure: [references/derived-copies.md](references/derived-copies.md).**
+The phase that pays for the skill: vault-local skills restating changed rules, stale skill names, bundled and user-level skill copies, and installed integration scripts diffed by **content** rather than by their marker string. Read the scan's `skills` and `integrations` blocks for every verdict, diff, overwrite-eligibility, `revisions_behind` and suite locator - the shared verdict is stated once in [references/scan.md](references/scan.md). Read-only - drift is reported and the user merges it. **Full procedure: [references/derived-copies.md](references/derived-copies.md).**
 
 ## Phase 4 - Rule-driven content violations
 
@@ -69,7 +69,7 @@ The content that breaks the *new* rules, with checks derived from the changelog 
 
 1. **Write the new revision marker** into the vault's `CLAUDE.md`, and write it *here* - Phase 1 holds the vault's existing marker even while it replaces the section around it. Only after the phases above actually applied: the next run skips whatever a marker claims. The checkpoint re-check comes immediately before.
 2. **Run the vault's own skills as a smoke test.** Re-run the scan with `--unchanged <the Phase 0 scan>`: `since.smoke` is every count that moved since before the migration (`{count, before, after}`), and `since.changed` every file that changed, each of which should be one this run wrote. Also run at least one skill end to end (`/para-daily-brief week` publishes nothing). A skill that errors, or a count that moved for a file this migration did not write, is a regression, fixed here.
-3. **Re-run the link check** from `/para-deep-clean` Phase 1, Step 1.2 (its `phase1-structural.md`), as written there. Zero dangling relative links in live buckets.
+3. **Re-run the link check**: `paraos_vault.py links dangling --vault .`, per [para-shared/scripts.md](../para-shared/scripts.md). Zero dangling relative links in live buckets.
 4. **Report.** What changed per phase, what was proposed and declined, what was routed where, and what you did **not** verify.
 
 ## Strict rules

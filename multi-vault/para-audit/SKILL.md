@@ -40,9 +40,7 @@ Per [para-shared/scripts.md](../para-shared/scripts.md):
 python3 "<this skill's base directory>/scripts/audit_scan.py" [--clone <path>] [--ref <git-ref>] [--paraos-home <folder holding vaults.json>] > <scan output path>
 ```
 
-**Exit codes**: 0 answered; 2 the libraries are missing; 3 Step 0's stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: offer the one-time switch (`git -C <clone> fetch origin`, then `git -C <clone> checkout stable`) and scan again; 6 no clone found: ask for its path.
-
-**Without a shell, or on exit 2, audit by hand** per [references/checks.md](references/checks.md#by-hand), and say so in one line.
+**Exit codes**: 0 answered; 3 Step 0's stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: offer the one-time switch (`git -C <clone> fetch origin`, then `git -C <clone> checkout stable`) and scan again; 6 no clone found: ask for its path.
 
 The output holds `master` (the ref, its revision, `in_development`), `vaults` (one row per audited vault: a `cells` value per column, `revision`, `findings` each with `detail`, `fix` and `route`, and `observations`), `excluded`, `drives` and `upgrade_first`. Every field and rule is in the script's docstring.
 
@@ -69,7 +67,7 @@ What a finding means for the operator, beyond its cell: [references/checks.md](r
 - **A vault ahead of the master is judged on nothing that master answers,** and never sent to `/para-upgrade`, which refuses to downgrade.
 - **A type and kind mismatch names both values and decides neither.** Nothing in the files says which one is stale.
 - **Size is an adherence finding.** Never present extraction as a token saving.
-- **Exact patterns are literal matches**, by the scan or by `Grep` by hand: markers, headings and declaration lines, never a reading of prose by a sub-agent.
+- **Exact patterns are literal matches**, by the scan: markers, headings and declaration lines, never a reading of prose by a sub-agent.
 
 ## Edge cases
 

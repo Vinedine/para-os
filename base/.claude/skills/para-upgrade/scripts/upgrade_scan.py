@@ -47,10 +47,9 @@ try:
         ADDONS_DIR, BASE_TEMPLATE, OLDER_ADDON_DIRS, addon_root, changelog_entries,
         clone_files, clone_read, clone_ref, clone_session, entries_between, master_template,
     )
-except ImportError as missing:  # the skill falls back to scanning by hand
+except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"upgrade_scan: {missing}. The shared vault library belongs at "
-          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or scan "
-          f"by hand with references/scan.md's by-hand fallback", file=sys.stderr)
+          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 

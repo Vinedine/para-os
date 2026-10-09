@@ -8,5 +8,5 @@ A skill with a `scripts/` folder opens by running its scan. The call is the skil
 - **The output is one JSON document.** A scan never writes into the vault, asks, or decides a disposition.
 - **The para-os clone** is `--clone <path>` where the operator names one, else `$PARAOS_HOME/para-os` (default `~/.paraos/para-os`). Neither there is "no clone found", its own state.
 - **`--today YYYY-MM-DD` only when the operator names a date**; otherwise the script dates the run by the system clock.
-- **Fall back by hand** where Python, the script or the shared library is missing, the script exits 2, or it exits with a code the skill does not name: run the reference the skill names as the scan's specification, and say in one line that the scan ran by hand.
+- **Stop** where Python 3.9 or later, the script or the shared library is missing, the script exits 2, or it exits with a code the skill does not name: say in one line what failed, quoting the error. Nothing runs by hand.
 - **Re-check before each delete or move** with the shared library's `changed` command, per [operating-discipline.md](operating-discipline.md#a-synced-vault-can-change-mid-run).
