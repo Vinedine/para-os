@@ -42,6 +42,11 @@ These paths also match ideas and projects that are not deals, which follow the v
 
 **A lost deal carries one more line**, directly under `Stage`: `**Lost reason:** <reason>, <one free clause>`, the reason being one of **no decision**, **timing**, **budget**, **went elsewhere**, **not a fit**, **relationship only**. The free clause is what a later reader needs and the list cannot hold. `/para-archive` refuses the move to `archive/ideas/` without it.
 
+## The proposal
+
+- **The price comes from the vault's own deals.** Set it against two or three past deals' `**Value:**` lines, won and lost, shown to the operator with the arithmetic run in code. With no comparable, the price is a blank for the operator to fill, never a rate the draft invents.
+- **The sent file is the client's.** It never carries the `**Value:**` line, the private read of the deal's risks, competitors, internal names or anything the brief lists as not to raise.
+
 ## The register row
 
 The lead register named in `## Deal lifecycle` is one table under `## Open` and a second under `## Closed`, both with these columns in this order:

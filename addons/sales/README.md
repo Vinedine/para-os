@@ -9,7 +9,7 @@ It sits beside any [flavor](../real-estate/), including none. A property develop
 ## What it adds
 
 1. **`CLAUDE.md` sections** ([`CLAUDE.md.sections`](CLAUDE.md.sections)): `## Deal lifecycle` (the seven stages and their homes, rows before folders, what promotes and moves back, Nurture and Lost, the weekly review, and the contact card's `**Kind:**` line) and an `## Entity structures` pointer. They are added beside the sections of base or a flavor, and never replace one.
-2. **A rule file** ([`.claude/rules/deal-brief.md`](.claude/rules/deal-brief.md)): the eight header lines of a deal brief, the lost-reason list, the rule that keeps the next step out of the header, and the columns of the lead register.
+2. **A rule file** ([`.claude/rules/deal-brief.md`](.claude/rules/deal-brief.md)): the eight header lines of a deal brief, the lost-reason list, the rule that keeps the next step out of the header, how a proposal is priced and what stays out of it, and the columns of the lead register.
 3. **No skill, no skeleton files.** `/para-pipeline` renders the board from the declared lifecycle, and the register is one file the vault creates the first time it has a lead.
 
 ## What the vault supplies
