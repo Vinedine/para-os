@@ -1321,6 +1321,13 @@ def _frozen(lines, first):
         any(FROZEN_MARKER_RE.search(text) for text in header)
 
 
+def never_folders(vault):
+    """Every folder the vault's checkbox table declares at `never`, without its slash."""
+    return [k.strip("/") for k, cells in
+            checkbox_rows(read_text(Path(vault) / "CLAUDE.md") or "").items()
+            if cells[0].startswith("never") and "," not in k and k.endswith("/")]
+
+
 def misplaced_checkboxes(vault, with_closed=False):
     """Open checkboxes where the vault forbids them, per bucket, worst file first: `archive`,
     `resources`, `areas/network` where the vault's contact-card level is `never`, and any
@@ -1338,10 +1345,8 @@ def misplaced_checkboxes(vault, with_closed=False):
     vault = Path(vault)
     out, closed = {}, {}
     cards = contact_card_level(vault) == "never"
-    declared = [k.strip("/") for k, cells in
-                checkbox_rows(read_text(vault / "CLAUDE.md") or "").items()
-                if cells[0].startswith("never") and "," not in k and k.endswith("/")
-                and k.strip("/") not in ("archive", "resources", "areas/network")]
+    declared = [k for k in never_folders(vault)
+                if k not in ("archive", "resources", "areas/network")]
     for parent in ("archive", "resources") + (("areas/network",) if cards else ()) + \
             tuple(declared):
         base = vault / parent

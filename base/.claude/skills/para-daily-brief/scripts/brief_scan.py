@@ -48,7 +48,7 @@ try:
         cadence_days, cap_count, waiting_on,
         entity_candidates, field_ci, headline, stray_checkboxes,
         file_dates, is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes,
-        open_tasks, read_lines,
+        open_tasks, read_lines, never_folders,
         over_grown_briefs, parse_date, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
     )
@@ -517,12 +517,13 @@ def silent_sources(vault, today, paraos_home=None):
 def nothing_open(vault, tasks, per_file_dates):
     """Every project and area with no open item anywhere under it, a recurring one counting
     as open: finished, or stalled with no next step. Never `network/`, where a contact who
-    is owed nothing is the normal state. An entity with no `actions.md` leads, then the
-    oldest one."""
+    is owed nothing is the normal state, nor a `never` folder of the checkbox table. An
+    entity with no `actions.md` leads, then the oldest one."""
     busy = {(t["bucket"], t["scope"].split("/")[0]) for t in tasks}
+    skip = set(never_folders(vault)) | {"areas/network"}
     out = []
     for e in entity_candidates(vault):
-        if (e["bucket"], e["label"]) in busy or (e["bucket"], e["label"]) == ("A", "network"):
+        if (e["bucket"], e["label"]) in busy or e["path"] in skip:
             continue
         own = Path(vault) / e["path"] / "actions.md"
         file = own.relative_to(vault).as_posix() if own.is_file() else None
