@@ -1,8 +1,6 @@
 # A vault's rule files
 
-What a `.claude/rules/<topic>.md` file is, read by whoever creates or edits one. A vault's `CLAUDE.md` keeps only the one-line pointer each file leaves behind.
-
-Every rule file is one of two kinds, each with a `paths:` list of the globs it governs.
+What a `.claude/rules/<topic>.md` file is, read by whoever creates or edits one. A vault's `CLAUDE.md` keeps only the one-line pointer each file leaves behind. Every rule file is one of two kinds, each with a `paths:` list of the globs it governs.
 
 - **A shape file** fixes the structure of one kind of document. `brief-structure.md` and `readme-structure.md` (an entity's root `README.md` only) are the floor, and a topic file with the floor file's consent takes over the documents of its kind its `paths:` name. It opens on an `**Order:**` line and `## The shape`, and closes on `## Placeholders` stating this vault's actual convention. Its pointer, under `## Entity structures`, reads: "The full shape is in [.claude/rules/<file>.md](.claude/rules/<file>.md), which loads on its own when a <kind> is read; read it explicitly before creating one."
 - **A convention file** states a rule spanning documents, with no `**Order:**`, `## The shape` or `## Placeholders`. `filing.md` and `figures.md` ship with the template, and a vault extends its copy. Its pointer follows a sentence stating the rule and reads: "The full convention is in [.claude/rules/<file>.md](.claude/rules/<file>.md), which loads on its own when a <kind> is read; read it explicitly before <acting on> one.", any list of what it covers going before "is in".
