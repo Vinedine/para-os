@@ -14,7 +14,6 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
     py -3 paraos_vault.py registry [<name>] [--vault .]
     py -3 paraos_vault.py changed <file>
     py -3 paraos_vault.py sources [--vault .]
-    py -3 paraos_vault.py ingest-logs [--paraos-home DIR]
     py -3 paraos_vault.py notice-date <renewal> "<n> months" [--term "1 year"] [--today D]
     py -3 paraos_vault.py weekday-after <day> <weekday>
 
@@ -23,13 +22,17 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "para-shared" / "scripts"))
     from paraos_vault import live_lines, open_tasks, resolve_entity
 
-What lives here is what two skills would otherwise each answer their own way: whether a
-folder is a vault root, what the machine's registry says about it and its neighbours, where
-a checkbox may live, what counts as one, what a task marker means, which folder a name
-resolves to, which names a contact card answers to, when a file was really last touched, what a link points at and what a move
-would have to rewrite, whether two files hold the same bytes (and whether two copies of one
-file differ in more than line endings), what a vault declares it is built from and the locale it declares, the numbers a vault's own rules state, the last day to give notice on a renewing agreement, the date a promised weekday points at, and how many working days a sent message has waited. A second implementation of any of those is a vault getting two answers to one
-question, which is the failure this repo exists to prevent.
+What lives here is what two skills would otherwise each answer their own way about a vault:
+whether a folder is a vault root, what the machine's registry says about it and its neighbours,
+where a checkbox may live, what counts as one, what a task marker means, which folder a name
+resolves to, which names a contact card answers to, when a file was really last touched, what
+a link points at and what a move would have to rewrite, whether two files hold the same bytes,
+what a vault declares it is built from and the locale it declares, the numbers a vault's own
+rules state, the last day to give notice on a renewing agreement, and the date a promised
+weekday points at. A second implementation of any of those is a vault getting two answers to
+one question, which is the failure this repo exists to prevent. Two siblings hold what is not
+about the vault itself: `paraos_clone.py` reads the para-os clone a vault is measured against,
+and `paraos_mail.py` reads mail threads, the notes they become and the ledgers that track them.
 
 What does NOT live here: anything a single skill decides. Bucketing against a date,
 ranking, thresholds a skill invents for its own report, and every word an operator reads
@@ -44,9 +47,8 @@ import os
 import re
 import subprocess
 import sys
-from contextlib import contextmanager
-from datetime import date, datetime, timedelta, timezone
-from pathlib import Path, PurePosixPath
+from datetime import date, datetime, timedelta
+from pathlib import Path
 from urllib.parse import unquote
 
 # --- what a vault's own rules state -------------------------------------------------------
@@ -61,7 +63,6 @@ BRIEF_LINE_CAP = 500        # a brief past this is over-grown
 STALE_FILE_DAYS = 60        # an action file with open items, untouched this long
 STALE_UNDATED_DAYS = 30     # an open, undated item untouched this long: offered for demotion
 WAITING_FLAG_DAYS = 14      # a wait on someone else this old asks: chase or drop?
-UNANSWERED_WORKING_DAYS = 5 # a sent message unanswered this many working days is a wait
 CLUSTER_SECONDS = 60        # mtimes this close mean a bulk write, not an edit
 
 # --- what a task looks like ---------------------------------------------------------------
@@ -1948,15 +1949,12 @@ def scan_snapshot_folders(data):
     return [f for d in found if isinstance(d.get("snapshot_folders"), list)
             for f in d["snapshot_folders"]]
 
-
 # --- what a vault was built from -------------------------------------------------------------
 
 REVISION_PATTERN = r"\d{4}\.\d{2}(?:\.\d{2})?"
 TEMPLATE_MARKER_RE = re.compile(r"<!--\s*para-os-template:\s*(" + REVISION_PATTERN + r")\s*-->")
 INTEGRATION_MARKER_RE = re.compile(r"para-os-integration:\s*([A-Za-z0-9._-]+)\s+("
                                    + REVISION_PATTERN + r")")
-CHANGELOG_HEADING_RE = re.compile(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$")
-RULE_RE = re.compile(r"^-{3,}$")
 LEGACY_REVISIONS = {"2026.08": "2026.08.01"}
 MARKED_SUFFIXES = (".py", ".js", ".mjs", ".ps1", ".sh")
 MARKER_HEADER_LINES = 80
@@ -1996,608 +1994,6 @@ def integration_markers(vault, exclude=NOT_VAULT_CONTENT):
         if m:
             out.append({"file": rel, "name": m.group(1), "revision": m.group(2)})
     return out
-
-
-def changelog_entries(text):
-    """Each `## <revision>` entry of a changelog in the order written, as {revision, line,
-    body}. The body is the entry itself, which is the procedure a migration runs; `line` is
-    the 1-based line of its heading in `text`, so a report can point at the entry rather
-    than quote it. A heading inside a fenced block is a sample, not an entry."""
-    out, body = [], None
-    for lineno, line in live_lines(split_lines(text)):
-        m = CHANGELOG_HEADING_RE.match(line.strip())
-        if m:
-            body = []
-            out.append({"revision": m.group(1), "line": lineno, "body": body})
-        elif body is None:
-            continue
-        elif H2_RE.match(line):
-            body = None
-        else:
-            body.append(line)
-    for entry in out:
-        lines = entry["body"]
-        while lines and (not lines[-1].strip() or RULE_RE.match(lines[-1].strip())):
-            lines.pop()
-        entry["body"] = "\n".join(lines).strip()
-    return out
-
-
-def entries_between(entries, after, upto=None):
-    """The entries a vault stamped `after` has not had yet, up to and including `upto`.
-    Revisions compare as plain strings, which is what their padding is for."""
-    return [e for e in entries
-            if (after is None or e["revision"] > after)
-            and (upto is None or e["revision"] <= upto)]
-
-
-# --- a para-os clone, which a vault is measured against ------------------------------------
-# Every reader here reads the commit a ref names, never the clone's checkout: a revision in
-# flight lives in the working tree uncommitted, and a vault measured against it reads as
-# behind a revision that never shipped. `worktree=True` is the one exception, asked for by
-# name when a master about to be committed is the point: the files on disk in the clone,
-# never its index. `ref` is then not read at all, since the caller has already settled that
-# it names the checked-out branch.
-
-BASE_TEMPLATE = "base/CLAUDE.md.template"
-ADDONS_DIR = "addons"
-OLDER_ADDON_DIRS = ("flavors",)                     # where a flavor lived before addons/
-
-
-def _clone_rel(path):
-    """A clone-relative path the way git names it: forward slashes, no `./`, no leading or
-    trailing slash. `""` for the clone root."""
-    text = str(path).replace("\\", "/").strip("/")
-    text = str(PurePosixPath(text)) if text else ""
-    return "" if text == "." else text
-
-
-def _usable_ref(ref):
-    """A ref git will read as a ref: a value opening on `-` would be read as an option."""
-    return bool(ref) and not str(ref).startswith("-")
-
-
-def _z_paths(out):
-    """The paths of a `-z` listing, NUL-separated and never quoted, decoded as UTF-8."""
-    return [p.decode("utf-8", errors="replace") for p in out.split(b"\0") if p]
-
-
-_SESSION = None                 # the open clone session, if any; see clone_session()
-_UNBATCHED = object()           # no session reader can answer: ask git directly
-_OBJECT_TYPES = (b"blob", b"tree", b"commit", b"tag")
-
-
-class _CloneSession:
-    def __init__(self):
-        self.readers = {}       # clone -> its `cat-file --batch` process, None once unusable
-        self.objects = {}       # (clone, "<ref>:<path>") -> (type, bytes), None for no object
-        self.listings = {}      # (clone, ref) -> `ls-tree -r` output, None where git refused
-        self.refs = {}          # (clone, ref) -> clone_ref's answer
-
-    def close(self):
-        for proc in self.readers.values():
-            if proc is not None:
-                _close_batch(proc)
-
-
-@contextmanager
-def clone_session():
-    """Read every clone once per question for the length of a scan.
-
-    Starting git costs tens of milliseconds on Windows, and a scan asks its clone hundreds
-    of questions. Inside a session `clone_read` and the folder check go through one
-    long-lived `git cat-file --batch` per clone, `clone_files` filters one `ls-tree` of the
-    whole tree per ref, `clone_ref` resolves each ref once, and every answer is kept.
-    Working-tree reads are never kept: they go to the disk each time.
-
-    The session assumes no clone changes while it is open, so it is for a caller that only
-    reads its clones. Leaving it stops every reader it started, which Windows needs before
-    a clone's folder can be deleted. A session opened inside another one joins it. Works as
-    a decorator too.
-    """
-    global _SESSION
-    if _SESSION is not None:
-        yield
-        return
-    _SESSION = _CloneSession()
-    try:
-        yield
-    finally:
-        session, _SESSION = _SESSION, None
-        session.close()
-
-
-def _open_batch(clone):
-    try:
-        return subprocess.Popen(["git", "-C", str(clone), "cat-file", "--batch"],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                stderr=subprocess.DEVNULL)
-    except OSError:
-        return None
-
-
-def _close_batch(proc):
-    for pipe in (proc.stdin, proc.stdout):
-        try:
-            pipe.close()
-        except OSError:
-            pass
-    proc.kill()
-    proc.wait()
-
-
-def _session_key(clone, value):
-    return os.path.abspath(str(clone)), value
-
-
-def _batch_object(clone, ref, rel):
-    """(type, bytes) of `<ref>:<rel>` from the open session's reader, None where it names
-    no object, or _UNBATCHED where no session or reader can answer."""
-    spec = f"{ref}:{rel}"
-    if _SESSION is None or "\n" in spec or "\r" in spec:
-        return _UNBATCHED
-    key = _session_key(clone, spec)
-    if key in _SESSION.objects:
-        return _SESSION.objects[key]
-    if key[0] not in _SESSION.readers:
-        _SESSION.readers[key[0]] = _open_batch(clone)
-    proc = _SESSION.readers[key[0]]
-    if proc is None:
-        return _UNBATCHED
-    try:
-        proc.stdin.write(spec.encode("utf-8") + b"\n")
-        proc.stdin.flush()
-        header = proc.stdout.readline()
-        found = header.rstrip(b"\n").rsplit(b" ", 2)
-        if len(found) == 3 and found[1] in _OBJECT_TYPES and found[2].isdigit():
-            size = int(found[2])
-            data = proc.stdout.read(size + 1)[:size]   # the content, then git's newline
-            result = (found[1].decode("ascii"), data) if len(data) == size else _UNBATCHED
-        else:
-            # `<spec> missing` or `ambiguous`; nothing at all once git has exited, as it
-            # does at once in a folder that is no repository
-            result = None if header.endswith((b" missing\n", b" ambiguous\n")) else _UNBATCHED
-    except OSError:
-        result = _UNBATCHED
-    if result is _UNBATCHED:
-        _close_batch(proc)
-        _SESSION.readers[key[0]] = None
-        return result
-    _SESSION.objects[key] = result
-    return result
-
-
-def _session_listing(clone, ref):
-    """The whole tree's `ls-tree -r` output at a ref, once per session; _UNBATCHED outside
-    one."""
-    if _SESSION is None:
-        return _UNBATCHED
-    key = _session_key(clone, ref)
-    if key not in _SESSION.listings:
-        _SESSION.listings[key] = git_bytes(clone, ["--literal-pathspecs", "ls-tree", "-r",
-                                                   "--name-only", "-z", ref])
-    return _SESSION.listings[key]
-
-
-def clone_ref(clone, ref):
-    """The commit a ref names in a clone, as {ref, commit}: `ref` as given, `commit` its
-    full hash. None where it names no commit (a typo, a branch never fetched) or `clone` is
-    not a git repository. Peeled with `^{commit}`, so an annotated tag answers with the
-    commit it tags, never the tag object's own hash.
-    """
-    if not _usable_ref(ref):
-        return None
-    key = _session_key(clone, ref)
-    if _SESSION is not None and key in _SESSION.refs:
-        return _SESSION.refs[key] and dict(_SESSION.refs[key])
-    out = git(clone, ["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"])
-    commit = out.strip() if out else ""
-    answer = {"ref": ref, "commit": commit} if commit else None
-    if _SESSION is not None:
-        _SESSION.refs[key] = answer and dict(answer)
-    return answer
-
-
-def clone_read(clone, ref, path, worktree=False):
-    """One file's bytes as a clone holds it at a ref, or None where the ref holds no file
-    at that path: absent, or a folder.
-
-    Read with `git cat-file blob <ref>:<path>`, the same bytes `git show` prints for a file,
-    but an error for a folder where `git show` prints a listing that would read back as the
-    file's content. With `worktree`, the file on disk in the clone, unstaged edits included
-    and never the index.
-    """
-    rel = _clone_rel(path)
-    if not rel:
-        return None
-    if worktree:
-        target = Path(clone) / rel
-        try:
-            return target.read_bytes() if target.is_file() else None
-        except OSError:
-            return None
-    if not _usable_ref(ref):
-        return None
-    found = _batch_object(clone, ref, rel)
-    if found is not _UNBATCHED:
-        return found[1] if found and found[0] == "blob" else None
-    return git_bytes(clone, ["cat-file", "blob", f"{ref}:{rel}"])
-
-
-def clone_files(clone, ref, prefix, worktree=False):
-    """Every file a clone holds under `prefix` at a ref, as sorted clone-relative posix
-    paths (`git ls-tree -r --name-only <ref> -- <prefix>`). A prefix naming one file answers
-    with that file, and `""` with the whole tree. A prefix is a path, never a pattern, and
-    matches whole segments: `addons/sales` never lists `addons/sales-extra/`.
-
-    `[]` where nothing is there, None where git cannot answer at all (not a repository, a
-    ref that names no commit), so a caller can tell an empty folder from a question never
-    answered.
-
-    With `worktree`, what the working tree holds: every tracked file still on disk, plus
-    every untracked file the clone's own ignore rules do not exclude (`git ls-files
-    --cached --others --exclude-standard`). An ignored file (a `__pycache__`, a live
-    config) is part of no master, and a tracked file deleted on disk is not in the working
-    tree whatever the index says.
-    """
-    rel = _clone_rel(prefix)
-    spec = ["--", rel] if rel else []
-    if worktree:
-        out = git_bytes(clone, ["--literal-pathspecs", "ls-files", "-z", "--cached",
-                                "--others", "--exclude-standard"] + spec)
-    elif _usable_ref(ref):
-        out = _session_listing(clone, ref)
-        if out is _UNBATCHED:
-            out = git_bytes(clone, ["--literal-pathspecs", "ls-tree", "-r", "--name-only",
-                                    "-z", ref] + spec)
-    else:
-        out = None
-    if out is None:
-        return None
-    found = set()
-    for path in _z_paths(out):
-        if rel and path != rel and not path.startswith(rel + "/"):
-            continue
-        if worktree and not os.path.lexists(Path(clone) / path):
-            continue
-        found.add(path)
-    return sorted(found)
-
-
-def _clone_holds_folder(clone, ref, path, worktree):
-    """Whether a folder exists in a clone at a ref: it holds a file there, since git tracks
-    no empty folder. With `worktree`, `clone_files` lists something under it, so a folder
-    left on disk holding only ignored files does not count."""
-    if worktree:
-        return bool(clone_files(clone, ref, path, worktree=True))
-    if not _usable_ref(ref):
-        return False
-    found = _batch_object(clone, ref, path)
-    if found is not _UNBATCHED:
-        return bool(found) and found[0] == "tree"
-    out = git(clone, ["cat-file", "-t", f"{ref}:{path}"])
-    return bool(out) and out.strip() == "tree"
-
-
-def addon_root(clone, ref, name, worktree=False):
-    """The clone-relative folder an addon (a flavor or a module) lives in at a ref, or None
-    where that ref holds none by that name.
-
-    Today every addon lives under `addons/<name>/`; before that a flavor lived under
-    `flavors/<name>/`, and a vault pinned to an older ref is measured against the layout
-    that ref carried. So a ref holding `addons/` answers from there alone, never from a
-    folder that ref no longer carries, and a ref without it answers with `flavors/<name>`
-    where that exists at it.
-    """
-    if not name or any(c in name for c in "/\\") or name in (".", ".."):
-        return None
-    if _clone_holds_folder(clone, ref, ADDONS_DIR, worktree):
-        candidates = [f"{ADDONS_DIR}/{name}"]
-    else:
-        candidates = [f"{parent}/{name}" for parent in OLDER_ADDON_DIRS]
-    return next((c for c in candidates if _clone_holds_folder(clone, ref, c, worktree)), None)
-
-
-def master_template(clone, ref, worktree=False):
-    """The `CLAUDE.md` template a vault is measured against at a ref,
-    `base/CLAUDE.md.template`, as {path, marker, raw_marker, source}. `marker` is the
-    revision as `template_marker` reads it and `raw_marker` the label the comment writes,
-    so a legacy label is told apart from the revision it became. `source` is "base", or
-    None where the ref holds no template.
-    """
-    data = clone_read(clone, ref, BASE_TEMPLATE, worktree)
-    text = data.decode("utf-8", errors="replace") if data is not None else ""
-    return {"path": BASE_TEMPLATE, "marker": template_marker(text),
-            "raw_marker": template_marker(text, raw=True),
-            "source": "base" if data is not None else None}
-
-
-# --- para-ingest's own run logs, staged-note names, and the seen-ledger watermark ---------
-# What `/para-triage`'s per-vault seen-ledger and `/para-ingest`'s central one both need:
-# reading the run logs a model writes (and so names its fields inconsistently between runs),
-# recomputing a staged note's name from the thread id that produced it, and deciding whether
-# a ledger entry still covers a thread's newest message. Two callers, one answer each.
-
-def _parse_instant(text):
-    """An ISO-8601 string, offset or trailing `Z`, as an aware datetime. None where it does
-    not parse, and None (not a naive datetime) where it parses but carries no offset at all
-    - comparing a naive instant against an aware one raises, and an instant with no stated
-    offset is exactly the input connectors.md says never to accept as one."""
-    if not text:
-        return None
-    try:
-        parsed = datetime.fromisoformat(str(text).replace("Z", "+00:00"))
-    except ValueError:
-        return None
-    return parsed if parsed.tzinfo is not None else None
-
-
-INGEST_STAMP_RE = re.compile(r"^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$")
-
-
-def _filename_instant(stem):
-    """The `YYYYMMDD-HHMMSS` a run log's own filename carries, read as local time and given
-    this machine's UTC offset for that date (so a log from before or after a DST change
-    still gets the offset that actually applied) - the only instant left once neither JSON
-    field parses."""
-    m = INGEST_STAMP_RE.match(stem)
-    if not m:
-        return None
-    y, mo, d, h, mi, s = (int(g) for g in m.groups())
-    try:
-        naive = datetime(y, mo, d, h, mi, s)
-    except ValueError:
-        return None
-    return naive.astimezone()
-
-
-def _ingest_started(data, stem):
-    """(ISO string, which field it came from) for one run log: `started_at`, else
-    `started`, else the filename stamp - the drift 50 real logs on this machine show
-    between what a model happened to write each run."""
-    for key in ("started_at", "started"):
-        instant = _parse_instant(data.get(key))
-        if instant:
-            return instant.isoformat(), key
-    instant = _filename_instant(stem)
-    return (instant.isoformat() if instant else None), "filename"
-
-
-def ingest_logs(paraos_home=None):
-    """Every `/para-ingest` run log under `<paraos_home>/cache/ingest/runs/`, newest first.
-    `paraos_home` defaults the way `registry()` does: `$PARAOS_HOME`, else `~/.paraos`.
-
-    These logs are written by a model, not by code, so their field names drift between
-    runs - this reads every spelling seen on this machine rather than one. A file that
-    fails to parse still comes back as a record with `load_error` set, its `started_at`
-    read from the filename: dropping it would report an ingest run that never happened
-    rather than one this reader could not read. A missing directory is `[]`.
-    """
-    home = paraos_home_dir(paraos_home)
-    base = home / "cache" / "ingest" / "runs"
-    if not base.is_dir():
-        return []
-    records = []
-    for path in sorted(base.glob("*.json")):
-        stem = path.stem
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                raise ValueError("not a JSON object")
-        except (OSError, ValueError) as err:
-            started_at, started_from = _ingest_started({}, stem)
-            records.append({
-                "file": path.name, "mode": None, "started_at": started_at,
-                "started_from": started_from, "files_written": None, "per_vault": None,
-                "declaring_vaults": None, "sync_runs": None, "errors": [],
-                "load_error": str(err),
-            })
-            continue
-        started_at, started_from = _ingest_started(data, stem)
-        counts = data.get("counts") if isinstance(data.get("counts"), dict) else {}
-        source_plan = data.get("source_plan") if isinstance(data.get("source_plan"), dict) else {}
-        per_vault = counts.get("per_vault")
-        if not isinstance(per_vault, dict):
-            staged = data.get("staged_per_vault")
-            per_vault = staged if isinstance(staged, dict) else None
-        declaring = source_plan.get("declaring_vaults")
-        errors = data.get("errors")
-        records.append({
-            "file": path.name,
-            "mode": data.get("mode"),
-            "started_at": started_at,
-            "started_from": started_from,
-            "files_written": data.get("files_written") if isinstance(data.get("files_written"), list) else None,
-            "per_vault": per_vault,
-            "declaring_vaults": declaring if isinstance(declaring, dict) else None,
-            "sync_runs": data.get("sync_runs") if isinstance(data.get("sync_runs"), list) else None,
-            "errors": errors if isinstance(errors, list) else [],
-            "load_error": None,
-        })
-
-    def sort_key(record):
-        instant = _parse_instant(record["started_at"])
-        return (instant is not None, instant, record["file"])
-
-    records.sort(key=sort_key, reverse=True)
-    return records
-
-
-def ingest_ledger(paraos_home=None):
-    """`/para-ingest`'s own central ledger, `<paraos_home>/cache/ingest/ledger.json`
-    (`multi-vault/para-ingest/references/staging.md`, "The ledger"): `{"mailboxes":
-    {<mailbox>: {<threadId>: {"routed": [...], "reason", "date", "subject", "seen_through",
-    "seen_date"}}}, "by_message_id": {...}}`.
-
-    This is the system of record for which vaults a thread was actually routed to - a note's
-    own `Routed` line is prose a model wrote about that decision, not the decision itself, and
-    a negated mention ("Not <Vault>: ...") reads as a routing hit to anything that greps the
-    line for a vault's name. Two consumers read it this way: `/para-triage`'s `routed_vaults` (which
-    vaults a staged note's thread actually went to, for its cross-vault duplicate check) and
-    `/para-ingest`'s own reconciles (settling an `undelivered` candidate).
-
-    Read with `encoding="utf-8"`, per the connectors protocol every ledger in it follows. A
-    missing file is `exists: False` with empty maps, never an exception: a ledger read is
-    background context, not something a caller needs to fail on. A file that fails to parse
-    is reported in `load_error` with empty maps too - a ledger a caller cannot read must never
-    look like a ledger that says nothing routed anywhere.
-    """
-    home = paraos_home_dir(paraos_home)
-    path = home / "cache" / "ingest" / "ledger.json"
-    if not path.is_file():
-        return {"exists": False, "mailboxes": {}, "by_message_id": {}, "load_error": None}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            raise ValueError("not a JSON object")
-    except (OSError, ValueError) as err:
-        return {"exists": True, "mailboxes": {}, "by_message_id": {}, "load_error": str(err)}
-    mailboxes = data.get("mailboxes")
-    by_message_id = data.get("by_message_id")
-    return {
-        "exists": True,
-        "mailboxes": mailboxes if isinstance(mailboxes, dict) else {},
-        "by_message_id": by_message_id if isinstance(by_message_id, dict) else {},
-        "load_error": None,
-    }
-
-
-def log_instant(record):
-    """The aware `datetime` an `ingest_logs()` record's `started_at` names, for a caller
-    comparing it against its own `now` rather than against a string."""
-    return _parse_instant(record.get("started_at"))
-
-
-def written_under(entry, folder):
-    """Whether one `files_written` string names a file inside `folder`.
-
-    A real entry may carry a trailing ` (...)` annotation after the path (never part of a
-    staged note's own name, which always ends in its hash and extension, never in a bare
-    `)`), a leading `~` for the ingest cache's own home, and either slash depending on which
-    machine wrote it. Mojibake inside the filename itself is real and is compared as
-    written, since it never changes what folder the file sits in. Both sides are compared
-    as `same_place`: the log spells the vault the way the registry does, and a caller has
-    usually resolved its own root, so a symlinked or short-named path must still match.
-    """
-    text = re.sub(r"\s+\([^)]*\)\s*$", "", str(entry).strip()).replace("\\", "/")
-    if text.startswith("~"):
-        text = os.path.expanduser(text)
-    return is_under(Path(same_place(text)), Path(same_place(folder)))
-
-
-def thread_hash(thread_id):
-    """The first six hex characters of `sha1(thread_id)` - the derivation `/para-ingest`
-    names every staged note with, so a later run can recompute a note's filename from the
-    thread id that produced it rather than trusting a stored mapping."""
-    return hashlib.sha1(str(thread_id).encode("utf-8")).hexdigest()[:6]
-
-
-NOTE_DATE_RE = re.compile(r"^\d{8}$")
-NOTE_HEX_RE = re.compile(r"^[0-9a-f]{6}$")
-NOTE_COPY_RE = re.compile(r"^\d{1,3}$")  # a sync client's " 2" copy, never a 6-digit hash
-
-
-def note_name_parts(filename):
-    """A staged triage note's `YYYYMMDD <subject> <6 hex>[ <copy>].md` name in its parts, or
-    None where the name is not that shape.
-
-    The hash is always the trailing token that fits the shape, so a subject that itself ends
-    in a six-letter hex-looking word never shadows the real hash that follows it - only the
-    last such token is ever read as one.
-    """
-    name = Path(filename).name
-    if not name.lower().endswith(".md"):
-        return None
-    tokens = name[:-len(".md")].split(" ")
-    if len(tokens) < 2 or not NOTE_DATE_RE.match(tokens[0]):
-        return None
-    date_part, rest = tokens[0], tokens[1:]
-    if len(rest) >= 2 and NOTE_COPY_RE.match(rest[-1]) and NOTE_HEX_RE.match(rest[-2]):
-        copy, subject_tokens, hash_ = int(rest[-1]), rest[:-2], rest[-2]
-    elif NOTE_HEX_RE.match(rest[-1]):
-        copy, subject_tokens, hash_ = None, rest[:-1], rest[-1]
-    else:
-        return None
-    if not subject_tokens:
-        return None
-    return {"date": date_part, "subject": " ".join(subject_tokens), "hash": hash_,
-            "copy": copy}
-
-
-BARE_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-
-
-def _is_bare_date(text):
-    return bool(text) and bool(BARE_DATE_RE.match(str(text)))
-
-
-def _watermark_instant(entry, legacy):
-    """The instant a ledger entry's watermark names: `seen_date` parsed as an instant for a
-    full entry, or the UTC start of the relevant day for a legacy one - `seen_date`'s own
-    day where it has one, else the entry's plain `date`."""
-    if not legacy:
-        return _parse_instant(entry.get("seen_date"))
-    raw = entry.get("seen_date") or entry.get("date")
-    day = parse_date(str(raw)[:10]) if raw else None
-    return datetime(day.year, day.month, day.day, tzinfo=timezone.utc) if day else None
-
-
-def watermark(entry, newest_date=None, newest_key=None):
-    """Where one ledger entry stands against a thread's current state, per connectors.md
-    steps 5 and 6: `/para-triage`'s per-vault seen-ledger and `/para-ingest`'s central one
-    both make this comparison, and both must drop a thread only when it is dispositioned
-    *through its newest message*, never compared as strings.
-
-    Returns `{"verdict": "new" | "seen" | "grown" | "carry", "legacy": bool,
-    "watermark": <ISO string or None>}`. `newest_key`, when the entry carries `seen_through`,
-    settles it outright - the key wins over dates either way. Otherwise the cut is by date:
-    an entry with no `seen_through`, a bare `YYYY-MM-DD` `seen_date`, or no `seen_date` at
-    all is legacy, its watermark the start of that day in UTC, and growing past it reads as
-    `grown` rather than `carry` (connectors.md: let anything later resurface). A watermark or
-    a `newest_date` that fails to parse never reads as `seen` - it carries forward instead,
-    since failing toward dropping a thread is the false quiet this protocol exists to
-    prevent.
-    """
-    if entry is None:
-        return {"verdict": "new", "legacy": False, "watermark": None}
-
-    seen_through = entry.get("seen_through")
-    legacy = not seen_through or _is_bare_date(entry.get("seen_date")) or not entry.get("seen_date")
-    watermark_instant = _watermark_instant(entry, legacy)
-    watermark_iso = watermark_instant.isoformat() if watermark_instant else None
-
-    if newest_key is not None and seen_through:
-        return {"verdict": "seen" if newest_key == seen_through else "grown",
-                "legacy": legacy, "watermark": watermark_iso}
-
-    if watermark_instant is None:
-        return {"verdict": "carry", "legacy": legacy, "watermark": watermark_iso}
-    newest_instant = _parse_instant(newest_date) if newest_date is not None else None
-    if newest_instant is None:
-        return {"verdict": "carry", "legacy": legacy, "watermark": watermark_iso}
-    if newest_instant <= watermark_instant:
-        return {"verdict": "seen", "legacy": legacy, "watermark": watermark_iso}
-    return {"verdict": "grown" if legacy else "carry", "legacy": legacy,
-            "watermark": watermark_iso}
-
-
-def unanswered(sent, now):
-    """How long a message the operator sent, newest in its thread, has gone without a reply:
-    `{"since", "working_days", "waiting"}`, `since` the day it went out in `now`'s timezone
-    and `waiting` true from UNANSWERED_WORKING_DAYS on (connectors.md's sent pass). `sent`
-    is an ISO-8601 instant, or a bare `YYYY-MM-DD` read as that day. One that reads as
-    neither leaves all three None, never a count of zero."""
-    instant = _parse_instant(sent)
-    if instant is not None:
-        since = instant.astimezone(now.tzinfo).date()
-    else:
-        since = parse_date(sent) if _is_bare_date(sent) else None
-    if since is None:
-        return {"since": None, "working_days": None, "waiting": None}
-    count = working_days(since, now.date())
-    return {"since": iso(since), "working_days": count,
-            "waiting": count >= UNANSWERED_WORKING_DAYS}
-
 
 # --- from the command line ------------------------------------------------------------------
 
@@ -2647,9 +2043,6 @@ def main(argv=None):
         "file", help="a JSON snapshot ({path: digest}), or scan output carrying a "
                      "'snapshot' key, top-level or under a phase key")
     sources = sub.add_parser("sources", help="the Triage sources block the vault declares")
-    ingest_logs_cmd = sub.add_parser("ingest-logs", help="every /para-ingest run log, newest first")
-    ingest_logs_cmd.add_argument("--paraos-home", dest="paraos_home", default=None,
-                                 help="ingest cache root (default: $PARAOS_HOME or ~/.paraos)")
     notice = sub.add_parser("notice-date", help="the last day to give notice on a renewing "
                                                 "agreement")
     notice.add_argument("renewal", help="the renewal date, YYYY-MM-DD")
@@ -2691,11 +2084,6 @@ def main(argv=None):
         json.dump(diffs, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 1 if diffs["changed"] or diffs["arrived"] else 0
-
-    if args.command == "ingest-logs":
-        json.dump(ingest_logs(args.paraos_home), sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
-        return 0
 
     if args.command == "notice-date":
         renewal, today = parse_date(args.renewal), parse_date(args.today or iso(date.today()))

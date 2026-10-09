@@ -115,7 +115,7 @@ Full records, never a count, each carrying mailbox, thread id, subject and route
 
 ### Fields `/para-triage` reads
 
-A vault's own triage run decides from the newest write log whether ingest already pulled its mailboxes and ran its sync scripts, through `paraos_vault.ingest_logs()`. It reads these fields, under exactly these names, and a field missing or misnamed makes it pull locally rather than trust a run it cannot read:
+A vault's own triage run decides from the newest write log whether ingest already pulled its mailboxes and ran its sync scripts, through `paraos_mail.ingest_logs()`. It reads these fields, under exactly these names, and a field missing or misnamed makes it pull locally rather than trust a run it cannot read:
 
 - **`mode`**: `write` or `preview`.
 - **`started_at`**: when the run started, ISO-8601 with its UTC offset.

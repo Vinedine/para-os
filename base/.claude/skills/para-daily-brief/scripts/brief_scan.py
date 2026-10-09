@@ -53,9 +53,8 @@ try:
         over_grown_briefs, parse_date, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
     )
-    from paraos_vault import (  # noqa: E402
-        ingest_ledger, paraos_home_dir, same_place, triage_sources,
-    )
+    from paraos_vault import paraos_home_dir, same_place, triage_sources  # noqa: E402
+    from paraos_mail import ingest_ledger  # noqa: E402
     from paraos_vault import HEADING_RE, closed_tasks, table_cells  # noqa: E402
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"brief_scan: {missing}. The shared vault library belongs at "
