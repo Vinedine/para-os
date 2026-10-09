@@ -34,6 +34,6 @@ A **deal sheet** is the designed rendering of a property's dossier: `<property>-
 
 - **The dossier is the source of truth; the sheet is derived**, and its footer says so. Never hand-type a number into a sheet: regenerate it.
 - **One format.** The design system, section skeleton and stage variants are in the template's header comment. A new component goes into the template.
-- **The pipeline** is `/para-triage` → `/property-reconcile` (verify against `sources/` and the books) → `/property-underwrite` (enrich, and analyse through the analyst persona under `resources/prompts/`) → `/property-dealsheet` (present). Each writes to the dossier except the last, and each halts on a missing fact rather than guessing.
+- **The pipeline** is `/para-triage` → `/property-reconcile` (verify against `sources/` and the books) → `/property-underwrite` (enrich, and analyse through the analyst persona under `resources/prompts/`) → `/property-dealsheet` (present). Each writes to the dossier except the last.
 - **Where every property fact comes from**, what it costs, and which facts no free source settles is [`resources/property-evaluation/property-data-sources.md`](resources/property-evaluation/property-data-sources.md). Read it before any lookup.
 - **The owner's books** are {{the accounting area holding a ledger account per property, e.g. `areas/accounting/`, or delete this line}}. A property's ledger account is the authority on its cost and stage.
