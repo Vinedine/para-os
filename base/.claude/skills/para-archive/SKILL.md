@@ -19,7 +19,7 @@ The entity name is the one to three words of the argument that could name a fold
 |---|---|
 | `<name>` | Full flow, Steps 0 to 9, pausing at each decision. |
 | `<name> preview` | The analysis (open actions, file validation, inbound links) and the plan: the manifest of questions a live run would ask and the proposal, Step 9's included. NO changes. |
-| `<name> table` | One markdown proposal table, one `go`, then execute: the escape from item-by-item questions. |
+| `<name> table` | One proposal table, one `go` that approves no deletion or bucket move. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## Procedure
