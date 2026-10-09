@@ -636,7 +636,7 @@ def subdirectories_block(vault):
 
 
 def subdirectories_line(subdirectories):
-    """The manifest's line for the subdirectories, as approval.md writes it, or None when
+    """The manifest's line for the subdirectories, or None when
     there are none. Printed as it stands, so a run never words it its own way."""
     if not subdirectories:
         return None

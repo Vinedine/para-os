@@ -1,43 +1,18 @@
 # Promote an idea to a project
 
-`resources/ideas/<name>/` becomes `projects/<name>/`. This is a **move**, not a copy and not a fresh start: the idea's brief carries thinking worth keeping.
+`resources/ideas/<name>/` becomes `projects/<name>/`: a move that keeps the idea's thinking.
 
-## Step 1 - Check the bar is actually met
+1. **Check the bar**: someone waits on a dated deliverable, money or a formal engagement is committed, or a go/no-go is on the calendar, unless the vault or the brief sets a stricter one. An idea that is merely interesting again stays where it is.
+2. **Ask only** who is waiting and by when, and the one next step. Where the brief's framing has drifted, the operator corrects it in one line.
+3. **List the inbound references** to the idea's path and name, each a link to follow, prose to reword, or a historical mention inside `archive/` to leave, and show the list first.
+4. **Move, retense, seed**:
+   1. `git mv` the folder, or a plain move outside git.
+   2. Retense the brief to the vault's project shape, facts verbatim: the concept becomes the goal, open questions stay open. Idea-only anchors go; a staged entity keeps its header, its Stage line moved to the promoting stage `(since <today>)`. Whatever no longer fits is surfaced, never dropped.
+   3. Create `actions.md` with the one next step, a `📅` only for a real date.
+   4. Repoint every inbound link, and rewrite the links inside the moved folder per [operating-discipline.md](../../para-shared/operating-discipline.md#moving-an-entity-folder).
+5. **Verify**: no reference to the old path remains, and every relative link inside the moved folder resolves.
 
-The lifecycle names it: someone is waiting on a deliverable by a date, money or a formal engagement is committed, or a go/no-go review is on the calendar. If the vault or the idea's own brief defines a stricter bar, that one applies.
-
-An idea that has merely become interesting again has not been promoted. Say so and leave it where it is.
-
-## Step 2 - Ask only what the brief cannot answer
-
-The idea brief already holds the concept and the reasoning, so the project interview shrinks to what an idea by definition never carried:
-
-1. Who is waiting for it, and by when?
-2. What is the one next step?
-
-Do not re-ask what the concept is. If the brief's framing has drifted from what the user now means, note the difference and let them correct it in one line rather than re-interviewing.
-
-## Step 3 - Scan inbound links before moving
-
-Grep the whole vault for references to the idea's path and name. Classify each: a link that should follow the move, a mention in prose that should be reworded, a historical reference inside an archived folder that stays as it is. Show the list before touching anything.
-
-## Step 4 - Move, retense, seed
-
-In order:
-
-1. Move the folder with `git mv` so history is preserved, falling back to a plain move if the vault is not a git repo.
-2. **Retense the brief** to the vault's project shape. Facts are preserved verbatim: the concept becomes the goal, the reasoning becomes why it matters, open questions that are still open stay open questions. Idea-only anchors that the vault's conventions define (an idea stage line, a promotion-criteria section) are removed; a staged entity keeps its header, its Stage line moved to the promoting stage `(since <today>)`. Nothing is silently dropped: anything that no longer fits the project shape is surfaced, not deleted.
-3. **Create `actions.md`** with the single next step from Step 2, and a `📅` only where the date is real. Everything else the brief proposed stays prose.
-4. **Repoint every inbound link** from Step 3.
-5. **Rewrite the links *inside* the moved folder** per [operating-discipline.md](../../para-shared/operating-discipline.md#moving-an-entity-folder): only a link whose target lies outside what moved changes.
-
-## Step 5 - Verify
-
-Re-run the Step 3 grep and assert zero stale references to the old path. Then resolve **every relative link inside the moved folder** against its new location and assert each target exists. A promotion that leaves broken links either way is a failed run.
-
-## Edge cases
-
-- **The idea has an `actions.md`** it should never have had (`resources/` holds no checkboxes). Fold its items into the new project's file rather than treating the file as a surprise: it is pre-existing intent, and the one-action rule applies to what stays open, so the rest becomes `## Backlog` prose.
-- **Only part of the idea is being committed.** Promote the committed part under its own name and leave the idea in place, narrowed, with a link each way. Do not move the whole folder and hope the surplus is ignored.
-- **The idea should become an area, not a project** (it turned out to be something maintained). Same move, different destination and no deadline to ask for: it lands in `areas/<name>/` with the area interview's two questions.
-- **A project of that name already exists.** Stop. Either the work is already tracked, or one of the two needs a distinct name, and both are the operator's call.
+- **The idea has an `actions.md`**: fold its items into the project's file, one open, the rest `## Backlog` prose.
+- **Only part of it is committed**: promote that part under its own name and leave the idea, narrowed, linked both ways.
+- **It should become an area**: the same move into `areas/<name>/`, with the area's two questions.
+- **A project of that name exists**: stop and ask.

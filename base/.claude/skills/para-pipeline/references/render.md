@@ -1,6 +1,6 @@
 # Render the board (Step 4)
 
-Exact terminal layout. One block per lifecycle, in the order the sections appear in `CLAUDE.md`, then the close. Sections with no content are omitted, except the counts line and the metrics, which state a zero rather than disappearing.
+One block per lifecycle, in the order `CLAUDE.md` declares them, then the close. A section with nothing to show is left out, except the counts line and the metrics, which state a zero.
 
 ````
 # Pipeline - <YYYY-MM-DD> - <vault name>
@@ -30,33 +30,29 @@ Exact terminal layout. One block per lifecycle, in the order the sections appear
 **Next action:** <exactly one concrete step>
 ````
 
-**Line rules.** One line per entity, no wraps: a long cell is cut after its first clause and ends in `…`. Stages render in the lifecycle table's own order, terminal stages excluded from the board. Within a stage, order by days in stage descending. `?d` is an unknown time in stage, never a zero, and a record carrying `since_from: "opened"` reads `<N>d since opened`. The next-step link points at the file the step actually lives in (the entity's `actions.md`, the champion's contact file, the register). **Percent-encode every link target**, never the link text.
-
-**A row home renders like any other stage**, with the register file as the link target and the row's own next-step column as the step. Where a stage holds more than fifteen rows, render the ten with the nearest dated next step, then one `(+N more in <register>)` line.
+**Line rules.** One line per entity, never wrapped: a long cell is cut after its first clause and ends in `…`. Stages in the table's order, terminal ones off the board; within a stage, most days in stage first. `?d` is a null `days_in_stage`, and `since_from: "opened"` reads `<N>d since opened`. The step links to its `next_step.file` and `line`; percent-encode every link target, never the text. A row home renders like a folder home, its register the link; a stage over fifteen rows shows the ten with the nearest dated step, then `(+N more in <register>)`.
 
 ## The flags
 
-One line each, under the board, naming the entity and the edit that clears it. Four of them, and no others:
+One line each, naming the entity and the edit that clears it, never what to decide about the entity itself:
 
-- **No next step.** None of the sources in [scan.md](scan.md) Step 3 holds an open item.
-- **No movement in 14 days**, by last touch where the entity carries one, else by days in stage - already computed as the entity's `stale` flag, `{basis, days}`. Say which of the two `basis` names. Not raised while the next step carries a date that is still ahead; an undated next step, or none at all, never suppresses it.
-- **A dated fact in the Stage qualifier expiring within 14 days** (a proposal's validity, an option, a quote). Print the clause as written.
-- **An unknown decision-maker.** Where the entity's header carries a `Signer` field whose value reads `unknown`, flag it from the **second** stage on. A lifecycle whose rule file declares no such field never fires it.
+- **`no_next_step`.**
+- **`stale`**: no movement in 14 days, saying which `basis` it was measured by, last touch or days in stage.
+- **`expiring`**: a dated fact in the Stage qualifier due within 14 days, its clause printed as written.
+- **`signer_unknown`**: the `Signer` field reads `unknown`.
+- **`home_mismatch`**, naming both paths; **`name_collision`**, each with its path; **`row_missing_columns`**, the row rendered with what it has.
 
-A flag is an observation, not an instruction: it says what the file lacks, never what the operator should decide about the entity itself.
+Then one line naming the `empty_homes` once, and one closing line listing `no_stage` and `unknown_stage` by path. A lifecycle with nothing live says so in one line.
 
 ## The metrics
 
-Per lifecycle, computed from the records already collected, this quarter only: the quarter holding today's date, `quarter`, named in the heading. It is a quarter of the financial year the vault's `**Locale:**` line declares (the year starts the day after its year end, each quarter three months after the one before), the calendar's where it declares none; where `year_end_unread` holds the line's year end, nobody could read it, the quarter fell back to the calendar's, and a line under the heading says so.
+From `metrics`, for the `quarter` named in the heading. Where `year_end_unread` holds a year end, a line under the heading says the `**Locale:**` year end could not be read and the calendar's quarter stands in.
 
-- **Opened this quarter**, from the `Opened` header field. A closed register row recording a move to a folder entity (by its Outcome link, else by name) is counted from the folder alone, here and in the referrers table.
-- **Reached the promoting stage**, the first stage in table order whose `PARA home` sits under `projects/`. A `Won` header date counts as reached wherever the entity now sits, including a delivery project archived outside every declared home once it ships - the script's own extra read of `archive/<promoting home>`, which also counts it as opened and in the referrers table. A vault whose lifecycle has none says so once and drops this line and the median.
-- **Reached each terminal stage**, one count per stage whose home is under `archive/`, each followed by the reasons recorded on those entities this quarter, grouped the same way as the referrers table (the text before the first comma) and counted (`reasons_this_quarter`). A terminal entity with no reason line is named instead of counted, where a rule file in `.claude/rules/` declares that line. **Where the quarter holds none, print the all-time counts instead**, one line marked as such (`all_time_reasons`).
-- **A referrers table** (`referrers`), grouped by the script on the phrase before the first comma of each `Source` header line (`referral from <contact>`, `inbound via <channel>`, `outreach`), a link grouped by the file it resolves to and shown by that file's title (its label where it resolves to nothing), over entities opened this quarter, with how many of each group reached the promoting stage. Entities whose source line is missing are one `unrecorded` row, never dropped.
-- **Median days from `Opened` to the promoting stage** (`median_days_opened_to_promoting`), over the entities that reached it, with the count it was taken over. Fewer than three and it prints the individual numbers instead.
-
-**Nothing per stage.** No conversion rate, no funnel percentage, no weighted value, no forecast.
+- **Opened**, **reached `promoting_stage`**, and each terminal stage's `this_quarter`, followed by its `reasons_this_quarter`; where the quarter holds none, its `all_time_reasons` on one line marked as all-time. A `missing_reason` entity is named, not counted.
+- **The referrers table** from `referrers`, its `unrecorded` row included.
+- **The median** from `median_days_opened_to_promoting`, with its `n`; a null `median` (fewer than three) prints `n` alone.
+- **No `promoting_stage`**: say so once, and drop that count and the median.
 
 ## The close
 
-One **Next action**: the single most concrete step the board justifies, naming an entity and what to do about it, with its file link. Prefer an entity flagged for a dated fact about to expire, then one whose next step is overdue, then one with no next step, then any other; within each, the most advanced stage first, then the longest since last touch (days in stage where none is recorded). Where the board is clean, close on the review itself rather than inventing work.
+One **Next action**: the most concrete step the board justifies, naming an entity, what to do and its file link. Prefer an `expiring` fact, then an overdue next step, then no next step, then any other; within each, the most advanced stage, then the longest since last touch (else in stage). A clean board closes on the review itself, never invented work.

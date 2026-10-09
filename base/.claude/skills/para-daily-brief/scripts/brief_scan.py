@@ -10,9 +10,8 @@ bucketed against a date, the per-entity totals, the health-flag inputs, the idea
 the triage count. It never writes to the vault and never reads a mailbox; outside the vault
 it reads only the ledgers of the sources the vault declares, under PARAOS_HOME.
 
-Why a script. references/task-scan.md says "Mechanical: no judgment lives here", and
-everything it describes has exactly one right answer: which folder a name resolves to,
-which marker a line carries, which side of today a date falls on, which files share an
+Why a script. Everything here has exactly one right answer: which folder a name resolves
+to, which marker a line carries, which side of today a date falls on, which files share an
 mtime. Instructions for that are re-derived on every run, cost a round trip each, and
 cannot be regression-tested. What stays with the model is what the model is for: ranking
 by what the vault's Vision rewards, choosing the one next action, and writing the brief.

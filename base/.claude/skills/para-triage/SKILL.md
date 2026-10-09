@@ -9,9 +9,7 @@ argument-hint: '[preview|apply|convert|table] [--test]'
 
 Processes every loose file in the current vault's `triage/` folder, plus any items pulled from the vault's configured triage sources (mailboxes, sync scripts). **Nothing is moved, renamed, or deleted until its own disposition has been put to the operator and approved** - one question per item, or per linked group, with the whole batch listed as a manifest first.
 
-**This skill is vault-agnostic.** The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PARA layout, and the optional `## Triage sources` block; a vault without that block is folder-only.
-
-Do NOT invoke for files outside `triage/`. Files already filed are stable; don't re-sort them.
+The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PARA layout and the optional `## Triage sources` block; without that block the run is folder-only. Files already filed outside `triage/` are not re-sorted.
 
 ## Arguments
 
@@ -21,18 +19,16 @@ Do NOT invoke for files outside `triage/`. Files already filed are stable; don't
 | `preview` | Print the manifest, then stop after the proposal table. Do not ask, do not execute. |
 | `apply` | Skip the approval step. Only when the user already approved a previous preview in this conversation. |
 | `table` | One markdown proposal table, one `go`: the explicit escape from item-by-item questions. |
-| `convert` | **Unattended entry point.** Normalise formats only: run sync sources, convert Google-native files to real `.md` siblings, write the conversion ledger, report what arrived. No classify, move, file or delete, so it is safe on a schedule; deletes wait for the next interactive run. |
+| `convert` | **Unattended entry point.** Run sync sources, convert Google-native files to `.md` siblings, write the conversion ledger, report what arrived. Nothing is classified, moved or deleted. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## Procedure
 
 ### Step 1: Confirm vault context
 
-**Resolve the vault root** (the path the operator named, or `pwd` before anything moved the shell, per `operating-discipline.md`) and verify it with Step 2's scan, run now. `vault.root` false (exit 3): stop with `Not a vault root: <the path you checked>.`, adding `Registered vault <name> is at <path>.` where `hint` names one, and **never run against that path until the operator names it**. An empty `triage/` is no reason to stop: Step 2's pulls write into it.
+**Resolve the vault root** (the path the operator named, or `pwd` before anything moved the shell) and verify it with Step 2's scan, run now. `vault.root` false (exit 3): stop with `Not a vault root: <the path you checked>.`, adding `Registered vault <name> is at <path>.` where `hint` names one, and never run against that path until the operator names it. An empty `triage/` is no reason to stop: Step 2's pulls write into it.
 
-Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-discipline.md#a-vaults-rule-files) (filing, language and do-not-add rules; quote the naming convention you apply back verbatim in the proposal). Also read the root `README.md`'s `## Operating model` section, skipping silently if absent: it says what the business *is*, and decides the in/out call on connector items.
-
-**Where no source-document naming convention is stated**, propose destinations only and ask the user to dictate the convention before any rename executes. Never invent one or borrow another vault's.
+Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-discipline.md#a-vaults-rule-files), quoting the naming convention you apply verbatim in the proposal, and the root `README.md`'s `## Operating model` where present: it decides whether a connector item is this vault's business. **Where no source-document naming convention is stated**, propose destinations only and ask the operator to dictate one before any rename; never invent one or borrow another vault's.
 
 ### Step 2: Gather inputs
 
@@ -43,57 +39,41 @@ Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-disci
 python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root>
 ```
 
-The scan keeps its own copy outside the vault and names it in `saved_to`: that path is the scan output every later re-check reads. Where `saved_to` is null, `save_error` says why; redirect the output to a file outside the vault instead.
+It keeps its output outside the vault at `saved_to`, which every later re-check reads; where that is null, `save_error` says why: redirect the output to a file outside the vault. Exit 0 answers, an empty `triage/` included; 3 is Step 1's stop. **Fields: [references/scan.md](references/scan.md).**
 
-**Exit codes**: 0 answered, an empty `triage/` included; 3 not a vault root (Step 1's stop). **Field table: [references/scan.md](references/scan.md).**
+**Each `sources.rows[].plan` decides whether that source runs**, per [references/sources.md](references/sources.md); what it pulls flows on as loose files. **Re-run the scan** after anything writes into `triage/`, and with `--threads <file>` once a local mailbox pull has its candidate threads: that folds each into a note already staged for it and counts a sent message's working days unanswered.
 
-**Each `sources.rows[].plan` decides whether that source runs**: a `pull` or `run` row executes here per [references/sources.md](references/sources.md), its output then flowing on like any loose file, and a `sent` row runs its sent-mail pass alone; `skip` and `lookup` rows pull nothing. **Re-run the scan** after anything writes into `triage/`, and with `--threads <file>` once a local connector pull has its candidate threads, so each folds into a note already staged for it and carries its seen-ledger watermark and, where the operator wrote last, its working days without a reply.
+**Then read `items.loose`** and `items.subdirectories`. Subdirectories are **listed, never asked**. `triage/` never holds a `README.md`: never create one, and propose deleting one the scan flags (`readme: true`).
 
-**Then read `items.loose`** and `items.subdirectories`. Subdirectories are **listed, never asked** ([references/approval.md](references/approval.md)). `triage/` never holds a `README.md`: **never create one**, and propose deleting one the scan flags (`readme: true`) rather than filing it.
-
-**Only now, check for emptiness.** `items.empty` true: respond `Nothing to triage in <the path you checked>.` and stop. A source declared but unreachable is not nothing: name it (Edge cases, below). `items.only_subdirectories` true: list them and stop with `Only subdirectories in triage/; nothing to file at top level. Subdirectories listed for your review.`
+**Only now, check for emptiness.** `items.empty` true: respond `Nothing to triage in <the path you checked>.`, naming any declared source that could not be read, and stop. `items.only_subdirectories` true: list them and stop with `Only subdirectories in triage/; nothing to file at top level. Subdirectories listed for your review.`
 
 ### Steps 3 and 4: Inspect each file, then choose its destination
 
-Read each loose file, weigh the scan's duplicates, cross-vault hits and orientation problems, then find its entity and build the convention-conform filename. **Full procedure: [references/filing.md](references/filing.md).** A meeting record filed for an entity whose shape declares `Last touch` also proposes that entity's updates and a follow-up draft: [references/after-a-meeting.md](references/after-a-meeting.md).
+Read each loose file, weigh the scan's duplicates and inbound links, then find its entity and build the convention-conform name: [references/filing.md](references/filing.md). A meeting record filed for an entity whose shape declares `Last touch` also proposes that entity's updates and a follow-up draft ([filing.md](references/filing.md#a-meeting-record)).
 
 ### Steps 5 and 6: Propose, then approve item by item
 
-Group the linked items, **then print the manifest**, when and where [para-shared/asking.md](../para-shared/asking.md) says: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. Then ask **one `AskUserQuestion` per item or linked group**. **Vocabulary, grouping and delete rules: [references/approval.md](references/approval.md).**
+Group the linked items, **then print the manifest** as [para-shared/asking.md](../para-shared/asking.md) sets out: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. Then ask **one `AskUserQuestion` per item or linked group**, from [references/approval.md](references/approval.md)'s vocabulary.
 
-**On `preview`, `apply`, `convert`, `table`, or any run with no interactive operator, do not ask.** `convert` builds no table: it reports what arrived and stops. On the others, after the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. The follow-on edits and any draft go under the table in full, in the same message, never "as listed above". `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
+**On `preview`, `apply`, `table`, or any run with no interactive operator, do not ask**: after the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. Follow-on edits and any draft go under the table in full, never "as listed above". `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
 ### Steps 7 and 8: Execute, update READMEs
 
-Moves, deletes, rotations, connector writes, and README follow-ons. **Full procedure: [references/execute.md](references/execute.md).**
+Moves, deletes, connector writes and follow-on edits: [references/execute.md](references/execute.md).
 
 ### Step 9: Summarize
 
-One line per category: N files moved (each linked to its new path), N deleted with the reason, N follow-on edits (each file named), and what is left in `triage/`. **Name the deferrals too**: every `Leave in triage` or `Note to triage`, and every amendment made through Other, per [para-shared/asking.md](../para-shared/asking.md).
+One line per category: files moved (each linked to its new path), deleted (with the reason), follow-on edits (each file named), each declared source skipped or unreachable, and what is left in `triage/`. **Name the deferrals too**: every `Leave in triage` or `Note to triage`, and every amendment made through Other.
 
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** Specific to this skill:
 
 - **Every deletion is approved on its own** - its own question, or its own Delete row on the table path - never a verbal go-ahead alone.
-- **Never ask a question nobody is there to answer.** On the no-ask paths, a scheduled task or a subagent, and wherever it is unclear whether an operator is present, **fail toward the table**.
-- **Never invent new top-level PARA folders** without asking. Sub-folders inside an existing entity are fine where the convention supports them (`sources/photos/`).
-- **Don't touch `_*` prefixed subdirectories in triage** without explicit direction: they are handoff batches the maintainer manages by hand.
-- **Never search Drive unscoped.** A query without the `drive_id` from the vault's `drive` row can answer "No files found" while the document sits in the folder: a **false quiet**. With no `drive` row, say the drive is undeclared. Never infer an id, and never report "nothing found" from an unscoped query.
-- **Never auto-delete a converted Google-native stub.** It gets its own delete question, or Delete row, like anything else. Idempotency comes from the conversion ledger.
-- **Mail is read-only.** Never send, reply, archive, or apply a label; surface and draft only, any draft per [para-shared/drafting.md](../para-shared/drafting.md). The only writes for a mailbox source are the local `triage/` note, the `actions.md` line or register row, and the ledger.
-- **Connector items land in `triage/`, `actions.md` or a register row, never straight into `projects/` or an entity folder, and never into a *different* vault**: a thread for elsewhere is **Dismiss (other vault)**, or for a staged note whose vault does not read its mailbox, **Stage in other vault** ([approval.md](references/approval.md)).
+- **Never invent a top-level PARA folder** without asking. Sub-folders inside an existing entity are fine where the convention supports them (`sources/photos/`).
+- **Never search Drive without the `drive` row's drive id**: an unscoped query can answer "No files found" while the document sits in the folder. With no `drive` row, say the drive is undeclared; never infer an id.
+- **Mail is read-only** ([connectors.md](../para-shared/connectors.md)); a draft follows [para-shared/drafting.md](../para-shared/drafting.md) and is shown, never sent or saved. A mailbox source writes only the `triage/` note, the `actions.md` line or register row, and the ledgers.
+- **Connector items land in `triage/`, `actions.md` or a register row**, never straight into an entity folder, and never into another vault: that is **Dismiss (other vault)** or **Stage in other vault**.
 - **A staged note whose `Content` line says the operator's own messages were not fetched names no reply as owed** (no action to answer the sender, no draft) unless a re-read at its source shows they have not answered ([references/filing.md](references/filing.md)).
-- **Fuzzy-match before creating.** Check existing contacts, projects, register rows and open `actions.md` items first; a thread bearing on tracked work is **Update existing**, not a duplicate.
-- **One next step per thread.** A thread yields at most one new checkbox, and a file at the cap (`over_threshold`) gets [approval.md](references/approval.md)'s flag.
-
-## Edge cases
-
-- **Vault declares triage sources but none are reachable**: file the loose files, and name each skipped source in the summary rather than reporting a clean run.
-
-Per-file edge cases are in [references/filing.md](references/filing.md); Drive and connector ones in [references/sources.md](references/sources.md).
-
-## Related skills
-
-- `/para-new` - creates the project, area, idea or contact a triaged file turns out to need.
-- `/para-deep-clean` - run it **after** this skill has emptied the loose-files queue, never before.
+- **Fuzzy-match before creating.** Check existing contacts, projects, ideas, register rows and open `actions.md` items first; a thread bearing on tracked work is **Update existing**, not a duplicate.
+- **One next step per thread**: at most one new checkbox.

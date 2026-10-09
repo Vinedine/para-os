@@ -7,109 +7,77 @@ argument-hint: '[phase1|phase2|phase3|phase4|audit] [--test]'
 
 # Deep clean
 
-A multi-phase cleanup workflow for vaults following the PARA plus per-entity `sources/` convention.
-
-**This skill is vault-agnostic.** It reads the vault's `CLAUDE.md` for its parameters, per [Defer to the vault](../para-shared/operating-discipline.md#defer-to-the-vault), including the entity type.
-
-Also invoke after a large content migration, or periodically (every 3-6 months) to catch drift. Do NOT invoke for single-file edits or small tweaks.
+A phased cleanup of a PARA vault with per-entity `sources/`, against the vault's own `CLAUDE.md`.
 
 ## Arguments
 
 | Arg | Behavior |
 |---|---|
-| *(none)* | Full flow starting from Phase 1 |
-| `phase1` | Structural / housekeeping audit only |
-| `phase2` | README structure consistency only (assumes Phase 1 done) |
-| `phase3` | Open items audit only (assumes Phase 2 done) |
-| `phase4` | Final audit only |
-| `audit` | Read-only summary: runs Phase 1 plus Phase 4 in observe-only mode. Skips destructive Phases 2 and 3. Never modifies files. |
-| `ref=<git-ref>` | The committed para-os ref precondition 5 compares the vault's template marker against, instead of `origin/stable`, such as `origin/main` or a revision branch in flight. Combines with any of the above. A working-tree path is refused. |
+| *(none)* | Every phase, from Phase 1 |
+| `phase1`, `phase2`, `phase3`, `phase4` | That phase only |
+| `audit` | Phase 1 and Phase 4, observe only: writes nothing |
+| `ref=<git-ref>` | The committed para-os ref precondition 5 compares against instead of `origin/stable`, with any of the above. A working-tree path is refused. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
-
-A leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments).
 
 ## Preconditions
 
-Confirm before starting:
-
-1. Vault has a `CLAUDE.md` documenting structure, naming conventions, and "do not add" rules. If missing, stop and ask the user to create one.
-2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
-3. Entities each carry the main document their `CLAUDE.md` prescribes (`brief.md` by default) plus optional `sources/`.
-4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them. If any are present, **stop and tell the user to run `/para-triage` first**; `audit`, which writes nothing, lists them as a finding instead. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
-5. **The vault should be on the newest *shipped* para-os template revision.** Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
-
-   The scan's `preconditions.template_marker` compares the vault's `CLAUDE.md` marker with the master's at a committed ref: the `ref=` argument, else `origin/stable`. Then, in order:
-
-   - **Vault behind the shipped marker, or carrying none:** stop and say to run `/para-upgrade` first.
-   - **Vault ahead of the shipped marker:** it was aligned to a revision that has not shipped yet. Name the two markers in one line and carry on, auditing against the vault's own `CLAUDE.md`. **Never send this vault to `/para-upgrade`**, which refuses to downgrade.
-   - **No clone found** (`verdict: no_clone`, per [para-shared/scripts.md](../para-shared/scripts.md)): skip the check, say no para-os clone was found so the vault's revision could not be verified, and carry on.
-   - **A clone the scan reports `ref_missing` on the default ref:** it has no `stable` branch yet. Offer the one-time switch (`git -C <clone> fetch origin`, then `git -C <clone> checkout stable`) and check again; declined, carry on as with no clone.
+1. The vault has a `CLAUDE.md` documenting its structure, naming and "do not add" rules. Missing: stop and ask for one.
+2. It follows the PARA layout: at least `areas/`, `projects/` and `archive/`.
+3. Each entity carries the main document its `CLAUDE.md` prescribes (`brief.md` by default).
+4. **`triage/` holds no loose files** (`preconditions.triage_loose`). Any: stop and say to run `/para-triage` first; `audit` lists them as a finding instead. A `triage_readme` is flagged for deletion in Phase 1.
+5. **The vault is on the newest shipped template revision**, per `preconditions.template_marker` at the `ref=` argument, else `origin/stable`. Detection only: acting on the master's content is `/para-upgrade`'s job.
+   - **`behind`, or no vault marker:** stop and say to run `/para-upgrade` first.
+   - **`ahead`:** name both markers in one line and carry on against the vault's own `CLAUDE.md`. Never send it to `/para-upgrade`.
+   - **`no_clone`:** say the revision could not be verified, and carry on.
+   - **`ref_missing` on the default ref** (a clone with no `stable` branch): offer `git -C <clone> fetch origin`, then `git -C <clone> checkout stable`, and check again; declined, carry on as with no clone.
 
 ## Step 0 - Scan
 
-Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns preconditions 4 and 5 plus that phase's candidate findings. Phase 2 has no script.
+Phases 1, 3 and 4 each open with the scan, per [para-shared/scripts.md](../para-shared/scripts.md): preconditions 4 and 5 plus that phase's candidates. Phase 2 has none.
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] [--templates-dir <dir>]... [--generated-dir <dir>]... [--name-only-column <file>:<column>]... > <scan output path>
+python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] [--templates-dir <dir>]... [--generated-dir <dir>]... [--name-only-column <file>:<column>]... [--dated-pattern <regex>] [--next-steps-heading <heading>]... > <scan output path>
 ```
 
-Each exclusion flag repeats once per entry the vault declares: a folder its `CLAUDE.md` names as holding templates (`--templates-dir`) or a script's output (`--generated-dir`), and a register column its rule file declares a name, not a link (`--name-only-column`).
+Pass a flag for each value the vault declares: a folder holding templates or a script's output, a register column of names rather than links, a dated-name pattern for `archive/meetings/` other than an eight-digit prefix, next-steps headings other than `Next steps` and `Open items`.
 
-## Phased workflow
+## Phases
 
-Each phase ends with a summary and waits for explicit user approval before proceeding to the next. The user can amend, skip, or stop at any phase. **Never auto-advance without approval.**
+Each phase ends with a summary and waits for approval; the operator can amend, skip or stop. **Never auto-advance.**
 
-### Phase 1 - Structural / housekeeping audit
+### Phase 1 - Structural audit
 
-Map the vault, scan for housekeeping issues (stale drafts, naming violations, dangling links and the link syntaxes the dangling check can't see, archive-vs-active misclassification, duplicates), audit archive-folder hygiene, then present one issues table and apply in priority order. **Full procedure: [references/phase1-structural.md](references/phase1-structural.md).**
+Housekeeping findings into one issues table, lossless fixes first: [references/phase1-structural.md](references/phase1-structural.md).
 
-### Phase 2 - README structure consistency
+### Phase 2 - README structure
 
-The root README's fixed four-heading shape first, then the vault's own canonical structure for entity READMEs, applied one worked example at a time. **Full procedure: [references/phase2-readmes.md](references/phase2-readmes.md).**
+The root README's four headings, then entity READMEs against the vault's declared shape, one worked example first: [references/phase2-readmes.md](references/phase2-readmes.md).
 
-### Phase 3 - Open items, action grooming, content grooming
+### Phase 3 - Open items and grooming
 
-Close documented open items by reading the source PDFs, surface time-sensitive ones, groom over-grown action files back to the actionable frontier, and prune prose against the content frontier. This is where most of the destructive work is. **Full procedure: [references/phase3-open-items.md](references/phase3-open-items.md).**
+Close items from documents on file, surface what is time-sensitive, groom action files to the actionable frontier and prose to the content frontier: [references/phase3-open-items.md](references/phase3-open-items.md).
 
 ### Phase 4 - Final audit
 
-Read-only verification, ending on an actual `/para-daily-brief` run against the cleaned vault. **Full checklist: [references/phase4-audit.md](references/phase4-audit.md).**
+Read-only, and the second half of `audit`. A scan row with `pass: false` is a residual issue unless Phase 1's exclusions or an operator decision this run, recorded in the summary, accounts for it. A `pass: None` row is a count whose verdict is the agent's, `over_threshold_files` included where no file over is an `actions.md` (each may declare its own contract, Step 3.4). Then check by reading what no row covers:
+
+- The root README passes the Step 1.1 shape check, every README follows the structure `CLAUDE.md` documents, and active entities' Open items hold only real work.
+- Every contradiction between live files is corrected in the copies or carried as an open item on the owning entity.
+- Status tables ("where do we stand": cost basis, stage, key numbers) are present and current, where the vault uses them.
+- Content grooming was proposed and ruled on, each removal approved with its text shown, and the summary names the briefs Step 3.5 read and skipped.
+- **`/para-daily-brief` runs** against the cleaned vault, terminal only, and its counts look right. Never simulate it with a grep.
+
+Report a clean state, or the residual issues with proposed fixes.
 
 ## Output
 
-Final summary report covering:
-
-- **What was fixed** (categorical list per phase)
-- **Status snapshot** across all entities (one row each, key numbers visible)
-- **Remaining open items** by entity (active only)
-- **Suggestions for next-pass work** (domain-specific templates, contact-file consistency, and so on)
-
-## Approvals
-
-Findings are presented two ways, and which one a finding gets is decided by whether approving it can lose something. **Lossless changes batch** onto the issues table each phase already builds: demotions, link repoints, renames, README normalisation. **Anything that closes, removes, strips a marker or deletes is one question per item** through `AskUserQuestion`. Mechanics, the manifest threshold and the 20-item gate: [para-shared/asking.md](../para-shared/asking.md).
+A final summary: what was fixed, by phase; a status snapshot, one row per entity with its key numbers; the remaining open items of each active entity; suggestions for a next pass.
 
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **Never close, strip or delete on a batch approval.** The issues table is for changes that lose nothing; everything else is asked one at a time.
-
-- **Read every README and key source PDF** before proposing changes.
-- **Pause for approval between phases**, and within Phase 2 do one worked example before batching the rest.
-- **Respect "do not add" rules** in CLAUDE.md. Common ones: no per-entity templates, and no derived outputs that drift from a single source.
-- **Match the vault's voice and style.** Read 2-3 nearby READMEs first and copy the structure and tone.
-- **Cross-vault separation**: never link from a code repo to a private vault path, and never include other-vault paths in repo-checked content.
-
-## Edge cases
-
-- **Multi-language vault**: match the document's source language for filenames and follow CLAUDE.md's per-section language guidance for prose.
-
-## Notes for Claude sessions
-
-- This skill produces user-visible work on most READMEs in the vault. Make sure the user has time and bandwidth before kicking it off. A typical run takes 1-3 hours of conversation.
-- Track progress in the harness's task list where it offers one, else in a short progress message at each phase boundary.
-
-## Related skills
-
-- `/para-archive` - the thorough close-out for a single entity Phase 1 flags as misclassified.
+- **Lossless changes batch** on the issues table: demotions, link repoints, renames, README normalisation. **Anything that closes, removes, strips a marker or deletes is one question per item**, per [para-shared/asking.md](../para-shared/asking.md), never a batch approval.
+- **Read every README, and the source document a proposal rests on**, before proposing.
+- **Respect the vault's "do not add" rules**: no per-entity templates, no derived outputs that drift from their source.

@@ -12,7 +12,7 @@ candidate findings for the phase asked for. It never writes to the vault - not e
 phase-3 file it reads for staleness - and never judges a candidate: exclusions for
 third-party verbatim content, frozen records, or a vault's own declared contract are the
 skill's job, per references/phase1-structural.md, phase3-open-items.md and
-phase4-audit.md. Phase 2 has no script: README normalisation is judgment start to finish.
+SKILL.md's Phase 4. Phase 2 has no script: README normalisation is judgment start to finish.
 
 Why a script. The preconditions and the housekeeping scan are a mechanical read of the
 vault - which folder holds a figure, whether a link resolves, whether an open item carries
@@ -944,7 +944,7 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
     aspirational = aspirational_from(files, vault, today)
     rows.append({"check": "aspirational_dates", "pass": not aspirational, "detail": aspirational})
 
-    # Candidates only, pass: None - phase4-audit.md lists contact citation and detail
+    # Candidates only, pass: None - SKILL.md's Phase 4 lists contact citation and detail
     # attribution among what this phase re-verifies, and the verdict (real defect, or a
     # legitimate exemption) is the skill's, not this script's.
     uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs),
