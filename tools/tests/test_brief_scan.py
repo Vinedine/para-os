@@ -10,7 +10,7 @@ nothing calls a model. The date is passed in, never taken from the clock, so a r
 year's time scores what it scores now.
 
 What the shared library owns is tested beside it, in
-`para-shared/scripts/test_paraos_vault.py`: name matching, fenced lines, markers, file
+`test_paraos_vault.py`: name matching, fenced lines, markers, file
 dates, hygiene sweeps. What is tested here is what the brief itself decides, and what the
 two produce together.
 """
