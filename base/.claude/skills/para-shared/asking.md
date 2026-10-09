@@ -4,7 +4,7 @@ How a skill puts a batch of decisions to the operator through `AskUserQuestion` 
 
 ## Before the questions: the manifest
 
-Four or more questions: print one line per question, numbered in the order they will be asked, then the count, ahead of the questions or, on a path that does not ask, ahead of the table. Fewer: skip it.
+Four or more questions: print the count line, worded exactly `N items, N questions (N grouped), N rounds.`, then one line per question, numbered in the order they will be asked, ahead of the questions or, on a path that does not ask, ahead of the table. Fewer: skip it.
 
 ```
 14 items, 11 questions (2 grouped), 3 rounds.

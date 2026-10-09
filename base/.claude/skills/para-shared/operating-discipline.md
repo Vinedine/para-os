@@ -38,13 +38,13 @@ A link, checkbox, marker, heading or placeholder inside a fenced block or an inl
 ## Closing and adding actions
 
 - **Every tick writes its date**, `✅ <today>`. The operator's "sent", "paid", "done" closes the matching item at once, and the reply names the line. A close found rather than stated (a reply in mail, a receipt on file) is proposed, citing it; "probably done" closes nothing.
-- **A ticked `🔁` item is rolled forward in code**: `paraos_vault.py next-occurrence "<the line>"` prints the closed line and its successor; write both.
-- **When work on an entity ends, reconcile it**: `paraos_vault.py open-items --vault <root> [<files>]` lists the open items and Backlog bullets of what the session touched. Propose closes, re-dates and one next step before the session ends, each close its own question ([asking.md](asking.md#grouping)).
+- **A ticked `🔁` item is rolled forward in code**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" next-occurrence "<the line>"` (Windows: `py -3`) prints the closed line and its successor; write both.
+- **When work on an entity ends, reconcile it**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" open-items --vault <root> [<files>]` (Windows: `py -3`) lists the open items and Backlog bullets of what the session touched. Propose closes, re-dates and one next step before the session ends, each close its own question ([asking.md](asking.md#grouping)).
 - **A follow-up is offered as a checkbox**, not as prose or a "say the word" offer; a waiting state is a `Waiting on` line or a dated follow-up. A folder the checkbox table declares `never` gets none.
 
 ## Dating a renewing agreement
 
-An agreement that renews unless notice is given is dated on its last day to give notice, the text naming the renewal: `paraos_vault.py notice-date <renewal> "<n> months" [--term "<how often it renews>"]`, which says `passed` where that day has gone. A check that comes round yearly is one `🔁 every year` item dated its next occurrence.
+A contract, lease, subscription or policy that renews unless notice is given is dated on its last day to give notice, never on the renewal, and the line's text names the renewal date. That day is the `notice_date` of `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" notice-date <renewal> "<n> months"` (Windows: `py -3`); where it reports `passed`, say so, and `--term "<how often it renews>"` gives the next renewal's. Without a shell, count back by hand and say so. A check that comes round yearly is one `🔁 every year` item dated its next occurrence.
 
 ## A vault's rule files
 
@@ -54,7 +54,7 @@ An agreement that renews unless notice is given is dated on its last day to give
 
 ## A synced vault can change mid-run
 
-Another session, device or the sync client itself can write a synced vault between two steps. Snapshot a file before proposing a change to it, and run `paraos_vault.py changed <scan output>` immediately before every delete or move: it exits 1 when a file in the snapshot changed or one arrived in a folder it watches. Re-read what changed; leave what arrived alone.
+Another session, device or the sync client itself can write a synced vault between two steps. Snapshot a file before proposing a change to it, and run `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" changed <scan output path>` (Windows: `py -3`) immediately before every delete or move: it exits 1 when a file in the snapshot changed or one arrived in a folder it watches. Re-read what changed; leave what arrived alone.
 
 ## Entity creation
 
