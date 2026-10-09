@@ -12,9 +12,9 @@ python3 tools/eval.py -- --runs 1 --ablation none     # while iterating: one arm
 
 `py -3` on Windows. Anything after `--` goes to the vendor command unchanged.
 
-`tools/eval.py` grants the gated tools (`Bash`, `Write`, `Edit`) that the selected cases list
-in their `allowed_tools`, and says which on its first lines. Passing `--allow-tools` yourself
-replaces that grant.
+`tools/eval.py` grants each case the gated tools (`Bash`, `Write`, `Edit`) its own
+`allowed_tools` lists, one harness run per distinct grant, merged into one report, and says
+which on its first lines. Passing `--allow-tools` yourself grants every case the same.
 
 ## Where this sits
 

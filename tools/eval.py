@@ -77,6 +77,16 @@ def selected_cases(case_glob, tags):
     return cases
 
 
+def grant_groups(cases):
+    """[(grant, [case names])] with one entry per distinct grant: the gated tools that
+    case's own prompt lists. A case is graded in a session built for it, never one granted
+    another case's shell."""
+    groups = {}
+    for name, (_, tools) in cases.items():
+        groups.setdefault(tuple(t for t in GATED if t in tools), []).append(name)
+    return list(groups.items())
+
+
 def tag_values(rest):
     """Every value given to --tag in the options passed through to the harness."""
     out = []
@@ -165,8 +175,34 @@ def no_skill_copy(directory, names):
     return skip | ({"skills"} if Path(directory).name == ".claude" else set())
 
 
-def build_plugin(workdir):
-    """Assemble the plugin the harness wants: skills, a manifest, and the cases."""
+def merge_results(out_dir, parts):
+    """Write the one aggregate-result.json of a run the harness was invoked for in several
+    folders, so the report and the summary read it as a single run. The cases keep name
+    order; cost and time add up."""
+    results = []
+    for part in parts:
+        try:
+            results.append(json.loads((part / "aggregate-result.json").read_text(encoding="utf-8")))
+        except (OSError, ValueError):
+            pass
+    if not results:
+        return
+    merged = dict(results[0])
+    merged["cases"] = sorted((c for r in results for c in r.get("cases", [])),
+                             key=lambda c: c.get("name", ""))
+    for key in ("costUsd", "durationSeconds"):
+        merged[key] = sum(r.get(key, 0) for r in results)
+    reasons = [r.get("partialReason", "no reason given") for r in results if r.get("partial")]
+    merged["partial"] = bool(reasons)
+    if reasons:
+        merged["partialReason"] = "; ".join(reasons)
+    (out_dir / "aggregate-result.json").write_text(json.dumps(merged, indent=2) + "\n",
+                                                   encoding="utf-8")
+
+
+def build_plugin(workdir, only=None):
+    """Assemble the plugin the harness wants: skills, a manifest, and the cases (only the
+    named ones, where `only` is given)."""
     plugin = workdir / "para-os"
     (plugin / ".claude-plugin").mkdir(parents=True)
     (plugin / ".claude-plugin" / "plugin.json").write_text(
@@ -178,8 +214,13 @@ def build_plugin(workdir):
         if target.exists():
             raise SystemExit(f"{skill.parent} has the name of a skill already loaded")
         shutil.copytree(skill.parent, target)
-    shutil.copytree(EVALS, plugin / "evals",
-                    ignore=shutil.ignore_patterns("results"))
+    def skip_cases(directory, names):
+        out = {"results"} & set(names)
+        if only is not None and Path(directory) == EVALS:
+            out |= {n for n in names if (EVALS / n / "case.yaml").is_file() and n not in only}
+        return out
+
+    shutil.copytree(EVALS, plugin / "evals", ignore=skip_cases)
     shutil.copytree(EXAMPLES, plugin / "evals" / "_fixture" / "examples", ignore=no_skill_copy)
     return plugin
 
@@ -210,15 +251,12 @@ def main(argv=None):
     out_dir = claim_run_dir(home / "data" / "eval-runs")
     workdir = Path(tempfile.mkdtemp(prefix="para-os-eval-"))
     try:
-        plugin = build_plugin(workdir)
         # On Windows the command is a .CMD shim, which CreateProcess will not find by
         # its bare name, so resolve it the way the shell would.
         claude = shutil.which("claude")
         if not claude:
             ap.error("claude is not on PATH")
-        cmd = [claude, "plugin", "eval", str(plugin),
-               "--trust-plugin", "--scaffold", "--no-publish",
-               "--output-dir", str(out_dir)]
+        cmd = ["--trust-plugin", "--scaffold", "--no-publish"]
         tags = tag_values(args.rest)
         if args.case:
             cmd += ["--case", args.case]
@@ -245,28 +283,43 @@ def main(argv=None):
         # right answers that a rubric has to read closely; evals/README.md has the evidence.
         if not any(a == "--judge-model" or a.startswith("--judge-model=") for a in args.rest):
             cmd += ["--judge-model", "sonnet"]
-        # Grant what the selected cases list, unless the operator granted tools themselves.
-        if not any(a == "--allow-tools" or a.startswith("--allow-tools=") for a in args.rest):
-            cases = selected_cases(args.case, tags)
-            grant = [t for t in GATED if any(t in tools for _, tools in cases.values())]
-            if grant:
-                cmd += ["--allow-tools", *grant]
-                print(f"granting {' '.join(grant)}: listed by the selected cases")
-            if {"Bash", "PowerShell"} & set(grant):
+        # Grant each case what its own prompt lists, in one harness run per distinct grant,
+        # unless the operator granted tools themselves, which then apply to every case.
+        cases = selected_cases(args.case, tags)
+        if any(a == "--allow-tools" or a.startswith("--allow-tools=") for a in args.rest):
+            groups = [((), None)]
+        else:
+            groups = grant_groups(cases) if cases else [((), None)]
+            if {"Bash", "PowerShell"} & {t for grant, _ in groups for t in grant}:
                 blocker = shell_blocker()
                 if blocker and not args.dry_run:
                     ap.error(blocker)
+        if len(groups) == 1:
+            groups = [(groups[0][0], None)]
 
-        print(f"plugin assembled at {plugin}")
-        print(" ".join(cmd))
+        code, part_dirs = 0, []
+        for i, (grant, names) in enumerate(groups):
+            part = out_dir / f"group-{i}" if len(groups) > 1 else out_dir
+            part_dirs.append(part)
+            plugin = build_plugin(workdir / str(i), names)
+            run = [claude, "plugin", "eval", str(plugin), *cmd, "--output-dir", str(part)]
+            if grant:
+                run += ["--allow-tools", *grant]
+                print(f"granting {' '.join(grant)}: listed by "
+                      f"{'the selected cases' if names is None else ' '.join(names)}")
+            print(f"plugin assembled at {plugin}")
+            print(" ".join(run))
+            if not args.dry_run:
+                code = max(code, subprocess.run(run, cwd=str(plugin)).returncode)
         if args.dry_run:
             return 0
-        done = subprocess.run(cmd, cwd=str(plugin))
+        if len(groups) > 1:
+            merge_results(out_dir, part_dirs)
         print(f"results: {out_dir}")
         if args.summary:
             with open(args.summary, "a", encoding="utf-8") as f:
                 f.write(summary_markdown(out_dir))
-        return done.returncode
+        return code
     finally:
         if args.keep:
             print(f"kept {workdir}")
