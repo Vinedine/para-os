@@ -8,7 +8,7 @@ Each vault's `CLAUDE.md` carries the revision it was last aligned to, as an HTML
 <!-- para-os-template: 2026.08.01 -->
 ```
 
-`/para-upgrade` collects every entry after the vault's marker, up to and including the kit's; a vault with no marker predates the scheme and collects them all. Each line is one change, `<what the vault does>: <file or section>`, its condition first where it has one and its pull request's number last where it cites one. A `Retired:` line names vault paths the kit no longer ships, and the upgrade proposes deleting each whatever the vault's marker.
+`/para-upgrade` collects every entry after the vault's marker, up to and including the kit's; a vault with no marker predates the scheme and collects them all. Each line is one change, `<what the vault does>: <file or section>`, its condition first where it has one and its pull request's number last where it cites one. A `Retired:` line names vault paths the kit no longer ships, and the upgrade proposes deleting each, whatever the vault's marker.
 
 Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero-padded number within that month, so a plain string compare orders them. A revision marks a template change an existing vault has to react to.
 
