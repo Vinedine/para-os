@@ -134,8 +134,6 @@ mkdir -p para-os-clone
 # Changelog
 
 ## 2026.08.01
-
-**`triage/` ships a placeholder so an empty vault keeps the folder.** A fresh checkout with nothing triaged yet lost the folder entirely, which broke the first triage run. Reaction: add `triage/.gitkeep` to a vault that lacks it.
 EOF
 
   cat > base/CLAUDE.md.template <<'EOF'
@@ -208,13 +206,7 @@ EOF
 
 ## 2026.08.02
 
-**`/para-notes` drops a note whose text is blank instead of listing it as empty.** Reaction: re-sync installed `para-notes` copies.
-
----
-
 ## 2026.08.01
-
-**`triage/` ships a placeholder so an empty vault keeps the folder.** A fresh checkout with nothing triaged yet lost the folder entirely, which broke the first triage run. Reaction: add `triage/.gitkeep` to a vault that lacks it.
 EOF
 
   cat > base/CLAUDE.md.template <<'EOF'
@@ -249,19 +241,9 @@ EOF
 
 ## 2026.08.03
 
-**The logbook integration gains a dedupe window so a rerun stops repeating old notes.** `logbook.py` now remembers the last fifty note ids it printed in a small ledger file next to the export folder, and skips one already printed instead of repeating it. Reaction: re-sync installed `logbook.py` copies; a vault with no logbook installed has nothing to do.
-
----
-
 ## 2026.08.02
 
-**`/para-notes` drops a note whose text is blank instead of listing it as empty.** Reaction: re-sync installed `para-notes` copies.
-
----
-
 ## 2026.08.01
-
-**`triage/` ships a placeholder so an empty vault keeps the folder.** A fresh checkout with nothing triaged yet lost the folder entirely, which broke the first triage run. Reaction: add `triage/.gitkeep` to a vault that lacks it.
 EOF
 
   cat > base/CLAUDE.md.template <<'EOF'

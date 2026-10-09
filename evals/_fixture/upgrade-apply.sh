@@ -10,9 +10,9 @@
 # The case this fixture drives is an applied migration, not an audit. The one collected
 # entry, 2026.08.02, carries two items:
 #
-#   1. A mechanical Reaction on a file the vault has in its before state: the template's
-#      `## Actions` section gains one sentence, and the entry says to take it into the
-#      vault's CLAUDE.md. It is CLAUDE.md, not a file under `.claude/`, on purpose: a
+#   1. A template change on a file the vault has in its before state: the template's
+#      `## Actions` section gains one sentence, which the scan's contract diff carries to
+#      the vault's CLAUDE.md. It is CLAUDE.md, not a file under `.claude/`, on purpose: a
 #      non-interactive run cannot Edit a `.claude/` file, which Claude Code refuses as
 #      sensitive with no operator to approve it, so a Reaction there would grade the
 #      harness rather than the skill.
@@ -171,8 +171,6 @@ mkdir -p para-os-clone
 # Changelog
 
 ## 2026.08.01
-
-**`triage/` ships a placeholder so an empty vault keeps the folder.** A fresh checkout with nothing triaged yet lost the folder entirely, which broke the first triage run. Reaction: add `triage/.gitkeep` to a vault that lacks it.
 EOF
 
   cat > base/CLAUDE.md.template <<'EOF'
@@ -248,15 +246,7 @@ EOF
 
 ## 2026.08.02
 
-**An area's action file is an action file too.** An area's `actions.md` holds open items the same way a project's does, and `CLAUDE.md` never said so. The template's `## Actions` section gains one sentence. Reaction: take that sentence into the vault's `## Actions` section.
-
-**The logbook integration skips a note it has already printed.** `logbook.py` now remembers the last fifty note ids it printed in a small ledger file next to the export folder, and skips one already printed instead of repeating it. Reaction: re-sync installed `logbook.py` copies; a vault with no logbook installed has nothing to do.
-
----
-
 ## 2026.08.01
-
-**`triage/` ships a placeholder so an empty vault keeps the folder.** A fresh checkout with nothing triaged yet lost the folder entirely, which broke the first triage run. Reaction: add `triage/.gitkeep` to a vault that lacks it.
 EOF
 
   cat > base/CLAUDE.md.template <<'EOF'

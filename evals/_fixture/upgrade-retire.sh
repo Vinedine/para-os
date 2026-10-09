@@ -8,7 +8,7 @@
 #
 # The one collected entry, 2026.08.02, retires the logbook integration: `integrations/logbook/`
 # is gone at the ref, so the installed copy's marker resolves to no master, and the entry's
-# Reaction says to remove each installed copy. Nothing else changes between the revisions.
+# `Retired:` line names every copy, wherever it sits. Nothing else changes between the revisions.
 #
 # Every commit is `-c user.name=t -c user.email=t@example.invalid`. Dates: none.
 set -e
@@ -103,8 +103,6 @@ mkdir -p para-os-clone
 # Changelog
 
 ## 2026.08.01
-
-**`triage/` ships a placeholder so an empty vault keeps the folder.** Reaction: add `triage/.gitkeep` to a vault that lacks it.
 EOF
 
   template() {
@@ -143,13 +141,9 @@ EOF
 
 ## 2026.08.02
 
-**The logbook integration is retired.** `integrations/logbook/` is gone: nothing reads the notes it printed any more. Reaction: remove each installed copy of `logbook.py`, wherever it sits in the vault.
-
----
+Retired: `**/logbook.py`
 
 ## 2026.08.01
-
-**`triage/` ships a placeholder so an empty vault keeps the folder.** Reaction: add `triage/.gitkeep` to a vault that lacks it.
 EOF
 
   git add -A -f

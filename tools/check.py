@@ -334,8 +334,11 @@ def check_fragments():
     CHANGELOG.md's entries are held to the same lines."""
     sys.path.insert(0, str(MAINTAINER_SKILLS / "release" / "scripts"))
     from fold_changelog import changelog_problems, fragment_paths, parse_fragment
-    for problem in changelog_problems((ROOT / "CHANGELOG.md").read_text(encoding="utf-8")):
+    problems = changelog_problems((ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
+    for problem in problems:
         bad(f"CHANGELOG.md: {problem}")
+    if not problems:
+        ok("CHANGELOG.md: every entry line is a Reaction or `Retired:` line")
     for p in sorted(fragment_paths(ROOT)):
         _, problems = parse_fragment(p.read_text(encoding="utf-8"))
         for problem in problems:
