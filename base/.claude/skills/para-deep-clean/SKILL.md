@@ -29,7 +29,7 @@ A phased cleanup of a PARA vault with per-entity `sources/`, against the vault's
    - **`behind`, or no vault marker:** stop and say to run `/para-upgrade` first.
    - **`ahead`:** name both markers in one line and carry on against the vault's own `CLAUDE.md`. Never send it to `/para-upgrade`.
    - **`no_clone`:** say the revision could not be verified, and carry on.
-   - **`ref_missing` on the default ref** (a clone with no `stable` branch): offer `git -C <clone> fetch origin`, then `git -C <clone> checkout stable`, and check again; declined, carry on as with no clone.
+   - **`ref_missing` on the default ref** (a clone with no `stable` branch): ask the operator to switch the clone to `stable`, and check again; not done, carry on as with no clone.
 
 ## Step 0 - Scan
 
