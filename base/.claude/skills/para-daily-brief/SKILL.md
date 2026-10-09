@@ -1,7 +1,7 @@
 ---
 name: para-daily-brief
 description: Produce a vault-state dashboard from the current vault - open actions per project and area, health flags, latest ideas, agenda - closing on one concrete next action, with a visual dashboard artifact where the harness supports it. Naming one project or area scopes the brief to it; `review` reports what closed, slipped and moved in a window. Use when user asks "what should I work on today" (the full brief, not the `today` scope), "what's overdue", "where does <project> stand", "what did I get done this week", or types /para-daily-brief [today|week|overdue|all|review|<entity>].
-allowed-tools: Bash(python3 *), Bash(py *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
+allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
 argument-hint: '[today|week|overdue|all|<entity>|review [week|month|since <date>] [<entity>]] [--test]'
 ---
 

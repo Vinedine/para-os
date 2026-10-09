@@ -1,7 +1,7 @@
 ---
 name: para-prep
 description: Prepare a meeting from the vault's own files - who is coming and what each contact card holds, the entities they are tied to with stage, days in stage, last touch and signer, open items both ways, the last meeting's record and what was promised, what not to raise - closing on what the vault does not know, as questions. Read-only, to chat. Use when the user asks "prep me for my call with <person>", "what do I need before the <meeting>", "brief me on <person>", "prepare today's meetings", or types /para-prep [<event>|<person>|today].
-allowed-tools: Bash(python3 *), Bash(py *), Glob, Grep, Read, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
+allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
 argument-hint: '[<event>|<person>|today] [--test]'
 ---
 
