@@ -77,6 +77,19 @@ def selected_cases(case_glob, tags):
     return cases
 
 
+def split_cost(cmd, parts):
+    """`cmd` with any `--max-cost-usd` ceiling divided across `parts` harness invocations,
+    so the whole run still stops at the ceiling the caller set."""
+    out, i = list(cmd), 0
+    while i < len(out):
+        if out[i] == "--max-cost-usd" and i + 1 < len(out):
+            out[i + 1] = f"{float(out[i + 1]) / parts:g}"
+        elif out[i].startswith("--max-cost-usd="):
+            out[i] = f"--max-cost-usd={float(out[i].split('=', 1)[1]) / parts:g}"
+        i += 1
+    return out
+
+
 def grant_groups(cases):
     """[(grant, [case names])] with one entry per distinct grant: the gated tools that
     case's own prompt lists. A case is graded in a session built for it, never one granted
@@ -302,7 +315,8 @@ def main(argv=None):
             part = out_dir / f"group-{i}" if len(groups) > 1 else out_dir
             part_dirs.append(part)
             plugin = build_plugin(workdir / str(i), names)
-            run = [claude, "plugin", "eval", str(plugin), *cmd, "--output-dir", str(part)]
+            run = [claude, "plugin", "eval", str(plugin), *split_cost(cmd, len(groups)),
+                   "--output-dir", str(part)]
             if grant:
                 run += ["--allow-tools", *grant]
                 print(f"granting {' '.join(grant)}: listed by "

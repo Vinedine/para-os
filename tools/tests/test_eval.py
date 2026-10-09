@@ -143,5 +143,15 @@ class GrantPerCase(unittest.TestCase):
         self.assertEqual(sorted(harness.calls[0]["cases"]), sorted(self.tools))
 
 
+class SplitCost(unittest.TestCase):
+    def test_the_ceiling_is_shared_across_invocations(self):
+        self.assertEqual(eval_tool.split_cost(["--runs", "1", "--max-cost-usd", "40"], 2),
+                         ["--runs", "1", "--max-cost-usd", "20"])
+        self.assertEqual(eval_tool.split_cost(["--max-cost-usd=30"], 3), ["--max-cost-usd=10"])
+
+    def test_one_invocation_keeps_the_ceiling(self):
+        self.assertEqual(eval_tool.split_cost(["--max-cost-usd", "40"], 1), ["--max-cost-usd", "40"])
+
+
 if __name__ == "__main__":
     unittest.main()
