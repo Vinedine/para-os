@@ -33,7 +33,7 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> [--clone <path>] [--ref <ref>] > <scan output path>
 ```
 
-**Exit codes**: 0 answered; 3 not a vault root (with no `CLAUDE.md`, Precondition 2); 4 the clone or the ref cannot be read: ask for a clone path or a ref that resolves; 5 no ref named and the clone has no `origin/stable`: offer `git -C <clone> fetch origin` then `git -C <clone> checkout stable`, and scan again; 6 no clone: Precondition 1. Every field is in the script's docstring.
+**Exit codes**: 0 answered; 3 not a vault root (with no `CLAUDE.md`, Precondition 2); 4 the clone or the ref cannot be read: ask for a clone path or a ref that resolves; 5 no ref named and the clone has no `origin/stable`: ask the operator to switch the clone to `stable`, then scan again; 6 no clone: Precondition 1. Every field is in the script's docstring.
 
 By `revision.verdict`:
 
