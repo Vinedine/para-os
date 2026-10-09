@@ -69,7 +69,7 @@ Moves, deletes, rotations, connector writes, and README follow-ons. **Full proce
 
 ### Step 9: Summarize
 
-One line per category: N files moved (each linked to its new path), N deleted with the reason, N follow-on edits (each file named), and what is left in `triage/`. **Name the deferrals too**: every `Leave in triage`, `Note to triage` or `Leave thread`, and every amendment made through Other, per [para-shared/asking.md](../para-shared/asking.md).
+One line per category: N files moved (each linked to its new path), N deleted with the reason, N follow-on edits (each file named), and what is left in `triage/`. **Name the deferrals too**: every `Leave in triage` or `Note to triage`, and every amendment made through Other, per [para-shared/asking.md](../para-shared/asking.md).
 
 ## Strict rules
 

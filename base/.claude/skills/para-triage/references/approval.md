@@ -17,12 +17,11 @@ What a question may offer; [the table path](#the-table-path) offers less. Nothin
 - **Delete (redundant scan)**: content overlap, not a hash match. Always confirm: `Leave in triage` is the recommended option.
 - **Delete (no lasting value)**: the outcome is already recorded elsewhere; cite where.
 - **Create entity**: no entity fits; `/para-new` creates it and the file files into it ([execute.md](execute.md)). Asked only.
-- **Move out of vault**: the vault's rules keep this kind of file out of every synced folder (a takeout archive, a bulk export); the operator names the target.
 - **Leave in triage**: no good destination; say what is missing.
 
 **A subdirectory is listed, never asked**: every option it could get changes nothing. It goes under the manifest (`Subdirectories, not asked: ...`) and in the summary.
 
-**A staged mail note takes the connector-thread vocabulary too.** A loose `.md` staged from a mailbox (by `/para-ingest` or an earlier **Note to triage**; the scan's `note.mail_note`) stands in for its thread. Its question may add **Update existing**, **Add action**, **Add register row**, **Dismiss (other vault)** and **Stage in other vault**, each also disposing of the note, and the option says how: `Update existing, note deleted` is the default shape, since the thread survives in the mailbox and the note's Link names it; file the note too only where it holds content the mailbox copy does not. **Dismiss (noise)** is **Delete (no lasting value)** here, and **Leave thread** is **Leave in triage**. **Dismiss (other vault)** deletes the note only where `note.mailbox_readers` names that vault, which then receives the same mail; otherwise the option is **Stage in other vault**, the note moved unchanged into that vault's `triage/`. Its thread was ledgered when staged, so triage writes no seen-ledger entry for it.
+**A staged mail note takes the connector-thread vocabulary too.** A loose `.md` staged from a mailbox (by `/para-ingest` or an earlier **Note to triage**; the scan's `note.mail_note`) stands in for its thread. Its question may add **Update existing**, **Add action**, **Add register row**, **Dismiss (other vault)** and **Stage in other vault**, each also disposing of the note, and the option says how: `Update existing, note deleted` is the default shape, since the thread survives in the mailbox and the note's Link names it; file the note too only where it holds content the mailbox copy does not. **Dismiss (noise)** is **Delete (no lasting value)** here. **Dismiss (other vault)** deletes the note only where `note.mailbox_readers` names that vault, which then receives the same mail; otherwise the option is **Stage in other vault**, the note moved unchanged into that vault's `triage/`. Its thread was ledgered when staged, so triage writes no seen-ledger entry for it.
 
 **Connector threads** (named by subject, sender and date):
 
@@ -32,7 +31,6 @@ What a question may offer; [the table path](#the-table-path) offers less. Nothin
 - **Note to triage** - worth keeping; filed on a later pass, never straight into `projects/`.
 - **Dismiss (noise)** - never action-worthy in any vault (newsletter, notification, bot, promo); ledgered. Destination "(ledger only)". A sign-in or security code is always this, and is counted, never named ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 - **Dismiss (other vault)** - real correspondence for a different vault; **not** ledgered. Destination "(belongs to \<vault\>)".
-- **Leave thread** - nothing; it resurfaces next run.
 
 **Filing is not the default.** An item is in `triage/` because something arrived, not because it earned a place. Scheduling chatter whose meeting already has a record, a notification whose fact now lives where it belongs, a staged note that is a snippet of a mail still in the mailbox: filing these is content inflation. Where the value is already captured, **Delete (no lasting value)** leads, naming the survivor as evidence: the filed document or tracked line holding the value, or, for a staged mail note, the thread its Link names. **Where no survivor can be named, Leave in triage leads**, since the loss would be irreversible on a judgment ([asking.md](../../para-shared/asking.md#grouping)).
 
@@ -74,7 +72,7 @@ After it, list the **follow-on edits** to each receiving entity's `README.md` or
 
 The arguments that build this table instead of asking are `preview`, `apply` and `table`, plus any run with no interactive operator ([SKILL.md](../SKILL.md) Steps 5 and 6). The `Action` column holds only these:
 
-- **Files**: File it, File it + rotate Nx, File it + add action, Extract, Split, Run vault script, Delete (duplicate), Delete (redundant scan), Delete (no lasting value), Move out of vault, Leave in triage.
-- **Threads and staged mail notes**: Update existing, Add action, Add register row, Note to triage, Dismiss (noise), Dismiss (other vault), Stage in other vault (a staged note only), Leave thread.
+- **Files**: File it, File it + rotate Nx, File it + add action, Extract, Split, Run vault script, Delete (duplicate), Delete (redundant scan), Delete (no lasting value), Leave in triage.
+- **Threads and staged mail notes**: Update existing, Add action, Add register row, Note to triage, Dismiss (noise), Dismiss (other vault), Stage in other vault (a staged note only).
 
 A file needing a new entity is **Leave in triage**, its Why naming the entity to create: `/para-new` asks questions nobody is there to answer.
