@@ -3,7 +3,7 @@
 A pull request that an existing vault must react to adds one file here, named for its issue
 (`281.md`), instead of editing `CHANGELOG.md` or `RELEASES.md`. A new file per pull request
 means branches open at the same time never conflict over the changelog. `/release` folds every
-fragment into the revision it cuts and deletes it. A change that needs no revision adds none.
+fragment into the revision it cuts and deletes it. A change to nothing a vault holds (an eval, a test, `tools/`, `docs/`) adds none.
 
 ```markdown
 ## Changelog
