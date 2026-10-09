@@ -48,7 +48,7 @@ Every question follows [para-shared/asking.md](../para-shared/asking.md): a clos
 
 ### Step 7 - Land
 
-Two or three candidates, put to the operator item by item. Each approved one is one `/para-new` run, then the session record is written and every brief links it. **Where each output lands, the brief's four lines and the record's shape: [references/landing.md](references/landing.md).**
+Two or three candidates, put to the operator item by item. Each approved one is one `/para-new` run whose brief links the session record, its path fixed first; the record follows. **Where each output lands, the brief's four lines and the record's shape: [references/landing.md](references/landing.md).**
 
 ## Strict rules
 
