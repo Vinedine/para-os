@@ -54,10 +54,10 @@ def logbook(rev, body):
 
 
 RULE = "---\npaths:\n  - \"**\"\n---\n# Filing {}\n"
-OLD_ENTRY = "## 2026.09.01\n\n**Start.** Reaction: none.\n"
-NEW_ENTRY = ("## 2026.10.01\n\n**Areas too.** An area's file is one\ntoo. Reaction: take the "
-             "sentence into `## Actions`.\n\n**Kit.** Reaction: re-sync `/para-notes`.\n\n"
-             "Retired: `.claude/skills/para-notes/*.md`, `triage/README.md`\n\n---\n\n")
+OLD_ENTRY = "## 2026.09.01\n\n- Start a notes log: `notes/`\n"
+NEW_ENTRY = ("## 2026.10.01\n\n- Move each deal note to its deal folder: `notes/`\n"
+             "- In a sales vault, add a `**Stage:**` line: each deal brief  \n"
+             "Retired: `.claude/skills/para-notes/*.md`, `triage/README.md`\n\n")
 
 REV_A = {
     "CHANGELOG.md": "# Changelog\n\n" + OLD_ENTRY,
@@ -179,14 +179,14 @@ class BehindCase(CloneCase):
         self.assertEqual(self.report["clone"]["commit"], self.rev_b)
         self.assertEqual(self.report["clone"]["ref"], "origin/stable")
 
-    def test_the_revision_collects_each_entry_after_the_vault_s_with_its_reactions(self):
+    def test_the_revision_collects_each_entry_after_the_vault_s_with_its_lines(self):
         rev = self.report["revision"]
         self.assertEqual((rev["vault"], rev["master"], rev["verdict"]),
                          ("2026.09.01", "2026.10.01", "behind"))
         self.assertEqual(rev["baseline"], self.rev_a)
         self.assertEqual(rev["entries"], [{"revision": "2026.10.01", "reactions": [
-            "Reaction: take the sentence into `## Actions`.",
-            "Reaction: re-sync `/para-notes`."]}])
+            "Move each deal note to its deal folder: `notes/`",
+            "In a sales vault, add a `**Stage:**` line: each deal brief"]}])
 
     def test_each_kit_file_is_classified_by_hash(self):
         user = str(self.user.resolve())

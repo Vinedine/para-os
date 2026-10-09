@@ -26,7 +26,9 @@ What it enforces, and why each one is machinery rather than prose:
 
   Changelog fragments   A pull request adds `changelog.d/<issue>.md` instead of editing those
                         two files, and /release folds it in. A fragment the fold cannot parse
-                        fails here, in the pull request that wrote it, not at the release.
+                        fails here, in the pull request that wrote it, not at the release; so
+                        does a CHANGELOG.md entry line that is not a Reaction or `Retired:`
+                        line, the only lines /para-upgrade reads.
 
   Dashes                CLAUDE.md makes this a hard rule for shipped prose, and it is the one
                         style rule a reader notices immediately.
@@ -328,9 +330,12 @@ MAINTAINER_SKILLS = ROOT / ".claude" / "skills"   # for working on this repo; ne
 
 
 def check_fragments():
-    """The parser is the fold's own, so what passes here is what /release can fold."""
+    """The parser is the fold's own, so what passes here is what /release can fold, and
+    CHANGELOG.md's entries are held to the same lines."""
     sys.path.insert(0, str(MAINTAINER_SKILLS / "release" / "scripts"))
-    from fold_changelog import fragment_paths, parse_fragment
+    from fold_changelog import changelog_problems, fragment_paths, parse_fragment
+    for problem in changelog_problems((ROOT / "CHANGELOG.md").read_text(encoding="utf-8")):
+        bad(f"CHANGELOG.md: {problem}")
     for p in sorted(fragment_paths(ROOT)):
         _, problems = parse_fragment(p.read_text(encoding="utf-8"))
         for problem in problems:
