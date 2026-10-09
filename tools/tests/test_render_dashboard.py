@@ -24,7 +24,8 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from brief_scan import scan
-from render_dashboard import JudgmentError, cut, main, remember, remembered_url, render
+from render_dashboard import (JudgmentError, cut, main, mechanical_now, remember,
+                              remembered_url, render)
 from test_brief_scan import build_vault, write
 
 TODAY = date(2026, 9, 15)
@@ -278,6 +279,23 @@ class Mechanical(DashboardCase):
         # Overdue and due today outrank a higher priority that is merely upcoming.
         self.assertTrue(all("ago" in it or "today" in it for it in items), items)
         self.assertNotIn("Next month", now)
+
+    def test_a_deadline_due_today_is_not_cut_for_plan_dates_or_overdue_recurrences(self):
+        other = Path(self.tmp.name) / "six"
+        write(other, "areas/work/actions.md", "# a\n\n"
+              "- [ ] Plan the layout 🔼 ⏳ 2026-09-15\n"
+              "- [ ] Monthly housekeeping 🔁 every month 📅 2026-09-07\n"
+              "- [ ] Weekly review 🔁 every week 📅 2026-09-09\n"
+              "- [ ] Reply to Sam 📅 2026-09-14\n"
+              "- [ ] Sketch the cover ⏳ 2026-09-14\n"
+              "- [ ] Ship the release 📅 2026-09-15\n")
+        report = json.loads(json.dumps(scan(other, TODAY)))
+        text = {(t["file"], t["line"]): t["text"] for t in report["tasks"]}
+        now = [text[(p["file"], p["line"])] for p in mechanical_now(report)]
+        self.assertEqual(len(now), 5)
+        # Priority first; then a 📅 before a ⏳, a non-recurring item before a recurring one.
+        self.assertEqual([n.split(" ")[0] for n in now],
+                         ["Plan", "Reply", "Ship", "Monthly", "Weekly"])
 
     def test_every_fired_flag_is_worded_and_opens_on_its_items(self):
         write(self.root, "areas/busy/actions.md",

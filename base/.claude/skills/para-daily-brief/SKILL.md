@@ -79,7 +79,7 @@ The scan's `flags`, `ideas`, `triage` and `lifecycles` hold every signal compute
 
 ### Step 5: Rank and cap
 
-Merge 🔴 + 🟠 (recurring items overdue or due today included) + 🟡 into the **Now** candidates. Sort: overdue and due-today items before merely-upcoming ones, then priority descending (🔺 to 🔼 to none to 🔽 to ⏬), then date ascending, then **Vision alignment** as the tiebreak - an item that visibly advances the Vision outranks one that doesn't, at equal priority and date. Vision never overrides a real deadline.
+Merge 🔴 + 🟠 (recurring items overdue or due today included) + 🟡 into the **Now** candidates. Sort: overdue and due-today items before merely-upcoming ones, then priority descending (🔺 to 🔼 to none to 🔽 to ⏬), then a `📅` before a `⏳` and a one-off before a recurring item, then date ascending, then **Vision alignment** as the tiebreak - an item that visibly advances the Vision outranks one that doesn't, at equal priority and date. Vision never overrides a real deadline.
 
 **Cap Now at five.** Everything else becomes one-line **Later** counts (this week beyond the cap, overdue and due today included; the rest as [output.md](references/output.md) lists them). If overdue and due-today items alone exceed five, they take the whole list; add `*(run /para-daily-brief overdue for the full list)*`.
 

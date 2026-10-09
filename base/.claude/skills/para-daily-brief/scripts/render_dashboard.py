@@ -447,12 +447,14 @@ NOW_LANES = ("overdue", "today", "this_week")
 
 def mechanical_now(scan):
     """Step 5's ranking without the model: overdue and due-today items first, then priority
-    descending, then date ascending, and no Vision tiebreak. A recurring item overdue or due
-    today is in those lanes already."""
+    descending, then a deadline before a plan date and a one-off before a recurring item,
+    then date ascending, and no Vision tiebreak. A recurring item overdue or due today is in
+    those lanes already."""
     keys = {(e["file"], e["line"]) for lane in NOW_LANES for e in scan["lanes"].get(lane, [])}
     picks = [t for t in scan["tasks"] if (t["file"], t["line"]) in keys]
     picks.sort(key=lambda t: (0 if t["days"] <= 0 else 1,
                               -PRIORITY_RANK.get(t["priority"] or "", 0),
+                              0 if t["due"] else 1, 1 if t["recurring"] else 0,
                               t["days"], t["file"], t["line"]))
     return [{"file": t["file"], "line": t["line"]} for t in picks[:NOW_CAP]]
 
