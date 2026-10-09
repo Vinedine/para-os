@@ -3,6 +3,27 @@
 Instructions for anyone, person or agent, changing this repo. Keep private working notes in
 `CLAUDE.local.md`, which Claude Code also loads and git ignores.
 
+## The one principle
+
+para-os is prose a capable model reads in someone else's vault, every session. **A rule exists
+only for what the model would get wrong without it.** Everything else is cost: tokens per run,
+a surface for the next contradiction, a bug nobody wants to read. So the default answer to any
+finding is to delete or shorten something, and a new sentence is the exception that argues its
+case. Before adding one, ask these in order and stop at the first yes:
+
+1. Does the model already do this unprompted? Then no rule.
+2. Does an existing rule cover it, read plainly? Then no second rule; at most a link to the first.
+3. Would the finding disappear if the rule it hits were deleted? Then delete the rule.
+
+Two consequences, and they hold for every pull request:
+
+- **A change that adds no user-facing capability leaves every file it touches smaller.**
+  Fixing, clarifying, hardening and explaining are not capabilities.
+- **An issue an agent session filed is a claim, not a work item.** It gets a milestone only
+  after the three questions above; one that reports ambiguity or friction in prose closes when
+  the prose gets shorter, never longer. A fixed mistake does not earn a paragraph: correct the
+  rule in place, and never append one narrating the incident.
+
 ## What ships
 
 para-os is a kit, not an app. What a vault receives is `base/`, copied whole at install
@@ -13,8 +34,8 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | `base/` | The vault skeleton: `CLAUDE.md.template`, `README.md.template`, `.claude/skills/para-*`, `.claude/rules/`, `bootstrap-prompt.md` |
 | `addons/` | Flavors and modules an operator adopts by name later |
 | `integrations/` | Sync and fetch scripts, each stamped `para-os-integration: <name> <revision>` |
-| `multi-vault/` | `/para-ingest`, for operators running several vaults |
-| `examples/belfoot-vault/` | The example vault, growing with base: a working instance of everything base ships. Read it, never copy it |
+| `multi-vault/` | `/para-ingest` and `/para-audit`, for operators running several vaults |
+| `examples/belfoot-vault/` | The example vault: a working instance of everything base ships. Read it, never copy it |
 | `evals/` | Behaviour cases for the skills, run by `tools/eval.py` |
 | `docs/` | Design notes for maintainers; never copied into a vault |
 | `tools/check.py` | Contract checks plus every unit test suite |
@@ -22,9 +43,6 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | `CHANGELOG.md` | One entry per template revision; `/para-upgrade` executes each entry's Reaction |
 | `RELEASES.md` | The same revisions for people: what changes, and whether to do anything |
 | `changelog.d/` | One fragment per pull request, folded into both by `/release` |
-
-What ships is prose an agent reads every session in someone else's vault, so words are the
-product's running cost.
 
 ## Before every commit
 
@@ -37,6 +55,11 @@ Both must pass. CI runs the first on Ubuntu, macOS and Windows under Python 3.12
 under 3.9, on every push to `main`, `stable` or a `feat/` branch and on every pull request. A
 second job fails when coverage drops below its floor, and a third runs `actionlint` over
 `.github/workflows/`. `main` merges nothing until all six pass.
+
+What the checks enforce, and why each is machinery rather than prose, is the docstring of
+`tools/check.py`: dashes, dates, never-ship terms, line caps, the skill and rule-file contracts,
+revision markers, fragments, colocated tests. A rule a check enforces is stated there and
+nowhere else.
 
 ## Branches
 
@@ -54,24 +77,6 @@ second job fails when coverage drops below its floor, and a third runs `actionli
   and `stable.json`. A ruleset changed on GitHub is re-exported in the same pull request
   (`gh api repos/Vinedine/para-os/rulesets/<id>`).
 
-## Rules check.py enforces
-
-- **No em or en dashes** in shipped prose. Use a plain hyphen, a colon, or two sentences.
-- **No calendar dates** in shipped prose (an ISO date, a month with its year, a quarter). A rule
-  states what is true, not when someone learned it. Revision labels (`2026.09.05`) are fine.
-- **Never-ship terms.** Every term that would identify a real person, client or machine belongs
-  in `never-ship.txt` under `$PARAOS_HOME` (default `~/.paraos`), outside the repo, and the
-  check fails on any hit in shipped text.
-- **Line caps.** A `SKILL.md` stays under 130 lines: procedure moves to `references/`. A
-  `CLAUDE.md.template` stays at or under 120 lines, and base is at the cap already.
-- **Skill contract.** Frontmatter `name` matches the folder, plus `description`, `allowed-tools`
-  naming each shell command it runs (`Bash(git mv *)`, never bare `Bash` or `PowerShell`), and
-  an `argument-hint` offering `--test`; a `## Strict rules` block; every reference linked both
-  ways.
-- **Revision markers agree.** Every template and the example vault carry the newest
-  `CHANGELOG.md` revision, and `RELEASES.md` lists the same revisions in the same order; each integration's scripts agree with its row in
-  `integrations/README.md`. Every `changelog.d/` fragment parses.
-
 ## Never ship
 
 - **Private data, in any form.** No real people, clients, employers, mailbox addresses, or
@@ -81,9 +86,8 @@ second job fails when coverage drops below its floor, and a third runs `actionli
   anything that follows from one: registries, legal documents, taxes, portals, local-language
   terms. That is configuration the vault supplies, through its `CLAUDE.md` or a register
   template an addon ships. Synthetic example content may still be set in a country.
-- Sections that announce their own emptiness.
-- Rationale paragraphs inside procedures.
-- Personal machine configuration in a shipped `settings.json`.
+- Sections that announce their own emptiness, rationale paragraphs inside procedures, and
+  personal machine configuration in a shipped `settings.json`.
 - **Issue, pull request and commit text is as public as the files.** The same rules apply, and a
   finding from a real vault is restated with a synthetic example. `check.py` cannot scan it. The
   never-ship list is run against that text wherever private data can enter: an issue, comment or
@@ -95,34 +99,21 @@ second job fails when coverage drops below its floor, and a third runs `actionli
 
 - **Read a folder's README in full before running or changing what is in it**: `evals/`,
   `integrations/`, `addons/`, `multi-vault/`. They hold the flags, limits and traps that are
-  not visible from the code.
-- **Before saying something is missing or undocumented, search the repo for it.**
+  not visible from the code. Before saying something is missing, search the repo for it.
 - **A change to base reaches every addon built on it and the example vault in the same pass**,
-  or it has forked.
-- **Everything base ships has a working instance in `examples/belfoot-vault/`**: every rule file
-  its copy and pointer, every template section its filled-in counterpart, every skill the files
-  it acts on. Base functionality with no instance there is unfinished.
-- **Scripts do the mechanics, prose does the judgment.** Parsing, dating, bucketing and
-  counting belong in a skill's `scripts/*_scan.py`, with tests beside it. A `SKILL.md` says what
-  to do with the scan's output and keeps a by-hand fallback for when the script cannot run. The
-  script, its test and the reference holding that fallback change together, or none changes.
-- **A skill that derives a figure runs the calculation in code**, inputs beside the result, and
-  a skill that renders figures derives none: the real-estate flavor's
-  [Derived figures](addons/real-estate/.claude/rules/property-dossier.md#derived-figures) is the
-  rule as a vault carries it.
+  or it has forked. Everything base ships has a working instance in `examples/belfoot-vault/`;
+  base functionality with no instance there is unfinished.
+- **Scripts do the mechanics, prose does the judgment.** Parsing, dating, bucketing, counting
+  and every derived figure belong in a skill's `scripts/*_scan.py`, with tests beside it. A
+  `SKILL.md` says what to do with the scan's output and keeps a by-hand fallback for when the
+  script cannot run. A scan emits only what a step of its skill reads. The script, its test and
+  the reference holding that fallback change together, or none changes.
 - **Rules governing a script live in that script's README or docstring**, not in a `SKILL.md`.
-- **A defect becomes a test before it is fixed**: a unit test when it is mechanical, an eval
-  case in `evals/` when it is judgment.
-- **Before adding a rule to a skill, check it is still needed.** Prose that a current model
-  follows without being told costs every run and dilutes the rules that matter. Before
-  cutting one, compare its evals on the commit before and after the change
-  ([`evals/README.md`](evals/README.md#checking-a-skill-change)).
-- **A pass that adds no user-facing capability leaves every file it touches smaller than it
-  found it.** Clarifying, hardening or explaining an existing rule is not a capability.
+- **A defect in a script becomes a test before it is fixed.** A defect in prose is first a
+  question: delete the rule, or rewrite it shorter. It earns an eval case in `evals/` only when
+  the shorter rule still fails. Before cutting a rule, compare its evals on the commit before and
+  after ([`evals/README.md`](evals/README.md#checking-a-skill-change)).
 - **Say it once.** Every rule has one canonical home; other files link to it.
-- **Prefer deleting a rule to qualifying it.** One needing three caveats was the wrong rule.
-- **A fixed mistake does not earn a paragraph.** Correct the rule in place; never append a new
-  one narrating the incident.
 - **Turning a convention into enforcement machinery is a feature.** Open an issue before
   building it.
 - **A template change that an existing vault must react to adds a fragment** to
