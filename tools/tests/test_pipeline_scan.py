@@ -10,7 +10,7 @@ throwaway vault in a temporary directory, with synthetic names only: nothing rea
 a real vault, and nothing calls a model. The date is passed in, never taken from the clock.
 
 What paraos_vault.py itself decides (Stage lines, header fields, register rows, lifecycle
-tables) is tested beside it, in para-shared/scripts/test_paraos_vault.py. What is tested
+tables) is tested in test_paraos_vault.py. What is tested
 here is what this skill alone decides: how a lifecycle's declared homes become entities,
 how a next step is chosen, which flags fire, and how the quarter's metrics are counted.
 """
@@ -27,10 +27,14 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-pipeline" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+
 from pipeline_scan import main, scan
 
 TODAY = date(2026, 9, 21)   # falls in the third calendar quarter of its year
-SCRIPT = Path(__file__).resolve().parent / "pipeline_scan.py"
+SCRIPT = SCRIPTS / "pipeline_scan.py"
 
 LIFECYCLE = "\n".join([
     "# Vault", "",

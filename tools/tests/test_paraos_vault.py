@@ -23,6 +23,10 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+
 from paraos_vault import (
     abspath, action_files, add_months, addon_root, arrived, cadence_days, changed, contact_names,
     changelog_entries, clone_files, clone_read, clone_ref, clone_session, closed_tasks,
@@ -43,7 +47,7 @@ from paraos_vault import (
     year_end_of,
 )
 
-SCRIPT = Path(__file__).resolve().parent / "paraos_vault.py"
+SCRIPT = SCRIPTS / "paraos_vault.py"
 
 
 def write(root, rel, text):

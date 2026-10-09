@@ -12,10 +12,15 @@ import contextlib
 import io
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / ".claude" / "skills" / "release" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 import fold_changelog
 from fold_changelog import FoldError, fold, main, parse_fragment

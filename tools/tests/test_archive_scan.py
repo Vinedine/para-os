@@ -11,7 +11,7 @@ a real vault, and nothing calls a model. The date is passed in, never taken from
 
 What paraos_vault.py itself decides (resolving an entity, the registry, header fields, stage
 lines, lifecycle tables, tasks, links, snapshots) is tested beside it, in
-para-shared/scripts/test_paraos_vault.py. What is tested here is what this skill alone
+test_paraos_vault.py. What is tested here is what this skill alone
 decides: the default destination and its version suffix, how a Backlog item is parsed and
 judged settled, how a lifecycle's reason line is parsed from a vault's own rule-file prose,
 how an inbound reference is classified, and what a verify pass has to re-check after a move.
@@ -29,9 +29,13 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-archive" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+
 from archive_scan import main, plan, reason_allowed, verify
 
-SCRIPT = Path(__file__).resolve().parent / "archive_scan.py"
+SCRIPT = SCRIPTS / "archive_scan.py"
 TODAY = date(2026, 9, 22)
 
 DEAL_LIFECYCLE = "\n".join([

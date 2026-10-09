@@ -13,10 +13,15 @@ import contextlib
 import io
 import json
 import shutil
+import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "addons" / "activity" / ".claude" / "skills" / "para-activity-review" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 from review_scan import main, scan
 

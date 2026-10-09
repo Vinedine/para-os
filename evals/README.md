@@ -24,14 +24,14 @@ cannot:
 | Layer | Covers | Cost |
 |---|---|---|
 | `tools/check.py` | Structure: frontmatter, markers, revisions, line caps, shipped prose | Free |
-| `base/.claude/skills/*/scripts/test_*.py` | The mechanical logic a skill hands to a script, and the shared library under `para-shared/scripts/` | Free |
+| `tools/tests/` | The mechanical logic a skill hands to a script, and the shared library under `para-shared/scripts/` | Free |
 | `evals/` (this folder) | Whether a skill triggers, and whether its answer is right | A model call per run |
 | `--test` on a real vault | What nobody thought to test | A session |
 
-A suite lives beside the code it covers in the repo; an install leaves it there, and
-`/para-upgrade` verifies a synced script by comparing it to its master. `tools/check.py`
-runs every suite, `tools/coverage_report.py` measures what they reach (CI
-fails when that drops), and `tools/eval.py` runs this folder, by hand and [in CI](#in-ci).
+A skill script's suite lives in `tools/tests/`, so `base/` holds only what a vault receives;
+an integration's sits beside its script. `tools/check.py` runs every suite,
+`tools/coverage_report.py` measures what they reach (CI fails when that drops), and
+`tools/eval.py` runs this folder, by hand and [in CI](#in-ci).
 
 The loop that makes the suite grow: when a `--test` run finds a defect, it becomes a unit
 test if it is mechanical and an eval case if it is judgment, and only then is it fixed.
@@ -187,7 +187,7 @@ undated rather than given a deadline its prose hints at, and that an item living
 someone else's file is never counted as this entity's own work.
 
 What is mechanical stays out of here. Name matching, bucketing and the hygiene sweeps are
-pinned by the free unit suites beside the scripts, so paying a model to re-check them is
+pinned by the free unit suites in `tools/tests/`, so paying a model to re-check them is
 duplication, not coverage.
 
 ## The shell cases

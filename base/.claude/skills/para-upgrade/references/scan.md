@@ -77,7 +77,7 @@ verdict is `ahead`, `both` or `marker-matches-content-differs`), and `suite` (`d
 `runner`, `fixtures`, `covers`, `uncovered`).
 
 Skill rows add `missing` (master files the copy lacks), `extra` (copy files the master
-lacks, `ahead` when one matches something in O; both sides leave out tool caches and folder metadata, `__pycache__/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`, `node_modules/`, `*.pyc`, `desktop.ini`, `.DS_Store` and `Thumbs.db`, and every `test_*.py`, which an install leaves in the kit) and `names_missing_script`. A copy with no master at the ref *and* a folder of that name
+lacks, `ahead` when one matches something in O; both sides leave out tool caches and folder metadata, `__pycache__/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`, `node_modules/`, `*.pyc`, `desktop.ini`, `.DS_Store` and `Thumbs.db`, and every `test_*.py`, an older install's leftover) and `names_missing_script`. A copy with no master at the ref *and* a folder of that name
 in O is `ahead`, never `unmatched`; only with neither is it `unmatched`. A copy matching an
 addon's skill the vault does not declare is `undeclared_addon: <name>`, skipped rather than
 diffed - searched under whichever addon layout the ref actually carries (`addons/`, or the

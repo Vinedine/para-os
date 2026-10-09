@@ -16,10 +16,15 @@ two produce together.
 """
 
 import json
+import sys
 import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 from brief_scan import OPEN_ITEM_CAP, review_window, scan
 

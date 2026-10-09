@@ -1218,8 +1218,8 @@ def _is_noise(rel):
 
 
 def _tree_files(copy_dir):
-    # A skill's tests stay in the kit (INSTALL.md leaves them out), so one found in a copy is
-    # an older install's leftover, and one the master has is never `missing` from a copy.
+    # A skill's suite lives in the kit's tools/tests/, so one found in a copy is an older
+    # install's leftover, and one an older master ships is never `missing` from a copy.
     return sorted(rel for rel in (p.relative_to(copy_dir).as_posix()
                                   for p in copy_dir.rglob("*") if p.is_file())
                   if not _is_noise(rel) and not _is_test_file(rel))

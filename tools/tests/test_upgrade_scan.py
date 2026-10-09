@@ -26,8 +26,9 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "para-shared" / "scripts"))
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-upgrade" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 import upgrade_scan  # noqa: E402
 from upgrade_scan import (  # noqa: E402
@@ -45,7 +46,7 @@ from upgrade_scan import (  # noqa: E402
 )
 from paraos_vault import changelog_entries, clone_read, integration_markers  # noqa: E402
 
-SCRIPT = Path(__file__).resolve().parent / "upgrade_scan.py"
+SCRIPT = SCRIPTS / "upgrade_scan.py"
 
 
 # ================================================================== small local helpers

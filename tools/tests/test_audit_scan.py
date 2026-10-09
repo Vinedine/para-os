@@ -22,13 +22,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPTS = ROOT / "multi-vault" / "para-audit" / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 import audit_scan  # noqa: E402
 from audit_scan import build_report, drive_of, main  # noqa: E402
 
-SCRIPT = HERE / "audit_scan.py"
+SCRIPT = SCRIPTS / "audit_scan.py"
 
 
 # ================================================================== fixture helpers
