@@ -200,7 +200,7 @@ def marker_precondition(vault, clone, ref):
     is the default."""
     vault_marker = template_marker(read_text(vault / "CLAUDE.md"))
     master_marker = None
-    clone, clone_source = find_clone(clone)
+    clone, _ = find_clone(clone)
 
     if clone:
         master_marker = master_template(clone, ref)["marker"]
@@ -217,7 +217,7 @@ def marker_precondition(vault, clone, ref):
         verdict = "ahead"
 
     return {"vault": vault_marker, "master": master_marker, "verdict": verdict,
-            "clone": clone.as_posix() if clone else None, "clone_source": clone_source,
+            "clone": clone.as_posix() if clone else None,
             "ref": ref, "ref_missing": bool(clone) and clone_ref(clone, ref) is None}
 
 
@@ -466,10 +466,9 @@ def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
 
 def inline_contact_details(vault):
     """Every email or phone detail on a live line naming at least one carded person,
-    reported once per detail with every carded name on the line and no attribution -
-    phase1-structural.md forbids assigning a detail to whoever shares its line, so this
-    reports `names_on_line` and `attribution: "unresolved"` and leaves the assignment to
-    the skill. Matched on the line with inline code spans blanked and every link target
+    reported once per detail with every carded name on the line: phase1-structural.md
+    forbids assigning a detail to whoever shares its line, so this reports `names_on_line`
+    and leaves the assignment to the skill. Matched on the line with inline code spans blanked and every link target
     stripped and percent-decoded, so a path or a code sample never reads as a detail."""
     network_dir = vault / "areas" / "network"
     if not network_dir.is_dir():
@@ -500,7 +499,7 @@ def inline_contact_details(vault):
             for detail, kind in details:
                 out.append({"file": rel, "line": lineno, "text": text.strip(),
                             "names_on_line": names_on_line, "detail": detail.strip(),
-                            "kind": kind, "attribution": "unresolved"})
+                            "kind": kind})
     return out
 
 
@@ -725,11 +724,10 @@ def over_threshold_from(files, vault):
 
 
 def other_checkbox_files(vault, paths):
-    """`other_checkbox_paths()` as the report: a count per file, `declares_contract`
-    always null here since whether the file states its own shape is the skill's read of
-    its header, never this script's."""
-    return [{"file": p.relative_to(vault).as_posix(), "open": len(open_tasks(p)),
-             "declares_contract": None} for p in paths]
+    """`other_checkbox_paths()` as the report: a count per file. Whether the file states
+    its own shape is the skill's read of its header, never this script's."""
+    return [{"file": p.relative_to(vault).as_posix(), "open": len(open_tasks(p))}
+            for p in paths]
 
 
 def stale_undated_from(vault, files, today):
