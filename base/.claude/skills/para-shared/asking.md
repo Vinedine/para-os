@@ -1,72 +1,50 @@
 # Asking item by item (shared across skills)
 
-How a skill puts a batch of decisions to the operator through `AskUserQuestion` instead of one table and one `go`. What differs per skill is only the **vocabulary** - the dispositions its questions may offer - which stays in that skill's own reference.
+How a skill puts a batch of decisions to the operator through `AskUserQuestion` instead of one table and one `go`. The vocabulary, the dispositions a question may offer, stays in each skill's own reference.
 
 ## Before the questions: the manifest
 
-Print one line per question, numbered to match the order they will be asked, then the count and the number of rounds:
+Four or more questions: print one line per question, numbered in the order they will be asked, then the count, ahead of the questions or, on a path that does not ask, ahead of the table. Fewer: skip it.
 
 ```
 14 items, 11 questions (2 grouped), 3 rounds.
 
  1  <item>                        → <proposed action>  <destination or target>
- ...
 ```
 
-One line, no pipes, no reasoning column: the reasoning belongs in the option description where the operator reads it at the moment of deciding. This is the overview, not the proposal.
-
-**If the batch exceeds 20 items**, the first question asked is whether to go item by item or fall back to the written proposal.
-
-Count the questions first: **four or more, print it, ahead of the questions or, on a path that does not ask, ahead of the table; fewer, skip it.** The threshold is per run, not per skill.
+One line each, no pipes, no reasoning: that belongs in the option description. Past 20 items, the first question is whether to go item by item or fall back to the written proposal.
 
 ## The question
 
-Batch up to **4 questions per call**, ordered so questions about the same entity or file land together.
+Up to **4 questions per call**, questions about the same entity or file together.
 
-- **`header`** - the position: `Item 3/11`, `Group 5/11`, `Action 8/11`. Twelve characters is not enough for a filename, and the operator needs to know where they are in the batch. **A skill that asks exactly one question spends that budget on a label instead**: name the decision - `Shape`, `Disposition` - and let the calling skill say which word it wants.
-- **`question`** - the item by name, and the proposed target in full. The target is the thing being approved; never abbreviate it to something the operator has to reconstruct.
-- **`options`** - 2 to 4, from the calling skill's vocabulary. **The proposal goes first, labelled `(Recommended)`.** Each description carries the evidence for that disposition and the full target.
+- **`header`**: the position, `Item 3/11`, `Group 5/11`. A skill asking exactly one question names the decision instead: `Shape`, `Disposition`.
+- **`question`**: the item by name and the proposed target in full, never abbreviated.
+- **`options`**: 2 to 4 from the skill's vocabulary, the proposal first and labelled `(Recommended)`, each description carrying its evidence and the full target. **A question of fact about the operator's own situation carries no recommendation**: order its options by what the vault's evidence suggests and say in each what that answer does to the run.
+- **One decision per question**, and `multiSelect: false`: a disposition is exclusive, and splitting a group is an **Other** answer.
+- **`preview`**, where the options differ in something the operator would rather see than read, shows the content exactly as it will be written, never reformatted to fit; where it cannot fit, a fragment marked abbreviated.
 
-  **One question shape carries no recommendation: a question of fact about the operator's own situation.** Some decisions cannot be reached until a fact only the operator holds is settled - whether feedback arrived before or after a release, whether a document is the signed copy, whether a thread was already answered by phone. That question is legitimate and often has to be asked *first*, but the skill has no proposal to make: every option is a fact it does not know, and labelling one `(Recommended)` guesses at the operator's life and lends the guess the weight of a proposal. **Ask it with no option labelled, order the options by what the vault's own evidence suggests, and say in each description what that disposition would mean for the run.** The recommendation rule governs dispositions, which are the skill's to propose; it does not govern facts, which are not.
-- **One decision per question**, a phase-transition confirmation included: never ask approval of a worked example and a different disposition in one question.
-- **`multiSelect: false`**, always. A disposition is exclusive; splitting a group is an **Other** answer, not a multi-select.
-- **`preview`** - optional per option, and worth it where the options differ in something the operator would rather see than read: the folder scaffold a shape would produce, a line before and after grooming, a brief's opening as it would be retensed. Skip it where the option label already says everything. **A preview shows the content as it will actually be written**, never a prettier rendering of it: the selected preview comes back as the approved content, so a line wrapped for readability against a file whose rule is one line per item is a mockup that misleads at the exact moment of approval. Where the real form is genuinely unreadable in a preview, say so in the description rather than reformatting it. **Where a faithful preview would exceed what the question UI can hold** - a single-line paragraph far past a screen's width - an abbreviated preview (a truncated fragment) is allowed in its place, with the description saying it is abbreviated, rather than reformatting the line to fit.
-
-**Every question carries an escape that changes nothing** - leave it, skip it, decide later.
+Every question carries an escape that changes nothing: leave it, decide later.
 
 ## A question with a suggested answer
 
-The rule above covers dispositions. Three other shapes reach the operator, and which one decides whether to use the tool and how:
-
-- **A closed choice** (purpose, language, a flavor, a shape) is always a question: the options are known before anyone answers.
-- **An open answer** (a name, a deadline, a goal, a URL) is a question **only when the skill holds a concrete suggestion for it**, from the operator's request or the vault itself. The suggestion goes first as `(Recommended)` and **Other** is where the operator corrects it. With nothing to suggest, it stays a short numbered message in prose.
-- **A discovery question** (what eats your week, where your information lives) asks which of several things hold, not what to do, so it is the one shape asked with `multiSelect: true` and no option labelled `(Recommended)`.
-
-A "confirm or correct" list written as prose, where a suggestion exists for every item, is a recommended option plus Other, and belongs in the tool. The four-question batching and the reading rules below apply unchanged.
+- **A closed choice** (purpose, language, a flavor, a shape) is always a question.
+- **An open answer** (a name, a deadline, a URL) is a question only when the skill holds a concrete suggestion, first and `(Recommended)`, with **Other** for the correction; with nothing to suggest, a short numbered message in prose.
+- **A discovery question** (what eats your week) asks which of several things hold, so it is the one shape asked with `multiSelect: true` and no recommendation.
 
 ## Grouping
 
-Linked items get **one** question. Linked means one sentence can state the disposition for all of them **and** the question can name every member. Three hard limits, each closing a way a group hides a decision:
+Linked items get one question: one sentence states the disposition for all of them and the question names every member. Never group a destructive item (a delete, a close, a drop) with anything, never items whose targets differ, never more than five.
 
-- **Never group a destructive item with anything.** A delete, a close, a drop: its own question, always, whatever it arrived beside.
-- **Never group items whose targets differ.** A shared target is what makes one answer honest for all of them.
-- **Never group more than five.**
-
-**A destructive question states its evidence in the option description**: what survives it, and where. Where the evidence is a judgment rather than a fact (content overlap rather than a hash match, "probably done"), the recommended option is the one that changes nothing - **but only where the loss would be irreversible**, a deleted file or an unrecoverable record. Where the change is reversible and leaves its own trace - a closed checkbox that keeps its text and a stated reason, a demotion that preserves every word - recommend what the evidence actually supports.
+A destructive question states its evidence in the option description: what survives, and where. Where the evidence is a judgment and the loss would be irreversible, the recommended option is the one that changes nothing; where the change leaves its own trace (a closed checkbox keeping its text and reason, a demotion preserving every word), recommend what the evidence supports.
 
 ## Reading the answers
 
-- **Other is an amendment, not an answer.** If the free text names an unambiguous disposition, take it, echo the correction, and carry on. If it is ambiguous or asks something, answer it and re-ask that one question with the corrected proposal. Never execute an Other whose meaning you inferred.
-- **A skipped question is a deferral, not an approval.** A question can come back unanswered, as `[No preference]`. Nothing about that item was decided, so it executes nothing - never read it as assent to the recommended option, which is the one reading that turns a shrug into a delete. Re-ask it once in the next round, saying it came back unanswered and naming what leaving it does; if it is skipped again, record it as a deferral and move on.
+- **Other is an amendment.** An unambiguous disposition in the free text is taken and echoed; an ambiguous one is answered and that question re-asked. An Other whose meaning was inferred is not executed.
+- **A skipped question is a deferral**, not assent to the recommended option. Re-ask it once, saying it came back unanswered and what leaving it does; skipped again, record the deferral.
 
-Record every answer, deferrals and amendments included, and carry them into the skill's final summary.
+Every answer, deferrals and amendments included, goes into the skill's final summary.
 
 ## When not to ask
 
-**Fail toward the written proposal.** A question nobody can answer stalls a run that would otherwise have produced something readable, so anywhere it is unclear whether an operator is present, build the table and stop. Never call `AskUserQuestion`:
-
-- On any **argument that already bypasses approval** - a preview that stops at the proposal, an apply that runs on approval already given, an unattended entry point that makes no judgment calls to approve. Each calling skill names its own.
-- On an explicit **escape argument** for an operator who would rather read a batch than click through it.
-- When **no interactive operator is present**: a scheduled task, a subagent, a non-interactive run.
-
-On those paths the skill produces the markdown proposal, gated on a single "reply **go**", or nothing at all.
+Fail toward the written proposal: wherever it is unclear whether an operator is present, build the table and stop. `AskUserQuestion` is not called on an argument that already bypasses approval (a preview, an apply, an unattended entry point), on an explicit escape argument, or with no interactive operator (a scheduled task, a subagent). Those paths produce the markdown proposal gated on a single "reply **go**", or nothing.
