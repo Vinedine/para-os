@@ -26,7 +26,7 @@ One dated Markdown file, named by the vault's filing rule (`YYYYMMDD <Who> <Desc
 - **One idea landed**: that idea's `sources/`.
 - **Several landed, or none**: `archive/meetings/`, the vault's home for a conversation record spanning several entities.
 
-Every landed brief links it. It holds, in this order:
+It holds, in this order:
 
 ```
 # <date> - Brainstorm: <topic>
