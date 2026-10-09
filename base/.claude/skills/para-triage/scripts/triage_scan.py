@@ -47,11 +47,12 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         MIN_HASH_BYTES, OPEN_ITEM_CAP, abspath, cap_count, action_files, contact_card_level,
-        hashes,
-        ingest_ledger, ingest_logs, inbound_references, live_lines, log_instant, norm,
-        note_name_parts, open_tasks, read_lines, registered_vault,
-        registry, rel_posix, same_place, snapshot, thread_hash, triage_items, triage_sources,
-        unanswered, vault_root, watermark, written_under,
+        hashes, inbound_references, live_lines, norm, open_tasks, read_lines, registered_vault,
+        registry, rel_posix, same_place, snapshot, triage_items, triage_sources, vault_root,
+    )
+    from paraos_mail import (  # noqa: E402
+        ingest_ledger, ingest_logs, log_instant, note_name_parts, thread_hash, unanswered,
+        watermark, written_under,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"triage_scan: {missing}. The shared vault library belongs at "

@@ -42,7 +42,8 @@ from triage_scan import (
     _routed_from_ledger,
 )
 
-from paraos_vault import changed, registry, thread_hash  # noqa: E402  (on the path by triage_scan's guard)
+from paraos_vault import changed, registry  # noqa: E402  (on the path by triage_scan's guard)
+from paraos_mail import thread_hash  # noqa: E402
 
 SCRIPT = SCRIPTS / "triage_scan.py"
 NOW = datetime(2026, 9, 22, 12, 0, 0, tzinfo=timezone.utc)

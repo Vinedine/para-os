@@ -86,11 +86,10 @@ sys.path[:0] = [str(SKILLS_ROOT / lib / "scripts") for lib in ("para-shared", "p
 
 try:
     from paraos_vault import (  # noqa: E402
-        HEADER_FIELD_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, clone_read, clone_session,
-        declarations,
-        find_clone, header_fields, live_lines, master_template, norm, paraos_home_dir,
-        read_lines, registry,
+        HEADER_FIELD_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, declarations,
+        find_clone, header_fields, live_lines, norm, paraos_home_dir, read_lines, registry,
     )
+    from paraos_clone import clone_read, clone_session, master_template  # noqa: E402
     from upgrade_scan import (  # noqa: E402
         _changelog_entries_at, _skeleton_master_files, clone_block, delta_block,
         integrations_block, masters_block, skills_block,

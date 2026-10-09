@@ -37,14 +37,15 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        ADDONS_DIR, BASE_TEMPLATE, H2_RE, INTEGRATION_MARKER_RE, MARKED_SUFFIXES,
-        OLDER_ADDON_DIRS, addon_root, changed,
-        changelog_entries, clone_files, clone_read, clone_ref, clone_session, declarations,
-        entries_between,
+        H2_RE, INTEGRATION_MARKER_RE, MARKED_SUFFIXES, changed, declarations,
         find_clone, git, git_bytes, git_status_lines, git_untracked, integration_markers,
-        checkbox_rows, contact_card_level, master_template, normalised, paraos_home_dir,
+        checkbox_rows, contact_card_level, normalised, paraos_home_dir,
         read_lines, read_text, registered_vault, registry, rel_posix, snapshot,
         template_marker, vault_root,
+    )
+    from paraos_clone import (  # noqa: E402
+        ADDONS_DIR, BASE_TEMPLATE, OLDER_ADDON_DIRS, addon_root, changelog_entries,
+        clone_files, clone_read, clone_ref, clone_session, entries_between, master_template,
     )
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"upgrade_scan: {missing}. The shared vault library belongs at "

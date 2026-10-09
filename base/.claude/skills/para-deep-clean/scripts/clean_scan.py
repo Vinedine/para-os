@@ -48,16 +48,16 @@ try:
     from paraos_vault import (  # noqa: E402
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
         FROZEN_MARKER_RE, STALE_UNDATED_DAYS, TASK_RE,
-        LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, clone_ref, contact_names,
+        LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
         dangling_links, duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
-        iso, lifecycles, link_files, link_spans, live_lines, master_template,
-        misplaced_checkboxes, norm,
+        iso, lifecycles, link_files, link_spans, live_lines, misplaced_checkboxes, norm,
         open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
         reference_shape,
         resolve_link, snapshot, stage_of, strip_code, table_cells,
         template_marker, triage_items,
     )
+    from paraos_clone import clone_ref, master_template  # noqa: E402
 except ImportError as missing:  # the skill falls back to scanning by hand
     print(f"clean_scan: {missing}. The shared vault library belongs at "
           f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or scan "

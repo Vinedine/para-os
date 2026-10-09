@@ -44,7 +44,8 @@ from upgrade_scan import (  # noqa: E402
     rules_block, sections_block, settings_block, since_block, skeleton_block, skills_block, smoke_block,
     snapshot_block, unmarked_scripts, vault_block,
 )
-from paraos_vault import changelog_entries, clone_read, integration_markers  # noqa: E402
+from paraos_vault import integration_markers  # noqa: E402
+from paraos_clone import changelog_entries, clone_read  # noqa: E402
 
 SCRIPT = SCRIPTS / "upgrade_scan.py"
 
