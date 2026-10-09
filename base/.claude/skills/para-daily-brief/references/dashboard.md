@@ -16,7 +16,7 @@ The HTML page the brief publishes as an artifact, built entirely from data the b
 ## The judgment file
 
 - `now`: the same five or fewer ranked items as the terminal brief.
-- `flags`: the Step 4c flag lines, verbatim. One that reports a scan flag is an object naming its `kind` (and its `file`, for an over-threshold or stale file), and opens on the tasks, files or briefs behind it.
+- `flags`: the Step 4c flag lines, verbatim. One that reports a scan flag is an object naming its `kind` (plus its `file` or `source`, per the docstring), and opens on the tasks, files or briefs behind it.
 - `agenda`: today and this week, or the terminal view's Upcoming expansion when both are empty; `agenda_note` names any failed source rather than dropping it.
 - `next_action`: the brief's Next action.
 

@@ -21,7 +21,7 @@ A `# <Name>'s voice` title, the `**Accounts:**` line, one line saying it is buil
 
 ## Building it
 
-1. **Samples**: the sending account's sent mail over the last 12 months per [connectors.md](connectors.md), or mails the person hands over; with neither, ask for three they were happy with and stop. Fewer than three, or what the vault says about them, builds nothing.
+1. **Samples**: the sending account's sent mail over the last 12 months, or mails the person hands over; with neither, ask for three they were happy with and stop. Fewer than three, or what the vault says about them, builds nothing.
 2. **Keep only their words**: cut each mail at its quoted history and drop forwarded content, the auto-signature and legal footers. The sign-off is the closing they typed above the signature, never a name block inside it; a correspondent's phrasing in a quote is never a trait, and a mail that is mostly someone else's text is not a sample.
 3. **Count, then write**, each trait with its count per language, and report the file, the pointer, N and the dates, and each trait left out for want of three samples.
 

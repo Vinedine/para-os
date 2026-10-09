@@ -32,7 +32,7 @@ These paths also match ideas and projects that are not deals, which follow the v
 1. **Stage** - a stage name from `## Deal lifecycle`, then `(since <date>)` for the day it entered that stage, semicolon-separated from any dated fact that expires (a price validity, an option, a quoted lead time). `/para-pipeline` reads the first for days in stage and the second for its expiry flag, so a fact with a date belongs here rather than in the prose.
 2. **Opened** - the day the deal entered the lifecycle, at whatever stage. It never changes, and the median time to a won deal is measured from it.
 3. **Source** - one of `referral from <contact link>`, `inbound via <channel>` (the site, a post, an event) or `outreach`, then a comma and the channel word. The referrers table is computed from these lines, so no contact file carries a "referred us" line of its own.
-4. **Champion** - a link to the contact file of the person carrying this inside the company. The deal's next step is the earliest dated open item in that file, which is where `/para-pipeline` looks, so a deal without a champion file has nowhere to keep one.
+4. **Champion** - a link to the contact file of the person carrying this inside the company.
 5. **Signer** - who can commit the money, `unknown` until named. It is flagged from the second stage on, because the person who is excited is often not the person who signs.
 6. **Value** - the internal number, with the basis in parentheses. It renders in a terminal and is never a public output.
 7. **Last touch** - `<date>, <what happened>`, rewritten after every contact. It is the single field the staleness flag reads.

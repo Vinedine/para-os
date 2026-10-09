@@ -14,7 +14,7 @@ Emit each only when it fires:
 - **Undated majority:** when undated items exceed half of all open items and there are **8 or more** open items, one line: `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
 - **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, and on contact cards where the vault's `areas/network/` checkbox row says `never`. One line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
 - **Nothing open:** a folder under `projects/` or `areas/` with no open item anywhere under it. One line each for the first three the scan lists: `<entity>: nothing open - finished (archive) or stalled (next step)?`
-- **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`.
+- **Over-grown brief:** an entity's brief past **500 lines**. One line per offender: `<file>: N lines - content grooming via /para-deep-clean`.
 - **Silent source:** a `## Triage sources` row carrying a cadence hint (`🔁 every <period>`) whose newest delivery to this vault is more than one period old. One line per source: `<source>: nothing since <date> (N days)`. A ledger that cannot be read is flagged, never passed ([para-shared/absent-is-not-zero.md](../../para-shared/absent-is-not-zero.md)).
 
 ## Step 4d: Ideas lane
