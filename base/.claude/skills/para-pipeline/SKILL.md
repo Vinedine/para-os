@@ -11,9 +11,7 @@ The board for **staged entities**: every lifecycle the vault declares, each enti
 
 **Read-only contract.** It reports; the operator moves the entity, and a flag here is what prompts the edit.
 
-**This skill is vault-agnostic.** It knows only declared lifecycles and Stage lines, whose contract is [para-shared/lifecycles.md](../para-shared/lifecycles.md). No stage name or home is hardcoded.
-
-**Operator-language output.** Every line is readable by someone who has not seen this skill: the vault's own entity and stage names, no bucket jargon beyond the section titles.
+**This skill is vault-agnostic.** It knows only declared lifecycles and Stage lines ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), and every line it prints uses the vault's own entity and stage names, never a scan field's.
 
 ## Arguments
 
@@ -23,7 +21,7 @@ The board for **staged entities**: every lifecycle the vault declares, each enti
 | `<lifecycle>` | One lifecycle, matched on its heading noun (`deal`) or its heading text (`Deal lifecycle`), case-insensitively. Everything else is the same |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
-**A leftover argument is a lifecycle name only when it reads like one**: one or two words carrying no sentence punctuation. Anything longer is prose the operator wrapped around the invocation: where it names a lifecycle noun ("the property pipeline"), that noun is the argument; otherwise take every lifecycle and treat the prose as an instruction for this run. A name matching no declared lifecycle is asked about, never widened to all of them, and a vault declaring only one is no exception.
+A leftover argument follows [operating-discipline.md](../para-shared/operating-discipline.md#arguments), a lifecycle name being one or two words; prose naming a lifecycle noun ("the property pipeline") makes that noun the argument. A name matching no declared lifecycle is asked about, never widened to all of them, even where the vault declares only one.
 
 ## Procedure
 
@@ -31,48 +29,29 @@ The board for **staged entities**: every lifecycle the vault declares, each enti
 
 Resolve the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), then verify it: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
 
-Read the vault's `CLAUDE.md` and collect every section whose heading ends in `lifecycle`, parsing each table by [para-shared/lifecycles.md](../para-shared/lifecycles.md). Also read the rule file each lifecycle's entity documents load, which is what names their header fields.
+Read the vault's `CLAUDE.md` for every section whose heading ends in `lifecycle` ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), and the rule file their documents load.
 
 **A vault that declares none has nothing to render.** Say so in one line, name the two places a lifecycle comes from (a flavor, a module), and stop. Never infer stages from folder names.
 
-**A lifecycle argument is matched here**, against the declared headings and nouns as the script would. On no match, ask which declared lifecycle was meant, naming them, and stop: no board renders in the same reply.
+**A lifecycle argument is matched here**, against the declared headings and nouns. On no match, ask which declared lifecycle was meant, naming them, and stop: no board renders in the same reply.
 
 ### Steps 2 and 3: Scan the homes, resolve each entity
 
-One call per lifecycle scope, after Step 1 has the declared lifecycles, per [para-shared/scripts.md](../para-shared/scripts.md):
+One call, per [para-shared/scripts.md](../para-shared/scripts.md):
 
 ```bash
 # Windows: py -3
 python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault <root> [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Pass `--lifecycle` only under a lifecycle scope. Exit 3 is a `--lifecycle` matching no declared heading or noun (`{"error": "no such lifecycle", "declared": [...]}`): stop and ask, as in Step 1. **Field table: [references/scan.md](references/scan.md).**
+Pass `--lifecycle` only under a lifecycle scope. Exit 3 (`no such lifecycle`, with the `declared` list) is asked about as in Step 1. **Field table: [references/scan.md](references/scan.md).**
 
 ### Step 4: Render
 
-Word what the script computed into the board by stage, the flags, the counts, the per-lifecycle metrics and the single next action that closes the run - no new reading. **Full spec: [references/render.md](references/render.md).**
+Word what the scan computed into the board, the flags, the counts, the metrics and the one Next action, reading nothing past it. **Layout and rules: [references/render.md](references/render.md).**
 
 ## Strict rules
 
-- **Never edit a vault file.** Not a stage, not a `Last touch`, not a missing reason line, not a checkbox. Every flag names what the operator should change, and this skill changes none of it.
-- **Never invent a stage, a date or a next step.** An entity with no `since` has an unknown time in stage and says so; an entity with no next step is flagged, never given one.
-- **Never rank, score or weight an entity.** The board is ordered by the vault's own stage order, then by days in stage. No probability, no forecast, no weighted value: a pipeline of a dozen entities is read, not modelled.
-- **Never follow a link for extra context** beyond the next-step sources in [references/scan.md](references/scan.md) Step 3 and the title of a contact a `Source` line links.
-- **Never report an archived entity as live.** A terminal stage feeds the metrics and the reason it records, nothing else.
-- **Never widen the scan past the declared homes.** An entity carrying a Stage line outside them is not in the lifecycle, and a stage text matching no declared name is passed over silently.
-- **A value figure is internal.** It renders in the terminal, never into a file, and never into anything shared outside the vault.
-
-## Edge cases
-
-- **A declared home that does not exist yet** (the register file, an `archive/` folder): count it as empty and say so once, rather than reporting an error per stage.
-- **An entity whose folder sits in the wrong home for its stage**: render it under the stage its Stage line names and flag the mismatch, naming both paths.
-- **Two entities with the same name** in different homes: render both, each with its path, and flag the collision.
-- **A document in a declared home with no Stage line** (`no_stage`) **or a Stage line naming no declared stage** (`unknown_stage`, with the name read): list it by path under a closing line.
-- **A register row missing a column** the table declares: render what it has, and flag the row rather than dropping it.
-- **A lifecycle with no live entity at all**: say in one line that nothing is live. An empty pipeline is a real answer.
-
-## Related skills
-
-- `/para-daily-brief` - the same read-only contract over the vault's tasks. It carries one counts line per lifecycle and points here for the board.
-- `/para-new` - creates a staged entity at the first stage's home, with its Stage line.
-- `/para-archive` - the move into a terminal stage, which it refuses unless the Stage line and the reason are there.
+- **Never invent a stage, a date or a next step.** Unknown stays unknown, and a missing step is flagged.
+- **Never rank, score, weight or forecast.** The board follows the vault's stage order, with no probability, conversion rate or funnel percentage: a pipeline of a dozen entities is read, not modelled.
+- **A value figure is internal.** It renders in the terminal, never into a file or anything shared outside the vault.

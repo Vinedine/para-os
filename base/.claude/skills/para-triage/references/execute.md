@@ -1,50 +1,27 @@
 # Executing an approved batch (Steps 7 and 8)
 
-Only approved items execute, whether approved by their own question or by a table approved as a unit ([approval.md](approval.md)). A deferral is a no-op, not a delayed yes. **A failure anywhere stops the whole batch.**
+Only approved items execute; a deferral is a no-op. **A failure anywhere stops the batch**: report what succeeded and what failed, and wait.
 
 ## Loose files
 
-- **Create entity**: `/para-new` runs as a sub-step before the moves; its questions settle the entity, not whether to create one. The item files into whatever entity it ends on (created, widened, or found to exist) under that entity's convention, folder included, which the approval covers, and the new brief cites that path. Ending on no entity, the item stays in `triage/` and the batch carries on. **An entity with no folder** (a contact kept as a single file): `/para-new` folds the item's content into the card as prose, and the triage file then gets its own **Delete (no lasting value)** question naming the card as the survivor.
-- **File it + add action**: the move, then the approved line, appended as **Add action** appends it ([below](#connector-items)), its link resolving to the filed file.
-- **Extract**: unpack into a temporary folder outside the vault, then move each member as approved, each collision-checked. The archive stays until its own Delete question.
-- **Split**: copy each document's pages into a new file with a tool that copies rather than re-renders them (`pypdf`'s `PdfWriter.add_page`), named to the convention, into `triage/` or the approved destinations. The original stays untouched until its own Delete question.
-- **Run vault script**: dry run first. **A script acting on the whole folder acts on declined items too**: before `--write`, move every item not approved for it out of its scope (or pass an explicit file list, where it takes one), and put them back after. The triage copy's delete runs only once the script reports the file handled, on its own approval, after an MD5 match against any copy the script wrote.
-- **Re-check before each delete or move**, per [para-shared/scripts.md](../../para-shared/scripts.md). A file it reports as `arrived` came in after the scan: leave it, and name it in the summary as arrived.
-- **Repoint inbound references in the same step** as the delete or move that breaks them, to the survivor or new path the approval named, resolving each rewritten link to a file that exists.
-- **Collision check before every move**: `test -e "<dst>" && echo EXISTS`. If it exists, stop the whole batch, report it, and ask how to resolve it; `mv` clobbers silently and has no undo. Once clear: `mv "<src>" "<dst>"`, absolute paths, quoted.
-- **On any failure**: report which moves succeeded and which failed, and wait for direction.
-- **Delete only a file whose own Delete disposition was approved**, per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file).
-- **Mkdir** only for destinations named in an approved disposition.
-- **Image rotation** (Windows, System.Drawing): `Save` with no format argument keeps the source format, and the temp path is needed because `FromFile` holds a handle on `$src`:
+- **Each move**: the `changed` re-check ([scripts.md](../../para-shared/scripts.md)), then `test -e "<dst>" && echo EXISTS`, a hit stopping the batch since `mv` clobbers, then `mv "<src>" "<dst>"`, absolute and quoted. Create only folders an approval named, and repoint inbound references in the same step. A file the re-check reports `arrived` is left and named in the summary.
+- **Delete** per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file), after the same re-check and repoint.
+- **Create entity**: `/para-new` runs first, settling the entity, not whether to create one; the item files into whatever entity it ends on, or stays on none. Into a single-file entity (a contact card) its content is folded, and the file gets its own Delete (no lasting value) question.
+- **File it + add action**: the move, then the line, appended as **Add action** appends it.
+- **Extract** outside the vault; **Split** by copying pages, never re-rendering them (`pypdf`'s `PdfWriter.add_page`). Originals wait for their own Delete question.
+- **Run vault script**: dry run first. A script acting on a whole folder acts on declined items too: move them out of its scope, or pass a file list, before `--write`. The triage copy's delete follows its own approval and an MD5 match against the script's copy.
+- **Rotation** rewrites the pixels, keeping the format.
 
-  ```powershell
-  Add-Type -AssemblyName System.Drawing
-  $tmp = "$dst.rotating"
-  $img = [System.Drawing.Image]::FromFile($src)
-  $img.RotateFlip([System.Drawing.RotateFlipType]::Rotate180FlipNone)
-  $img.Save($tmp)                       # no format argument: keeps the source's format
-  $img.Dispose()                        # releases the handle on $src
-  Move-Item -Force $tmp $dst
-  ```
-
-  Rotation values: `Rotate90FlipNone`, `Rotate180FlipNone`, `Rotate270FlipNone`. Then delete the source if `$src` differs from `$dst`.
-
-After the moves, re-list `triage/` and confirm only the expected residue and the arrivals remain.
+Then re-list `triage/`: only the expected residue and arrivals remain.
 
 ## Connector items
 
-For a connector thread and a staged mail note alike:
-
-- **Update existing**: annotate the tracked item in place, the `actions.md` line ("reply received `<date>`", "docs arrived `<date>`, now actionable") or the contact/project note, in the vault's task markers; a register row gets its last-touch and next-step cells rewritten. Never tick an item unless the work is done, and never add a duplicate line.
-- **Add action**: append the task line to the named `actions.md`, in the vault's markers. Never create an `actions.md`.
-- **Add register row**: append the approved row, as shown, to the register's open table (under `## Open` where it splits open from closed), whose `_None currently._` placeholder gives way to the header its rule file declares. Never create the register.
-- **On a staged mail note**, that write comes first, then the note goes as its option said: deleted (the default) or filed. **Dismiss (other vault)** deletes the note and names its vault in the summary, writing nothing there. **Stage in other vault** moves it, collision-checked, into `triage/` under that vault's registry path, and names it in the summary. No seen-ledger entry for any of these.
-- **A re-read that reached past the note's ingest seen point** (a message newer than `note.ingest_seen.seen_date`), once the note's disposition has executed: add this vault's registry name to each such message's `by_message_id` list in `/para-ingest`'s ledger (`ingest_ledger.path`), keyed as [connectors.md](../../para-shared/connectors.md) step 6 keys it, so the next ingest does not stage it here again. The watermark and `routed` stay: another routed vault may still be owed the message.
-- **Note to triage**: write a short `.md` into `triage/` with frontmatter (`source`, `thread_id`, `date`, `link`) and a 2-3 line summary of what needs attention. Do not file it further this pass.
-- **Ledger writes**: per [sources.md](sources.md#the-seen-ledger).
+- **Update existing** writes as approved, in the vault's task markers ("reply received `<date>`"), ticking nothing unfinished. **Add action** and **Add register row** append what was shown, the row to the register's open table, where its rule file's header replaces a `_None currently._` placeholder. Never create the file.
+- **A staged note**: that write, then the note deleted or filed as its option said; **Stage in other vault** moves it, collision-checked, into that vault's `triage/`. The summary names any other vault. No seen-ledger entry for a note.
+- **A re-read that reached a message newer than `note.ingest_seen.seen_date`**: after the disposition, add this vault's registry name to that message's `by_message_id` list in `ingest_ledger.path`, keyed as connectors.md step 6 keys it, leaving the watermark and `routed` alone.
+- **Note to triage**: a short `.md` in `triage/`, frontmatter `source`, `thread_id`, `date`, `link`, then two or three lines on what needs attention.
+- **The seen-ledger**: [sources.md](sources.md#the-seen-ledger).
 
 ## Follow-ons (Step 8)
 
-For each receiving entity whose `README.md` or `brief.md` was flagged with follow-on edits: add table rows in the existing column order, source-list entries in the right sub-section in date order, and a new sub-section only where one is due, in the existing order. Match the nearby entries' voice and structure, and **rewrite nothing else**; in prose sections (Background, Open items) change only a stated fact the new file changes ("X document not on file" becomes "X document on file as ...").
-
-[after-a-meeting.md](after-a-meeting.md)'s set is written the same way: a header line or register cell rewritten in place as shown, a next step and a `Waiting on` line appended as **Add action** appends it. Its stage question and its draft write nothing.
+A flagged `README.md` or `brief.md` gets its rows in column order, source entries in date order and a sub-section only where due, in the nearby entries' voice; prose changes only a fact the item changes, and nothing else is rewritten. A meeting record's header lines and cells are rewritten as shown, its next step and `Waiting on` line appended; its stage question and draft write nothing.

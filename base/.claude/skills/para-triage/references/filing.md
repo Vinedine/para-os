@@ -1,49 +1,28 @@
 # Inspecting and filing a loose file (Steps 3 and 4)
 
-How each loose file in `triage/` is read, checked against the vault, and given a destination and a convention-conform name. Threads fetched in this run are routed in [sources.md](sources.md) instead. **A staged mail note is a loose file**, read here like any other, then offered the wider vocabulary in [approval.md](approval.md).
-
 ## Inspect (Step 3)
 
-- **Read the file** with `Read`, which renders PDFs and images. **Where it fails on a PDF** (no `pdftoppm`, or fonts that extract as nothing), render the first page with PyMuPDF (`fitz`) or `pypdfium2` and read that; only where no renderer runs, ask the operator before falling back to name-only inference.
-- **A staged mail note whose `Content` line says it holds less than the thread**, the operator's own messages included (`note.content_incomplete`, with `note.content_evidence` naming the phrase; judge the line yourself where it is `null`) is re-read at its source before it is judged, unless the vault already holds a filed survivor of the same message: check for one first, by content, as below. Read-only, by the note's `Message id` (`note.message_id`), never an id derived from `Link`: the mailbox's content tool (`get_thread`, `get_gmail_thread_content`), or for a fetch script `outlook.py` followed by that line as written, which names its account. A note with no `Message id` (staged before 2026.09.07) re-reads a Gmail thread by `note.thread_id`; any other is found by sender and subject in its own mailbox (for `outlook.py`, its README's full read with `--account`). Notes sharing a sender may share one call filtered to that sender. Where the thread's only content is a small text attachment, such as an `.ics`, one attachment read (`get_gmail_attachment_content`) follows. The re-read thread is judged as a fetched one is, [the operator's own messages](sources.md#connector-sources) included. A fact found only there goes into the Update existing annotation or a follow-on edit, never into the note, which stays as staged.
-- **A staged mail note no re-read can reach** (no mailbox tool, no fetch script) is judged on what it holds, and its row or question says the thread was not re-read. Whether the operator already answered is unknown, so no proposal or follow-on edit names a reply as owed: no action to answer the sender, and no draft.
-- **A Google-native file** (`.gdoc`, `.gsheet`, `.gslides`, `.gform`, `.gdraw`) is a stub no local read opens, but its content is readable through the Drive API, so never infer from its name: convert it per [sources.md](sources.md#google-native-files).
-- **For PDFs, images and other documents, capture** the document's own date (signing, invoice, issue; never the file's modification date), the parties, reference numbers, the document type, and **the deadline it sets**: an official letter's reply-by date, an unpaid invoice's due date, a renewing agreement's last day to give notice ([dated so](../../para-shared/operating-discipline.md#dating-a-renewing-agreement)). A deadline no open line tracks makes it **File it + add action** ([approval.md](approval.md)). A PDF bundling several documents is noted in full, and its name reflects the bundle.
+- **Read it** with `Read`, rendering a PDF it cannot read (PyMuPDF, `pypdfium2`). An encrypted PDF is proposed from its name and date, saying "(content not readable - name-only inference)"; where no renderer runs, ask before inferring from a name.
+- **A staged note whose `Content` line says it lacks the operator's own messages** (`note.content_incomplete`, the phrase in `note.content_evidence`; judge the line yourself where `null`) is re-read at its source first, unless a filed survivor of that message exists. Read-only, by `note.message_id`, never an id derived from `Link`: `get_thread`, `get_gmail_thread_content`, or the fetch-script command its Content line gives. With no `Message id`, re-read a Gmail thread by `note.thread_id`, any other by sender and subject; an `.ics`-only thread gets one attachment read. Judge it as a fetched thread ([sources.md](sources.md#connector-sources)), a fact found only there going into the annotation or a follow-on edit, never the note.
+- **One no re-read can reach** is judged on what it holds, its row saying so, with no reply named as owed.
+- **A Google-native stub** is converted first ([sources.md](sources.md#google-native-files)).
+- **Capture** the document's own date (never the file's), parties, reference numbers, type, and **the deadline it sets**: a reply-by date, an unpaid invoice's due date, a renewing agreement's last day to give notice ([dated so](../../para-shared/operating-discipline.md#dating-a-renewing-agreement)). A deadline no open line tracks makes it **File it + add action**.
+- **Duplicates by content, never by name.** A non-empty `duplicates` (same bytes here) or `cross_vault` (same bytes in a routed vault's `sources/`; an `unreadable` vault named) is **Delete (duplicate)**. An empty one proves only that no byte match exists: a rescan or "copy 2" is compared field by field, a scan beside its digital original being the **Delete (redundant scan)**.
+- **Orientation**: rotate an image that renders sideways or upside down, whatever its EXIF says. A wrong-way PDF is flagged, rotated only on the operator's say.
 
-Then check for **duplicates and redundancies**, **content first, never filename first**:
+## Choose a destination and a name (Step 4)
 
-- **`duplicates`** lists every other file in the vault with the same bytes. Non-empty: propose **Delete (duplicate)**, citing the surviving path and the MD5. `hash_skipped` or an empty list only means no byte match exists, not that the file is original.
-- **`cross_vault`**, for a note routed to other vaults: a byte-identical file already in one of their `sources/`. Same treatment, that path as the survivor. A vault reported `unreadable` is named, never dropped.
-- **Plausibly the same content with no byte match** (a rescan, a "copy 2"): open both and compare key fields, then ask it as its own question, never an automatic delete. Between a scan and its digital original, the scan is the **Delete (redundant scan)** candidate and the digital version its evidence.
+- **Find the entity** whose brief or README under `areas/`, `projects/`, `resources/ideas/` or `archive/` documents the file's parties, contract number or address, even before that entity's active window; it lands in its `sources/` where the bucket has one. A vault without entity folders is asked where each file belongs.
+- **No entity matches**: a concrete subject the vault would hold (a prospect, a person, a deal) is **Add register row** where its lifecycle opens at a register, else **Create entity** (Recommended, naming the shape and folder) or **Leave in triage**, never a hand-built folder. A record with no subject follows the vault's rule for ownerless records; with neither, **Leave in triage**, saying what is missing. A file that looks like another vault's or context's is asked about first.
+- **Name it** literally to the convention, judged against the whole of `.claude/rules/filing.md` and any topic rule file ([operating-discipline.md](../../para-shared/operating-discipline.md#a-vaults-rule-files)), legacy suffixes (`- FINAL`, `copy`, `(1)`) dropped. A staged note's filename is a mail subject plus a hash, not a document's name: its `<Description>` follows the receiving folder's language.
+- **The Why** names the signals used (date, contract number, address, parties), never "matches the entity"; the **Destination** is `[<new name>](<relative path>)`.
 
-Carry the item's `inbound` into its question or row ([approval.md](approval.md)) rather than re-grepping.
+## A meeting record
 
-**Orientation**: judge an image (`.jpg`, `.jpeg`, `.png`, `.gif`) from the rendered preview, whatever its EXIF tag says: upside down (180) or sideways (90, 270) needs the pixels rotated. A wrong-way scanned PDF is flagged, and rotated only on the operator's say.
+A dated record of a conversation (call note, minutes, a recorder's summary or transcript) filed for an entity whose shape declares `Last touch` adds the set below to its follow-on edits, each field only where the shape declares it. Read the entity's header or register row, and the card it links as its contact (a deal's `Champion`), first. Everything comes from the record's own date and what was said: a bare title, invite or empty summary proposes Last touch at most, and no draft. Its checkboxes stay [frozen](../../para-shared/operating-discipline.md#leave-other-peoples-words-alone).
 
-## Choose a destination and a new filename (Step 4)
-
-- **First check existing entities**: list `areas/`, `projects/`, `resources/ideas/` and `archive/`, and read a candidate's `brief.md` or `README.md` for matching parties, dates and reference numbers. A file naming a contract number, address or person lands where that entity is documented, even when it pre-dates the entity's active window.
-- **A vault without the entity-with-README pattern** (a flat `areas/`, a looser catch-all): ask the user where each file belongs rather than forcing the entity-folder model on it.
-- **Where the owning entity's bucket has no `sources/`** under the vault's rules, the record files into the entity folder itself.
-- **If no entity matches, ask whether the file has a concrete subject the vault would hold as an entity** - a prospect, a property, a person, a deal its lifecycle homes. If so, a staged mail note whose subject enters a lifecycle at a register is **Add register row** on every path ([approval.md](approval.md)). Otherwise, on the table path the item is **Leave in triage**, its Why naming the entity to create, and never **Create entity** ([approval.md](approval.md#the-table-path)); asking, offer **Create entity** (Recommended, naming the shape and folder the vault's structure gives it) and **Leave in triage**. Only a record with no identifiable subject goes by the vault's rule for ownerless records (dated conversation records to `archive/meetings/`, say). With neither, **Leave in triage** (Recommended, saying what is missing). Never hand-build the folder ([operating-discipline.md](../../para-shared/operating-discipline.md#entity-creation)).
-
-Apply the vault's naming convention literally, judging each name against the whole of `.claude/rules/filing.md` and any topic rule file governing the document ([operating-discipline.md](../../para-shared/operating-discipline.md#a-vaults-rule-files)), or `CLAUDE.md` where there is no rule file. Drop legacy suffixes (`- FINAL.pdf`, `copy.pdf`, `(1).pdf`). **A machine-staged note's filename is not the document's name**, only a mail subject plus a hash, so its `<Description>` follows the receiving folder's language and established variant; the rule against translating a document's name does not reach it.
-
-## Writing the row
-
-The **Why** (or the option description) names the specific signals used (date, contract number, address, parties), never a generic "matches the entity". The **Destination** is the full relative path with the new filename, as `[<new name>](<relative-path>)`.
-
-Illustrative fragment - the vault's `CLAUDE.md` gives the real convention and entity shape:
-
-```
-| # | Source item | Action | Why | Destination |
-|---|---|---|---|---|
-| 1 | `Invoice Lockwerk copy.pdf` | Delete (duplicate) | Byte-identical duplicate (MD5 10d9edcc...) of the filed copy. | (deleted) |
-| 2 | `IMG_2011.JPG` | File it + rotate 180 | Northwind Bank loan statement dated 2011-12-31 (upside down), loan LN-40213. | [.../sources/20111231 Northwind Bank Loan statement LN-40213.jpg](path) |
-| 3 | "RE: quote" - supplier, 14 Jul (email) | Update existing | Reply on an open thread; annotate the tracked action rather than duplicate it. | [projects/<x>/actions.md](path) |
-```
-
-## Edge cases
-
-- **An encrypted or locked PDF**: propose a destination from the filename and modification date alone, and say so in the evidence: "(content not readable - name-only inference)".
-- **A file that looks like another vault's or context's** (client work in a personal vault, personal records in an engagement vault): ask before filing.
+1. **Last touch**: `<the record's date>, <one clause on what happened>`, shown as `<current> → <proposed>`, where the record is newer or the current one is `unknown`.
+2. **Signer**: where the record names who commits the money and the current value does not, shown the same way, linked to their card.
+3. **One next step**: our earliest commitment as one checkbox, on the contact's card under its next-actions heading as far as `contact_card_level` allows (`relationship only`: a reply, introduction, thanks or check-in), else the entity's own: a register row's next-step cell (shown the same way), the owning area's `actions.md`, linking the brief, for an entity under `resources/`, a project's `actions.md`. **Their earliest commitment** is one `Waiting on [<person>](<card>): <what> (since <the record's date>)` line, no `📅`, homed the same way. Every other commitment goes in the draft. An open item the record shows done is proposed ticked; nothing is added twice.
+4. **A stage question**, never a stage edit, where the record meets the current stage's exit criterion: `Move <entity> on from <stage>? Its exit criterion, <criterion>, looks met: <evidence>.`, repeated in the summary ([lifecycles.md](../../para-shared/lifecycles.md#what-each-skill-does-with-one)).
+5. **A follow-up draft** per [drafting.md](../../para-shared/drafting.md): the agreed steps, our promises with their dates, the next meeting.

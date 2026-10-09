@@ -44,11 +44,11 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 
 **The Later line's `this week` counts every 🔴, 🟠 and 🟡 item not in Now**, so an overdue or due-today item the cap leaves out lands there. When Now is empty, the line renders alone, with no `🎯 Now` heading.
 
-**The lifecycle line follows Totals**, one per declared lifecycle, stages in the table's own order and omitted where the vault declares none.
+**The lifecycle line follows Totals**, one per lifecycle in the scan's `lifecycles`, stages in the table's order, zeros included; the board stays `/para-pipeline`'s.
 
 **A triage item the scan's `triage_preview` marks `auth` is never listed**: it is counted on the codes line, which is omitted at zero ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 
-The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block. Bar rows: width 10, the row's `bar` (10 x open / max open, rounded half-up) filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append the full bucket sections (🔴 🟠 🟡 🔵 ⚪ 🔁 ⏳ ❓, each a complete list in the Now line format) after Health flags.
+The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block. Bar rows: width 10, the row's `bar` filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append the full bucket sections (🔴 🟠 🟡 🔵 ⚪ 🔁 ⏳ ❓, each a complete list in the Now line format) after Health flags.
 
 **Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>`, or `<person>:<line>` from the scan's `person` field for a contact item; relative link targets from CWD. **A long task text is cut, never wrapped:** link syntax and emphasis reduced to their text, then to its bold lead where it has one, else to its first clause (up to the first `;`, ` - ` or [sentence end](signals.md#step-4d-ideas-lane) outside parentheses), and to 100 characters at a word boundary with `…` if still longer. **A heading's `(N)` counts the items rendered under it**: a recurring item overdue or due today counts under both its date bucket and `🔁 Recurring`, while `Totals:` counts it once, under Recurring.
 
@@ -56,7 +56,7 @@ The 📊 Vault state rows (top 10 entities by open count, remainder aggregated t
 
 ## The entity scope
 
-A different layout, not the vault brief with rows removed: the buckets lead and nothing is capped.
+A different layout, not the vault brief with rows removed: the buckets lead, and every open item renders in the Now line format.
 
 ````
 # <entity> - <YYYY-MM-DD>
@@ -85,11 +85,8 @@ The bucket letter and path are the resolved entity's, `[A] areas/<entity>` for a
 
 Rules specific to this scope:
 
-- **Every open item renders**, in the same one-line format as Now.
-- **Empty buckets are omitted.** The four low-urgency buckets share one heading line when each is small; give any of them its own section once it exceeds five items.
-- **The header line replaces 📊 Vault state.**
-- **`🔗 Mentioned elsewhere` is not this entity's work.** It is the scan's `mentioned_elsewhere`. Its counts never join the header totals, and each line names the file that owns it.
-- **Health flags are this entity's only**, as signals.md Step 4c scopes them.
+- **The four low-urgency buckets share one heading line** while each is small; any of them past five items gets its own section.
+- **`🔗 Mentioned elsewhere` is not this entity's work.** It is the scan's `mentioned_elsewhere`, five lines then `(+N more)`. Its counts never join the header totals, and each line names the file that owns it.
 - **The Next action still closes it**, chosen from this entity's own items only, never from `🔗 Mentioned elsewhere`.
 
 **The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. Never a question.

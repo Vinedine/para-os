@@ -22,7 +22,7 @@ The HTML page the brief publishes as an artifact, built entirely from data the b
 
 ## Without a brief run
 
-`scripts/refresh_dashboard.py`, run from an end-of-turn hook, keeps a numbers-only copy of the page current with no model run: `render_dashboard.py --mechanical`, written under `$PARAOS_HOME/cache/daily-brief/`, with Now ranked by Step 5's sort alone and every fired flag worded by the script. The hook recipe is in the script's docstring; wiring it is the operator's choice. The full brief remains the source of the Next action, the agenda and the published page, and that copy says so in place of both.
+`scripts/refresh_dashboard.py`, run from an end-of-turn hook its docstring gives, keeps a numbers-only copy of the page current under `$PARAOS_HOME/cache/daily-brief/` with no model run. Wiring it is the operator's choice; the Next action, the agenda and the published page stay the full brief's.
 
 ## Identity and lifecycle
 

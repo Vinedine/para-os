@@ -1,7 +1,5 @@
 # Everything in the brief that is not a task (Steps 4c to 5c)
 
-**What the scan already did.** `scripts/brief_scan.py` ([task-scan.md](task-scan.md)) returns the health flags in `flags`, the ideas lane in `ideas`, the triage items in `triage` and the lifecycle counts in `lifecycles`. Steps 4c, 4d, 4f and 5b below say what to render from them. Steps 4e and 5c are not the script's and run here on every brief.
-
 ## Step 4c: Health flags
 
 Emit each only when it fires:
@@ -19,29 +17,19 @@ Emit each only when it fires:
 - **Over-grown brief:** a `brief.md` under `projects/` or `areas/` past **500 lines**. One line per offender: `<entity>/brief.md: N lines - content grooming via /para-deep-clean`.
 - **Silent source:** a `## Triage sources` row carrying a cadence hint (`🔁 every <period>`) whose newest delivery to this vault is more than one period old. One line per source: `<source>: nothing since <date> (N days)`. A ledger that cannot be read is flagged, never passed ([para-shared/absent-is-not-zero.md](../../para-shared/absent-is-not-zero.md)).
 
-**Under an entity scope** the scan's flags are that entity's alone. Steps 4d, 5b and 5c are skipped entirely; Step 4e still runs, for the Next action tiebreak.
-
 ## Step 4d: Ideas lane
 
 The scan's `ideas`, newest-touched first: each idea's `name`, `touched` date and `stage` line, cut to its first sentence. An idea with no stage line renders as name and date. One marked `dormant`, untouched for 6+ months, is a retirement candidate; never retire it.
 
 A **sentence end** is a `.`, `!` or `?` outside parentheses, at the line's end or followed by a space and anything but a lowercase letter or a digit: `€500.000`, `e.g. the call` and `art. 12` hold none.
 
-**For the dashboard**, the scan adds `days_in_stage` from the stage line's `(since <date>)`, `revisit` (the sentence holding the brief's "revisit when", cut like the stage line), and `actions`: the open items elsewhere that name the idea.
-
 ## Step 4e: Read the Vision
 
-Read the root `README.md`'s `## Vision` section: Grep `-n` for the heading, then Read from that line to the next `## ` heading. If the README or the section is missing, skip silently.
-
-## Step 4f: Lifecycle counts
-
-The scan's `lifecycles` field, one entry per declared lifecycle with its heading and the live count at each non-terminal stage. **One line per lifecycle, in 📊 Vault state, and nothing else**: the board is `/para-pipeline`'s.
-
-A declared lifecycle with no live entity renders its zeros.
+On every run, for the Next action, read the root `README.md`'s `## Vision` section: Grep `-n` for the heading, then Read from that line to the next `## ` heading. If the README or the section is missing, skip silently.
 
 ## Step 5b: Check the triage folder
 
-The scan's `triage` names each item, and the terminal brief lists names only; `triage_preview`, each item's sender, subject and first lines, is for the dashboard alone. No item means omit the section.
+The terminal brief lists the scan's `triage` by name only; `triage_preview`, each item's sender, subject and first lines, is the dashboard's.
 
 ## Step 5c: Build the agenda
 

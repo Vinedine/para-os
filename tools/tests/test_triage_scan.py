@@ -1080,7 +1080,7 @@ class Subdirectories(VaultCase):
         self.assertTrue(report["items"]["only_subdirectories"])
 
     def test_the_manifest_line_names_each_subdirectory_with_its_file_count(self):
-        # approval.md's manifest line, printed as it stands: runs that worded it themselves
+        # The manifest's subdirectories line, printed as it stands: runs that worded it themselves
         # dropped the "not asked" a reader relies on.
         write(self.root, "triage/_handover/a.pdf", "x\n")
         write(self.root, "triage/_handover/b.pdf", "x\n")
@@ -1151,7 +1151,7 @@ class OverThreshold(VaultCase):
 # ---------------------------------------------------------------------------- contact cards
 
 class ContactCards(VaultCase):
-    """Where a meeting record's next step may go (references/after-a-meeting.md): the
+    """Where a meeting record's next step may go (references/filing.md, "A meeting record"): the
     `areas/network/` row of the checkbox table, read by the library."""
 
     def test_the_network_row_sets_the_level_the_report_carries(self):
