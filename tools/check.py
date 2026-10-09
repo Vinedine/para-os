@@ -10,9 +10,9 @@ What it enforces, and why each one is machinery rather than prose:
   Integration markers   The versioning scheme in integrations/README.md only works if every
                         shipped script carries `para-os-integration: <name> <revision>` and
                         the folder's revision matches its row in the Available table.
-                        /para-upgrade compares an installed copy against that marker, so a
-                        marker that disagrees with the table sends the wrong answer to every
-                        vault, silently.
+                        /para-upgrade finds an installed copy's master by that marker, and a
+                        reader dates it by it, so a marker that disagrees with the table
+                        misleads every vault, silently.
 
   Template revisions    base/ and each example vault stamp a `<!-- para-os-template: -->`
                         marker. They must agree with the newest CHANGELOG entry: a template

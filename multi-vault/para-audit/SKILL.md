@@ -40,7 +40,7 @@ Per [para-shared/scripts.md](../para-shared/scripts.md):
 python3 "<this skill's base directory>/scripts/audit_scan.py" [--clone <path>] [--ref <git-ref>] [--paraos-home <folder holding vaults.json>] > <scan output path>
 ```
 
-**Exit codes**: 0 answered; 3 Step 0's stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: offer the one-time switch (`git -C <clone> fetch origin`, then `git -C <clone> checkout stable`) and scan again; 6 no clone found: ask for its path.
+**Exit codes**: 0 answered; 3 Step 0's stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: offer the one-time switch (`git -C <clone> fetch origin`, then `git -C <clone> checkout stable`) and scan again. With no clone found (`clone.error`), every vault is still audited and its revision, rules, integrations and skills read `not judged`: say so, and ask for the clone's path to judge them.
 
 The output holds `master` (the ref, its revision, `in_development`), `vaults` (one row per audited vault: a `cells` value per column, `revision`, `findings` each with `detail`, `fix` and `route`, and `observations`), `excluded`, `drives` and `upgrade_first`. Every field and rule is in the script's docstring.
 

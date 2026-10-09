@@ -1,33 +1,56 @@
 #!/usr/bin/env python3
-"""Phase 0 and Phase 3 of /para-upgrade, plus the mechanical parts of Phase 2 and the Phase 5
-re-checks, as a script instead of instructions.
+"""The mechanics of /para-upgrade: a vault measured against a para-os clone at a committed
+ref, as one JSON document on stdout.
 
-    py -3 upgrade_scan.py --vault <path> [--clone <path>] [--ref origin/stable] [--worktree]
-                          [--today YYYY-MM-DD] [--user-skills DIR] [--user-settings FILE]
-                          [--unchanged EARLIER_SCAN.json] [--indent N]
+    py -3 upgrade_scan.py --vault <path> [--clone <path>] [--ref origin/stable]
+                          [--user-skills DIR] [--paraos-home DIR] [--indent N]
 
-Read-only: never writes a file, never fetches, never asks. One JSON document on stdout.
-Phases 1, 2's merges, 4 and every write stay with the skill - this answers what changed and
-what the vault already has, never what to do about it.
+Read-only: it never writes, fetches or asks, and reads every master at the ref's commit,
+never the clone's working tree.
 
-Reading the vault and the clone is not this script's own work: para-shared/scripts/
-paraos_vault.py holds the primitives (declarations, the git and clone readers, the template
-and changelog readers, snapshots). What lives here is what /para-upgrade alone decides: the
-baseline commit lookup, the skeleton and rules field tables, the shared skill/integration
-verdict rules, and the suite locator.
+clone     `path`, `ref`, `commit` (the ref's commit, which a re-copy reads), `error` on exit 4-6.
+revision  The vault's template marker (`vault`) against the master's (`master`): `verdict`
+          equal, behind, ahead or no-marker. `entries`: each changelog revision after the
+          vault's, up to the master's, with the `Reaction:` sentence of each paragraph.
+          `baseline`: the commit whose template carries the vault's marker, the ref's own where
+          it still does, else the parent of the newest commit changing it; null where none.
+files     Every vault file the kit owns or ships that is not `current`: `path` (vault-relative,
+          absolute outside the vault), `kind`, `master` (its path in the clone), `state`.
+          kind   skill: a base or declared add-on skill, para-shared included, where the vault
+                 runs it (its bundled copy, else the user-level one; a missing one goes where
+                 its other kit skills are, none where it has none), and a multi-vault skill
+                 where installed. rule, settings. integration: a file carrying a
+                 `para-os-integration:` marker, its master under integrations/ or an add-on's
+                 pipeline/. skeleton: every other file base or a declared add-on ships, listed
+                 only when missing, never a placeholder whose folder holds other content.
+          state  current: nothing to take from the kit, the ref's bytes or those bytes with
+                 lines of the vault's own added (a rule file the vault writes into). untouched:
+                 bytes the kit held at some commit along the ref, so a re-copy loses nothing
+                 local. edited: any other bytes, with `diff` from the master to the copy.
+                 missing. no-master: an integration the ref ships no master for. retired: a
+                 file a changelog `Retired:` line names that the kit no longer ships, `master`
+                 null.
+          Bytes are compared as git blob ids, line endings and a byte-order mark normalised.
+contract  The change to base/CLAUDE.md.template, and each declared add-on's CLAUDE.md.sections,
+          from `baseline` to the ref: one row per `## ` section that changed (`file`,
+          `heading`, "" above the first, and the section's unified `diff`), the marker line left
+          out. With no baseline every section is new.
+snapshot  {path: digest} of CLAUDE.md and every row, for `paraos_vault.py changed`.
 
-What it deliberately does NOT do, so the skill keeps owning it: merge a CLAUDE.md section,
-create a skeleton file, overwrite an installed script (the one sanctioned overwrite is a
-skill-level write, re-verified by hand against a fresh run of this script), reclassify or
-delete anything, or judge whether an entry applies to this vault.
+`Retired:` opens a line of a changelog entry and lists backticked vault-relative paths or
+globs; a folder retires every file under it, and a `.claude/skills/` path also matches under
+--user-skills. Every entry up to the master's counts, whatever the vault's marker.
+
+Exit codes: 0 answered; 2 the shared library is missing; 3 --vault is not a vault root; 4 the
+clone or the ref cannot be read, or the ref holds no CHANGELOG.md or marked template; 5 no
+--ref and no origin/stable; 6 no clone found.
 """
 
 import argparse
-import ast
 import difflib
+import hashlib
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -37,1746 +60,344 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        H2_RE, INTEGRATION_MARKER_RE, MARKED_SUFFIXES, changed, declarations,
-        find_clone, git, git_bytes, git_status_lines, git_untracked, integration_markers,
-        checkbox_rows, contact_card_level, normalised, paraos_home_dir,
-        read_lines, read_text, registered_vault, registry, rel_posix, snapshot,
+        H2_RE, TEMPLATE_MARKER_RE, declarations, find_clone, git, git_bytes,
+        integration_markers, normalised, paraos_home_dir, read_text, snapshot,
         template_marker, vault_root,
     )
     from paraos_clone import (  # noqa: E402
-        ADDONS_DIR, BASE_TEMPLATE, OLDER_ADDON_DIRS, addon_root, changelog_entries,
-        clone_files, clone_read, clone_ref, clone_session, entries_between, master_template,
+        BASE_TEMPLATE, addon_root, changelog_entries, clone_read, clone_ref, clone_session,
+        entries_between,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
-    print(f"upgrade_scan: {missing}. The shared vault library belongs at "
-          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
+    print(f"upgrade_scan: {missing}. Install para-shared beside this skill: "
+          f"{SHARED_DIR}/paraos_vault.py", file=sys.stderr)
     sys.exit(2)
 
-
-# ============================================================ small local git helpers
-# git_bytes() in the library answers None on any non-zero exit, which is right for a read
-# that only ever succeeds or fails - but `git check-ignore` (1 = nothing ignored) and
-# `git merge-base --is-ancestor` (1 = not an ancestor) use exit 1 as a real, non-error
-# answer. Local to this script because no other caller needs that distinction.
-
-def _git_raw(directory, args):
-    try:
-        return subprocess.run(["git", "-C", str(directory)] + list(args),
-                              capture_output=True, timeout=30)
-    except (OSError, subprocess.SubprocessError):
-        return None
+STABLE = "origin/stable"
+SECTIONS = "CLAUDE.md.sections"
+DIFF_CAP = 200
+PLACEHOLDER = b"<!-- Placeholder"
+REACTION_RE = re.compile(r".*(Reactions?:.*)", re.S)   # the last one: prose may cite another
+PARAGRAPH_RE = re.compile(r"\n\s*\n|\n(?=[-*]\s)")
+RETIRED_RE = re.compile(r"^Retired:(.*)$", re.M)
+BACKTICK_RE = re.compile(r"`([^`]+)`")
 
 
-def _git_repo(directory):
-    out = git(directory, ["rev-parse", "--is-inside-work-tree"])
-    return bool(out) and out.strip() == "true"
+class Kit:
+    """The clone at one commit: its tree as {path: blob id}, and every object id its history
+    holds, which is what makes a copy untouched."""
+
+    def __init__(self, clone, commit):
+        self.clone, self.commit = clone, commit
+        self.tree, self._shipped, self.master = {}, None, None
+        for item in (git_bytes(clone, ["ls-tree", "-r", "-z", commit]) or b"").split(b"\0"):
+            if b"\t" in item:
+                meta, path = item.split(b"\t", 1)
+                self.tree[path.decode("utf-8", "replace")] = meta.split()[2].decode()
+
+    @property
+    def shipped(self):
+        if self._shipped is None:
+            out = git(self.clone, ["rev-list", "--objects", self.commit]) or ""
+            self._shipped = {line.split(" ", 1)[0] for line in out.splitlines()}
+        return self._shipped
+
+    def text(self, path, commit=None):
+        data = clone_read(self.clone, commit or self.commit, path)
+        return None if data is None else normalised(data).decode("utf-8", "replace")
+
+    def under(self, folder):
+        return [p for p in self.tree if p.startswith(folder + "/")]
 
 
-def _porcelain_paths(directory):
-    """Every path `git status --porcelain` names under `directory`, relative to it, a
-    rename's new name only - the library's own status reading, as the raw relative name
-    rather than a resolved absolute Path, since this is reported, not compared."""
-    lines = git_status_lines(directory)
-    return None if lines is None else [name for _, name in lines]
-
-
-def _ignored_in_scope(vault, scope_files):
-    if not scope_files:
-        return []
-    done = _git_raw(vault, ["-c", "core.quotePath=false", "check-ignore", "--"] + scope_files)
-    if done is None or done.returncode not in (0, 1):
-        return []
-    return [ln for ln in done.stdout.decode("utf-8", errors="replace").splitlines() if ln]
-
-
-def _scope_files(vault):
-    """Every file under CLAUDE.md and .claude/, vault-relative posix paths - Precondition 5's
-    scope."""
-    vault = Path(vault)
-    found = []
-    if (vault / "CLAUDE.md").is_file():
-        found.append("CLAUDE.md")
-    claude_dir = vault / ".claude"
-    if claude_dir.is_dir():
-        for p in sorted(claude_dir.rglob("*")):
-            if p.is_file():
-                found.append(rel_posix(vault, p))
-    return found
-
-
-# ==================================================================== the vault block
-
-def vault_block(vault, entries):
-    info = vault_root(vault)
-    hint = None
-    if not info["root"]:
-        entry = registered_vault(entries, vault)
-        if entry:
-            hint = {"name": entry.get("name"), "path": entry.get("path")}
-    decl = declarations(vault)
-
-    claude_md = vault / "CLAUDE.md"
-    claude_md_lines = None
-    if claude_md.is_file():
-        try:
-            claude_md_lines = claude_md.read_bytes().count(b"\n")  # wc -l: newlines, not lines
-        except OSError:
-            claude_md_lines = None
-
-    repo = _git_repo(vault)
-    if repo:
-        dirty = _porcelain_paths(vault) or []
-        untracked = []
-        for under in ("CLAUDE.md", ".claude"):
-            if (vault / under).exists():
-                got = git_untracked(vault, under)
-                if got:
-                    untracked.extend(got)
-        untracked = sorted(set(untracked))
-        ignored = sorted(set(_ignored_in_scope(vault, _scope_files(vault))))
-    else:
-        dirty, untracked, ignored = [], [], []
-
-    return {
-        "path": str(vault), "root": info["root"], "missing": info["missing"], "hint": hint,
-        "declarations": decl, "claude_md_lines": claude_md_lines,
-        "git": {"repo": repo, "dirty": dirty, "untracked_in_scope": untracked,
-                "ignored_in_scope": ignored},
-    }
-
-
-# ==================================================================== the clone block
-
-MASTER_DIRS = ("base", "integrations", "multi-vault")  # plus CHANGELOG.md and declared addons
-
-
-def _dirty_masters(dirty, decl):
-    """The dirty paths a run reads a master from - Precondition 3's question, so a dirty
-    clone README is not read as an uncommitted master. The declared addons are matched under
-    every layout this repo has shipped, and a collapsed untracked folder (`addons/`) counts
-    when a master root lies inside it."""
-    decl = decl or {}
-    names = [n for n in [decl.get("flavor")] + list(decl.get("modules") or []) if n]
-    roots = ([f"{d}/" for d in MASTER_DIRS] +
-             [f"{layout}/{n}/" for layout in ADDON_ROOTS for n in names])
-    return [p for p in dirty if p == "CHANGELOG.md" or
-            any(p.startswith(r) or (p.endswith("/") and r.startswith(p)) for r in roots)]
-
-
-STABLE = "origin/stable"  # what users get; main is where work merges
-
-
-def clone_block(clone, ref_arg, worktree, decl=None):
-    block = {"path": str(clone), "ref": ref_arg, "ref_commit": None, "worktree": worktree,
-             "checked_out": None, "origin_stable": None, "same_commit": [], "dirty": None,
-             "dirty_masters": None, "ref_merged": None, "stable_missing": False,
-             "error": None}
-    if not _git_repo(clone):
+def open_clone(clone, ref_arg):
+    """(clone block, exit code, Kit or None)."""
+    ref = ref_arg or STABLE
+    block = {"path": str(clone), "ref": ref, "commit": None, "error": None}
+    if git(clone, ["rev-parse", "--git-dir"]) is None:
         block["error"] = f"not a git repository: {clone}"
-        return block, False, None
-
-    branch_out = git(clone, ["symbolic-ref", "--short", "-q", "HEAD"])
-    branch = branch_out.strip() if branch_out else None
-    head = clone_ref(clone, "HEAD")
-    block["checked_out"] = {"branch": branch, "commit": head["commit"] if head else None}
-    block["dirty"] = _porcelain_paths(clone) or []
-    block["dirty_masters"] = _dirty_masters(block["dirty"], decl)
-
-    if worktree:
-        if ref_arg is not None and ref_arg != branch:
-            block["error"] = (f"--worktree reads the checked-out branch as the ref; "
-                              f"--ref {ref_arg} names something else "
-                              f"({branch or 'a detached HEAD'})")
-            return block, False, None
-        if branch is None:
-            block["error"] = ("--worktree needs a checked-out branch, and the clone is in "
-                              "detached HEAD")
-            return block, False, None
-        ref = branch
-    else:
-        ref = ref_arg if ref_arg is not None else STABLE
-    block["ref"] = ref
-
+        return block, 4, None
     resolved = clone_ref(clone, ref)
     if resolved is None:
-        # A clone made before releases moved to stable: the skill offers the one-time switch.
-        block["stable_missing"] = ref_arg is None and not worktree
         block["error"] = f"ref does not resolve: {ref}"
-        return block, False, ref
-    block["ref_commit"] = resolved["commit"]
-
-    stable = clone_ref(clone, STABLE)
-    block["origin_stable"] = {"commit": stable["commit"]} if stable else None
-
-    names = {"ref": block["ref_commit"], "checked_out": block["checked_out"]["commit"],
-             "origin_stable": block["origin_stable"]["commit"] if block["origin_stable"]
-             else None}
-    groups = {}
-    for name, commit in names.items():
-        if commit:
-            groups.setdefault(commit, []).append(name)
-    block["same_commit"] = sorted(sorted(g) for g in groups.values() if len(g) > 1)
-
-    if block["origin_stable"]:
-        done = _git_raw(clone, ["merge-base", "--is-ancestor", block["ref_commit"], STABLE])
-        block["ref_merged"] = done.returncode == 0 if done is not None and \
-            done.returncode in (0, 1) else None
-
-    changelog = clone_read(clone, ref, "CHANGELOG.md", worktree=worktree)
-    base_tpl = clone_read(clone, ref, BASE_TEMPLATE, worktree=worktree)
-    if changelog is None or base_tpl is None:
-        missing = [n for n, v in (("CHANGELOG.md", changelog), (BASE_TEMPLATE, base_tpl))
-                   if v is None]
-        block["error"] = f"not a para-os clone: {ref} carries no {' or '.join(missing)}"
-        return block, False, ref
-
-    return block, True, ref
+        return block, 5 if ref_arg is None else 4, None
+    kit = Kit(clone, resolved["commit"])
+    block["commit"] = kit.commit
+    template = kit.text(BASE_TEMPLATE)
+    if template is None or kit.text("CHANGELOG.md") is None:
+        block["error"] = f"not a para-os clone: {ref} holds no CHANGELOG.md and template"
+        return block, 4, None
+    kit.master = template_marker(template)
+    if kit.master is None:
+        block["error"] = f"{ref}:{BASE_TEMPLATE} carries no para-os-template marker"
+        return block, 4, None
+    return block, 0, kit
 
 
-# ================================================================== the masters block
+# ================================================================== revision and contract
 
-ADDON_ROOTS = (ADDONS_DIR,) + OLDER_ADDON_DIRS  # every layout a flavor or module shipped in
-
-
-def _addon_row(clone, ref, name, kind, worktree, addons_present):
-    root = addon_root(clone, ref, name, worktree)
-    if root:
-        return {"name": name, "kind": kind, "root": root}
-    if kind == "module" and not addons_present:
-        return {"name": name, "kind": kind, "root": None, "carried_forward": True}
-    where = "in the clone's working tree" if worktree else f"at {ref}"
-    return {"name": name, "kind": kind, "root": None, "reported": f"no folder {where}"}
+def kit_entries(kit):
+    return entries_between(changelog_entries(kit.text("CHANGELOG.md")), None, kit.master)
 
 
-def masters_block(clone, ref, worktree, decl):
-    template = master_template(clone, ref, worktree)
-    addons_present = bool(clone_files(clone, ref, ADDONS_DIR, worktree))
-    rows = []
-    if decl.get("flavor"):
-        rows.append(_addon_row(clone, ref, decl["flavor"], "flavor", worktree, addons_present))
-    for m in decl.get("modules") or []:
-        rows.append(_addon_row(clone, ref, m, "module", worktree, addons_present))
-
-    return {"template": template, "addons": rows}
-
-
-# ==================================================================== the delta block
-
-BOLD_LEAD_RE = re.compile(r"^(?:[-*]\s*)?\*\*([^*]+)\*\*")
-# The LAST "Reaction:" in a paragraph: prose before it may name an earlier entry's own
-# ("three points of the 2026.09.03 `.claude/rules/` Reaction: ..."), and the greedy lead
-# skips past that mention.
-REACTION_RE = re.compile(r".*(Reactions?:.*)", re.S)
-PARAGRAPH_SPLIT_RE = re.compile(r"\n\s*\n|\n(?=[-*]\s)")
+def revision_block(vault, kit):
+    text = read_text(Path(vault) / "CLAUDE.md")
+    mine, raw = template_marker(text), template_marker(text, raw=True)
+    verdict = "no-marker" if mine is None else "equal" if mine == kit.master else \
+        "ahead" if mine > kit.master else "behind"
+    collected = [e for e in kit_entries(kit) if mine is None or e["revision"] > mine]
+    return {"vault": mine, "master": kit.master, "verdict": verdict,
+            "baseline": baseline(kit, raw, mine),
+            "entries": [{"revision": e["revision"], "reactions": reactions(e["body"])}
+                        for e in collected]}
 
 
-def _paragraphs(body):
-    return [p.strip() for p in PARAGRAPH_SPLIT_RE.split(body) if p.strip()]
+def reactions(body):
+    found = (REACTION_RE.match(p) for p in PARAGRAPH_RE.split(body))
+    return [" ".join(m.group(1).split()) for m in found if m]
 
 
-def _entry_shape(entry):
-    items, reactions = [], []
-    for p in _paragraphs(entry["body"]):
-        m = BOLD_LEAD_RE.match(p)
+def baseline(kit, raw, mine):
+    if mine == kit.master:
+        return kit.commit
+    if not raw:
+        return None
+    out = git(kit.clone, ["log", kit.commit, "--format=%H",
+                          f"-S<!-- para-os-template: {raw} -->", "--", BASE_TEMPLATE])
+    newest = (out or "").split()
+    parent = git(kit.clone, ["rev-parse", newest[0] + "^1"]) if newest else None
+    return parent.strip() if parent else None
+
+
+def sections(text):
+    """{heading: [line, ...]} for each `## ` section, "" for the lines above the first, the
+    marker line left out and trailing blank lines dropped."""
+    out, heading = {"": []}, ""
+    for line in text.splitlines(True):
+        if TEMPLATE_MARKER_RE.search(line):
+            continue
+        m = H2_RE.match(line.rstrip("\n"))
         if m:
-            items.append(m.group(1).strip())
-        r = REACTION_RE.search(p)
-        if r:
-            reactions.append(r.group(1).strip())
-    return {"revision": entry["revision"], "line": entry["line"], "items": items,
-            "reactions": reactions}
-
-
-def _changelog_entries_at(clone, ref, worktree):
-    """Every `## <revision>` entry of CHANGELOG.md at the ref, parsed once - shared by
-    delta_block (the collected-entries list) and skills_block (revisions_behind), so a vault
-    with many skills does not re-read and re-parse the same small file once per skill."""
-    changelog_bytes = clone_read(clone, ref, "CHANGELOG.md", worktree=worktree)
-    changelog_text = changelog_bytes.decode("utf-8", errors="replace") if changelog_bytes else ""
-    return changelog_entries(changelog_text)
-
-
-def delta_block(vault, clone, ref, worktree, template):
-    vault_text = read_text(vault / "CLAUDE.md")
-    vault_marker = template_marker(vault_text)
-    vault_marker_raw = template_marker(vault_text, raw=True)
-    legacy = bool(vault_marker_raw) and vault_marker_raw != vault_marker
-    master_marker = template.get("marker")
-
-    all_entries = _changelog_entries_at(clone, ref, worktree)
-
-    entries, current = [], None
-    if master_marker is None:
-        verdict = "unverified"
-    elif vault_marker is None:
-        verdict = "no-marker"
-        entries = [_entry_shape(e) for e in entries_between(all_entries, None, master_marker)]
-    elif vault_marker == master_marker:
-        verdict = "equal"
-        match = next((e for e in all_entries if e["revision"] == master_marker), None)
-        current = _entry_shape(match) if match else None
-    elif vault_marker > master_marker:
-        verdict = "ahead"
-    else:
-        verdict = "behind"
-        entries = [_entry_shape(e) for e in entries_between(all_entries, vault_marker, master_marker)]
-
-    out = {"vault_marker": vault_marker, "vault_marker_raw": vault_marker_raw, "legacy": legacy,
-           "master_marker": master_marker, "verdict": verdict, "entries": entries}
-    if verdict == "equal":
-        out["current"] = current
+            heading = m.group(1).strip()
+            out[heading] = []
+        out[heading].append(line if line.endswith("\n") else line + "\n")
+    for lines in out.values():
+        while lines and not lines[-1].strip():
+            lines.pop()
     return out
 
 
-# ================================================================= the baseline block
-
-def baseline_block(clone, ref, delta, template):
-    vault_marker = delta["vault_marker"]
-    vault_marker_raw = delta["vault_marker_raw"]
-    if not vault_marker_raw:
-        return {"commit": None, "source": None, "template": None,
-                "reason": "the vault carries no template marker"}
-    template_path = template.get("path")
-    if not template_path:
-        return {"commit": None, "source": None, "template": None,
-                "reason": "no master template resolved at this ref"}
-
-    # The ref's own committed tip, read from a commit even under --worktree: baselines are
-    # always read from commits.
-    tip_bytes = clone_read(clone, ref, template_path)
-    if tip_bytes is not None and \
-            template_marker(tip_bytes.decode("utf-8", errors="replace")) == vault_marker:
-        tip = clone_ref(clone, ref)
-        return {"commit": tip["commit"] if tip else None, "source": "ref-tip",
-                "template": template_path,
-                "reason": f"the ref's own committed template still carries {vault_marker}"}
-
-    marker_comment = f"<!-- para-os-template: {vault_marker_raw} -->"
-    out = git(clone, ["log", ref, "--format=%H", f"-S{marker_comment}", "--", template_path])
-    hashes = [h for h in (out or "").splitlines() if h.strip()]
-    if not hashes:
-        return {"commit": None, "source": None, "template": None,
-                "reason": f"no commit along {ref} carries {marker_comment}"}
-    newest = hashes[0]
-    parent_out = git(clone, ["rev-parse", f"{newest}^1"])
-    parent = parent_out.strip() if parent_out else None
-    return {"commit": parent, "source": "log-S", "template": template_path,
-            "reason": f"parent of the newest commit changing {marker_comment} along {ref}"}
-
-
-# ================================================================ the skeleton block
-
-def _vault_path_for_skeleton(master_path, strip_prefix):
-    vp = master_path[len(strip_prefix):] if master_path.startswith(strip_prefix) else master_path
-    if Path(vp).name == "README.md.template":
-        vp = str(Path(vp).with_name("README.md")).replace("\\", "/")
-    return vp
-
-
-def _skeleton_master_files(clone, ref, worktree, addons_rows):
-    files = {}  # vault_path -> master clone-relative path
-
-    for p in clone_files(clone, ref, "base", worktree) or []:
-        if p in (BASE_TEMPLATE, "base/bootstrap-prompt.md") or p.startswith("base/.claude/skills/"):
-            continue
-        files[_vault_path_for_skeleton(p, "base/")] = p
-
-    for r in addons_rows:
-        if r["kind"] not in ("flavor", "module") or not r["root"]:
-            continue
-        root = r["root"]
-        for p in clone_files(clone, ref, f"{root}/.claude/rules", worktree) or []:
-            files[_vault_path_for_skeleton(p, f"{root}/")] = p
-        for p in clone_files(clone, ref, f"{root}/skeleton", worktree) or []:
-            files[_vault_path_for_skeleton(p, f"{root}/skeleton/")] = p
-
-    return files
-
-
-def skeleton_block(vault, clone, ref, worktree, addons_rows):
-    files = _skeleton_master_files(clone, ref, worktree, addons_rows)
+def contract_block(kit, base, decl):
     rows = []
-    for vp in sorted(files):
-        master_path = files[vp]
-        data = clone_read(clone, ref, master_path, worktree=worktree)
-        vault_file = vault / vp
-        present = vault_file.is_file()
-        identical = None
-        if present and data is not None:
-            try:
-                identical = normalised(vault_file.read_bytes()) == normalised(data)
-            except OSError:
-                identical = None
-        folder_has_content = None
-        if Path(vp).name in ("README.md", ".gitkeep"):
-            folder = (vault / vp).parent
-            if folder.is_dir():
-                folder_has_content = any(
-                    c.name not in ("README.md", ".gitkeep") for c in folder.iterdir())
-        rows.append({"vault_path": vp, "master": master_path, "present": present,
-                     "identical": identical, "folder_has_content": folder_has_content})
-    return {"rows": rows, "triage_readme": (vault / "triage" / "README.md").is_file()}
-
-
-# ==================================================================== the rules block
-
-FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.S)
-PATHS_LIST_RE = re.compile(r"^paths:[ \t]*\n((?:^[ \t]*-[ \t]*\S.*\n?)+)", re.M)
-# Each glob's collected-state twin, which revision 2026.10.01 retired with the delivery that
-# needed it: reported apart from the vault's own extra globs, for removal.
-RETIRED_GLOB_PREFIX = "resources/mds/"
-POINTER_SHAPE = "The full shape is in [.claude/rules/"
-POINTER_CONVENTION_RE = re.compile(r"The full convention(?: \([^)]*\))? is in \[\.claude/rules/")
-
-
-def _frontmatter_paths(text):
-    if not text:
-        return []
-    m = FRONTMATTER_RE.match(text.replace("\r\n", "\n"))
-    if not m:
-        return []
-    pm = PATHS_LIST_RE.search(m.group(1))
-    if not pm:
-        return []
-    out = []
-    for line in pm.group(1).splitlines():
-        item = line.strip()
-        if item.startswith("-"):
-            item = item[1:].strip()
-        item = item.strip("'\"")
-        if item:
-            out.append(item)
-    return out
-
-
-def _rule_anchors(text):
-    order = bool(re.search(r"^\*\*Order:\*\*", text, re.M))
-    shape = bool(re.search(r"^##\s+The shape\s*$", text, re.M))
-    headings = re.findall(r"^##\s+(.+?)\s*$", text, re.M)
-    placeholders_last = bool(headings) and headings[-1].strip() == "Placeholders"
-    return {"order": order, "shape": shape, "placeholders_last": placeholders_last}
-
-
-def _rule_kind(anchors):
-    vals = (anchors["order"], anchors["shape"], anchors["placeholders_last"])
-    if all(vals):
-        return "shape"
-    if not any(vals):
-        return "convention"
-    return "mixed"
-
-
-def _link_sentence(text, pos):
-    """The sentence of `text` holding the character at `pos`, whitespace collapsed."""
-    start = text.rfind(". ", 0, pos)
-    end = text.find(". ", pos)
-    return " ".join(text[start + 2 if start >= 0 else 0:end + 1 if end >= 0 else len(text)].split())
-
-
-def _pointer_info(vault, filename, master_texts=()):
-    """The line in CLAUDE.md that points at a rule file, and how it is worded. Every line
-    linking the file is read. The first in the shape form, or the convention form (a list
-    of what it covers may go before "is in"), is the pointer; else the first sentence the
-    template or a declared addon's sections state verbatim; else the first link."""
-    lines = read_lines(vault / "CLAUDE.md")
-    masters = [" ".join(t.split()) for t in master_texts]
-    section, first, template = None, None, None
-    frag_open, frag_close = f".claude/rules/{filename}](", f".claude/rules/{filename})"
-    for lineno, text in enumerate(lines, start=1):
-        m = H2_RE.match(text.strip())
-        if m:
-            section = m.group(1).strip()
-        pos = max(text.find(frag_open), text.find(frag_close))
-        if pos < 0:
+    for name in [None] + addon_names(decl):
+        new_path, old_path = (sections_path(kit, c, name) for c in (kit.commit, base))
+        new = kit.text(new_path) if new_path else None
+        if new is None:
             continue
-        if POINTER_SHAPE in text:
-            wording = "shape"
-        elif POINTER_CONVENTION_RE.search(text):
-            wording = "convention"
-        elif any(_link_sentence(text, pos) in t for t in masters):
-            wording = "template"
-        else:
-            wording = "other"
-        row = {"present": True, "line": lineno, "section": section, "wording": wording}
-        if wording in ("shape", "convention"):
-            return row
-        if wording == "template":
-            template = template or row
-        first = first or row
-    return template or first or {"present": False, "line": None, "section": None, "wording": None}
-
-
-def _rule_master(clone, ref, worktree, name, addons_rows):
-    candidates = ["base/.claude/rules/" + name]
-    for r in addons_rows:
-        if r["root"]:
-            candidates.append(f"{r['root']}/.claude/rules/{name}")
-    for path in candidates:
-        data = clone_read(clone, ref, path, worktree=worktree)
-        if data is not None:
-            return path, data
-    return None, None
-
-
-def _pointer_master_texts(clone, ref, worktree, addons_rows):
-    """The template the vault is measured against and each declared addon's sections, at
-    the ref: where a pointer sentence the vault copied verbatim comes from."""
-    paths = [master_template(clone, ref, worktree)["path"]]
-    paths += [f"{r['root']}/{SECTIONS_FILE}" for r in addons_rows if r.get("root")]
-    datas = [clone_read(clone, ref, p, worktree=worktree) for p in paths if p]
-    return [d.decode("utf-8", errors="replace") for d in datas if d is not None]
-
-
-def rules_block(vault, clone, ref, worktree, addons_rows, master_texts=None):
-    out = []
-    rules_dir = vault / ".claude" / "rules"
-    if not rules_dir.is_dir():
-        return out
-    if master_texts is None:
-        master_texts = _pointer_master_texts(clone, ref, worktree, addons_rows)
-    for path in sorted(rules_dir.glob("*.md")):
-        text = read_text(path)
-        all_paths = _frontmatter_paths(text)
-        retired = [p for p in all_paths if p.startswith(RETIRED_GLOB_PREFIX)]
-        paths = [p for p in all_paths if p not in retired]
-        master_path, master_data = _rule_master(clone, ref, worktree, path.name, addons_rows)
-        master_text = master_data.decode("utf-8", errors="replace") if master_data is not None \
-            else None
-        master_paths = _frontmatter_paths(master_text)
-        anchors = _rule_anchors(text)
-        out.append({
-            "file": rel_posix(vault, path), "master": master_path,
-            "paths": paths, "paths_retired": retired, "master_paths": master_paths,
-            # null with no master: nothing to hold the paths against, not a failed check
-            "paths_missing": sorted(set(master_paths) - set(paths)) if master_path else None,
-            "paths_extra": sorted(set(paths) - set(master_paths)) if master_path else None,
-            "kind": _rule_kind(anchors), "anchors": anchors,
-            "pointer": _pointer_info(vault, path.name, master_texts),
-        })
-    return out
-
-
-# ================================================================= the settings block
-
-# ================================================================ the sections block
-
-SECTIONS_FILE = "CLAUDE.md.sections"
-HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
-PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}")
-SECTION_HISTORY_CAP = 200
-
-
-def _h2_sections(text):
-    """{heading: [paragraph, ...]} for every `## ` section, HTML comments dropped and each
-    paragraph's whitespace collapsed, so a rewrapped copy reads as the same paragraph."""
-    out, heading, body = {}, None, []
-
-    def close():
-        if heading is not None:
-            out[heading] = [" ".join(p.split()) for p in _paragraphs("\n".join(body))]
-
-    for line in HTML_COMMENT_RE.sub("", text).splitlines():
-        m = H2_RE.match(line)
-        if m:
-            close()
-            heading, body = m.group(1).strip(), []
-        elif heading is not None:
-            body.append(line)
-    close()
-    return out
-
-
-def _paragraph_matches(vault_para, master_para):
-    """A master paragraph's `{{placeholder}}` matches whatever the vault filled in."""
-    parts = PLACEHOLDER_RE.split(master_para)
-    if len(parts) == 1:
-        return vault_para == master_para
-    return re.fullmatch(".+?".join(re.escape(p) for p in parts), vault_para) is not None
-
-
-def _sections_history(clone, ref, name):
-    """[(commit, revision, text)] for each version of an addon's CLAUDE.md.sections along
-    the ref, newest first, across every addon layout the ref's history carried."""
-    paths = [f"{root}/{name}/{SECTIONS_FILE}" for root in ADDON_ROOTS]
-    out = git(clone, ["log", ref, "--format=%H", f"-{SECTION_HISTORY_CAP}", "--"] + paths)
-    versions = []
-    for commit in (out or "").split():
-        data = next((b for b in (clone_read(clone, commit, p) for p in paths) if b), None)
-        if data is None:
-            continue
-        template = clone_read(clone, commit, BASE_TEMPLATE)
-        revision = template_marker(template.decode("utf-8", "replace")) if template else None
-        versions.append((commit, revision, normalised(data).decode("utf-8", "replace")))
-    return versions
-
-
-def _section_row(heading, master_paras, older, vault_paras):
-    """`older` is [(commit, revision, paragraphs)] of the earlier versions, newest first."""
-    behind, local, used = [], [], set()
-    for vp in vault_paras:
-        hit = next((i for i, mp in enumerate(master_paras) if _paragraph_matches(vp, mp)),
-                   None)
-        if hit is not None:
-            used.add(hit)
-            continue
-        old = next(((c, r) for c, r, paras in older
-                    if any(_paragraph_matches(vp, p) for p in paras)), None)
-        if old:
-            behind.append({"paragraph": vp, "commit": old[0], "revision": old[1]})
-        else:
-            local.append(vp)
-    missing = [mp for i, mp in enumerate(master_paras) if i not in used]
-    localised = _pair_localised(local, missing)
-    verdict = "behind" if behind else "current" if not missing else "differs"
-    return {"heading": heading, "verdict": verdict, "behind": behind, "missing": missing,
-            "local": local, "localised": localised}
-
-
-LOCALISED_RATIO = 0.7   # distinct paragraphs of one shipped addon section score at most 0.48
-
-
-def _pair_localised(local, missing):
-    """Take out of `local` and `missing`, in place, each vault paragraph that is a shipped one
-    reworded for the vault (a business name, a phrase), best match first: it stands as the
-    vault's wording and is never joined by the shipped paragraph it replaces."""
-    pairs = sorted(((difflib.SequenceMatcher(None, vp, mp).ratio(), vp, mp)
-                    for vp in local for mp in missing), key=lambda p: -p[0])
-    out = []
-    for ratio, vp, mp in pairs:
-        if ratio < LOCALISED_RATIO:
-            break
-        if vp in local and mp in missing:
-            local.remove(vp)
-            missing.remove(mp)
-            out.append({"paragraph": vp, "shipped": mp})
-    return out
-
-
-def sections_block(vault, clone, ref, worktree, decl, baseline=None):
-    """Each flavor's and module's CLAUDE.md.sections against the vault's own sections of the
-    same heading, paragraph by paragraph against the addon's history. An addon the vault
-    does not declare is reported only where the vault states a paragraph of some version
-    of it: an adoption by hand, before the addon shipped or was declared. `missing_new` is
-    the `missing` paragraphs the addon did not state at the `baseline` commit, None with
-    no baseline."""
-    vault_sections = _h2_sections(read_text(Path(vault) / "CLAUDE.md") or "")
-    declared = {n for n in (decl.get("flavor"), *(decl.get("modules") or [])) if n}
-
-    names = set(declared)
-    for root in ADDON_ROOTS:
-        for f in clone_files(clone, ref, root, worktree) or []:
-            parts = f.split("/")
-            if len(parts) == 3 and parts[2] == SECTIONS_FILE:
-                names.add(parts[1])
-
-    rows = []
-    for name in sorted(names):
-        root = addon_root(clone, ref, name, worktree)
-        data = clone_read(clone, ref, f"{root}/{SECTIONS_FILE}", worktree) if root else None
-        if data is None:
-            continue
-        master = _h2_sections(normalised(data).decode("utf-8", "replace"))
-        if name not in declared and not set(master) & set(vault_sections):
-            continue
-        history = _sections_history(clone, ref, name)
-        current = normalised(data).decode("utf-8", "replace")
-        older = [(c, r, _h2_sections(t)) for c, r, t in history if t != current]
-        at_baseline = baseline and next(
-            (b for b in (clone_read(clone, baseline, f"{r}/{name}/{SECTIONS_FILE}")
-                         for r in ADDON_ROOTS) if b), None)
-        base_sections = _h2_sections(normalised(at_baseline).decode("utf-8", "replace")
-                                     if at_baseline else "")
-        sections = []
-        for heading, master_paras in master.items():
-            if heading not in vault_sections:
-                sections.append({"heading": heading, "verdict": "absent"})
-                continue
-            row = _section_row(
-                heading, master_paras, [(c, r, s.get(heading, [])) for c, r, s in older],
-                vault_sections[heading])
-            row["missing_new"] = None if not baseline else [
-                mp for mp in row["missing"] if mp not in base_sections.get(heading, [])]
-            sections.append(row)
-        adopted = any(s.get("behind") or len(s.get("missing", [])) < len(master[s["heading"]])
-                      for s in sections if s["verdict"] != "absent")
-        if name not in declared and not adopted:
-            continue
-        rows.append({"name": name, "declared": name in declared,
-                     "master": f"{root}/{SECTIONS_FILE}", "sections": sections})
+        old, new = sections((kit.text(old_path, base) if old_path else None) or ""), sections(new)
+        for heading in list(new) + [h for h in old if h not in new]:
+            a, b = old.get(heading, []), new.get(heading, [])
+            if a != b:
+                rows.append({"file": new_path, "heading": heading,
+                             "diff": "".join(list(difflib.unified_diff(a, b))[2:])})
     return rows
 
 
-def checkboxes_block(vault, clone, ref, worktree):
-    """Rows of the template's `Where a checkbox may live` table the vault's own table lacks,
-    each with the master's row as written, plus the contact-card level the vault has today
-    (`yes`, or `never` under a `## Who writes this vault` roster), which a missing
-    `areas/network/` row is written at."""
-    data = clone_read(clone, ref, BASE_TEMPLATE, worktree)
-    master = data.decode("utf-8", "replace") if data else ""
-    have = checkbox_rows(read_text(Path(vault) / "CLAUDE.md") or "")
-    missing = [{"bucket": k, "row": row} for k, row in checkbox_rows(master, raw=True).items()
-               if k not in have]
-    return {"missing": missing, "contact_card_level": contact_card_level(vault)}
-
-
-def _load_json_dict(text):
-    if not text:
-        return {}
-    try:
-        data = json.loads(text)
-    except ValueError:
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def settings_block(vault, clone, ref, worktree, user_settings_path):
-    master_bytes = clone_read(clone, ref, "base/.claude/settings.json", worktree=worktree)
-    master_keys = _load_json_dict(master_bytes.decode("utf-8", errors="replace")
-                                  if master_bytes is not None else None)
-
-    user_path = Path(user_settings_path)
-    user_data = _load_json_dict(read_text(user_path)) if user_path.is_file() else {}
-    matching = sorted(k for k in master_keys if k in user_data and user_data[k] == master_keys[k])
-
-    vault_settings_path = vault / ".claude" / "settings.json"
-    vault_present = vault_settings_path.is_file()
-    vault_data = _load_json_dict(read_text(vault_settings_path)) if vault_present else {}
-
-    missing_effective = sorted(
-        k for k in master_keys
-        if not (k in user_data and user_data[k] == master_keys[k])
-        and not (k in vault_data and vault_data[k] == master_keys[k]))
-
-    return {"master_keys": master_keys,
-            "user_level": {"path": str(user_path), "matching": matching},
-            "vault_level": {"present": vault_present, "keys": sorted(vault_data.keys())},
-            "missing_effective": missing_effective}
-
-
-# ============================================= shared machinery: skills and integrations
-
-def _is_test_file(name):
-    base = Path(name).name
-    return base.startswith("test_") or ".test." in base
-
-
-HISTORY_LIMIT = 200  # per-path cap, matching the old per-file git log's own limit
-
-
-def _parse_batch_output(data, count):
-    """`count` (bytes|None) results from one `git cat-file --batch` stdout, in request order.
-    Order, not the printed identifier, is what lines a result up with its request: a
-    `missing` line prints the ORIGINAL request text, a found one prints the resolved sha, and
-    two different `<ref>:<path>` requests can legitimately resolve to the same sha."""
-    results = []
-    pos = 0
-    for _ in range(count):
-        nl = data.index(b"\n", pos)
-        header = data[pos:nl].decode("utf-8", errors="replace")
-        pos = nl + 1
-        tokens = header.split(" ")
-        if len(tokens) == 2 and tokens[1] == "missing":
-            results.append(None)
-            continue
-        if len(tokens) < 3:
-            results.append(None)
-            continue
-        obj_type, size_str = tokens[1], tokens[2]
-        try:
-            size = int(size_str)
-        except ValueError:
-            results.append(None)
-            continue
-        content = data[pos:pos + size]
-        pos += size + 1  # the content's own trailing newline
-        results.append(content if obj_type == "blob" else None)
-    return results
-
-
-RAW_DIFF_LINE_RE = re.compile(r"^:\d+ \d+ [0-9a-f]+ ([0-9a-f]{40}) ([A-Z])\d*\t(.+)$")
-
-
-def _root_history_map(clone, ref, prefix):
-    """{clone-relative path: [(commit, blob_sha), ...]} newest first, for every path under
-    `prefix` at every commit along the ref's history that changed it - one `git log --raw`
-    for the whole subtree, so a caller comparing many files under one root (every base skill,
-    say) makes one git call instead of one per file."""
-    out = git_bytes(clone, ["log", "--format=%H", "--raw", "--no-abbrev", "--no-renames", ref,
-                                "--", prefix])
-    if out is None:
-        return {}
-    history, commit = {}, None
-    for line in out.decode("utf-8", errors="replace").splitlines():
-        if not line:
-            continue
-        if line.startswith(":"):
-            m = RAW_DIFF_LINE_RE.match(line)
-            if not m or commit is None:
-                continue
-            blob, status, path = m.groups()
-            if status.startswith("D"):
-                continue
-            entries = history.setdefault(path, [])
-            if len(entries) < HISTORY_LIMIT:
-                entries.append((commit, blob))
-        else:
-            commit = line.strip()
-    return history
-
-
-def _global_commit_order(clone, ref):
-    """Every commit along the ref, newest first - one `git log`, used to answer 'which
-    historical commit's template was still in effect at commit C' without an --is-ancestor
-    call per commit. Assumes the ref's own history reads as a straight line, the same
-    approximation `git log`'s own default (non---graph) order makes."""
-    out = git(clone, ["log", "--format=%H", ref])
-    return [c for c in (out or "").splitlines() if c.strip()]
-
-
-def _effective_blob(commit, history_entries, commit_index):
-    """The newest (commit, blob) in `history_entries` (newest first) at or before `commit`
-    in `commit_index`'s order. None where `commit` itself is not in the index."""
-    target = commit_index.get(commit)
-    if target is None or not history_entries:
+def sections_path(kit, commit, name):
+    if commit is None:
         return None
-    for c, blob in history_entries:
-        idx = commit_index.get(c)
-        if idx is not None and idx >= target:
-            return blob
-    return None
+    if name is None:
+        return BASE_TEMPLATE
+    root = addon_root(kit.clone, commit, name)
+    return f"{root}/{SECTIONS}" if root else None
 
 
-def _branch_names(clone):
-    out = git(clone, ["for-each-ref", "--format=%(refname:short)", "refs/heads/", "refs/remotes/"])
-    return [n for n in (out or "").splitlines() if n.strip() and not n.endswith("/HEAD")]
+def addon_names(decl):
+    return [n for n in [decl.get("flavor")] + list(decl.get("modules") or []) if n]
 
 
-class HistoryBatch:
-    """Every historical blob, other-branch read and current-master read the skills and
-    integrations blocks need for one scan, gathered in two strict phases: every `want_*` call
-    happens while planning what to compare (no git process runs yet), then `resolve()` sends
-    everything gathered since the last call in one `git cat-file --batch`, and every
-    `blob()`/`ref_path()` read happens afterwards, from the cache `resolve()` filled.
+# ============================================================================== the files
 
-    This is the fix for a cold run against the real clone taking 20+ seconds: the old code
-    ran a `git log` plus a `git show` per commit per file. This runs a handful of
-    `git log --raw` calls (one per master root, via `root_history()`) plus one batched read
-    for every blob any of them needs - a `git cat-file --batch` call sent once per caller
-    (skills_block and integrations_block each gather everything they need, then resolve once,
-    so it is two calls for the whole scan rather than one per file).
-    """
-
-    def __init__(self, clone, ref, worktree):
-        self.clone = clone
-        self.ref = ref
-        self.worktree = worktree
-        self._roots = {}
-        self._commit_index = None
-        self._branches = None
-        self._pending = []
-        self._resolved = {}
-
-    def root_history(self, prefix):
-        if prefix not in self._roots:
-            self._roots[prefix] = _root_history_map(self.clone, self.ref, prefix)
-        return self._roots[prefix]
-
-    def commit_index(self):
-        if self._commit_index is None:
-            order = _global_commit_order(self.clone, self.ref)
-            self._commit_index = {c: i for i, c in enumerate(order)}
-        return self._commit_index
-
-    def branch_names(self):
-        if self._branches is None:
-            self._branches = _branch_names(self.clone)
-        return self._branches
-
-    def want_blob(self, sha):
-        if sha and sha not in self._resolved and sha not in self._pending:
-            self._pending.append(sha)
-
-    def want_ref_path(self, ref_or_branch, path):
-        key = f"{ref_or_branch}:{path}"
-        if key not in self._resolved and key not in self._pending:
-            self._pending.append(key)
-        return key
-
-    def resolve(self):
-        if not self._pending:
-            return
-        wants, self._pending = self._pending, []
-        stdin = ("\n".join(wants) + "\n").encode("utf-8")
-        out = git_bytes(self.clone, ["cat-file", "--batch"], input=stdin)
-        results = _parse_batch_output(out, len(wants)) if out is not None else [None] * len(wants)
-        for key, content in zip(wants, results):
-            self._resolved[key] = content
-
-    def blob(self, sha):
-        if not sha:
-            return None
-        self.resolve()
-        return self._resolved.get(sha)
-
-    def ref_path(self, ref_or_branch, path):
-        self.resolve()
-        return self._resolved.get(f"{ref_or_branch}:{path}")
-
-    def current_master_bytes(self, path):
-        if self.worktree:
-            return clone_read(self.clone, self.ref, path, worktree=True)
-        return self.ref_path(self.ref, path)
-
-    def other_sources(self, path):
-        """O, read from what resolve() already cached: the working tree (a plain disk read,
-        never batched - it is not a git object), plus every other branch tip."""
-        sources = []
-        wt_bytes = clone_read(self.clone, self.ref, path, worktree=True)
-        if wt_bytes is not None:
-            sources.append({"source": "worktree", "bytes": wt_bytes})
-        for branch in self.branch_names():
-            data = self.ref_path(branch, path)
-            if data is not None:
-                sources.append({"source": branch, "bytes": data})
-        return sources
+def blob_id(data):
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
-def _sweep_root(master_root):
-    """The broad prefix to sweep a skill's history under, so every base skill (or every
-    skill of one addon) shares one `git log --raw` rather than one per skill folder."""
-    if ".claude/skills" in master_root:
-        idx = master_root.index(".claude/skills") + len(".claude/skills")
-        return master_root[:idx]
-    return master_root
+def plan_files(vault, kit, decl, user_dir):
+    """{absolute vault-side path: (kind, master or None)} for every file the kit owns or
+    ships for this vault."""
+    roots = [r for r in (addon_root(kit.clone, kit.commit, n) for n in addon_names(decl)) if r]
+    planned = {}
+    homes = [d for d in (vault / ".claude" / "skills", user_dir) if d and d.is_dir()]
+    folders = {}
+    for prefix, optional in [("base/.claude/skills/", False), ("multi-vault/", True)] + \
+            [(f"{r}/.claude/skills/", False) for r in roots]:
+        for path in kit.tree:
+            name, _, rest = path[len(prefix):].partition("/")
+            if path.startswith(prefix) and rest and \
+                    not (optional and f"{prefix}{name}/SKILL.md" not in kit.tree):
+                folders.setdefault(name, (prefix + name, optional))
+    home = next((d for d in homes if any((d / n).is_dir() for n in folders)), None)
+    for name, (folder, optional) in folders.items():
+        at = next((d / name for d in homes if (d / name).is_dir()), None)
+        if at or (home and not optional):
+            for master in kit.under(folder):
+                planned[(at or home / name) / master[len(folder) + 1:]] = ("skill", master)
 
-
-def _gather_history_wants(batch, master_path, sweep_root, is_integration):
-    history = batch.root_history(sweep_root).get(master_path, [])
-    for _, blob in history:
-        batch.want_blob(blob)
-    if not is_integration and history:
-        template_history = batch.root_history(BASE_TEMPLATE).get(BASE_TEMPLATE, [])
-        index = batch.commit_index()
-        for commit, _ in history:
-            tpl_blob = _effective_blob(commit, template_history, index)
-            if tpl_blob:
-                batch.want_blob(tpl_blob)
-
-
-def _gather_other_wants(batch, master_path):
-    for branch in batch.branch_names():
-        batch.want_ref_path(branch, master_path)
-
-
-def _history_from_batch(batch, master_path, sweep_root, is_integration):
-    """H, built from blobs `resolve()` already cached: every (commit, blob) the root's
-    history map carries for this path, each with its revision - an integration's own marker
-    in that blob, or (a skill file) the base template's effective blob at that commit."""
-    entries = batch.root_history(sweep_root).get(master_path, [])
-    template_history = None if is_integration else \
-        batch.root_history(BASE_TEMPLATE).get(BASE_TEMPLATE, [])
-    index = None if is_integration else batch.commit_index()
-    history = []
-    for commit, blob_sha in entries:
-        data = batch.blob(blob_sha)
-        if data is None:
-            continue
-        if is_integration:
-            m = INTEGRATION_MARKER_RE.search(data.decode("utf-8", errors="replace")[:4000])
-            revision = m.group(2) if m else None
-        else:
-            tpl_blob = _effective_blob(commit, template_history, index)
-            tpl_data = batch.blob(tpl_blob) if tpl_blob else None
-            revision = template_marker(tpl_data.decode("utf-8", errors="replace")) \
-                if tpl_data is not None else None
-        history.append({"commit": commit, "revision": revision, "bytes": data})
-    return history
-
-
-def _strip_integration_revision(text):
-    return INTEGRATION_MARKER_RE.sub(lambda m: f"para-os-integration: {m.group(1)} REV", text)
-
-
-CHAR_COMPARE_LIMIT = 4000  # characters across both sides' changed lines; past it, the linear estimate
-
-
-def _change_distance(a_lines, b_lines):
-    """How far two versions of a file are apart, smallest first: the number of lines inserted
-    or deleted between them (the change count rule 5 names), then, to split a tie, how unlike
-    the changed lines themselves are. Lines first because a character-level SequenceMatcher is
-    quadratic in the file's length: on two integration scripts of a few thousand lines each it
-    ran for minutes per version, and rule 5 compares a copy against every version in H. The
-    tie-break reads only the lines that differ, and falls back to `quick_ratio` (linear) when
-    even those are large."""
-    matcher = difflib.SequenceMatcher(None, a_lines, b_lines, autojunk=False)
-    changed, a_parts, b_parts = 0, [], []
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            continue
-        changed += (i2 - i1) + (j2 - j1)
-        a_parts.extend(a_lines[i1:i2])
-        b_parts.extend(b_lines[j1:j2])
-    a_text, b_text = "\n".join(a_parts), "\n".join(b_parts)
-    inner = difflib.SequenceMatcher(None, a_text, b_text, autojunk=False)
-    near = inner.ratio() if len(a_text) + len(b_text) <= CHAR_COMPARE_LIMIT else inner.quick_ratio()
-    return changed, 1 - near
-
-
-def compute_verdict(copy_bytes, master_bytes, history, other_sources, copy_revision,
-                    master_revision, is_integration):
-    """Rules 1-5 of 'The verdict', for a file present as both copy and master.
-    C = normalised(copy_bytes), M = normalised(master_bytes), H = history (newest first,
-    H[0] the tip, which equals M except under --worktree, where M is the uncommitted file
-    and H[0] an older version a copy can still be behind), O = other_sources."""
-    c = normalised(copy_bytes)
-    m = normalised(master_bytes)
-    if c == m:
-        return {"verdict": "identical"}
-
-    for h in history:
-        if h.get("bytes") is not None and c == normalised(h["bytes"]):
-            return {"verdict": "behind", "commit": h["commit"], "revision": h["revision"],
-                    "within_revision": h["revision"] == master_revision}
-
-    for src in other_sources:
-        if c == normalised(src["bytes"]):
-            return {"verdict": "ahead", "source": src["source"]}
-
-    if is_integration:
-        c_stripped = _strip_integration_revision(c.decode("utf-8", errors="replace"))
-        for h in history:
-            if h.get("bytes") is None or h["revision"] == copy_revision:
+    for prefix, kind in [("base/.claude/rules/", "rule")] + \
+            [(f"{r}/.claude/rules/", "rule") for r in roots] + \
+            [("base/", "skeleton")] + [(f"{r}/skeleton/", "skeleton") for r in roots]:
+        for master in kit.tree:
+            rel = master[len(prefix):]
+            if not master.startswith(prefix) or master in (BASE_TEMPLATE, "base/bootstrap-prompt.md") \
+                    or (kind == "skeleton" and rel.startswith(".claude/")):
                 continue
-            h_stripped = _strip_integration_revision(
-                normalised(h["bytes"]).decode("utf-8", errors="replace"))
-            if c_stripped == h_stripped:
-                if copy_revision == master_revision:
-                    return {"verdict": "marker-matches-content-differs", "case": "hand-bumped",
-                            "revision": h["revision"]}
-                return {"verdict": "behind", "commit": h["commit"], "revision": h["revision"],
-                        "marker_edited": True}
+            rel = ".claude/rules/" + rel if kind == "rule" else rel.replace("README.md.template", "README.md")
+            planned.setdefault(vault / rel, (kind, master))
+    if "base/.claude/settings.json" in kit.tree:
+        planned[vault / ".claude" / "settings.json"] = ("settings", "base/.claude/settings.json")
 
-    candidates, seen = [{"label": "master", "bytes": m}], {m}
-    for h in history:
-        if h.get("bytes") is not None:
-            b = normalised(h["bytes"])
-            if b not in seen:  # history repeats a version across many commits: compare it once
-                seen.add(b)
-                candidates.append({"label": h["commit"], "bytes": b})
-    c_lines = c.decode("utf-8", errors="replace").split("\n")
-    closest = min(candidates, key=lambda cand: _change_distance(
-        c_lines, cand["bytes"].decode("utf-8", errors="replace").split("\n")))
-    if is_integration and copy_revision == master_revision:
-        return {"verdict": "marker-matches-content-differs", "case": None,
-                "closest": closest["label"]}
-    if closest["label"] == "master":
-        return {"verdict": "ahead", "source": None}
-    return {"verdict": "both", "closest": closest["label"]}
+    for marker in integration_markers(vault):
+        name, filename = marker["name"], Path(marker["file"]).name
+        root = addon_root(kit.clone, kit.commit, name)
+        master = next((m for m in (f"integrations/{name}/{filename}",
+                                   f"{root}/pipeline/{filename}" if root else None)
+                       if m in kit.tree), None)
+        planned.setdefault(vault / marker["file"], ("integration", master))
+    return planned
 
 
-def _strip_ast_docstrings(tree):
-    """A parsed module with every module/class/function docstring removed, so a copy whose
-    code is identical but whose docstring was reworded still proves equivalent - the spec's
-    own wording for the ast proof. Two passes: `ast.walk` is snapshotted into a plain list
-    before any `.body` is mutated, so trimming one node's body can never change what nodes
-    the walk still has queued to visit."""
-    targets = [n for n in ast.walk(tree)
-              if isinstance(n, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))]
-    for node in targets:
-        body = node.body
-        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
-                and isinstance(body[0].value.value, str):
-            node.body = body[1:]
-    return tree
+def state_of(path, kit, master):
+    if master is None:
+        return "no-master"
+    if not path.is_file():
+        return "missing"
+    data = path.read_bytes()
+    ids = {blob_id(data), blob_id(normalised(data))}
+    if kit.tree[master] in ids:
+        return "current"
+    if ids & kit.shipped:
+        return "untouched"
+    a, b = (lines_of(d) for d in (clone_read(kit.clone, kit.commit, master), data))
+    ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    return "current" if all(op[0] in ("equal", "insert") for op in ops) else "edited"
 
 
-def _ast_dump_no_docstrings(text):
-    try:
-        return ast.dump(_strip_ast_docstrings(ast.parse(text)))
-    except SyntaxError:
-        return None
-
-
-def _mechanical_equivalence(copy_bytes, master_bytes, history, is_python):
-    """Conditions 2 and 3 of the sanctioned overwrite: the copy is equivalent to some version
-    in H."""
-    for h in history:
-        if h.get("bytes") is not None and normalised(copy_bytes) == normalised(h["bytes"]):
-            return {"eligible": True, "proof": "history-match", "proof_commit": h["commit"]}
-    if is_python:
-        c_tree = _ast_dump_no_docstrings(copy_bytes.decode("utf-8", errors="replace"))
-        if c_tree is not None:
-            for h in history:
-                if h.get("bytes") is None:
+def retired_paths(vault, kit, user_dir):
+    found = set()
+    for entry in kit_entries(kit):
+        for line in RETIRED_RE.findall(entry["body"]):
+            for pattern in BACKTICK_RE.findall(line):
+                pattern = pattern.strip().rstrip("/")
+                if not pattern or pattern.startswith(("/", "\\")) or ":" in pattern \
+                        or ".." in pattern.replace("\\", "/").split("/"):
                     continue
-                h_tree = _ast_dump_no_docstrings(h["bytes"].decode("utf-8", errors="replace"))
-                if h_tree is not None and c_tree == h_tree:
-                    return {"eligible": True, "proof": "ast", "proof_commit": h["commit"]}
-    for h in history:
-        if h.get("bytes") is None:
+                places = [(vault, pattern)]
+                if user_dir and pattern.startswith(".claude/skills/"):
+                    places.append((user_dir, pattern[len(".claude/skills/"):]))
+                for root, glob in places:
+                    for hit in root.glob(glob):
+                        found.update([hit] if hit.is_file() else
+                                     (f for f in hit.rglob("*") if f.is_file()))
+    return found
+
+
+def files_block(vault, kit, decl, user_dir=None):
+    """Every row, `current` ones included: /para-audit counts them."""
+    vault = Path(vault).resolve()
+    user_dir = Path(user_dir).resolve() if user_dir else None
+    planned = plan_files(vault, kit, decl, user_dir)
+    rows = {}
+    for path, (kind, master) in planned.items():
+        if kind == "skeleton" and (path.exists() or placeholder_filled(path, kit, master)):
             continue
-        if normalised(copy_bytes, trailing_ws=True) == normalised(h["bytes"], trailing_ws=True):
-            return {"eligible": True, "proof": "whitespace", "proof_commit": h["commit"]}
-    return {"eligible": False, "proof": None, "proof_commit": None}
-
-
-# ================================================================== the skills block
-
-def _skill_master_root(clone, ref, worktree, name, addons_rows):
-    candidates = [f"base/.claude/skills/{name}", f"multi-vault/{name}"]
-    for r in addons_rows:
-        if r["root"]:
-            candidates.append(f"{r['root']}/.claude/skills/{name}")
-    for path in candidates:
-        files = [f for f in (clone_files(clone, ref, path, worktree) or [])
-                 if not _is_noise(f[len(path) + 1:])]
-        if files:
-            return path, files
-    return None, None
-
-
-def _addon_skill_index(clone, ref, worktree):
-    """{addon_name: set(skill_names)} across whichever addon layout the ref carries - one
-    clone_files() sweep per addon per layout, done once per scan rather than re-searched per
-    unmatched skill copy (a real-run finding: 11 unmatched copies against origin/main cost 2
-    of the run's 8 seconds before this, each re-walking the same addon list from scratch)."""
-    seen = set()
-    for parent in ADDON_ROOTS:
-        for f in clone_files(clone, ref, parent, worktree) or []:
-            parts = f.split("/")
-            if len(parts) > 1:
-                seen.add((parent, parts[1]))
-    index = {}
-    for parent, addon_name in seen:
-        prefix = f"{parent}/{addon_name}/.claude/skills/"
-        files = clone_files(clone, ref, prefix.rstrip("/"), worktree) or []
-        names = index.setdefault(addon_name, set())
-        for f in files:
-            if f.startswith(prefix):
-                names.add(f[len(prefix):].split("/", 1)[0])
-    return index
-
-
-def _find_undeclared_addon_skill(clone, ref, worktree, name, declared_names, index=None):
-    """Every addon name the ref carries, whichever layout it ships (addons/, or the older
-    flavors/) - a real-run finding: a ref with no addons/ folder at all, searched there
-    alone, silently missed every undeclared addon's skill. `index`, when given (skills_block's own, built once
-    per scan via `_addon_skill_index`), answers from memory instead of a fresh git search;
-    without it, this still answers on its own - the direct-call shape the tests exercise."""
-    if index is not None:
-        for addon_name, names in sorted(index.items()):
-            if addon_name not in declared_names and name in names:
-                return addon_name
-        return None
-    seen = set()
-    for parent in ADDON_ROOTS:
-        for f in clone_files(clone, ref, parent, worktree) or []:
-            parts = f.split("/")
-            if len(parts) > 1:
-                seen.add(parts[1])
-    for addon_name in sorted(seen):
-        if addon_name in declared_names:
-            continue
-        for parent in ADDON_ROOTS:
-            if clone_files(clone, ref, f"{parent}/{addon_name}/.claude/skills/{name}", worktree):
-                return addon_name
-    return None
-
-
-def _skill_in_other(clone, ref, name):
-    if clone_files(clone, ref, f"base/.claude/skills/{name}", worktree=True):
-        return "worktree"
-    for b in _branch_names(clone):
-        if clone_files(clone, b, f"base/.claude/skills/{name}"):
-            return b
-    return None
-
-
-SCRIPT_NAME_RE = re.compile(r"scripts/[A-Za-z0-9_.-]+\.(?:py|js|mjs|ps1|sh)")
-
-
-def _names_missing_script(copy_dir, copy_files):
-    skill_md = copy_dir / "SKILL.md"
-    if not skill_md.is_file():
-        return []
-    named = set(SCRIPT_NAME_RE.findall(read_text(skill_md)))
-    return sorted(named - set(copy_files))
-
-
-# What running a skill's scripts or syncing its folder leaves beside it: tool caches (a
-# suite run in place writes `.pytest_cache/`) and a sync client's or an OS's folder
-# metadata. Never part of a skill, on either side of a tree diff: counted, they turn an
-# identical copy into an `ahead` or `extra` one.
-NOISE_DIRS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules"}
-NOISE_FILES = {"desktop.ini", ".DS_Store", "Thumbs.db"}
-
-
-def _is_noise(rel):
-    parts = rel.split("/")
-    return (any(p in NOISE_DIRS for p in parts[:-1]) or parts[-1] in NOISE_FILES
-            or parts[-1].endswith(".pyc"))
-
-
-def _tree_files(copy_dir):
-    # A skill's suite lives in the kit's tools/tests/, so one found in a copy is an older
-    # install's leftover, and one an older master ships is never `missing` from a copy.
-    return sorted(rel for rel in (p.relative_to(copy_dir).as_posix()
-                                  for p in copy_dir.rglob("*") if p.is_file())
-                  if not _is_noise(rel) and not _is_test_file(rel))
-
-
-def _skill_revisions_behind(file_rows, all_entries, master_marker):
-    """How many changelog revisions behind a skill is: entries after the OLDEST revision any
-    of its differing files matched, up to and including the master's own marker
-    (`entries_between`) - so a file that only just fell behind and one from three revisions
-    ago both count against the skill's worst file, which is what 'call out by name a bundled
-    skill more than one revision behind' (derived-copies.md) needs."""
-    revisions = [r["revision"] for r in file_rows
-                if r["verdict"] == "behind" and r.get("revision")]
-    if not revisions or master_marker is None:
-        return None
-    return len(entries_between(all_entries, min(revisions), master_marker))
-
-
-def _plan_skill_tree_row(clone, ref, worktree, name, location, copy_dir, addons_rows,
-                         bundled_dir, user_dir, declared_names, batch, addon_index):
-    """Phase A for one skill copy: find its master, list files, and register every git read
-    the comparison will need on `batch`. No verdict is computed here - `_finish_skill_tree_row`
-    does that, after `batch.resolve()` has filled the cache this plan asked for."""
-    # With a copy in both places the vault's bundled one shadows the user-level install
-    # (derived-copies.md), so both rows name it: `wins` answers for the pair, not the row.
-    other_dir = user_dir if location == "bundled" else bundled_dir
-    wins = "bundled" if other_dir and (other_dir / name).is_dir() else None
-
-    master_root, master_files = _skill_master_root(clone, ref, worktree, name, addons_rows)
-    copy_files = _tree_files(copy_dir)
-
-    if master_root is None:
-        undeclared = _find_undeclared_addon_skill(clone, ref, worktree, name, declared_names,
-                                                   index=addon_index)
-        other = None if undeclared else _skill_in_other(clone, ref, name)
-        return {"name": name, "location": location, "copy_dir": copy_dir, "wins": wins,
-                "master_root": None, "undeclared_addon": undeclared, "other": other,
-                "copy_files": copy_files}
-
-    # clone_files() answers with the master-root-prefixed clone path; every comparison below
-    # needs it relative to the skill root, the same way copy_files (from _tree_files) is.
-    prefix = f"{master_root}/"
-    master_rel = [f[len(prefix):] for f in master_files
-                  if f.startswith(prefix) and not _is_test_file(f)]
-    master_set, copy_set = set(master_rel), set(copy_files)
-    missing = sorted(master_set - copy_set)
-    matched = sorted(master_set & copy_set)
-    extra_names = sorted(copy_set - master_set)
-
-    sweep_root = _sweep_root(master_root)
-    for rel in matched:
-        master_path = f"{master_root}/{rel}"
-        _gather_history_wants(batch, master_path, sweep_root, is_integration=False)
-        _gather_other_wants(batch, master_path)
-        if not worktree:
-            batch.want_ref_path(ref, master_path)
-    for rel in extra_names:
-        _gather_other_wants(batch, f"{master_root}/{rel}")
-
-    return {"name": name, "location": location, "copy_dir": copy_dir, "wins": wins,
-            "master_root": master_root, "sweep_root": sweep_root, "missing": missing,
-            "matched": matched, "extra_names": extra_names, "copy_files": copy_files}
-
-
-def _finish_skill_tree_row(plan, batch, master_marker, all_entries):
-    """Phase C: every blob `_plan_skill_tree_row` wanted is now in `batch`'s cache, so every
-    read here is a dict lookup, not a git process."""
-    name, location, copy_dir, wins = plan["name"], plan["location"], plan["copy_dir"], plan["wins"]
-
-    if plan["master_root"] is None:
-        if plan["undeclared_addon"]:
-            return {"name": name, "location": location, "path": str(copy_dir), "wins": wins,
-                    "undeclared_addon": plan["undeclared_addon"]}
-        if plan["other"]:
-            return {"name": name, "location": location, "path": str(copy_dir), "wins": wins,
-                    "master": None, "verdict": "ahead", "source": plan["other"], "files": [],
-                    "missing": [], "extra": [], "names_missing_script": [],
-                    "revisions_behind": None}
-        return {"name": name, "location": location, "path": str(copy_dir), "wins": wins,
-                "master": None, "verdict": "unmatched", "files": [], "missing": [],
-                "extra": [{"path": p, "verdict": "extra"} for p in plan["copy_files"]],
-                "names_missing_script": [], "revisions_behind": None}
-
-    master_root, sweep_root = plan["master_root"], plan["sweep_root"]
-    file_rows = []
-    for rel in plan["matched"]:
-        master_path = f"{master_root}/{rel}"
-        master_bytes = batch.current_master_bytes(master_path)
-        if master_bytes is None:
-            continue
-        copy_bytes = (copy_dir / rel).read_bytes()
-        history = _history_from_batch(batch, master_path, sweep_root, is_integration=False)
-        other = batch.other_sources(master_path)
-        info = compute_verdict(copy_bytes, master_bytes, history, other, None, master_marker,
-                               is_integration=False)
-        if info["verdict"] != "identical":
-            file_rows.append(dict({"path": rel}, **info))
-
-    extra = []
-    for rel in plan["extra_names"]:
-        master_path = f"{master_root}/{rel}"
-        other = batch.other_sources(master_path)
-        copy_norm = normalised((copy_dir / rel).read_bytes())
-        match = next((s for s in other if normalised(s["bytes"]) == copy_norm), None)
-        extra.append({"path": rel, "verdict": "ahead", "source": match["source"]} if match
-                     else {"path": rel, "verdict": "extra"})
-
-    ahead_present = any(r["verdict"] == "ahead" for r in file_rows) or \
-        any(r["verdict"] == "ahead" for r in extra)
-    if any(r["verdict"] == "both" for r in file_rows):
-        overall = "both"
-    elif any(r["verdict"] == "marker-matches-content-differs" for r in file_rows):
-        overall = "marker-matches-content-differs"
-    elif plan["missing"] or any(r["verdict"] == "behind" for r in file_rows):
-        overall = "both" if ahead_present else "behind"
-    elif ahead_present:
-        overall = "ahead"
-    else:
-        overall = "identical"
-
-    revisions_behind = _skill_revisions_behind(file_rows, all_entries, master_marker) \
-        if overall == "behind" else None
-
-    return {"name": name, "location": location, "path": str(copy_dir), "wins": wins,
-            "master": master_root, "verdict": overall, "files": file_rows,
-            "missing": plan["missing"], "extra": extra,
-            "names_missing_script": _names_missing_script(copy_dir, plan["copy_files"]),
-            "revisions_behind": revisions_behind}
-
-
-def skills_block(vault, clone, ref, worktree, user_skills_dir, decl, addons_rows, master_marker,
-                 all_entries):
-    """`user_skills_dir` None reads the vault's bundled copies alone."""
-    vault = Path(vault)
-    bundled_dir = vault / ".claude" / "skills"
-    user_dir = Path(user_skills_dir) if user_skills_dir else None
-    locations = [("bundled", bundled_dir)] + ([("user", user_dir)] if user_dir else [])
-    declared_names = {n for n in (decl.get("flavor"), *(decl.get("modules") or [])) if n}
-    batch = HistoryBatch(clone, ref, worktree)
-
-    library_targets = [("library", "para-shared", loc, d / "para-shared") for loc, d in locations
-                       if (d / "para-shared").is_dir()]
-    skill_targets, ignored = [], []
-    for loc, d in locations:
-        if not d.is_dir():
-            continue
-        for child in sorted(d.iterdir()):
-            if not child.is_dir() or child.name == "para-shared":
-                continue
-            if (child / "SKILL.md").is_file():
-                skill_targets.append(("skill", child.name, loc, child))
-            else:
-                ignored.append({"location": loc, "path": str(child)})
-
-    targets = library_targets + skill_targets
-    addon_index = _addon_skill_index(clone, ref, worktree)
-    plans = [_plan_skill_tree_row(clone, ref, worktree, name, loc, copy_dir, addons_rows,
-                                  bundled_dir, user_dir, declared_names, batch, addon_index)
-             for _, name, loc, copy_dir in targets]
-
-    batch.resolve()
-
-    finished = [_finish_skill_tree_row(plan, batch, master_marker, all_entries) for plan in plans]
-
-    library_copies = [row for (kind, *_), row in zip(targets, finished) if kind == "library"]
-    rows = [{"name": "para-shared", "location": "library", "copies": library_copies}]
-    rows += [row for (kind, *_), row in zip(targets, finished) if kind == "skill"]
-
-    return {"rows": rows, "ignored": ignored}
-
-
-# ============================================================== the integrations block
-
-def _integration_master_path(clone, ref, worktree, name, filename, addons_rows):
-    direct = f"integrations/{name}/{filename}"
-    if clone_read(clone, ref, direct, worktree=worktree) is not None:
-        return direct, None, None
-    root = next((r["root"] for r in addons_rows if r["name"] == name and r["root"]), None) or \
-        addon_root(clone, ref, name, worktree)
-    if root:
-        alt = f"{root}/pipeline/{filename}"
-        if clone_read(clone, ref, alt, worktree=worktree) is not None:
-            return alt, None, None
-
-    scripts = []
-    for prefix in (f"integrations/{name}", f"{root}/pipeline" if root else None):
-        if not prefix:
-            continue
-        found = clone_files(clone, ref, prefix, worktree) or []
-        scripts += [f for f in found if Path(f).suffix in MARKED_SUFFIXES
-                   and not _is_test_file(f)]
-    if len(scripts) == 1:
-        return scripts[0], "renamed", None
-    if len(scripts) > 1:
-        return None, "ambiguous-rename", scripts
-    return None, "unresolvable", None
-
-
-def _integration_suite(clone, ref, worktree, master_dir):
-    files_all = clone_files(clone, ref, master_dir, worktree) or []
-    test_files = [f for f in files_all
-                 if (Path(f).name.startswith("test_") and f.endswith(".py"))
-                 or f.endswith(".test.js") or f.endswith(".test.mjs")]
-    scripts = [f for f in files_all if Path(f).suffix in MARKED_SUFFIXES and not _is_test_file(f)]
-    runner = None
-    if any(f.endswith(".py") for f in test_files):
-        runner = 'py -3 -m unittest discover -s . -p "test_*.py"'
-    elif test_files:
-        runner = "node --test " + " ".join(test_files)
-    fixtures = [f for f in files_all if f not in test_files and f not in scripts
-               and Path(f).name != "README.md"
-               and not (f.endswith(".config.json") and not f.endswith(".template"))
-               and not f.endswith(".env")]
-    stems = {_suite_stem(f) for f in test_files}
-    covers = [s for s in scripts if Path(s).stem in stems]
-    uncovered = [s for s in scripts if s not in covers]
-    return {"dir": master_dir, "files": test_files, "runner": runner, "fixtures": fixtures,
-            "covers": covers, "uncovered": uncovered}
-
-
-def _suite_stem(test_file):
-    """The script stem a test file covers: `test_x.py` -> `x`, `x.test.js` / `x.test.mjs` -> `x`.
-    Only the prefix or suffix is stripped - `test_latest_sync.py` covers `latest_sync`."""
-    stem = Path(test_file).stem
-    if stem.startswith("test_"):
-        stem = stem[len("test_"):]
-    if stem.endswith(".test"):
-        stem = stem[:-len(".test")]
-    return stem
-
-
-def unmarked_scripts(vault, marked_files):
-    vault = Path(vault)
-    candidates = []
-    scripts_dir = vault / "resources" / "scripts"
-    if scripts_dir.is_dir():
-        candidates += [p for p in sorted(scripts_dir.iterdir())
-                       if p.is_file() and p.suffix in MARKED_SUFFIXES and not _is_test_file(p.name)]
-    marked_set = {vault / m["file"] for m in marked_files}
-    return [p for p in candidates if p not in marked_set]
-
-
-def _unmarked_matches(clone, ref, worktree, path):
-    """Evidence only, never a verdict - and a simplified one: the ref's own tip under
-    integrations/, not the full history every marked script's own _path_history reads.
-    Noted as a departure in the build report."""
-    norm = normalised(path.read_bytes())
-    out = []
-    for f in clone_files(clone, ref, "integrations", worktree) or []:
-        if Path(f).suffix not in MARKED_SUFFIXES or _is_test_file(f):
-            continue
-        data = clone_read(clone, ref, f, worktree=worktree)
-        if data is not None and normalised(data) == norm:
-            out.append({"file": f, "commit": None})
-    return out
-
-
-def _plan_integration_row(vault, clone, ref, worktree, marker, addons_rows, batch):
-    """Phase A for one marked script: resolve its master and register every git read the
-    comparison will need. `copy_bytes` is read now (a plain vault-local disk read, not a git
-    call) so `_finish_integration_row` never needs `vault` at all."""
-    name, revision, file = marker["name"], marker["revision"], marker["file"]
-    filename = Path(file).name
-    master_path, special, candidates = _integration_master_path(
-        clone, ref, worktree, name, filename, addons_rows)
-    plan = {"file": file, "name": name, "revision": revision, "master_path": master_path,
-           "special": special, "candidates": candidates,
-           "copy_bytes": (vault / file).read_bytes()}
-    if special in ("ambiguous-rename", "unresolvable") or master_path is None:
-        return plan
-
-    if not worktree:
-        batch.want_ref_path(ref, master_path)
-    sweep_root = str(Path(master_path).parent.as_posix())
-    plan["sweep_root"] = sweep_root
-    _gather_history_wants(batch, master_path, sweep_root, is_integration=True)
-    _gather_other_wants(batch, master_path)
-    return plan
-
-
-def _finish_integration_row(plan, batch):
-    """Phase C: every blob `_plan_integration_row` wanted is now in `batch`'s cache."""
-    file, name, revision = plan["file"], plan["name"], plan["revision"]
-    row = {"file": file, "name": name, "revision": revision}
-    special, master_path = plan["special"], plan["master_path"]
-
-    if special == "ambiguous-rename":
-        row.update({"verdict": "ambiguous-rename", "candidates": plan["candidates"]})
-        return row
-    if special == "unresolvable" or master_path is None:
-        row.update({"verdict": "unresolvable"})
-        return row
-
-    master_bytes = batch.current_master_bytes(master_path)
-    if master_bytes is None:
-        row.update({"verdict": "unresolvable", "master": master_path})
-        return row
-
-    copy_bytes = plan["copy_bytes"]
-    history = _history_from_batch(batch, master_path, plan["sweep_root"], is_integration=True)
-    other = batch.other_sources(master_path)
-    mm = INTEGRATION_MARKER_RE.search(master_bytes.decode("utf-8", errors="replace")[:4000])
-    master_rev = mm.group(2) if mm else None
-
-    info = compute_verdict(copy_bytes, master_bytes, history, other, revision, master_rev,
-                           is_integration=True)
-    if special == "renamed":
-        info["renamed"] = True
-
-    c_norm, m_norm = normalised(copy_bytes), normalised(master_bytes)
-    diff_lines = list(difflib.unified_diff(
-        m_norm.decode("utf-8", errors="replace").splitlines(keepends=True),
-        c_norm.decode("utf-8", errors="replace").splitlines(keepends=True),
-        fromfile=master_path, tofile=file))
-    added = sum(1 for ln in diff_lines if ln.startswith("+") and not ln.startswith("+++"))
-    removed = sum(1 for ln in diff_lines if ln.startswith("-") and not ln.startswith("---"))
-
-    overwrite = {"eligible": False, "proof": None, "proof_commit": None}
-    if info["verdict"] not in ("ahead", "both", "marker-matches-content-differs"):
-        overwrite = _mechanical_equivalence(copy_bytes, master_bytes, history,
-                                            is_python=file.endswith(".py"))
-
-    # The row's `revision` stays the copy's own marker; the history entry a behind or
-    # hand-bumped verdict matched is reported beside it, never over it.
-    if "revision" in info:
-        info["matched_revision"] = info.pop("revision")
-    row.update(info)
-    row.update({
-        "master": master_path, "diff": "".join(diff_lines[:200]),
-        "diff_truncated": len(diff_lines) > 200,
-        "diff_stat": {"added": added, "removed": removed}, "overwrite": overwrite,
-        "suite": _integration_suite(batch.clone, batch.ref, batch.worktree, plan["sweep_root"]),
-    })
-    return row
-
-
-def integrations_block(vault, clone, ref, worktree, addons_rows, master_marker):
-    vault = Path(vault)
-    markers = integration_markers(vault)
-    batch = HistoryBatch(clone, ref, worktree)
-
-    plans = [_plan_integration_row(vault, clone, ref, worktree, marker, addons_rows, batch)
-             for marker in markers]
-    batch.resolve()
-    rows = [_finish_integration_row(plan, batch) for plan in plans]
-
-    unmarked = [{"file": rel_posix(vault, p), "matches": _unmarked_matches(clone, ref, worktree, p)}
-               for p in unmarked_scripts(vault, markers)]
-
-    return {"rows": rows, "unmarked": unmarked}
-
-
-# ==================================================================== the smoke block
-
-def smoke_block(vault, today):
-    bundled = vault / ".claude" / "skills" / "para-daily-brief" / "scripts" / "brief_scan.py"
-    script = bundled if bundled.is_file() else \
-        Path(__file__).resolve().parents[2] / "para-daily-brief" / "scripts" / "brief_scan.py"
-    if not script.is_file():
-        return {"available": False, "reason": f"no brief_scan.py at {script}", "script": str(script)}
-
-    cmd = [sys.executable, str(script), "--vault", str(vault)]
-    if today:
-        cmd += ["--today", today]
+        rows[path] = {"kind": kind, "master": master, "state": state_of(path, kit, master)}
+        if rows[path]["state"] == "edited":
+            rows[path]["diff"] = diff(clone_read(kit.clone, kit.commit, master), path.read_bytes(),
+                                      master, shown(path, vault))
+    for path in retired_paths(vault, kit, user_dir):
+        if path not in planned or planned[path][1] is None:
+            posix = path.as_posix()
+            kind = "skill" if "/.claude/skills/" in posix or user_dir in path.parents else \
+                "rule" if "/.claude/rules/" in posix else planned.get(path, ("skeleton",))[0]
+            rows[path] = {"kind": kind, "master": None, "state": "retired"}
+    return [dict({"path": shown(p, vault)}, **rows[p]) for p in sorted(rows, key=str)]
+
+
+def placeholder_filled(path, kit, master):
+    """A file that only holds its folder open, which other content in the folder does."""
+    if path.name != ".gitkeep" and PLACEHOLDER not in (clone_read(kit.clone, kit.commit, master) or b""):
+        return False
+    return path.parent.is_dir() and any(path.parent.iterdir())
+
+
+def shown(path, vault):
     try:
-        done = subprocess.run(cmd, capture_output=True, timeout=120)
-    except (OSError, subprocess.SubprocessError) as err:
-        return {"available": False, "reason": str(err), "script": str(script)}
-    if done.returncode != 0:
-        reason = done.stderr.decode("utf-8", errors="replace").strip() or \
-            f"brief_scan.py exited {done.returncode}"
-        return {"available": False, "reason": reason, "script": str(script)}
-    try:
-        data = json.loads(done.stdout.decode("utf-8", errors="replace"))
-    except ValueError as err:
-        return {"available": False, "reason": f"brief_scan.py output was not JSON: {err}",
-                "script": str(script)}
-
-    lanes = {k: len(v) for k, v in (data.get("lanes") or {}).items()}
-    return {"available": True, "script": str(script), "today": data.get("today"),
-            "totals": data.get("totals"), "entities": data.get("entities"), "lanes": lanes,
-            "flags": data.get("flags"), "ideas": len(data.get("ideas") or []),
-            "triage": len(data.get("triage") or [])}
+        return path.relative_to(vault).as_posix()
+    except ValueError:
+        return str(path)
 
 
-# ================================================================== the snapshot block
-
-BACKTICK_RE = re.compile(r"`([^`\s]+)`")
-# A relative file path: slash-separated segments, the last carrying an extension or a
-# leading dot. A folder (trailing slash), a skill (`/para-x`), a negation (`!.x`), a
-# heading and a revision label (digits and dots) are not one.
-FILE_PATH_RE = re.compile(r"(?:[\w.-]+/)*[\w-]*\.[\w.-]*[A-Za-z][\w.-]*")
-CLONE_ROOTS = ("base/", "addons/", "delivery/", "flavors/", "integrations/", "multi-vault/",
-               "examples/", "evals/", "docs/", "tools/")
+def lines_of(data):
+    return [ln if ln.endswith("\n") else ln + "\n"
+            for ln in normalised(data or b"").decode("utf-8", "replace").splitlines(True)]
 
 
-def _reaction_paths(entries):
-    """Every vault file path a backticked token in the entries' Reactions names, a path
-    into the clone's own folders excluded. A token naming no vault file stays in, since
-    its snapshot digest is only ever null."""
-    paths = set()
-    for entry in entries:
-        for reaction in entry.get("reactions") or []:
-            for token in BACKTICK_RE.findall(reaction):
-                if (FILE_PATH_RE.fullmatch(token) and not token.startswith(CLONE_ROOTS)
-                        and ".." not in token.split("/")):
-                    paths.add(token)
-    return sorted(paths)
+def diff(master_bytes, copy_bytes, master, path):
+    a, b = lines_of(master_bytes), lines_of(copy_bytes)
+    lines = list(difflib.unified_diff(a, b, master, path))
+    if len(lines) > DIFF_CAP:
+        lines = lines[:DIFF_CAP] + [f"... {len(lines) - DIFF_CAP} more lines\n"]
+    return "".join(lines)
 
 
-def snapshot_block(vault, skeleton_rows, rules_rows, integration_files, reaction_paths=()):
-    vault = Path(vault)
-    paths = {vault / "CLAUDE.md", vault / "README.md", vault / ".claude" / "settings.json",
-             vault / "resources" / "scripts" / "README.md"}
-    paths.update(vault / p for p in reaction_paths)
-    for row in rules_rows:
-        paths.add(vault / row["file"])
-    for row in skeleton_rows:
-        paths.add(vault / row["vault_path"])
-    for f in integration_files:
-        paths.add(vault / f)
-    return snapshot(sorted(str(p) for p in paths))
-
-
-# ============================================================ the since block (--unchanged)
-
-def _smoke_counts(smoke):
-    if not smoke or not smoke.get("available"):
-        return {}
-    counts = {}
-    for k, v in (smoke.get("totals") or {}).items():
-        if isinstance(v, int):
-            counts[f"totals.{k}"] = v
-    for k, v in (smoke.get("lanes") or {}).items():
-        counts[f"lanes.{k}"] = v
-    counts["ideas"] = smoke.get("ideas")
-    counts["triage"] = smoke.get("triage")
-    for ent in smoke.get("entities") or []:
-        counts[f"entities.{ent.get('label')}.open"] = ent.get("open")
-    return counts
-
-
-def since_block(earlier_doc, current_snapshot, current_smoke):
-    earlier_snapshot = earlier_doc.get("snapshot") if isinstance(earlier_doc, dict) else None
-    changed_paths = changed(earlier_snapshot) if isinstance(earlier_snapshot, dict) else \
-        sorted(current_snapshot.keys())
-    before_counts = _smoke_counts(earlier_doc.get("smoke")) if isinstance(earlier_doc, dict) else {}
-    after_counts = _smoke_counts(current_smoke)
-    moved = [{"count": name, "before": before_counts.get(name), "after": after_counts.get(name)}
-             for name in sorted(set(before_counts) | set(after_counts))
-             if before_counts.get(name) != after_counts.get(name)]
-    return {"changed": changed_paths, "smoke": moved}
-
-
-# =========================================================================== the plan
+# ============================================================================== the report
 
 @clone_session()
-def build_report(vault, clone, ref_arg, worktree, today, user_skills, user_settings,
-                 unchanged_path, entries, clone_source="explicit", default_clone=None):
+def build_report(vault, clone, ref, user_dir, default_clone=None):
     vault = Path(vault).resolve()
-    v_block = vault_block(vault, entries)
-
-    if clone is None:  # find_clone found none: its own state, never an unverified master
-        report = {"vault": v_block, "clone": {
-            "path": None, "source": None,
-            "error": f"no para-os clone found: none at {default_clone}, and no --clone"}}
-        return report, 3 if not v_block["root"] else 6
-
-    clone = Path(clone).resolve()
-    c_block, clone_ok, ref = clone_block(clone, ref_arg, worktree, v_block["declarations"])
-    c_block["source"] = clone_source
-    report = {"vault": v_block, "clone": c_block}
-
-    if not v_block["root"]:
+    report = {"vault": str(vault)}
+    if clone is None:
+        report["clone"] = {"path": None, "ref": ref or STABLE, "commit": None, "error": (
+            f"no para-os clone found: none at {default_clone}, and no --clone")}
+        code, kit = 6, None
+    else:
+        report["clone"], code, kit = open_clone(Path(clone).resolve(), ref)
+    if not vault_root(vault)["root"]:
         return report, 3
-    if not clone_ok:
-        return report, 5 if c_block["stable_missing"] else 4
-
-    decl = v_block["declarations"]
-    masters = masters_block(clone, ref, worktree, decl)
-    template = masters["template"]
-
-    delta = delta_block(vault, clone, ref, worktree, template)
-    baseline = baseline_block(clone, ref, delta, template)
-    skeleton = skeleton_block(vault, clone, ref, worktree, masters["addons"])
-    rules = rules_block(vault, clone, ref, worktree, masters["addons"])
-    sections = sections_block(vault, clone, ref, worktree, decl, baseline["commit"])
-    settings = settings_block(vault, clone, ref, worktree, user_settings)
-    checkboxes = checkboxes_block(vault, clone, ref, worktree)
-    all_entries = _changelog_entries_at(clone, ref, worktree)
-    skills = skills_block(vault, clone, ref, worktree, user_skills, decl, masters["addons"],
-                          delta["master_marker"], all_entries)
-    integrations = integrations_block(vault, clone, ref, worktree, masters["addons"],
-                                      delta["master_marker"])
-    smoke = smoke_block(vault, today)
-
-    integration_files = [m["file"] for m in integration_markers(vault)]
-    snap = snapshot_block(vault, skeleton["rows"], rules, integration_files,
-                          _reaction_paths(delta["entries"]))
-
-    report.update({
-        "masters": masters, "delta": delta, "baseline": baseline, "skeleton": skeleton,
-        "rules": rules, "sections": sections, "settings": settings, "checkboxes": checkboxes,
-        "skills": skills,
-        "integrations": integrations,
-        "smoke": smoke, "snapshot": snap,
-    })
-
-    if unchanged_path:
-        try:
-            earlier_doc = json.loads(Path(unchanged_path).read_text(encoding="utf-8"))
-        except (OSError, ValueError) as err:
-            report["since"] = {"error": f"cannot read {unchanged_path}: {err}"}
-        else:
-            report["since"] = since_block(earlier_doc, snap, smoke)
-
+    if code:
+        return report, code
+    decl = declarations(vault)
+    report["revision"] = revision_block(vault, kit)
+    report["files"] = [r for r in files_block(vault, kit, decl, user_dir) if r["state"] != "current"]
+    report["contract"] = contract_block(kit, report["revision"]["baseline"], decl)
+    report["snapshot"] = snapshot([str(vault / "CLAUDE.md")] +
+                                  [str(vault / r["path"]) for r in report["files"]])
     return report, 0
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(
-        description="Scan a vault and a para-os clone for /para-upgrade.")
+    ap = argparse.ArgumentParser(description="Scan a vault and a para-os clone for /para-upgrade.")
     ap.add_argument("--vault", required=True, help="vault root")
     ap.add_argument("--clone", help="a local para-os clone (default: $PARAOS_HOME/para-os)")
     ap.add_argument("--ref", default=None, help="default: " + STABLE)
-    ap.add_argument("--worktree", action="store_true",
-                    help="read every master from the clone's working tree; the ref is then "
-                         "the checked-out branch")
-    ap.add_argument("--today", help="YYYY-MM-DD, passed to the smoke-test script")
     ap.add_argument("--user-skills", default=str(Path.home() / ".claude" / "skills"))
-    ap.add_argument("--user-settings", default=str(Path.home() / ".claude" / "settings.json"))
-    ap.add_argument("--unchanged", help="an earlier scan's JSON, for the since block")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
-
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, OSError):
         pass
-
-    entries = registry(args.paraos_home)
-    clone, source = find_clone(args.clone, args.paraos_home)
-    report, code = build_report(Path(args.vault), clone, args.ref, args.worktree,
-                                args.today, args.user_skills, args.user_settings,
-                                args.unchanged, entries, source,
+    clone, _ = find_clone(args.clone, args.paraos_home)
+    report, code = build_report(args.vault, clone, args.ref, args.user_skills,
                                 paraos_home_dir(args.paraos_home) / "para-os")
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
-
     if code == 3:
-        hint = f" (registry: {report['vault']['hint']['name']} at {report['vault']['hint']['path']})" \
-            if report["vault"].get("hint") else ""
-        print(f"upgrade_scan: not a vault root: {args.vault} "
-              f"(missing {', '.join(report['vault']['missing'])}){hint}", file=sys.stderr)
-    elif code in (4, 5, 6):
-        print(f"upgrade_scan: {report['clone'].get('error')}", file=sys.stderr)
+        print(f"upgrade_scan: not a vault root: {args.vault} (projects/, areas/ or archive/, "
+              f"and CLAUDE.md)", file=sys.stderr)
+    elif code:
+        print(f"upgrade_scan: {report['clone']['error']}", file=sys.stderr)
     return code
 
 

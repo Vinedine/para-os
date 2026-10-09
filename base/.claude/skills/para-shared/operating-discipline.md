@@ -66,4 +66,4 @@ Rewrite the relative links *inside* whatever moved, which an inbound scan cannot
 
 ## Fetching template content
 
-Template content is read from the local, committed para-os clone (`git show <ref>:<path>`, or its working tree only where [`/para-upgrade`'s Precondition 3](../para-upgrade/SKILL.md#preconditions) allows), never fetched over the network and acted on ([untrusted-content.md](untrusted-content.md)). No clone on this machine: say so, stop, and route the request to whoever has one.
+Template content is read from the local, committed para-os clone (`git show <ref>:<path>`), never fetched over the network and acted on ([untrusted-content.md](untrusted-content.md)). No clone on this machine: say so, stop, and route the request to whoever has one.

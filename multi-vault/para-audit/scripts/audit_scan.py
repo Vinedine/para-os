@@ -10,10 +10,10 @@ another), never from the clone's working tree; a newer template revision there i
 once as `master.in_development` and is never the bar.
 
 Nothing here reads a vault or a clone by its own rules. The registry, declarations and
-markers come from para-shared/scripts/paraos_vault.py; the master, the changelog delta, the
-add-on roots, the rule files a master ships and the skill and integration verdicts come from
-para-upgrade/scripts/upgrade_scan.py. Both are found beside this skill, or under
-base/.claude/skills/ in a para-os checkout. What this script decides is the audit's own:
+markers come from para-shared/scripts/paraos_vault.py; the clone, the revision and the table of
+kit files come from para-upgrade/scripts/upgrade_scan.py, whose docstring states each state.
+Both are found beside this skill, or under base/.claude/skills/ in a para-os checkout. What
+this script decides is the audit's own:
 
 Which entries are audited. The registry is the only list, in its own order. An entry with
 `retired: true` is `RETIRED (excluded)`; one without a `name` and a `path` is `INVALID`; one
@@ -38,16 +38,15 @@ The seven checks, one cell each in `cells`, every defect a `finding` with its `f
                  a line off the literal `**Name:** value` shape, a template placeholder,
                  two flavors, an add-on no `addons/<name>/` holds at the ref, and any other
                  bold line under the title, `**Delivery:**` included.
-4. rules         Each `.claude/rules/` file base or a declared add-on ships, present. A rule
-                 file no master ships that no other audited vault of the same `kind` carries
-                 is an `observation`, never a finding, and only where such a sibling exists.
-                 A `voice-*.md` profile is one person's (para-shared/voice-profile.md), never
-                 a topic file.
-5. integrations  Each `para-os-integration:` script against its master, upgrade_scan's
-                 verdict. `none` where the vault carries none.
-6. skills        Each bundled `.claude/skills/` copy with a master, or named `para-*`,
-                 against its master, line endings normalised. A vault's own skill is not
-                 a copy.
+4. rules         Each `.claude/rules/` file base or a declared add-on ships, from the table:
+                 missing, behind (`untouched`) or retired. An edited copy is the vault's own.
+                 A rule file no master ships that no other audited vault of the same `kind`
+                 carries is an `observation`, never a finding, and only where such a sibling
+                 exists. A `voice-*.md` profile is one person's, never a topic file.
+5. integrations  Each `para-os-integration:` script's row in the table. `none` where the vault
+                 carries none.
+6. skills        Each bundled skill the table lists, one finding per skill folder, and a
+                 bundled `para-*` folder no master ships. A vault's own skill is not a copy.
 7. size          `CLAUDE.md` lines (`wc -l`) against the 200-line adherence target set in
                  base/CLAUDE.md.template; the fix is the template's lever.
 
@@ -56,7 +55,9 @@ most findings, registry order breaking a tie; null where no vault has one.
 
 Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one
 listing no entry; 4 the clone or the ref cannot be read, or its template carries no marker;
-5 no `--ref` and the clone has no `origin/stable`; 6 no clone found.
+5 no `--ref` and the clone has no `origin/stable`. With no clone found the audit still
+answers: `clone.error` says so, and each vault's revision, rules, integrations and skills
+read `not judged`.
 """
 
 import argparse
@@ -86,14 +87,11 @@ sys.path[:0] = [str(SKILLS_ROOT / lib / "scripts") for lib in ("para-shared", "p
 
 try:
     from paraos_vault import (  # noqa: E402
-        HEADER_FIELD_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, declarations,
-        find_clone, header_fields, live_lines, norm, paraos_home_dir, read_lines, registry,
+        HEADER_FIELD_RE, TEMPLATE_MARKER_RE, declarations, find_clone, header_fields,
+        live_lines, norm, paraos_home_dir, read_lines, registry,
     )
-    from paraos_clone import clone_read, clone_session, master_template  # noqa: E402
-    from upgrade_scan import (  # noqa: E402
-        _changelog_entries_at, _skeleton_master_files, clone_block, delta_block,
-        integrations_block, masters_block, skills_block,
-    )
+    from paraos_clone import addon_root, clone_session, master_template  # noqa: E402
+    from upgrade_scan import files_block, open_clone, revision_block  # noqa: E402
 except ImportError as missing:
     print(f"audit_scan: {missing}. install para-shared and para-upgrade beside this skill",
           file=sys.stderr)
@@ -116,6 +114,18 @@ def finding(check, detail, fix=UPGRADE):
 
 def counted(found, word):
     return "ok" if not found else f"{len(found)} {word}{'' if len(found) == 1 else 's'}"
+
+
+STATES = {"untouched": "behind", "edited": "edited", "missing": "missing", "retired": "retired",
+          "no-master": "no master"}
+
+
+def state_cell(rows):
+    """`ok`, or each state's count: `2 behind, 1 missing`."""
+    counts = {}
+    for r in rows:
+        counts[STATES[r["state"]]] = counts.get(STATES[r["state"]], 0) + 1
+    return ", ".join(f"{n} {word}" for word, n in sorted(counts.items())) or "ok"
 
 
 # ================================================================ which entries, which drive
@@ -170,10 +180,15 @@ def down_drives(placed):
 
 # ========================================================================= the checks
 
-def revision_check(vault, clone, ref, template, in_development):
-    delta = delta_block(vault, clone, ref, False, template)
-    verdict, mine, master = delta["verdict"], delta["vault_marker"], delta["master_marker"]
-    entries = sorted(e["revision"] for e in delta["entries"])
+def revision_check(vault, kit, in_development):
+    if kit is None:
+        text = (vault / "CLAUDE.md").read_text(encoding="utf-8", errors="replace")             if (vault / "CLAUDE.md").is_file() else ""
+        mark = TEMPLATE_MARKER_RE.search(text)
+        return {"verdict": "unverified", "vault": mark.group(1) if mark else None,
+                "master": None, "entries": [], "behind": 0}, NOT_JUDGED, []
+    rev = revision_block(vault, kit)
+    verdict, mine, master = rev["verdict"], rev["vault"], rev["master"]
+    entries = sorted(e["revision"] for e in rev["entries"])
     out = {"verdict": verdict, "vault": mine, "master": master, "entries": entries,
            "behind": len(entries)}
     if verdict == "equal":
@@ -265,21 +280,11 @@ def declaration_check(vault, decl):
     return found, resolvable
 
 
-def addon_check(addons_rows, ref):
-    return [finding("declarations", f"`**{'Flavor' if r['kind'] == 'flavor' else 'Modules'}:**` "
-                    f"names `{r['name']}`, and no `addons/{r['name']}/` exists at {ref}",
-                    "correct the name, or remove it from the line")
-            for r in addons_rows if not r["root"] and not r.get("carried_forward")]
-
-
-def rules_check(vault, clone, ref, addons_rows):
-    shipped = {vp: m for vp, m in _skeleton_master_files(clone, ref, False, addons_rows).items()
-               if vp.startswith(".claude/rules/")}
-    found = [finding("rules", f"`{vp}` is missing; the master ships it as `{m}`")
-             for vp, m in sorted(shipped.items()) if not (vault / vp).is_file()]
-    topics = sorted(name for name in rule_files(vault) if f".claude/rules/{name}" not in shipped
-                    and not name.startswith("voice-"))
-    return found, topics
+def addon_check(kit, decl, ref):
+    named = [("Flavor", decl["flavor"])] + [("Modules", m) for m in decl["modules"]]
+    return [finding("declarations", f"`**{label}:**` names `{name}`, and no `addons/{name}/` "
+                    f"exists at {ref}", "correct the name, or remove it from the line")
+            for label, name in named if name and not addon_root(kit.clone, kit.commit, name)]
 
 
 def rule_files(vault):
@@ -287,71 +292,41 @@ def rule_files(vault):
     return {p.name for p in folder.glob("*.md")} if folder.is_dir() else set()
 
 
-def _master_revision(clone, ref, path):
-    data = clone_read(clone, ref, path) if path else None
-    m = INTEGRATION_MARKER_RE.search(data.decode("utf-8", errors="replace")[:4000]) \
-        if data else None
-    return m.group(2) if m else None
+def rules_check(vault, rows):
+    found = [r for r in rows if r["kind"] == "rule" and r["state"] not in ("current", "edited")]
+    shipped = {Path(r["path"]).name for r in rows if r["kind"] == "rule" and r["master"]}
+    topics = sorted(n for n in rule_files(vault) - shipped if not n.startswith("voice-"))
+    return state_cell(found), [finding("rules", f"`{r['path']}` is {STATES[r['state']]}"
+                                       + (f"; the master ships it as `{r['master']}`"
+                                          if r["master"] else "")) for r in found], topics
 
 
-def integration_findings(rows, clone, ref):
+def integration_check(rows, ref):
     found = []
     for r in rows:
-        verdict, label = r.get("verdict"), f"`{r['file']}` ({r['name']} {r['revision']})"
-        if verdict == "identical":
-            continue
-        if verdict == "behind":
-            master_rev = _master_revision(clone, ref, r.get("master"))
-            found.append(finding("integrations", f"{label} is behind its master "
-                                 f"`{r['master']}` at {master_rev or 'an unstamped revision'}"))
-        elif verdict == "marker-matches-content-differs":
-            found.append(finding("integrations", f"{label}: its content is not the "
-                                 f"revision its marker names"))
-        elif verdict == "both":
-            found.append(finding("integrations", f"{label} carries local changes on an "
-                                 f"older master"))
-        elif verdict == "ahead":
-            found.append(finding("integrations", f"{label} is newer than its master at {ref}",
-                                 "audit again with ref= naming the ref it came from"))
-        elif verdict == "unresolvable":
-            found.append(finding("integrations", f"{label} names an integration {ref} does "
-                                 f"not ship", "check the integration name in its marker"))
+        if r["state"] == "no-master":
+            found.append(finding("integrations", f"`{r['path']}` names an integration {ref} "
+                                 f"does not ship", "check the integration name in its marker"))
         else:
-            found.append(finding("integrations", f"{label} could be any of "
-                                 f"{', '.join(r.get('candidates') or [])}"))
+            found.append(finding("integrations", f"`{r['path']}` is {STATES[r['state']]} "
+                                 f"against `{r['master'] or ref}`"))
     return found
 
 
-def skill_rows(block):
-    """The bundled copies the audit reads: para-shared's, and every skill with a master or
-    named `para-*`. A vault's own skill is not a copy of anything."""
-    rows = list(block["rows"][0]["copies"])
-    return rows + [r for r in block["rows"][1:] if r["name"].startswith("para-")
-                   or r.get("master") or r.get("undeclared_addon")]
-
-
-def skill_findings(rows, ref):
-    found = []
+def skill_check(vault, rows, ref):
+    """One finding per bundled skill folder the table flags, then per bundled `para-*`
+    folder no master ships; and how many skill folders that judged."""
+    by_skill = {}
     for r in rows:
-        label = f"`.claude/skills/{r['name']}`"
-        if r.get("undeclared_addon"):
-            found.append(finding("skills", f"{label} comes from add-on "
-                                 f"`{r['undeclared_addon']}`, which the vault does not declare",
-                                 "declare the add-on under the title, or remove the copy"))
-        elif r["verdict"] == "identical":
-            continue
-        elif r["verdict"] == "behind":
-            by = f" by {r['revisions_behind']} revisions" if r.get("revisions_behind") else ""
-            missing = f", missing {', '.join(r['missing'])}" if r.get("missing") else ""
-            found.append(finding("skills", f"{label} is behind its master{by}{missing}"))
-        elif r["verdict"] == "unmatched":
-            found.append(finding("skills", f"{label} is a para-os name no master ships at {ref}"))
-        elif r["verdict"] == "ahead":
-            found.append(finding("skills", f"{label} is newer than its master at {ref}",
-                                 "audit again with ref= naming the ref it came from"))
-        else:
-            found.append(finding("skills", f"{label} carries local changes on an older master"))
-    return found
+        by_skill.setdefault(r["path"].split("/")[2], []).append(r)
+    unknown = [d.name for d in sorted((vault / ".claude" / "skills").glob("para-*"))
+               if d.is_dir() and d.name not in by_skill]
+    found = [finding("skills", f"`.claude/skills/{name}` holds {state_cell(flagged)}")
+             for name, flagged in sorted((n, [r for r in g if r["state"] != "current"])
+                                         for n, g in by_skill.items()) if flagged]
+    found += [finding("skills", f"`.claude/skills/{name}` is a para-os name no master ships "
+                      f"at {ref}") for name in unknown]
+    return found, len(by_skill) + len(unknown)
 
 
 def size_check(vault):
@@ -367,35 +342,33 @@ def size_check(vault):
         "pointer: the template's lever, never cutting the vault's own rules")]
 
 
-def audit_vault(entry, clone, ref, template, in_development, all_entries):
+def audit_vault(entry, kit, ref, in_development):
     vault = Path(entry["path"]).resolve()
     decl = declarations(vault)
-    revision, cell, found = revision_check(vault, clone, ref, template, in_development)
+    revision, cell, found = revision_check(vault, kit, in_development)
     cells = {"revision": cell}
     cells["type"], more = type_check(decl, entry)
     found += more
     declared, resolvable = declaration_check(vault, decl)
-    judged = revision["verdict"] != "ahead"
-    addons = masters_block(clone, ref, False, resolvable)["addons"] if judged else []
-    declared += addon_check(addons, ref)
+    judged = revision["verdict"] not in ("ahead", "unverified")
+    if judged:
+        declared += addon_check(kit, resolvable, ref)
     cells["declarations"] = counted(declared, "finding")
     found += declared
 
     topics = []
     if judged:
-        rules, topics = rules_check(vault, clone, ref, addons)
-        cells["rules"] = "ok" if not rules else f"{len(rules)} missing"
-        integrations = integrations_block(vault, clone, ref, False, addons, template["marker"])
-        rows = integrations["rows"]
-        more = integration_findings(rows, clone, ref)
-        cells["integrations"] = "none" if not rows else \
-            "ok" if not more else f"{len(more)} of {len(rows)} differ"
-        found += rules + more
-        copies = skill_rows(skills_block(vault, clone, ref, False, None, decl, addons,
-                                         template["marker"], all_entries))
-        more = skill_findings(copies, ref)
-        cells["skills"] = "none" if not copies else \
-            "ok" if not more else f"{len(more)} of {len(copies)} differ"
+        rows = files_block(vault, kit, resolvable)
+        cells["rules"], more, topics = rules_check(vault, rows)
+        found += more
+        marked = [r for r in rows if r["kind"] == "integration"]
+        more = integration_check([r for r in marked if r["state"] != "current"], ref)
+        cells["integrations"] = "none" if not marked else \
+            "ok" if not more else f"{len(more)} of {len(marked)} differ"
+        found += more
+        more, count = skill_check(vault, [r for r in rows if r["kind"] == "skill"], ref)
+        cells["skills"] = "none" if not count else \
+            "ok" if not more else f"{len(more)} of {count} differ"
         found += more
     else:
         cells.update({c: NOT_JUDGED for c in ("rules", "integrations", "skills")})
@@ -442,26 +415,20 @@ def build_report(registry_path, entries, clone, ref_arg, clone_source, default_c
         report["error"] = f"no registry at {registry_path}" if entries is None else \
             f"{registry_path} lists no vault, or does not parse as a JSON list"
         return report, 3
+    kit = ref = in_development = None
     if clone is None:
         report["clone"] = {"path": None, "source": None, "error": (
             f"no para-os clone found: none at {default_clone}, and no --clone")}
-        return report, 6
-
-    clone = Path(clone).resolve()
-    block, ok, ref = clone_block(clone, ref_arg, False)
-    block["source"] = clone_source
-    report["clone"] = block
-    if not ok:
-        return report, 5 if block["stable_missing"] else 4
-    template = master_template(clone, ref)
-    if template["marker"] is None:
-        block["error"] = f"{ref}:{template['path']} carries no para-os-template marker"
-        return report, 4
-    developing = master_template(clone, ref, worktree=True)["marker"]
-    in_development = developing if developing and developing > template["marker"] else None
-    all_entries = _changelog_entries_at(clone, ref, False)
-    report["master"] = {"ref": ref, "revision": template["marker"],
-                        "in_development": in_development}
+    else:
+        block, code, kit = open_clone(Path(clone).resolve(), ref_arg)
+        block["source"] = clone_source
+        report["clone"] = block
+        if code:
+            return report, code
+        ref = block["ref"]
+        developing = master_template(kit.clone, ref, worktree=True)["marker"]
+        in_development = developing if developing and developing > kit.master else None
+        report["master"] = {"ref": ref, "revision": kit.master, "in_development": in_development}
     report["columns"] = list(COLUMNS)
 
     rows, topics, carried, excluded, placed = [], [], [], [], []
@@ -476,7 +443,7 @@ def build_report(registry_path, entries, clone, ref_arg, clone_source, default_c
                 placed.append((name, path, True))
             continue
         placed.append((name, path, False))
-        row, topic = audit_vault(entry, clone, ref, template, in_development, all_entries)
+        row, topic = audit_vault(entry, kit, ref, in_development)
         rows.append(row)
         topics.append(topic)
         carried.append(rule_files(Path(path)))

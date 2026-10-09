@@ -15,7 +15,10 @@ dates, hygiene sweeps. What is tested here is what the brief itself decides, and
 two produce together.
 """
 
+import contextlib
+import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -26,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from brief_scan import OPEN_ITEM_CAP, review_window, scan
+from brief_scan import OPEN_ITEM_CAP, main, review_window, scan
 
 
 def write(root, rel, text):
@@ -826,6 +829,21 @@ class SilentSources(VaultCase):
         self.declare(self.GRANOLA)
         self.ledger("data/granola/synced.json", self.notes(self.vault, "20260901 Old.md"))
         self.assertIsNone(self.silent(entity="acme-website"))
+
+
+class CommandLineCase(unittest.TestCase):
+    """The command the skill runs: one JSON document, and a usage error for a bad argument."""
+
+    def test_the_command_prints_the_scan_and_refuses_a_bad_argument(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vault = build_vault(Path(tmp) / "vault")
+            done = subprocess.run([sys.executable, str(SCRIPTS / "brief_scan.py"), "--vault",
+                                   str(vault), "--today", "2026-09-21", "--paraos-home", tmp],
+                                  capture_output=True)
+            self.assertEqual(json.loads(done.stdout.decode("utf-8"))["today"], "2026-09-21")
+            for bad in (["--today", "21/09"], ["--review", "fortnight"], ["--vault", tmp + "/no"]):
+                with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                    main(["--vault", str(vault)] + bad)
 
 
 if __name__ == "__main__":
