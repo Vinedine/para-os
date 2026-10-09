@@ -562,12 +562,13 @@ def check_dates():
 def check_example_skill_copies():
     """An example vault runs base's skills from an untracked copy (examples/README.md), and
     nothing else notices it fall behind: a demo run then exercises skills the repo no longer
-    ships. No copy is fine. A copy must match base file for file, line endings aside."""
+    ships. No copy is fine. A copy must match base file for file, line endings and the
+    `test_*.py` an install leaves in the kit aside."""
     master = ROOT / "base" / ".claude" / "skills"
 
     def tree(root):
         return {p.relative_to(root).as_posix(): p for p in root.rglob("*")
-                if p.is_file() and p.name not in OS_LITTER
+                if p.is_file() and p.name not in OS_LITTER and not is_test_file(p)
                 and not WALK_SKIP_DIRS.intersection(p.relative_to(root).parts)}
 
     def body(p):

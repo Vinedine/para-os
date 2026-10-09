@@ -1218,9 +1218,11 @@ def _is_noise(rel):
 
 
 def _tree_files(copy_dir):
+    # A skill's tests stay in the kit (INSTALL.md leaves them out), so one found in a copy is
+    # an older install's leftover, and one the master has is never `missing` from a copy.
     return sorted(rel for rel in (p.relative_to(copy_dir).as_posix()
                                   for p in copy_dir.rglob("*") if p.is_file())
-                  if not _is_noise(rel))
+                  if not _is_noise(rel) and not _is_test_file(rel))
 
 
 def _skill_revisions_behind(file_rows, all_entries, master_marker):
@@ -1260,7 +1262,8 @@ def _plan_skill_tree_row(clone, ref, worktree, name, location, copy_dir, addons_
     # clone_files() answers with the master-root-prefixed clone path; every comparison below
     # needs it relative to the skill root, the same way copy_files (from _tree_files) is.
     prefix = f"{master_root}/"
-    master_rel = [f[len(prefix):] for f in master_files if f.startswith(prefix)]
+    master_rel = [f[len(prefix):] for f in master_files
+                  if f.startswith(prefix) and not _is_test_file(f)]
     master_set, copy_set = set(master_rel), set(copy_files)
     missing = sorted(master_set - copy_set)
     matched = sorted(master_set & copy_set)
@@ -1294,11 +1297,11 @@ def _finish_skill_tree_row(plan, batch, master_marker, all_entries):
             return {"name": name, "location": location, "path": str(copy_dir), "wins": wins,
                     "master": None, "verdict": "ahead", "source": plan["other"], "files": [],
                     "missing": [], "extra": [], "names_missing_script": [],
-                    "revisions_behind": None, "suite": None}
+                    "revisions_behind": None}
         return {"name": name, "location": location, "path": str(copy_dir), "wins": wins,
                 "master": None, "verdict": "unmatched", "files": [], "missing": [],
                 "extra": [{"path": p, "verdict": "extra"} for p in plan["copy_files"]],
-                "names_missing_script": [], "revisions_behind": None, "suite": None}
+                "names_missing_script": [], "revisions_behind": None}
 
     master_root, sweep_root = plan["master_root"], plan["sweep_root"]
     file_rows = []
@@ -1340,19 +1343,11 @@ def _finish_skill_tree_row(plan, batch, master_marker, all_entries):
     revisions_behind = _skill_revisions_behind(file_rows, all_entries, master_marker) \
         if overall == "behind" else None
 
-    suite = None
-    scripts_dir = copy_dir / "scripts"
-    if scripts_dir.is_dir():
-        suite = {"dir": str(scripts_dir),
-                 "files": sorted(p.name for p in scripts_dir.glob("test_*.py")),
-                 "command": f'"{sys.executable}" -m unittest discover -s "{scripts_dir}" '
-                            f'-p "test_*.py"'}
-
     return {"name": name, "location": location, "path": str(copy_dir), "wins": wins,
             "master": master_root, "verdict": overall, "files": file_rows,
             "missing": plan["missing"], "extra": extra,
             "names_missing_script": _names_missing_script(copy_dir, plan["copy_files"]),
-            "revisions_behind": revisions_behind, "suite": suite}
+            "revisions_behind": revisions_behind}
 
 
 def skills_block(vault, clone, ref, worktree, user_skills_dir, decl, addons_rows, master_marker,

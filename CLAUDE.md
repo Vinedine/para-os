@@ -125,5 +125,5 @@ nowhere else.
 - **Skill scripts use the Python standard library only.** An integration may need a package
   (`outlook` needs `requests`) and says so in its README. Every script must run on Windows
   (`py -3`) and macOS, under Python 3.9 or later.
-- `examples/belfoot-vault/.claude/skills/` is an untracked copy of base's skills. If it exists,
-  it must match base exactly, or the check fails.
+- `examples/belfoot-vault/.claude/skills/` is an untracked copy of base's skills, made per
+  `INSTALL.md`. If it exists, it must match base exactly, or the check fails.

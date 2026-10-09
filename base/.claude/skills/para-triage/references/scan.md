@@ -1,8 +1,8 @@
 # Scanning triage and its sources (Step 2)
 
 The mechanical half of Steps 2 and 3, with no judgment in it. `scripts/triage_scan.py`
-implements every rule below over `para-shared/scripts/paraos_vault.py`, and
-`scripts/test_triage_scan.py` pins each rule to a case.
+implements every rule below over `para-shared/scripts/paraos_vault.py`, and the kit's
+`test_triage_scan.py` pins each rule to a case.
 
 ```bash
 # Windows: py -3

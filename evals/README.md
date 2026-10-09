@@ -28,9 +28,9 @@ cannot:
 | `evals/` (this folder) | Whether a skill triggers, and whether its answer is right | A model call per run |
 | `--test` on a real vault | What nobody thought to test | A session |
 
-A suite lives beside the code it covers, so the copy installed in a vault carries its own
-tests and `/para-upgrade` can verify a synced script by running them. `tools/check.py`
-runs every one of them, `tools/coverage_report.py` measures what they reach (CI
+A suite lives beside the code it covers in the repo; an install leaves it there, and
+`/para-upgrade` verifies a synced script by comparing it to its master. `tools/check.py`
+runs every suite, `tools/coverage_report.py` measures what they reach (CI
 fails when that drops), and `tools/eval.py` runs this folder, by hand and [in CI](#in-ci).
 
 The loop that makes the suite grow: when a `--test` run finds a defect, it becomes a unit
