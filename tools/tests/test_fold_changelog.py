@@ -178,7 +178,11 @@ class Fold(Repo):
     def test_a_revision_with_nothing_for_a_vault_to_do_is_its_heading(self):
         self.write("changelog.d/12.md", fragment(None, "S."))
         fold(self.root, "2026.03.01")
-        self.assertIn("## 2026.03.01\n\n## 2026.02.01\n", self.read("CHANGELOG.md"))
+        opened = self.read("CHANGELOG.md")
+        self.assertIn("## 2026.03.01\n\n## 2026.02.01\n", opened)
+        self.write("changelog.d/14.md", fragment(None, "U."))
+        fold(self.root, "2026.03.01")
+        self.assertEqual(self.read("CHANGELOG.md"), opened)
         self.write("changelog.d/13.md", fragment("- Now: `x`", "T."))
         fold(self.root, "2026.03.01")
         self.assertIn("## 2026.03.01\n\n- Now: `x` (#13)\n\n## 2026.02.01\n",
