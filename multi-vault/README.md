@@ -51,7 +51,7 @@ If you are wiring up a mailbox that has no MCP connector, prefer a `fetch-script
 
 ## How `/para-triage` reacts
 
-It notices, and no vault needs editing for it to. When the registry lists a vault root as `active` *and the ingest layer has run recently*, `/para-triage` in that vault skips its own connector and fetch-script pull, because this layer has already staged those sources as loose files there. It still processes sync scripts, drive sources, and conversions locally. It reports when the layer last staged, so a layer that has stopped running shows up as a date rather than as a quiet `triage/` folder.
+It notices, and no vault needs editing for it to. When the registry lists a vault root as `active` *and the ingest layer has run recently*, `/para-triage` in that vault skips its own connector and fetch-script pull, because this layer has already staged those sources as loose files there. It reports when the layer last staged, so a layer that has stopped running shows up as a date rather than as a quiet `triage/` folder.
 
 On a machine with no registry, or for a vault not in it, `/para-triage` pulls its own sources exactly as it always did. That fallback is automatic and is why the check is a registry lookup rather than a marker written into each vault.
 

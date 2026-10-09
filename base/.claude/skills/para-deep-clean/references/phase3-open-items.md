@@ -27,7 +27,7 @@ Against the vault's actionable-frontier rule, over every `actions.md` under `pro
 - **Aspirational dates** (`aspirational`, overdue by more than 30 days): strip the `📅`, leaving the item undated or demoted, or keep it because the deadline was real. Overdue by 30 or less: done, re-dated, or left.
 - **Projects that lost their deadline** (`demotion_candidates`): propose demotion to an area in the phase summary, one line each naming the date.
 
-**Whether an item was quietly finished or abandoned, and whether a blown date was real, are questions of fact**, asked with no `(Recommended)` per [asking.md](../../para-shared/asking.md#the-question): options ordered by the file's evidence, each naming its effect ("Finished untracked: close it"). Every close or removal is its own question; demotions batch on the issues table. Order the questions by file.
+**Whether an item was quietly finished or abandoned, and whether a blown date was real, are questions of fact**, asked with no `(Recommended)` per [asking.md](../../para-shared/asking.md#the-question): options ordered by the file's evidence, each naming its effect ("Finished untracked: close it"). Every close or removal is its own question; demotions batch. Order the questions by file.
 
 **A vault with no `actions.md`** keeps next steps as bullets under the headings its `CLAUDE.md` names, passed as `--next-steps-heading`; `prose_next_steps` lists them. Run the same tests per bullet, demoting by moving it out of the heading into the body, verbatim. One more disposition: **Not an action**, analysis or status parked under the heading, moved the same way. A list generated from those headings is fixed at its sources.
 

@@ -46,6 +46,6 @@ One `--routed` per file Step 7.1 moved; one `--keep` per mention of the old path
 | `inside` | `.resolved` and `.dangling` relative links in the archived folder and each routed file; `.missing`, a `--routed` path naming no file | `.missing` fixed and re-run; a one-time plan's historical mention may stand, flagged |
 | `old_path` | `.exists`, `.empty` | Step 7.8 |
 | `untracked` | files at the new path git does not track; `null` when git cannot answer | listed |
-| `clean` | true when every row above passes | the run's pass line, not a substitute for reading the lists |
+| `clean` | true when the first four rows pass | the pass line, never instead of reading the lists |
 
 Confirm the archived folder holds only history and any successor the surviving work. Report, after [Step 9](close-out.md): what was archived and its kind, the version decision, files routed, snapshots deleted, the successor, the links repointed in a table (inbound and inside counted separately), whether `git mv` or `mv` ran, Step 9's answers, and whether anything was committed under which commit rule. A touched skill or public repo is flagged for its own review.

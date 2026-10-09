@@ -39,7 +39,7 @@ A link, checkbox, marker, heading or placeholder inside a fenced block or an inl
 
 - **Every tick writes its date**, `✅ <today>`. The operator's "sent", "paid", "done" closes the matching item at once, and the reply names the line. A close found rather than stated (a reply in mail, a receipt on file) is proposed, citing it; "probably done" closes nothing.
 - **A ticked `🔁` item is rolled forward in code**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" next-occurrence "<the line>"` (Windows: `py -3`) prints the closed line and its successor; write both.
-- **When work on an entity ends, reconcile it**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" open-items --vault <root> [<files>]` (Windows: `py -3`) lists the open items and Backlog bullets of what the session touched. Propose closes, re-dates and one next step before the session ends, each close its own question ([asking.md](asking.md#grouping)).
+- **When work on an entity ends, reconcile it**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" open-items --vault <root> <files>` (Windows: `py -3`) lists the open items and Backlog bullets of what the session touched. Propose closes, re-dates and one next step before the session ends, each close its own question ([asking.md](asking.md#grouping)).
 - **A follow-up is offered as a checkbox**, not as prose or a "say the word" offer; a waiting state is a `Waiting on` line or a dated follow-up. A folder the checkbox table declares `never` gets none.
 
 ## Dating a renewing agreement
