@@ -293,6 +293,15 @@ class HealthFlags(VaultCase):
                          ("areas/garden", None, None))
         self.assertEqual([e["path"] for e in got], ["areas/garden", "projects/stalled"])
 
+    def test_a_folder_the_checkbox_table_declares_never_is_not_flagged_nothing_open(self):
+        write(self.root, "CLAUDE.md", "# V\n\n### Where a checkbox may live\n\n"
+              "| Bucket | `actions.md` | State |\n|---|---|---|\n"
+              "| `areas/capital/` | never | generated elsewhere; its work lives there |\n")
+        write(self.root, "areas/capital/README.md", "# capital\n")
+        write(self.root, "areas/garden/README.md", "# garden\n")
+        got = scan(self.root, TODAY)["flags"]["nothing_open"]
+        self.assertEqual([e["path"] for e in got], ["areas/garden"])
+
     def test_open_work_anywhere_under_an_entity_or_in_a_contact_file_keeps_it_off(self):
         write(self.root, "areas/properties/main-street-4/actions.md",
               "# main-street-4\n\n- [ ] Index the rent 📅 2027-01-01\n")
