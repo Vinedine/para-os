@@ -64,15 +64,12 @@ nowhere else.
 ## Branches
 
 - **`main` is where work merges**: one issue, one branch, one pull request that says `Fixes #N`,
-  merged as a squash, so `main` reads one commit per issue. A squash leaves the branch's own
-  commits unreachable, so an issue or pull request cites other work by its number, never by the
-  hash of a commit that is not on `main`.
+  merged as a squash, so `main` reads one commit per issue and other work is cited by its
+  number, never by the hash of a branch commit.
 - **`stable` is what users get**: the Quickstart, `INSTALL.md` and `/para-upgrade` read it.
-  `/release` moves it forward to a tagged revision on `main`; a hotfix is the one other change.
-- **Fixes land on `main` first.** A hotfix to a released revision is fixed on `main` and
-  cherry-picked onto `stable`, never the other way round. Then `stable` is merged into `main`
-  through a pull request, as a merge commit, not a squash, so the next `/release` can
-  fast-forward `stable` again.
+  `/release` moves it to a tagged revision on `main` when that revision's milestone closes, never
+  on a schedule. The one other change is a hotfix: fixed on `main`, cherry-picked onto `stable`,
+  then `stable` merged back into `main` as a merge commit, so the next `/release` fast-forwards.
 - **Branch protection is versioned** in [`.github/rulesets/`](.github/rulesets/): `main.json`
   and `stable.json`. A ruleset changed on GitHub is re-exported in the same pull request
   (`gh api repos/Vinedine/para-os/rulesets/<id>`).
