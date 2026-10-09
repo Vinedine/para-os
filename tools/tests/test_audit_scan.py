@@ -218,7 +218,7 @@ class FleetCase(CloneCase):
         self.assertEqual(len(found), 1)
         self.assertIn("resources/scripts/logbook.py", found[0]["detail"])
         self.assertIn("behind", found[0]["detail"])
-        self.assertIn("2026.10.01", found[0]["detail"])
+        self.assertIn("integrations/logbook/logbook.py", found[0]["detail"])
         self.assertEqual(found[0]["route"], "upgrade")
 
     def test_the_stale_skill_copy_is_behind_its_master(self):
@@ -426,7 +426,8 @@ class CopiesCase(CloneCase):
         report, _ = self.run_audit([self.entry("v")])
         found = self.findings(self.vault_row(report, "v"), "integrations")
         self.assertEqual(len(found), 1)
-        self.assertIn("nonesuch", found[0]["detail"])
+        self.assertIn("other.py", found[0]["detail"])
+        self.assertEqual(found[0]["route"], "operator")
 
     def test_size_over_the_target_is_an_adherence_finding(self):
         build_vault(self.work / "v", body_lines=200)
@@ -445,35 +446,21 @@ class CopiesCase(CloneCase):
         self.assertEqual(self.findings(row, "size"), [])
 
 
-class VerdictWordingCase(unittest.TestCase):
-    """upgrade_scan computes every verdict and its suite pins them; these pin only what the
-    audit says about each and where it routes it."""
+class StateWordingCase(unittest.TestCase):
+    """upgrade_scan classifies every file and its suite pins the states; these pin only what
+    the audit says about each and where it routes it."""
 
-    def integration(self, verdict, **extra):
-        row = dict({"file": "resources/scripts/x.py", "name": "x", "revision": "2026.10.01",
-                    "verdict": verdict}, **extra)
-        return audit_scan.integration_findings([row], None, "origin/stable")[0]
+    def test_integration_states(self):
+        found = audit_scan.integration_check(
+            [{"path": "x.py", "state": "edited", "master": "integrations/x/x.py"},
+             {"path": "y.py", "state": "no-master", "master": None}], "origin/stable")
+        self.assertIn("edited against `integrations/x/x.py`", found[0]["detail"])
+        self.assertEqual([f["route"] for f in found], ["upgrade", "operator"])
 
-    def test_integration_verdicts(self):
-        self.assertEqual(self.integration("marker-matches-content-differs")["route"], "upgrade")
-        self.assertIn("local changes", self.integration("both")["detail"])
-        self.assertEqual(self.integration("ahead")["route"], "operator")
-        self.assertIn("a.py, b.py", self.integration("ambiguous-rename",
-                                                     candidates=["a.py", "b.py"])["detail"])
-
-    def skill(self, verdict, **extra):
-        row = dict({"name": "para-x", "verdict": verdict}, **extra)
-        return audit_scan.skill_findings([row], "origin/stable")[0]
-
-    def test_skill_verdicts(self):
-        self.assertIn("by 2 revisions, missing a.md",
-                      self.skill("behind", revisions_behind=2, missing=["a.md"])["detail"])
-        self.assertEqual(self.skill("ahead")["route"], "operator")
-        self.assertIn("local changes", self.skill("both")["detail"])
-        undeclared = audit_scan.skill_findings([{"name": "para-y", "undeclared_addon": "extra"}],
-                                               "origin/stable")[0]
-        self.assertIn("`extra`", undeclared["detail"])
-        self.assertEqual(undeclared["route"], "operator")
+    def test_a_cell_counts_each_state(self):
+        rows = [{"state": s} for s in ("untouched", "untouched", "missing")]
+        self.assertEqual(audit_scan.state_cell(rows), "2 behind, 1 missing")
+        self.assertEqual(audit_scan.state_cell([]), "ok")
 
     def test_a_folder_with_no_claude_md_has_no_size(self):
         with tempfile.TemporaryDirectory() as empty:
@@ -603,7 +590,7 @@ class CloneErrorCase(CloneCase):
         report, code = build_report(self.work / "vaults.json", [self.entry("v")], bare, None,
                                     "explicit", self.tmp / "no-home" / "para-os")
         self.assertEqual(code, 5)
-        self.assertTrue(report["clone"]["stable_missing"])
+        self.assertIn("origin/stable", report["clone"]["error"])
 
     def test_a_master_with_no_marker_is_exit_4(self):
         plain = self.tmp / "unmarked"
