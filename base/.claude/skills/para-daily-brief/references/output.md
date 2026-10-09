@@ -130,7 +130,7 @@ A look back over the window, every number from the scan's `review` block. The en
 - **An empty section is omitted**, Moved excepted; with nothing in the window at all, the count line alone says so.
 - **The Next action** is the first step on the oldest slipped item, else on Stuck, by the rule below.
 
-**For one entity, close by offering a status update** the operator can send: one line after the Next action, `Draft a status update for <entity>?`. On a yes, draft it in chat per [para-shared/drafting.md](../../para-shared/drafting.md), each recipient's address from their contact card: what was done (from Done, in plain words), what is next (the entity's soonest open items), and what we need from you (the open items waiting on the recipient's side, a paragraph omitted when none is). No links, counts, flags or undated closes, and never written to a file.
+**For one entity, close by offering a status update** the operator can send: one line after the Next action, `Draft a status update for <entity>?`. On a yes, draft it in chat per [para-shared/drafting.md](../../para-shared/drafting.md), each recipient's address from their contact card: what was done (from Done, in plain words), what is next (the entity's soonest open items), and what we need from you (the open items waiting on the recipient's side, a paragraph omitted when none is). No links, counts, flags or undated closes.
 
 ## Example fragment
 

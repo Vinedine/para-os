@@ -32,7 +32,7 @@ A `drive` row's `Endpoint` is the id of the Google Drive the vault syncs from; w
 
 ## The seen-ledger
 
-Mailbox dedup across runs: `${PARAOS_HOME:-~/.paraos}/cache/triage-email/<vault>.json`, `{ "<threadId>": { "disposition": "actioned|noted|dismissed", "date": "YYYY-MM-DD", "subject": "...", "seen_through": "<the dedup key of the newest message>", "seen_date": "<its received timestamp>" } }`, read and settled at steps 5 and 6 of [connectors.md](../../para-shared/connectors.md). Missing: create it. One that fails to parse (`seen_ledger.load_error`) is reported, never deduped against.
+Mailbox dedup across runs: `${PARAOS_HOME:-~/.paraos}/cache/triage-email/<vault>.json`, `{ "<threadId>": { "disposition": "actioned|noted|dismissed", "date": "YYYY-MM-DD", "subject": "...", "seen_through": "<the dedup key of the newest message>", "seen_date": "<its received timestamp>" } }`, read and settled at steps 5 and 6 of [connectors.md](../../para-shared/connectors.md). Missing: create it. One that fails to parse (`seen_ledger.load_error`) is reported.
 
 - **A fetched thread already staged as a note is that note.** After a local pull, write the candidates (`{"thread_id", "newest_date"?, "newest_key"?, "newest_own"?}` each) to a file and re-run the scan with `--threads <file>`: `threads` folds each against the staged notes, with its watermark (`new`/`seen`/`grown`/`carry`) and `unanswered`.
 - **Write** an entry at execute time for Update existing, Add action, Add register row, Note to triage and Dismiss (noise), `seen_through` being the newest message on the true list. **Never for Dismiss (other vault)**: the thread may later concern this vault.

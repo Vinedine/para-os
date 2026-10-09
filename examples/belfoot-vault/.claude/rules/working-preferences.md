@@ -13,7 +13,7 @@ How the operator likes to work, kept here rather than in built-in memory. It gov
 
 ## How it changes
 
-**Only with the operator's approval**, never on the agent's own reading.
+**Only with the operator's approval.**
 
 - **Propose on repetition**: the second time the operator corrects the same thing, propose one line quoting the correction, and add it on a yes.
 - **An explicit ask is the approval** ("remember that I want..."): add it and say where.

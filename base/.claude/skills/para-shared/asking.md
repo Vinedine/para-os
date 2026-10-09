@@ -34,7 +34,7 @@ Every question carries an escape that changes nothing: leave it, decide later.
 
 ## Grouping
 
-Linked items get one question: one sentence states the disposition for all of them and the question names every member. Never group a destructive item (a delete, a close, a drop) with anything, never items whose targets differ, never more than five.
+Linked items get one question: one sentence states the disposition for all of them and the question names every member. Never group a destructive item (a delete, a close, a drop) with anything, items whose targets differ, or more than five.
 
 A destructive question states its evidence in the option description: what survives, and where. Where the evidence is a judgment and the loss would be irreversible, the recommended option is the one that changes nothing; where the change leaves its own trace (a closed checkbox keeping its text and reason, a demotion preserving every word), recommend what the evidence supports.
 

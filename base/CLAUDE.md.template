@@ -14,7 +14,7 @@ The sorting test: **committed and dated → project. Maintained, no end date →
 - **triage/** - the inbox `/para-triage` empties; nothing lives here, not even a `README.md` (a `.gitkeep` holds the folder).
 - **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline.}} One folder each, holding a `brief.md`, an `actions.md` and, where needed, `sources/`. A rolling backlog with no deadline is an area.
 - **areas/** - ongoing responsibilities. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset, with its own `brief.md` + `actions.md`; assets that gate each other form **one** area.{{ Add any other area subfolders this vault needs.}}
-- **resources/** - reusable reference, never a checkbox. `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
+- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
 - **archive/** - inactive artifacts, always in a subfolder. `meetings/` = records spanning several entities.{{ Add `projects/` and `ideas/` if this vault archives finished projects and retired ideas (`/para-archive` fills both).}}
 
 Root `README.md` is the single source of truth for identity, operating model and track record. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in English, and Vision is never a stub. It holds no work state (a checkbox, a `📅`, a status list, a "to confirm"); a status fact about the subject (`| Status | Active |`) is not work state.
@@ -56,7 +56,7 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 ### Task markers
 
-`📅 YYYY-MM-DD` due, `🛫` start, `⏳` scheduled, `🔁 every <cadence>` recurring (with `📅` for the next occurrence), `🔺 🔼 🔽 ⏬` priority (none = medium), `✅ YYYY-MM-DD` done. Markers go at the end of the line, and a fuzzy date ("Q4") becomes one concrete marker. A `📅` is a real-world deadline, never an aspiration; work gated on an outside event stays undated. One `## Recurring` section per file. Something owed by someone else is `- [ ] Waiting on [<person>](<card>): <what> (since YYYY-MM-DD)`, with no `📅`.
+`📅 YYYY-MM-DD` due, `🛫` start, `⏳` scheduled, `🔁 every <cadence>` recurring (with `📅` for the next occurrence), `🔺 🔼 🔽 ⏬` priority (none = medium), `✅ YYYY-MM-DD` done. Markers go at the end of the line, and a fuzzy date ("Q4") becomes one concrete marker. A `📅` is a real-world deadline; work gated on an outside event stays undated. One `## Recurring` section per file. Something owed by someone else is `- [ ] Waiting on [<person>](<card>): <what> (since YYYY-MM-DD)`, with no `📅`.
 
 ### The content frontier
 
@@ -101,7 +101,7 @@ A script the agent writes lives in `resources/scripts/` (its `README.md` names t
 - **Templates** before a second instance proves the shape.
 - **Derived outputs as standalone files**: web copy, decks and one-pagers regenerate from `README.md`.
 - **Content rewrites during a reorganization**: structure changes keep copy verbatim.
-- **Procedure or rationale in this file**: it belongs in the owning script's README or the skill. 200 lines, additions included, is the target; past it, extract procedure, never the vault's own rules.
+- **Procedure or rationale in this file**: it belongs in the owning script's README or the skill. 200 lines, additions included, is the target; past it, extract procedure.
 - **A `.claude/rules/<topic>.md` file** other than as `para-shared/rule-files.md` describes; read it before creating or editing one. This file keeps only each one's pointer.
 - **A skill before its third use.** A recurring request starts as a prompt in `resources/prompts/`. Never name a skill `para-*`: `/para-upgrade` replaces a skill carrying a name para-os ships.
 - {{What belongs in another vault or system, e.g. "Accounting and invoicing: a separate vault."}}

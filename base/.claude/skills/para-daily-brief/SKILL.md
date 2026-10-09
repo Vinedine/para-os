@@ -100,7 +100,7 @@ Render the page with `scripts/render_dashboard.py` from the scan and a small jud
 ## Strict rules
 
 - **Do not parse completed items (`- [x]`)** outside `review`, which reads them by their `✅` date alone: a close without one is counted as undated, never given a date.
-- **Do not rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`; this skill never applies them. A review and its status update go to chat, never to a file.
+- **Do not rewrite any vault file.** No fixing missing markers, no inventing dates, no ticking, no grooming - undated is reported as undated. The health flags point at `/para-deep-clean`. A review and its status update go to chat, never to a file.
 - **Do not follow links** into other files for extra context. The section heading is sufficient. (Exceptions: the root README's `## Vision`, and under `review` the contact cards a status update is addressed to.)
 - **Do not add commentary or recommendations** beyond the Health flags, the single Next action and, closing one entity's review, the status update offer. Decisions are the operator's.
 - **Do not dedupe cross-referenced items** (same task in two files). Show both.

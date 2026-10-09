@@ -6,7 +6,7 @@ Each part is a question the operator can skip, any link it writes pointing at th
 
 For a project or an area, never an idea: one line for the root `README.md`'s `## Track record` saying what was delivered, for whom and the result, linking the archived brief (or the README it archived as).
 
-- **Match the section's shape**: a dated bullet, a paragraph, a table row. Where it groups or counts work, extend the matching line; a line already naming this entity is updated, never doubled.
+- **Match the section's shape**: a dated bullet, a paragraph, a table row. Where it groups or counts work, extend the matching line; a line already naming this entity is updated.
 - **Recommend Skip** for a routine closure (a ticket, a small fix, one of many), the line for work a reader of the README should know was done.
 - **History only**: nothing still open or next.
 - **Link the brief rather than copy its figures**, per the vault's `.claude/rules/figures.md`: a figure appears only where `README.md` is its home, or as a copy carrying its as-of date and its reason.

@@ -19,7 +19,7 @@ Emit each only when it fires:
 
 ## Step 4d: Ideas lane
 
-The scan's `ideas`, newest-touched first: each idea's `name`, `touched` date and `stage` line, cut to its first sentence. An idea with no stage line renders as name and date. One marked `dormant`, untouched for 6+ months, is a retirement candidate; never retire it.
+The scan's `ideas`, newest-touched first: each idea's `name`, `touched` date and `stage` line, cut to its first sentence. An idea with no stage line renders as name and date. One marked `dormant`, untouched for 6+ months, is a retirement candidate.
 
 A **sentence end** is a `.`, `!` or `?` outside parentheses, at the line's end or followed by a space and anything but a lowercase letter or a digit: `€500.000`, `e.g. the call` and `art. 12` hold none.
 
@@ -38,7 +38,7 @@ Two sources, merged. Entries from different sources dedupe by (date, start time)
 **1. Calendar connectors - the optional `## Agenda sources` block.** If the vault's CLAUDE.md has one, it is a table `| Source | Type | Endpoint | Relevant when |`, the same shape as `## Triage sources`. For each `connector:` row, read the calendar **read-only**:
 
 - `connector: google-workspace`: `list_calendars` / `get_events` with the Endpoint as `user_google_email`, time-bounded to today through `T+30` in every scope.
-- Any other calendar connector: ToolSearch for the tool *suffix* (`list_events`, `search_events`, `get_events`), never a full tool name. Only when that search comes back empty is the connector absent: skip the source and note it (`<source> declared but not connected - skipped`).
+- Any other calendar connector: ToolSearch for the tool *suffix* (`list_events`, `search_events`, `get_events`). Only when that search comes back empty is the connector absent: skip the source and note it (`<source> declared but not connected - skipped`).
 - **A source that answers with an error is not absent.** Carry on with the other sources and print one line under the agenda naming the source, what failed, and the remedy the error gives.
 - Apply the row's `Relevant when` filter, drop all-day "free" placeholders, and never write, accept, or decline anything.
 - Convert every start into the vault's declared time zone before bucketing or printing it, per [para-shared/timestamps.md](../../para-shared/timestamps.md).

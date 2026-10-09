@@ -89,7 +89,7 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 
 ## Finish
 
-- Leave the PARA placeholder READMEs in place - they self-delete as real content arrives. `triage/` is the exception: it gets a `.gitkeep`, never a README.
+- Leave the PARA placeholder READMEs in place - they self-delete as real content arrives. `triage/` is the exception: it gets a `.gitkeep`.
 - Do **not** add entity templates or a `.claude/rules/` shape file yet, beyond what an adopted module ships; those come once a second instance of an entity type exists.
 - Delete this `bootstrap-prompt.md`. Confirm the vault is clean: filled `CLAUDE.md` + `README.md`, a seeded `areas/business/actions.md` (and `areas/business/leads.md` with the sales module), a `projects/vault-setup/` with `brief.md` + `actions.md`, and no remaining `.template` files.
 - Tell me the skills are already bundled in this vault (`.claude/skills/`), with `/para-pipeline` for the deal board where the sales module went in, and that `.claude/settings.json` ships with Claude Code's auto memory turned off (the vault itself is the memory, see `## Memory` in CLAUDE.md); leave that in place. Ask whether this vault needs a **flavor** (what it is about) or a further **module** (a function beside that), both under the para-os clone's `addons/`. Each becomes one line under `**Type:**` (`**Flavor:** <name>`, `**Modules:** <name>, <name>`); a flavor or module then runs its own README's setup, which merges its `CLAUDE.md.sections` beside the vault's sections. Default to neither.

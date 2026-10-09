@@ -43,7 +43,7 @@ It keeps its output outside the vault at `saved_to`, which every later re-check 
 
 **Each `sources.rows[].plan` decides whether that source runs**, per [references/sources.md](references/sources.md); what it pulls flows on as loose files. **Re-run the scan** after anything writes into `triage/`, and with `--threads <file>` once a local mailbox pull has its candidate threads: that folds each into a note already staged for it and counts a sent message's working days unanswered.
 
-**Then read `items.loose`** and `items.subdirectories`. Subdirectories are **listed, never asked**. `triage/` never holds a `README.md`: never create one, and propose deleting one the scan flags (`readme: true`).
+**Then read `items.loose`** and `items.subdirectories`. Subdirectories are **listed, never asked**. `triage/` never holds a `README.md`: propose deleting one the scan flags (`readme: true`).
 
 **Only now, check for emptiness.** `items.empty` true: respond `Nothing to triage in <the path you checked>.`, naming any declared source that could not be read, and stop. `items.only_subdirectories` true: list them and stop with `Only subdirectories in triage/; nothing to file at top level. Subdirectories listed for your review.`
 
@@ -73,7 +73,7 @@ One line per category: files moved (each linked to its new path), deleted (with 
 - **Never invent a top-level PARA folder** without asking. Sub-folders inside an existing entity are fine where the convention supports them (`sources/photos/`).
 - **Never search Drive without the `drive` row's drive id**: an unscoped query can answer "No files found" while the document sits in the folder. With no `drive` row, say the drive is undeclared; never infer an id.
 - **Mail is read-only** ([connectors.md](../para-shared/connectors.md)); a draft follows [para-shared/drafting.md](../para-shared/drafting.md) and is shown, never sent or saved. A mailbox source writes only the `triage/` note, the `actions.md` line or register row, and the ledgers.
-- **Connector items land in `triage/`, `actions.md` or a register row**, never straight into an entity folder, and never into another vault: that is **Dismiss (other vault)** or **Stage in other vault**.
+- **Connector items land in `triage/`, `actions.md` or a register row**, never straight into an entity folder or another vault: that is **Dismiss (other vault)** or **Stage in other vault**.
 - **A staged note whose `Content` line says the operator's own messages were not fetched names no reply as owed** (no action to answer the sender, no draft) unless a re-read at its source shows they have not answered ([references/filing.md](references/filing.md)).
 - **Fuzzy-match before creating.** Check existing contacts, projects, ideas, register rows and open `actions.md` items first; a thread bearing on tracked work is **Update existing**, not a duplicate.
 - **One next step per thread**: at most one new checkbox.
