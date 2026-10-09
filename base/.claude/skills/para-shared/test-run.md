@@ -1,6 +1,6 @@
 # Test runs (shared across skills)
 
-`--test` makes a skill report its own defects. It is removed from the arguments before anything reads them and combines with every other argument; any other `--flag` the skill's Arguments table does not list stops the run with the table printed, so `--trst` is not `--test`.
+`--test` makes a skill report its own defects. It is removed from the arguments before anything reads them and combines with every other argument; any other `--flag` the skill's Arguments table does not list stops the run with the table printed.
 
 The run does not change: the same steps, approvals and writes, against a copy of a vault, or a real vault with the skill's read-only argument, or stopping at the proposal where there is none. A skill is not fixed during a test run, neither the master nor the installed copy.
 
