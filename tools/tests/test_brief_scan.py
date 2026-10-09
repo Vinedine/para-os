@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from brief_scan import OPEN_ITEM_CAP, main, review_window, scan
+from brief_scan import HEADLINE_CAP, OPEN_ITEM_CAP, main, review_window, scan
 
 
 def write(root, rel, text):
@@ -221,6 +221,21 @@ class HealthFlags(VaultCase):
               f"- [ ] **Send the deck** {long_line}\n")
         got = scan(self.root, TODAY)["flags"]["long_headlines"]
         self.assertEqual([(r["line"], r["chars"]) for r in got], [(3, len(long_line.strip()))])
+
+    def test_a_link_counts_as_its_label_in_the_headline_length(self):
+        pad = "x" * (110 - len("Waiting on Ann Smet: "))
+        linked = f"Waiting on [Ann Smet](../../network/ann-smet.md): {pad}"
+        self.assertGreater(len(linked), HEADLINE_CAP)
+        write(self.root, "projects/wordy/actions.md", "# wordy\n\n"
+              f"- [ ] {linked}\n- [ ] Waiting on Ann Smet: {pad}xxxxxxxxxxxxxxx\n")
+        got = scan(self.root, TODAY)["flags"]["long_headlines"]
+        self.assertEqual([(r["line"], r["chars"]) for r in got], [(4, 125)])
+
+    def test_a_headline_of_exactly_the_cap_is_flagged_because_it_must_stay_under_it(self):
+        write(self.root, "projects/wordy/actions.md", "# wordy\n\n"
+              f"- [ ] {'a' * (HEADLINE_CAP - 1)}\n- [ ] {'a' * HEADLINE_CAP}\n")
+        got = scan(self.root, TODAY)["flags"]["long_headlines"]
+        self.assertEqual([(r["line"], r["chars"]) for r in got], [(4, HEADLINE_CAP)])
 
     def test_open_boxes_outside_the_action_files_are_flagged_unless_frozen(self):
         write(self.root, "projects/acme/log.md", "# Log\n\n- [ ] Proposed: chase the host\n")

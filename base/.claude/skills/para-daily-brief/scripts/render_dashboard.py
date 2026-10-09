@@ -527,8 +527,8 @@ def mechanical_flags(scan):
     long_ = raised.get("long_headlines") or []
     if long_:
         worst = long_[0]
-        out.append({"text": f"**{len(long_)} action{'s' if len(long_) > 1 else ''} over "
-                            f"{HEADLINE_CAP} characters** - worst: "
+        out.append({"text": f"**{len(long_)} action{'s' if len(long_) > 1 else ''} of "
+                            f"{HEADLINE_CAP}+ characters** - worst: "
                             f"{file_label(scan, worst['file'])}:{worst['line']}, {worst['chars']}. "
                             f"A bold headline, the detail in a sub-bullet or the brief",
                     "kind": "long_headlines"})
