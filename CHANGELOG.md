@@ -29,8 +29,8 @@ Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero
 - Propose a `never` row for each folder whose work the vault's own rules place in another system, such as a ticket tracker or a generated file: `CLAUDE.md` `### Where a checkbox may live`
 - Offer to rewrite each open item that waits on someone else as a `Waiting on` line, `since` from the line's history (`git log -L`, else the file's date, said which) and never invented, in one batched question: action files
 - Name `/para-prep` wherever the vault lists its skills: `CLAUDE.md`
-- Fill the `**Locale:**` fields from what the vault already states (`README.md`'s Identity, the amounts and dates its files hold), asking one question per field only for the rest, and never rewrite an amount or a date: `CLAUDE.md` `## Language`
-- Move each of the six locale fields that `README.md`'s Identity states on its own into the `**Locale:**` line, leaving a link, on one approval: `README.md` `## Identity`
+- Fill the `**Locale:**` fields from what the vault already states (`README.md`'s Identity, the amounts its files hold), asking one question per field only for the rest, and never rewrite an amount or a date: `CLAUDE.md` `## Language`
+- Move each `README.md` Identity row whose whole value is one of the six locale fields into the `**Locale:**` line, leaving a link, on one approval: `README.md` `## Identity`
 Retired: `flip.ps1`, `render.ps1`, `render.mjs`
 
 ## 2026.09.07
