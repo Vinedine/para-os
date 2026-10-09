@@ -55,7 +55,9 @@ most findings, registry order breaking a tie; null where no vault has one.
 
 Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one
 listing no entry; 4 the clone or the ref cannot be read, or its template carries no marker;
-5 no `--ref` and the clone has no `origin/stable`; 6 no clone found.
+5 no `--ref` and the clone has no `origin/stable`. With no clone found the audit still
+answers: `clone.error` says so, and each vault's revision, rules, integrations and skills
+read `not judged`.
 """
 
 import argparse
@@ -179,6 +181,11 @@ def down_drives(placed):
 # ========================================================================= the checks
 
 def revision_check(vault, kit, in_development):
+    if kit is None:
+        text = (vault / "CLAUDE.md").read_text(encoding="utf-8", errors="replace")             if (vault / "CLAUDE.md").is_file() else ""
+        mark = TEMPLATE_MARKER_RE.search(text)
+        return {"verdict": "unverified", "vault": mark.group(1) if mark else None,
+                "master": None, "entries": [], "behind": 0}, NOT_JUDGED, []
     rev = revision_block(vault, kit)
     verdict, mine, master = rev["verdict"], rev["vault"], rev["master"]
     entries = sorted(e["revision"] for e in rev["entries"])
@@ -343,7 +350,7 @@ def audit_vault(entry, kit, ref, in_development):
     cells["type"], more = type_check(decl, entry)
     found += more
     declared, resolvable = declaration_check(vault, decl)
-    judged = revision["verdict"] != "ahead"
+    judged = revision["verdict"] not in ("ahead", "unverified")
     if judged:
         declared += addon_check(kit, resolvable, ref)
     cells["declarations"] = counted(declared, "finding")
@@ -408,20 +415,20 @@ def build_report(registry_path, entries, clone, ref_arg, clone_source, default_c
         report["error"] = f"no registry at {registry_path}" if entries is None else \
             f"{registry_path} lists no vault, or does not parse as a JSON list"
         return report, 3
+    kit = ref = in_development = None
     if clone is None:
         report["clone"] = {"path": None, "source": None, "error": (
             f"no para-os clone found: none at {default_clone}, and no --clone")}
-        return report, 6
-
-    block, code, kit = open_clone(Path(clone).resolve(), ref_arg)
-    block["source"] = clone_source
-    report["clone"] = block
-    if code:
-        return report, code
-    ref = block["ref"]
-    developing = master_template(kit.clone, ref, worktree=True)["marker"]
-    in_development = developing if developing and developing > kit.master else None
-    report["master"] = {"ref": ref, "revision": kit.master, "in_development": in_development}
+    else:
+        block, code, kit = open_clone(Path(clone).resolve(), ref_arg)
+        block["source"] = clone_source
+        report["clone"] = block
+        if code:
+            return report, code
+        ref = block["ref"]
+        developing = master_template(kit.clone, ref, worktree=True)["marker"]
+        in_development = developing if developing and developing > kit.master else None
+        report["master"] = {"ref": ref, "revision": kit.master, "in_development": in_development}
     report["columns"] = list(COLUMNS)
 
     rows, topics, carried, excluded, placed = [], [], [], [], []

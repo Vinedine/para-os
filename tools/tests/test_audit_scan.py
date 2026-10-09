@@ -563,11 +563,19 @@ class DriveCase(CloneCase):
 # =========================================================================== the clone
 
 class CloneErrorCase(CloneCase):
-    def test_no_clone_found_is_exit_6(self):
+    def test_without_a_clone_every_vault_is_still_audited(self):
+        build_vault(self.work / "v", marker="2026.09.05")
         report, code = build_report(self.work / "vaults.json", [self.entry("v")], None, None,
                                     None, self.tmp / "no-home" / "para-os")
-        self.assertEqual(code, 6)
+        self.assertEqual(code, 0)
         self.assertIn("no para-os clone", report["clone"]["error"])
+        row = self.vault_row(report, "v")
+        self.assertEqual(row["revision"]["verdict"], "unverified")
+        self.assertEqual(row["revision"]["vault"], "2026.09.05")
+        for column in ("revision", "rules", "integrations", "skills"):
+            self.assertEqual(row["cells"][column], "not judged")
+        self.assertNotEqual(row["cells"]["size"], "not judged")
+        self.assertIsNone(report["upgrade_first"])
 
     def test_a_ref_that_does_not_resolve_is_exit_4(self):
         _, code = self.run_audit([self.entry("v")], ref="no-such-ref")
