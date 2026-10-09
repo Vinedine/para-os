@@ -240,7 +240,7 @@ def ideas_lane(vault, today):
         stage = stage_of(brief)
         since = parse_date(stage["since"]) if stage else None
         rows.append({"name": d.name, "path": brief.relative_to(vault).as_posix(),
-                     "touched": touched, "age_days": age,
+                     "touched": touched,
                      "stage": short_stage(stage_line(brief)),
                      "since": iso(since) if since else None,
                      "days_in_stage": (today - since).days if since else None,

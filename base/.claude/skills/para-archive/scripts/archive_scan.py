@@ -89,7 +89,7 @@ def entity_block(vault, name, paraos_home):
     result = resolve_entity(vault, name, buckets=("projects", "resources/ideas", "areas"))
     status = result["status"]
     block = {
-        "query": name, "status": status, "kind": None, "source": None,
+        "status": status, "kind": None, "source": None,
         "candidates": [], "already_archived": None, "elsewhere": [],
         "other_vaults": [], "this_vault": None,
     }

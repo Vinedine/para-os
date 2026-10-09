@@ -134,15 +134,14 @@ class Preconditions(VaultCase):
     def test_no_clone_anywhere_is_not_found_never_unverified(self):
         write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
         m = self.run_scan("1", clone=None)["preconditions"]["template_marker"]
-        self.assertEqual((m["verdict"], m["clone"], m["clone_source"]), ("no_clone", None, None))
+        self.assertEqual((m["verdict"], m["clone"]), ("no_clone", None))
         self.assertIsNone(m["master"])
 
     def test_a_clone_at_the_default_path_is_found_without_clone(self):
         make_clone(base_marker="2026.09.05", root=self.home / "para-os")
         write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
         m = self.run_scan("1", clone=None)["preconditions"]["template_marker"]
-        self.assertEqual((m["verdict"], m["master"], m["clone_source"]),
-                         ("behind", "2026.09.05", "default"))
+        self.assertEqual((m["verdict"], m["master"]), ("behind", "2026.09.05"))
         self.assertEqual(m["clone"], (self.home / "para-os").as_posix())
 
     def test_an_explicit_clone_wins_over_the_default_path(self):
@@ -150,8 +149,7 @@ class Preconditions(VaultCase):
         clone = self.clone(base_marker="2026.09.05")
         write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
         m = self.run_scan("1", clone=str(clone))["preconditions"]["template_marker"]
-        self.assertEqual((m["verdict"], m["master"], m["clone_source"]),
-                         ("behind", "2026.09.05", "explicit"))
+        self.assertEqual((m["verdict"], m["master"]), ("behind", "2026.09.05"))
 
     def test_equal(self):
         clone = self.clone(base_marker="2026.09.05")
@@ -558,7 +556,6 @@ class InlineContactDetails(VaultCase):
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0]["names_on_line"], ["Jan Claes"])
         self.assertEqual(hits[0]["kind"], "email")
-        self.assertEqual(hits[0]["attribution"], "unresolved")
         self.assertNotIn("card", hits[0])
 
     def test_a_sentence_full_stop_is_not_part_of_the_email(self):
@@ -915,12 +912,11 @@ class OverThreshold(VaultCase):
 
 class OtherCheckboxFiles(VaultCase):
 
-    def test_a_non_action_checkbox_file_is_reported_with_a_null_contract(self):
+    def test_a_non_action_checkbox_file_is_reported_with_its_count(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "areas/business/session-log.md", "# Log\n\n- [ ] Review last week\n")
         rows = self.run_scan("3")["phase3"]["other_checkbox_files"]
-        self.assertEqual(rows, [{"file": "areas/business/session-log.md", "open": 1,
-                                 "declares_contract": None}])
+        self.assertEqual(rows, [{"file": "areas/business/session-log.md", "open": 1}])
 
     def test_action_files_and_contact_files_are_excluded(self):
         write(self.root, "CLAUDE.md", "# Vault\n")

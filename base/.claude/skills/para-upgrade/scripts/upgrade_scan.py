@@ -1053,7 +1053,7 @@ def compute_verdict(copy_bytes, master_bytes, history, other_sources, copy_revis
             if c_stripped == h_stripped:
                 if copy_revision == master_revision:
                     return {"verdict": "marker-matches-content-differs", "case": "hand-bumped",
-                            "content_of": h["commit"], "revision": h["revision"]}
+                            "revision": h["revision"]}
                 return {"verdict": "behind", "commit": h["commit"], "revision": h["revision"],
                         "marker_edited": True}
 

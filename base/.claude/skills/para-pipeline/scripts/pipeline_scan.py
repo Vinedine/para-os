@@ -605,7 +605,7 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
     opened = sum(1 for e in once
                 if e["opened"] and q_start <= parse_date(e["opened"]) <= q_end)
 
-    reached_promoting, median_info = None, {"n": 0, "median": None, "values": None}
+    reached_promoting, median_info = None, {"n": 0, "median": None}
     if promoting:
         reach_deltas, count = [], 0
         for e in entities:
@@ -625,10 +625,8 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
                     reach_deltas.append((w["won_date"] - w["opened_date"]).days)
         reached_promoting = count
         if reach_deltas:
-            reach_deltas.sort()
             n = len(reach_deltas)
-            median_info = ({"n": n, "median": None, "values": reach_deltas} if n < 3 else
-                           {"n": n, "median": statistics.median(reach_deltas), "values": None})
+            median_info = {"n": n, "median": statistics.median(reach_deltas) if n >= 3 else None}
 
     terminal = {}
     for s in stages:

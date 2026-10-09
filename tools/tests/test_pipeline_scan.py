@@ -691,7 +691,7 @@ class Metrics(VaultCase):
               "# Nova\n\n**Won:** 2026-08-15\n**Opened:** 2026-07-01\n")
         m = self.deal()["metrics"]
         self.assertEqual(m["reached_promoting"], 1)
-        self.assertEqual(m["median_days_opened_to_promoting"], {"n": 1, "median": None, "values": [45]})
+        self.assertEqual(m["median_days_opened_to_promoting"], {"n": 1, "median": None})
 
     def test_reached_promoting_counts_by_the_quarter_it_was_reached_in(self):
         # Reached last quarter: not this quarter's. Reached now with no Opened date:
@@ -701,7 +701,7 @@ class Metrics(VaultCase):
         write(self.root, "projects/unopened/brief.md", "# Unopened\n\n**Stage:** Goal (since 2026-08-01)\n")
         m = self.deal()["metrics"]
         self.assertEqual(m["reached_promoting"], 1)
-        self.assertEqual(m["median_days_opened_to_promoting"], {"n": 0, "median": None, "values": None})
+        self.assertEqual(m["median_days_opened_to_promoting"], {"n": 0, "median": None})
 
     def test_an_archived_won_project_still_counts_as_opened_and_in_the_referrers(self):
         # Issue #66: won and delivered inside one quarter, it reached Goal from nowhere.
@@ -734,7 +734,7 @@ class Metrics(VaultCase):
               "**Won:** 2026-08-15\n")
         m = self.deal()["metrics"]
         self.assertEqual(m["reached_promoting"], 1)
-        self.assertEqual(m["median_days_opened_to_promoting"]["values"], [45])
+        self.assertEqual(m["median_days_opened_to_promoting"]["n"], 1)
 
     def test_only_an_archived_project_folder_with_a_won_date_in_the_quarter_counts(self):
         write(self.root, "archive/projects/loose-note.md", "**Won:** 2026-08-15\n")
@@ -752,17 +752,15 @@ class Metrics(VaultCase):
             write(self.root, f"projects/{name}/brief.md",
                   f"# {name}\n\n**Stage:** Goal (since {since})\n**Opened:** 2026-07-01\n")
         info = self.deal()["metrics"]["median_days_opened_to_promoting"]
-        self.assertEqual(info, {"n": 3, "median": 31, "values": None})
+        self.assertEqual(info, {"n": 3, "median": 31})
 
-    def test_median_reports_individual_values_below_three(self):
+    def test_no_median_below_three_values(self):
         write(self.root, "projects/p1/brief.md",
               "# P1\n\n**Stage:** Goal (since 2026-08-01)\n**Opened:** 2026-07-01\n")
         write(self.root, "projects/p2/brief.md",
               "# P2\n\n**Stage:** Goal (since 2026-09-01)\n**Opened:** 2026-07-01\n")
         info = self.deal()["metrics"]["median_days_opened_to_promoting"]
-        self.assertEqual(info["n"], 2)
-        self.assertIsNone(info["median"])
-        self.assertEqual(sorted(info["values"]), [31, 62])
+        self.assertEqual(info, {"n": 2, "median": None})
 
     def test_terminal_reasons_group_on_text_before_the_first_comma(self):
         # Finding 2 of the 20260921-2035 test run.

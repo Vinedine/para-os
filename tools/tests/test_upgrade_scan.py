@@ -385,7 +385,6 @@ class ComputeVerdictCase(unittest.TestCase):
                               "2026.09.01", True)
         self.assertEqual(got["verdict"], "marker-matches-content-differs")
         self.assertEqual(got["case"], "hand-bumped")
-        self.assertEqual(got["content_of"], "old")
         self.assertEqual(got["revision"], "2026.08.02")
 
     def test_behind_with_marker_edited_when_the_copy_s_marker_matches_neither(self):
