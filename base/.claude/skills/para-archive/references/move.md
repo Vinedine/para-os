@@ -1,23 +1,14 @@
 # Scan links, execute, verify (Steps 6 to 8)
 
-`scripts/archive_scan.py` implements every mechanical rule below - the plan call's `inbound` for Step 6, the verify call for Step 8. Where the script cannot run, apply this file by hand.
-
-**Links inside a fenced code block are neither scanned nor rewritten**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md). The link scan runs **before** anything moves and again after.
+**A link inside a fenced code block is never rewritten**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md).
 
 ## Step 6 - Scan inbound links (the part that breaks silently)
 
-Before moving anything, grep the **entire vault** for the entity folder's name and the filename of each file routed out of it. A path grep misses a link written relative to a sibling (`../<name>/brief.md`), so read each hit and keep only real references to this entity. Git internals and installed skill copies are not vault content. **`inbound.references` and `.name_only` are this scan, already split**; the by-hand fallback:
+**`inbound.references` is every line outside the entity naming it**: read each hit and keep only real references to this entity. **`inbound.name_only`** holds a name inside a longer one (`acme` inside `acme-website-v2`), for the operator to read and never to count.
 
-```bash
-# from vault root
-grep -rn --include="*.md" "<name>" . | grep -v -e '^\./\.git/' -e '^\./\.claude/skills/'
-```
+**A routed file's own filename is a second name to search.** A mention of it need not name the entity's folder, so once Step 4 has decided, re-run the plan call with one `--route <file>` per routed file and read `inbound.routed[<file>]`.
 
-**A routed file's own filename is a second name to search, not only the entity folder's.** Which files route to `resources/` is Step 4's decision, made only after Step 0's plan call already ran once - so a mention of a routed file may name only that file (a backtick citation, a bare filename in prose) and never the entity's folder at all, which the scan above cannot see. Once Step 4 has decided, re-run the plan call with one `--route <file>` per routed file and read `inbound.routed[<file>]` - the same search, scoped to that file's bare name, minus hits inside the entity folder. The by-hand fallback is the same grep, substituting the routed file's own name for `<name>`.
-
-**A reference is anywhere the path is written, not only a `](...)` target.** That is why the scan searches for the name rather than for link syntax, and why every hit gets repointed: the target of a markdown link, the **display text** of one (a link written as `[projects/<name>/actions.md](../../projects/<name>/actions.md)` spells the path twice, and a target-only rewrite leaves half of it lying), a path quoted in backticks as a source citation, and a bare path in prose. **Each hit's `shape` field names which of the four it is** (`link_target`, `link_text`, `backtick`, `prose`), and `in_sources` marks a hit inside a `sources/` folder. The exception is **third-party verbatim content** (`operating-discipline.md`): a synced publication or a transcript is not repointed, though an annotation section the vault appended below one is.
-
-**A hit that is only a substring of a longer name is not a reference at all** - `acme` inside `acme-website-v2` names a different entity, not this one - and lands in `inbound.name_only` instead, for the operator to read and never to count. A hit in `inbound.references` is one whose line carries a link that resolves under the entity folder, or that names the folder as a whole path segment (a boundary on both sides: the start or end of the text, or a character that is not a letter, digit, `-` or `_`).
+**Every hit gets repointed, whatever its `shape`** (`link_target`, `link_text`, `backtick`, `prose`): a link written as `[projects/<name>/actions.md](../../projects/<name>/actions.md)` spells the path twice, and a target-only rewrite leaves half of it lying. `in_sources` marks a hit inside a `sources/` folder: **third-party verbatim content** (`operating-discipline.md`) such as a synced publication or a transcript is not repointed, though an annotation section the vault appended below one is.
 
 Build an **inbound-link table**: every file and line pointing at the entity, its brief, its actions, or any file being routed to `resources/`. Classify each:
 
@@ -47,7 +38,7 @@ Nothing moves when this happens. Unless a skill may commit there ([the commit ru
 2. Delete approved stale snapshots, per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file).
 3. Create the successor scaffold if chosen.
 4. Retense and clean `brief.md` and `actions.md` to their archived form. **Then re-run the plan call**, with the same `--route` arguments, and take `move_plan` from it: a link the closing edits added is in no earlier plan, and would keep its old depth after the move.
-5. Move the entity to Step 1's destination. Create the destination parent if needed. **Check the destination does not already exist first** - `destination.exists` from the plan call already answers this (`test -e "<dst>" && echo EXISTS` by hand). If it exists, stop and resolve the collision with the user - never let `mv` merge into or clobber an occupied archive path.
+5. Move the entity to Step 1's destination. Create the destination parent if needed. **Check the destination does not already exist first**: the plan call's `destination.exists`. If it exists, stop and resolve the collision with the user - never let `mv` merge into or clobber an occupied archive path.
 6. **Rewrite the links *inside* the moved folder and each routed file** per [operating-discipline.md](../../para-shared/operating-discipline.md#moving-an-entity-folder): only a link whose target lies outside what moved changes.
 7. Apply every approved link repoint from the Step 6 table. A link whose display text spells the old path gets the new path as its text too.
 8. **Windows note**: an empty source directory can linger ("device or resource busy") if the IDE or a terminal holds a handle - the files moved fine; remove the shell with `rmdir` (PowerShell: `Remove-Item` without `-Recurse`), which fails on a folder that is not empty, and tell the user it was a stale handle, not a failure. A folder that is not empty is reported, never forced.
@@ -63,10 +54,10 @@ python3 "<this skill's base directory>/scripts/archive_scan.py" --vault . --veri
 
 pass every file moved to `resources/<name>/` in Step 7.1 as its own `--routed`, and every mention of the old path the operator approved leaving as written (a dated citation, say) as its own `--keep`, which `stale_mentions_kept` then lists apart. Its fields are this step, already run:
 
-- **`stale_links`**: every link anywhere in the vault (every bucket, archive included, plus root-level files) whose resolved target still lies under the old path. Assert **zero**. The by-hand fallback is re-running the Step 6 grep and reading every hit.
-- **`stale_mentions`** (and **`stale_mentions_exempt`** for third-party content): every remaining occurrence of the old path written as text - link display text, a backtick path, bare prose - with a path boundary on both sides: not preceded by a letter, digit, `-`, `_` or `.`, nor by another named folder (`archive/projects/x` is never a mention of `projects/x`, nor is `archive/projects/x-v1`), though a `../` or `./` climb is; and not followed by a letter, digit, `-` or `_`. Assert zero outside the exempt list.
-- **`inbound_resolved`**: `.resolved` counts and `.unresolved` lists every link from outside the new folder whose target resolves under it. By hand, resolve each rewritten target against the filesystem, percent-decoded, and report how many resolved rather than how many were rewritten.
-- **`inside`**: `.resolved` and `.dangling` for every relative link inside the archived folder and each `--routed` file - the half the inbound grep cannot see. A still-live historical mention inside the archived folder itself (a migration plan, say) is acceptable; flag it explicitly rather than reading it from `dangling`. `.missing` lists each `--routed` path that names no file (a typo, or a file not yet moved): it was never read, so fix the path or the move and re-run.
+- **`stale_links`**: every link anywhere in the vault whose resolved target still lies under the old path. Assert **zero**.
+- **`stale_mentions`** (and **`stale_mentions_exempt`** for third-party content): every remaining occurrence of the old path written as text - link display text, a backtick path, bare prose. Assert zero outside the exempt list.
+- **`inbound_resolved`**: `.resolved` counts and `.unresolved` lists every link from outside the new folder whose target resolves under it. Report how many resolved, not how many were rewritten.
+- **`inside`**: `.resolved` and `.dangling` for every relative link inside the archived folder and each `--routed` file. A still-live historical mention inside the archived folder itself (a migration plan, say) is acceptable; flag it explicitly rather than reading it from `dangling`. `.missing` lists each `--routed` path that names no file (a typo, or a file not yet moved): it was never read, so fix the path or the move and re-run.
 - **`old_path`**: `.exists` and `.empty` - the stale-handle case in Step 7's Windows note.
 - **`untracked`**: files at the new path git does not track, `null` when git cannot answer (no repo, no git on PATH) rather than an empty list, so the report never reads "could not check" as "nothing untracked".
 - **`clean`**: true only when every one of the above is empty (mentions outside the exempt and kept lists). Treat it as the run's own pass/fail line, not a substitute for reading the lists.

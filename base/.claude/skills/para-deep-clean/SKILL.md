@@ -1,7 +1,7 @@
 ---
 name: para-deep-clean
 description: Run a comprehensive cleanup pass on a vault - audits structural/housekeeping issues, normalizes README structure per a canonical template, closes documented open items by reading source PDFs, grooms over-grown action files back to the actionable frontier, and ensures status tables make each entity's state visible at a glance. Use when user asks for a "deep clean", "deep cleanup", "vault review", "vault cleanup", "cleanup pass", "groom my actions", "audit this vault", "check the vault without changing anything", or types /para-deep-clean.
-allowed-tools: Bash(python3 *), Bash(py *), Bash(git show *), Bash(git blame *), Bash(git mv *), Bash(git rm *), Bash(mv *), Bash(diff *), Bash(pwd *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
+allowed-tools: Bash(python3 *), Bash(py *), Bash(git show *), Bash(git mv *), Bash(git rm *), Bash(mv *), Bash(diff *), Bash(pwd *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
 argument-hint: '[phase1|phase2|phase3|phase4|audit] [--test]'
 ---
 
@@ -35,12 +35,10 @@ Confirm before starting:
 1. Vault has a `CLAUDE.md` documenting structure, naming conventions, and "do not add" rules. If missing, stop and ask the user to create one.
 2. Vault follows PARA layout (at least `areas/` + `projects/` + `archive/`; `triage/` and `resources/` optional but expected).
 3. Entities each carry the main document their `CLAUDE.md` prescribes (`brief.md` by default) plus optional `sources/`.
-4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them (`Glob triage/*` where it cannot run). If any are present, **stop and tell the user to run `/para-triage` first**; `audit`, which writes nothing, lists them as a finding instead. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
+4. **`triage/` must contain no loose files.** The scan's `preconditions.triage_loose` lists them. If any are present, **stop and tell the user to run `/para-triage` first**; `audit`, which writes nothing, lists them as a finding instead. Subdirectories (especially underscore-prefixed handoff batches) are OK to leave, as is a `.gitkeep`. A `triage/README.md` is not: `triage/` never carries one, so flag it for deletion in Phase 1.
 5. **The vault should be on the newest *shipped* para-os template revision.** Detection only - never read the master's *content* to act on it, that is `/para-upgrade`'s job.
 
-   Read the first `<!-- para-os-template: YYYY.MM.NN -->` comment in the vault's `CLAUDE.md`, and the master's the way `/para-upgrade` reads it: **`git show <ref>:base/CLAUDE.md.template` at a committed ref - the one the operator named via the `ref=` argument, else `origin/stable`**. **Never read the clone's working tree:** a revision in flight lives there uncommitted. Without a shell `git show` cannot run: say the marker comparison was not made, and why, and carry on.
-
-   Then, in order:
+   The scan's `preconditions.template_marker` compares the vault's `CLAUDE.md` marker with the master's at a committed ref: the `ref=` argument, else `origin/stable`. Then, in order:
 
    - **Vault behind the shipped marker, or carrying none:** stop and say to run `/para-upgrade` first.
    - **Vault ahead of the shipped marker:** it was aligned to a revision that has not shipped yet. Name the two markers in one line and carry on, auditing against the vault's own `CLAUDE.md`. **Never send this vault to `/para-upgrade`**, which refuses to downgrade.
@@ -49,14 +47,14 @@ Confirm before starting:
 
 ## Step 0 - Scan
 
-Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns preconditions 4 and 5 plus that phase's candidate findings. Phase 2 has no script. Where it cannot run, fall back to that phase's own reference.
+Phase 1, Phase 3 and Phase 4 each open with this call, per [para-shared/scripts.md](../para-shared/scripts.md); it returns preconditions 4 and 5 plus that phase's candidate findings. Phase 2 has no script.
 
 ```bash
 # Windows: py -3
 python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] [--templates-dir <dir>]... [--generated-dir <dir>]... [--name-only-column <file>:<column>]... > <scan output path>
 ```
 
-Each exclusion flag repeats once per entry the vault declares: a folder its `CLAUDE.md` names as holding templates (`--templates-dir`) or a script's output (`--generated-dir`), and a register column its rule file declares a name, not a link (`--name-only-column`). What each skips: the uncited-contacts exclusions in [references/phase1-structural.md](references/phase1-structural.md).
+Each exclusion flag repeats once per entry the vault declares: a folder its `CLAUDE.md` names as holding templates (`--templates-dir`) or a script's output (`--generated-dir`), and a register column its rule file declares a name, not a link (`--name-only-column`).
 
 ## Phased workflow
 

@@ -1,7 +1,7 @@
 ---
 name: para-archive
 description: Archive a finished project, a retired idea, or an area the vault names an archive destination for, end-to-end - reconcile its open actions, validate its brief/actions files, optionally version-suffix it (projects only), route living-reference files to resources/, move it to archive/ and repoint every inbound link in the vault, then propose its Track record line and route its lessons. Use when a project has shipped or an idea is being shelved and the user asks to "archive this", "close out <name>", "wrap up <name>", "shelve <idea>", or types /para-archive <name>.
-allowed-tools: Bash(python3 *), Bash(py *), Bash(git mv *), Bash(git rm *), Bash(mv *), Bash(mkdir *), Bash(rmdir *), Bash(test *), Bash(echo *), Bash(grep *), Bash(pwd *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write, AskUserQuestion
+allowed-tools: Bash(python3 *), Bash(py *), Bash(git mv *), Bash(git rm *), Bash(mv *), Bash(mkdir *), Bash(rmdir *), Bash(pwd *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write, AskUserQuestion
 argument-hint: '<name> [preview|table] [--test]'
 ---
 
@@ -41,7 +41,7 @@ Run the plan call per [para-shared/scripts.md](../para-shared/scripts.md); it an
 python3 "<this skill's base directory>/scripts/archive_scan.py" --vault . --entity <name> [--destination <path>] [--today YYYY-MM-DD] [--route <file>]... > <scan output path>
 ```
 
-**Exit codes**: 0 answered, an unresolved or ambiguous entity included; 2 fall back to [references/reconcile.md](references/reconcile.md) and [references/move.md](references/move.md); 3 `--vault` is not a vault root (Step 1's stop).
+**Exit codes**: 0 answered, an unresolved or ambiguous entity included; 3 `--vault` is not a vault root (Step 1's stop).
 
 ### Step 1 - Confirm context and locate the entity
 

@@ -1,8 +1,6 @@
 # Scanning triage and its sources (Step 2)
 
-The mechanical half of Steps 2 and 3, with no judgment in it. `scripts/triage_scan.py`
-implements every rule below over `para-shared/scripts/paraos_vault.py`, and the kit's
-`test_triage_scan.py` pins each rule to a case.
+The mechanical half of Steps 2 and 3, with no judgment in it.
 
 ```bash
 # Windows: py -3
@@ -20,7 +18,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `ingest_ledger` | `path`, `exists`, `load_error` for `/para-ingest`'s central ledger; `items.loose[].note.routed_vaults` is what reads its `mailboxes` map, per note |
 | `items.loose` | One entry per top-level file (`.gitkeep` dropped, a PDF's `.md` twin folded on): `name`, `size`, `kind`, `readme`, `twin`, `note`, `duplicates`, `hash_skipped`, `cross_vault`, `inbound` |
 | `items.loose[].twin` | **PDF-only**: the `.md` whose stem matches a `.pdf` beside it. A Google-native stub and its converted `.md` are never paired here; the skill pairs them itself at conversion ([sources.md](sources.md#google-native-files)). |
-| `items.loose[].note` | For a `.md` item: `shape` (`ingest`/`frontmatter`/null), `fields`, `mail_note`, `mailbox`, `mentioned_vaults`, `routed_vaults`, `routed_from`, `content_incomplete`, `content_evidence`, `thread_hash`, `thread_id`, `message_id`, `conversation_id`, `ingest_seen`, `mailbox_readers` |
+| `items.loose[].note` | For a `.md` item: `shape` (`ingest`/`frontmatter`/null), `fields`, `mail_note`, `mailbox`, `mentioned_vaults` (named in its `Routed` line: a mention, not the routing decision), `routed_vaults`, `routed_from` (the routing decision, from `/para-ingest`'s ledger), `content_incomplete`, `content_evidence`, `thread_hash`, `thread_id`, `message_id`, `conversation_id`, `ingest_seen`, `mailbox_readers` |
 | `items.subdirectories` | `name`, `files`, `handoff` (`_`-prefixed) |
 | `items.subdirectories_line` | The manifest's `Subdirectories, not asked: ...` line, printed as it stands; null with no subdirectories |
 | `items.empty`, `items.only_subdirectories` | The two stop conditions Step 2 checks last |
@@ -31,64 +29,3 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root> \
 | `contact_card_level` | `yes`, `relationship only` or `never`: what a contact card may hold, which places a meeting record's next step ([after-a-meeting.md](after-a-meeting.md)) |
 | `snapshot`, `snapshot_folders` | Every file in `triage/` and the folder itself, read back by `paraos_vault.py changed <saved_to>` before each delete or move ([execute.md](execute.md)) |
 | `saved_to`, `save_error` | Where the scan kept its own copy of this output, under `$PARAOS_HOME/data/scans/` and never inside the vault (copies older than a week are pruned); or null, and why |
-
-The rest of this file is the script's specification and the by-hand fallback.
-
-## By hand, where each rule actually lives
-
-- **`vault`**: the library's root rule (`projects/` plus `areas/` or `archive/`, plus
-  `CLAUDE.md`) plus a `triage/` folder. `hint` is the registry entry whose path holds the
-  checked folder, else one whose name folds to it.
-- **`sources` and `ingest`**: the coverage bullets in
-  [sources.md](sources.md#configured-triage-sources-step-2), which are the specification of
-  the `plan` verdict.
-- **`items.loose[].duplicates`**: every other file in the vault with the same content hash,
-  never matched by filename or size. Content overlap short of a byte match stays a judgment
-  ([filing.md](filing.md)), never automated.
-- **`items.loose[].inbound`**: every live line naming the file by its whole name
-  (`notes.md` is not named by `meeting-notes.md`), link text and backticked paths included;
-  a mention written as a path must sit under `triage/` (`projects/p/README.md` does not
-  name `triage/README.md`).
-- **`items.loose[].note`**: the two staged-note shapes, `/para-ingest`'s bullet header
-  (its `references/staging.md`, "The staged note") and the frontmatter
-  [execute.md](execute.md#connector-items)'s Note to triage writes. `mail_note` is true for
-  a bullet header carrying `Source` and `Link`, or frontmatter carrying a `thread_id`.
-  `message_id` and `conversation_id` are the bullet header's `Message id` and
-  `Conversation id` lines, `null` where absent.
-  - **`content_incomplete`**: read the `Content` line clause by clause (split at `;`, `,`,
-    `:` and a sentence end), skipping every clause that names an attachment, linked
-    document or enclosure: it describes something beside the body. `true` where a remaining
-    clause contains, case-insensitively, any of `snippet`, `preview`, `opening lines`,
-    `no readable body`, `cut mid`, `truncat`, `excerpt`, `trimmed`, `not read`,
-    `not fetched`, `incomplete`; else `false` where one contains any of `full body`,
-    `full text`, `plain-text body`, `complete`; else `null`, meaning judge the line yourself.
-  - **`mentioned_vaults`**: registry names other than this vault's appearing in the
-    `Routed` line as whole words, case-insensitive for a name of four or more characters,
-    case-sensitive for a shorter one (`IT`, `OR` are also ordinary words). **No negation
-    parsing**: "Not Beta: a different prospect" still names Beta, because this is a
-    mention, not the routing decision, and misreading a real routing as a negation is the
-    worse failure.
-  - **`routed_vaults`, `routed_from`**: the routing decision, from `/para-ingest`'s central
-    ledger, never from the note's prose. In the note's `mailbox`, find the entry whose
-    thread id hashes (`thread_hash`) to the note's filename hash: its `routed` list minus
-    this vault is `routed_vaults`, and `routed_from` is `"ledger"`. No match, or the mailbox
-    absent from the ledger: both `null`. Search only that one mailbox, never across
-    mailboxes, since a six-character hash can collide.
-  - **`ingest_seen`**: that same entry's thread id, `seen_through` and `seen_date`;
-    `null` with no entry.
-  - **`mailbox_readers`**, for a mail note: every active registered vault whose
-    `## Triage sources` declares the note's mailbox (case-insensitive), sorted; `null`
-    for any other note.
-  - **`cross_vault`**: a byte-identical file in another vault's `sources/`, checked across
-    the **union** of `mentioned_vaults` and `routed_vaults` (`null` read as empty): a vault
-    checked needlessly costs one walk, a vault missed is a silent duplicate.
-- **`items.subdirectories`, `items.same_thread`**: [approval.md](approval.md)'s
-  subdirectory rule and "What 'linked' means here".
-- **`seen_ledger`, `threads`**: [sources.md](sources.md#the-seen-ledger). `unanswered`
-  counts the days after the sent day, in the run's own timezone, up to and including today,
-  Monday to Friday only; `waiting` from 5.
-- **`over_threshold`**: [approval.md](approval.md)'s Add action flag, `file at N open -
-  close one first?`.
-- **`contact_card_level`**: the level the `areas/network/` row of `CLAUDE.md`'s
-  `### Where a checkbox may live` table opens on; with no row, `never` where `CLAUDE.md` has
-  a `## Who writes this vault` heading, else `yes`.

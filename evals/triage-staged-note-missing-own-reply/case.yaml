@@ -1,5 +1,5 @@
 schema_version: "1.1"
 name: triage-staged-note-missing-own-reply
-tags: [triage, native]
+tags: [triage, shell]
 context:
   scaffold_script: setup.sh

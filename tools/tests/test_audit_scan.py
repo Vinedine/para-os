@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for audit_scan.py. Each pins a rule the script's docstring or references/checks.md
-states: which registry entries are audited, the four revision outcomes, the declaration and
+"""Tests for audit_scan.py. Each pins a rule the script's docstring states: which registry entries are audited, the four revision outcomes, the declaration and
 add-on checks, shipped rule files, integration and skill copies read at a committed ref, the
 size target, the drive, and the vault named first.
 
@@ -647,7 +646,8 @@ class CliCase(CloneCase):
         done = subprocess.run([sys.executable, str(alone / SCRIPT.name)],
                               capture_output=True, text=True)
         self.assertEqual(done.returncode, 2)
-        self.assertIn("by hand", done.stderr)
+        self.assertIn("Install them", done.stderr)
+        self.assertNotIn("by hand", done.stderr)
 
     def test_libraries_that_do_not_import_exit_2(self):
         skills = self.work / "skills"
@@ -658,7 +658,8 @@ class CliCase(CloneCase):
         done = subprocess.run([sys.executable, str(skills / "para-audit" / "scripts" / SCRIPT.name)],
                               capture_output=True, text=True)
         self.assertEqual(done.returncode, 2)
-        self.assertIn("by hand", done.stderr)
+        self.assertIn("install para-shared", done.stderr)
+        self.assertNotIn("by hand", done.stderr)
 
     def test_in_a_checkout_the_libraries_resolve_from_base(self):
         self.assertEqual(audit_scan.SKILLS_ROOT.parts[-3:], ("base", ".claude", "skills"))

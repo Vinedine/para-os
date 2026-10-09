@@ -88,7 +88,7 @@ Rules specific to this scope:
 - **Every open item renders**, in the same one-line format as Now.
 - **Empty buckets are omitted.** The four low-urgency buckets share one heading line when each is small; give any of them its own section once it exceeds five items.
 - **The header line replaces 📊 Vault state.**
-- **`🔗 Mentioned elsewhere` is not this entity's work.** It is the second grep from task-scan.md. Its counts never join the header totals, and each line names the file that owns it.
+- **`🔗 Mentioned elsewhere` is not this entity's work.** It is the scan's `mentioned_elsewhere`. Its counts never join the header totals, and each line names the file that owns it.
 - **Health flags are this entity's only**, as signals.md Step 4c scopes them.
 - **The Next action still closes it**, chosen from this entity's own items only, never from `🔗 Mentioned elsewhere`.
 

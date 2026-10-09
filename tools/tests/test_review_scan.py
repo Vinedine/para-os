@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for review_scan.py. Each one pins a counting rule references/signals.md states in
-prose.
+"""Tests for review_scan.py. Each one pins a counting rule of the script, which is the
+specification.
 
     python3 test_review_scan.py
     py -3 test_review_scan.py

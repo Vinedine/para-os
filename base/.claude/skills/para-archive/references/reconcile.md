@@ -1,16 +1,10 @@
 # Reconcile, validate, route (Steps 2 to 5)
 
-`scripts/archive_scan.py`'s plan call implements every mechanical rule below. Where the script cannot run, apply this file by hand.
-
 Each step ends with a proposal and waits for approval.
 
 ## Step 2 - Reconcile open actions
 
-Read the entity's `actions.md` (and any per-file action markers). Split into **done** vs **open**, where open is every unchecked checkbox and every `## Backlog` item with no stated disposition. A Backlog item already carrying a Done, Decided or Resolved line is settled: list it in the closed record, never ask about it. **`actions.done` and `.open` carry the checkboxes; `actions.backlog` carries every Backlog item, each with `settled` and `by` already computed** - a top-level non-checkbox bullet with its continuation lines, or a paragraph of prose outside any bullet, under the heading and any subheading of it.
-
-**The settled match is `Done`, `Decided` or `Resolved` as a whole word: capitalised anywhere, or lowercase opening the item or a clause** (`decided: kept the old vendor`). A lowercase one inside a sentence (`once the migration is done`, `still to be decided`) is a condition, not a disposition.
-
-**A checkbox inside a fenced code block is not an open action**, per **A quoted syntax is not a used syntax** in [operating-discipline.md](../../para-shared/operating-discipline.md).
+**`actions.done` and `.open` carry the checkboxes; `actions.backlog` carries every `## Backlog` item, each with `settled` and `by`.** Open is every unchecked checkbox and every Backlog item not `settled`. A settled item is listed in the closed record, never asked about.
 
 **`actions.other_checkbox_files` names every other file in the entity folder still holding open checkboxes** (a stray plan or log, each with its count and whether it sits under a `sources/` folder), the reconciliation the vault's own "no open actions" archive-hygiene rule expects beyond `actions.md` itself.
 
@@ -39,7 +33,7 @@ Dates and markers per [operating-discipline.md](../../para-shared/operating-disc
 **A staged entity carries one more check, and it is a gate rather than an offer**, where it is in a declared lifecycle ([para-shared/lifecycles.md](../../para-shared/lifecycles.md)) and the destination is a terminal stage's home. **`lifecycle` is null unless the Stage line names a stage of a declared table**; where it is not, `destination_matches` names which terminal stage (if any) the destination equals, and `reason` carries both parts of the gate below together:
 
 - **The Stage line must name that terminal stage.** A brief still reading `**Stage:** Proposal` is an entity whose operator has not yet said it is over. Show the line as it stands and the line it would become, and stop until the operator writes it. Never edit the stage yourself. **`lifecycle.stage_line_names_destination`** is this check, already run.
-- **Where the rule file requires a reason line for that stage**, it must be present and non-empty, with a value from whatever list that file gives. **`lifecycle.reason`** carries the field name, its `raw` value and `key` (the text before its first comma), and the `allowed` list parsed from the vault's own `.claude/rules/*.md` prose (the bold values following "one of" in the paragraph that states the field) - `allowed: null` means no rule file declares one, so read it yourself.
+- **Where the rule file requires a reason line for that stage**, it must be present and non-empty, with a value from whatever list that file gives. **`lifecycle.reason`** carries the field name, its `raw` value and `key` (the text before its first comma), and the `allowed` list parsed from the vault's own `.claude/rules/*.md` prose - `allowed: null` means no rule file declares one, so read it yourself.
 - **Both missing is one stop, not two.** Name them together, with the exact lines to add and where they go, so the operator writes both and reruns once.
 
 ## Step 4 - Route surviving actions and living-reference files
@@ -48,7 +42,7 @@ Dates and markers per [operating-discipline.md](../../para-shared/operating-disc
 
 - A **new successor idea** at `resources/ideas/<name>-vNext/` (scaffold `brief.md` **only**, cross-linked to the archived original) - use only if the user chooses it.
 - An **existing project**, or an **area's rolling actions**.
-- A **contact file**, for anything that is really a follow-up with one person, offered only as `actions.route_options` lists it: the vault's `areas/network/` checkbox row removes it at `never` and keeps only relationship actions at `relationship only`.
+- A **contact file**, for anything that is really a follow-up with one person, offered only as `actions.route_options` lists it.
 - **Drop**.
 
 **A successor idea never gets an `actions.md`** (the vault's "Where a checkbox may live" rule). Fold what survives into its `brief.md` as open questions and prose next steps. A genuinely dated commitment is not idea material: route it to the owning area's `actions.md`, an existing project, or the contact file where `route_options` offers one.

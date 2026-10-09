@@ -26,8 +26,8 @@ as its label). A flag written as an object names the scan flag it reports in `ki
 `file` for a per-file one (`over_threshold`, `stale_files`) or the `source` for a
 `silent_sources` one, and opens on the items behind it.
 A `now` or `next_action` entry naming a task the scan does not hold, or a flag object naming
-one it did not raise, is an error (exit 2), never a silent drop. The page spec this
-implements is references/dashboard.md.
+one it did not raise, is an error (exit 2), never a silent drop. What the judgment file
+holds is references/dashboard.md.
 
 `--mechanical` renders with no judgment file, so the page can be kept current by a hook
 (scripts/refresh_dashboard.py) with no model run: Now is ranked by the brief's own sort
@@ -54,8 +54,7 @@ try:
     )
     from brief_scan import EMPHASIS_RE, SENTENCE_END_RE, first_end  # noqa: E402
 except ImportError as missing:
-    print(f"render_dashboard: {missing}. Write the page by hand with references/dashboard.md",
-          file=sys.stderr)
+    print(f"render_dashboard: {missing}. install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 TOP_ENTITIES = 10

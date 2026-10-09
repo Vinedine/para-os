@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for triage_scan.py. Each one pins a rule references/sources.md, references/filing.md
-or references/approval.md states in prose.
+"""Tests for triage_scan.py. Each one pins a rule of the script, which is the
+specification.
 
     python3 test_triage_scan.py
     py -3 test_triage_scan.py
@@ -1517,8 +1517,8 @@ class RunAsAScript(unittest.TestCase):
         self.assertEqual([i["name"] for i in report["items"]["loose"]],
                          ["20260920 Call Øyan 88604c.md"])
 
-    def test_a_missing_shared_library_exits_2_and_names_the_fallback(self):
-        # scripts.md: a missing shared library is a by-hand fallback, never a traceback.
+    def test_a_missing_shared_library_exits_2_and_says_where_it_belongs(self):
+        # scripts.md: a missing shared library stops the skill, never a traceback.
         isolated = self.base / "skills" / "para-triage" / "scripts"
         isolated.mkdir(parents=True)
         shutil.copy(SCRIPT, isolated / "triage_scan.py")
@@ -1527,7 +1527,8 @@ class RunAsAScript(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, "")
         self.assertIn("triage_scan:", result.stderr)
-        self.assertIn("scan by hand", result.stderr)
+        self.assertIn("install para-shared", result.stderr)
+        self.assertNotIn("by hand", result.stderr)
 
 
 if __name__ == "__main__":

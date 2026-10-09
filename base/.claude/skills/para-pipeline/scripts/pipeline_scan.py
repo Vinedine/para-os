@@ -10,7 +10,7 @@ next step and flag inputs, the counts by stage, and the quarter's metrics. It ne
 to the vault and never ranks or words anything an operator reads - that stays with the
 skill, per references/scan.md and references/render.md.
 
-Why a script. Those two files describe a mechanical read: which folder or row belongs to
+Why a script. The board rests on a mechanical read: which folder or row belongs to
 which stage, where a next step lives, which dates fall in a quarter (of the financial year
 the vault's `**Locale:**` line declares, else the calendar's). Two correct runs have to
 agree, and instructions re-derived per run do not, so this pins the rules the same way
@@ -19,7 +19,7 @@ brief_scan.py pins /para-daily-brief's.
 Reading the vault's primitives - Stage lines, header fields, register rows, lifecycle
 tables, open tasks - is not this script's own work: para-shared/scripts/paraos_vault.py
 holds it. What lives here is what this skill alone decides: how a lifecycle's declared
-homes turn into entities, how a next step is chosen among the sources scan.md orders, which
+homes turn into entities, how a next step is chosen among its sources, which
 flags fire, and how the quarter's metrics are counted.
 
 What it deliberately does NOT do, so the skill keeps owning it: rank or cap entities, word a
@@ -46,17 +46,16 @@ try:
         lifecycles, live_lines, locale, open_tasks, parse_date, read_lines,
         register_rows, stage_of, stage_parts, year_end_of,
     )
-except ImportError as missing:  # the skill falls back to scanning by hand
+except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"pipeline_scan: {missing}. The shared vault library belongs at "
-          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or scan "
-          f"by hand with references/scan.md", file=sys.stderr)
+          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 STALE_DAYS = 14      # no movement in this many days, by last touch or by stage
 EXPIRING_DAYS = 14   # a dated fact due within this many days, and still ahead
 
 # The header fields that make a document with no Stage line, or one naming no declared
-# stage, worth reporting (no_stage, unknown_stage), matched case-insensitively by field_ci - scan.md's narrowing rule.
+# stage, worth reporting (no_stage, unknown_stage), matched case-insensitively by field_ci.
 NO_STAGE_FIELDS = ("opened", "source", "champion", "signer", "value", "last touch", "won")
 
 
@@ -76,8 +75,7 @@ def extract_date(text):
 
 
 def pick_doc(folder):
-    """README.md over brief.md when a folder holds both - scan.md's duplicate-document
-    rule."""
+    """README.md over brief.md when a folder holds both."""
     readme, brief = folder / "README.md", folder / "brief.md"
     if readme.is_file():
         return readme
@@ -88,7 +86,7 @@ def pick_doc(folder):
 
 def doc_h1(path):
     """A document's own title, for scoping which of a contact file's tasks are candidates
-    (scan.md Step 4 rule 3): open_tasks() gives a task this same H1 as its section when it
+    open_tasks() gives a task this same H1 as its section when it
     sits under Next actions or under no H2 at all, and its H2 text otherwise."""
     for _, text in live_lines(read_lines(path)):
         m = H1_RE.match(text)
@@ -103,15 +101,14 @@ ORDINARY_HOMES = {"projects/*", "areas/*", "resources/ideas/*", "archive/project
 
 
 def home_is_lifecycle_only(home):
-    """Whether no ordinary project, area or idea can occupy a home - scan.md's narrowing
-    rule (b): a document there with no Stage line, or one naming no declared stage, is a
+    """Whether no ordinary project, area or idea can occupy a home: a document there with no Stage line, or one naming no declared stage, is a
     filing gap even with nothing else marking it as staged (issue #67)."""
     return re.sub(r"<[^>]+>", "*", home.rstrip("/")) not in ORDINARY_HOMES
 
 
 def other_actions_files(vault):
     """Every actions.md a next step (rule 2) may be filed in: any actions.md at any depth
-    under projects/ or areas/ (scan.md Step 3), so a sub-area's own file counts, never a
+    under projects/ or areas/, so a sub-area's own file counts, never a
     contact file and never archive/ or resources/. Sorted per bucket, projects/ first."""
     files = []
     for bucket in ("projects", "areas"):
@@ -146,8 +143,8 @@ def effective_date(task):
 
 
 def pick_next(tasks):
-    """The earliest-dated open item, undated ones after every dated one - scan.md Step 4's
-    selection rule, shared by every source it names."""
+    """The earliest-dated open item, undated ones after every dated one, the
+    selection every next-step source shares."""
     dated = sorted((t for t in tasks if effective_date(t)), key=effective_date)
     undated = [t for t in tasks if not effective_date(t)]
     ordered = dated + undated

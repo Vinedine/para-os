@@ -132,8 +132,8 @@ grader.
 
 **A shell grant needs a sandbox.** Granting `Bash` is refused on native Windows, so a case
 that needs a shell has to run under WSL2 with a real distribution, or on a Linux runner.
-Cases that stay inside `Read`, `Glob`, `Grep` and `Skill` run anywhere. Without a shell a
-skill takes the date from the session rather than the system clock.
+Cases that stay inside `Read`, `Glob`, `Grep` and `Skill` run anywhere, which leaves out every
+skill with a scan: it stops without Python.
 
 **No run can ask a question.** Every run is a non-interactive session, and the harness
 removes the tools that need a person's answer, `AskUserQuestion` among them, even when a
@@ -192,9 +192,8 @@ duplication, not coverage.
 
 ## The shell cases
 
-Each `shell-*` case asserts that a skill runs its script (`brief_scan.py`,
-`clean_scan.py`, `archive_scan.py`) rather than scanning by hand, which no `native` case can
-see. They need `Bash`, so they need a sandbox backend and a Python on PATH: they run on a
+Every case of a skill with a scan is one, and each `shell-*` case asserts that the skill runs
+its script (`brief_scan.py`, `clean_scan.py`, `archive_scan.py`). They need `Bash`, so they need a sandbox backend and a Python on PATH: they run on a
 Linux runner or under WSL2, and on native Windows the grant is refused outright when given
 and the graders fail when it is not.
 

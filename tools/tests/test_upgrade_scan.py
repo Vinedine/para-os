@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Tests for upgrade_scan.py. Each one pins a rule references/scan.md, delta.md,
-rules-and-skeleton.md or derived-copies.md states in prose, or a defect a --test run found
+"""Tests for upgrade_scan.py. Each one pins a rule of the script, which is the
+specification, or a defect a --test run found
 (the baseline walking HEAD, a missing setup file, the Node suite locator, a copy changed
 between the report and the write).
 
@@ -2542,7 +2542,7 @@ class CommandLineCase(unittest.TestCase):
         self.assertFalse(json.loads(done.stdout.decode("utf-8"))["vault"]["root"])
         self.assertIn(b"not a vault root", done.stderr)
 
-    def test_without_the_shared_library_it_exits_2_and_points_at_the_by_hand_fallback(self):
+    def test_without_the_shared_library_it_exits_2_and_says_where_it_belongs(self):
         with tempfile.TemporaryDirectory() as tmp:
             copy = Path(tmp) / "skills" / "para-upgrade" / "scripts" / "upgrade_scan.py"
             copy.parent.mkdir(parents=True)
@@ -2552,7 +2552,8 @@ class CommandLineCase(unittest.TestCase):
         self.assertEqual(done.returncode, 2)
         self.assertEqual(done.stdout, b"")
         self.assertIn(b"paraos_vault", done.stderr)
-        self.assertIn(b"by hand", done.stderr)
+        self.assertIn(b"install para-shared", done.stderr)
+        self.assertNotIn(b"by hand", done.stderr)
 
 
 if __name__ == "__main__":

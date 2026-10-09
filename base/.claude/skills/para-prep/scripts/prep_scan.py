@@ -44,10 +44,9 @@ try:
         read_text, register_rows, rel_posix, resolve_link, stage_of, stage_parts, strip_code,
         vault_root,
     )
-except ImportError as missing:  # the skill falls back to gathering by hand
+except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"prep_scan: {missing}. The shared vault library belongs at "
-          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill, or gather "
-          f"by hand with references/gather.md", file=sys.stderr)
+          f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 CARD_DIR = ("areas", "network")

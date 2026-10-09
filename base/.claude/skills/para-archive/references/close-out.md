@@ -27,7 +27,7 @@ A routed lesson is written in its home's own form: a playbook step, a rule, a da
 
 ## A won deal: the client's words
 
-Only where `lifecycle.won` is true (by hand: the Stage line names the first stage in its lifecycle table whose home sits under `projects/`, or the brief carries a dated `Won` line), and the vault does not already hold this client's words on this work.
+Only where `lifecycle.won` is true, and the vault does not already hold this client's words on this work.
 
 Ask for the outcome in the client's own words from a file on record, offering any passage the archived `sources/` hold (a mail, a transcript, a review). Record it:
 

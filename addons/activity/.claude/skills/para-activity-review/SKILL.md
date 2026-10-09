@@ -48,7 +48,7 @@ Exit 3 is no `resources/logs/sessions/`: the "No ledger installed" edge case. Ot
 
 ### Step 2 - Compute the signals
 
-The scan's `adoption`, `reach`, `friction` and `rhythm` hold the counts. **What each may mean, and the by-hand fallback where the script cannot run: [references/signals.md](references/signals.md).**
+The scan's `adoption`, `reach`, `friction` and `rhythm` hold the counts. **What each may mean: [references/signals.md](references/signals.md).**
 
 ### Step 3 - Check usage against the vault's own rules
 

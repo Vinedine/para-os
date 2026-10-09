@@ -8,7 +8,7 @@ Reads every resources/logs/sessions/*.jsonl whose file date falls in the window 
 one JSON document: the frame (sessions, people, days), adoption per skill, reach per PARA
 bucket, and the friction counts. It never writes to the vault. What each number may mean,
 and the contradictions against the vault's own rules, stay with the skill:
-references/signals.md is this script's specification and its by-hand fallback.
+references/signals.md says what each count may mean.
 
 Exit 3: the vault has no ledger folder. The skill says so and stops.
 """

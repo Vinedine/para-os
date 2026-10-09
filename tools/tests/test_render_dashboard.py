@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for render_dashboard.py. Each one pins a rule references/dashboard.md states.
+"""Tests for render_dashboard.py. Each one pins a rule of the script, which is the specification.
 
     python3 test_render_dashboard.py
     py -3 test_render_dashboard.py
