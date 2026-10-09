@@ -57,7 +57,7 @@ second job fails when coverage drops below its floor, and a third runs `actionli
 `.github/workflows/`. `main` merges nothing until all six pass.
 
 What the checks enforce, and why each is machinery rather than prose, is the docstring of
-`tools/check.py`: dashes, dates, never-ship terms, line caps, the skill and rule-file contracts,
+`tools/check.py`: dashes, dates, never-ship terms, word caps, the skill and rule-file contracts,
 revision markers, fragments, test suites. A rule a check enforces is stated there and
 nowhere else.
 
