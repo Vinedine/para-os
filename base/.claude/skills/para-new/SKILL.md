@@ -1,6 +1,6 @@
 ---
 name: para-new
-description: Create one new project, area, idea, or contact in the vault, or promote an existing idea to a project. Runs the sorting test first so committed work becomes a project, a maintained responsibility becomes an area, and a concept stays an idea, asks only the few questions each shape needs, then scaffolds the files and cross-links them. Use when the user says "start a project", "new project for <x>", "we've committed to <x>", "we're taking this on", "capture this idea", "add <person> as a contact", "this idea is real now", or types /para-new.
+description: Create one new project, area, idea, or contact in the vault, or a staged entity of a declared lifecycle such as a new deal or property, or promote an idea to a project. Runs the sorting test first (committed work is a project, a maintained responsibility an area, a concept an idea), asks only what each shape needs, then scaffolds and cross-links the files. Use when the user says "start a project", "new project for <x>", "new deal for <x>", "we've committed to <x>", "we're taking this on", "capture this idea", "add <person> as a contact", "this idea is real now", or types /para-new.
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git mv *), Bash(mv *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion
 argument-hint: '[project|area|idea|contact|promote] <name> [--test]'
 ---
