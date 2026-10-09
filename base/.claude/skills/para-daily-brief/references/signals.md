@@ -5,7 +5,7 @@
 Emit each only when it fires:
 
 - **Over the cap:** an action file holding **more than 8 open items**. Flag: `<scope>: N open, over the cap of 8 - close or demote before adding. /para-deep-clean grooms`.
-- **Long headline:** an open item whose headline (its bold lead, or the whole line without one) runs **past 120 characters**. Flag the count and the worst: `N actions over 120 characters - worst: <scope>:<line>, N`.
+- **Long headline:** an open item whose headline (its bold lead, or the whole line without one) reaches **120 characters**. Flag the count and the worst: `N actions of 120+ characters - worst: <scope>:<line>, N`.
 - **Waiting too long:** a `Waiting on` line whose `since` date is **14 or more days** ago. Flag the oldest, `<what> from <person>: N days - chase or drop?`, and how many more.
 - **Stray checkboxes:** open checkboxes in a file under `projects/` or `areas/` that is neither an action file nor a contact file (a log, a plan, a meeting note). Flag the total and the worst file: no brief counts them.
 - **Stale file:** an action file with open items last touched **60+ days ago**. Flag with the date.

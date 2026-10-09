@@ -406,8 +406,8 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
             flags["waiting_too_long"].append({"file": t["file"], "line": t["line"],
                                               "person": wait["person"], "what": wait["what"],
                                               "days": wait["days"]})
-        chars = len(headline(t["text"]))
-        if chars > HEADLINE_CAP:
+        chars = len(NAME_LINK_RE.sub(r"\1", headline(t["text"])))   # as read, a link is its label
+        if chars >= HEADLINE_CAP:   # the template says a headline stays under the cap
             flags["long_headlines"].append({"file": t["file"], "line": t["line"],
                                             "chars": chars})
         overdue = "overdue" in (t["lane"], t.get("also_lane"))
