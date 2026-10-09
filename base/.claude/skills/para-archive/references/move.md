@@ -2,7 +2,7 @@
 
 ## Step 6 - Scan inbound links
 
-`inbound.references` is every line outside the entity naming it: read each and keep the real references. `inbound.name_only` holds the name inside a longer one (`acme` in `acme-website-v2`), to read, never to count. Once Step 4 has routed files, re-run the plan call with one `--route <file>` each and read `inbound.routed[<file>]`: a mention of a routed file need not name the entity.
+`inbound.references` is every line outside the entity naming it: read each and keep the real references. `inbound.name_only` holds the name inside a longer one (`acme` in `acme-website-v2`), to read. Once Step 4 has routed files, re-run the plan call with one `--route <file>` each and read `inbound.routed[<file>]`: a mention of a routed file need not name the entity.
 
 Every hit is repointed whatever its `shape`, except one marked `in_sources` (third-party content), though an annotation the vault appended below it is repointed. Propose one table of every file and line pointing at the entity or a routed file, each repointed to:
 

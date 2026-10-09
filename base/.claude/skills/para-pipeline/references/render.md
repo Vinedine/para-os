@@ -55,4 +55,4 @@ From `metrics`, for the `quarter` named in the heading. Where `year_end_unread` 
 
 ## The close
 
-One **Next action**: the most concrete step the board justifies, naming an entity, what to do and its file link. Prefer an `expiring` fact, then an overdue next step, then no next step, then any other; within each, the most advanced stage, then the longest since last touch (else in stage). A clean board closes on the review itself, never invented work.
+One **Next action**: the most concrete step the board justifies, naming an entity, what to do and its file link. Prefer an `expiring` fact, then an overdue next step, then no next step, then any other; within each, the most advanced stage, then the longest since last touch (else in stage). A clean board closes on the review itself.

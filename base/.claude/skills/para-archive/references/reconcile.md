@@ -28,7 +28,7 @@ Name everything missing in one stop, with the exact lines and where they go.
 
 ## Step 4 - Route surviving actions and living-reference files
 
-Ask where each surviving action goes, never assuming a v2:
+Ask where each surviving action goes:
 
 - A **successor idea** at `resources/ideas/<name>-vNext/`, only if chosen: a `brief.md` cross-linked to the archived original, holding what survives as open questions and prose next steps, never an `actions.md`. A dated commitment goes to one of the other homes.
 - An **existing project**, or an **area's** `actions.md`.

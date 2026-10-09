@@ -23,4 +23,4 @@
 - **`last_touch`**, and **`dated_facts`**: any other date in the Stage qualifier, with its clause and `days_ahead`.
 - **`name_from: "contact"`** where a row's name read `unknown` and its Contact column stood in; **`duplicate_document`** where a folder holds both `brief.md` and `README.md`, read from the `README.md`.
 - **`home_mismatch`**, naming both paths, and **`row_missing_columns`**.
-- **`flags`**: `no_next_step`, `stale` (`{basis, days}`), `expiring`, `signer_unknown` and `name_collision`, computed, never worded.
+- **`flags`**: `no_next_step`, `stale` (`{basis, days}`), `expiring`, `signer_unknown` and `name_collision`, computed.

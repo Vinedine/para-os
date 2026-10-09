@@ -20,7 +20,7 @@ Where a number lives and how an amount is written, in every brief and entity REA
 
 ## Freshness stamps
 
-**A hand-maintained figure carries its as-of date next to it**: an `As of` column or `_(as of YYYY-MM-DD)_` after the number, or a date field per row in a registry, never a header or a commit message. An undated hand-maintained figure is a defect: date it, or propose removing it.
+**A hand-maintained figure carries its as-of date next to it**: an `As of` column or `_(as of YYYY-MM-DD)_` after the number, or a date field per row in a registry. An undated hand-maintained figure is a defect: date it, or propose removing it.
 
 ## Amounts
 
