@@ -54,7 +54,7 @@ Nothing is written before the proposal is approved, so there is no preview argum
 
 1. **Resolve the vault root** per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), **then verify it**: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
 2. Read the vault's `CLAUDE.md` for the parameters listed above.
-3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, `areas/network/`, and `archive/`. Report a near-match and confirm it is genuinely a different thing. **An archived match never stops the run** - reusing a finished entity's name is allowed - but it is named, so the operator can choose a distinct slug if this is a successor rather than a repeat. **Where `${PARAOS_HOME:-~/.paraos}/vaults.json` lists other vaults, match their same folders too** and name a hit, with its vault, before scaffolding: the same entity in two vaults is the operator's call, never silently created.
+3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, `areas/network/`, and `archive/`. Report a near-match and confirm it is genuinely a different thing, offering to add to it instead: never a second folder for the same work. **An archived match never stops the run** - reusing a finished entity's name is allowed - but it is named, so the operator can choose a distinct slug if this is a successor rather than a repeat. **Where `${PARAOS_HOME:-~/.paraos}/vaults.json` lists other vaults, match their same folders too** and name a hit, with its vault, before scaffolding: the same entity in two vaults is the operator's call, never silently created.
 
 ### Steps 2 and 3 - Classify, then interview
 
@@ -82,14 +82,5 @@ When the entity already exists as an idea, this is a move rather than a creation
 
 ## Edge cases
 
-- **It already exists.** Show what was found and ask whether to add to it instead. Never create a second folder for the same work.
-- **It is really an area.** Say which test it failed (maintained, no end date), create the area, and offer to create the *dated push* as a project alongside it if there is one.
-- **It is really a document.** Hand it to `/para-triage` rather than wrapping a single file in a project folder.
-- **It belongs inside an existing area.** Say which one and why, and propose widening that area rather than creating a sibling. An established area often carries only an `actions.md`, so widening may mean adding the scope to its actions file, or writing the `brief.md` it never had - propose whichever the area's own shape calls for rather than assuming a brief is there to edit.
-- **A contact with nothing outstanding** carries the vault's empty-actions sentinel, so the file reads as a decision rather than an oversight.
-- **The vault has no `resources/ideas/` or `archive/projects/`** because its `CLAUDE.md` never declared them: create the bucket only with approval, and say that it is a new bucket rather than an existing one.
-
-## Related skills
-
-- `/para-archive` - the other end of the same lifecycle. Its promotion edge case hands off here.
-- `/para-triage` - files inbound artifacts into entities that exist. When triage finds a document with no home, this skill creates the home.
+- **It belongs inside an existing area.** Propose widening it rather than creating a sibling: adding the scope to its `actions.md`, or writing the `brief.md` it never had, whichever its shape calls for.
+- **The vault has no `resources/ideas/` or `archive/projects/`**: create the bucket only with approval, saying it is new.
