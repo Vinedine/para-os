@@ -4,7 +4,7 @@ The discipline every file-mutating skill follows. A read-only skill inherits onl
 
 ## Arguments
 
-A leftover argument is one only when it reads like one: a shape the skill's Arguments table names, carrying no sentence punctuation. Anything else is prose wrapped around the invocation: run the default and treat it as an instruction for this run. Where it names the value of a `<key>=<value>` argument the table lists, that is the argument.
+A leftover argument is a shape the skill's Arguments table names with no sentence punctuation, or a token starting with `--`, which [test-run.md](test-run.md) rules on. Anything else is prose wrapped around the invocation: run the default and treat it as an instruction for this run. Where it names the value of a `<key>=<value>` argument the table lists, that is the argument.
 
 ## Approval discipline
 
