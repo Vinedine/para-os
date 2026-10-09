@@ -23,6 +23,10 @@ Ask what to do differently next time, starting from any lessons the brief record
 
 The report names each lesson's home and says plainly that nothing reads one left in the brief.
 
+## A won deal: the next conversation
+
+Only where `lifecycle.won` is true. Ask what the next conversation with this client is: a follow-on deal, a dated action on the champion's card, or none, written under the archived brief's header as `**Revisit:** none, <reason>`. Skipped, `/para-pipeline` lists the client for a revisit six months after its last touch.
+
 ## A won deal: the client's words
 
 Only where `lifecycle.won` is true and the vault holds no words from this client on this work. Ask for the outcome in the client's words from a file on record, offering passages from the archived `sources/`. Record it verbatim, quoted in its original language, attributed by name and role, linked to its source file, with its clearance: `named`, `anonymised` or `internal only`, defaulted from the vault's rule on public outputs, else asked as a question of fact. A public output uses only `named` and `anonymised` lines. It goes where the vault keeps clients' words, else in a proposed `## What clients said` section of `README.md` after its four fixed headings. With nothing on file, record nothing and say so.

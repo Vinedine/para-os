@@ -12,6 +12,7 @@
 | `lifecycles[].empty_homes` | Declared homes that do not exist yet or hold nothing |
 | `lifecycles[].counts_by_stage` | `{stage, count}` per live, non-terminal stage, in table order |
 | `lifecycles[].terminal_this_quarter` | Entities closed into any terminal stage this quarter |
+| `lifecycles[].revisits_due` | Won entities archived out of the promoting home, six months past their `Last touch` (else `Won`) with no dated next step and no `Revisit: none` line, one per client, longest first: `{name, path, value, basis, since, days}` |
 | `lifecycles[].metrics` | `quarter`, `quarter_start`, `quarter_end`, `year_end_unread`, `opened`, `promoting_stage`, `reached_promoting`, `median_days_opened_to_promoting` (`n`, `median`), `terminal` (per stage: `this_quarter`, `reasons_this_quarter`, `all_time_reasons`, `missing_reason`) and `referrers` |
 
 ## What a record holds

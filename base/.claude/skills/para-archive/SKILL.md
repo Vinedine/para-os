@@ -54,7 +54,7 @@ Classify every inbound reference, move with `git mv`, rewrite the links inside w
 
 ### Step 9 - Close out
 
-Once the verify call is clean: the Track record line, at most three lessons routed, and for a won deal the client's words: [references/close-out.md](references/close-out.md).
+Once the verify call is clean: the Track record line, at most three lessons routed, and for a won deal the next conversation and the client's words: [references/close-out.md](references/close-out.md).
 
 ## Strict rules
 

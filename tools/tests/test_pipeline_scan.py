@@ -919,6 +919,73 @@ class Metrics(VaultCase):
         self.assertNotIn("Lost", counts)
 
 
+class RevisitsDue(VaultCase):
+    """Issue #266: a won, archived entity untouched for six months with no dated step."""
+
+    def past(self, name, last_touch="2026-01-15, wrap-up call", extra=""):
+        write(self.root, f"archive/projects/{name}/brief.md",
+              f"# {name}\n\n**Opened:** 2025-06-01\n**Value:** 40000 (fixed fee)\n"
+              f"**Last touch:** {last_touch}\n**Won:** 2025-07-01\n{extra}")
+
+    def due(self):
+        return [r["name"] for r in self.deal()["revisits_due"]]
+
+    def test_untouched_for_eight_months_with_no_dated_step_is_listed(self):
+        self.past("nova")
+        r = self.deal()["revisits_due"][0]
+        self.assertEqual((r["name"], r["path"], r["value"]),
+                         ("nova", "archive/projects/nova/brief.md", "40000 (fixed fee)"))
+        self.assertEqual((r["basis"], r["since"], r["days"]), ("last_touch", "2026-01-15", 249))
+
+    def test_touched_three_months_ago_is_not_yet_due(self):
+        self.past("nova", last_touch="2026-06-21, check-in")
+        self.assertEqual(self.due(), [])
+
+    def test_with_no_last_touch_the_won_date_is_the_basis(self):
+        write(self.root, "archive/projects/nova/brief.md", "# Nova\n\n**Won:** 2025-07-01\n")
+        r = self.deal()["revisits_due"][0]
+        self.assertEqual((r["basis"], r["since"]), ("won", "2025-07-01"))
+
+    def test_a_dated_checkbox_linking_the_archived_brief_clears_it(self):
+        self.past("nova")
+        write(self.root, "areas/business/actions.md", "# Business\n\n- [ ] Ask"
+              " [Nova](../../archive/projects/nova/brief.md) how it went 📅 2026-10-05\n")
+        self.assertEqual(self.due(), [])
+
+    def test_an_undated_checkbox_does_not_clear_it(self):
+        self.past("nova")
+        write(self.root, "areas/business/actions.md", "# Business\n\n- [ ] Ask"
+              " [Nova](../../archive/projects/nova/brief.md) how it went\n")
+        self.assertEqual(self.due(), ["nova"])
+
+    def test_a_dated_step_on_the_champions_card_clears_it(self):
+        self.past("nova", extra="**Champion:** [jan](../../../areas/network/jan.md)\n")
+        write(self.root, "areas/network/jan.md",
+              "# Jan\n\n## Next actions\n- [ ] Coffee 📅 2026-10-12\n")
+        self.assertEqual(self.due(), [])
+
+    def test_a_revisit_line_reading_none_clears_it(self):
+        self.past("nova", extra="**Revisit:** none, the team was dissolved\n")
+        self.assertEqual(self.due(), [])
+
+    def test_a_live_entity_of_the_same_name_clears_it(self):
+        self.past("nova")
+        write(self.root, "resources/ideas/nova/brief.md",
+              "# Nova\n\n**Stage:** Qualified (since 2026-09-01)\n**Opened:** 2026-09-01\n")
+        self.assertEqual(self.due(), [])
+
+    def test_versioned_engagements_list_the_client_once_from_the_latest(self):
+        self.past("nova-v1", last_touch="2025-03-01, closed")
+        self.past("nova-v2")
+        r = self.deal()["revisits_due"]
+        self.assertEqual([(x["name"], x["since"]) for x in r], [("nova-v2", "2026-01-15")])
+
+    def test_longest_untouched_first(self):
+        self.past("recent", last_touch="2026-02-01, call")
+        self.past("older", last_touch="2025-11-01, call")
+        self.assertEqual(self.due(), ["older", "recent"])
+
+
 def locale_line(year_end):
     return ("\n## Language\n\nFolders in English.\n\n**Locale:** country Freedonia · currency"
             f" FRD · financial year ends {year_end} · numbers 1,234.56 · dates day-month-year"
@@ -1121,7 +1188,8 @@ class CommandLine(VaultCase):
                          ["Deal lifecycle", "Property lifecycle"])
         self.assertEqual(set(report["lifecycles"][0]),
                          {"heading", "noun", "stages", "entities", "no_stage", "unknown_stage",
-                          "empty_homes", "counts_by_stage", "terminal_this_quarter", "metrics"})
+                          "empty_homes", "counts_by_stage", "terminal_this_quarter", "metrics",
+                          "revisits_due"})
 
     def test_lifecycle_scopes_the_document_to_the_one_it_names(self):
         self.two_lifecycles()
