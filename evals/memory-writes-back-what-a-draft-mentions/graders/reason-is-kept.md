@@ -2,7 +2,7 @@
 type: llm
 ---
 
-The operator gave a reason for moving the first hospitality match to 2027-03-01: the
+The operator gave a reason for moving the first hospitality match to `2027-03-01`: the
 Salesforce integration is to be tested over the winter break first. The ticketing brief keeps
 a Development log of dated decisions with their reasons.
 
