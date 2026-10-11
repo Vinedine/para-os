@@ -17,6 +17,9 @@ One block per lifecycle, in the order `CLAUDE.md` declares them, then the close.
 ## 🚩 Flags (N)
 - <entity> - <what is wrong, and the one edit that fixes it>
 
+## 🔁 Due a revisit (N)
+- <entity> · <N>d since <last touch|won> · <value> - [brief](<path>)
+
 ## 📈 <Lifecycle> this quarter
 - **Opened:** N · **Reached <promoting stage>:** N · **<Terminal stage>:** N
 - **<Terminal stage> reasons:** <reason> N, <reason> N
@@ -44,6 +47,10 @@ One line each, naming the entity and the edit that clears it, never what to deci
 
 Then one line naming the `empty_homes` once, and one closing line listing `no_stage` and `unknown_stage` by path. A lifecycle with nothing live says so in one line.
 
+## Due a revisit
+
+From `revisits_due`, in its order. One closing line says what clears an entry: a dated step linking the archived brief or on its champion's card, or a `**Revisit:** none, <reason>` line in the brief.
+
 ## The metrics
 
 From `metrics`, for the `quarter` named in the heading. Where `year_end_unread` holds a year end, a line under the heading says the `**Locale:**` year end could not be read and the calendar's quarter stands in.
@@ -55,4 +62,4 @@ From `metrics`, for the `quarter` named in the heading. Where `year_end_unread` 
 
 ## The close
 
-One **Next action**: the most concrete step the board justifies, naming an entity, what to do and its file link. Prefer an `expiring` fact, then an overdue next step, then no next step, then any other; within each, the most advanced stage, then the longest since last touch (else in stage). A clean board closes on the review itself.
+One **Next action**: the most concrete step the board justifies, naming an entity, what to do and its file link. Prefer an `expiring` fact, then an overdue next step, then no next step, then a revisit due, then any other; within each, the most advanced stage, then the longest since last touch (else in stage). A clean board closes on the review itself.

@@ -42,7 +42,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        DATE_RE, H1_RE, field_ci, first_link, header_fields, is_live, iso,
+        DATE_RE, H1_RE, add_months, field_ci, first_link, header_fields, is_live, iso,
         lifecycles, live_lines, locale, open_tasks, parse_date, read_lines,
         register_rows, stage_of, stage_parts, year_end_of,
     )
@@ -53,6 +53,7 @@ except ImportError as missing:  # para-shared/scripts.md: the skill stops
 
 STALE_DAYS = 14      # no movement in this many days, by last touch or by stage
 EXPIRING_DAYS = 14   # a dated fact due within this many days, and still ahead
+REVISIT_MONTHS = 6   # a won, archived entity untouched this long is due a revisit
 
 # The header fields that make a document with no Stage line, or one naming no declared
 # stage, worth reporting (no_stage, unknown_stage), matched case-insensitively by field_ci.
@@ -670,6 +671,41 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
     return metrics, terminal_this_quarter
 
 
+def revisits_due(vault, lc, entities, today):
+    """Won entities archived out of the promoting home whose Last touch (else Won date) is
+    REVISIT_MONTHS old and that hold no dated next step: past clients nothing asks about
+    again (issue #266). A `Revisit: none` line, or a live entity of the same name, clears
+    one; versioned engagements (`nova-v1`, `nova-v2`) are one client, read from the latest."""
+    promoting = next((s for s in lc["stages"] if s["home"].startswith("projects/")), None)
+    if not promoting:
+        return []
+    live = {name_key(e["name"]) for e in entities if e["live"]}
+    other_files = other_actions_files(vault)
+    latest = {}
+    for w in won_outside_homes(vault, promoting["home"]):
+        fields = w["fields"]
+        if (field_ci(fields, "Revisit") or "").strip().lower().startswith("none"):
+            continue
+        client = name_key(re.sub(r"-v\d+$", "", w["name"]))
+        if client in live:
+            continue
+        touched = extract_date(field_ci(fields, "Last touch"))
+        basis, since = ("last_touch", touched) if touched else ("won", w["won_date"])
+        if client not in latest or since > latest[client]["since_date"]:
+            latest[client] = dict(w, basis=basis, since_date=since)
+    out = []
+    for w in latest.values():
+        if add_months(w["since_date"], REVISIT_MONTHS) > today:
+            continue
+        step = next_step_for_folder(vault, today, vault / w["path"], w["fields"], other_files)
+        if step and step["date"]:
+            continue
+        out.append({"name": w["name"], "path": w["path"],
+                    "value": field_ci(w["fields"], "Value"), "basis": w["basis"],
+                    "since": iso(w["since_date"]), "days": (today - w["since_date"]).days})
+    return sorted(out, key=lambda r: -r["days"])
+
+
 def counts_by_stage(lc, entities):
     counts = {s["name"]: 0 for s in lc["stages"] if not s["terminal"]}
     for e in entities:
@@ -691,6 +727,7 @@ def scan_lifecycle(vault, lc, today, year_end_text=None):
         "counts_by_stage": counts_by_stage(lc, entities),
         "terminal_this_quarter": terminal_this_quarter,
         "metrics": metrics,
+        "revisits_due": revisits_due(vault, lc, entities, today),
     }
 
 
