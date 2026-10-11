@@ -63,9 +63,9 @@ nowhere else.
 
 ## Branches
 
-- **`main` is where work merges**: one issue, one branch, one pull request that says `Fixes #N`,
-  merged as a squash, so `main` reads one commit per issue and other work is cited by its
-  number, never by the hash of a branch commit.
+- **`main` is where work merges**: one issue, one branch, one pull request that says `Fixes #N`
+  and carries the issue's milestone, merged as a squash, so `main` reads one commit per issue
+  and other work is cited by its number, never by the hash of a branch commit.
 - **`stable` is what users get**: the Quickstart, `INSTALL.md` and `/para-upgrade` read it.
   `/release` moves it to a tagged revision on `main` when that revision's milestone closes, never
   on a schedule. The one other change is a hotfix: fixed on `main`, cherry-picked onto `stable`,
