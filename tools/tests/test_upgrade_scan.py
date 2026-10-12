@@ -281,6 +281,17 @@ class StatesCase(CloneCase):
         v = self.vault("adds", files={".claude/rules/filing.md": RULE.format("v2") + "Ours.\n"})
         self.assertNotIn(".claude/rules/filing.md", self.states(self.scan(v)[0]))
 
+    def test_settings_that_only_add_keys_and_entries_have_nothing_to_take(self):
+        ours = {"autoMemoryEnabled": False, "permissions": {"deny": ["mcp__*__send_message"]}}
+        v = self.vault("settings-adds", files={".claude/settings.json": json.dumps(ours, indent=2)})
+        self.assertNotIn(".claude/settings.json", self.states(self.scan(v)[0]))
+
+    def test_settings_that_change_a_kit_value_or_do_not_parse_are_edited(self):
+        for name, text in (("settings-changes", '{"autoMemoryEnabled": true}\n'),
+                           ("settings-broken", '{"autoMemoryEnabled": false,\n')):
+            v = self.vault(name, files={".claude/settings.json": text})
+            self.assertEqual(self.states(self.scan(v)[0])[".claude/settings.json"], "edited")
+
     def test_a_vault_with_no_skill_home_gets_no_skill_rows(self):
         v = self.vault("no-skills")
         self.assertFalse(any(r["kind"] == "skill" for r in self.scan(v)[0]["files"]))
