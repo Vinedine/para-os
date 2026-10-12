@@ -8,6 +8,45 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ---
 
+## 2026.10.02
+
+### Highlights
+
+- **A dashboard you can work from all day.** The daily brief's page opens on the next action, then what is late or due today, what others owe you, the next 14 days, the people you owe or wait on, and a pipeline you can click into, with late days counted from the day you open it. A tile opens its list in place, and you choose whether the page lives on claude.ai or only on your computer.
+- **`/para-upgrade` shows what is out of date.** It names which of the kit's files in your vault are behind and re-copies them when you say so, shows anything you changed yourself before touching it, and takes you through the template's changes to your `CLAUDE.md` one at a time.
+- **Lighter on every run.** The instructions your vault loads each session are a third shorter and each skill reads about half as much, so runs start faster and cost less. The skills do the same things.
+
+### Also new
+
+- **Deal sheets for your own home.** A deal sheet now builds for an own home, led by the equity at risk and the works ceiling, and a vault can name the page that holds its available capital.
+- **Proposals price from your own deals.** In a vault with the sales module, a drafted proposal prices from your past deals, leaves the price blank when there is nothing to compare against, and keeps your internal figures and notes out of what the client receives.
+- **The pipeline shows what each deal is worth.** In a vault with the sales module, every deal on the board shows its value, each stage its total, and one line lists the open deals largest first, naming those with no value yet. Amounts in another currency are shown but never added in.
+- **Past clients get a dated revisit.** The pipeline lists past clients nobody has been in touch with for six months, and closing a won engagement asks what the next conversation with that client is.
+
+### Fixes
+
+- **"New deal" starts `/para-new`.** Saying "create a new deal" or "new property" now reliably starts it, so the next step of a new deal stays undated until you give a date.
+- **No agenda event dropped.** The daily brief's agenda no longer drops an event because another calendar has a different event starting at the same time: both show.
+- **Deadlines first in Now.** When more than five things are overdue or due today, the brief's Now list keeps a hard deadline due today ahead of a plan date or an overdue recurring chore of the same priority.
+- **Lessons in projects archived earlier get a home.** Projects archived before close-out asked about lessons kept them in the brief, where nothing reads them. The upgrade now offers each one a place that is read.
+- **Writing rules you kept before voice profiles move into one.** If your vault already described how someone writes, in a file of its own or in your working preferences, the upgrade offers to move it into that person's voice profile, so drafts in their name follow it.
+
+### Removed
+
+- **The kit's own test files.** Your vault no longer carries them: they were half of what the install copied in and did nothing for you.
+- **Two triage choices nobody used.** Triage offers two fewer choices.
+- **The by-hand path for a machine without Python.** Python 3 is now required, so each skill is shorter and reads less on every run.
+
+### What to do
+
+1. Before you upgrade: copy the new `/para-upgrade` skill from the kit into place, wherever your skills live, since an older copy cannot read the new list.
+2. Run `/para-upgrade`.
+3. Approve the shorter wording section by section when `/para-upgrade` shows it; anything your vault added stays.
+4. Install Python 3 from python.org if `/para-upgrade` says it is missing, then run it again.
+5. Name your capital page on the new line if you keep one.
+
+Full details: [CHANGELOG.md at this tag](https://github.com/Vinedine/para-os/blob/2026.10.02/CHANGELOG.md).
+
 ## 2026.10.01
 
 ### Highlights

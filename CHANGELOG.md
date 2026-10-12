@@ -14,6 +14,23 @@ Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero
 
 **One legacy label.** The first revision shipped as `2026.08` and was renumbered `2026.08.01`: a vault stamped `2026.08` is already on `2026.08.01`, collects only the entries after it, and is restamped.
 
+## 2026.10.02
+
+Retired: `.claude/skills/para-*/scripts/test_*.py`
+- Before re-copying anything, check for Python 3.9 or later (`py -3 --version` on Windows, `python3 --version` elsewhere) and stop where it is missing, naming https://www.python.org/downloads/: this machine (#383)
+- Reaction: re-copy `/para-upgrade` from the kit as a tree before anything else, `/para-audit` with it where installed, and run the re-copied skill for the rest of this upgrade: `.claude/skills/para-upgrade/` (#372)
+- Replace the sentence saying `/para-upgrade` never overwrites an integration script with base's: `resources/scripts/README.md` (#372)
+Retired: `.claude/skills/para-upgrade/references/`
+Retired: `.claude/skills/para-triage/references/after-a-meeting.md`, `.claude/skills/para-daily-brief/references/task-scan.md`, `.claude/skills/para-deep-clean/references/phase4-audit.md`
+- In a real-estate vault, add the Available capital line to `## Deal sheets`, naming the page that holds the owner's available capital with its as-of date, or leave it out when there is none: `CLAUDE.md` (#321)
+- In a vault with the sales module, rewrite each deal brief's `**Value:**` line that opens on words rather than an amount (`at most €18,000 (proposal cap)`) to open on what the first paid phase is expected to invoice, the rest after it, asking the operator for any amount the line does not settle: `resources/ideas/*/brief.md`, `projects/*/brief.md` (#425)
+- Ask the operator whether this vault's daily-brief dashboard goes to a private claude.ai page (the default) or stays a local page on this computer, and record the answer with `.claude/skills/para-daily-brief/scripts/render_dashboard.py --publish claude|local --vault <vault root>`: this machine (#430)
+- List each brief the upgrade scan names under `lessons`, and offer each lesson in it a home `para-archive/references/close-out.md` names, at most three per brief, one question each: archived briefs (#428)
+- List each file outside `.claude/rules/` whose name or title says voice or writing style, and each block naming a greeting, a sign-off or a recipient's tone, then propose moving each into `.claude/rules/voice-<firstname-lastname>.md` in `para-shared/voice-profile.md`'s shape, one approval each, with its pointer under `## Memory` and every inbound link repointed: such files, `.claude/rules/working-preferences.md` (#427)
+- Keep what a moved file or block says that is not voice, such as a length budget or what a message leaves out, as dated one-liners: `.claude/rules/working-preferences.md` (#427)
+- Carry a moved trait no samples show only on the operator's yes, as an `_operator (YYYY-MM-DD, "...")_` line quoting it, else leave it for a rebuild from samples, never with an invented count: each new voice profile (#427)
+- Make a worked example the moved rules hold the profile's `## Sample`, names replaced by roles, or leave it out: each new voice profile (#427)
+
 ## 2026.10.01
 
 - In a vault on the read-only iPad delivery (a `**Delivery:** readonly-ipad` line, or `flip.ps1` at its root), run `flip.ps1 spread` before the retired scripts go, then compare each section with base's template whole, as for a vault with no marker: `CLAUDE.md`
