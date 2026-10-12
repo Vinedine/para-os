@@ -129,13 +129,13 @@ class Fragments(unittest.TestCase):
     def test_entries_and_fragments_in_the_shape_pass(self):
         self.assertEqual(self.failures_for(
             "# Changelog\n\nProse.\n\n## 2026.02.01\n\n- Do: `a`\nRetired: `b`\n\n## 2026.01.01\n",
-            {"1.md": "## Changelog\n\n- Do: `a`\n\n## What changes for you\n\nX.\n",
+            {"1.md": "## Changelog\n\n- Do: `a`\n\n## Fixes\n\n- **X.** x.\n",
              "README.md": "# Not a fragment\n"}), [])
 
     def test_a_paragraph_fails_in_an_entry_and_in_a_fragment(self):
         self.assertEqual(self.failures_for(
             "# Changelog\n\n## 2026.01.01\n\n**A.** Reaction: none.\n",
-            {"1.md": "## Changelog\n\n**A.** Reaction: none.\n\n## What changes for you\n\nX.\n"}),
+            {"1.md": "## Changelog\n\n**A.** Reaction: none.\n\n## Fixes\n\n- **X.** x.\n"}),
             ["CHANGELOG.md: `## 2026.01.01` line 1 is neither a `- ` Reaction line nor a "
              "`Retired:` line naming a backticked path: `**A.** Reaction: none.`",
              "changelog.d/1.md: `## Changelog` line 1 is neither a `- ` Reaction line nor a "

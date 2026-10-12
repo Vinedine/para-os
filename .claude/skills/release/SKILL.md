@@ -48,10 +48,10 @@ python3 .claude/skills/release/scripts/fold_changelog.py <label>
 ```
 
 It appends every fragment to the `<label>` revision in `CHANGELOG.md` and `RELEASES.md`, in
-the order they merged, and deletes it; it writes nothing when it refuses. Then make the
-revision's two `RELEASES.md` paragraphs read as one text each, the second naming only what
-`/para-upgrade` cannot do. What each part holds is in
-[changelog.d/README.md](../../../changelog.d/README.md).
+the order they merged, and deletes it; it writes nothing when it refuses. Then open the
+revision in `RELEASES.md` on `### Highlights`: the few bullets most users will notice, moved up
+from the sections below, which keep the rest or lose what nobody would miss. What each part
+holds is in [changelog.d/README.md](../../../changelog.d/README.md).
 
 ## 4. Restamp
 

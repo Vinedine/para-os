@@ -39,7 +39,13 @@ How revisions work.
 - Oldest change: `README.md`
 """
 
-RELEASES = """# Release notes
+
+def closing(label):
+    return (f"Full details: [CHANGELOG.md at this tag]"
+            f"(https://github.com/Vinedine/para-os/blob/{label}/CHANGELOG.md).")
+
+
+RELEASES = f"""# Release notes
 
 How to upgrade.
 
@@ -47,26 +53,40 @@ How to upgrade.
 
 ## 2026.02.01
 
-**What changes for you.** Older sentence.
+### Fixes
 
-**Do you need to do anything?** Run `/para-upgrade`.
+- **Older.** Sentence.
+
+### What to do
+
+1. Run `/para-upgrade`.
+
+{closing("2026.02.01")}
 
 ## 2026.01.01
 
-**What changes for you.** Oldest sentence.
+### Also new
 
-**Do you need to do anything?** Nothing.
+- **Oldest.** Sentence.
+
+### What to do
+
+1. Nothing.
+
+{closing("2026.01.01")}
 """
 
 NOT_A_LINE = ("is neither a `- ` Reaction line nor a `Retired:` line naming a backticked "
               "path")
+SECTIONS = ("`## Changelog`, `## Safer by default`, `## Also new`, `## Fixes`, `## Removed`, "
+            "`## What to do`")
 
 
-def fragment(changelog, what, todo=None):
+def fragment(changelog, section, bullet, steps=None):
     text = f"## Changelog\n\n{changelog}\n\n" if changelog is not None else ""
-    text += f"## What changes for you\n\n{what}\n"
-    if todo:
-        text += f"\n## Do you need to do anything?\n\n{todo}\n"
+    text += f"## {section}\n\n{bullet}\n"
+    if steps:
+        text += f"\n## What to do\n\n{steps}\n"
     return text
 
 
@@ -103,26 +123,36 @@ class Repo(unittest.TestCase):
 class ParseFragment(unittest.TestCase):
     def test_a_whole_fragment_parses(self):
         sections, problems = parse_fragment(fragment(
-            "- Do it: `a.md`\n\nRetired: `b.md`, `c/`", "Z.", "Do it."))
+            "- Do it: `a.md`\n\nRetired: `b.md`, `c/`", "Fixes", "- **Z.** It works.",
+            "- Before you upgrade: pull.\n- Wire the hook."))
         self.assertEqual(problems, [])
         self.assertEqual(sections, {"Changelog": "- Do it: `a.md`\n\nRetired: `b.md`, `c/`",
-                                    "What changes for you": "Z.",
-                                    "Do you need to do anything?": "Do it."})
+                                    "Fixes": "- **Z.** It works.",
+                                    "What to do": "- Before you upgrade: pull.\n- Wire the hook."})
 
     def test_a_fragment_with_nothing_for_a_vault_to_do_has_no_changelog(self):
-        self.assertEqual(parse_fragment(fragment(None, "Z.")),
-                         ({"What changes for you": "Z."}, []))
+        self.assertEqual(parse_fragment(fragment(None, "Removed", "- **Z.** Gone.")),
+                         ({"Removed": "- **Z.** Gone."}, []))
+
+    def test_a_fragment_naming_no_section_fails(self):
+        _, problems = parse_fragment("## Changelog\n\n- Do it: `a.md`\n")
+        self.assertEqual(problems, ["no release-notes section: name one of `## Safer by "
+                                    "default`, `## Also new`, `## Fixes`, `## Removed`"])
 
     def test_each_problem_is_named(self):
         text = ("Preamble.\n\n## Changelog\n\n**X.** A paragraph. Reaction: none.\n"
-                "Retired: the old folder\n\n## Changelog\n\nAgain.\n\n## Notes\n\nStray.\n")
+                "Retired: the old folder\n\n## Changelog\n\nAgain.\n\n## Notes\n\nStray.\n\n"
+                "## Fixes\n\nA sentence.\n\n## Removed\n\n- **A.** One.\n- **B.** Two.\n\n"
+                "## What to do\n\n1. Run it.\n")
         _, problems = parse_fragment(text)
         self.assertEqual(problems, [
             "text before the first `## ` section",
             "`## Changelog` appears twice",
-            "unknown section `## Notes`; the sections are `## Changelog`, "
-            "`## What changes for you`, `## Do you need to do anything?`",
-            "`## What changes for you` is missing or empty",
+            f"unknown section `## Notes`; the sections are {SECTIONS}",
+            "two release-notes sections, `## Fixes` and `## Removed`; a fragment names one",
+            "`## Fixes` is not one `- **Lead.** text` bullet",
+            "`## Removed` is not one `- **Lead.** text` bullet",
+            "`## What to do` line 1 is not a `- ` step: `1. Run it.`",
             f"`## Changelog` line 1 {NOT_A_LINE}: `**X.** A paragraph. Reaction: none.`",
             f"`## Changelog` line 2 {NOT_A_LINE}: `Retired: the old folder`",
         ])
@@ -147,11 +177,13 @@ class LineProblems(unittest.TestCase):
 
 
 class Fold(Repo):
-    def test_extends_the_open_revision_and_deletes_the_fragments(self):
-        self.write("changelog.d/10.md", fragment("- First: `a.md`", "First\nsentence."))
+    def test_each_bullet_lands_under_its_section_in_merge_order(self):
+        self.write("changelog.d/10.md", fragment("- First: `a.md`", "Fixes", "- **First.** One."))
         self.write("changelog.d/11.md", fragment("- Second: `b.md` (#9)\n\nRetired: `c.md`",
-                                                 "Second sentence.", "Wire the hook."))
-        self.write("changelog.d/12.md", fragment(None, "Third sentence."))
+                                                 "Safer by default", "- **Second.** Two.",
+                                                 "- Wire the hook."))
+        self.write("changelog.d/12.md", fragment(None, "Fixes", "- **Third.** Three.",
+                                                 "- Before you upgrade: pull the kit."))
         folded = fold(self.root, "2026.02.01")
 
         self.assertEqual([p.name for p in folded], ["10.md", "11.md", "12.md"])
@@ -160,47 +192,60 @@ class Fold(Repo):
             "- Older change: `CLAUDE.md`\n- First: `a.md` (#10)\n- Second: `b.md` (#9)\n"
             "Retired: `c.md`\n"))
         self.assertEqual(self.read("RELEASES.md"), RELEASES.replace(
-            "Older sentence.", "Older sentence. First sentence. Second sentence. Third sentence."
-        ).replace("Run `/para-upgrade`.\n\n## 2026.01.01",
-                  "Run `/para-upgrade`. Wire the hook.\n\n## 2026.01.01"))
+            "### Fixes\n\n- **Older.** Sentence.\n\n### What to do\n\n1. Run `/para-upgrade`.\n",
+            "### Safer by default\n\n- **Second.** Two.\n\n"
+            "### Fixes\n\n- **Older.** Sentence.\n- **First.** One.\n- **Third.** Three.\n\n"
+            "### What to do\n\n1. Before you upgrade: pull the kit.\n2. Run `/para-upgrade`.\n"
+            "3. Wire the hook.\n"))
         self.assertEqual(sorted(p.name for p in (self.root / "changelog.d").iterdir()),
                          ["README.md"])
 
     def test_opens_a_new_revision_above_the_newest(self):
-        self.write("changelog.d/fix.md", fragment("- New: `n.md`", "New sentence."))
+        self.write("changelog.d/fix.md", fragment("- New: `n.md`", "Also new", "- **New.** S."))
         fold(self.root, "2026.03.01")
         self.assertEqual(self.read("CHANGELOG.md"), CHANGELOG.replace(
             "## 2026.02.01", "## 2026.03.01\n\n- New: `n.md`\n\n## 2026.02.01", 1))
         self.assertEqual(self.read("RELEASES.md"), RELEASES.replace(
-            "## 2026.02.01", "## 2026.03.01\n\n**What changes for you.** New sentence.\n\n"
-            "**Do you need to do anything?** Run `/para-upgrade`.\n\n## 2026.02.01", 1))
+            "## 2026.02.01", "## 2026.03.01\n\n### Also new\n\n- **New.** S.\n\n"
+            "### What to do\n\n1. Run `/para-upgrade`.\n\n"
+            f"{closing('2026.03.01')}\n\n## 2026.02.01", 1))
+
+    def test_the_highlights_and_the_maintainers_extras_stay_where_they_are(self):
+        self.write("RELEASES.md", RELEASES.replace(
+            "## 2026.02.01\n\n", "## 2026.02.01\n\n### Highlights\n\n- **Big.** News.\n\n", 1
+        ).replace("1. Run `/para-upgrade`.\n", "1. Run `/para-upgrade`.\n\nOptional:\n\n"
+                  "- Add the hook.\n", 1))
+        self.write("changelog.d/13.md", fragment(None, "Removed", "- **Old.** Gone.", "- Pull."))
+        fold(self.root, "2026.02.01")
+        self.assertIn("## 2026.02.01\n\n### Highlights\n\n- **Big.** News.\n\n### Fixes\n\n"
+                      "- **Older.** Sentence.\n\n### Removed\n\n- **Old.** Gone.\n\n"
+                      "### What to do\n\n1. Run `/para-upgrade`.\n2. Pull.\n\nOptional:\n\n"
+                      f"- Add the hook.\n\n{closing('2026.02.01')}\n\n## 2026.01.01",
+                      self.read("RELEASES.md"))
 
     def test_a_revision_with_nothing_for_a_vault_to_do_is_its_heading(self):
-        self.write("changelog.d/12.md", fragment(None, "S."))
+        self.write("changelog.d/12.md", fragment(None, "Fixes", "- **S.** s."))
         fold(self.root, "2026.03.01")
         opened = self.read("CHANGELOG.md")
         self.assertIn("## 2026.03.01\n\n## 2026.02.01\n", opened)
-        self.write("changelog.d/14.md", fragment(None, "U."))
+        self.write("changelog.d/14.md", fragment(None, "Fixes", "- **U.** u."))
         fold(self.root, "2026.03.01")
         self.assertEqual(self.read("CHANGELOG.md"), opened)
-        self.write("changelog.d/13.md", fragment("- Now: `x`", "T."))
+        self.write("changelog.d/13.md", fragment("- Now: `x`", "Fixes", "- **T.** t."))
         fold(self.root, "2026.03.01")
         self.assertIn("## 2026.03.01\n\n- Now: `x` (#13)\n\n## 2026.02.01\n",
                       self.read("CHANGELOG.md"))
 
-    def test_a_new_revision_carries_what_the_upgrade_cannot_do(self):
-        self.write("changelog.d/12.md", fragment("- New: `n`", "S.", "Pull first."))
-        fold(self.root, "2026.03.01")
-        self.assertIn("**Do you need to do anything?** Run `/para-upgrade`. Pull first.\n",
-                      self.read("RELEASES.md"))
-
     def test_extends_a_revision_that_is_the_only_one(self):
         self.write("CHANGELOG.md", CHANGELOG.split("\n## 2026.01.01")[0])
         self.write("RELEASES.md", RELEASES.split("\n## 2026.01.01")[0])
-        self.write("changelog.d/13.md", fragment("- Last: `l`", "S."))
+        self.write("changelog.d/13.md", fragment("- Last: `l`", "Fixes", "- **L.** l."))
         fold(self.root, "2026.02.01")
         self.assertTrue(self.read("CHANGELOG.md").endswith(
             "- Older change: `CLAUDE.md`\n- Last: `l` (#13)\n"))
+        self.assertTrue(self.read("RELEASES.md").endswith(
+            f"- **L.** l.\n\n### What to do\n\n1. Run `/para-upgrade`.\n\n"
+            f"{closing('2026.02.01')}\n"))
 
     def test_nothing_to_fold(self):
         self.assertEqual(fold(self.root, "2026.02.01"), [])
@@ -209,7 +254,7 @@ class Fold(Repo):
         self.assertUnchanged()
 
     def test_refuses_and_writes_nothing(self):
-        good = self.write("changelog.d/14.md", fragment("- A: `a`", "S."))
+        good = self.write("changelog.d/14.md", fragment("- A: `a`", "Fixes", "- **S.** s."))
         cases = {
             "2026.2.1": "`2026.2.1` is not a YYYY.MM.NN revision label",
             "2026.01.01": "`2026.01.01` is older than the newest revision, `2026.02.01`",
@@ -223,22 +268,23 @@ class Fold(Repo):
         with self.assertRaises(FoldError) as caught:
             fold(self.root, "2026.02.01")
         self.assertEqual(str(caught.exception).splitlines(), [
-            "changelog.d/15.md: `## What changes for you` is missing or empty",
+            "changelog.d/15.md: no release-notes section: name one of `## Safer by default`, "
+            "`## Also new`, `## Fixes`, `## Removed`",
             f"changelog.d/15.md: `## Changelog` line 1 {NOT_A_LINE}: `**B.** A paragraph.`"])
         self.assertUnchanged()
         self.assertTrue(good.exists())
 
     def test_refuses_files_it_cannot_fold_into(self):
-        self.write("changelog.d/16.md", fragment("- A: `a`", "S.", "Do it."))
+        self.write("changelog.d/16.md", fragment("- A: `a`", "Fixes", "- **S.** s.", "- Do it."))
         cases = {
             "no heading": ("# Changelog\n", RELEASES,
                            "CHANGELOG.md has no `## YYYY.MM.NN` revision heading"),
             "disagree": (CHANGELOG, RELEASES.replace("## 2026.02.01\n", ""),
                          "CHANGELOG.md and RELEASES.md disagree on the newest revision; "
                          "run tools/check.py"),
-            "no todo paragraph": (CHANGELOG, RELEASES.replace(
-                "**Do you need to do anything?** Run `/para-upgrade`.\n\n", ""),
-                "RELEASES.md `## 2026.02.01` has no `**Do you need to do anything?**` paragraph"),
+            "a paragraph outside the sections": (CHANGELOG, RELEASES.replace(
+                "## 2026.02.01\n\n", "## 2026.02.01\n\n**What changes for you.** S.\n\n", 1),
+                "RELEASES.md `## 2026.02.01` has text outside its `### ` sections"),
         }
         for name, (changelog, releases, message) in cases.items():
             with self.subTest(name):
@@ -254,26 +300,26 @@ class Fold(Repo):
 class MergeOrder(Repo):
     def test_folds_in_the_order_git_added_them_then_the_uncommitted(self):
         fixture_git(self.root, "init", "-q")
-        self.write("changelog.d/b.md", fragment("- B: `b`", "B."))
+        self.write("changelog.d/b.md", fragment("- B: `b`", "Fixes", "- **B.** b."))
         fixture_git(self.root, "add", "-A")
         fixture_git(self.root, "commit", "-q", "--no-verify", "-m", "b")
-        self.write("changelog.d/a.md", fragment("- A: `a`", "A."))
+        self.write("changelog.d/a.md", fragment("- A: `a`", "Fixes", "- **A.** a."))
         fixture_git(self.root, "add", "-A")
         fixture_git(self.root, "commit", "-q", "--no-verify", "-m", "a")
         # Folded away by a release, then a later pull request adds the same name again.
         (self.root / "changelog.d" / "b.md").unlink()
         fixture_git(self.root, "commit", "-q", "--no-verify", "-am", "fold")
-        self.write("changelog.d/b.md", fragment("- B again: `b`", "B."))
+        self.write("changelog.d/b.md", fragment("- B again: `b`", "Fixes", "- **B.** b."))
         fixture_git(self.root, "add", "-A")
         fixture_git(self.root, "commit", "-q", "--no-verify", "-m", "b again")
-        self.write("changelog.d/0.md", fragment("- Zero: `z`", "Z."))
+        self.write("changelog.d/0.md", fragment("- Zero: `z`", "Fixes", "- **Z.** z."))
 
         self.assertEqual([p.name for p in fold(self.root, "2026.02.01")],
                          ["a.md", "b.md", "0.md"])
 
     def test_without_git_folds_by_name(self):
         for name in ("b.md", "a.md"):
-            self.write(f"changelog.d/{name}", fragment(f"- {name}: `x`", "S."))
+            self.write(f"changelog.d/{name}", fragment(f"- {name}: `x`", "Fixes", "- **S.** s."))
         with mock.patch.object(fold_changelog.subprocess, "run", side_effect=FileNotFoundError):
             self.assertEqual([p.name for p in fold(self.root, "2026.02.01")], ["a.md", "b.md"])
 
@@ -288,13 +334,13 @@ class Main(Repo):
     def test_reports_what_it_folded(self):
         self.assertEqual(self.run_main("2026.02.01"),
                          (0, "No fragments in changelog.d/; nothing to fold.\n", ""))
-        self.write("changelog.d/20.md", fragment("- A: `a`", "S."))
+        self.write("changelog.d/20.md", fragment("- A: `a`", "Fixes", "- **S.** s."))
         self.assertEqual(self.run_main("2026.02.01"),
                          (0, "Folded 1 fragment(s) into 2026.02.01: 20.md\n", ""))
 
     def test_a_refusal_exits_non_zero(self):
         self.assertEqual(self.run_main("2026.01.01")[0], 0)   # nothing to fold is not a refusal
-        self.write("changelog.d/21.md", fragment("- A: `a`", "S."))
+        self.write("changelog.d/21.md", fragment("- A: `a`", "Fixes", "- **S.** s."))
         code, out, err = self.run_main("2026.01.01")
         self.assertEqual((code, out), (1, ""))
         self.assertEqual(err, "fold_changelog: `2026.01.01` is older than the newest revision, "
