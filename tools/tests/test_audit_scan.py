@@ -662,7 +662,8 @@ class CliCase(CloneCase):
     def test_installed_beside_them_the_libraries_resolve_from_there(self):
         skills = self.work / "skills"
         for lib in ("para-shared", "para-upgrade"):
-            shutil.copytree(audit_scan.SKILLS_ROOT / lib / "scripts", skills / lib / "scripts")
+            shutil.copytree(audit_scan.SKILLS_ROOT / lib / "scripts", skills / lib / "scripts",
+                            ignore=shutil.ignore_patterns("__pycache__"))
         (skills / "para-audit" / "scripts").mkdir(parents=True)
         shutil.copy(SCRIPT, skills / "para-audit" / "scripts" / SCRIPT.name)
         done = subprocess.run([sys.executable, str(skills / "para-audit" / "scripts" / SCRIPT.name),
