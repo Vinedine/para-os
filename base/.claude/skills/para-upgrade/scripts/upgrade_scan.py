@@ -24,7 +24,9 @@ files     Every vault file the kit owns or ships that is not `current`: `path` (
                  pipeline/. skeleton: every other file base or a declared add-on ships, listed
                  only when missing, never a placeholder whose folder holds other content.
           state  current: nothing to take from the kit, the ref's bytes or those bytes with
-                 lines of the vault's own added (a rule file the vault writes into). untouched:
+                 lines of the vault's own added (a rule file the vault writes into), or for a
+                 JSON file, keys and list entries of its own (settings with more deny rules).
+                 untouched:
                  bytes the kit held at some commit along the ref, so a re-copy loses nothing
                  local. edited: any other bytes, with `diff` from the master to the copy.
                  missing. no-master: an integration the ref ships no master for. retired: a
@@ -274,9 +276,24 @@ def state_of(path, kit, master):
         return "current"
     if ids & kit.shipped:
         return "untouched"
-    a, b = (lines_of(d) for d in (clone_read(kit.clone, kit.commit, master), data))
+    kit_bytes = clone_read(kit.clone, kit.commit, master)
+    if master.endswith(".json"):
+        try:
+            return "current" if holds(json.loads(data), json.loads(kit_bytes)) else "edited"
+        except ValueError:
+            return "edited"
+    a, b = lines_of(kit_bytes), lines_of(data)
     ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
     return "current" if all(op[0] in ("equal", "insert") for op in ops) else "edited"
+
+
+def holds(have, want):
+    """Whether parsed JSON `have` holds every key, value and list entry of `want`."""
+    if isinstance(want, dict):
+        return isinstance(have, dict) and all(k in have and holds(have[k], v) for k, v in want.items())
+    if isinstance(want, list):
+        return isinstance(have, list) and all(any(holds(h, w) for h in have) for w in want)
+    return have == want
 
 
 def retired_paths(vault, kit, user_dir):
