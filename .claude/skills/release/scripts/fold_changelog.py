@@ -11,9 +11,13 @@ changelog.d/README.md. The fold:
 - appends each fragment's `## Changelog` lines to the end of the `## <label>` section of
   CHANGELOG.md, a `- ` line ending on ` (#<issue>)` where the fragment's name is a number and
   the line names none, and opens that section above the newest one when the label is new;
-- joins its `## What changes for you` and `## Do you need to do anything?` text onto the end
-  of the same revision's two one-line paragraphs in RELEASES.md;
+- appends its one bullet under the `### ` section of the same revision in RELEASES.md that
+  the fragment names, and its `## What to do` steps to that revision's numbered list, a step
+  opening on `Before you upgrade` above the `/para-upgrade` step and any other below it;
 - deletes every fragment it folded. README.md stays.
+
+A RELEASES.md revision is `### ` sections only, in a fixed order (`### Highlights` first,
+which the maintainer writes, `### What to do` last), then the link to CHANGELOG.md at the tag.
 
 Every line of a fragment's `## Changelog`, and of a CHANGELOG.md entry, is a `- ` Reaction line
 or a `Retired:` line naming backticked paths; `tools/check.py` holds both to that.
@@ -40,13 +44,23 @@ REACTION = re.compile(r"^- \S")
 RETIRED = re.compile(r"^Retired:.*`[^`]+`")
 CITES = re.compile(r"\(#\d+\)$")
 
+SUBSECTION = re.compile(r"^###[ \t]+(.+?)[ \t]*$", re.M)
+BULLET = re.compile(r"^- \*\*[^*\n]+\*\*")
+STEP = re.compile(r"^\d+\. (.*)$")
+
 CHANGELOG = "Changelog"
-WHAT = "What changes for you"
-TODO = "Do you need to do anything?"
-SECTIONS = (CHANGELOG, WHAT, TODO)
-# The bold lead each RELEASES.md paragraph opens with.
-LEADS = {WHAT: "**What changes for you.**", TODO: "**Do you need to do anything?**"}
-NEW_TODO = "Run `/para-upgrade`."
+NOTES = ("Safer by default", "Also new", "Fixes", "Removed")
+TODO = "What to do"
+SECTIONS = (CHANGELOG, *NOTES, TODO)
+ORDER = ("Highlights", *NOTES)       # a section neither names sits after these
+UPGRADE = "Run `/para-upgrade`."
+BEFORE = "Before you upgrade"
+CLOSING = re.compile(r"^Full details: .*$", re.M)
+
+
+def closing(label):
+    return (f"Full details: [CHANGELOG.md at this tag]"
+            f"(https://github.com/Vinedine/para-os/blob/{label}/CHANGELOG.md).")
 
 
 class FoldError(Exception):
@@ -86,8 +100,18 @@ def parse_fragment(text):
             problems.append(f"`## {name}` appears twice")
         else:
             sections[name] = body.strip()
-    if not sections.get(WHAT):
-        problems.append(f"`## {WHAT}` is missing or empty")
+    named = [n for n in NOTES if n in sections]
+    if not named:
+        problems.append("no release-notes section: name one of "
+                        + ", ".join(f"`## {n}`" for n in NOTES))
+    elif len(named) > 1:
+        problems.append("two release-notes sections, "
+                        + " and ".join(f"`## {n}`" for n in named) + "; a fragment names one")
+    problems += [f"`## {n}` is not one `- **Lead.** text` bullet" for n in named
+                 if "\n" in sections[n] or not BULLET.match(sections[n])]
+    for n, line in enumerate(sections.get(TODO, "").splitlines(), start=1):
+        if line.strip() and not line.startswith("- "):
+            problems.append(f"`## {TODO}` line {n} is not a `- ` step: `{line}`")
     problems += line_problems(sections.get(CHANGELOG, ""), f"`## {CHANGELOG}`")
     return sections, problems
 
@@ -124,10 +148,6 @@ def lines_of(path, body):
             else line for line in lines]
 
 
-def one_line(text):
-    return " ".join(line.strip() for line in text.splitlines() if line.strip())
-
-
 def newest(text, name):
     m = HEADING.search(text)
     if not m:
@@ -155,22 +175,36 @@ def fold_changelog(text, label, lines):
     return head + block + ("\n" + tail if tail else "")
 
 
-def fold_releases(text, label, what, todo):
+def with_steps(text, before, after):
+    """A `### What to do` body with the steps added and renumbered. Its numbered list comes
+    first; what the maintainer wrote below it stays below it."""
+    lines = text.splitlines()
+    count = next((i for i, line in enumerate(lines) if not STEP.match(line)), len(lines))
+    steps = [STEP.match(line).group(1) for line in lines[:count]] or [UPGRADE]
+    at = next((i for i, step in enumerate(steps) if "/para-upgrade" in step), 0)
+    steps = steps[:at] + before + steps[at:] + after
+    rest = "\n".join(lines[count:]).strip()
+    numbered = "\n".join(f"{n}. {step}" for n, step in enumerate(steps, start=1))
+    return numbered + (f"\n\n{rest}" if rest else "")
+
+
+def fold_releases(text, label, notes, before, after):
     top = newest(text, "RELEASES.md")
-    if top.group(1) != label:
-        todo_line = " ".join(filter(None, [NEW_TODO, todo]))
-        return (f"{text[:top.start()]}## {label}\n\n{LEADS[WHAT]} {what}\n\n"
-                f"{LEADS[TODO]} {todo_line}\n\n{text[top.start():]}")
-    start, end = section_span(text, top)
-    body = text[start:end]
-    for name, addition in ((WHAT, what), (TODO, todo)):
-        if not addition:
-            continue
-        m = re.search(rf"^{re.escape(LEADS[name])}.*$", body, re.M)
-        if not m:
-            raise FoldError(f"RELEASES.md `## {label}` has no `{LEADS[name]}` paragraph")
-        body = f"{body[:m.end()]} {addition}{body[m.end():]}"
-    return f"{text[:start]}{body}{text[end:]}"
+    is_new = top.group(1) != label
+    start, end = (top.start(), top.start()) if is_new else section_span(text, top)
+    parts = SUBSECTION.split(CLOSING.sub("", text[start:end]))
+    if parts[0].strip():
+        raise FoldError(f"RELEASES.md `## {label}` has text outside its `### ` sections")
+    sections = {name: body.strip() for name, body in zip(parts[1::2], parts[2::2])}
+    for name, bullet in notes:
+        sections[name] = f"{sections.get(name, '')}\n{bullet}".strip()
+    sections[TODO] = with_steps(sections.get(TODO, ""), before, after)
+    names = [n for n in ORDER if n in sections] + \
+        [n for n in sections if n not in ORDER and n != TODO] + [TODO]
+    body = "".join(f"### {n}\n\n{sections[n]}\n\n" for n in names if sections[n])
+    body += closing(label) + ("\n\n" if is_new or end < len(text) else "\n")
+    head = f"{text[:start]}## {label}\n\n" if is_new else f"{text[:start]}\n\n"
+    return head + body + text[end:]
 
 
 def fold(root, label):
@@ -201,10 +235,13 @@ def fold(root, label):
         raise FoldError(f"`{label}` is older than the newest revision, `{current}`")
 
     lines = [line for p, s in zip(paths, parsed) for line in lines_of(p, s.get(CHANGELOG, ""))]
-    what = " ".join(one_line(s[WHAT]) for s in parsed)
-    todo = " ".join(one_line(s[TODO]) for s in parsed if s.get(TODO))
+    notes = [(n, s[n]) for s in parsed for n in NOTES if n in s]
+    steps = [line[2:].strip() for s in parsed for line in s.get(TODO, "").splitlines()
+             if line.strip() and line[2:].strip() != UPGRADE]
+    releases = fold_releases(releases, label, notes,
+                             [st for st in steps if st.startswith(BEFORE)],
+                             [st for st in steps if not st.startswith(BEFORE)])
     changelog = fold_changelog(changelog, label, lines)
-    releases = fold_releases(releases, label, what, todo)
 
     # Bytes, not text mode: Windows would write CRLF, and both files are LF.
     changelog_path.write_bytes(changelog.encode("utf-8"))
