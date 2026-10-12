@@ -2,7 +2,7 @@
 
 The steps an agent follows when an operator pastes the Quickstart prompt from [README.md](README.md#quickstart) into a Claude Code session: set up a new vault in the session's folder from this repository, then hand over to the bootstrap interview. A person can follow them by hand too.
 
-**Needs:** Claude Code, git and Python 3.9 or later, which the README's Quickstart has the operator install first (the zip below is a fallback only, since `/para-upgrade` needs the clone). Check Python before anything else: `py -3 --version` on Windows, `python3 --version` elsewhere. Missing or older, stop and name https://www.python.org/downloads/: every skill that reads the vault needs it.
+**Needs:** Claude Code, git and Python 3.9 or later, which the README's Quickstart has the operator install first (the zip below is a fallback only, since `/para-upgrade` needs the clone).
 
 The operator's prompt says nothing about the vault itself: Step 4's questions ask for it.
 
@@ -15,6 +15,8 @@ The session's working directory becomes the vault root. Look at it before writin
 - **It holds anything else**: list what is there and ask whether this really is the folder for the new vault. A session started from a folder already in the Claude desktop sidebar opens *in that folder*.
 
 ## 2. Get the kit, outside the folder
+
+Check Python first: `py -3 --version` on Windows, `python3 --version` elsewhere. Missing or older, stop and name https://www.python.org/downloads/.
 
 Into `$PARAOS_HOME/para-os` (default `~/.paraos/para-os`), where it stays: the bootstrap offers add-ons from it and `/para-upgrade` reads it later. The kit's `stable` branch is what users get.
 
