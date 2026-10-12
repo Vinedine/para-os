@@ -7,8 +7,8 @@
 Prints one JSON document on stdout: every lifecycle the vault's CLAUDE.md declares, the
 entities collected from the union of each stage's home, each entity's stage, days in stage,
 next step and flag inputs, the counts by stage, and the quarter's metrics. It never writes
-to the vault and never ranks or words anything an operator reads - that stays with the
-skill, per references/scan.md and references/render.md.
+to the vault and never words anything an operator reads - that stays with the skill, per
+references/scan.md and references/render.md.
 
 Why a script. The board rests on a mechanical read: which folder or row belongs to
 which stage, where a next step lives, which dates fall in a quarter (of the financial year
@@ -22,8 +22,9 @@ holds it. What lives here is what this skill alone decides: how a lifecycle's de
 homes turn into entities, how a next step is chosen among its sources, which
 flags fire, and how the quarter's metrics are counted.
 
-What it deliberately does NOT do, so the skill keeps owning it: rank or cap entities, word a
-flag into a sentence, render the board, or choose the single closing next action.
+What it deliberately does NOT do, so the skill keeps owning it: cap entities, order them by
+anything but stated Value (the By value line, unweighted), word a flag into a sentence, render
+the board, or choose the single closing next action.
 """
 
 import argparse
@@ -33,6 +34,7 @@ import re
 import statistics
 import sys
 from datetime import date, timedelta
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -44,7 +46,7 @@ try:
     from paraos_vault import (  # noqa: E402
         DATE_RE, H1_RE, field_ci, first_link, header_fields, is_live, iso,
         lifecycles, live_lines, locale, open_tasks, parse_date, read_lines,
-        register_rows, stage_of, stage_parts, year_end_of,
+        register_rows, stage_of, stage_parts, year_end_of, amount_of, vault_currency,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"pipeline_scan: {missing}. The shared vault library belongs at "
@@ -287,7 +289,8 @@ def apply_name_collision(entities):
 
 # --------------------------------------------------------------------- collecting entities
 
-def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files, today):
+def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files, today,
+                            loc):
     pattern = re.sub(r"<[^>]+>", "*", home.rstrip("/"))
     dirs = sorted(p for p in vault.glob(pattern) if p.is_dir())
     entities, no_stage, unknown_stage = [], [], []
@@ -336,6 +339,7 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
             "last_touch": {"date": iso(last_touch_date),
                            "days": (today - last_touch_date).days if last_touch_date else None},
             "home_mismatch": home_mismatch, "row_missing_columns": False,
+            "value": amount_of(field_ci(fields, "Value"), loc),
         }
         if entity["live"]:
             step = next_step_for_folder(vault, today, doc, fields, other_files)
@@ -425,7 +429,7 @@ def collect_row_entities(vault, home, stage_by_name, stage_index, today):
     return entities, False
 
 
-def collect_entities(vault, lc, today):
+def collect_entities(vault, lc, today, loc=None):
     stages = lc["stages"]
     stage_by_name = {s["name"].lower(): s for s in stages}
     stage_index = {s["name"].lower(): i for i, s in enumerate(stages)}
@@ -444,7 +448,7 @@ def collect_entities(vault, lc, today):
                                                 today)
         else:
             found, missing, unknown, empty = collect_folder_entities(
-                vault, h["home"], stage_by_name, stage_index, other_files, today)
+                vault, h["home"], stage_by_name, stage_index, other_files, today, loc or {})
             no_stage += missing
             unknown_stage += [u for u in unknown if u not in unknown_stage]
         entities += found
@@ -678,17 +682,51 @@ def counts_by_stage(lc, entities):
     return [{"stage": name, "count": n} for name, n in counts.items()]
 
 
+def with_totals(counts, entities, currency):
+    """Each stage's count with the total of its live entities' Values in the vault's
+    currency, null where none has one: another currency is never added in (issue #425)."""
+    totals = {}
+    for e in entities:
+        v = e.get("value")
+        if e["live"] and v and v["currency"] == currency:
+            totals[e["stage"]] = totals.get(e["stage"], 0) + Decimal(str(v["amount"]))
+    for row in counts:
+        t = totals.get(row["stage"])
+        row["total"] = None if t is None else int(t) if t == int(t) else float(t)
+    return counts
+
+
+def by_value(entities, currency):
+    """The live folder entities by stated Value, unweighted: the vault's currency largest
+    first, then each other currency's by its code, then the names with no amount. None where
+    no folder entity of the lifecycle carries a Value line, so the board shows no value."""
+    folders = [e for e in entities if e["kind"] == "folder"]
+    if not any(field_ci(e["fields"], "Value") is not None for e in folders):
+        return None
+    live = [e for e in folders if e["live"]]
+    known = [e for e in live if e["value"]]
+    known.sort(key=lambda e: (e["value"]["currency"] != currency, e["value"]["currency"] or "",
+                              -e["value"]["amount"], e["name"].lower()))
+    return {"currency": currency,
+            "ranked": [dict(e["value"], name=e["name"]) for e in known],
+            "unknown": sorted((e["name"] for e in live if not e["value"]), key=str.lower)}
+
+
 # ------------------------------------------------------------------------------- the report
 
-def scan_lifecycle(vault, lc, today, year_end_text=None):
-    entities, no_stage, unknown_stage, empty_homes = collect_entities(vault, lc, today)
-    metrics, terminal_this_quarter = compute_metrics(vault, today, lc, entities, year_end_text)
+def scan_lifecycle(vault, lc, today, loc=None):
+    loc = loc or {}
+    entities, no_stage, unknown_stage, empty_homes = collect_entities(vault, lc, today, loc)
+    metrics, terminal_this_quarter = compute_metrics(vault, today, lc, entities,
+                                                     loc.get("year_end"))
+    currency = vault_currency(loc)
     return {
         "heading": lc["heading"], "noun": lc["noun"],
         "stages": [s["name"] for s in lc["stages"]],
         "entities": entities, "no_stage": no_stage, "unknown_stage": unknown_stage,
         "empty_homes": empty_homes,
-        "counts_by_stage": counts_by_stage(lc, entities),
+        "counts_by_stage": with_totals(counts_by_stage(lc, entities), entities, currency),
+        "by_value": by_value(entities, currency),
         "terminal_this_quarter": terminal_this_quarter,
         "metrics": metrics,
     }
@@ -712,8 +750,8 @@ def scan(vault, today, lifecycle=None):
             return report, 3
         declared = matched
 
-    year_end_text = locale(vault).get("year_end")
-    report["lifecycles"] = [scan_lifecycle(vault, lc, today, year_end_text) for lc in declared]
+    loc = locale(vault)
+    report["lifecycles"] = [scan_lifecycle(vault, lc, today, loc) for lc in declared]
     return report, 0
 
 

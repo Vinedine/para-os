@@ -998,7 +998,89 @@ class FinancialYear(VaultCase):
         self.assertEqual(lc["terminal_this_quarter"], 1)
 
 
-PROPERTY_LIFECYCLE = "\n".join([
+def deal_brief(name, stage, value=None):
+    value_line = f"**Value:** {value}\n" if value is not None else ""
+    return (f"# {name}\n\n**Stage:** {stage} (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+            + value_line)
+
+
+class DealValue(VaultCase):
+    """Issue #425: each folder entity's Value line, read by the vault's Locale line."""
+
+    def declare(self, numbers="1,234.56"):
+        write(self.root, "CLAUDE.md", LIFECYCLE + "\n**Locale:** country Freedonia · currency"
+              f" EUR (€) · financial year ends 31 December · numbers {numbers} · dates"
+              " day-month-year · time zone Europe/Brussels.\n")
+
+    def test_the_amount_opening_the_line_is_the_value(self):
+        self.declare()
+        write(self.root, "resources/ideas/acme/brief.md",
+              deal_brief("Acme", "Qualified", "€4,500 ex VAT (first phase, cap €9,000)"))
+        self.assertEqual(find(self.deal()["entities"], "acme")["value"],
+                         {"amount": 4500, "currency": "EUR"})
+
+    def test_an_amount_is_read_by_the_vaults_number_convention(self):
+        self.declare("1.234,56")
+        write(self.root, "resources/ideas/acme/brief.md",
+              deal_brief("Acme", "Qualified", "EUR 4.500 (discovery)"))
+        self.assertEqual(find(self.deal()["entities"], "acme")["value"],
+                         {"amount": 4500, "currency": "EUR"})
+
+    def test_not_yet_scoped_is_null_and_a_row_carries_no_value(self):
+        self.declare()
+        write(self.root, "resources/ideas/acme/brief.md",
+              deal_brief("Acme", "Qualified", "unknown (not yet scoped)"))
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Open", "",
+            "| Company | Contact | Source | Opened | Stage | Next step | Last touch | Outcome |",
+            "|---|---|---|---|---|---|---|---|",
+            "| Beta | Sue | outreach | 2026-09-01 | Lead | - | 2026-09-01, x | |", "",
+        ]) + "\n")
+        lc = self.deal()
+        self.assertIsNone(find(lc["entities"], "acme")["value"])
+        self.assertNotIn("value", find(lc["entities"], "Beta"))
+        self.assertEqual(lc["by_value"]["unknown"], ["acme"])
+
+    def test_stage_totals_sum_the_vault_currency_only(self):
+        self.declare()
+        write(self.root, "resources/ideas/acme/brief.md",
+              deal_brief("Acme", "Qualified", "€9,000 (first phase)"))
+        write(self.root, "resources/ideas/beta/brief.md", deal_brief("Beta", "Qualified", "€4,500"))
+        write(self.root, "resources/ideas/gamma/brief.md",
+              deal_brief("Gamma", "Qualified", "USD 1250 (pilot)"))
+        write(self.root, "projects/delta/brief.md", deal_brief("Delta", "Goal", "unknown"))
+        write(self.root, "archive/ideas/omega/brief.md", deal_brief("Omega", "Lost", "€50,000"))
+        lc = self.deal()
+        self.assertEqual(find(lc["entities"], "gamma")["value"],
+                         {"amount": 1250, "currency": "USD"})
+        totals = {row["stage"]: row["total"] for row in lc["counts_by_stage"]}
+        self.assertEqual(totals, {"Lead": None, "Qualified": 13500, "Goal": None})
+        self.assertEqual(lc["by_value"]["currency"], "EUR")
+
+    def test_by_value_lists_live_deals_largest_first_then_other_currencies_then_unknown(self):
+        self.declare()
+        write(self.root, "resources/ideas/acme/brief.md", deal_brief("Acme", "Qualified", "€4,500"))
+        write(self.root, "projects/beta/brief.md", deal_brief("Beta", "Goal", "€9,000"))
+        write(self.root, "resources/ideas/gamma/brief.md",
+              deal_brief("Gamma", "Qualified", "USD 20,000"))
+        write(self.root, "resources/ideas/zeta/brief.md", deal_brief("Zeta", "Qualified", "unknown"))
+        write(self.root, "resources/ideas/eta/brief.md", deal_brief("Eta", "Qualified"))
+        write(self.root, "archive/ideas/omega/brief.md", deal_brief("Omega", "Lost", "€50,000"))
+        by_value = self.deal()["by_value"]
+        self.assertEqual([(r["name"], r["amount"], r["currency"]) for r in by_value["ranked"]],
+                         [("beta", 9000, "EUR"), ("acme", 4500, "EUR"), ("gamma", 20000, "USD")])
+        self.assertEqual(by_value["unknown"], ["eta", "zeta"])
+
+    def test_a_lifecycle_whose_entities_record_no_value_has_no_by_value(self):
+        self.declare()
+        write(self.root, "resources/ideas/acme/brief.md", deal_brief("Acme", "Qualified"))
+        lc = self.deal()
+        self.assertIsNone(lc["by_value"])
+        self.assertIsNone(find(lc["entities"], "acme")["value"])
+        self.assertIsNone(lc["counts_by_stage"][1]["total"])
+
+
+PROPERTY_LIFECYCLE ="\n".join([
     "# Vault", "",
     "## Property lifecycle", "",
     "| Stage | PARA home |",
@@ -1121,7 +1203,8 @@ class CommandLine(VaultCase):
                          ["Deal lifecycle", "Property lifecycle"])
         self.assertEqual(set(report["lifecycles"][0]),
                          {"heading", "noun", "stages", "entities", "no_stage", "unknown_stage",
-                          "empty_homes", "counts_by_stage", "terminal_this_quarter", "metrics"})
+                          "empty_homes", "counts_by_stage", "terminal_this_quarter", "metrics",
+                          "by_value"})
 
     def test_lifecycle_scopes_the_document_to_the_one_it_names(self):
         self.two_lifecycles()

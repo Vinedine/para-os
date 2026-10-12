@@ -27,7 +27,7 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from paraos_vault import (
-    abspath, action_files, add_months, arrived, cadence_days, cap_count, changed, closed_tasks,
+    abspath, action_files, add_months, amount_of, arrived, cadence_days, cap_count, changed, closed_tasks,
     contact_card_level, contact_names, dangling_links, declarations, duplicates, extract_links,
     field_ci, file_dates, find_clone, first_link, git, git_blame_line_date, git_bytes,
     git_last_commit_date, git_modified, git_untracked, hashes, header_fields, headline,
@@ -2374,6 +2374,36 @@ class Locale(VaultCase):
     def test_a_year_end_that_names_no_day_is_none(self):
         for text in (None, "", "30 Juni", "31 June", "Ju 30", "13-01", "end of the season"):
             self.assertIsNone(year_end_of(text), text)
+
+    def test_an_amount_is_read_by_the_declared_number_convention(self):
+        eur = {"currency": "EUR (€)", "numbers": "1,234.56"}
+        dot = {"currency": "EUR (€)", "numbers": "1.234,56"}
+        space = {"currency": "EUR (€)", "numbers": "1 234,56"}
+        for text, loc, amount in (
+                ("€4,500 ex VAT (first phase)", eur, 4500), ("EUR 4.500", dot, 4500),
+                ("4.500,50 € (two phases)", dot, 4500.5), ("€ 1,234.56", eur, 1234.56),
+                ("4\u202f500 EUR", space, 4500), ("4 500 €", space, 4500),
+                ("€12000", eur, 12000), ("4500", eur, 4500)):
+            self.assertEqual(amount_of(text, loc), {"amount": amount, "currency": "EUR"}, text)
+
+    def test_another_currency_keeps_its_own_code(self):
+        loc = {"currency": "EUR (€)", "numbers": "1,234.56"}
+        self.assertEqual(amount_of("USD 1250 (pilot)", loc), {"amount": 1250, "currency": "USD"})
+        self.assertEqual(amount_of("1,250 GBP", loc), {"amount": 1250, "currency": "GBP"})
+        self.assertEqual(amount_of("$1,250", loc), {"amount": 1250, "currency": "$"})
+
+    def test_a_line_not_opening_on_an_amount_reads_none(self):
+        loc = {"currency": "EUR (€)", "numbers": "1,234.56"}
+        for text in (None, "", "unknown (not yet scoped)", "unknown (2 sites)",
+                     "at most €18,000 (proposal cap)", "TBD", "€", "4,50 (typo)"):
+            self.assertIsNone(amount_of(text, loc), text)
+
+    def test_with_no_number_convention_only_plain_digits_are_read(self):
+        self.assertEqual(amount_of("€4500", {"currency": "EUR (€)"}),
+                         {"amount": 4500, "currency": "EUR"})
+        for text in ("€4,500", "€4.500"):
+            self.assertIsNone(amount_of(text, {"currency": "EUR (€)"}), text)
+        self.assertEqual(amount_of("4500", {}), {"amount": 4500, "currency": None})
 
 
 # ------------------------------------------------------------------- a para-os clone

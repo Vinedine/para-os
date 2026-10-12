@@ -41,7 +41,9 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -1010,7 +1012,8 @@ def locale(vault):
     a `{{placeholder}}`, is None; a vault with no such line answers {}. The prose after the
     line's last field is not part of it.
 
-    Text only: `year_end_of` reads the year end, and the rest is read by the model.
+    Text only: `year_end_of` reads the year end, `amount_of` the currency and the numbers, and
+    the rest is read by the model.
     """
     keys = {"country": "country", "currency": "currency", "financial year ends": "year_end",
             "numbers": "numbers", "dates": "dates", "time zone": "time_zone"}
@@ -1055,6 +1058,62 @@ def year_end_of(text):
     if not month or not 1 <= month <= 12 or not 1 <= day <= calendar.monthrange(2000, month)[1]:
         return None
     return month, day
+
+
+CURRENCY_CODE_RE = re.compile(r"([A-Z]{3})(?![A-Za-z])")
+GROUP_SPACES = "   "
+
+
+def _currency_mark(text):
+    """(mark, rest): the ISO 4217 code or currency symbol `text` opens on, else (None, text)."""
+    m = CURRENCY_CODE_RE.match(text)
+    if m:
+        return m.group(1), text[m.end():]
+    if text[:1] and unicodedata.category(text[0]) == "Sc":
+        return text[0], text[1:]
+    return None, text
+
+
+def vault_currency(loc):
+    """The `**Locale:**` currency as one mark: its code (`EUR (€)` is EUR), else its symbol,
+    else None. `loc` is what `locale()` answers."""
+    text = (loc or {}).get("currency") or ""
+    code = re.search(r"\b[A-Z]{3}\b", text)
+    symbol = next((c for c in text if unicodedata.category(c) == "Sc"), None)
+    return code.group(0) if code else symbol
+
+
+def amount_of(text, loc):
+    """The amount `text` opens on, read by the `**Locale:**` line `loc` (what `locale()`
+    answers) as figures.md has amounts written: {amount, currency}, else None.
+
+    The currency may stand before or after the number, as a code or a symbol. The vault's own
+    symbol or code, or no mark at all, is the vault's currency; any other mark is kept as
+    written, so a caller never adds it to the vault's. The number is read by the declared
+    `numbers` convention (`1,234.56`, `1.234,56`, `1 234,56`, any space grouping the last);
+    with none declared, only plain digits are, since `4.500` could be either. Words before
+    the amount (`at most €18,000`, `unknown (2 sites)`) read None.
+    """
+    loc = loc or {}
+    seps = [c for c in (loc.get("numbers") or "") if not c.isdigit()]
+    group, decimal = (seps[0], seps[-1]) if len(seps) > 1 else (None, (seps or [None])[0])
+    num = rf"\d+(?:{re.escape(decimal)}\d+)?" if decimal else r"\d+"
+    if group:
+        g = f"[{GROUP_SPACES}]" if group.isspace() else re.escape(group)
+        num = rf"\d{{1,3}}(?:{g}\d{{3}})+(?:{re.escape(decimal)}\d+)?|{num}"
+
+    pre, rest = _currency_mark((text or "").strip())
+    m = re.match(rf"(?:{num})(?![.,]?\d)", rest.lstrip(GROUP_SPACES) if pre else rest)
+    if not m:
+        return None
+    post = None if pre else _currency_mark(m.string[m.end():].lstrip(GROUP_SPACES))[0]
+    digits = re.sub(f"[{GROUP_SPACES}]" if group and group.isspace() else re.escape(group or " "),
+                    "", m.group(0))
+    figure = Decimal(digits.replace(decimal, ".") if decimal else digits)
+    mark, own = pre or post, vault_currency(loc)
+    own_marks = {own, *(c for c in loc.get("currency") or "" if unicodedata.category(c) == "Sc")}
+    return {"amount": int(figure) if figure == figure.to_integral_value() else float(figure),
+            "currency": own if mark is None or mark in own_marks else mark}
 
 
 def lifecycles(vault):

@@ -9,10 +9,11 @@ One block per lifecycle, in the order `CLAUDE.md` declares them, then the close.
 ```
 <Stage> N · <Stage> N · <Stage> N · <Stage> N   (terminal this quarter: N)
 ```
+By value: <entity> €9,000 · <entity> €4,500 · <entity> USD 1,250 · unknown: <entity>, <entity>
 
-### <Stage> (N)
-1. <entity> · <N>d in stage · <next step text> · 📅 <date> (<N>d ago) - [<file>:<line>](<relative/path>#L<line>) · <Source header>
-2. <entity> · ?d in stage · 🚩 no next step · <Source header>
+### <Stage> (N · €13,500)
+1. <entity> · <N>d in stage · €4,500 · <next step text> · 📅 <date> (<N>d ago) - [<file>:<line>](<relative/path>#L<line>) · <Source header>
+2. <entity> · ?d in stage · value unknown · 🚩 no next step · <Source header>
 
 ## 🚩 Flags (N)
 - <entity> - <what is wrong, and the one edit that fixes it>
@@ -31,6 +32,8 @@ One block per lifecycle, in the order `CLAUDE.md` declares them, then the close.
 ````
 
 **Line rules.** One line per entity, never wrapped: a long cell is cut after its first clause and ends in `…`. Stages in the table's order, terminal ones off the board; within a stage, most days in stage first. `?d` is a null `days_in_stage`, and `since_from: "opened"` reads `<N>d since opened`. The step links to its `next_step.file` and `line`; percent-encode every link target, never the text. A row home renders like a folder home, its register the link; a stage over fifteen rows shows the ten with the nearest dated step, then `(+N more in <register>)`.
+
+**Value**, only where `by_value` is not null: a folder entity's `value` in the vault's `**Locale:**` number convention, the vault's currency by its symbol and any other by its code, a null one as `value unknown`, and a register row with none. A stage heading carries its non-null `total`. The By value line takes `by_value.ranked` in its order, then its `unknown` names.
 
 ## The flags
 
