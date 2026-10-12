@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: memory-writes-back-what-a-draft-mentions
+tags: [memory, native, write]
+context:
+  scaffold_script: setup.sh
