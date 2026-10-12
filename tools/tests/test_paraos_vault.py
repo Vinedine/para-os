@@ -371,17 +371,6 @@ class Git(VaultCase):
             self.assertIsNone(git_bytes(self.root, ["status"]))
             self.assertIsNone(git(self.root, ["status"]))
 
-    @unittest.skipIf(shutil.which("git") is None, "git is not on PATH")
-    def test_input_reaches_stdin_so_one_batch_answers_several_blobs(self):
-        git_init(self.root)
-        write(self.root, "a.txt", "alpha\n")
-        write(self.root, "b.txt", "beta\n")
-        git_commit_at(self.root, "2026-01-01")
-        out = git_bytes(self.root, ["cat-file", "--batch"], input=b"HEAD:a.txt\nHEAD:b.txt\n")
-        self.assertIn(b"\nalpha\n", out)
-        self.assertIn(b"\nbeta\n", out)
-        self.assertEqual(out.count(b" blob "), 2)
-
 
 def write_bytes(root, rel, data):
     path = root / rel
@@ -1634,17 +1623,6 @@ class Normalised(VaultCase):
     def test_a_str_reads_as_its_utf8_bytes(self):
         self.assertEqual(normalised("﻿café\r\n"), "café\n".encode("utf-8"))
 
-    def test_trailing_whitespace_counts_as_a_difference_unless_asked(self):
-        copy, master = b"a  \n\tb\t\n", b"a\n\tb\n"
-        self.assertNotEqual(normalised(copy), normalised(master))
-        self.assertEqual(normalised(copy, trailing_ws=True),
-                         normalised(master, trailing_ws=True))
-
-    def test_trailing_blank_lines_and_a_missing_final_newline_are_whitespace(self):
-        self.assertEqual(normalised(b"a\n\nb\n \n\n", trailing_ws=True), b"a\n\nb\n")
-        self.assertEqual(normalised(b"a\n\nb", trailing_ws=True), b"a\n\nb\n")
-        self.assertEqual(normalised(b" \r\n\t\n", trailing_ws=True), b"")
-
     def test_snapshot_still_sees_a_line_ending_change(self):
         # A write-time check has to see every byte a writer changed.
         path = write_bytes(self.root, "projects/a/brief.md", b"# a\n")
@@ -1936,35 +1914,6 @@ class ChangedCLI(VaultCase):
         scan_file = self.write_json("scan.json", scan)
         write(self.root, "triage/late.md", "# late\n")
         self.assertEqual(self.run_main(["changed", str(scan_file)]), 1)
-
-
-class RegistryCLI(VaultCase):
-
-    def run_main(self, argv):
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = main(argv)
-        return code, out.getvalue()
-
-    def test_no_name_prints_the_whole_registry(self):
-        entries = [{"name": "BF", "path": "C:/vaults/BF"}]
-        write(self.root, "vaults.json", json.dumps(entries))
-        with mock.patch.dict(os.environ, {"PARAOS_HOME": str(self.root)}):
-            code, out = self.run_main(["registry"])
-        self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out), entries)
-
-    def test_a_name_looks_it_up_in_every_other_registered_vault(self):
-        other = self.root / "other-vault"
-        write(other, "projects/acme-website/actions.md", "# a\n")
-        home = self.root / "home"
-        write(home, "vaults.json", json.dumps([{"name": "Other", "path": str(other)}]))
-        with mock.patch.dict(os.environ, {"PARAOS_HOME": str(home)}):
-            code, out = self.run_main(["registry", "acme-website", "--vault", str(self.root)])
-        self.assertEqual(code, 0)
-        got = json.loads(out)
-        self.assertEqual(got[0]["vault"], "Other")
-        self.assertEqual(got[0]["path"], "projects/acme-website")
 
 
 TRIAGE_LINES = [
@@ -2263,27 +2212,6 @@ class HashesNarrowing(VaultCase):
         self.assertEqual(got["skipped"], ["projects/a/sources/photos/front.txt"])
 
 
-class SourcesCLI(VaultCase):
-
-    def run_main(self, argv):
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = main(argv)
-        return code, out.getvalue()
-
-    def test_sources_prints_the_declared_rows(self):
-        write(self.root, "CLAUDE.md", "\n".join([
-            "# V", "", "## Triage sources", "",
-            "| Source | Type | Endpoint | Relevant when |", "|---|---|---|---|",
-            "| granola | sync-script | `resources/scripts/granola.js` | Meeting. |", "",
-        ]) + "\n")
-        code, out = self.run_main(["sources", "--vault", str(self.root)])
-        self.assertEqual(code, 0)
-        got = json.loads(out)
-        self.assertTrue(got["declared"])
-        self.assertEqual(got["rows"][0]["source"], "granola")
-
-
 class QuestionsCLI(VaultCase):
     """The one-off questions the module docstring lists, each answered as one JSON document
     from the same function a skill's own scan imports."""
@@ -2296,7 +2224,6 @@ class QuestionsCLI(VaultCase):
         write(self.root, "areas/network/jan-janssen.md",
               "# Jan\n\nBought [the house](../../projects/orchard-lane/brief.md).\n"
               "Also [a lost page](../../projects/orchard-lane/gone.md).\n")
-        write(self.root, "archive/projects/old/brief.md", "[gone](../../../nowhere.md)\n")
 
     def ask(self, *argv):
         out = io.StringIO()
@@ -2304,16 +2231,6 @@ class QuestionsCLI(VaultCase):
             code = main([*argv, "--vault", str(self.root)])
         self.assertEqual(code, 0)
         return json.loads(out.getvalue())
-
-    def test_resolve_prints_where_one_entity_lives(self):
-        got = self.ask("resolve", "Orchard Lane")
-        self.assertEqual((got["status"], got["match"]["path"]),
-                         ("resolved", "projects/orchard-lane"))
-
-    def test_lifecycles_prints_every_declared_lifecycle(self):
-        got = self.ask("lifecycles")
-        self.assertEqual([(lc["heading"], [s["name"] for s in lc["stages"]]) for lc in got],
-                         [("Deal lifecycle", ["Lead", "Qualified", "Goal", "Lost"])])
 
     def test_move_plan_prints_both_halves_of_the_rewrite(self):
         got = self.ask("move-plan", "projects/orchard-lane", "archive/projects/orchard-lane")
@@ -2323,29 +2240,14 @@ class QuestionsCLI(VaultCase):
                          ["../../archive/projects/orchard-lane/brief.md",
                           "../../archive/projects/orchard-lane/gone.md"])
 
-    def test_hashes_prints_the_digests_and_what_was_skipped(self):
-        write(self.root, "projects/orchard-lane/photos/front.md", "x" * 300)
-        write(self.root, "projects/orchard-lane/notes.md", "y" * 300)
-        got = self.ask("hashes")
-        self.assertEqual(list(got["files"]), ["CLAUDE.md", "projects/orchard-lane/notes.md"])
-        self.assertEqual(got["skipped"], ["projects/orchard-lane/photos/front.md"])
-
-    def test_links_inbound_prints_every_line_naming_the_entity(self):
-        got = self.ask("links", "inbound", "orchard-lane")
-        self.assertEqual([(h["file"], h["line"]) for h in got],
-                         [("areas/network/jan-janssen.md", 3), ("areas/network/jan-janssen.md", 4)])
-
-    def test_links_dangling_reads_the_live_buckets_unless_given_roots(self):
+    def test_links_dangling_reads_the_live_buckets(self):
         self.assertEqual([h["resolved"] for h in self.ask("links", "dangling")],
                          ["projects/orchard-lane/gone.md"])
-        got = self.ask("links", "dangling", "--root", "archive", "--root", "areas")
-        self.assertEqual([h["file"] for h in got],
-                         ["archive/projects/old/brief.md", "areas/network/jan-janssen.md"])
 
     def test_a_vault_that_is_no_folder_is_a_usage_error(self):
         err = io.StringIO()
         with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as stop:
-            main(["resolve", "orchard-lane", "--vault", str(self.root / "no-such-vault")])
+            main(["links", "dangling", "--vault", str(self.root / "no-such-vault")])
         self.assertEqual(stop.exception.code, 2)
         self.assertIn("no such vault", err.getvalue())
 
@@ -2374,11 +2276,11 @@ class RunAsAScript(VaultCase):
 
     def test_a_question_prints_utf8_json_whatever_the_console_encoding(self):
         vault = self.root / "vault"
-        write(vault, "projects/Øresund-bridge/brief.md", "# Øresund\n")
-        result = self.run_script("resolve", "resund-bridge", "--vault", str(vault))
+        write(vault, "README.md", "[bridge](Øresund-bridge.md)\n")
+        result = self.run_script("links", "dangling", "--vault", str(vault))
         self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
-        self.assertEqual(json.loads(result.stdout.decode("utf-8"))["match"]["path"],
-                         "projects/Øresund-bridge")
+        self.assertEqual(json.loads(result.stdout.decode("utf-8"))[0]["href"],
+                         "Øresund-bridge.md")
 
     def test_changed_exits_1_when_a_file_in_the_scan_output_changed(self):
         target = write(self.root, "vault/projects/x/actions.md", "# x\n")

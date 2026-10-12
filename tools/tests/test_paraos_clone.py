@@ -12,7 +12,7 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from paraos_clone import (  # noqa: E402
-    addon_root, clone_files, clone_read, clone_ref, clone_session, master_template,
+    addon_root, clone_read, clone_ref, clone_session, master_template,
 )
 
 
@@ -57,9 +57,7 @@ def build_clone(root):
     - `layout-addons` (and the annotated `v2026.09.04`): everything under `addons/`, plus a
       leftover `flavors/legacy-kit/` that an `addons/` ref must never answer from.
     - Working tree: an unstaged base edit (2026.09.05); a rule file edit staged at
-      2026.09.06 then rewritten on disk to 2026.09.07; an untracked file and an untracked
-      folder; an ignored `__pycache__`; a folder holding only ignored files; a tracked file
-      deleted.
+      2026.09.06 then rewritten on disk to 2026.09.07; an untracked file.
     """
     fixture_git(root, "init", "-q")
     # Hermetic against the machine's own git config: a system autocrlf would rewrite the
@@ -81,9 +79,7 @@ def build_clone(root):
     write(root, "addons/sales/README.md", "# Sales\n")
     write(root, "addons/sales/Réunion notes.md", "# Réunion\n")
     write_bytes(root, "addons/sales/crlf.txt", b"caf\xe9\r\nline\r\n")
-    write(root, "addons/sales-extra/README.md", "# Not sales\n")
     write(root, "flavors/legacy-kit/README.md", "# Left behind\n")
-    write(root, ".gitignore", "__pycache__/\n")
     fixture_git(root, "add", "-A")
     fixture_git(root, "commit", "-q", "--no-verify", "-m", "addons layout")
     fixture_git(root, "tag", "layout-addons")
@@ -94,10 +90,6 @@ def build_clone(root):
     fixture_git(root, "add", DOSSIER)
     write(root, DOSSIER, "# Dossier 2026.09.07\n")
     write(root, "addons/sales/untracked.md", "# New\n")
-    write(root, "addons/northwind-kit/README.md", "# Northwind kit\n")
-    write_bytes(root, "addons/sales/__pycache__/x.cpython-312.pyc", b"\0")
-    write_bytes(root, "addons/stale/__pycache__/y.cpython-312.pyc", b"\0")
-    (root / "addons/sales/README.md").unlink()
 
 
 @unittest.skipIf(shutil.which("git") is None, "git is not on PATH")
@@ -191,42 +183,8 @@ class CloneRead(CloneCase):
     def test_a_ref_opening_on_a_dash_is_never_passed_to_git_as_an_option(self):
         with mock.patch("paraos_clone.git_bytes") as git_bytes_spy:
             self.assertIsNone(clone_read(self.clone, "--output=x", "base/CLAUDE.md.template"))
-            self.assertIsNone(clone_files(self.clone, "--all", "addons"))
             self.assertIsNone(addon_root(self.clone, "-h", "sales"))
         git_bytes_spy.assert_not_called()
-
-
-class CloneFiles(CloneCase):
-
-    SALES = ["addons/sales/.claude/rules/deal-brief.md", "addons/sales/README.md",
-             "addons/sales/Réunion notes.md", "addons/sales/crlf.txt"]
-
-    def test_a_prefix_lists_its_files_sorted_and_unquoted(self):
-        self.assertEqual(clone_files(self.clone, "HEAD", "addons/sales"), self.SALES)
-
-    def test_a_prefix_matches_whole_segments_only(self):
-        got = clone_files(self.clone, "HEAD", "addons/sales/")
-        self.assertEqual(got, self.SALES)
-        self.assertNotIn("addons/sales-extra/README.md", got)
-
-    def test_a_prefix_naming_one_file_answers_with_it(self):
-        self.assertEqual(clone_files(self.clone, "HEAD", "base/CLAUDE.md.template"),
-                         ["base/CLAUDE.md.template"])
-
-    def test_an_empty_prefix_lists_the_whole_tree(self):
-        got = clone_files(self.clone, "layout-flavors", "")
-        self.assertEqual(got, ["CHANGELOG.md", "base/CLAUDE.md.template",
-                               "flavors/real-estate/.claude/rules/property-dossier.md"])
-
-    def test_nothing_there_is_empty_and_a_bad_ref_is_none(self):
-        self.assertEqual(clone_files(self.clone, "layout-flavors", "addons"), [])
-        self.assertIsNone(clone_files(self.clone, "no-such-ref", "addons"))
-
-    def test_worktree_is_tracked_on_disk_plus_untracked_never_ignored(self):
-        got = clone_files(self.clone, "HEAD", "addons/sales", worktree=True)
-        self.assertEqual(got, ["addons/sales/.claude/rules/deal-brief.md",
-                               "addons/sales/Réunion notes.md", "addons/sales/crlf.txt",
-                               "addons/sales/untracked.md"])
 
 
 class AddonRoot(CloneCase):
@@ -245,13 +203,6 @@ class AddonRoot(CloneCase):
 
     def test_a_module_at_a_ref_before_addons_resolves_to_nothing(self):
         self.assertIsNone(addon_root(self.clone, "layout-flavors", "sales"))
-
-    def test_worktree_counts_an_untracked_folder_and_not_one_of_ignored_files(self):
-        self.assertEqual(addon_root(self.clone, "HEAD", "northwind-kit", worktree=True),
-                         "addons/northwind-kit")
-        self.assertIsNone(addon_root(self.clone, "HEAD", "northwind-kit"))
-        self.assertTrue((self.clone / "addons/stale/__pycache__").is_dir())
-        self.assertIsNone(addon_root(self.clone, "HEAD", "stale", worktree=True))
 
     def test_a_name_that_is_a_path_is_no_addon(self):
         for name in ("", None, "..", "real-estate/skeleton", "..\\base"):
@@ -279,27 +230,22 @@ class MasterTemplate(CloneCase):
 
 
 class CloneSession(CloneCase):
-    """Inside a session the readers answer from one git reader and one listing per ref,
-    and must answer exactly as they do outside it."""
+    """Inside a session the readers answer from one git reader, and must answer exactly as
+    they do outside it."""
 
     READS = [("HEAD", "addons/sales/crlf.txt"), ("HEAD", "addons/sales/Réunion notes.md"),
              ("HEAD", "addons/sales"), ("HEAD", "base/no-such-file.md"),
              ("no-such-ref", "base/CLAUDE.md.template"), ("HEAD", "./addons\\sales/crlf.txt"),
              ("layout-flavors", "flavors/real-estate/.claude/rules/property-dossier.md"),
              ("v2026.09.04", "base/CLAUDE.md.template"), ("HEAD", ""), ("HEAD", "bad\npath")]
-    LISTS = [("HEAD", "addons/sales"), ("HEAD", "addons/sales/"), ("HEAD", ""),
-             ("HEAD", "base/CLAUDE.md.template"), ("layout-flavors", "addons"),
-             ("no-such-ref", "addons"), ("layout-flavors", "")]
 
     def answers(self):
         return ([clone_read(self.clone, r, p) for r, p in self.READS],
-                [clone_files(self.clone, r, p) for r, p in self.LISTS],
                 [clone_ref(self.clone, r) for r in ("HEAD", "v2026.09.04", "origin/main")],
                 [addon_root(self.clone, r, n) for r, n in
                  (("HEAD", "sales"), ("HEAD", "legacy-kit"), ("layout-flavors", "real-estate"))],
                 master_template(self.clone, "HEAD"),
-                clone_read(self.clone, "HEAD", "base/CLAUDE.md.template", worktree=True),
-                clone_files(self.clone, "HEAD", "addons/sales", worktree=True))
+                clone_read(self.clone, "HEAD", "base/CLAUDE.md.template", worktree=True))
 
     def spawned(self):
         """Every process started while the returned patch is active."""
@@ -326,12 +272,10 @@ class CloneSession(CloneCase):
             for _ in range(3):
                 for path in ("addons/sales/crlf.txt", "addons/sales/README.md", "CHANGELOG.md"):
                     clone_read(self.clone, "HEAD", path)
-                for prefix in ("addons/sales", "addons", "base", ""):
-                    clone_files(self.clone, "HEAD", prefix)
                 addon_root(self.clone, "HEAD", "sales")
                 clone_ref(self.clone, "HEAD")
-        # one batch reader, one tree listing, one ref resolution
-        self.assertEqual(len(started), 3)
+        # one batch reader, one ref resolution
+        self.assertEqual(len(started), 2)
 
     def test_no_git_process_outlives_its_session(self):
         started, spy = self.spawned()
@@ -340,7 +284,6 @@ class CloneSession(CloneCase):
                 clone_read(self.clone, "HEAD", "CHANGELOG.md")
                 with tempfile.TemporaryDirectory() as other:
                     self.assertIsNone(clone_read(other, "HEAD", "CHANGELOG.md"))
-                    self.assertIsNone(clone_files(other, "HEAD", ""))
         self.assertTrue(started)
         self.assertTrue(all(proc.poll() is not None for proc in started))
 

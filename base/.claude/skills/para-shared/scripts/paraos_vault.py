@@ -5,15 +5,9 @@ Imported, and run from the command line for a few one-off questions: a skill shi
 entry point in `<skill>/scripts/` and calls into this. The first caller is
 `para-daily-brief/scripts/brief_scan.py`.
 
-    py -3 paraos_vault.py resolve <name> [--vault .]
-    py -3 paraos_vault.py lifecycles [--vault .]
-    py -3 paraos_vault.py links dangling [--root archive] [--vault .]
-    py -3 paraos_vault.py links inbound <name> [--vault .]
+    py -3 paraos_vault.py links dangling [--vault .]
     py -3 paraos_vault.py move-plan <src> <dst> [--vault .]
-    py -3 paraos_vault.py hashes [--vault .]
-    py -3 paraos_vault.py registry [<name>] [--vault .]
     py -3 paraos_vault.py changed <file>
-    py -3 paraos_vault.py sources [--vault .]
     py -3 paraos_vault.py notice-date <renewal> "<n> months" [--term "1 year"] [--today D]
     py -3 paraos_vault.py weekday-after <day> <weekday>
 
@@ -81,7 +75,6 @@ PRIORITY_RE = re.compile(r"[🔺🔼🔽⏬]")
 ANY_DATE_RE = re.compile(r"[📅🛫⏳]️?\s*(\S+)")
 MARKERS_RE = re.compile(r"\s*[📅🛫⏳🔁🔺🔼🔽⏬✅][^|]*$")
 LEADING_MARKERS_RE = re.compile(r"^(?:\s*(?:[🔺🔼🔽⏬]|[📅🛫⏳✅]️?\s*\d\S*))+")
-LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 LINK_TITLE_RE = re.compile(r"""\s+(?:"[^"]*"|'[^']*')$""")
 DONE_RE = re.compile(r"✅️?\s*(\d{4}-\d{2}-\d{2})")
 
@@ -654,7 +647,7 @@ def resolve_entity(vault, query, buckets=("projects", "areas")):
 
 # --- when a file was really last touched --------------------------------------------------
 
-def git_bytes(directory, args, input=None):
+def git_bytes(directory, args):
     """git's own stdout as the bytes it wrote, run in `directory`. None where git cannot
     answer: a non-zero exit (not a repository, a ref or a path that names nothing), no git
     on PATH, or a run past 30 seconds.
@@ -663,13 +656,9 @@ def git_bytes(directory, args, input=None):
     copy on disk and need not be text at all: decoding it first would turn every byte
     outside UTF-8 into the same replacement character, and two different files into one.
     `git()` is this decoded.
-
-    `input` is written to git's stdin, for the plumbing that reads its requests there:
-    `cat-file --batch` answers every blob a history walk names in one process, where a
-    `show` per blob would start git hundreds of times.
     """
     try:
-        done = subprocess.run(["git", "-C", str(directory)] + list(args), input=input,
+        done = subprocess.run(["git", "-C", str(directory)] + list(args),
                               capture_output=True, timeout=30)
     except (OSError, subprocess.SubprocessError):
         return None
@@ -1290,10 +1279,9 @@ def triage_sources(vault):
 FROZEN_MARKER_RE = re.compile(r"frozen record|third-party verbatim|kept as generated", re.IGNORECASE)
 
 
-def checkbox_rows(text, raw=False):
+def checkbox_rows(text):
     """{bucket: cells} from the `Where a checkbox may live` table, the bucket cell stripped of
-    backticks and bold (`areas/network/`), the rest lowercased and stripped the same way.
-    With `raw`, {bucket: the row as written}."""
+    backticks and bold (`areas/network/`), the rest lowercased and stripped the same way."""
     rows, inside = {}, False
     for _, line in live_lines(split_lines(text)):
         heading = HEADING_RE.match(line)
@@ -1304,7 +1292,7 @@ def checkbox_rows(text, raw=False):
             continue
         cells = [CELL_MARKS_RE.sub("", c).strip() for c in table_cells(line)]
         if len(cells) > 1 and not is_separator_row(cells) and cells[0].lower() != "bucket":
-            rows[cells[0]] = line.strip() if raw else [c.lower() for c in cells[1:]]
+            rows[cells[0]] = [c.lower() for c in cells[1:]]
     return rows
 
 
@@ -1874,10 +1862,9 @@ def duplicates(digests):
 
 
 UTF8_BOM = b"\xef\xbb\xbf"
-TRAILING_BLANKS_RE = re.compile(rb"[ \t]+$", re.MULTILINE)
 
 
-def normalised(data, trailing_ws=False):
+def normalised(data):
     """A file's bytes in the form two copies of it are compared by: a leading UTF-8
     byte-order mark dropped, and CRLF and a lone CR each read as LF. A `str` is taken as
     its UTF-8 bytes.
@@ -1885,13 +1872,8 @@ def normalised(data, trailing_ws=False):
     A copy that passed through a Windows editor or a sync client comes back with CRLF or a
     BOM and nothing else changed, and a raw compare reports that as drift from its master:
     every "is this copy identical to its master" question is asked of this form, never of
-    the bytes on disk.
-
-    `trailing_ws` also drops the spaces and tabs ending each line, and the blank lines
-    ending the file, a missing final newline included: two copies equal under it differ in
-    whitespace alone. That is evidence a copy is equivalent to a version, never that it is
-    identical to one, so it is off unless asked for. `snapshot()` stays on the raw bytes,
-    since a write-time check has to see every byte a writer changed.
+    the bytes on disk. `snapshot()` stays on the raw bytes, since a write-time check has to
+    see every byte a writer changed.
     """
     if isinstance(data, str):
         data = data.encode("utf-8")
@@ -1900,11 +1882,7 @@ def normalised(data, trailing_ws=False):
     data = bytes(data)
     if data.startswith(UTF8_BOM):
         data = data[len(UTF8_BOM):]
-    data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-    if trailing_ws:
-        data = TRAILING_BLANKS_RE.sub(b"", data).rstrip(b"\n")
-        data = data + b"\n" if data else b""
-    return data
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
 
 
 def snapshot(paths):
@@ -2017,51 +1995,26 @@ def integration_markers(vault, exclude=NOT_VAULT_CONTENT):
 # --- from the command line ------------------------------------------------------------------
 
 def answer_for(args, root):
-    if args.command == "resolve":
-        return resolve_entity(root, args.name)
-    if args.command == "lifecycles":
-        return lifecycles(root)
     if args.command == "move-plan":
         return move_plan(root, args.src, args.dst)
-    if args.command == "hashes":
-        return hashes(root)
-    if args.command == "registry":
-        if args.name:
-            return registry_holding(registry(), args.name, exclude=root)
-        return registry()
-    if args.command == "sources":
-        return triage_sources(root)
-    if args.kind == "inbound":
-        return inbound_references(root, args.name)
-    return dangling_links(root, tuple(args.roots)) if args.roots else dangling_links(root)
+    return dangling_links(root)
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Answer one question about a vault, as JSON.")
     sub = ap.add_subparsers(dest="command", required=True)
-    resolve = sub.add_parser("resolve", help="where one project or area lives")
-    resolve.add_argument("name", help="the project or area to look for")
-    declared = sub.add_parser("lifecycles", help="the lifecycles the vault declares")
     links = sub.add_parser("links", help="what points at what")
     kinds = links.add_subparsers(dest="kind", required=True)
     dangling = kinds.add_parser("dangling", help="links whose target does not exist")
-    dangling.add_argument("--root", action="append", dest="roots", metavar="R",
-                          help="a bucket to scan, repeatable (default: the live buckets)")
-    inbound = kinds.add_parser("inbound", help="every line naming an entity or a file")
-    inbound.add_argument("name", help="the folder or filename to look for")
     plan = sub.add_parser("move-plan", help="the links a folder move has to rewrite")
     plan.add_argument("src", help="the folder as it stands")
     plan.add_argument("dst", help="where it is going")
-    digests = sub.add_parser("hashes", help="content digests, for finding duplicates")
-    reg = sub.add_parser("registry", help="the machine's vault registry, or who else holds a name")
-    reg.add_argument("name", nargs="?", help="an entity name to look for in every other vault")
     changed_cmd = sub.add_parser(
         "changed", help="which paths in a snapshot no longer match it, and which files "
                         "arrived in its snapshot_folders since (exit 1 if any)")
     changed_cmd.add_argument(
         "file", help="a JSON snapshot ({path: digest}), or scan output carrying a "
                      "'snapshot' key, top-level or under a phase key")
-    sources = sub.add_parser("sources", help="the Triage sources block the vault declares")
     notice = sub.add_parser("notice-date", help="the last day to give notice on a renewing "
                                                 "agreement")
     notice.add_argument("renewal", help="the renewal date, YYYY-MM-DD")
@@ -2081,7 +2034,7 @@ def main(argv=None):
                                                     "points at: the first one after a day")
     promised.add_argument("day", help="the day the promise was made, YYYY-MM-DD")
     promised.add_argument("weekday", help="an English day name, or 1 (Monday) to 7")
-    for parser in (resolve, declared, dangling, inbound, plan, digests, reg, sources, items):
+    for parser in (dangling, plan, items):
         parser.add_argument("--vault", default=".", help="vault root (default: .)")
     args = ap.parse_args(argv)
 

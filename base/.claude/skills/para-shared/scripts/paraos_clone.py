@@ -11,7 +11,7 @@ beside this file, which also holds `template_marker` and the git primitives this
     from paraos_clone import clone_session, clone_read, master_template
 
 What lives here: the changelog as a list of revision entries, and every read of a clone at a
-ref: a file's bytes, a tree listing, where an addon lives, the master template, all through one
+ref: a file's bytes, where an addon lives, the master template, all through one
 session per scan so git starts once rather than hundreds of times.
 """
 
@@ -86,11 +86,6 @@ def _usable_ref(ref):
     return bool(ref) and not str(ref).startswith("-")
 
 
-def _z_paths(out):
-    """The paths of a `-z` listing, NUL-separated and never quoted, decoded as UTF-8."""
-    return [p.decode("utf-8", errors="replace") for p in out.split(b"\0") if p]
-
-
 _SESSION = None                 # the open clone session, if any; see clone_session()
 _UNBATCHED = object()           # no session reader can answer: ask git directly
 _OBJECT_TYPES = (b"blob", b"tree", b"commit", b"tag")
@@ -100,7 +95,6 @@ class _CloneSession:
     def __init__(self):
         self.readers = {}       # clone -> its `cat-file --batch` process, None once unusable
         self.objects = {}       # (clone, "<ref>:<path>") -> (type, bytes), None for no object
-        self.listings = {}      # (clone, ref) -> `ls-tree -r` output, None where git refused
         self.refs = {}          # (clone, ref) -> clone_ref's answer
 
     def close(self):
@@ -115,8 +109,7 @@ def clone_session():
 
     Starting git costs tens of milliseconds on Windows, and a scan asks its clone hundreds
     of questions. Inside a session `clone_read` and the folder check go through one
-    long-lived `git cat-file --batch` per clone, `clone_files` filters one `ls-tree` of the
-    whole tree per ref, `clone_ref` resolves each ref once, and every answer is kept.
+    long-lived `git cat-file --batch` per clone, `clone_ref` resolves each ref once, and every answer is kept.
     Working-tree reads are never kept: they go to the disk each time.
 
     The session assumes no clone changes while it is open, so it is for a caller that only
@@ -196,18 +189,6 @@ def _batch_object(clone, ref, rel):
     return result
 
 
-def _session_listing(clone, ref):
-    """The whole tree's `ls-tree -r` output at a ref, once per session; _UNBATCHED outside
-    one."""
-    if _SESSION is None:
-        return _UNBATCHED
-    key = _session_key(clone, ref)
-    if key not in _SESSION.listings:
-        _SESSION.listings[key] = git_bytes(clone, ["--literal-pathspecs", "ls-tree", "-r",
-                                                   "--name-only", "-z", ref])
-    return _SESSION.listings[key]
-
-
 def clone_ref(clone, ref):
     """The commit a ref names in a clone, as {ref, commit}: `ref` as given, `commit` its
     full hash. None where it names no commit (a typo, a branch never fetched) or `clone` is
@@ -253,52 +234,9 @@ def clone_read(clone, ref, path, worktree=False):
     return git_bytes(clone, ["cat-file", "blob", f"{ref}:{rel}"])
 
 
-def clone_files(clone, ref, prefix, worktree=False):
-    """Every file a clone holds under `prefix` at a ref, as sorted clone-relative posix
-    paths (`git ls-tree -r --name-only <ref> -- <prefix>`). A prefix naming one file answers
-    with that file, and `""` with the whole tree. A prefix is a path, never a pattern, and
-    matches whole segments: `addons/sales` never lists `addons/sales-extra/`.
-
-    `[]` where nothing is there, None where git cannot answer at all (not a repository, a
-    ref that names no commit), so a caller can tell an empty folder from a question never
-    answered.
-
-    With `worktree`, what the working tree holds: every tracked file still on disk, plus
-    every untracked file the clone's own ignore rules do not exclude (`git ls-files
-    --cached --others --exclude-standard`). An ignored file (a `__pycache__`, a live
-    config) is part of no master, and a tracked file deleted on disk is not in the working
-    tree whatever the index says.
-    """
-    rel = _clone_rel(prefix)
-    spec = ["--", rel] if rel else []
-    if worktree:
-        out = git_bytes(clone, ["--literal-pathspecs", "ls-files", "-z", "--cached",
-                                "--others", "--exclude-standard"] + spec)
-    elif _usable_ref(ref):
-        out = _session_listing(clone, ref)
-        if out is _UNBATCHED:
-            out = git_bytes(clone, ["--literal-pathspecs", "ls-tree", "-r", "--name-only",
-                                    "-z", ref] + spec)
-    else:
-        out = None
-    if out is None:
-        return None
-    found = set()
-    for path in _z_paths(out):
-        if rel and path != rel and not path.startswith(rel + "/"):
-            continue
-        if worktree and not os.path.lexists(Path(clone) / path):
-            continue
-        found.add(path)
-    return sorted(found)
-
-
-def _clone_holds_folder(clone, ref, path, worktree):
+def _clone_holds_folder(clone, ref, path):
     """Whether a folder exists in a clone at a ref: it holds a file there, since git tracks
-    no empty folder. With `worktree`, `clone_files` lists something under it, so a folder
-    left on disk holding only ignored files does not count."""
-    if worktree:
-        return bool(clone_files(clone, ref, path, worktree=True))
+    no empty folder."""
     if not _usable_ref(ref):
         return False
     found = _batch_object(clone, ref, path)
@@ -308,7 +246,7 @@ def _clone_holds_folder(clone, ref, path, worktree):
     return bool(out) and out.strip() == "tree"
 
 
-def addon_root(clone, ref, name, worktree=False):
+def addon_root(clone, ref, name):
     """The clone-relative folder an addon (a flavor or a module) lives in at a ref, or None
     where that ref holds none by that name.
 
@@ -320,11 +258,11 @@ def addon_root(clone, ref, name, worktree=False):
     """
     if not name or any(c in name for c in "/\\") or name in (".", ".."):
         return None
-    if _clone_holds_folder(clone, ref, ADDONS_DIR, worktree):
+    if _clone_holds_folder(clone, ref, ADDONS_DIR):
         candidates = [f"{ADDONS_DIR}/{name}"]
     else:
         candidates = [f"{parent}/{name}" for parent in OLDER_ADDON_DIRS]
-    return next((c for c in candidates if _clone_holds_folder(clone, ref, c, worktree)), None)
+    return next((c for c in candidates if _clone_holds_folder(clone, ref, c)), None)
 
 
 def master_template(clone, ref, worktree=False):
