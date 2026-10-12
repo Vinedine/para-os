@@ -1,6 +1,6 @@
 # Bootstrap prompt - stand up a new para-os vault
 
-Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks three short choice questions (a fourth for a business) and three open ones, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), cleans up after itself, and ends by filing a few of your own papers and your current to-do list.
+Paste the block below into a Claude Code session (or any markdown-reading agent) whose working directory is the **new vault root** - the folder you just copied `base/` into. It asks four short choice questions (a fifth for a business) and three open ones, fills the templates, creates a self-retiring `vault-setup` project that carries the rest of onboarding (a short guided brainstorm, then connecting your systems), cleans up after itself, and ends by filing a few of your own papers and your current to-do list.
 
 ---
 
@@ -12,17 +12,18 @@ Onboarding runs in three phases. **You run phase 1 now**, in this session. Phase
 
 ## Phase 1 - Setup (now)
 
-**Ask before you write anything.** Call `AskUserQuestion` now, as your first action, and write no file until my answers are in. The questions are where you learn what this vault is; the install prompt carries nothing about it. Where the session has no `AskUserQuestion`, ask all six questions below as one short numbered message and stop there until I reply.
+**Ask before you write anything.** Call `AskUserQuestion` now, as your first action, and write no file until my answers are in. The questions are where you learn what this vault is; the install prompt carries nothing about it. Where the session has no `AskUserQuestion`, ask all seven questions below as one short numbered message and stop there until I reply.
 
-**First, one call of three short choice questions** - I'm new to this. **Other** is always where I type my own answer. The rule behind the shapes is `.claude/skills/para-shared/asking.md` (`## A question with a suggested answer`):
+**First, one call of four short choice questions** - I'm new to this. **Other** is always where I type my own answer. The rule behind the shapes is `.claude/skills/para-shared/asking.md` (`## A question with a suggested answer`):
 
 | `header` | Question | Options |
 |---|---|---|
 | `Name` | What should this vault be called? | the vault folder's own name, tidied into a title `(Recommended)` · the same name with `Vault` after it |
 | `Purpose` | What is this vault for? | my own life admin · a business I run · a project portfolio · a client engagement |
 | `Language` | Which language should the agent answer in? | English · Nederlands · Français |
+| `Dashboard` | Where should the daily brief's dashboard go? | a private page on claude.ai `(Recommended)` · a local page on this computer only |
 
-`Purpose` and `Language` carry no recommendation: they are facts only I hold. If my install prompt said something about the vault anyway, order those options by it, but still ask.
+`Purpose` and `Language` carry no recommendation: they are facts only I hold. If my install prompt said something about the vault anyway, order those options by it, but still ask. Record my `Dashboard` answer with `python3 .claude/skills/para-daily-brief/scripts/render_dashboard.py --publish claude|local --vault .` (Windows: `py -3`).
 
 **Where `Purpose` is a business I run** (or my Other answer describes one), follow with one more call: `Sales`, "Do you sell to clients, and want to track prospects, demos and deals?", options yes, add the sales module `(Recommended)` · not now. Without the tool, ask it as one line after my reply.
 
