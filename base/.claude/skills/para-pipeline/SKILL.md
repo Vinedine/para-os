@@ -53,5 +53,5 @@ Word what the scan computed into the board, the flags, the counts, the metrics a
 ## Strict rules
 
 - **Never invent a stage, a date or a next step.** Unknown stays unknown, and a missing step is flagged.
-- **Never rank, score, weight or forecast.** The board follows the vault's stage order, with no probability, conversion rate or funnel percentage: a pipeline of a dozen entities is read, not modelled.
+- **Never score, weight or forecast.** The one ordering beyond stage and days is the By value line, by stated Value, unweighted. No probability, conversion rate or funnel percentage: a pipeline of a dozen entities is read, not modelled.
 - **A value figure is internal.** It renders in the terminal, never into a file or anything shared outside the vault.

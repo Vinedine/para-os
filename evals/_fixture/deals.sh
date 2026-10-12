@@ -30,6 +30,8 @@ A deal's PARA home follows its stage, and the stages are the phases the prospect
 | Nurture | A dated revisit action exists in the business area | `resources/ideas/<company>/` |
 | Lost | Reason recorded, revisit trigger written | `archive/ideas/<company>/` |
 
+**Locale:** currency EUR (€) · numbers 1,234.56
+
 ## Entity structures
 
 - **Deal brief** - a deal's brief and its register row carry the same seven header fields, in one order, `unknown` where a field is not yet settled. The full shape is in [.claude/rules/deal-brief.md](.claude/rules/deal-brief.md), which loads on its own when a deal brief or the lead register is read; read it explicitly before creating one.
@@ -63,7 +65,7 @@ These paths also match ideas and projects that are not deals, which follow the v
 **Source:** referral from [<contact>](../../../areas/network/<contact>.md), network
 **Champion:** [<contact>](../../../areas/network/<contact>.md)
 **Signer:** unknown
-**Value:** at most <amount> (proposal cap)
+**Value:** <amount> (<basis>)
 **Last touch:** YYYY-MM-DD, proposal sent
 ```
 
@@ -72,7 +74,7 @@ These paths also match ideas and projects that are not deals, which follow the v
 3. **Source** - one of `referral from <contact link>`, `inbound via <channel>` (the site, a post, an event) or `outreach`, then a comma and the channel word. The referrers table is computed from these lines, so no contact file carries a "referred us" line of its own.
 4. **Champion** - a link to the contact file of the person carrying this inside the company. The deal's next step is the earliest dated open item in that file, which is where `/para-pipeline` looks, so a deal without a champion file has nowhere to keep one.
 5. **Signer** - who can commit the money, `unknown` until named. It is flagged from the second stage on, because the person who is excited is often not the person who signs.
-6. **Value** - the internal number, with the basis in parentheses. It renders in a terminal and is never a public output.
+6. **Value** - what the first paid phase is expected to invoice, not a ceiling, as the line's opening amount in the `**Locale:**` currency and number convention. Everything after it is commentary: the basis, a cap, later phases. `/para-pipeline` totals and orders deals by that amount. It renders in a terminal and is never a public output.
 7. **Last touch** - `<date>, <what happened>`, rewritten by hand after every contact. It is the single field the staleness flag reads.
 
 **The next step is not a header line.** It lives where the vault's action rules already put it: the champion's contact file under its next-actions heading, the project's `actions.md` once promoted, or the register row's own column. Written into the header as well it becomes the one field typed twice, and the copy is the one that goes stale.
@@ -122,7 +124,7 @@ cat > resources/ideas/northwind-quoting/brief.md <<EOF
 **Source:** inbound via website, contact form
 **Champion:** [Pia Vermeer](../../../areas/network/pia-vermeer.md)
 **Signer:** unknown
-**Value:** at most €18,000 (proposal cap)
+**Value:** €18,000 (first phase, as proposed)
 **Last touch:** $(day -3), proposal sent
 
 ## Why now
@@ -158,7 +160,7 @@ cat > resources/ideas/harbor-freight-labs/brief.md <<EOF
 **Source:** referral from [Tom Ekberg](../../../areas/network/tom-ekberg.md), network
 **Champion:** [Tom Ekberg](../../../areas/network/tom-ekberg.md)
 **Signer:** unknown
-**Value:** at most €9,000 (proposal cap)
+**Value:** €9,000 (intake form, estimated)
 **Last touch:** $(day -30), discovery call
 
 ## Why now
@@ -195,7 +197,7 @@ cat > archive/ideas/old-mill-bakery/brief.md <<EOF
 **Source:** outreach, cold email
 **Champion:** unknown
 **Signer:** unknown
-**Value:** at most €4,000 (proposal cap)
+**Value:** €4,000 (ordering page, as quoted)
 **Last touch:** $(day -6), closing email sent
 
 ## Why now
