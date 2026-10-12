@@ -335,6 +335,24 @@ class RevisionCase(CloneCase):
         self.assertEqual((code, report["revision"]["verdict"]), (0, "equal"))
 
 
+class LessonsCase(CloneCase):
+    def test_each_archived_brief_with_a_lessons_heading_is_listed(self):
+        v = self.vault("lessons", files={
+            "archive/projects/refit/brief.md": "# Refit\n\n## What we learned\n\nKeep a spare.\n",
+            "archive/projects/refit/sources/notes.md": "## Lessons\n",
+            "archive/2025/launch/README.md": "# Launch\n\n### Lessons learned\n\n- One.\n",
+            "archive/projects/both/brief.md": "# Both\n\n## Status\n\nClosed.\n",
+            "archive/projects/both/README.md": "# Index\n\n## Lessons\n",
+            "archive/projects/sample/brief.md": "# Sample\n\n```\n## Lessons\n```\n",
+            "projects/live/brief.md": "# Live\n\n## Lessons\n",
+        })
+        self.assertEqual(self.scan(v)[0]["lessons"],
+                         ["archive/2025/launch/README.md", "archive/projects/refit/brief.md"])
+
+    def test_a_vault_with_no_archive_lists_none(self):
+        self.assertEqual(self.scan(self.vault("no-archive"))[0]["lessons"], [])
+
+
 class ExitCase(CloneCase):
     def test_not_a_vault_root_is_exit_3(self):
         (self.tmp / "loose").mkdir()
