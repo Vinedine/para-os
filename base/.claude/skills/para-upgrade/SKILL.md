@@ -47,7 +47,7 @@ By `revision.verdict`:
 
 Every `files` row, by `state`:
 
-- **untouched**: the vault's bytes are a version the kit shipped, so nothing local is lost. Re-copy them all on one approval.
+- **untouched**: an older version the kit shipped: behind, with nothing local to lose. Re-copy them all on one approval.
 - **missing**: copy in on one approval, except a `.claude/settings.json` whose every key `~/.claude/settings.json` already sets to the same value. A rule file copied in takes over what the vault already states of its rule, each line moved on its own yes.
 - **edited**: bytes the kit never shipped: local work, a hand edit, or a copy taken from ahead of the ref. Show the row's `diff` and say what it shows; the operator decides each file: re-copy, keep, or carry the kit's change into the vault's wording.
 - **retired**: the kit no longer ships it. Each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
