@@ -617,6 +617,97 @@ class LifecycleCounts(VaultCase):
         self.assertEqual(scan(self.root, TODAY)["lifecycles"], [])
 
 
+def build_people_vault(root):
+    """Two deals championed by one contact, a third by another, and actions owed both ways."""
+    write(root, "CLAUDE.md", "\n".join([
+        "# Vault", "", "## Deal lifecycle", "",
+        "| Stage | PARA home |", "|---|---|",
+        "| Lead | `areas/business/leads.md` (row) |",
+        "| Proposal | `resources/ideas/<company>/` |",
+        "| Won | `projects/<company>/` |", "",
+    ]) + "\n")
+    write(root, "areas/business/leads.md", "\n".join([
+        "# Leads", "", "## Open", "",
+        "| Company | Champion | Stage | Next step | Last touch |", "|---|---|---|---|---|",
+        "| Gamma | [Piet](../network/piet-peeters.md) | Lead (since 2026-09-11) | - | "
+        "2026-09-15, intro call |", "",
+    ]) + "\n")
+    for name in ("acme", "beta"):
+        write(root, f"resources/ideas/{name}/brief.md",
+              f"# {name}\n\n**Stage:** Proposal (since 2026-09-01)\n"
+              f"**Champion:** [An](../../../areas/network/an-aerts.md)\n"
+              f"**Last touch:** 2026-09-1{len(name)}, sent the proposal\n")
+    write(root, "projects/delta/brief.md", "# delta\n\n**Champion:** [Piet](../../areas/network/piet-peeters.md)\n")
+    write(root, "projects/delta/actions.md", "# delta\n\n## Next actions\n"
+          "- [ ] Draft the plan 📅 2026-09-30\n")
+    write(root, "areas/network/an-aerts.md", "\n".join([
+        "# An Aerts", "", "**Kind:** **Prospect**", "", "## Next actions",
+        "- [ ] Chase the acme signature 📅 2026-09-25",
+        "  - for [acme](../../resources/ideas/acme/brief.md)",
+        "- [ ] Waiting on [An](an-aerts.md): the beta budget (since 2026-09-05)",
+        "- [x] Thanked An ✅ 2026-09-18", "",
+    ]) + "\n")
+    write(root, "areas/network/piet-peeters.md", "# Piet Peeters\n\n## Next actions\n"
+          "- [ ] Send Piet the case study 📅 2026-09-24\n")
+    write(root, "areas/network/nobody.md", "# Nobody\n\nNothing open.\n")
+    write(root, "areas/business/actions.md", "# business\n\n## Next actions\n"
+          "- [ ] Call [Piet](../network/piet-peeters.md) about the 11:00 slot 📅 2026-09-22\n")
+    return root
+
+
+class Dashboard(VaultCase):
+    """What the dashboard reads beyond the brief: who each action is owed to, the people
+    with something open either way, and every live staged entity."""
+
+    def setUp(self):
+        super().setUp()
+        self.report = scan(build_people_vault(self.root), TODAY)
+
+    def owed(self, text):
+        return self.task(self.report, text)["owed_to"]
+
+    def test_an_action_is_owed_to_its_card_a_card_it_links_or_its_projects_champion(self):
+        self.assertEqual(self.owed("Send Piet the case study"), "piet-peeters")
+        self.assertEqual(self.owed("Call [Piet](../network/piet-peeters.md) about the 11:00 slot"), "piet-peeters")
+        self.assertEqual(self.owed("Draft the plan"), "piet-peeters")
+
+    def test_links_include_the_indented_detail_lines(self):
+        t = self.task(self.report, "Chase the acme signature")
+        self.assertEqual(t["links"], ["resources/ideas/acme/brief.md"])
+
+    def test_a_contact_with_two_deals_lends_a_step_only_to_the_deal_it_names(self):
+        items = {i["name"]: i for i in self.report["pipeline_items"]}
+        self.assertEqual(items["acme"]["next_step"], "Chase the acme signature")
+        self.assertIsNone(items["beta"]["next_step"])
+        self.assertEqual((items["acme"]["contact"], items["acme"]["days_in_stage"],
+                          items["acme"]["last_touch"], items["acme"]["last_touch_note"]),
+                         ("an-aerts", 20, "2026-09-14", "sent the proposal"))
+
+    def test_a_register_row_keeps_its_own_step_and_a_dash_is_none(self):
+        gamma = next(i for i in self.report["pipeline_items"] if i["name"] == "Gamma")
+        self.assertEqual((gamma["contact"], gamma["since"], gamma["last_touch"]),
+                         ("piet-peeters", "2026-09-11", "2026-09-15"))
+        # A lone contact lends its soonest card item to the one entity it champions.
+        self.assertEqual(gamma["next_step"], "Send Piet the case study")
+
+    def test_people_owed_both_ways_with_the_latest_touch_and_its_source(self):
+        rows = {p["person"]: p for p in self.report["people"]}
+        self.assertNotIn("nobody", rows)
+        an = rows["an-aerts"]
+        self.assertEqual((an["name"], an["kind"], an["owe"], an["owe_next_due"], an["waiting"],
+                          an["waiting_since"]),
+                         ("An Aerts", "prospect", 1, "2026-09-25", 1, "2026-09-05"))
+        self.assertEqual((an["last_touch"], an["last_touch_from"]), ("2026-09-18", "closed action"))
+        piet = rows["piet-peeters"]
+        self.assertEqual((piet["owe"], piet["entity"]["name"], piet["last_touch_from"]),
+                         (3, "Gamma", "Gamma"))
+
+    def test_an_entity_scope_carries_none_of_it(self):
+        got = scan(self.root, TODAY, entity="delta")
+        self.assertNotIn("people", got)
+        self.assertNotIn("pipeline_items", got)
+
+
 def build_review_vault(root):
     """A week to review against TODAY: closes inside and outside it and one undated, a due
     date it let pass, stage changes in it and before it, and dated log entries."""

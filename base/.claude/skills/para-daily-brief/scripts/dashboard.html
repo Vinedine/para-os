@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__PARAOS_TITLE__</title>
+<style>
+:root{--bg:#F7F7F4;--surface:#FFFFFF;--ink:#20242B;--muted:#6B7280;--line:#E3E4DF;
+--accent:#1F6E68;--accent-soft:#E4EFED;--alert:#B4423A;--amber:#A86A12;--upcoming:#3E6C93;--undated:#C9CCC3;--chip:#EEEFEA}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+--bg:#14171B;--surface:#1C2026;--ink:#E7E5DF;--muted:#8E959F;--line:#2C313A;--accent:#55A79D;
+--accent-soft:#1E3330;--alert:#D06B60;--amber:#D19A45;--upcoming:#6E9CC4;--undated:#3B414B;--chip:#262B33}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#14171B;--surface:#1C2026;--ink:#E7E5DF;
+--muted:#8E959F;--line:#2C313A;--accent:#55A79D;--accent-soft:#1E3330;--alert:#D06B60;--amber:#D19A45;
+--upcoming:#6E9CC4;--undated:#3B414B;--chip:#262B33}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5}
+code,.meta,.n,.tile b,.badge,time{font-family:Consolas,"SF Mono",Menlo,monospace}
+code{font-size:.92em}
+.wrap{max-width:960px;margin:0 auto;padding:2rem 1rem 3rem}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+h1{font-size:1.65rem;font-weight:700;margin:0;letter-spacing:-.015em}
+h1 small{font-weight:600;color:var(--accent)}
+.date{color:var(--muted);font-size:.85rem}.stale{color:var(--amber)}
+h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:1.6rem 0 .6rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.75rem 1rem}
+.next{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:.75rem 1rem;font-size:.95rem}
+.next strong{color:var(--accent);text-transform:uppercase;font-size:.7rem;letter-spacing:.08em;display:block;margin-bottom:.2rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.6rem;margin-top:1.2rem}
+.tile{font:inherit;color:inherit;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.6rem .75rem;cursor:pointer}
+.tile b{display:block;font-size:1.4rem;font-weight:600;font-variant-numeric:tabular-nums}
+.tile span{font-size:.75rem;color:var(--muted)}
+.tile.alert b{color:var(--alert)}
+.tile:hover,.tile[aria-pressed="true"]{border-color:var(--accent)}
+.tile[aria-pressed="true"]{background:var(--accent-soft)}
+.tile:focus-visible,summary:focus-visible,.stage:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#panel{margin-top:.6rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+ul.tasks{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+ul.tasks li{display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .55rem;font-size:.88rem;padding:.3rem 0;border-bottom:1px solid var(--line)}
+ul.tasks li:last-child{border-bottom:0}
+.meta{font-size:.72rem;color:var(--muted)}
+.late{color:var(--alert);font-weight:600}.amber{color:var(--amber)}
+.chip{display:inline-block;font-size:.68rem;color:var(--muted);background:var(--chip);border-radius:3px;padding:0 .35rem}
+.work{font-size:.72rem;color:var(--accent);text-decoration:none;white-space:nowrap}
+.work:hover{text-decoration:underline}
+.empty{font-size:.85rem;color:var(--muted);margin:.2rem 0}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.4rem}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.4rem .5rem;min-height:4.2rem;font-size:.78rem}
+.day h3{margin:0 0 .25rem;font-size:.7rem;font-weight:600;color:var(--muted);display:flex;justify-content:space-between}
+.day.weekend{background:var(--bg)}
+.day ul{list-style:none;margin:0;padding:0;display:grid;gap:.2rem}
+.day time{color:var(--accent);font-size:.7rem;margin-right:.25rem}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:.3rem .4rem;border-bottom:1px solid var(--line)}
+td{padding:.4rem;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.bars{display:grid;gap:.15rem}
+.row{display:grid;grid-template-columns:minmax(0,13rem) minmax(4rem,1fr) auto;gap:.6rem;align-items:center;padding:.2rem 0}
+.row .name{font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bar{display:flex;height:14px;border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%}
+.seg-over{background:var(--alert)}.seg-up{background:var(--upcoming)}.seg-und{background:var(--undated)}
+.n{font-size:.75rem;color:var(--muted);text-align:right;white-space:nowrap}
+summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}
+summary .name::before,summary.x::before{content:"▸";display:inline-block;width:.9rem;color:var(--muted);transition:transform .15s}
+details[open]>summary .name::before,details[open]>summary.x::before{transform:rotate(90deg)}
+details>ul.tasks,details>.more{margin:.2rem 0 .5rem .9rem;padding-left:.7rem;border-left:2px solid var(--line)}
+.lifecycle+.lifecycle{margin-top:.9rem}
+.lifecycle h3{font-size:.82rem;margin:0 0 .4rem}
+.stages{display:flex;flex-wrap:wrap;gap:.4rem}
+.stage{font:inherit;color:inherit;font-size:.8rem;background:var(--chip);border:1px solid var(--line);border-radius:5px;padding:.25rem .55rem;cursor:pointer}
+.stage b{font-family:Consolas,monospace;margin-left:.3rem}
+.stage[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.stage:disabled{cursor:default;opacity:.55}
+.items{margin-top:.5rem}
+.flags{list-style:none;margin:0;padding:0;display:grid;gap:.35rem}
+.flags li{font-size:.85rem;border-left:3px solid var(--line);padding:.25rem .7rem}
+.agenda{display:grid;gap:.2rem}
+.ev{display:grid;grid-template-columns:7rem 1fr;gap:.6rem;font-size:.88rem;padding:.25rem 0;border-bottom:1px solid var(--line)}
+.ev time{font-size:.78rem;color:var(--accent)}
+.lbl{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:.5rem 0 .15rem}
+footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
+@media (max-width:720px){.grid2{grid-template-columns:1fr}.week{grid-template-columns:1fr}.day.none{display:none}
+.row{grid-template-columns:1fr;gap:.15rem}.n{text-align:left}.ev{grid-template-columns:1fr;gap:0}
+.hide-narrow{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1 id="title"></h1><span class="date" id="asof"></span></header>
+  <div class="next" id="next"></div>
+  <div class="tiles" id="tiles"></div>
+  <div id="panel" class="card" hidden></div>
+  <div class="grid2">
+    <section><h2>Today</h2><div class="card"><ul class="tasks" id="today"></ul></div></section>
+    <section><h2>Chase or drop</h2><div class="card"><ul class="tasks" id="chase"></ul></div></section>
+  </div>
+  <section id="agenda-box" hidden><h2>Agenda</h2><div class="card"><div class="agenda" id="agenda"></div></div></section>
+  <section><h2>Next 14 days</h2><div class="week" id="week"></div><p class="meta" id="beyond"></p></section>
+  <section id="people-box" hidden><h2>People</h2><div class="card"><table><thead><tr><th>Who</th><th>You owe</th><th>They owe</th><th class="hide-narrow">Stage</th><th>Last touch</th></tr></thead><tbody id="people"></tbody></table></div></section>
+  <section id="pipeline-box" hidden><h2>Pipeline</h2><div class="card" id="pipeline"></div></section>
+  <section id="flags-box" hidden><h2>Housekeeping</h2><div class="card"><ul class="flags" id="flags"></ul><p class="meta">Repairs go through <code>/para-deep-clean</code>.</p></div></section>
+  <footer id="foot"></footer>
+</div>
+<script id="data" type="application/json">__PARAOS_DATA__</script>
+<script>
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("data").textContent);
+  var MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function parse(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function addDays(s, n) { var d = parse(s); d.setDate(d.getDate() + n); return iso(d); }
+  function diff(a, b) { return Math.round((parse(a) - parse(b)) / 864e5); }
+  function short(s) { var d = parse(s); return d.getDate() + " " + MON[d.getMonth()]; }
+  var TODAY = iso(new Date());
+  var byId = {};
+  D.tasks.forEach(function (t) { byId[t.id] = t; });
+
+  function work(prompt) {
+    if (!D.local) return null;
+    var a = el("a", "work", "Work on this ↗");
+    a.href = "claude-cli://open?cwd=" + encodeURIComponent(D.vault) + "&q=" + encodeURIComponent(prompt);
+    return a;
+  }
+  function dueBadge(t) {
+    if (!t.due) return null;
+    var n = diff(t.due, TODAY);
+    var when = n < 0 ? (-n) + "d late" : n === 0 ? "today" : "in " + n + "d";
+    return el("span", n < 0 ? "meta late" : n === 0 ? "meta late" : "meta",
+              (t.recurring ? "🔁 " : "") + short(t.due) + (t.time ? " " + t.time : "") + " · " + when);
+  }
+  function taskLi(t, opts) {
+    opts = opts || {};
+    var li = el("li");
+    li.append(el("span", null, (t.priority ? t.priority + " " : "") + t.headline));
+    var b = opts.noDue ? null : dueBadge(t); if (b) li.append(b);
+    li.append(el("span", "meta", t.where + (t.person_name && !opts.noWho ? " · " + t.person_name : "")));
+    var w = work("Work on this action: " + t.file + ":" + t.line + " (" + t.headline + ")");
+    if (w) li.append(w);
+    return li;
+  }
+  function list(tasks, empty, opts) {
+    var ul = el("ul", "tasks");
+    if (!tasks.length) ul.append(el("li", "empty", empty));
+    tasks.forEach(function (t) { ul.append(taskLi(t, opts)); });
+    return ul;
+  }
+  function byDue(a, b) { return (a.due || "9999") < (b.due || "9999") ? -1 : (a.due || "9999") > (b.due || "9999") ? 1 : 0; }
+  var open = D.tasks.filter(function (t) { return !t.waiting; });
+  var dated = open.filter(function (t) { return t.due; }).sort(byDue);
+
+  // header and next action
+  $("title").innerHTML = "";
+  $("title").append(document.createTextNode(D.name + " "), el("small", null, "· Daily Brief"));
+  var asof = "Data from " + short(D.today);
+  $("asof").textContent = asof;
+  if (diff(TODAY, D.today) > 0) $("asof").append(el("span", "stale", " · " + diff(TODAY, D.today) + "d old, dates below count from today"));
+  var nx = $("next");
+  nx.append(el("strong", null, "Next action"));
+  var txt = el("span"); txt.innerHTML = D.next_action.html; nx.append(txt);
+  if (D.next_action.where) nx.append(document.createTextNode(" "), el("span", "meta", D.next_action.where));
+  var nw = work("Next action: " + D.next_action.text); if (nw) { nx.append(document.createTextNode(" ")); nx.append(nw); }
+  if (D.next_action.note) nx.append(el("div", "meta", D.next_action.note));
+
+  // tiles, one panel open at a time, in place
+  var overdue = open.filter(function (t) { return t.due && t.due < TODAY; });
+  var week = open.filter(function (t) { return t.due && t.due >= TODAY && t.due <= addDays(TODAY, 7); });
+  var undated = open.filter(function (t) { return !t.due; });
+  var share = D.tasks.length ? Math.round(100 * undated.length / D.tasks.length) : 0;
+  var TILES = [
+    ["open", D.tasks.length, "open actions", false],
+    ["overdue", overdue.length, "overdue", overdue.length > 0],
+    ["week", week.length, "due this week", false],
+    ["undated", share + "%", "undated", false],
+    ["ideas", D.ideas.length, "ideas", false],
+    ["triage", D.triage.length, "in triage", false]];
+  var current = null;
+  function panelBody(key) {
+    var box = el("div");
+    if (key === "open") box.append(bars());
+    if (key === "overdue") box.append(list(overdue.sort(byDue), "Nothing overdue."));
+    if (key === "week") box.append(list(week.sort(byDue), "Nothing due this week."));
+    if (key === "undated") box.append(list(undated, "Every open action has a date."));
+    if (key === "ideas") box.append(ideas());
+    if (key === "triage") box.append(triage());
+    return box;
+  }
+  TILES.forEach(function (row) {
+    var b = el("button", "tile" + (row[3] ? " alert" : ""));
+    b.type = "button"; b.setAttribute("aria-pressed", "false");
+    b.append(el("b", null, String(row[1])), el("span", null, row[2]));
+    b.addEventListener("click", function () {
+      var panel = $("panel");
+      Array.prototype.forEach.call(document.querySelectorAll(".tile"), function (x) { x.setAttribute("aria-pressed", "false"); });
+      if (current === row[0]) { current = null; panel.hidden = true; return; }
+      current = row[0]; b.setAttribute("aria-pressed", "true");
+      panel.replaceChildren(el("div", "lbl", row[2]), panelBody(row[0])); panel.hidden = false;
+    });
+    $("tiles").append(b);
+  });
+
+  function bars() {
+    var box = el("div", "bars");
+    var peak = D.entities.length ? D.entities[0].open : 1;
+    D.entities.forEach(function (r) {
+      var d = el("details"), s = el("summary", "row");
+      var name = el("span", "name"); name.append(el("span", "chip", r.bucket), document.createTextNode(" " + r.label));
+      var track = el("div"), bar = el("div", "bar"); bar.style.width = (100 * r.open / peak).toFixed(1) + "%";
+      [["overdue", "over"], ["upcoming", "up"], ["undated", "und"]].forEach(function (k) {
+        if (r[k[0]]) { var i = el("i", "seg-" + k[1]); i.style.width = (100 * r[k[0]] / r.open).toFixed(2) + "%"; bar.append(i); }
+      });
+      track.append(bar);
+      s.append(name, track, el("span", "n", r.open + " open"));
+      d.append(s, list(D.tasks.filter(function (t) { return t.entity_key === r.key; }).sort(byDue), "Nothing open."));
+      box.append(d);
+    });
+    if (!D.entities.length) box.append(el("p", "empty", "No open actions."));
+    return box;
+  }
+  function ideas() {
+    var box = el("div");
+    if (!D.ideas.length) box.append(el("p", "empty", "No ideas."));
+    D.ideas.forEach(function (i) {
+      var d = el("details"), s = el("summary", "x");
+      s.append(el("b", null, i.name + " "));
+      if (i.stage) s.append(el("span", "chip", i.stage));
+      if (i.dormant) s.append(document.createTextNode(" "), el("span", "meta late", "dormant 6+ months"));
+      if (i.touched) s.append(document.createTextNode(" "), el("span", "meta", "touched " + short(i.touched)));
+      var more = el("div", "more");
+      if (i.since) more.append(el("div", "meta", diff(TODAY, i.since) + " days in stage, since " + short(i.since)));
+      if (i.revisit) more.append(el("div", null, i.revisit));
+      more.append(list(i.actions.map(function (id) { return byId[id]; }).filter(Boolean), "No open action names it."));
+      d.append(s, more); box.append(d);
+    });
+    return box;
+  }
+  function triage() {
+    var ul = el("ul", "tasks");
+    if (!D.triage.length) ul.append(el("li", "empty", "Triage is empty."));
+    D.triage.forEach(function (x) {
+      var li = el("li"); li.append(el("span", null, x.subject || x.name));
+      if (x.from) li.append(el("span", "meta", x.from));
+      ul.append(li);
+    });
+    if (D.triage_codes) ul.append(el("li", "meta", "sign-in and security codes: " + D.triage_codes));
+    var w = work("/para-triage"); if (w) { var li = el("li"); li.append(w); ul.append(li); }
+    return ul;
+  }
+
+  // today: late and due today, counted from now
+  var todayList = dated.filter(function (t) { return t.due <= TODAY; });
+  $("today").replaceWith(list(todayList, "Nothing late or due today."));
+
+  // chase or drop: every wait on someone else
+  var chase = $("chase");
+  var waits = D.tasks.filter(function (t) { return t.waiting; }).sort(function (a, b) {
+    return (a.waiting.since || "9999") < (b.waiting.since || "9999") ? -1 : 1; });
+  if (!waits.length) chase.append(el("li", "empty", "Nobody owes you anything on file."));
+  waits.forEach(function (t) {
+    var li = el("li"), days = t.waiting.since ? diff(TODAY, t.waiting.since) : null;
+    li.append(el("span", null, (t.waiting.person || "Someone") + ": " + (t.waiting.what || "a reply")));
+    if (days !== null) li.append(el("span", days >= D.chase_days ? "meta late" : "meta",
+      days + " days" + (days >= D.chase_days ? " · chase or drop" : "")));
+    li.append(el("span", "meta", t.where));
+    var w = work("Chase or drop: " + t.file + ":" + t.line); if (w) li.append(w);
+    chase.append(li);
+  });
+
+  // agenda, where the brief read one
+  if (D.agenda.length || D.agenda_note) {
+    $("agenda-box").hidden = false;
+    D.agenda.forEach(function (s) {
+      $("agenda").append(el("div", "lbl", s.label));
+      s.events.forEach(function (e) {
+        var row = el("div", "ev"), what = el("span"); what.innerHTML = e.html;
+        row.append(el("time", null, e.when || ""), what); $("agenda").append(row);
+      });
+    });
+    if (D.agenda_note) { var n = el("p", "meta"); n.innerHTML = D.agenda_note; $("agenda").append(n); }
+  }
+
+  // next 14 days, one cell per day
+  var weekBox = $("week");
+  for (var i = 1; i <= 14; i++) {
+    var day = addDays(TODAY, i), dd = parse(day);
+    var items = dated.filter(function (t) { return t.due === day; }).sort(function (a, b) { return (a.time || "99") < (b.time || "99") ? -1 : 1; });
+    var cell = el("div", "day" + (dd.getDay() % 6 === 0 ? " weekend" : "") + (items.length ? "" : " none"));
+    var h = el("h3"); h.append(el("span", null, WD[dd.getDay()]), el("span", null, short(day))); cell.append(h);
+    var ul = el("ul");
+    items.forEach(function (t) {
+      var li = el("li"); if (t.time) li.append(el("time", null, t.time));
+      li.append(document.createTextNode(t.headline)); li.title = t.where; ul.append(li);
+    });
+    cell.append(ul); weekBox.append(cell);
+  }
+  var later = dated.filter(function (t) { return t.due > addDays(TODAY, 14); });
+  $("beyond").textContent = (later.length ? "After that: " + later.length + " dated, the first on " + short(later[0].due) + ". " : "") +
+    undated.length + " have no date.";
+
+  // people with something open either way
+  if (D.people.length) {
+    $("people-box").hidden = false;
+    D.people.forEach(function (p) {
+      var tr = el("tr"), who = el("td");
+      who.append(el("b", null, p.name)); if (p.kind) who.append(document.createTextNode(" "), el("span", "chip", p.kind));
+      var owe = el("td", null, p.owe ? p.owe + (p.owe_next_due ? " · next " + short(p.owe_next_due) : "") : "");
+      var wait = el("td", null, p.waiting ? p.waiting + (p.waiting_since ? " · since " + short(p.waiting_since) : "") : "");
+      var stage = el("td", "hide-narrow", p.entity ? p.entity.name + ": " + p.entity.stage : "");
+      var touch = el("td");
+      if (p.last_touch) {
+        var age = diff(TODAY, p.last_touch);
+        touch.append(el("span", age > D.chase_days ? "amber" : null, short(p.last_touch)));
+        if (p.last_touch_from) touch.append(el("div", "meta", p.last_touch_from));
+      }
+      tr.append(who, owe, wait, stage, touch); $("people").append(tr);
+    });
+  }
+
+  // pipeline: stage bars, a click opens who is in it
+  if (D.pipeline.length) {
+    $("pipeline-box").hidden = false;
+    D.pipeline.forEach(function (lc) {
+      var box = el("div", "lifecycle"), stages = el("div", "stages"), items = el("div", "items");
+      box.append(el("h3", null, lc.heading), stages, items);
+      lc.counts.forEach(function (c) {
+        var b = el("button", "stage"); b.type = "button"; b.setAttribute("aria-pressed", "false");
+        b.append(document.createTextNode(c.stage), el("b", null, String(c.count)));
+        b.disabled = !c.count;
+        b.addEventListener("click", function () {
+          var on = b.getAttribute("aria-pressed") === "true";
+          Array.prototype.forEach.call(stages.children, function (x) { x.setAttribute("aria-pressed", "false"); });
+          items.replaceChildren();
+          if (on) return;
+          b.setAttribute("aria-pressed", "true");
+          var rows = D.pipeline_items.filter(function (it) { return it.lifecycle === lc.heading && it.stage === c.stage; });
+          var t = el("table"), head = el("tr");
+          ["Name", "Contact", "In stage", "Last touch", "Next step"].forEach(function (h) { head.append(el("th", null, h)); });
+          t.append(head);
+          rows.forEach(function (it) {
+            var tr = el("tr"), lt = el("td");
+            if (it.last_touch) {
+              lt.append(el("span", diff(TODAY, it.last_touch) > D.chase_days ? "amber" : null, short(it.last_touch)));
+              if (it.last_touch_note) lt.append(el("div", "meta", it.last_touch_note));
+            }
+            var step = el("td", it.next_step ? null : "late", it.next_step || "No next step");
+            tr.append(el("td", null, it.name), el("td", null, it.contact_name || ""),
+              el("td", "n", it.since ? diff(TODAY, it.since) + "d" : ""), lt, step);
+            t.append(tr);
+          });
+          items.append(t);
+        });
+        stages.append(b);
+      });
+      $("pipeline").append(box);
+    });
+  }
+
+  // housekeeping: the scan's flags, quietly
+  if (D.flags.length) {
+    $("flags-box").hidden = false;
+    D.flags.forEach(function (f) {
+      var li = el("li");
+      if (f.tasks.length || f.rows.length) {
+        var d = el("details"), s = el("summary", "x"); s.innerHTML = f.html; d.append(s);
+        if (f.tasks.length) d.append(list(f.tasks.map(function (id) { return byId[id]; }).filter(Boolean), ""));
+        if (f.rows.length) {
+          var ul = el("ul", "tasks");
+          f.rows.forEach(function (r) { var x = el("li"); x.append(el("span", null, r.label), el("span", "meta", r.meta)); ul.append(x); });
+          d.append(ul);
+        }
+        li.append(d);
+      } else { li.innerHTML = f.html; }
+      $("flags").append(li);
+    });
+  }
+
+  $("foot").textContent = "Generated " + D.today + " " + D.generated_by + " · read-only: repairs via /para-deep-clean" +
+    (D.local ? " · a local page: nothing on it leaves this machine." : "");
+})();
+</script>
+</body>
+</html>

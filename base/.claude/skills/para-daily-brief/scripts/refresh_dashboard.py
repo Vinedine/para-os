@@ -5,11 +5,10 @@
     py -3 refresh_dashboard.py --vault <path>   # the same, for a named vault
     py -3 refresh_dashboard.py --render         # scan and render now, in this process
 
-The page is `render_dashboard.py --mechanical`: the tiles, the per-entity bars, the Later
-counts, every fired health flag, ideas, triage and lifecycle counts, with Now ranked by the
-brief's own sort. The Next action and the agenda stay model work, so the page says once
-that they come from the next `/para-daily-brief` run, which also remains the source of the
-published artifact. It is written to `$PARAOS_HOME/cache/daily-brief/<vault folder>.html`,
+The page is `render_dashboard.py --mechanical`, as a local page: every number the brief's
+own page carries and every fired health flag, with the Next action picked by the brief's own
+sort and no agenda, which stay model work. It is written to
+`$PARAOS_HOME/cache/daily-brief/<vault folder>.html`,
 never inside the vault, beside a stamp of the files it was rendered from and a log of the
 last background run.
 
@@ -117,7 +116,7 @@ def render_now(vault, paraos_home=None, today=None):
     page, stamp, _ = cache_paths(vault, paraos_home)
     seen = fingerprint(vault)
     report = json.loads(json.dumps(scan(vault, today or date.today(), paraos_home=paraos_home)))
-    title, html = render(report)
+    title, html = render(report, local=True)
     page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text(html, encoding="utf-8")
     stamp.write_text(json.dumps(seen) + "\n", encoding="utf-8")

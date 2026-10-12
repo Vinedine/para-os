@@ -46,7 +46,8 @@ try:
         BRIEF_LINE_CAP, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
         HEADLINE_CAP, OPEN_ITEM_CAP, STALE_FILE_DAYS, WAITING_FLAG_DAYS, action_files,
         cadence_days, cap_count, waiting_on,
-        entity_candidates, field_ci, headline, stray_checkboxes,
+        entity_candidates, field_ci, headline, stray_checkboxes, extract_links, header_fields,
+        contact_names,
         file_dates, is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes,
         open_tasks, read_lines, never_folders,
         over_grown_briefs, parse_date, register_rows, resolve_entity,
@@ -544,6 +545,7 @@ LOG_NAME_RE = re.compile(r"^(?:(?:development|dev|decisions?) )?log$|^decisions$
 LOG_ENTRY_RE = re.compile(r"^(?:[-*+]\s+|#{2,6}\s+)?[*_]{0,2}(\d{4}-\d{2}-\d{2})[*_]{0,2}"
                           r"(?![\d-])[\s:,.)\u2013\u2014-]*(.*)$")
 NAME_LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+DATE_IN_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def review_window(arg, today):
@@ -752,6 +754,169 @@ def review_block(vault, window, files, tasks, report, match):
             "decisions": decisions_in_window(vault, start, end, match["path"] if match else None)}
 
 
+# ----------------------------------------------- who each action is owed to, for the dashboard
+
+CARD_DIRS = ("areas/network", "contacts", "people")   # where action_files finds contact cards
+CONTACT_FIELDS = ("Champion", "Contact")
+
+
+def card_stem(rel):
+    """The contact card a vault-relative path names, by its file stem, else None."""
+    p = Path(rel)
+    if p.suffix.lower() == ".md" and p.parent.as_posix() in CARD_DIRS \
+            and p.name.lower() != "readme.md":
+        return p.stem
+    return None
+
+
+def links_from(vault, file, text):
+    """Every link target in `text`, read from `file`, as vault-relative paths."""
+    out = []
+    for _, href, _ in extract_links(text):
+        target = resolve_link(vault / file, href)
+        if is_under(target, vault):
+            out.append(target.relative_to(vault).as_posix())
+    return out
+
+
+def detail_text(lines, lineno):
+    """The indented lines directly under a task, which carry its detail and often the link
+    that ties it to a deal when the line itself has no room for one."""
+    out = []
+    for raw in lines[lineno:]:
+        if not raw.strip() or not raw.startswith((" ", "\t")):
+            break
+        out.append(raw)
+    return " ".join(out)
+
+
+def contact_of(vault, path, fields):
+    """The card a brief or register row names as its contact: a `Champion` or `Contact`
+    field linking one, else the first card the brief's header links. (stem, as written)."""
+    raw = next((field_ci(fields, f) for f in CONTACT_FIELDS if field_ci(fields, f)), "") or ""
+    for target in links_from(vault, path, raw) + links_from(vault, path, " ".join(fields.values())):
+        if card_stem(target):
+            return card_stem(target), raw
+    return None, raw
+
+
+def entity_contact(vault, entity_dir, cache):
+    if entity_dir not in cache:
+        doc = next((vault / entity_dir / n for n in ("brief.md", "README.md")
+                    if (vault / entity_dir / n).is_file()), None)
+        rel = doc.relative_to(vault).as_posix() if doc else None
+        cache[entity_dir] = contact_of(vault, rel, header_fields(doc))[0] if doc else None
+    return cache[entity_dir]
+
+
+def annotate_owed_to(vault, tasks):
+    """Each task's `links` (its line and its indented detail lines) and `owed_to`: the card
+    it sits on, else a card it links, else the main contact of the project or idea it sits
+    in."""
+    lines, contacts = {}, {}
+    for t in tasks:
+        raw = lines.setdefault(t["file"], read_lines(vault / t["file"]))
+        t["links"] = links_from(vault, t["file"], t["text"] + " " + detail_text(raw, t["line"]))
+        owed = t["person"] or next((card_stem(x) for x in t["links"] if card_stem(x)), None)
+        if not owed and t["bucket"] == "P":
+            owed = entity_contact(vault, "/".join(Path(t["file"]).parts[:-1]), contacts)
+        t["owed_to"] = owed
+
+
+def last_touch(text):
+    """(date, the note after it) from a `Last touch` field or cell: `<date>, <what happened>`."""
+    m = DATE_IN_RE.search(text or "")
+    if not m:
+        return None, (text or "").strip()
+    return m.group(0), NAME_LINK_RE.sub(r"\1", text[m.end():]).strip(" ,;-")
+
+
+def next_step_for(e, contact, tasks, deals_of):
+    """The soonest open item that belongs to a staged entity: one in its own folder, or on
+    its contact's card when it links the entity or the contact carries no other entity, so
+    a contact with two deals never shows one deal's step under the other."""
+    home = e["path"].rsplit("/", 1)[0] + "/" if e["line"] is None else None
+    for t in sorted(tasks, key=lambda t: (t["lane"] == "waiting_on", t["effective_date"] or "9999")):
+        mine = home and t["file"].startswith(home)
+        theirs = contact and t["owed_to"] == contact and card_stem(t["file"]) and (
+            deals_of.get(contact, 0) == 1 or (home and any(x.startswith(home) for x in t["links"])))
+        if mine or theirs:
+            wait = t.get("waiting_on")
+            return f"waiting on them: {wait['what'] or 'a reply'}" if wait else headline(t["text"])
+    return None
+
+
+def pipeline_items(vault, today, tasks):
+    """Every live staged entity, read by `staged_entities` so the list and the counts agree:
+    its contact, days in stage, last touch and next step."""
+    found = []
+    for lc in lifecycles(vault):
+        for e in staged_entities(vault, lc):
+            if e["closed"]:
+                continue
+            if e["line"] is not None:
+                fields = next((r for r in register_rows(vault / e["path"])
+                               if r["line"] == e["line"]), {})
+                step = (field_ci(fields, "Next step") or "").strip(" -")
+            else:
+                fields, step = header_fields(vault / e["path"]), ""
+            card, raw = contact_of(vault, e["path"], {k: v for k, v in fields.items()
+                                                      if isinstance(v, str)})
+            found.append((lc, e, card, raw, fields, NAME_LINK_RE.sub(r"\1", step)))
+    deals_of = {}
+    for _, _, card, _, _, _ in found:
+        if card:
+            deals_of[card] = deals_of.get(card, 0) + 1
+    out = []
+    for lc, e, card, raw, fields, step in found:
+        touched, note = last_touch(field_ci(fields, "Last touch"))
+        since = parse_date(e["since"])
+        out.append({"lifecycle": lc["heading"], "stage": e["stage"], "name": e["name"],
+                    "path": e["path"], "line": e["line"], "contact": card,
+                    "contact_text": NAME_LINK_RE.sub(r"\1", raw).split("(")[0].strip(" *"),
+                    "since": e["since"], "days_in_stage": (today - since).days if since else None,
+                    "last_touch": touched, "last_touch_note": note,
+                    "next_step": step or next_step_for(e, card, tasks, deals_of)})
+    return out
+
+
+def people(vault, tasks, items):
+    """One row per contact card with something open either way: what the operator owes
+    them, what they owe the operator, the entity they champion and the latest touch, with
+    where that date came from."""
+    out = []
+    for folder in CARD_DIRS:
+        for card in sorted((vault / folder).glob("*.md")) if (vault / folder).is_dir() else []:
+            stem = card_stem(f"{folder}/{card.name}")
+            if not stem:
+                continue
+            mine = [t for t in tasks if t["owed_to"] == stem]
+            owe = [t for t in mine if t["lane"] != "waiting_on"]
+            waits = [t for t in mine if t["lane"] == "waiting_on"]
+            if not mine:
+                continue
+            fields = header_fields(card)
+            kind = (field_ci(fields, "Kind") or "").split()
+            entity = next((i for i in items if i["contact"] == stem), None)
+            done = [c["done"] for c in closed_tasks(card) if c["done"]]
+            touches = [(d, src) for d, src in (
+                ((entity or {}).get("last_touch"), (entity or {}).get("name")),
+                (max(done) if done else None, "closed action")) if d]
+            touched = max(touches) if touches else (None, None)
+            dated = sorted(t["effective_date"] for t in owe if t["effective_date"])
+            since = sorted(t["waiting_on"]["since"] for t in waits if t["waiting_on"]["since"])
+            names = contact_names(card)
+            out.append({"person": stem, "file": f"{folder}/{card.name}",
+                        "name": names[0] if names else stem,
+                        "kind": kind[0].strip("*_").lower() if kind else None,
+                        "owe": len(owe), "owe_next_due": dated[0] if dated else None,
+                        "waiting": len(waits), "waiting_since": since[0] if since else None,
+                        "entity": entity and {"name": entity["name"], "stage": entity["stage"],
+                                              "lifecycle": entity["lifecycle"]},
+                        "last_touch": touched[0], "last_touch_from": touched[1]})
+    return out
+
+
 # ------------------------------------------------------------------------------- the report
 
 def scan(vault, today, entity=None, paraos_home=None, review=None):
@@ -810,6 +975,9 @@ def scan(vault, today, entity=None, paraos_home=None, review=None):
             match = {"label": idea["name"], "path": f"resources/ideas/{idea['name']}"}
             idea["actions"] = [{"file": t["file"], "line": t["line"]}
                                for t in mentions_elsewhere(vault, tasks, match)]
+        annotate_owed_to(vault, tasks)
+        report["pipeline_items"] = pipeline_items(vault, today, tasks)
+        report["people"] = people(vault, tasks, report["pipeline_items"])
         report["triage"] = triage_items(vault)
         report["triage_preview"] = triage_preview(vault, report["triage"])
         report["lifecycles"] = lifecycle_counts(vault)

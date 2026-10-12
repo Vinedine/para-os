@@ -80,7 +80,8 @@ class Rendering(RefreshCase):
         self.assertEqual(result["title"], "BelFoot Dashboard")
         html = page.read_text(encoding="utf-8")
         self.assertIn("from the scan alone", html)
-        self.assertIn("come from the next <code>/para-daily-brief</code> run", html)
+        self.assertIn("the next /para-daily-brief run chooses with judgment", html)
+        self.assertIn('"local": true', html)   # a page on this machine carries Work on this links
         self.assertTrue(stamp.is_file())
         self.assertEqual([], [p for p in self.root.rglob("*.html")])
 
