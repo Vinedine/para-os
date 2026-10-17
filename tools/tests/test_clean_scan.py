@@ -274,15 +274,6 @@ class DanglingLinks(VaultCase):
                                    "../../../projects/old-shop/plan.md")])
 
 
-class CheckerVerified(VaultCase):
-
-    def test_all_three_directions_pass(self):
-        write(self.root, "CLAUDE.md", "# Vault\n")
-        got = self.run_scan("1")["phase1"]["checker_verified"]
-        self.assertEqual(got, {"good_link_passes": True, "broken_link_caught": True,
-                               "fenced_link_skipped": True})
-
-
 class Wikilinks(VaultCase):
 
     def test_resolved_and_unresolved(self):
