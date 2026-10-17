@@ -24,8 +24,7 @@ Match the folder you file into, and never mass-rename a folder to another conven
 
 ## Sources and working files
 
-- **`sources/` holds originals; a working file sits at the containing folder's root.** A spreadsheet maintained by hand (a reconciliation, a running ledger, a tracker) is a working file.
-- **A machine-generated export is a source, even in an editable format**: a statement CSV belongs in `sources/` beside its PDF twin. The test is authorship, not extension.
+- **`sources/` holds originals, a kept export among them even in an editable format; a working file sits at the containing folder's root.** A spreadsheet maintained by hand (a reconciliation, a running ledger, a tracker) is a working file: the test is authorship, not extension.
 
 ## What not to file
 
