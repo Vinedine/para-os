@@ -249,27 +249,9 @@ def phase1_map(vault):
 
 # --------------------------------------------------------------------------- placeholders
 
-def placeholder_files(vault, templates_dirs):
-    """The root README, CLAUDE.md, every entity brief/README, and every actions.md - the
-    files the bootstrap actually writes - minus resources/prompts/ and any vault-declared
-    template folder."""
-    exclude = {"resources/prompts", *templates_dirs}
-    candidates = [vault / "README.md", vault / "CLAUDE.md"]
-    for bucket in ("projects", "areas", "resources/ideas", "archive"):
-        for name in ("brief.md", "README.md"):
-            candidates += vault.glob(f"{bucket}/**/{name}")
-    candidates += vault.rglob("actions.md")
-
-    seen, out = set(), []
-    for f in candidates:
-        if not f.is_file():
-            continue
-        rel = f.relative_to(vault).as_posix()
-        if rel in seen or under_any(rel, exclude):
-            continue
-        seen.add(rel)
-        out.append(f)
-    return sorted(out)
+def placeholder_files(vault):
+    """The root CLAUDE.md and README.md: the only vault files the kit writes `{{...}}` into."""
+    return [f for f in (vault / "CLAUDE.md", vault / "README.md") if f.is_file()]
 
 
 def find_placeholders_in(files, vault):
@@ -643,7 +625,7 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
 
     map_ = phase1_map(vault)
 
-    ph_files = placeholder_files(vault, templates_dirs)
+    ph_files = placeholder_files(vault)
     placeholders = find_placeholders_in(ph_files, vault)
     touched |= set(ph_files)
 
@@ -872,9 +854,9 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
            name_only_columns=()):
     touched, rows = set(), []
 
-    mc = misplaced_checkboxes(vault)
-    touched |= {vault / r["file"] for r in mc["archive"]}
-    rows.append({"check": "archived_open_items", "pass": not mc["archive"], "detail": mc["archive"]})
+    mc = misplaced_checkboxes(vault, with_closed=True)
+    touched |= {vault / f for f in misplaced_files(mc)}
+    rows.append({"check": "misplaced_checkboxes", "pass": not misplaced_files(mc), "detail": mc})
 
     tri = triage_precondition(vault)
     triage_ok = not tri["triage_loose"] and not tri["triage_readme"]
@@ -886,7 +868,6 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
     arch = archive_findings(vault, dated_pattern)
     archive_clean = not (arch["loose_root_files"] or arch["meetings_naming"] or arch["missing_record"])
     touched |= {vault / f for f in arch["loose_root_files"] + arch["meetings_naming"] + arch["missing_record"]}
-    touched |= {vault / f for f in misplaced_files(arch["misplaced_checkboxes"])}
     rows.append({"check": "archive_clean", "pass": archive_clean, "detail": arch})
 
     res_loose = resources_loose(vault)
@@ -897,7 +878,7 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
     touched |= {vault / d["file"] for d in dangling}
     rows.append({"check": "dangling_links", "pass": not dangling, "detail": dangling})
 
-    ph_files = placeholder_files(vault, templates_dirs)
+    ph_files = placeholder_files(vault)
     placeholders = find_placeholders_in(ph_files, vault)
     touched |= set(ph_files)
     rows.append({"check": "placeholders", "pass": not placeholders, "detail": placeholders})
