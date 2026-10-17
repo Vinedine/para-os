@@ -199,9 +199,6 @@ class BehindCase(CloneCase):
             ".claude/skills/para-notes/old.md": "retired",
             ".claude/skills/para-notes/references/new.md": "missing",
             ".claude/skills/para-prep/SKILL.md": "missing",
-            ".gitignore": "missing",
-            "README.md": "missing",
-            "resources/deals/README.md": "missing",
             "resources/scripts/logbook.py": "untouched",
             "resources/scripts/other.py": "no-master",
             "resources/scripts/tally.py": "edited",
@@ -217,17 +214,13 @@ class BehindCase(CloneCase):
                          ("integration", "integrations/logbook/logbook.py"))
         self.assertEqual(rows["resources/scripts/tally.py"]["master"], "addons/sales/pipeline/tally.py")
         self.assertEqual(rows[".claude/rules/deal.md"]["kind"], "rule")
-        self.assertEqual(rows["README.md"]["master"], "base/README.md.template")
-        self.assertEqual(rows["triage/README.md"]["kind"], "skeleton")
+        self.assertIsNone(rows["triage/README.md"]["kind"])
         self.assertIsNone(rows[".claude/skills/para-notes/old.md"]["master"])
 
     def test_an_edited_copy_carries_the_diff_from_its_master(self):
         row = next(r for r in self.report["files"] if r["path"] == ".claude/rules/deal.md")
         self.assertIn("+# Our deals", row["diff"])
         self.assertNotIn("diff", next(r for r in self.report["files"] if r["state"] != "edited"))
-
-    def test_a_placeholder_whose_folder_holds_content_is_not_missing(self):
-        self.assertNotIn("projects/README.md", self.states(self.report))
 
     def test_the_contract_is_the_template_s_change_section_by_section(self):
         rows = {(r["file"], r["heading"]): r["diff"] for r in self.report["contract"]}

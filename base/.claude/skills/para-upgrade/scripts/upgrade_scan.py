@@ -14,15 +14,14 @@ revision  The vault's template marker (`vault`) against the master's (`master`):
           vault's, up to the master's, with its `- ` lines as `reactions`, the lead dropped.
           `baseline`: the commit whose template carries the vault's marker, the ref's own where
           it still does, else the parent of the newest commit changing it; null where none.
-files     Every vault file the kit owns or ships that is not `current`: `path` (vault-relative,
+files     Every vault file the kit owns that is not `current`: `path` (vault-relative,
           absolute outside the vault), `kind`, `master` (its path in the clone), `state`.
           kind   skill: a base or declared add-on skill, para-shared included, where the vault
                  runs it (its bundled copy, else the user-level one; a missing one goes where
                  its other kit skills are, none where it has none), and a multi-vault skill
                  where installed. rule, settings. integration: a file carrying a
                  `para-os-integration:` marker, its master under integrations/ or an add-on's
-                 pipeline/. skeleton: every other file base or a declared add-on ships, listed
-                 only when missing, never a placeholder whose folder holds other content.
+                 pipeline/. Null on any other retired file.
           state  current: nothing to take from the kit, the ref's bytes or those bytes with
                  lines of the vault's own added (a rule file the vault writes into), or for a
                  JSON file, keys and list entries of its own (settings with more deny rules).
@@ -78,7 +77,6 @@ except ImportError as missing:  # para-shared/scripts.md: the skill stops
 STABLE = "origin/stable"
 SECTIONS = "CLAUDE.md.sections"
 DIFF_CAP = 200
-PLACEHOLDER = b"<!-- Placeholder"
 REACTION_RE = re.compile(r"^- (.+?)[ \t]*$", re.M)
 RETIRED_RE = re.compile(r"^Retired:(.*)$", re.M)
 BACKTICK_RE = re.compile(r"`([^`]+)`")
@@ -219,8 +217,8 @@ def blob_id(data):
 
 
 def plan_files(vault, kit, decl, user_dir):
-    """{absolute vault-side path: (kind, master or None)} for every file the kit owns or
-    ships for this vault."""
+    """{absolute vault-side path: (kind, master or None)} for every file the kit owns for
+    this vault."""
     roots = [r for r in (addon_root(kit.clone, kit.commit, n) for n in addon_names(decl)) if r]
     planned = {}
     homes = [d for d in (vault / ".claude" / "skills", user_dir) if d and d.is_dir()]
@@ -239,16 +237,10 @@ def plan_files(vault, kit, decl, user_dir):
             for master in kit.under(folder):
                 planned[(at or home / name) / master[len(folder) + 1:]] = ("skill", master)
 
-    for prefix, kind in [("base/.claude/rules/", "rule")] + \
-            [(f"{r}/.claude/rules/", "rule") for r in roots] + \
-            [("base/", "skeleton")] + [(f"{r}/skeleton/", "skeleton") for r in roots]:
+    for prefix in ["base/.claude/rules/"] + [f"{r}/.claude/rules/" for r in roots]:
         for master in kit.tree:
-            rel = master[len(prefix):]
-            if not master.startswith(prefix) or master in (BASE_TEMPLATE, "base/bootstrap-prompt.md") \
-                    or (kind == "skeleton" and rel.startswith(".claude/")):
-                continue
-            rel = ".claude/rules/" + rel if kind == "rule" else rel.replace("README.md.template", "README.md")
-            planned.setdefault(vault / rel, (kind, master))
+            if master.startswith(prefix):
+                planned.setdefault(vault / ".claude" / "rules" / master[len(prefix):], ("rule", master))
     if "base/.claude/settings.json" in kit.tree:
         planned[vault / ".claude" / "settings.json"] = ("settings", "base/.claude/settings.json")
 
@@ -319,8 +311,6 @@ def files_block(vault, kit, decl, user_dir=None):
     planned = plan_files(vault, kit, decl, user_dir)
     rows = {}
     for path, (kind, master) in planned.items():
-        if kind == "skeleton" and (path.exists() or placeholder_filled(path, kit, master)):
-            continue
         rows[path] = {"kind": kind, "master": master, "state": state_of(path, kit, master)}
         if rows[path]["state"] == "edited":
             rows[path]["diff"] = diff(clone_read(kit.clone, kit.commit, master), path.read_bytes(),
@@ -329,16 +319,9 @@ def files_block(vault, kit, decl, user_dir=None):
         if path not in planned or planned[path][1] is None:
             posix = path.as_posix()
             kind = "skill" if "/.claude/skills/" in posix or user_dir in path.parents else \
-                "rule" if "/.claude/rules/" in posix else planned.get(path, ("skeleton",))[0]
+                "rule" if "/.claude/rules/" in posix else planned.get(path, (None,))[0]
             rows[path] = {"kind": kind, "master": None, "state": "retired"}
     return [dict({"path": shown(p, vault)}, **rows[p]) for p in sorted(rows, key=str)]
-
-
-def placeholder_filled(path, kit, master):
-    """A file that only holds its folder open, which other content in the folder does."""
-    if path.name != ".gitkeep" and PLACEHOLDER not in (clone_read(kit.clone, kit.commit, master) or b""):
-        return False
-    return path.parent.is_dir() and any(path.parent.iterdir())
 
 
 def shown(path, vault):
