@@ -83,7 +83,7 @@ Create `projects/vault-setup/` - the vault's first project, since standing the v
 
 **`actions.md`** (emoji task markers) - the concrete next steps:
 
-- `- [ ] Brainstorm: four short rounds on my week, my systems, the next 90 days and one win (or drop a recording / notes in triage/)`
+- `- [ ] Brainstorm: my week, my systems, the next 90 days, one win (or drop notes in triage/)`
 - `- [ ] List the systems my work lives in`
 - `- [ ] Connect each system - plan the MCP / API wiring`
 - `- [ ] Extract existing data from each folder / inbox`
