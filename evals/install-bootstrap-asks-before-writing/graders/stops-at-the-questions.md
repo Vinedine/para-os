@@ -4,7 +4,8 @@ type: llm
 
 The reply is the first message of a vault's setup. Its questions are all allowed: the vault's
 name, what it is for (a business, life admin, a portfolio...), the answer language, what it
-covers, a website or profile, the country and its year end, and whether to track sales.
+covers, a website or profile, the country and its year end, where the daily brief's dashboard
+goes, and whether to track sales.
 
 PASS if the reply asks its questions and stops there.
 
