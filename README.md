@@ -126,7 +126,7 @@ A vault the agent can only read is a tidy filing cabinet. Wire in a source and t
 
 ## Add-ons
 
-An add-on layers on the base, as one of [two kinds](addons/README.md): a **flavor** says what a vault is about, a **module** adds a function beside that. [`real-estate/`](addons/real-estate/) is a flavor for buying, renovating, selling and holding property; [`sales/`](addons/sales/) is a module for prospects, demos and deals. A vault declares its add-ons under the `**Type:**` line of its `CLAUDE.md`. The [activity](addons/activity/) and [brainstorm](addons/brainstorm/) modules add a usage review and a guided brainstorm, and [`multi-vault/`](multi-vault/) adds two skills for anyone running several vaults.
+An add-on layers on the base, as one of [two kinds](addons/README.md): a **flavor** says what a vault is about, a **module** adds a function beside that. [`real-estate/`](addons/real-estate/) is a flavor for buying, renovating, selling and holding property; [`sales/`](addons/sales/) is a module for prospects, demos and deals. A vault declares its add-ons under the `**Type:**` line of its `CLAUDE.md`. The [activity](addons/activity/) and [brainstorm](addons/brainstorm/) modules add a usage review and a guided brainstorm, and [`multi-vault/`](multi-vault/) adds three skills for anyone running several vaults.
 
 ## Data and privacy
 

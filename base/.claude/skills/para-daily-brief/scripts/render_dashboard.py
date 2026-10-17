@@ -290,12 +290,13 @@ def mechanical_now(scan):
     then date ascending, and no Vision tiebreak. A recurring item overdue or due today is in
     those lanes already."""
     keys = {(e["file"], e["line"]) for lane in NOW_LANES for e in scan["lanes"].get(lane, [])}
-    picks = [t for t in scan["tasks"] if (t["file"], t["line"]) in keys]
-    picks.sort(key=lambda t: (0 if t["days"] <= 0 else 1,
-                              -PRIORITY_RANK.get(t["priority"] or "", 0),
-                              0 if t["due"] else 1, 1 if t["recurring"] else 0,
-                              t["days"], t["file"], t["line"]))
+    picks = sorted((t for t in scan["tasks"] if (t["file"], t["line"]) in keys), key=now_key)
     return [{"file": t["file"], "line": t["line"]} for t in picks[:NOW_CAP]]
+
+
+def now_key(t):
+    return (0 if t["days"] <= 0 else 1, -PRIORITY_RANK.get(t["priority"] or "", 0),
+            0 if t["due"] else 1, 1 if t["recurring"] else 0, t["days"], t["file"], t["line"])
 
 
 def file_label(scan, rel):

@@ -34,7 +34,7 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | `base/` | The vault skeleton: `CLAUDE.md.template`, `README.md.template`, `.claude/skills/para-*`, `.claude/rules/`, `bootstrap-prompt.md` |
 | `addons/` | Flavors and modules an operator adopts by name later |
 | `integrations/` | Sync and fetch scripts, each stamped `para-os-integration: <name> <revision>` |
-| `multi-vault/` | `/para-ingest` and `/para-audit`, for operators running several vaults |
+| `multi-vault/` | `/para-ingest`, `/para-audit` and `/para-global-brief`, for operators running several vaults |
 | `examples/belfoot-vault/` | The example vault: a working instance of everything base ships. Read it, never copy it |
 | `evals/` | Behaviour cases for the skills, run by `tools/eval.py` |
 | `docs/` | Design notes for maintainers; never copied into a vault |
