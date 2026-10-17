@@ -8,6 +8,43 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ---
 
+## 2026.10.03
+
+### Highlights
+
+- **Any mail, recording or calendar connector works.** A mailbox, a meeting recorder or a calendar can come from any connector, not only Google: declare it under your sources by kind (add `recording` after a recorder's name), and the skills find its reading tools. Nothing is ever sent, deleted or answered through it.
+- **Triage can run on its own, one kind of action at a time.** `/para-triage auto` deletes duplicates or dismisses noise only for the kinds of action you switch on for a vault, and leaves everything else for your next session. Nothing is switched on until you say so. Every file it takes goes to a quarantine outside the vault, and one restore command brings it back and switches that kind off again. Mail is never touched. Your next `/para-triage` opens on what ran, and offers to switch a kind on once you have accepted nearly all of its last 50 recommendations unchanged.
+- **What a conversation settles gets written down.** A date agreed, a decision and its reason, or an action finished or promised is written into the file it belongs in before the session ends, or you are asked about it once, instead of being left as an offer for next time.
+
+### Also new
+
+- **Triage in a shared vault leaves other people's items to them.** Where the vault lists who writes it, `/para-triage` asks you only about items in your own areas or in nobody's, and lists the rest as left for whoever owns them.
+- **One brief across all your vaults.** If you run several vaults, `/para-global-brief` shows each one's open, overdue and due-this-week counts in one table, the urgent items across them with their vault named, and the one thing to do first. It changes nothing. Install it from the multi-vault folder beside the other skills.
+
+### Fixes
+
+- **Archiving stops asking about Backlog lines already settled.** A line whose outcome is written in italics, or one that says Dropped, now counts as settled, so `/para-archive` no longer asks about it again.
+- **The write-time check no longer calls every file changed on Windows.** A snapshot whose paths use forward slashes now matches its files, so `changed` lists only what really changed.
+- **The upgrade can say there is nothing to do.** It now adds the vault's own settings file where one is missing, instead of skipping it every time, so the setting travels with the vault to everyone who uses it.
+- **The deep clean stops calling a hidden copy of the skills a duplicate.** Files in hidden folders, such as the copy of the skills another agent reads, are no longer listed as duplicates, so none can be deleted as one.
+- **The upgrade stops proposing placeholder files.** It no longer offers the files a new vault starts with, such as a README for a folder the vault never created, so it never creates a folder the vault left out on purpose.
+- **The deep clean stops reading a diagram as an unfilled placeholder.** It now looks for `{{...}}` only in the vault's root `CLAUDE.md` and `README.md`, the two files setup fills in, so a vault with a diagram can pass the final check.
+- **The deep clean's final check no longer passes an open checkbox where the vault forbids one.** A checkbox in `resources/`, or on a contact card in a vault that keeps none there, now fails the final check, as the first phase already reported it.
+- **The upgrade stops asking about your working preferences.** Once you add a preference, the file no longer reads as changed by you on every upgrade, and an upgrade can no longer replace your preferences with the empty template.
+- **The upgrade no longer replaces a filled-in file that matches something else in the kit.** A file counts as an old, unchanged copy only when it matches what the kit once shipped in that same place; any other file is shown to you before it changes.
+- **The daily brief stops asking whether an area is finished.** A project or area with nothing open is now flagged as just that, since an area is kept up rather than finished.
+- **Triage proposes a delete where you would choose one.** An item whose outcome is kept elsewhere, such as in a shop's own account or a portal, is proposed for deletion instead of left waiting, nothing a portal, a direct debit or your calendar already tracks becomes an action, and the facts of a summary or another tool's export are copied into the projects and areas they concern, each naming where it came from. A contract, an invoice or a signed letter is still filed. A document no project or area owns is handled the same way: deleted when its outcome is kept elsewhere, or filed in the business area when it is worth keeping, such as a policy covering the whole business.
+
+### Removed
+
+- **The daily brief no longer counts long action lines.** An action's first line still stays under 120 characters, as your vault's rules say, but the brief stops flagging the ones that run over.
+
+### What to do
+
+1. Run `/para-upgrade`.
+
+Full details: [CHANGELOG.md at this tag](https://github.com/Vinedine/para-os/blob/2026.10.03/CHANGELOG.md).
+
 ## 2026.10.02
 
 ### Highlights
