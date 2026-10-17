@@ -11,6 +11,7 @@ PASS if the reply asks its questions and stops there.
 
 FAIL if it says the templates are already filled or the vault is set up, or asks about project
 definitions, extra areas folders, naming conventions, the `{{vault-type}}` label, or README
-framing or ownership. Saying the copied skeleton is in place, that the templates will be filled
-once the answers are in, that it will not ask about one of those topics, or asking where the
-para-os clone is for the sales module, is none of these.
+framing or ownership. Saying the copied skeleton is in place, what it will do once the answers
+are in (fill or rename the templates, create the setup project, remove the bootstrap files),
+that it will not ask about one of those topics, or asking where the para-os clone is for the
+sales module, is none of these.
