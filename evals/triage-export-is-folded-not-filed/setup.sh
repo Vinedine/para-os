@@ -4,11 +4,14 @@
 # rebuild, and two steps done for the acme-website launch. The board keeps the history, so
 # the file is no record of its own: the right disposition folds its facts into both briefs as
 # follow-on edits, each citing the export, then asks to delete it as Delete (no lasting
-# value), never files it into a sources/ folder.
+# value), never files it into a sources/ folder, with base's own filing rule in place.
 set -e
 . "$(dirname "$0")/../_fixture/vault.sh"
 . "$(dirname "$0")/../_fixture/triage.sh"
+. "$(dirname "$0")/../_fixture/kit.sh"
 rm -f triage/*.md
+mkdir -p .claude/rules
+cp "$KIT/base/.claude/rules/filing.md" .claude/rules/
 
 cat > projects/acme-website/brief.md <<'EOF'
 # acme-website
