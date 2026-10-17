@@ -12,6 +12,10 @@ It is for the case where you run several vaults. It ships three skills over one 
 
 `/para-global-brief` runs each vault's own daily-brief scan and reports them together: one row of counts per vault, the overdue and due-today items across vaults with their vault named, and one next action. It never writes, and lists retired and unreachable vaults as `/para-audit` does.
 
+## Unattended triage
+
+`/para-triage auto` acts on the action types an operator switched on in a vault and leaves the rest for the next interactive run ([its procedure](../base/.claude/skills/para-triage/references/unattended.md)). [auto-triage-routine.md](auto-triage-routine.md) is the scheduled task that runs it across vaults, with the commands it may run unasked.
+
 ## /para-ingest
 
 The rest of this README is about `/para-ingest`, for vaults that draw on the same inputs. Per vault the design works: each declares its own sources in its own `## Triage sources` block and `/para-triage` pulls them. Across vaults it stops working, because the inbox is not vault-shaped. One mailbox declared by six vaults is fetched six times, a thread belonging to the seventh is dismissed six times without being recorded anywhere, and the knowledge of which vault a given item belongs to lives nowhere except in your head.

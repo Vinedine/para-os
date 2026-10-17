@@ -2,14 +2,14 @@
 name: para-triage
 description: Empty the current vault's triage/ folder - and any configured triage sources (mailboxes, sync scripts) - by classifying each item, proposing a destination or action, then executing after user confirmation. Use when user asks to "process triage", "clean up triage", "what's in triage", "empty the inbox", "check my email for anything to do", or types /para-triage.
 allowed-tools: Bash(python3 *), Bash(py *), Bash(node *), Bash(git rm *), Bash(mv *), Bash(mkdir *), Bash(test *), Bash(echo *), Bash(pwd *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content, mcp__google-workspace__get_gmail_attachment_content, mcp__google-workspace__search_drive_files, mcp__google-workspace__list_drive_items, mcp__google-workspace__get_drive_file_content
-argument-hint: '[preview|apply|convert|table] [--test]'
+argument-hint: '[preview|apply|convert|table|auto] [--test]'
 ---
 
 # Triage
 
 Processes every loose file in the current vault's `triage/` folder, plus any items pulled from the vault's configured triage sources (mailboxes, sync scripts). **Nothing is moved, renamed, or deleted until its own disposition has been put to the operator and approved**.
 
-The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PARA layout and the optional `## Triage sources` block; without that block the run is folder-only. Files already filed outside `triage/` are not re-sorted.
+The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PARA layout and the optional `## Triage sources` block; without that block the run is folder-only.
 
 ## Arguments
 
@@ -19,7 +19,8 @@ The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PA
 | `preview` | Print the manifest, then stop after the proposal table. Do not ask, do not execute. |
 | `apply` | Skip the approval step. Only when the user already approved a previous preview in this conversation. |
 | `table` | One markdown proposal table, one `go`: the explicit escape from item-by-item questions. |
-| `convert` | **Unattended entry point.** Run sync sources, convert Google-native files to `.md` siblings, write the conversion ledger, report what arrived. Nothing is classified, moved or deleted. |
+| `convert` | **Unattended**: run sync sources, convert Google-native files to `.md` siblings, write the conversion ledger and report what arrived; nothing else. |
+| `auto` | **Unattended**: act on the action types switched on here, leave the rest: [references/unattended.md](references/unattended.md). |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## Procedure
@@ -41,7 +42,7 @@ Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-disci
 python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root>
 ```
 
-It keeps its output outside the vault at `saved_to`, which every later re-check reads; where that is null, `save_error` says why: redirect the output to a file outside the vault. Exit 0 answers, an empty `triage/` included; 3 is Step 1's stop. **Fields: [references/scan.md](references/scan.md).**
+Then `auto_execute.py status --vault-name <vault.name>`: any `runs`, `proposal` or `offers` follow [unattended.md](references/unattended.md#the-interactive-side). The scan keeps its output outside the vault at `saved_to`, which every later re-check reads; where that is null, `save_error` says why: redirect the output to a file outside the vault. Exit 0 answers, an empty `triage/` included; 3 is Step 1's stop. **Fields: [references/scan.md](references/scan.md).**
 
 **Each `sources.rows[].plan` decides whether that source runs**, per [references/sources.md](references/sources.md); what it pulls flows on as loose files. **Re-run the scan** after anything writes into `triage/`, and with `--threads <file>` once a local mailbox pull has its candidate threads: that folds each into a note already staged for it and counts a sent message's working days unanswered.
 
@@ -61,7 +62,7 @@ Group the linked items, **then print the manifest** as [para-shared/asking.md](.
 
 ### Steps 7 and 8: Execute, update READMEs
 
-Moves, deletes, connector writes and follow-on edits: [references/execute.md](references/execute.md).
+Moves, deletes, connector writes and follow-on edits: [references/execute.md](references/execute.md). Then `auto_execute.py record --vault-name <name> --decisions <file>`, a row per decided item: `item`, `recommended`, `chosen`.
 
 ### Step 9: Summarize
 
@@ -71,7 +72,7 @@ One line per category: files moved (each linked to its new path), deleted (with 
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** Specific to this skill:
 
-- **Every deletion is approved on its own** - its own question, or its own Delete row on the table path - never a verbal go-ahead alone.
+- **Every deletion is approved on its own** - its own question, its own Delete row on the table path, or [its action switched on](references/unattended.md) for `auto` - never a verbal go-ahead alone.
 - **Never invent a top-level PARA folder** without asking.
 - **Mail is read-only** ([connectors.md](../para-shared/connectors.md)); a draft follows [para-shared/drafting.md](../para-shared/drafting.md) and is shown, never sent or saved.
 - **Connector items land in `triage/`, `actions.md` or a register row**, never straight into an entity folder or another vault: that is **Dismiss (other vault)** or **Stage in other vault**.

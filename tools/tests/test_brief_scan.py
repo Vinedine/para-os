@@ -917,6 +917,38 @@ class SilentSources(VaultCase):
         self.assertIsNone(self.silent(entity="acme-website"))
 
 
+class Unattended(VaultCase):
+    """The newest unattended triage run under the vault's registry name, and a proposal."""
+
+    def setUp(self):
+        super().setUp()
+        self.vault = self.root / "vault"
+        self.home = self.root / "home"
+        build_vault(self.vault)
+
+    def unattended(self):
+        return scan(self.vault, TODAY, paraos_home=self.home)["unattended"]
+
+    def test_none_without_a_run_or_a_proposal(self):
+        self.assertIsNone(self.unattended())
+
+    def test_the_newest_run_is_counted_under_the_registry_name(self):
+        write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
+        items = [{"action": "Dismiss (noise)"}, {"action": "Dismiss (noise)"},
+                 {"action": "Delete (duplicate)"}]
+        write(self.home, "quarantine/north/20260101-0700/manifest.json", '{"items": []}')
+        write(self.home, "quarantine/north/20260102-0700/manifest.json",
+              json.dumps({"items": items}))
+        write(self.home, "quarantine/north/20260103-0700/manifest.json", "not json")
+        self.assertEqual(self.unattended(), {"run": "20260103-0700", "acted": {},
+                                             "proposal_waiting": False})
+        (self.home / "quarantine/north/20260103-0700/manifest.json").unlink()
+        write(self.home, "cache/triage/proposals/north-20260102-0700.md", "x\n")
+        self.assertEqual(self.unattended(), {
+            "run": "20260102-0700", "acted": {"Dismiss (noise)": 2, "Delete (duplicate)": 1},
+            "proposal_waiting": True})
+
+
 class CommandLineCase(unittest.TestCase):
     """The command the skill runs: one JSON document, and a usage error for a bad argument."""
 

@@ -50,7 +50,7 @@ Pass `--entity` only under an entity scope, and `--review` only under `review`, 
 | `file_dates` | Each action file's last-touched date |
 | `entity`, `mentioned_elsewhere` | Step 1b |
 | `review` | Step 1c |
-| `flags`, `ideas`, `triage`, `triage_preview`, `lifecycles` | Steps 4c to 5b |
+| `flags`, `ideas`, `triage`, `triage_preview`, `unattended`, `lifecycles` | Steps 4c to 5b |
 
 ### Step 1b: Resolve an entity scope
 

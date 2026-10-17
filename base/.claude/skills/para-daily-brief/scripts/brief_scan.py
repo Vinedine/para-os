@@ -53,7 +53,7 @@ try:
         over_grown_briefs, parse_date, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
     )
-    from paraos_vault import paraos_home_dir, same_place, triage_sources  # noqa: E402
+    from paraos_vault import paraos_home_dir, registry, same_place, triage_sources  # noqa: E402
     from paraos_mail import ingest_ledger  # noqa: E402
     from paraos_vault import HEADING_RE, closed_tasks, table_cells  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -478,6 +478,28 @@ def delivered(vault, row, paraos_home):
                       for t in threads.values()
                       if isinstance(t, dict) and name in (t.get("routed") or [])], None
     return None
+
+
+def unattended(vault, paraos_home=None):
+    """The newest unattended triage run's count per action, and whether a proposal waits:
+    para-triage/scripts/auto_execute.py's quarantine and proposals, under the vault's
+    registry name, else its folder name. Null where neither exists."""
+    place = same_place(vault)
+    name = next((e["name"] for e in registry(paraos_home) if isinstance(e, dict)
+                 and e.get("path") and same_place(e["path"]) == place), Path(vault).name)
+    home = paraos_home_dir(paraos_home)
+    runs = sorted((home / "quarantine" / name).glob("*/manifest.json"))
+    waiting = bool(list((home / "cache" / "triage" / "proposals").glob(f"{name}-*.md")))
+    if not runs and not waiting:
+        return None
+    acted = {}
+    try:
+        for item in json.loads(runs[-1].read_text(encoding="utf-8"))["items"] if runs else []:
+            acted[item["action"]] = acted.get(item["action"], 0) + 1
+    except (OSError, ValueError, KeyError):
+        pass
+    return {"run": runs[-1].parent.name if runs else None, "acted": acted,
+            "proposal_waiting": waiting}
 
 
 def silent_sources(vault, today, paraos_home=None):
@@ -958,6 +980,7 @@ def scan(vault, today, entity=None, paraos_home=None, review=None):
         report["people"] = people(vault, tasks, report["pipeline_items"])
         report["triage"] = triage_items(vault)
         report["triage_preview"] = triage_preview(vault, report["triage"])
+        report["unattended"] = unattended(vault, paraos_home)
         report["lifecycles"] = lifecycle_counts(vault)
     if review:
         window = review_window(review, today)
