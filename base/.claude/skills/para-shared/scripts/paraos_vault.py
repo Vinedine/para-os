@@ -1958,8 +1958,7 @@ def snapshot(paths):
 
 
 def changed(before):
-    """The paths of a snapshot whose contents no longer match it, one since deleted included,
-    each as the snapshot wrote it: a key spelt with forward slashes still finds its file."""
+    """The paths of a snapshot whose contents no longer match it, one since deleted included."""
     now = snapshot(before)
     return sorted(p for p, digest in before.items() if now.get(str(Path(p))) != digest)
 
