@@ -28,7 +28,7 @@ On every run, for the Next action, read the root `README.md`'s `## Vision` secti
 
 ## Step 5b: Check the triage folder
 
-The terminal brief lists the scan's `triage` by name only; `triage_preview`, each item's sender, subject and first lines, is the dashboard's.
+The terminal brief lists the scan's `triage` by name only; `triage_preview`, each item's sender and subject, is the dashboard's.
 
 ## Step 5c: Build the agenda
 

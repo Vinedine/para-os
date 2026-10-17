@@ -101,22 +101,10 @@ def vault_block(vault, entries):
 
     exact = _entry_by_path(entries, vault)
     name = exact.get("name") if exact else vault.name
-    return {
-        "path": str(vault), "root": root, "missing": missing, "hint": hint,
-        "name": name, "registered": exact is not None,
-        "active": bool(exact.get("active")) if exact else False,
-    }
+    return {"path": str(vault), "root": root, "missing": missing, "hint": hint, "name": name}
 
 
 # ---------------------------------------------------------------------------- ingest & plan
-
-def _log_summary(record, now):
-    if record is None:
-        return None
-    instant = log_instant(record)
-    age = (now - instant).total_seconds() / 3600 if instant else None
-    return {"file": record["file"], "started_at": record.get("started_at"), "age_hours": age}
-
 
 def ingest_block(vault, entries, vault_name, paraos_home, now):
     """Whether /para-ingest already covered this vault's mailboxes and sync scripts: registered and active, a write log within 48
@@ -125,9 +113,7 @@ def ingest_block(vault, entries, vault_name, paraos_home, now):
     positive count with nothing written under this root is the opposite of coverage - the
     vault moved and the registry lagged - and is named, not silently trusted.
     """
-    records = ingest_logs(paraos_home)
-    newest_write = next((r for r in records if r.get("mode") == "write"), None)
-    newest_any = records[0] if records else None
+    newest_write = next((r for r in ingest_logs(paraos_home) if r.get("mode") == "write"), None)
 
     exact = _entry_by_path(entries, vault)
     registered = exact is not None
@@ -169,16 +155,7 @@ def ingest_block(vault, entries, vault_name, paraos_home, now):
         reason = (f"registry lists this vault, but ingest last staged {staged_date or 'never'} "
                   f"- pulled locally")
 
-    block = {
-        "registered": registered, "active": active,
-        "newest_write": _log_summary(newest_write, now),
-        "newest_any": _log_summary(newest_any, now),
-        "covered": covered, "reason": reason,
-        "staged_here": staged_here, "count_for_vault": count_for_vault,
-        "log_errors": [{"file": r["file"], "error": r["load_error"]}
-                       for r in records if r.get("load_error")],
-    }
-    return block, newest_write
+    return {"covered": covered, "reason": reason}, newest_write
 
 
 def _norm_script(path):
@@ -473,10 +450,7 @@ def _fill_duplicates(vault, items):
     for item in items:
         rel = f"triage/{item['name']}"
         if item["size"] < MIN_HASH_BYTES:
-            item["hash_skipped"] = f"below MIN_HASH_BYTES ({MIN_HASH_BYTES})"
-            item["duplicates"] = None
             continue
-        item["hash_skipped"] = None
         digest = digests.get(rel)
         item["duplicates"] = (sorted(p for p, d in digests.items() if d == digest and p != rel)
                               if digest else [])
@@ -560,7 +534,7 @@ def build_loose(vault, entries, vault_name, ledger_mailboxes):
         entry = {
             "name": name, "size": path.stat().st_size, "kind": kind_of(path),
             "readme": name.lower() == "readme.md", "twin": None, "note": None,
-            "duplicates": None, "hash_skipped": None, "cross_vault": [], "inbound": [],
+            "duplicates": None, "cross_vault": [], "inbound": [],
         }
         if path.suffix.lower() == ".pdf":
             twin_name = f"{path.stem}.md"
@@ -674,21 +648,14 @@ def ingest_ledger_block(paraos_home):
 
 def seen_ledger_block(paraos_home, vault_name):
     path = _paraos_home(paraos_home) / "cache" / "triage-email" / f"{vault_name}.json"
-    exists = path.is_file()
-    entries_count, legacy_count, load_error = 0, 0, None
+    exists, load_error = path.is_file(), None
     if exists:
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
+            if not isinstance(json.loads(path.read_text(encoding="utf-8")), dict):
                 raise ValueError("not a JSON object")
-            entries_count = len(data)
-            for entry in data.values():
-                if isinstance(entry, dict) and watermark(entry).get("legacy"):
-                    legacy_count += 1
         except (OSError, ValueError) as err:
             load_error = str(err)
-    return {"path": str(path), "exists": exists, "entries": entries_count,
-            "legacy": legacy_count, "load_error": load_error}
+    return {"path": str(path), "exists": exists, "load_error": load_error}
 
 
 # ---------------------------------------------------------------------------------- threads
@@ -718,7 +685,7 @@ def threads_block(threads_data, seen_ledger_path, loose_items, now):
         entry = ledger_data.get(thread_id) if thread_id is not None else None
         mark = watermark(entry, newest_date=thread.get("newest_date"),
                          newest_key=thread.get("newest_key"))
-        out.append({"thread_id": thread_id, "thread_hash": the_hash, "staged_notes": staged,
+        out.append({"thread_id": thread_id, "staged_notes": staged,
                     "ledger": entry, "watermark": mark,
                     "unanswered": (unanswered(thread.get("newest_date"), now)
                                    if thread.get("newest_own") else None)})

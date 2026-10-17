@@ -215,8 +215,7 @@ def marker_precondition(vault, clone, ref):
         verdict = "ahead"
 
     return {"vault": vault_marker, "master": master_marker, "verdict": verdict,
-            "clone": clone.as_posix() if clone else None,
-            "ref": ref, "ref_missing": bool(clone) and clone_ref(clone, ref) is None}
+            "ref_missing": bool(clone) and clone_ref(clone, ref) is None}
 
 
 def preconditions(vault, clone, ref):
@@ -377,7 +376,7 @@ def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
         allowed = {top_level_area_readme(vault, card_rel)} if principal else None
         card_target = abspath(card)
 
-        per_file = {}
+        named = set()
         for name in names:
             pattern = whole_word(name)
             for hit in inbound_references(vault, name):
@@ -407,17 +406,16 @@ def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
                         exempt.add(hit["file"])
                     continue
                 if mentioned:
-                    per_file[hit["file"]] = per_file.get(hit["file"], 0) + 1
+                    named.add(hit["file"])
 
         uncited = []
-        for f, mentions in sorted(per_file.items()):
+        for f in sorted(named):
             if f not in targets:
                 targets[f] = link_targets(vault / f)
             if card_target not in targets[f]:
-                uncited.append({"file": f, "mentions": mentions})
+                uncited.append(f)
         if uncited:
-            out.append({"card": card_rel, "name": names[0], "principal": principal,
-                        "files": uncited})
+            out.append({"card": card_rel, "name": names[0], "files": uncited})
     return out, sorted(exempt)
 
 
@@ -451,12 +449,9 @@ def inline_contact_details(vault):
                                     if c != rel and patterns[n].search(clean)})
             if not names_on_line:
                 continue
-            details = [(m.group(0), "email") for m in EMAIL_RE.finditer(clean)]
-            details += [(d, "phone") for d in phone_matches(clean)]
-            for detail, kind in details:
+            for detail in [m.group(0) for m in EMAIL_RE.finditer(clean)] + phone_matches(clean):
                 out.append({"file": rel, "line": lineno, "text": text.strip(),
-                            "names_on_line": names_on_line, "detail": detail.strip(),
-                            "kind": kind})
+                            "names_on_line": names_on_line, "detail": detail.strip()})
     return out
 
 
@@ -638,7 +633,7 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
     uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs),
                                                name_only_columns)
     touched |= {vault / c["card"] for c in uncited}
-    touched |= {vault / f["file"] for c in uncited for f in c["files"]}
+    touched |= {vault / f for c in uncited for f in c["files"]}
     touched |= {vault / f for f in uncited_exempt}
 
     inline_details = inline_contact_details(vault)
@@ -692,8 +687,8 @@ def stale_undated_from(vault, files, today):
     else in the file shifts where the item sits - where the file is tracked, else the
     file's mtime, else unmeasurable, said per item, never for the whole run, so a git-less
     vault still gets a real answer for the files whose mtime is trustworthy. A line git
-    blame reports as still uncommitted is its own `measured_by`, "uncommitted", and counts
-    as unmeasurable rather than as a fabricated date."""
+    blame reports as still uncommitted counts as unmeasurable rather than as a fabricated
+    date."""
     out = {}
     for f in files:
         rel = f.relative_to(vault).as_posix()
@@ -703,27 +698,26 @@ def stale_undated_from(vault, files, today):
             if t["due"] or t["scheduled"] or t["start"]:
                 continue
             entry = {"line": t["line"], "text": t["text"]}
-            date_str, reason, measured_by = None, None, None
+            date_str, reason = None, None
             if tracked:
                 blame = git_blame_line_date(vault, f, t["line"])
                 if blame == "uncommitted":
-                    entry.update(measured_by="uncommitted",
-                                 unmeasurable="line not yet committed")
+                    entry["unmeasurable"] = "line not yet committed"
                     items.append(entry)
                     continue
                 if blame:
-                    date_str, measured_by = blame, "git_blame_line"
+                    date_str = blame
                 else:
                     reason = "tracked, but git blame returned no date for this line"
             else:
                 try:
-                    date_str, measured_by = date.fromtimestamp(f.stat().st_mtime).isoformat(), "mtime"
+                    date_str = date.fromtimestamp(f.stat().st_mtime).isoformat()
                 except OSError:
                     reason = "untracked, and the file's mtime could not be read"
             if date_str:
                 days = (today - parse_date(date_str)).days
                 if days >= STALE_UNDATED_DAYS:
-                    entry.update(days=days, measured_by=measured_by)
+                    entry["days"] = days
                     items.append(entry)
             else:
                 entry["unmeasurable"] = reason
@@ -820,8 +814,8 @@ def demotion_candidates(vault, today):
             continue
         newest = newest_dated_action(folder)
         if newest and (today - newest).days >= DORMANT_ENTITY_DAYS:
-            out.append({"project": folder.relative_to(vault).as_posix(), "newest_date": iso(newest),
-                        "days": (today - newest).days})
+            out.append({"project": folder.relative_to(vault).as_posix(),
+                        "newest_date": iso(newest)})
     return out
 
 
@@ -905,7 +899,7 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
     uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs),
                                                name_only_columns)
     touched |= {vault / c["card"] for c in uncited}
-    touched |= {vault / f["file"] for c in uncited for f in c["files"]}
+    touched |= {vault / f for c in uncited for f in c["files"]}
     touched |= {vault / f for f in uncited_exempt}
     rows.append({"check": "uncited_contacts", "pass": None,
                  "detail": {"cards": len(uncited),
@@ -923,8 +917,7 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
 def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, headings,
          generated_dirs=(), name_only_columns=()):
     vault = Path(vault).resolve()
-    report = {"vault": vault.as_posix(), "today": today.isoformat(), "phase": phase,
-              "preconditions": preconditions(vault, clone, ref)}
+    report = {"preconditions": preconditions(vault, clone, ref)}
     if phase == "1":
         report["phase1"] = phase1(vault, templates_dirs, dated_pattern, generated_dirs,
                                   name_only_columns)

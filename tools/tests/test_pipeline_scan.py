@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-pipeline" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from pipeline_scan import main, scan
+from pipeline_scan import main, quarter_of, scan
 
 TODAY = date(2026, 9, 21)   # falls in the third calendar quarter of its year
 SCRIPT = SCRIPTS / "pipeline_scan.py"
@@ -94,14 +94,13 @@ class FolderEntities(VaultCase):
         self.assertEqual(e["source"], "outreach, cold call")
         self.assertEqual(e["kind"], "folder")
 
-    def test_both_brief_and_readme_read_from_readme_and_flag_the_duplicate(self):
+    def test_both_brief_and_readme_read_from_readme(self):
         write(self.root, "resources/ideas/dual/brief.md",
               "# Dual\n\n**Stage:** Qualified\n**Opened:** 2026-08-01\n")
         write(self.root, "resources/ideas/dual/README.md",
               "# Dual\n\n**Stage:** Qualified\n**Opened:** 2026-08-05\n")
         e = find(self.deal()["entities"], "dual")
         self.assertEqual(e["opened"], "2026-08-05")
-        self.assertTrue(e["duplicate_document"])
 
     def test_an_undeclared_stage_with_no_known_header_field_is_skipped(self):
         write(self.root, "resources/ideas/other/brief.md",
@@ -205,8 +204,8 @@ class RowEntities(VaultCase):
         ]) + "\n")
         entities = self.deal()["entities"]
         self.assertEqual({e["name"] for e in entities}, {"Alpha Co", "Beta Co"})
-        self.assertEqual(find(entities, "Alpha Co")["section"], "Open")
-        self.assertEqual(find(entities, "Beta Co")["section"], "Closed")
+        self.assertTrue(find(entities, "Alpha Co")["live"])
+        self.assertFalse(find(entities, "Beta Co")["live"])
 
     def test_unknown_name_falls_back_to_the_contact_column(self):
         write(self.root, "areas/business/leads.md", "\n".join([
@@ -288,7 +287,7 @@ class RowEntities(VaultCase):
             "",
         ]) + "\n")
         e = self.deal()["entities"][0]
-        self.assertTrue(e["closed"])
+        self.assertFalse(e["live"])
         self.assertIsNone(e["home_mismatch"])
 
     def test_a_row_under_closed_is_closed_and_not_live(self):
@@ -300,7 +299,6 @@ class RowEntities(VaultCase):
             "",
         ]) + "\n")
         e = self.deal()["entities"][0]
-        self.assertTrue(e["closed"])
         self.assertFalse(e["live"])
         self.assertIsNone(e["next_step"])
         self.assertIsNone(e["flags"])
@@ -332,8 +330,7 @@ class NextStep(VaultCase):
         write(self.root, "areas/network/jan.md",
               "# Jan\n\n## Next actions\n- [ ] Champion task 📅 2026-09-19\n")
         step = find(self.deal()["entities"], "acme")["next_step"]
-        self.assertEqual(step["source"], "own_actions")
-        self.assertEqual(step["text"], "Own task")
+        self.assertEqual((step["text"], step["file"]), ("Own task", "projects/acme/actions.md"))
 
     def test_rule_1_never_reads_an_actions_file_under_resources_or_archive(self):
         write(self.root, "resources/ideas/acme/brief.md",
@@ -343,7 +340,7 @@ class NextStep(VaultCase):
         write(self.root, "areas/business/actions.md",
               "# Business\n\n- [ ] Revisit [Acme](../../resources/ideas/acme/brief.md) 📅 2026-09-22\n")
         step = find(self.deal()["entities"], "acme")["next_step"]
-        self.assertEqual(step["source"], "linked_checkbox")
+        self.assertEqual(step["file"], "areas/business/actions.md")
 
     def test_linked_checkbox_picked_earliest_across_other_action_files(self):
         write(self.root, "resources/ideas/beta/brief.md",
@@ -353,8 +350,7 @@ class NextStep(VaultCase):
         write(self.root, "projects/other/actions.md",
               "# Other\n\n- [ ] Also mentions [Beta](../../resources/ideas/beta/brief.md) 📅 2026-09-20\n")
         step = find(self.deal()["entities"], "beta")["next_step"]
-        self.assertEqual(step["source"], "linked_checkbox")
-        self.assertEqual(step["date"], "2026-09-20")
+        self.assertEqual((step["file"], step["date"]), ("projects/other/actions.md", "2026-09-20"))
 
     def test_linked_checkbox_found_in_a_nested_actions_file(self):
         # scan.md Step 3 rule 2 reads any actions.md under projects/ or areas/, but the
@@ -365,7 +361,6 @@ class NextStep(VaultCase):
               "# Clients\n\n- [ ] Revisit [Delta](../../../resources/ideas/delta/brief.md) "
               "📅 2026-09-22\n")
         step = find(self.deal()["entities"], "delta")["next_step"]
-        self.assertEqual(step["source"], "linked_checkbox")
         self.assertEqual(step["file"], "areas/business/clients/actions.md")
 
     def test_an_own_actions_file_with_nothing_open_falls_through_to_a_linked_checkbox(self):
@@ -375,8 +370,7 @@ class NextStep(VaultCase):
         write(self.root, "areas/business/actions.md",
               "# Business\n\n- [ ] Revisit [Acme](../../projects/acme/brief.md) 📅 2026-09-22\n")
         step = find(self.deal()["entities"], "acme")["next_step"]
-        self.assertEqual((step["source"], step["file"]),
-                         ("linked_checkbox", "areas/business/actions.md"))
+        self.assertEqual(step["file"], "areas/business/actions.md")
 
     def test_a_checkbox_linking_elsewhere_or_nowhere_is_not_a_next_step(self):
         write(self.root, "resources/ideas/acme/brief.md",
@@ -389,7 +383,7 @@ class NextStep(VaultCase):
         entities = self.deal()["entities"]
         self.assertIsNone(find(entities, "acme")["next_step"])
         self.assertTrue(find(entities, "acme")["flags"]["no_next_step"])
-        self.assertEqual(find(entities, "beta")["next_step"]["source"], "linked_checkbox")
+        self.assertEqual(find(entities, "beta")["next_step"]["file"], "areas/business/actions.md")
 
     def test_a_champion_link_resolving_to_nothing_falls_through(self):
         write(self.root, "resources/ideas/gamma/brief.md",
@@ -425,7 +419,7 @@ class NextStep(VaultCase):
             "## History", "- [ ] Old task 📅 2026-09-01", "",
         ]) + "\n")
         step = find(self.deal()["entities"], "acme")["next_step"]
-        self.assertEqual((step["text"], step["source"]), ("Call back", "champion"))
+        self.assertEqual(step["text"], "Call back")
 
     def test_a_malformed_champion_href_is_the_no_next_step_case_not_a_crash(self):
         write(self.root, "resources/ideas/acme/brief.md",
@@ -444,8 +438,7 @@ class NextStep(VaultCase):
         write(self.root, "areas/network/jan.md",
               "# Jan\n\n## Next actions\n- [ ] Intro Alpha Co 📅 2026-09-24\n")
         step = self.deal()["entities"][0]["next_step"]
-        self.assertEqual((step["source"], step["text"], step["file"]),
-                         ("champion", "Intro Alpha Co", "areas/network/jan.md"))
+        self.assertEqual((step["text"], step["file"]), ("Intro Alpha Co", "areas/network/jan.md"))
 
     def test_the_row_next_step_column_is_the_last_resort(self):
         write(self.root, "areas/business/leads.md", "\n".join([
@@ -456,8 +449,7 @@ class NextStep(VaultCase):
             "",
         ]) + "\n")
         step = self.deal()["entities"][0]["next_step"]
-        self.assertEqual(step["source"], "register_row")
-        self.assertEqual(step["date"], "2026-09-30")
+        self.assertEqual((step["file"], step["date"]), ("areas/business/leads.md", "2026-09-30"))
 
     def test_a_row_next_step_with_no_date_still_produces_a_step(self):
         write(self.root, "areas/business/leads.md", "\n".join([
@@ -618,9 +610,8 @@ class Flags(VaultCase):
               "# Acme\n\n**Stage:** Qualified (since 2026-09-01; prices hold to 2026-09-30)\n"
               "**Opened:** 2026-08-01\n")
         e = find(self.deal()["entities"], "acme")
-        self.assertEqual(e["dated_facts"], [{"clause": "prices hold to 2026-09-30",
-                                             "date": "2026-09-30", "days_ahead": 9}])
-        self.assertEqual(e["flags"]["expiring"], e["dated_facts"])
+        self.assertEqual(e["flags"]["expiring"], [{"clause": "prices hold to 2026-09-30",
+                                                   "date": "2026-09-30", "days_ahead": 9}])
 
     def test_a_dated_fact_already_past_is_not_expiring(self):
         write(self.root, "resources/ideas/acme/brief.md",
@@ -935,7 +926,7 @@ class RevisitsDue(VaultCase):
         r = self.deal()["revisits_due"][0]
         self.assertEqual((r["name"], r["path"], r["value"]),
                          ("nova", "archive/projects/nova/brief.md", "40000 (fixed fee)"))
-        self.assertEqual((r["basis"], r["since"], r["days"]), ("last_touch", "2026-01-15", 249))
+        self.assertEqual((r["basis"], r["days"]), ("last_touch", 249))
 
     def test_touched_three_months_ago_is_not_yet_due(self):
         self.past("nova", last_touch="2026-06-21, check-in")
@@ -944,7 +935,7 @@ class RevisitsDue(VaultCase):
     def test_with_no_last_touch_the_won_date_is_the_basis(self):
         write(self.root, "archive/projects/nova/brief.md", "# Nova\n\n**Won:** 2025-07-01\n")
         r = self.deal()["revisits_due"][0]
-        self.assertEqual((r["basis"], r["since"]), ("won", "2025-07-01"))
+        self.assertEqual((r["basis"], r["days"]), ("won", 447))
 
     def test_a_dated_checkbox_linking_the_archived_brief_clears_it(self):
         self.past("nova")
@@ -978,7 +969,7 @@ class RevisitsDue(VaultCase):
         self.past("nova-v1", last_touch="2025-03-01, closed")
         self.past("nova-v2")
         r = self.deal()["revisits_due"]
-        self.assertEqual([(x["name"], x["since"]) for x in r], [("nova-v2", "2026-01-15")])
+        self.assertEqual([(x["name"], x["days"]) for x in r], [("nova-v2", 249)])
 
     def test_longest_untouched_first(self):
         self.past("recent", last_touch="2026-02-01, call")
@@ -1004,7 +995,6 @@ class FinancialYear(VaultCase):
               "# Nova\n\n**Won:** 2026-08-15\n**Opened:** 2026-07-20\n")
         m = self.deal()["metrics"]
         self.assertEqual(m["quarter"], "Q1 of the year ending 2027-06-30")
-        self.assertEqual((m["quarter_start"], m["quarter_end"]), ("2026-07-01", "2026-09-30"))
         self.assertEqual(m["reached_promoting"], 1)
         self.assertEqual(self.deal(today=date(2026, 10, 5))["metrics"]["reached_promoting"], 0)
 
@@ -1015,28 +1005,26 @@ class FinancialYear(VaultCase):
         write(self.root, "archive/projects/july/brief.md", "# July\n\n**Won:** 2026-07-20\n")
         m = self.deal()["metrics"]
         self.assertEqual(m["quarter"], "Q3 of the year ending 2027-01-31")
-        self.assertEqual((m["quarter_start"], m["quarter_end"]), ("2026-08-01", "2026-10-31"))
         self.assertEqual(m["reached_promoting"], 1)
 
     def test_a_year_end_inside_a_month_starts_each_quarter_the_day_after(self):
         self.declare("5 April")
         m = self.deal(today=date(2026, 7, 3))["metrics"]
         self.assertEqual(m["quarter"], "Q1 of the year ending 2027-04-05")
-        self.assertEqual((m["quarter_start"], m["quarter_end"]), ("2026-04-06", "2026-07-05"))
+        q = quarter_of(date(2026, 7, 3), (4, 5))
+        self.assertEqual((q["start"], q["end"]), (date(2026, 4, 6), date(2026, 7, 5)))
         m = self.deal(today=date(2026, 7, 6))["metrics"]
-        self.assertEqual((m["quarter"], m["quarter_start"]),
-                         ("Q2 of the year ending 2027-04-05", "2026-07-06"))
+        self.assertEqual(m["quarter"], "Q2 of the year ending 2027-04-05")
+        self.assertEqual(quarter_of(date(2026, 7, 6), (4, 5))["start"], date(2026, 7, 6))
 
     def test_a_28_february_year_end_is_the_end_of_february_in_a_leap_year_too(self):
         self.declare("28 February")
         m = self.deal(today=date(2028, 2, 29))["metrics"]
-        self.assertEqual((m["quarter"], m["quarter_end"]),
-                         ("Q4 of the year ending 2028-02-29", "2028-02-29"))
+        self.assertEqual(m["quarter"], "Q4 of the year ending 2028-02-29")
 
     def test_with_no_locale_line_the_quarter_is_the_calendar_one(self):
         m = self.deal()["metrics"]
-        self.assertEqual((m["quarter"], m["quarter_start"], m["quarter_end"]),
-                         ("2026-Q3", "2026-07-01", "2026-09-30"))
+        self.assertEqual(m["quarter"], "2026-Q3")
         self.assertIsNone(m["year_end_unread"])
 
     def test_a_31_december_year_end_is_the_calendar(self):
@@ -1178,7 +1166,7 @@ class PropertyDossier(VaultCase):
         self.assertIn("Second viewing", e["next_step"]["text"])
         self.assertFalse(e["flags"]["no_next_step"])
 
-    def test_days_in_stage_and_a_dated_fact_come_from_the_dossier_stage_line(self):
+    def test_days_in_stage_and_last_touch_come_from_the_dossier(self):
         write(self.root, "projects/elm-row-4/brief.md",
               "# Elm Row 4\n\n**Stage:** Acquiring (since 2026-09-01; deed due 2026-11-30)\n"
               "**Opened:** 2026-07-15\n**Source:** listing, portal\n"
@@ -1186,7 +1174,6 @@ class PropertyDossier(VaultCase):
         e = find(self.deal()["entities"], "elm-row-4")
         self.assertEqual(e["days_in_stage"], 20)
         self.assertEqual(e["last_touch"]["days"], 3)
-        self.assertEqual(len(e["dated_facts"]), 1)
 
     def test_a_dropped_property_reason_line_is_read(self):
         write(self.root, "archive/researched-deals/elm-row-4/brief.md",
@@ -1269,7 +1256,7 @@ class CommandLine(VaultCase):
         self.assertEqual([lc["heading"] for lc in report["lifecycles"]],
                          ["Deal lifecycle", "Property lifecycle"])
         self.assertEqual(set(report["lifecycles"][0]),
-                         {"heading", "noun", "stages", "entities", "no_stage", "unknown_stage",
+                         {"heading", "stages", "entities", "no_stage", "unknown_stage",
                           "empty_homes", "counts_by_stage", "terminal_this_quarter", "metrics",
                           "by_value", "revisits_due"})
 

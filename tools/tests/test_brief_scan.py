@@ -273,16 +273,14 @@ class HealthFlags(VaultCase):
         write(self.root, "areas/home/actions.md",
               "# home\n\n## Recurring\n- [ ] Check the boiler 🔁 every year 📅 2026-11-01\n")
         got = scan(self.root, TODAY)["flags"]["nothing_open"]
-        self.assertEqual([(e["bucket"], e["label"], e["file"]) for e in got],
-                         [("P", "stalled", "projects/stalled/actions.md")])
+        self.assertEqual([(e["bucket"], e["label"]) for e in got], [("P", "stalled")])
         self.assertIsNotNone(got[0]["touched"])
 
     def test_an_entity_with_no_action_file_leads_the_nothing_open_list(self):
         write(self.root, "projects/stalled/actions.md", "# stalled\n\n- [x] Kicked off\n")
         write(self.root, "areas/garden/brief.md", "# garden\n")
         got = scan(self.root, TODAY)["flags"]["nothing_open"]
-        self.assertEqual([(e["path"], e["file"], e["touched"]) for e in got][0],
-                         ("areas/garden", None, None))
+        self.assertEqual([(e["path"], e["touched"]) for e in got][0], ("areas/garden", None))
         self.assertEqual([e["path"] for e in got], ["areas/garden", "projects/stalled"])
 
     def test_a_folder_the_checkbox_table_declares_never_is_not_flagged_nothing_open(self):
@@ -471,7 +469,7 @@ class IdeasAndTriage(VaultCase):
         self.assertEqual(scan(self.root, TODAY)["triage"],
                          ["20260919 Something - Note.md"])
 
-    def test_an_idea_carries_days_in_stage_its_revisit_sentence_and_what_names_it(self):
+    def test_an_idea_carries_its_stage_date_its_revisit_sentence_and_what_names_it(self):
         build_vault(self.root)
         write(self.root, "resources/ideas/acme-deal/brief.md", "\n".join([
             "# Acme deal", "", "**Stage:** Qualified (since 2026-09-01; prices hold to 2026-10-31)",
@@ -481,7 +479,7 @@ class IdeasAndTriage(VaultCase):
               "- [ ] Call about [the deal](../../resources/ideas/acme-deal/brief.md) 📅 2026-09-25\n"
               "- [ ] Send the acme deal deck\n- [ ] Unrelated thing\n")
         idea = next(i for i in scan(self.root, TODAY)["ideas"] if i["name"] == "acme-deal")
-        self.assertEqual((idea["since"], idea["days_in_stage"]), ("2026-09-01", 20))
+        self.assertEqual(idea["since"], "2026-09-01")
         self.assertEqual(idea["revisit"], "Revisit when Jan has replied, or by month end")
         self.assertEqual(idea["actions"], [{"file": "areas/business/actions.md", "line": 3},
                                            {"file": "areas/business/actions.md", "line": 4}])
@@ -489,10 +487,9 @@ class IdeasAndTriage(VaultCase):
     def test_an_idea_without_a_since_date_or_trigger_carries_none(self):
         build_vault(self.root)
         idea = scan(self.root, TODAY)["ideas"][0]
-        self.assertEqual((idea["days_in_stage"], idea["revisit"], idea["actions"]),
-                         (None, None, []))
+        self.assertEqual((idea["since"], idea["revisit"], idea["actions"]), (None, None, []))
 
-    def test_a_triage_note_previews_its_sender_title_and_first_paragraph(self):
+    def test_a_triage_note_previews_its_sender_and_title(self):
         build_vault(self.root)
         write(self.root, "triage/20260920 Mail - Hello.md", "\n".join([
             "---", "source: gmail", "---", "# Re: Hello", "",
@@ -500,17 +497,15 @@ class IdeasAndTriage(VaultCase):
             "**2026-09-20, Jan to Vincent**", "", "Plus: one thing.", "Second line.", "",
             "Later paragraph."]))
         got = scan(self.root, TODAY)["triage_preview"]["20260920 Mail - Hello.md"]
-        self.assertEqual(got, {"from": "Jan Janssen <jan@example.be>", "subject": "Re: Hello",
-                               "excerpt": "Plus: one thing. Second line."})
+        self.assertEqual(got, {"from": "Jan Janssen <jan@example.be>", "subject": "Re: Hello"})
 
-    def test_an_eml_previews_its_headers_and_plain_body_and_other_formats_have_none(self):
+    def test_an_eml_previews_its_headers_and_other_formats_have_none(self):
         build_vault(self.root)
         write(self.root, "triage/m.eml", "From: Ann <ann@example.be>\nSubject: Quote\n"
               "Content-Type: text/plain; charset=utf-8\n\nHello,\n\nthe quote is attached.\n")
         (self.root / "triage" / "scan.docx").write_bytes(b"PK\x03\x04")
         got = scan(self.root, TODAY)["triage_preview"]
-        self.assertEqual(got["m.eml"], {"from": "Ann <ann@example.be>", "subject": "Quote",
-                                        "excerpt": "Hello, the quote is attached."})
+        self.assertEqual(got["m.eml"], {"from": "Ann <ann@example.be>", "subject": "Quote"})
         self.assertNotIn("scan.docx", got)
 
     def test_a_sign_in_code_or_reset_link_is_marked_auth_and_never_previewed(self):
@@ -540,7 +535,7 @@ class IdeasAndTriage(VaultCase):
         (self.root / "triage" / "invoice.pdf").write_bytes(b"%PDF-1.4")
         write(self.root, "triage/invoice.md", "# Invoice 42\n\nAmount due by Friday.\n")
         got = scan(self.root, TODAY)["triage_preview"]
-        self.assertEqual(got["invoice.pdf"]["excerpt"], "Amount due by Friday.")
+        self.assertEqual(got["invoice.pdf"], {"subject": "Invoice 42"})
 
     def test_an_entity_scope_asks_neither_question(self):
         build_vault(self.root)
@@ -656,9 +651,9 @@ class Dashboard(VaultCase):
         items = {i["name"]: i for i in self.report["pipeline_items"]}
         self.assertEqual(items["acme"]["next_step"], "Chase the acme signature")
         self.assertIsNone(items["beta"]["next_step"])
-        self.assertEqual((items["acme"]["contact"], items["acme"]["days_in_stage"],
+        self.assertEqual((items["acme"]["contact"], items["acme"]["since"],
                           items["acme"]["last_touch"], items["acme"]["last_touch_note"]),
-                         ("an-aerts", 20, "2026-09-14", "sent the proposal"))
+                         ("an-aerts", "2026-09-01", "2026-09-14", "sent the proposal"))
 
     def test_a_register_row_keeps_its_own_step_and_a_dash_is_none(self):
         gamma = next(i for i in self.report["pipeline_items"] if i["name"] == "Gamma")
@@ -753,10 +748,10 @@ class Review(VaultCase):
 
     def test_a_week_is_the_seven_days_ending_today_and_a_month_the_thirty(self):
         self.assertEqual(review_window("week", TODAY),
-                         {"name": "week", "start": "2026-09-15", "end": "2026-09-21", "days": 7})
+                         {"start": "2026-09-15", "end": "2026-09-21", "days": 7})
         self.assertEqual(review_window("month", TODAY)["start"], "2026-08-23")
         self.assertEqual(review_window("2026-09-01", TODAY),
-                         {"name": "since", "start": "2026-09-01", "end": "2026-09-21", "days": 21})
+                         {"start": "2026-09-01", "end": "2026-09-21", "days": 21})
 
     def test_a_window_that_names_no_past_date_is_refused(self):
         for arg in ("fortnight", "2026-09-22", "2026-13-01", ""):
@@ -824,8 +819,7 @@ class Review(VaultCase):
         got = self.review()["stuck"]
         overdue = [t["text"] for t in scan(self.root, TODAY)["tasks"] if t["lane"] == "overdue"]
         self.assertEqual(len(got["overdue"]), len(overdue))
-        self.assertEqual([e["path"] for e in got["no_next_step"]],
-                         ["areas/business", "areas/garden"])
+        self.assertEqual(got["no_next_step"], ["business", "garden"])
 
     def test_one_entity_is_reviewed_on_its_own_files_alone(self):
         got = self.review(entity="acme-website")

@@ -13,7 +13,7 @@ Prints one JSON document: for each person, the contact card they match and how, 
 items on that card, the open items naming them in any other action file, the newest records
 naming them and the register rows naming them; and once for every entity a matched card
 links, or whose brief links the card, its stage against the vault's declared lifecycles, its
-header, its do-not-raise list, its open count and its newest source. It never writes to the
+header, its do-not-raise list and its open count. It never writes to the
 vault, never words anything an operator reads, and never decides what matters for a meeting:
 that stays with the skill, per references/gather.md and references/output.md.
 
@@ -38,11 +38,10 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        EMAIL_RE, H1_RE, HEADING_RE, abspath, action_files, contact_card_level, contact_names,
+        EMAIL_RE, H1_RE, HEADING_RE, abspath, action_files, contact_names,
         extract_links, field_ci, header_fields, lifecycles, live_lines, open_tasks, parse_date,
         read_lines,
         read_text, register_rows, rel_posix, resolve_link, stage_of, stage_parts, strip_code,
-        vault_root,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"prep_scan: {missing}. The shared vault library belongs at "
@@ -53,7 +52,7 @@ CARD_DIR = ("areas", "network")
 NOT_CARDS = {"readme.md", "actions.md"}
 ENTITY_BUCKETS = ("projects", "areas", "resources/ideas")
 TEXT_SUFFIXES = {".md", ".txt", ".eml"}
-RECORDS_SHOWN = 5        # newest first; the total says how many more there are
+RECORDS_SHOWN = 5        # newest first
 SHORT_NAME_MIN = 3       # a shorter word is an initial or a particle, never a name
 DATE_PREFIX_RE = re.compile(r"^(\d{4})-?(\d{2})-?(\d{2})(?!\d)")
 DO_NOT_RAISE_RE = re.compile(r"\bdo\s+not\s+raise\b", re.IGNORECASE)
@@ -263,20 +262,20 @@ def entity_folders(vault):
 
 
 def linked_entities(vault, card, folders):
-    """[(entity path, via)] for the entities the card links and the entities whose brief or
-    README links the card back, `via` being `card`, `entity` or `both`."""
-    via = {}
+    """The paths of the entities the card links and of those whose brief or README links the
+    card back."""
+    found = set()
     for _, href, _ in extract_links(strip_code(read_text(card["path"]))):
         rel = entity_of(vault, resolve_link(card["path"], href))
         if rel:
-            via[rel] = {"card"}
+            found.add(rel)
     target = same_target(card["path"])
     for folder in folders:
         doc = pick_doc(folder)
         if doc and any(same_target(resolve_link(doc, href)) == target
                        for _, href, _ in extract_links(strip_code(read_text(doc)))):
-            via.setdefault(rel_posix(vault, folder), set()).add("entity")
-    return [(rel, "both" if len(v) == 2 else v.pop()) for rel, v in sorted(via.items())]
+            found.add(rel_posix(vault, folder))
+    return sorted(found)
 
 
 def home_pattern(home):
@@ -284,11 +283,11 @@ def home_pattern(home):
     return re.compile(re.escape(rest).replace("\0", "[^/]+") + r"/?")
 
 
-def stage_out(parts, lc, stage, today):
+def stage_out(parts, stage, today):
     since = parse_date(parts["since"])
     return {
-        "lifecycle": lc["heading"], "name": stage["name"], "qualifier": parts["qualifier"],
-        "since": parts["since"], "days_in_stage": (today - since).days if since else None,
+        "name": stage["name"], "since": parts["since"],
+        "days_in_stage": (today - since).days if since else None,
         "dated_facts": [{"clause": clause, "date": d, "days_ahead": (parse_date(d) - today).days}
                         for clause, d in parts["dated_facts"]],
         "terminal": stage["terminal"], "columns": stage["columns"],
@@ -307,8 +306,7 @@ def entity_stage(doc, rel, declared, today):
     if not hits:
         return None
     homed = [(lc, s) for lc, s in hits if home_pattern(s["home"]).fullmatch(rel)]
-    lc, stage = (homed or hits)[0]
-    return stage_out(parts, lc, stage, today)
+    return stage_out(parts, (homed or hits)[0][1], today)
 
 
 def do_not_raise(doc):
@@ -345,25 +343,12 @@ def file_date(path):
     return parse_date("-".join(m.groups())) if m else None
 
 
-def newest_source(vault, folder, today):
-    """The newest file in an entity's sources/ by the date its name opens on."""
-    src = folder / "sources"
-    if not src.is_dir():
-        return None
-    dated = [(file_date(p), p.name, p) for p in src.rglob("*") if p.is_file() and file_date(p)]
-    if not dated:
-        return None
-    day, _, path = max(dated)
-    return {"path": rel_posix(vault, path), "date": day.isoformat(),
-            "days_ago": (today - day).days}
-
-
 def earliest(tasks):
     dated = [t for t in tasks if t["due"] or t["scheduled"]]
     if not dated:
         return None
     t = min(dated, key=lambda t: (t["due"] or t["scheduled"], t["line"]))
-    return {"line": t["line"], "text": t["text"], "due": t["due"] or t["scheduled"]}
+    return {"text": t["text"], "due": t["due"] or t["scheduled"]}
 
 
 def entity_block(vault, rel, declared, today):
@@ -381,7 +366,6 @@ def entity_block(vault, rel, declared, today):
         "do_not_raise": do_not_raise(doc) if doc else [],
         "actions": None if tasks is None else {
             "path": rel_posix(vault, actions), "open": len(tasks), "next": earliest(tasks)},
-        "newest_source": newest_source(vault, folder, today),
     }
 
 
@@ -434,13 +418,12 @@ def naming(files, who):
 
 
 def records(vault, files, who, today):
-    """The newest records naming the person, dated by their file names, and how many there
-    are in all."""
+    """The newest records naming the person, dated by their file names."""
     found = sorted(naming(files, who), reverse=True,
                    key=lambda fb: (fb[0]["date"] or date.min, fb[0]["path"].name))
     return [{"path": rel_posix(vault, f["path"]), "date": f["date"] and f["date"].isoformat(),
              "days_ago": (today - f["date"]).days if f["date"] else None, "by": by}
-            for f, by in found[:RECORDS_SHOWN]], len(found)
+            for f, by in found[:RECORDS_SHOWN]]
 
 
 def register_hits(vault, declared, who, today):
@@ -467,9 +450,9 @@ def register_hits(vault, declared, who, today):
                               if s["name"].lower() == parts["name"].lower()), None)
                 out.append({
                     "register": rel_posix(vault, path), "line": row["line"],
-                    "section": row["section"], "name": row["name"],
+                    "name": row["name"],
                     "closed": (row["section"] or "").strip().lower() == "closed",
-                    "stage": stage_out(parts, lc, stage, today) if stage else None,
+                    "stage": stage_out(parts, stage, today) if stage else None,
                     "cells": {k: v for k, v in row.items()
                               if k not in ("name", "section", "line", "cells")},
                     "by": by})
@@ -480,9 +463,8 @@ def register_hits(vault, declared, who, today):
 
 def card_out(card):
     fields = header_fields(card["path"])
-    return {"path": card["rel"], "name": card["name"], "aliases": card["aliases"],
-            "kind": field_ci(fields, "Kind"), "header": fields, "emails": card["emails"],
-            "items": [task_out(t) for t in open_tasks(card["path"])]}
+    return {"path": card["rel"], "name": card["name"], "kind": field_ci(fields, "Kind"),
+            "header": fields, "items": [task_out(t) for t in open_tasks(card["path"])]}
 
 
 def scan(vault, people, today):
@@ -499,29 +481,26 @@ def scan(vault, people, today):
         name, email = parse_person(raw)
         match = match_card(name, email, cards)
         card = match.pop("card", None)
-        person = {"query": raw, "name": name, "email": email, **match}
+        person = {"name": name, "email": email, **match}
         if card:
             who = Who(card["path"], card["names"], card["emails"], short[card["rel"]])
             person["card"] = card_out(card)
-            person["entities"] = []
-            for rel, via in linked_entities(vault, card, folders):
+            person["entities"] = linked_entities(vault, card, folders)
+            for rel in person["entities"]:
                 if rel not in entities:
                     entities[rel] = entity_block(vault, rel, declared, today)
-                person["entities"].append({"path": rel, "via": via})
         else:
             who = Who(names=[(name, "name")] if name else (), emails=[email] if email else ())
         # None is "not searched": an ambiguous name, or a one-word name with no card.
-        person.update(mentions=None, records=None, records_total=None, unfiled=None, rows=None)
+        person.update(mentions=None, records=None, unfiled=None, rows=None)
         if match["status"] != "ambiguous" and who.searchable:
             person["mentions"] = mentions(vault, tasks, who, card and card["path"])
-            person["records"], person["records_total"] = records(vault, files, who, today)
+            person["records"] = records(vault, files, who, today)
             person["unfiled"] = [{"path": rel_posix(vault, f["path"]), "by": by}
                                  for f, by in naming(unfiled, who)]
             person["rows"] = register_hits(vault, declared, who, today)
         out.append(person)
-    return {"vault": vault.as_posix(), "today": today.isoformat(), "root": vault_root(vault),
-            "lifecycles": [lc["heading"] for lc in declared],
-            "cards_hold": contact_card_level(vault), "people": out,
+    return {"today": today.isoformat(), "people": out,
             "entities": [entities[k] for k in sorted(entities)]}
 
 

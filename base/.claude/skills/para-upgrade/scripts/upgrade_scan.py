@@ -352,7 +352,7 @@ def diff(master_bytes, copy_bytes, master, path):
 @clone_session()
 def build_report(vault, clone, ref, user_dir, default_clone=None):
     vault = Path(vault).resolve()
-    report = {"vault": str(vault)}
+    report = {}
     if clone is None:
         report["clone"] = {"path": None, "ref": ref or STABLE, "commit": None, "error": (
             f"no para-os clone found: none at {default_clone}, and no --clone")}
