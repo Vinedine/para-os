@@ -9,6 +9,7 @@ I've done steps 1 to 3 of the para-os INSTALL.md, so base/ is already copied int
 - Name: Harbour Bakery
 - Purpose: a business I run
 - Language: English
+- Dashboard: local
 - Sales module: not now
 - What it covers: the wholesale bakery I run in Osaka, supplying cafés and hotels
 - Website: none

@@ -3,7 +3,8 @@
 # after vault.sh (which defines `day()`), never standalone. Dates are written relative to
 # the day of the run, same rule as vault.sh.
 #
-# The shape is deliberate. One deal (northwind-quoting) sits at Proposal with a price
+# The README's target profile is what the Qualified stage tests against. The shape is
+# deliberate. One deal (northwind-quoting) sits at Proposal with a price
 # hold expiring inside the 14-day window and a champion whose contact file carries the
 # next dated step, so the expiry flag and the closing next action both have somewhere to
 # land. A second deal (harbor-freight-labs) sits at Qualified, untouched for 30 days, with
@@ -35,6 +36,14 @@ A deal's PARA home follows its stage, and the stages are the phases the prospect
 ## Entity structures
 
 - **Deal brief** - a deal's brief and its register row carry the same seven header fields, in one order, `unknown` where a field is not yet settled. The full shape is in [.claude/rules/deal-brief.md](.claude/rules/deal-brief.md), which loads on its own when a deal brief or the lead register is read; read it explicitly before creating one.
+EOF
+
+cat >> README.md <<'EOF'
+
+## Operating model
+
+**Target profile:** service businesses of two to twenty sites (clinics, practices, facilities
+firms) that want their bookings or quoting online.
 EOF
 
 mkdir -p .claude/rules

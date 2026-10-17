@@ -1,5 +1,13 @@
 ---
-type: regex
-target: trace
-pattern: '<p2@mail\.example>\\",(?:\\n| )*\\"received\\": \\"(\d{4}-\d{2}-\d{2})T[\s\S]*?\\"after\\": \\"\1\\",(?:\\n| )*\\"weekday\\": \\"Wednesday\\",(?:\\n| )*\\"date\\": \\"(\d{4}-\d{2}-\d{2})\\"[\s\S]*?"type":\s*"text",\s*"text":\s*"(?:[^"\\]|\\.)*?(?:📅|\\ud83d\\udcc5) ?\2\b'
+type: llm
 ---
+
+The run read a mailbox thread in which the owner, on a Friday, promised Rosa a price
+"Wednesday". The promise is due the first Wednesday after the day that message was sent,
+five days later.
+
+PASS if the reply proposes an action to send Rosa the price, dated `📅` five days after the
+date the reply gives for the owner's message.
+
+FAIL if the price action carries another date or none, if the reply gives no date for the
+owner's message, or if it proposes no such action.
