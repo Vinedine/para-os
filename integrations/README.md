@@ -6,7 +6,7 @@ An integration is **not** an [add-on](../addons/). An add-on changes what a vaul
 
 ## The contract every integration follows
 
-*Scripts live in the vault, their secrets don't* - the same rule stated in the main [README](../README.md).
+*Scripts live in the vault, their secrets don't.*
 
 | What | Where |
 |---|---|
