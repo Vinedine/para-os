@@ -37,8 +37,6 @@ contract  The change to base/CLAUDE.md.template, and each declared add-on's CLAU
           from `baseline` to the ref: one row per `## ` section that changed (`file`,
           `heading`, "" above the first, and the section's unified `diff`), the marker line left
           out. With no baseline every section is new.
-lessons   Each brief under archive/ (`brief.md`, else its folder's `README.md`) with a `##` to
-          `######` heading naming lessons or what was learned, vault-relative.
 snapshot  {path: digest} of CLAUDE.md and every row, for `paraos_vault.py changed`.
 
 `Retired:` opens a line of a changelog entry and lists backticked vault-relative paths or
@@ -65,7 +63,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         H2_RE, TEMPLATE_MARKER_RE, declarations, find_clone, git, git_bytes,
-        integration_markers, live_lines, normalised, paraos_home_dir, read_lines, read_text,
+        integration_markers, normalised, paraos_home_dir, read_text,
         snapshot, template_marker, vault_root,
     )
     from paraos_clone import (  # noqa: E402
@@ -84,7 +82,6 @@ PLACEHOLDER = b"<!-- Placeholder"
 REACTION_RE = re.compile(r"^- (.+?)[ \t]*$", re.M)
 RETIRED_RE = re.compile(r"^Retired:(.*)$", re.M)
 BACKTICK_RE = re.compile(r"`([^`]+)`")
-LESSONS_RE = re.compile(r"^#{2,6}\s.*\b(lesson|learn)", re.IGNORECASE)
 
 
 class Kit:
@@ -364,15 +361,6 @@ def diff(master_bytes, copy_bytes, master, path):
     return "".join(lines)
 
 
-# ============================================================================ the lessons
-
-def archived_lessons(vault):
-    briefs = [p for p in (vault / "archive").rglob("*.md") if p.name == "brief.md" or
-              (p.name == "README.md" and not (p.parent / "brief.md").is_file())]
-    return sorted(p.relative_to(vault).as_posix() for p in briefs
-                  if any(LESSONS_RE.match(line) for _, line in live_lines(read_lines(p))))
-
-
 # ============================================================================== the report
 
 @clone_session()
@@ -393,7 +381,6 @@ def build_report(vault, clone, ref, user_dir, default_clone=None):
     report["revision"] = revision_block(vault, kit)
     report["files"] = [r for r in files_block(vault, kit, decl, user_dir) if r["state"] != "current"]
     report["contract"] = contract_block(kit, report["revision"]["baseline"], decl)
-    report["lessons"] = archived_lessons(vault)
     report["snapshot"] = snapshot([str(vault / "CLAUDE.md")] +
                                   [str(vault / r["path"]) for r in report["files"]])
     return report, 0
