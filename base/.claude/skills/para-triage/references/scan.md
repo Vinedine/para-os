@@ -10,7 +10,7 @@ Flags beside `--vault`: `--threads <file.json>` ([sources.md](sources.md#the-see
 | `ingest_ledger` | `path`, `exists`, `load_error` of `/para-ingest`'s ledger |
 | `items.loose` | Per top-level file: `name`, `size`, `kind`, `readme`, `twin`, `note`, `duplicates`, `hash_skipped`, `cross_vault`, `inbound` |
 | `items.loose[].twin` | A `.pdf`'s same-stem `.md`, folded onto it; never a Google-native stub's |
-| `items.loose[].note` | For a `.md`: `shape`, `fields`, `mail_note`, `mailbox`, `mentioned_vaults` (named in its `Routed` line), `routed_vaults` and `routed_from` (the routing decision, from ingest's ledger), `content_incomplete`, `content_evidence`, `thread_hash`, `thread_id`, `message_id`, `conversation_id`, `ingest_seen`, `mailbox_readers` |
+| `items.loose[].note` | For a `.md`: `shape`, `fields`, `mail_note`, `mailbox`, `mentioned_vaults` (named in its `Routed` line), `routed_vaults` and `routed_from` (the routing decision, from ingest's ledger), `thread_hash`, `thread_id`, `message_id`, `conversation_id`, `ingest_seen`, `mailbox_readers` |
 | `items.subdirectories` | `name`, `files`, `handoff` (`_`-prefixed) |
 | `items.subdirectories_line` | The manifest's `Subdirectories, not asked: ...` line; null with none |
 | `items.empty`, `items.only_subdirectories` | Step 2's two stops |
