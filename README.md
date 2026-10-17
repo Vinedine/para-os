@@ -31,58 +31,6 @@ Everything stays ordinary files (PDFs, scans, spreadsheets, Markdown) in ordinar
   search, at best                     across all of it
 ```
 
-## What it looks like in practice
-
-**Running a business.** A scanned letter from the tax office lands in the inbox. You ask the assistant to process it: it reads the letter, files it under a proper name, and adds "respond before 1 July" to the to-do list. With your mail connected, it cross-references what it finds ("the accountant requested a postponement on 12 May") - and then does the next bit too: drafts the reply [for you to paste and send](base/.claude/skills/para-shared/drafting.md), and when the figures it needs are buried in a spreadsheet it can't parse cleanly, it writes a throwaway script on the spot to pull them. Next morning, your daily brief is one page of everything due, plus today's meetings.
-
-**IT projects.** Connect Jira, Azure DevOps, and your mail. The morning brief checks your to-do list against the live sprint board; "what's still blocking the release?" is answered from the board plus your own files.
-
-**At home.** School letters, insurance renewals, the contractor's quote: same folders, same routines. One list of what needs an answer, and it remembers what the insurer wrote last year.
-
-## Three layers, and para-os owns the bottom one
-
-Any "AI on top of my stuff" setup is three layers stacked. Naming them shows where para-os sits, and why it isn't competing with the tools it gets compared to:
-
-1. **Data (what you know)** - your files and how they're organised. **This is para-os.**
-2. **Model (the AI itself)** - the brain: Claude, ChatGPT, Gemini. A product you subscribe to.
-3. **Harness (the app it works through)** - what lets the model open your files and do the work: the Claude desktop app, Claude Code, Cursor, Codex.
-
-para-os owns layer 1 and is built for Claude Code: the conventions are plain Markdown any agent can read, but the skills and the `CLAUDE.md` contract are Claude Code formats. Almost nobody does the layer-1 work because it feels like filing, not engineering. That's exactly why it pays off: an agent is only as good as the files you point it at, and that leverage grows as models get better. The files are the memory - the folder on disk is the durable state, the agent reads it fresh each session, and the git diff is the audit log. No memory features, no chat-history dependence.
-
-You stay the operator: you hold the goals, the assistant does the work - and when something is ambiguous or it can't do a step reliably, it says so and asks, rather than confidently handing you the wrong thing.
-
-## You don't need to be a programmer
-
-You work in one free app: the [Claude desktop app](https://claude.com/download), which runs [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant, in its Code tab (the AI itself needs a paid Claude plan). Point it at your vault folder and you get your files on one side and a chat box on the other. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.
-
-If you already live in a code editor, [VS Code](https://code.visualstudio.com/) runs the same assistant over the same folders, and it's the better window when you're working on code as well as documents. It's the power-user path, not the starting point: the desktop app is a nicer place to work for everyone else, which is most people.
-
-## The vault
-
-A vault is one folder tree per life context: a client engagement, a business, family admin. Keep contexts in separate vaults so the agent stays focused and nothing leaks across boundaries.
-
-```
-your-vault/
-├── CLAUDE.md      # the contract: local conventions, read by the agent at runtime
-├── README.md      # master document; derived outputs regenerate from it
-├── triage/        # capture inbox; /para-triage empties it
-├── projects/      # time-bound work; one folder per project: brief.md + actions.md + sources/
-├── areas/         # ongoing responsibilities; contacts in areas/network/, one file per person
-├── resources/     # reusable reference; not-yet-projects in resources/ideas/
-└── archive/       # anything inactive; cross-cutting dated records in archive/meetings/
-```
-
-`triage/` is para-os's addition to stock PARA: a capture inbox for anything you can't file in ten seconds. Capture stays frictionless because filing is delegated to the agent.
-
-The conventions the templates encode:
-
-- **`CLAUDE.md` is the contract.** Each vault documents its own rules - what a "project" means here, the naming convention, an explicit "do not add" list. The skills read it at runtime; nothing is hardcoded.
-- **One source of truth.** The root `README.md` is the master document; decks, web copy, and summaries regenerate from it.
-- **Ideas are not projects.** A concept stays in `resources/ideas/` until someone's waiting on a deliverable or money is committed, then it promotes to `projects/`.
-- **Actions live with their context.** Tasks sit in the project, idea, or contact file they belong to, as markdown checkboxes with [Obsidian Tasks](https://publish.obsidian.md/tasks/) emoji markers (`📅` due, `🛫` start, `🔁` recurring, `🔺🔼🔽⏬` priority). Regex-parseable; Obsidian itself optional.
-- **Scripts live in the vault, their secrets don't.** A persistent tool the agent writes goes in `resources/scripts/`; its credentials, caches, and bulk data live outside the vault under `~/.paraos/` (resolved via `PARAOS_HOME`), so nothing sensitive syncs to a cloud drive or git remote and no large file bloats the vault.
-- **Briefs don't rot.** Stable facts (decisions, dates, commitments) are append-only; only the volatile "where things stand" notes get rewritten - so a brief never degrades into summaries of summaries.
-
 ## Quickstart
 
 **1. Install Git and Python 3** if you don't have them. On Windows, download Git from [git-scm.com](https://git-scm.com/downloads/win) and Python from [python.org](https://www.python.org/downloads/), accepting the defaults; on a Mac, macOS offers to install both the first time they are needed. The setup uses Git to fetch para-os and your vault uses it to keep its history; the skills use Python to read the vault.
@@ -104,6 +52,46 @@ It downloads the kit, copies [`base/`](base/) in, and runs the bootstrap intervi
 To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot-vault/), a fictional consulting engagement; [`examples/`](examples/README.md) says how to run the skills against it.
 
 > **Want it set up for you?** The kit is free. If you'd rather get your business working with AI without doing the setup yourself, that's the **AI Workspace** engagement I offer - [get in touch](https://trotstar.tech).
+
+## Requirements
+
+Beyond the list at the top:
+
+- **Claude Code in a terminal** works the same as the desktop app: start it in the empty folder and paste the same line. Linux has no desktop app, so this is the route there.
+- **Python 3.9 or later** does not come with Claude Code. Every skill that reads the vault hands its mechanical half to a script beside it, and stops, saying so, where Python is missing. On Windows the skills call `py -3`, since a bare `python` is often a Microsoft Store stub. `/para-upgrade` and `/para-audit` also need a local clone of this repository.
+- **Account skills come along:** Claude Code syncs the skills and plugins enabled on your claude.ai account into sessions (the document skills are what a vault needs for the files it receives); `syncClaudeAiSkills: false` and `syncClaudeAiPlugins: false` in your settings keep a vault to its own.
+- **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
+- **Storage that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible. A vault on a synced drive keeps no `.git`, which the drive can corrupt, and takes its git history from [`vault-mirror`](integrations/vault-mirror/), a repository kept outside the drive. What the agent may change on its own, and what enforces it, is in [the autonomy tiers](docs/autonomy-tiers.md).
+- **Integrations bring their own:** each integration's runtime and platform are in the [integrations table](integrations/README.md#available).
+
+## What it looks like in practice
+
+**Running a business.** A scanned letter from the tax office lands in the inbox. You ask the assistant to process it: it reads the letter, files it under a proper name, and adds "respond before 1 July" to the to-do list. With your mail connected, it cross-references what it finds ("the accountant requested a postponement on 12 May") - and then does the next bit too: drafts the reply [for you to paste and send](base/.claude/skills/para-shared/drafting.md), and when the figures it needs are buried in a spreadsheet it can't parse cleanly, it writes a throwaway script on the spot to pull them. Next morning, your daily brief is one page of everything due, plus today's meetings.
+
+**IT projects.** Connect Jira, Azure DevOps, and your mail. The morning brief checks your to-do list against the live sprint board; "what's still blocking the release?" is answered from the board plus your own files.
+
+**At home.** School letters, insurance renewals, the contractor's quote: same folders, same routines. One list of what needs an answer, and it remembers what the insurer wrote last year.
+
+## You don't need to be a programmer
+
+You work in one free app: the [Claude desktop app](https://claude.com/download), which runs [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant, in its Code tab (the AI itself needs a paid Claude plan). Point it at your vault folder and you get your files on one side and a chat box on the other. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.
+
+If you already live in a code editor, [VS Code](https://code.visualstudio.com/) runs the same assistant over the same folders, and it's the better window when you're working on code as well as documents. It's the power-user path, not the starting point: the desktop app is a nicer place to work for everyone else, which is most people.
+
+## The vault
+
+A vault is one folder tree per life context: a client engagement, a business, family admin. Keep contexts in separate vaults so the agent stays focused and nothing leaks across boundaries.
+
+```
+your-vault/
+├── CLAUDE.md      # the contract: local conventions, read by the agent at runtime
+├── README.md      # master document; derived outputs regenerate from it
+├── triage/        # capture inbox; /para-triage empties it
+├── projects/      # time-bound work; one folder per project: brief.md + actions.md + sources/
+├── areas/         # ongoing responsibilities; contacts in areas/network/, one file per person
+├── resources/     # reusable reference; not-yet-projects in resources/ideas/
+└── archive/       # anything inactive; cross-cutting dated records in archive/meetings/
+```
 
 ## The skills
 
@@ -132,26 +120,14 @@ Beyond base:
 ````
 # Daily Brief - 2026-06-24 - BelFoot
 
-## 📊 Vault state
-```
-[P] cashless-stadium-rollout       ██████████  9 open
-[A] stadium                        ████████░░  7 open ·         1 undated
-[A] network (4 files)              ███████░░░  6 open · 2 🔴
-[P] ticketing-platform-replacement ████░░░░░░  4 open
-```
-**Totals:** 26 open · 2 🔴 overdue · 25 dated · 4% undated
-
 ## 🎯 Now (5 of 26)
 1. 🔺 Get Jan's decision on the three Q3 cost-recovery options - [network/jan-claes:26] · 📅 2026-06-22 (2d ago)
 2. 🔼 Pre-brief Pieter on the Q3 cost issues before the walk-through - [network/pieter-de-ryck:19] · 📅 2026-06-23 (1d ago)
-3. 🔺 Finalise the RFP evaluation matrix with Thomas Vermeulen - [ticketing-platform-replacement:7] · 📅 2026-06-26
 **Later:** 3 this week · 6 next 30 days · 5 later · 5 recurring · 1 waiting · 1 undated
 
 ---
 **Next action:** Open Jan's May 29 cost-recovery mail and pick the option you would defend - [network/jan-claes:26]
 ````
-
-If no calendar connector is wired in, a root `meetings.md` (one line per meeting: `- 🗓 2026-06-12 14:00 · Title`) feeds the agenda.
 
 ## Reaching beyond your files
 
@@ -167,42 +143,14 @@ An add-on layers on the base, as one of [two kinds](addons/README.md): a **flavo
 
 ## Data and privacy
 
-A vault is just files on storage you already control - a local disk, a company cloud drive, or a git repo. para-os adds no server or database of its own and never copies your vault anywhere. Content leaves your storage only when the agent reads part of a file to answer a request: the same exposure as sending an email through a cloud provider, and per-request, not a standing copy.
+A vault is just files on storage you already control - a local disk, a company cloud drive, or a git repo. para-os adds no server or database of its own and never copies your vault anywhere. Content leaves your storage only when the agent reads part of a file to answer a request: the same exposure as sending an email through a cloud provider, and per-request, not a standing copy. Integrations keep their state under `~/.paraos/`, outside the vault: credentials in plain text and cached copies of source data, on local disk ([what goes where](base/resources/scripts/README.md)).
 
 For GDPR or data-sovereignty needs there's a ladder: a provider plan whose commercial terms exclude training and minimise retention (for a business, a Team or Enterprise plan rather than a personal one; on a personal Pro or Max plan, turn off the setting that lets your chats be used to improve the models); regional processing; or the model running inside a cloud tenant you control, for a hard "data must not leave our cloud" requirement. Because the root `CLAUDE.md` is read every session, it is also where you encode data-handling rules - what to redact, retention expectations, who the data subjects are - so the agent follows them by construction.
 
-## Why this exists
-
-Notion and Obsidian never stuck for me: keeping the structure current cost more than it gave back. The agent absorbs exactly that overhead, so the structure finally pays for itself. I now run a business, client engagements, and family admin this way; wired into my bookkeeping, a vault answers questions I used to take to my accountant. The thesis underneath, for technical readers: **clean file structures are what AI runs on.** Point an agent at `Documents/Misc` and search is all it can do; give it a predictable layout with documented conventions and it files, cross-references, audits, and briefs you reliably.
-
 ## What's in the repo
 
-- [`base/`](base/) - the vault skeleton you copy: PARA folders, placeholder READMEs, templates, the bootstrap prompt, the skills and rule files under `.claude/`, and agent and editor settings.
-- [`INSTALL.md`](INSTALL.md) - the setup steps the Quickstart prompt runs.
 - [`RELEASES.md`](RELEASES.md) - what each `YYYY.MM.NN` revision changes for you, in plain words, and whether you need to do anything.
-- [`CHANGELOG.md`](CHANGELOG.md) - the same revisions as step-by-step instructions `/para-upgrade` applies to a vault.
-- [`addons/`](addons/README.md) - the flavor and module add-ons.
-- [`integrations/`](integrations/README.md) - drop-in scripts that pull an outside system into a vault.
-- [`multi-vault/`](multi-vault/) - optional layer for several vaults: one audit across them, and one read of the inboxes they share.
-- [`examples/`](examples/README.md) - fictional, fully populated vaults to poke at.
 - For contributors: [`tools/check.py`](tools/check.py), the contract checks every revision passes, and [`evals/`](evals/README.md), the skill evals.
-
-## Requirements
-
-Beyond the list at the top:
-
-- **Claude Code in a terminal** works the same as the desktop app: start it in the empty folder and paste the same line. Linux has no desktop app, so this is the route there.
-- **Python 3.9 or later** does not come with Claude Code. Every skill that reads the vault hands its mechanical half to a script beside it, and stops, saying so, where Python is missing. On Windows the skills call `py -3`, since a bare `python` is often a Microsoft Store stub. `/para-upgrade` and `/para-audit` also need a local clone of this repository.
-- **Account skills come along:** Claude Code syncs the skills and plugins enabled on your claude.ai account into sessions (the document skills are what a vault needs for the files it receives); `syncClaudeAiSkills: false` and `syncClaudeAiPlugins: false` in your settings keep a vault to its own.
-- **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
-- **Storage that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible. A vault on a synced drive keeps no `.git`, which the drive can corrupt, and takes its git history from [`vault-mirror`](integrations/vault-mirror/), a repository kept outside the drive. What the agent may change on its own, and what enforces it, is in [the autonomy tiers](docs/autonomy-tiers.md).
-- **Integrations bring their own:** each integration's runtime and platform are in the [integrations table](integrations/README.md#available).
-
-## Running several vaults
-
-Each vault carries its own copy of the skills, which works but means one copy per vault. To keep a single source, move the skills to `~/.claude/skills/` (Claude Code loads them there for every vault, and `/para-upgrade` checks that install too) and delete the per-vault `.claude/skills/`. Keep one or the other: a skill in `~/.claude/skills/` wins over a vault's own copy of the same name, so a vault that keeps both runs the global one, however old it is.
-
-To see which of them lag the template, or if they also draw on the same inboxes, see [`multi-vault/`](multi-vault/).
 
 ## License
 
