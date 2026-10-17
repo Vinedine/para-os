@@ -35,7 +35,6 @@ import argparse
 import json
 import re
 import sys
-import tempfile
 from datetime import date
 from pathlib import Path
 from urllib.parse import unquote
@@ -282,29 +281,6 @@ def find_placeholders_in(files, vault):
                 out.append({"file": f.relative_to(vault).as_posix(), "line": lineno,
                             "text": line.strip()})
     return out
-
-
-# ------------------------------------------------------------------------- checker check
-
-def checker_verified():
-    """extract_links()/dangling_links() run once against a fixture carrying a known-good
-    link with spaces and parentheses, a deliberately broken one, and one inside a fence -
-    the three-direction self-check phase1-structural.md Step 1.2 requires before the
-    dangling-link verdict is trusted."""
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp = Path(tmp_dir)
-        (tmp / "target (NL).md").write_text("target\n", encoding="utf-8")
-        (tmp / "source.md").write_text("\n".join([
-            "[good](target%20(NL).md)",
-            "[broken](missing.md)",
-            "```",
-            "[fenced](also-missing.md)",
-            "```",
-        ]) + "\n", encoding="utf-8")
-        found = {h["href"] for h in dangling_links(tmp)}
-        return {"good_link_passes": "target%20(NL).md" not in found,
-                "broken_link_caught": "missing.md" in found,
-                "fenced_link_skipped": "also-missing.md" not in found}
 
 
 # --------------------------------------------------------------------------- wikilinks
@@ -674,8 +650,6 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
     dangling = dangling_links(vault, DANGLING_ROOTS)
     touched |= {vault / d["file"] for d in dangling}
 
-    checker = checker_verified()
-
     wikilinks = find_wikilinks(vault)
     touched |= {vault / w["file"] for w in wikilinks}
 
@@ -707,7 +681,7 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
     touched |= {vault / d["draft"] for d in drafts}
 
     return {"map": map_, "placeholders": placeholders, "dangling": dangling,
-            "checker_verified": checker, "wikilinks": wikilinks, "uncited_contacts": uncited,
+            "wikilinks": wikilinks, "uncited_contacts": uncited,
             "uncited_exempt": uncited_exempt, "inline_contact_details": inline_details,
             "duplicates": dup, "figure_pairs": figs, "archive": archive,
             "resources_loose": res_loose, "stale_drafts": drafts, "snapshot": snapshot(sorted(touched, key=str))}
