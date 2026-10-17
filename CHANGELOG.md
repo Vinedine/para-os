@@ -14,6 +14,8 @@ Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero
 
 **One legacy label.** The first revision shipped as `2026.08` and was renumbered `2026.08.01`: a vault stamped `2026.08` is already on `2026.08.01`, collects only the entries after it, and is restamped.
 
+## 2026.10.03
+
 ## 2026.10.02
 
 Retired: `.claude/skills/para-*/scripts/test_*.py`
