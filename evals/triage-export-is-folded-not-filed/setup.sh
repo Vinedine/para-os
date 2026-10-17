@@ -12,6 +12,10 @@ set -e
 rm -f triage/*.md
 mkdir -p .claude/rules
 cp "$KIT/base/.claude/rules/filing.md" .claude/rules/
+cat >> CLAUDE.md <<'EOF'
+The full convention is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on
+its own when a triage item or a source document is read; read it explicitly before filing one.
+EOF
 
 cat > projects/acme-website/brief.md <<'EOF'
 # acme-website

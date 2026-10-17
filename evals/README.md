@@ -114,11 +114,12 @@ copies `examples/belfoot-vault/`, which `tools/eval.py` places beside the fixtur
 case moves to the day of the run whatever line it needs there.
 
 Runs start in an empty directory with none of your settings, skills, or connectors, and
-the vault's own `CLAUDE.md` is not loaded for them: a skill that needs a convention has to
-read the file, which is what the skills do anyway. A `sources-*` case tests a rule of the
-template itself: its fixture's `CLAUDE.md` carries that rule word for word, and
-`append_system_prompt` in `prompt.md` tells the run to read the file in place of the load.
-No skill is involved, so one arm (`--ablation none`) is all it needs. Where that rule sends
+load neither the vault's `CLAUDE.md` nor its `.claude/rules/`, which a real session loads at
+its start and once it reads or `cat`s a file a rule's `paths:` match. A case testing a rule
+file gives its fixture's `CLAUDE.md` the template's pointer line to it, which the run then
+follows. A `sources-*` case tests a rule of the template itself: its fixture's `CLAUDE.md`
+carries that rule word for word, and `append_system_prompt` in `prompt.md` tells the run to
+read the file in place of the load. No skill is involved, so one arm (`--ablation none`) is all it needs. Where that rule sends
 the run to a `para-shared/` file, `_fixture/shared.sh` installs `para-shared/` in the
 fixture's `.claude/skills/`, as a vault-level install puts it.
 
