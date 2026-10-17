@@ -11,6 +11,7 @@ One prep per meeting, in time order, separated by `---`; a person in two meeting
 - <Name> - 🚩 no card in this vault: `/para-new` adds one
 
 **Objective:** <Entity>: <the stage's exit criterion, as the table writes it> - sharpen it to what must be true when the meeting ends.
+**Promised to bring:** <what we owe at this meeting> - [<source>](<path>)
 
 ## Where things stand
 - <Entity> · <Stage> <N>d in stage · Last touch <date, what> · Signer <name or unknown> - [brief](<path>)
@@ -24,7 +25,6 @@ One prep per meeting, in time order, separated by `---`; a person in two meeting
 
 ## Last time - <record title>, <date> (<N>d ago)
 - <a decision, or what was left open> - [record](<path>)
-**Promised to bring:** <what we owe at this meeting> - [<source>](<path>)
 
 ## Do not raise
 - <item> - [<entity>](<path>)
@@ -53,7 +53,7 @@ Staged entities first: `?d` where `days_in_stage` is null, `Last touch` and `Sig
 
 ## Last time
 
-The newest record across the attendees, read in full; an `unfiled` triage item counts, dated by what it says, its heading saying it is not filed yet. Two to four lines of its decisions and what it left open. **Promised to bring**: its commitments still open, and the open items above that deliver something to an attendee, each with its source; nothing the vault shows as done. No record names any attendee: leave the section out.
+The newest record across the attendees, read in full; an `unfiled` triage item counts, dated by what it says, its heading saying it is not filed yet. Two to four lines of its decisions and what it left open. **Promised to bring**: its commitments still open, and the open items that deliver something to an attendee, each with its source; nothing the vault shows as done. No record names any attendee: leave the section out.
 
 ## Not in the vault
 
