@@ -2,11 +2,15 @@
 
 An **optional layer**, not part of the base skeleton. Most people run one vault and need none of this.
 
-It is for the case where you run several vaults. It ships two skills over one registry of them: `/para-ingest` reads their shared inputs once, and `/para-audit` reports how far each has drifted from the template.
+It is for the case where you run several vaults. It ships three skills over one registry of them: `/para-ingest` reads their shared inputs once, `/para-audit` reports how far each has drifted from the template, and `/para-global-brief` shows where they all stand.
 
 ## /para-audit
 
 `/para-audit` reads every vault the registry lists and reports, in one table, each vault's template revision, its declared type against the registry, its machine-read lines, the rule files base and its add-ons ship, its integration scripts, its bundled skill copies and its `CLAUDE.md` size, then names the vault to upgrade first. Every finding names its fix, nearly always `/para-upgrade` in that vault. **It never writes to a vault, and writes nothing anywhere else either.** A vault the registry marks `retired: true` is listed as excluded, and one it cannot reach is listed as unreachable, never left out.
+
+## /para-global-brief
+
+`/para-global-brief` runs each vault's own daily-brief scan and reports them together: one row of counts per vault, the overdue and due-today items across vaults with their vault named, and one next action. It never writes, and lists retired and unreachable vaults as `/para-audit` does.
 
 ## /para-ingest
 
@@ -30,7 +34,7 @@ That boundary is the whole design. It never classifies an item, drafts an action
 ## Installing
 
 1. **Create the registry.** Copy `vaults.json.template` to `${PARAOS_HOME:-~/.paraos}/vaults.json` and fill in one entry per vault. The `purpose` line is the field that does the work: it is what an item's subject is judged against when nothing else decides. `registry.md` in `para-ingest`'s references explains the rest of the schema.
-2. **Install the skills.** Copy `para-ingest/` and `para-audit/` next to your other `para-*` skills, wherever those live for you. `para-ingest` reads `para-shared/connectors.md` from beside itself, and `para-audit` runs over the scripts in `para-shared/` and `para-upgrade/`, so those have to be installed too; if you run the bundled `para-*` skills they already are.
+2. **Install the skills.** Copy `para-ingest/`, `para-audit/` and `para-global-brief/` next to your other `para-*` skills, wherever those live for you. `para-ingest` reads `para-shared/connectors.md` from beside itself, `para-audit` runs over the scripts in `para-shared/` and `para-upgrade/`, and `para-global-brief` over `para-audit/`'s and `para-daily-brief/`'s, so those have to be installed too; if you run the bundled `para-*` skills they already are.
 3. **Run it by hand, in preview, and read the run log.** Do this before anything else.
 
 ## The three kinds of source
