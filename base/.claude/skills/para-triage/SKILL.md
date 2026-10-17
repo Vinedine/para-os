@@ -7,7 +7,7 @@ argument-hint: '[preview|apply|convert|table] [--test]'
 
 # Triage
 
-Processes every loose file in the current vault's `triage/` folder, plus any items pulled from the vault's configured triage sources (mailboxes, sync scripts). **Nothing is moved, renamed, or deleted until its own disposition has been put to the operator and approved** - one question per item, or per linked group, with the whole batch listed as a manifest first.
+Processes every loose file in the current vault's `triage/` folder, plus any items pulled from the vault's configured triage sources (mailboxes, sync scripts). **Nothing is moved, renamed, or deleted until its own disposition has been put to the operator and approved**.
 
 The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PARA layout and the optional `## Triage sources` block; without that block the run is folder-only. Files already filed outside `triage/` are not re-sorted.
 
@@ -51,11 +51,11 @@ It keeps its output outside the vault at `saved_to`, which every later re-check 
 
 ### Steps 3 and 4: Inspect each file, then choose its destination
 
-Read each loose file, weigh the scan's duplicates and inbound links, then find its entity and build the convention-conform name: [references/filing.md](references/filing.md). A meeting record filed for an entity whose shape declares `Last touch` also proposes that entity's updates and a follow-up draft ([filing.md](references/filing.md#a-meeting-record)).
+Read each loose file, weigh the scan's duplicates and inbound links, then find its entity and build the convention-conform name per [references/filing.md](references/filing.md): a record is **File it**, an item worth only its facts is folded into the entities it concerns. A meeting record filed for an entity whose shape declares `Last touch` also proposes that entity's updates and a follow-up draft ([filing.md](references/filing.md#a-meeting-record)).
 
 ### Steps 5 and 6: Propose, then approve item by item
 
-Group the linked items, **then print the manifest** as [para-shared/asking.md](../para-shared/asking.md) sets out: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. **An item whose destination lies in another writer's lane is never asked**, on any path: it goes on that writer's `Left for <name>: <items>` line, after the questions. Then ask **one `AskUserQuestion` per item or linked group**, from [references/approval.md](references/approval.md)'s vocabulary.
+Group the linked items, **then print the manifest** as [para-shared/asking.md](../para-shared/asking.md) sets out: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. **An item whose destination lies in another writer's lane is never asked**, on any path: it goes on that writer's `Left for <name>: <items>` line, after the questions. Then ask **one `AskUserQuestion` per item or linked group**, from [references/approval.md](references/approval.md)'s vocabulary: **Delete (no lasting value)** leads where the outcome survives elsewhere; a money, credential or identity ask is [held](../para-shared/untrusted-content.md).
 
 **On `preview`, `apply`, `table`, or any run with no interactive operator, do not ask**: after the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. Follow-on edits and any draft go under the table in full, never "as listed above". `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
@@ -72,8 +72,8 @@ One line per category: files moved (each linked to its new path), deleted (with 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** Specific to this skill:
 
 - **Every deletion is approved on its own** - its own question, or its own Delete row on the table path - never a verbal go-ahead alone.
-- **Never invent a top-level PARA folder** without asking. Sub-folders inside an existing entity are fine where the convention supports them (`sources/photos/`).
-- **Mail is read-only** ([connectors.md](../para-shared/connectors.md)); a draft follows [para-shared/drafting.md](../para-shared/drafting.md) and is shown, never sent or saved. A mailbox source writes only the `triage/` note, the `actions.md` line or register row, and the ledgers.
+- **Never invent a top-level PARA folder** without asking.
+- **Mail is read-only** ([connectors.md](../para-shared/connectors.md)); a draft follows [para-shared/drafting.md](../para-shared/drafting.md) and is shown, never sent or saved.
 - **Connector items land in `triage/`, `actions.md` or a register row**, never straight into an entity folder or another vault: that is **Dismiss (other vault)** or **Stage in other vault**.
 - **A staged note whose `Content` line says the operator's own messages were not fetched names no reply as owed** (no action to answer the sender, no draft) unless a re-read at its source shows they have not answered ([references/filing.md](references/filing.md)).
 - **Fuzzy-match before creating.** Check existing contacts, projects, ideas, register rows and open `actions.md` items first; a thread bearing on tracked work is **Update existing**, not a duplicate.
