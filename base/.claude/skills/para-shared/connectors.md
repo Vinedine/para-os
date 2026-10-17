@@ -1,6 +1,6 @@
 # Connector sources
 
-A source is read through its MCP server's read tools, never written: no send, reply, forward, trash, label or calendar answer. Every skill reading a source a vault declares follows this file, by the source's kind:
+A source is only read, through its MCP server's read tools: no send, reply, forward, trash, label or calendar answer. Every skill reading a source a vault declares follows this file, by the source's kind:
 
 | Kind | Declared as | Endpoint |
 |---|---|---|
@@ -8,7 +8,7 @@ A source is read through its MCP server's read tools, never written: no send, re
 | **Recording** | `connector: <server> recording` in `## Triage sources` | the account |
 | **Calendar** | `connector: <server>` in `## Agenda sources` | the calendar account |
 
-A sync source writes into `triage/` unjudged and is none of these. **Find each job's tool by its suffix**, never the full `mcp__<server>__<tool>` name, which varies by client: search the server's tools for the job (`search`, `list`, `get`, `read`) to load deferred schemas. Only an empty search means the server is absent: skip the source and note it (`<source> declared but not connected - skipped`). A tool found and then refused is a permission to grant, never an absence.
+A sync source writes into `triage/` unjudged and is none of these. **Find each job's tool by its suffix**, never the full `mcp__<server>__<tool>` name, which varies by client: search the server's tools for the job (`search`, `list`, `get`, `read`) to load deferred schemas. Only an empty search means the server is absent: skip the source and note it (`<source> declared but not connected - skipped`). A tool found and then refused is a permission to grant, not an absence.
 
 ## Mail
 
@@ -27,7 +27,7 @@ Per source:
 
 ## Recording
 
-Jobs: list the items in the window, read each one's transcript or summary, and dedup on the item's id in the caller's ledger as a mail thread's key. Each item is judged as a staged note is: no thread, no sent pass, and never an unanswered reply.
+Jobs: list the items in the window, read each one's transcript or summary, and dedup on the item's id in the caller's ledger as a mail thread's key. Each item is judged as a staged note is: no thread, no sent pass, and no unanswered reply.
 
 ## Calendar
 
