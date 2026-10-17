@@ -4,7 +4,7 @@ The output of Step 4 of [SKILL.md](../SKILL.md). One Markdown file, written wher
 
 ## Filename and location
 
-`<review-vault>/areas/<maintainer-area>/usage/YYYY-MM-DD-<reviewed-vault>.md`, or wherever the operator's own conventions put maintenance records. Propose the path and confirm it before writing. Never write it into a vault belonging to the people being reviewed.
+`<review-vault>/areas/<maintainer-area>/usage/YYYY-MM-DD-<reviewed-vault>.md`, or wherever the operator's own conventions put maintenance records. Propose the path and confirm it before writing.
 
 ## Shape
 
@@ -42,13 +42,6 @@ Three parts, always:
 Rank by what the change would be worth, not by how large the number is. A capability nobody found outranks a tool that failed eleven times.
 
 Keep the list to the changes a maintainer will act on, ranked; the rest go in a short "also seen" line.
-
-## Register
-
-- **Findings name defects, never people.** Write "two of four people never opened `areas/`", never "X did not use areas". Per-person counts distinguish "nobody" from "one person"; that distinction goes in the reasoning, not on the page as a ranking. The same holds for the whole reply, not only the file: the people the review covers are never named in it.
-- **Quote prompts as evidence of what was asked, without their author, and stop there.** No inference about what someone meant or felt.
-- **State the blind spots in their own section**, not as a caveat buried in the intro. What the ledger cannot see is part of the result.
-- **Include what works.** A report that only lists failures gets read as a complaint about its readers, and the thing that is working is usually the thing to build the next change on.
 
 ## Across reviews
 

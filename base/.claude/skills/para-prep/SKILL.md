@@ -11,7 +11,7 @@ What the vault already holds about a meeting, gathered in the minutes before it:
 
 **Read-only contract.** It answers in chat and writes nothing: no vault file, no calendar response, no mail. A person with no card is offered `/para-new`, and a prep worth keeping is the operator's to save.
 
-**This skill is vault-agnostic.** People are the vault's contact cards, stages are its declared lifecycles ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), and nothing assumes a sale: a vault with no lifecycle preps a meeting as well as one with a pipeline.
+Nothing assumes a sale: a vault with no lifecycle preps a meeting as well as one with a pipeline.
 
 **Every line names the file it came from.** Where the vault holds nothing, the prep says so and turns the gap into a question to ask.
 
@@ -32,7 +32,7 @@ Prose wrapped around the invocation follows [operating-discipline.md](../para-sh
 
 ### Step 1: Read the vault
 
-Resolve the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), then verify it: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you checked. Read `CLAUDE.md` for its lifecycles, its `## Agenda sources` and any `## Who writes this vault`, and the rule file a staged entity's documents load.
+Resolve and verify the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault). Read `CLAUDE.md` for its lifecycles, its `## Agenda sources` and any `## Who writes this vault`, and the rule file a staged entity's documents load.
 
 ### Step 2: Find the meeting and who attends
 

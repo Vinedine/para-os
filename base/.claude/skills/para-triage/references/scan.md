@@ -17,7 +17,7 @@ Flags beside `--vault`: `--threads <file.json>` ([sources.md](sources.md#the-see
 | `items.same_thread` | `{key: [names]}` for notes sharing a thread hash or `Conversation id` |
 | `seen_ledger` | `path`, `exists`, `entries`, `legacy`, `load_error` |
 | `threads` | With `--threads`, per thread: `thread_id`, `thread_hash`, `staged_notes`, `ledger`, `watermark`, `unanswered` (`since`, `working_days`, `waiting`; null unless `newest_own`) |
-| `over_threshold` | `{file, open}` per action file at or past the cap of 8 open items |
+| `over_threshold` | `{file, open}` per action file at or past the cap |
 | `contact_card_level` | `yes`, `relationship only` or `never`: what a contact card may hold ([filing.md](filing.md#a-meeting-record)) |
 | `snapshot`, `snapshot_folders` | What the `changed` re-check reads |
 | `saved_to`, `save_error` | The output's copy outside the vault, or null and why |

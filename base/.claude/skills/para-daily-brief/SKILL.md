@@ -9,11 +9,7 @@ argument-hint: '[today|week|overdue|all|<entity>|review [week|month|since <date>
 
 A single-pass, date-aware picture of **where the vault stands**: which projects and areas carry the open work, what is actually due, what is quietly rotting, and which ideas are waiting. Covers project and area action files plus per-contact files (relationship-paced actions).
 
-**Read-only contract.** It reports; the operator decides. Repairs belong to `/para-deep-clean`.
-
 **Operator-language output.** Every line must be actionable by a reader who has not seen this skill's internals: plain sentences, the vault's own entity names, no bucket jargon beyond the section titles.
-
-**This skill is vault-agnostic.** It discovers action-bearing files at runtime and reads the vault's emoji task markers.
 
 ## Arguments
 
@@ -69,11 +65,7 @@ Only when the argument, or what follows `review` and its window, is not a scope 
 
 Only under `review`. The scan's `review` holds every count, for the vault or the entity Step 1b resolved (null where it did not resolve): `window` (`start`, `end`, `days`), `done` (`count`, `undated`, `by_entity` rows of `items`), `slipped`, `moved` (per lifecycle: `count`, `entities`), `stuck` (`overdue`, `no_next_step`) and `decisions`. Render it per [references/output.md](references/output.md#the-review-scope), with no Agenda, Ideas, Triage or artifact. Steps 4c to 5c, 4e excepted, and 7 do not run.
 
-### Steps 2 to 4b: Scan, parse, bucket, aggregate
-
-Done by the scan.
-
-### Steps 4c to 4f: Health flags, ideas lane, Vision, lifecycle counts
+### Steps 4c to 4e: Health flags, ideas lane, Vision, lifecycle counts
 
 The scan's `flags`, `ideas`, `triage` and `lifecycles` hold every signal computed from files. What stays here: the Vision read (4e), plus deciding which flags are worth a line. **Full procedure: [references/signals.md](references/signals.md).**
 

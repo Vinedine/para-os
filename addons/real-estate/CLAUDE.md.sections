@@ -18,7 +18,6 @@ A property's PARA home follows its stage, and a property is **bought** on the de
 - **A buy-and-hold purchase enters Held on the deed**, by hand, since no skill runs the move: `projects/<property>/` moves to `areas/properties/<property>/` under the move rules of `para-shared/operating-discipline.md`, its `brief.md` becomes `README.md`, and every inbound link is repointed.
 - **A property already bought when it enters the vault** is created with `/para-new area`, its proposed path corrected to `areas/properties/<property>/README.md` before approval.
 - **Works, a refinancing or a sale on a held property** is its own project, `projects/<property>-works/` or similarly suffixed, with an ordinary brief linking the dossier, which stays in the area at stage Held.
-- **Archive destinations**, via `/para-archive`, by whether the deed passed: a property bought and since sold archives to `archive/properties/<property>/`, a deal that never reached the deed (a dropped prospect, or a signed agreement that collapsed) to `archive/researched-deals/<property>/`. A works project is not a property's dossier and takes the default `archive/projects/`.
 - **A property's `sources/` is named one way at every stage.** The full convention (the `Who` ladder, unit scopes) is in [.claude/rules/property-sources.md](.claude/rules/property-sources.md), which loads on its own when a property source document is read; read it explicitly before filing one.
 - {{Which stages this vault uses. A flip business normally skips Held; a buy-and-hold one uses every stage.}}
 
