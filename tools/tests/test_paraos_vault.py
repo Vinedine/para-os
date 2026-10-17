@@ -1580,8 +1580,9 @@ class FileContents(VaultCase):
                                           "archive/projects/b/public/logo.txt",
                                           "archive/projects/b/styles/index.css"])
 
-    def test_git_internals_are_never_hashed(self):
-        write(self.root, ".git/objects/pack/notes.md", self.body("one"))
+    def test_a_dot_folder_is_never_hashed(self):
+        for folder in (".git/objects", ".claude/skills/x", ".agents/skills/x"):
+            write(self.root, f"{folder}/SKILL.md", self.body("one"))
         write(self.root, "projects/a/brief.md", self.body("one"))
         got = hashes(self.root)
         self.assertEqual(list(got["files"]), ["projects/a/brief.md"])

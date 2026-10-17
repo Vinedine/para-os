@@ -1875,8 +1875,8 @@ SKIP_HASH_FOLDERS = ("photos", "plans", "styles", "public")  # media, and a buil
 def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, within=None):
     """Every file in the vault at or above `min_bytes` by content digest, as {path: md5},
     with what a skipped folder holds named under `skipped` rather than dropped: a scan that
-    passed over a folder in silence reports a vault it never read as clean. `.git` is not
-    vault content and is never walked.
+    passed over a folder in silence reports a vault it never read as clean. A dot-folder is
+    not vault content and is never walked.
 
     `sizes` (a set of byte counts) and `within` (a tuple of folder names) each narrow which
     files are even opened, for a vault synced by a streaming cloud client where reading a
@@ -1891,7 +1891,7 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
             continue
         rel = rel_posix(vault, path)
         parts = Path(rel).parts
-        if ".git" in parts:
+        if any(p.startswith(".") for p in parts[:-1]):
             continue
         if within is not None and not any(p in within for p in parts[:-1]):
             continue
