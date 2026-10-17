@@ -6,7 +6,7 @@ Only approved items execute; a deferral is a no-op. **A failure anywhere stops t
 
 - **Each move**: the `changed` re-check ([scripts.md](../../para-shared/scripts.md)), then `test -e "<dst>" && echo EXISTS`, a hit stopping the batch since `mv` clobbers, then `mv "<src>" "<dst>"`, absolute and quoted. Create only folders an approval named, and repoint inbound references in the same step. A file the re-check reports `arrived` is left and named in the summary.
 - **Delete** per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file), after the same re-check and repoint.
-- **Create entity**: `/para-new` runs first, settling the entity, not whether to create one; the item files into whatever entity it ends on, or stays on none. Into a single-file entity (a contact card) its content is folded, and the file gets its own Delete (no lasting value) question.
+- **Create entity**: `/para-new` runs first, settling the entity, not whether to create one; the item files or [folds](filing.md#choose-a-destination-and-a-name-step-4) into whatever entity it ends on, or stays on none.
 - **File it + add action**: the move, then the line, appended as **Add action** appends it.
 - **Extract** outside the vault; **Split** by copying pages, never re-rendering them (`pypdf`'s `PdfWriter.add_page`). Originals wait for their own Delete question.
 - **Run vault script**: dry run first. A script acting on a whole folder acts on declined items too: move them out of its scope, or pass a file list, before `--write`. The triage copy's delete follows its own approval and an MD5 match against the script's copy.
