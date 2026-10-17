@@ -14,8 +14,6 @@ You bring your files and connect your sources (your inbox and its archive, calen
 - "What did we agree with the bank in March, and where's the document?"
 - "Pull every order this supplier sent and flag what's still open."
 
-And it does more than answer: what arrives gets filed by the assistant, not by you, so the vault grows into a fuller picture every week; it drafts what goes out, and writes the small throwaway tool it needs when it hits a wall.
-
 Everything stays ordinary files (PDFs, scans, spreadsheets, Markdown) in ordinary folders on your own disk. No app, no database, no lock-in - the data outlives every assistant you point at it.
 
 ```text
@@ -68,10 +66,6 @@ Beyond the list at the top:
 
 **Running a business.** A scanned letter from the tax office lands in the inbox. You ask the assistant to process it: it reads the letter, files it under a proper name, and adds "respond before 1 July" to the to-do list. With your mail connected, it cross-references what it finds ("the accountant requested a postponement on 12 May") - and then does the next bit too: drafts the reply [for you to paste and send](base/.claude/skills/para-shared/drafting.md), and when the figures it needs are buried in a spreadsheet it can't parse cleanly, it writes a throwaway script on the spot to pull them. Next morning, your daily brief is one page of everything due, plus today's meetings.
 
-**IT projects.** Connect Jira, Azure DevOps, and your mail. The morning brief checks your to-do list against the live sprint board; "what's still blocking the release?" is answered from the board plus your own files.
-
-**At home.** School letters, insurance renewals, the contractor's quote: same folders, same routines. One list of what needs an answer, and it remembers what the insurer wrote last year.
-
 ## You don't need to be a programmer
 
 You work in one free app: the [Claude desktop app](https://claude.com/download), which runs [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant, in its Code tab (the AI itself needs a paid Claude plan). Point it at your vault folder and you get your files on one side and a chat box on the other. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.
@@ -106,13 +100,6 @@ your-vault/
 | [`/para-pipeline`](base/.claude/skills/para-pipeline/SKILL.md) | The board for anything that moves through stages (deals, properties, applications): each one at its stage, its next dated step, what has stopped moving, and what the quarter did. Reads the stages a vault declares for them in its `CLAUDE.md` ([the format](base/.claude/skills/para-shared/lifecycles.md)); a vault that declares none needs nothing here. |
 | [`/para-upgrade`](base/.claude/skills/para-upgrade/SKILL.md) | Migrates a vault to a newer template revision: reads the marker in its `CLAUDE.md`, applies the intervening [`CHANGELOG.md`](CHANGELOG.md) entries, and re-stamps it. Run before a deep clean, which otherwise audits against a stale contract. |
 
-Beyond base:
-
-- The [real-estate](addons/real-estate/) add-on adds [`/property-reconcile`](addons/real-estate/.claude/skills/property-reconcile/SKILL.md) (checks a property dossier against its sources), [`/property-underwrite`](addons/real-estate/.claude/skills/property-underwrite/SKILL.md) (brings it to decision-ready) and [`/property-dealsheet`](addons/real-estate/.claude/skills/property-dealsheet/SKILL.md) (renders the deal sheet).
-- The [activity](addons/activity/) module adds [`/para-activity-review`](addons/activity/.claude/skills/para-activity-review/SKILL.md), which reads the vault's usage ledger and reports which skills nobody invokes, where sessions stall and which conventions people work around, each finding naming a change.
-- The [brainstorm](addons/brainstorm/) module adds [`/para-brainstorm`](addons/brainstorm/.claude/skills/para-brainstorm/SKILL.md), which takes you from what keeps costing you time to two or three ideas worth testing, your own ideas before the agent's, and creates only the ones you approve.
-- [`multi-vault/`](multi-vault/) adds [`/para-ingest`](multi-vault/para-ingest/SKILL.md), which reads shared sources once and stages each item in the vault it belongs to, and [`/para-audit`](multi-vault/para-audit/SKILL.md), which reports in one table how far each registered vault has drifted from the template and which to upgrade first.
-
 **Your own skills.** A vault can grow skills of its own, and three rules keep them supportable. A request starts as a prompt in `resources/prompts/` and becomes a skill after its third use, the same wait-until-proven rule the vault applies to templates. It is built with Anthropic's `skill-creator` skill, so it stays well-formed. And it never takes the `para-` prefix, which belongs to para-os: `/para-upgrade` treats a skill with a name para-os ships as its own copy and replaces it.
 
 `/para-daily-brief` against the example vault (fragment):
@@ -139,7 +126,7 @@ A vault the agent can only read is a tidy filing cabinet. Wire in a source and t
 
 ## Add-ons
 
-An add-on layers on the base, as one of [two kinds](addons/README.md): a **flavor** says what a vault is about, a **module** adds a function beside that. [`real-estate/`](addons/real-estate/) is a flavor for buying, renovating, selling and holding property; [`sales/`](addons/sales/) is a module for prospects, demos and deals. A vault declares its add-ons under the `**Type:**` line of its `CLAUDE.md`.
+An add-on layers on the base, as one of [two kinds](addons/README.md): a **flavor** says what a vault is about, a **module** adds a function beside that. [`real-estate/`](addons/real-estate/) is a flavor for buying, renovating, selling and holding property; [`sales/`](addons/sales/) is a module for prospects, demos and deals. A vault declares its add-ons under the `**Type:**` line of its `CLAUDE.md`. The [activity](addons/activity/) and [brainstorm](addons/brainstorm/) modules add a usage review and a guided brainstorm, and [`multi-vault/`](multi-vault/) adds two skills for anyone running several vaults.
 
 ## Data and privacy
 
