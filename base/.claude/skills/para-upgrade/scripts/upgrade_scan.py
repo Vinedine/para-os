@@ -26,8 +26,8 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
                  lines of the vault's own added (a rule file the vault writes into), or for a
                  JSON file, keys and list entries of its own (settings with more deny rules).
                  untouched:
-                 bytes the kit held at some commit along the ref, so a re-copy loses nothing
-                 local. edited: any other bytes, with `diff` from the master to the copy.
+                 bytes the master held at some commit along the ref, so a re-copy loses
+                 nothing local. edited: any other bytes, with `diff` from the master to the copy.
                  missing. no-master: an integration the ref ships no master for. retired: a
                  file a changelog `Retired:` line names that the kit no longer ships, `master`
                  null.
@@ -83,8 +83,8 @@ BACKTICK_RE = re.compile(r"`([^`]+)`")
 
 
 class Kit:
-    """The clone at one commit: its tree as {path: blob id}, and every object id its history
-    holds, which is what makes a copy untouched."""
+    """The clone at one commit: its tree as {path: blob id}, and every blob id each path held
+    along its history, which is what makes a copy untouched."""
 
     def __init__(self, clone, commit):
         self.clone, self.commit = clone, commit
@@ -94,12 +94,15 @@ class Kit:
                 meta, path = item.split(b"\t", 1)
                 self.tree[path.decode("utf-8", "replace")] = meta.split()[2].decode()
 
-    @property
-    def shipped(self):
+    def shipped(self, path):
         if self._shipped is None:
-            out = git(self.clone, ["rev-list", "--objects", self.commit]) or ""
-            self._shipped = {line.split(" ", 1)[0] for line in out.splitlines()}
-        return self._shipped
+            self._shipped, out = {}, (git_bytes(self.clone, [
+                "log", "-m", "--raw", "-z", "--no-renames", "--no-abbrev", "--format=",
+                self.commit]) or b"").split(b"\0")
+            for meta, name in zip(out[::2], out[1::2]):
+                self._shipped.setdefault(name.decode("utf-8", "replace"), set()).update(
+                    meta.decode().split()[2:4])
+        return self._shipped.get(path, set())
 
     def text(self, path, commit=None):
         data = clone_read(self.clone, commit or self.commit, path)
@@ -263,7 +266,7 @@ def state_of(path, kit, master):
     ids = {blob_id(data), blob_id(normalised(data))}
     if kit.tree[master] in ids:
         return "current"
-    if ids & kit.shipped:
+    if ids & kit.shipped(master):
         return "untouched"
     kit_bytes = clone_read(kit.clone, kit.commit, master)
     if master.endswith(".json"):

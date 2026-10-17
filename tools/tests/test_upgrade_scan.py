@@ -79,6 +79,7 @@ REV_A = {
     "addons/sales/pipeline/tally.py": "# para-os-integration: sales 2026.09.01\n",
     "multi-vault/para-audit/SKILL.md": "# Audit\n",
     "multi-vault/vaults.json.template": "[]\n",
+    "examples/shop/.claude/rules/filing.md": RULE.format("ours"),
 }
 REV_B = {
     "CHANGELOG.md": "# Changelog\n\n" + NEW_ENTRY + OLD_ENTRY,
@@ -260,6 +261,10 @@ class StatesCase(CloneCase):
         v = self.vault("branch", files={".claude/skills/para-notes/SKILL.md": "# Notes v3\n"})
         self.assertEqual(self.states(self.scan(v)[0])[".claude/skills/para-notes/SKILL.md"],
                          "edited")
+
+    def test_a_copy_of_bytes_the_kit_held_only_at_another_path_is_edited(self):
+        v = self.vault("elsewhere", files={".claude/rules/filing.md": RULE.format("ours")})
+        self.assertEqual(self.states(self.scan(v)[0])[".claude/rules/filing.md"], "edited")
 
     def test_a_skill_the_vault_runs_from_the_user_level_is_compared_there(self):
         user = self.tmp / "user-level"
