@@ -11,8 +11,6 @@ Creates **one entity**: a project, an area, an idea, or a contact. Nothing else,
 
 The first job is **classification, not scaffolding.** Most requests to "start a project" turn out to be an area, an idea, or a document that needs filing. The sorting test runs before any question about the work itself.
 
-**This skill is vault-agnostic.** It reads the vault's CLAUDE.md at runtime for the PARA layout, the sorting test as that vault words it, what a project means there, any declared brief shape, the action-marker syntax, the naming and language conventions, and the "do not add" list.
-
 Do NOT invoke to file an inbound document (`/para-triage` does that), to add an action to an entity that already exists (append to its `actions.md` directly), or to create the skeleton's standing subfolders: `areas/business/` and `areas/network/` ship with the vault and are not areas anyone creates.
 
 ## The sorting test
@@ -52,7 +50,7 @@ Nothing is written before the proposal is approved, so there is no preview argum
 
 ### Step 1 - Confirm context and check for a duplicate
 
-1. **Resolve the vault root** per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), **then verify it**: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
+1. **Resolve and verify the vault root** per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault).
 2. Read the vault's `CLAUDE.md` for the parameters listed above.
 3. **Fuzzy-match the name before anything else**, across `projects/`, `resources/ideas/`, `areas/`, `areas/network/`, and `archive/`. Report a near-match and confirm it is genuinely a different thing, offering to add to it instead: never a second folder for the same work. **An archived match never stops the run** - reusing a finished entity's name is allowed - but it is named, so the operator can choose a distinct slug if this is a successor rather than a repeat. **Where `${PARAOS_HOME:-~/.paraos}/vaults.json` lists other vaults, match their same folders too** and name a hit, with its vault, before scaffolding: the same entity in two vaults is the operator's call, never silently created.
 
@@ -72,10 +70,7 @@ When the entity already exists as an idea, this is a move rather than a creation
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **The sorting test is asked, not asserted**, wherever more than one shape is defensible, and the interview is not. Turning the free-text questions into options invents the operator's answer for them, except where the request already suggests one (`asking.md`).
-- **A declared shape does not skip the sorting test.** `project <name>` states an intent, not a fact. If the work has no real deadline, say so and offer the shape that fits; creating it as a project anyway makes the skill a `mkdir` with extra steps.
 - **An area absorbs before it multiplies.** Assets that gate each other are **one** area, not several: a domain, the site on it and the subscription paying for both belong together, because split apart the dependency between them stops being visible anywhere. Check whether an existing area should widen before creating a sibling.
-- **Three questions, then stop.** The operator is starting something, not filling in a form. Everything not asked takes the vault's default or stays out of the file until it is real. A question whose answer changes no file is not asked.
 - **One next action, not a plan.** A new project or area gets a single unblocked next step. Work that follows it is prose under `## Backlog` in the same file, promoted to a checkbox when its gate opens. Decomposing something new into a checklist is the action inflation the actionable-frontier rule exists to stop.
 - **Never create an `actions.md` where the vault forbids one.** An idea gets a `brief.md` only, because `resources/` never holds a checkbox. A vault whose conventions drop action tracking gets prose next steps in the brief instead.
 - **Write in the vault's language.** Structural filenames and headings follow the vault's convention (usually English, since the other skills parse them); the prose follows the vault's language rule and the operator's own words.

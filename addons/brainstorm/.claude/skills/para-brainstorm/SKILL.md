@@ -9,8 +9,6 @@ argument-hint: '[<topic>|<path>] [--test]'
 
 Takes one operator from frustrations to two or three ideas worth testing, and creates only what they approve. Onboarding's brainstorm inventories work that already exists; this one generates what does not exist yet, and it can be run again whenever something keeps costing time.
 
-**This skill is vault-agnostic.** It reads the vault's `CLAUDE.md` at runtime for the PARA layout, where ideas and conversation records live, the filing and naming rule, which area owns a dated go/no-go on an idea, and the language.
-
 Do NOT invoke to record an idea the operator has already formed (`/para-new idea` does that), or to plan work already committed.
 
 ## Two kinds of brainstorm, one flow
@@ -32,7 +30,7 @@ Every question follows [para-shared/asking.md](../para-shared/asking.md): a clos
 
 ### Step 1 - Read the vault first
 
-1. **Resolve the vault root** per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault) and verify it: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. Otherwise stop and say so.
+1. **Resolve and verify the vault root** per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault).
 2. Read `CLAUDE.md`, the root `README.md`, every brief under `resources/ideas/`, and the retired ideas under the archive. The frame asks only what these do not already say, and a candidate matching an existing or retired idea is named as such in Step 7.
 3. With a `<path>`, read it and note which rounds it already answers.
 

@@ -12,7 +12,6 @@
 | `lifecycles[].empty_homes` | Declared homes that do not exist yet or hold nothing |
 | `lifecycles[].counts_by_stage` | `{stage, count, total}` per live, non-terminal stage, in table order, `total` summing the vault's currency only, null where no entity there has a value |
 | `lifecycles[].by_value` | `{currency, ranked, unknown}`: the live folder entities with a value, the vault's currency largest first, then each other currency's; then the names with none. Null where no folder entity carries a `Value` line |
-| `lifecycles[].terminal_this_quarter` | Entities closed into any terminal stage this quarter |
 | `lifecycles[].revisits_due` | Won entities archived out of the promoting home, six months past their `Last touch` (else `Won`) with no dated next step and no `Revisit: none` line, one per client, longest first: `{name, path, value, basis, since, days}` |
 | `lifecycles[].metrics` | `quarter`, `quarter_start`, `quarter_end`, `year_end_unread`, `opened`, `promoting_stage`, `reached_promoting`, `median_days_opened_to_promoting` (`n`, `median`), `terminal` (per stage: `this_quarter`, `reasons_this_quarter`, `all_time_reasons`, `missing_reason`) and `referrers` |
 

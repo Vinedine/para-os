@@ -44,7 +44,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 
 **The Later line's `this week` counts every 🔴, 🟠 and 🟡 item not in Now**, so an overdue or due-today item the cap leaves out lands there. When Now is empty, the line renders alone, with no `🎯 Now` heading.
 
-**The lifecycle line follows Totals**, one per lifecycle in the scan's `lifecycles`, stages in the table's order, zeros included; the board stays `/para-pipeline`'s.
+**The lifecycle line follows Totals**, one per lifecycle in the scan's `lifecycles`, zeros included; the board stays `/para-pipeline`'s.
 
 **A triage item the scan's `triage_preview` marks `auth` is never listed**: it is counted on the codes line, which is omitted at zero ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 

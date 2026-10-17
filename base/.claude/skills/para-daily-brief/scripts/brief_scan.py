@@ -44,7 +44,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         BRIEF_LINE_CAP, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        HEADLINE_CAP, OPEN_ITEM_CAP, STALE_FILE_DAYS, WAITING_FLAG_DAYS, action_files,
+        OPEN_ITEM_CAP, STALE_FILE_DAYS, WAITING_FLAG_DAYS, action_files,
         cadence_days, cap_count, waiting_on,
         entity_candidates, field_ci, headline, stray_checkboxes, extract_links, header_fields,
         contact_names,
@@ -385,7 +385,7 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
         briefs = [b for b in briefs if b["file"].startswith(own)]
     flags = {"over_threshold": [], "stale_files": [], "falsely_overdue": [],
              "stale_recurrence": [], "undated_majority": None, "misplaced": None,
-             "nothing_open": None, "over_grown_briefs": briefs[:3], "long_headlines": [],
+             "nothing_open": None, "over_grown_briefs": briefs[:3],
              "stray_checkboxes": None, "waiting_too_long": []}
 
     by_file = {}
@@ -407,10 +407,6 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
             flags["waiting_too_long"].append({"file": t["file"], "line": t["line"],
                                               "person": wait["person"], "what": wait["what"],
                                               "days": wait["days"]})
-        chars = len(NAME_LINK_RE.sub(r"\1", headline(t["text"])))   # as read, a link is its label
-        if chars >= HEADLINE_CAP:   # the template says a headline stays under the cap
-            flags["long_headlines"].append({"file": t["file"], "line": t["line"],
-                                            "chars": chars})
         overdue = "overdue" in (t["lane"], t.get("also_lane"))
         if overdue:
             days = -(t["days"] or 0)
@@ -426,7 +422,6 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
                     flags["stale_recurrence"].append(
                         {"file": t["file"], "line": t["line"], "cadence": t["recurring"],
                          "date": t["effective_date"], "periods_behind": behind})
-    flags["long_headlines"].sort(key=lambda r: -r["chars"])
     flags["waiting_too_long"].sort(key=lambda r: -r["days"])
     flags["falsely_overdue"].sort(key=lambda r: -r["days"])
     flags["stale_recurrence"].sort(key=lambda r: -r["periods_behind"])

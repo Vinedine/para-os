@@ -11,7 +11,7 @@ The board for **staged entities**: every lifecycle the vault declares, each enti
 
 **Read-only contract.** It reports; the operator moves the entity, and a flag here is what prompts the edit.
 
-**This skill is vault-agnostic.** It knows only declared lifecycles and Stage lines ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), and every line it prints uses the vault's own entity and stage names, never a scan field's.
+Every line it prints uses the vault's own entity and stage names, never a scan field's.
 
 ## Arguments
 
@@ -27,7 +27,7 @@ A leftover argument follows [operating-discipline.md](../para-shared/operating-d
 
 ### Step 1: Read the declarations
 
-Resolve the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), then verify it: `projects/` plus at least one of `areas/` `archive/`, and a `CLAUDE.md`. If it is not one, stop and say so, naming the path you actually checked.
+Resolve and verify the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault).
 
 Read the vault's `CLAUDE.md` for every section whose heading ends in `lifecycle` ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), and the rule file their documents load.
 

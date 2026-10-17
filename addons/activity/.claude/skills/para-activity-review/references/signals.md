@@ -35,7 +35,7 @@ Also worth one line each: files `writers_by_file` shows written by exactly one p
 - **Failures and denials** (`failures`, by tool and target). A repeated failure on the same target is a defect with an address.
 - **Sessions that produced nothing** (`typed_without_writes`): prompts submitted, nothing written all session. One is noise; a pattern is people asking for something the vault cannot do.
 - **Turns per request** (`tools_per_request`, the ten largest). A request that expands into many turns is either real work or a badly-shaped task; read it against what was written at the end.
-- **Rephrasing.** Consecutive prompts in one session that are near-repeats (compare lowercased, punctuation stripped, on token overlap). This is the strongest available signal that the vault did not understand a request. It is **not** evidence about the person's mood or ability, and the report must not say it is.
+- **Rephrasing.** Consecutive prompts in one session that are near-repeats (compare lowercased, punctuation stripped, on token overlap). This is the strongest available signal that the vault did not understand a request.
 - **How sessions ended.** `reason` belongs to the harness, not to the ledger, and a client may report `other` for every ending. Check whether it varies at all before building anything on it, and say plainly in the report when it does not. The usable answer is the `summary` object on the `SessionEnd` line (when present): `prompts`, `tools`, `writes`, `failures`, `denials`, `duration_s`, `last_prompt_tools`. Read `last_prompt_tools: 0` as "the final request produced no tool call", never as "abandoned" - a question answered in prose looks the same.
 
 ## D. Rhythm
@@ -53,12 +53,10 @@ Read the reviewed vault's CLAUDE.md, then check only what that vault actually de
 - Entities created by hand - a write straight to `projects/<x>/brief.md` with no creation skill invoked - which says the skill is unknown, not that the person was wrong.
 - Files landing at the vault root, or in a bucket whose purpose the filing rules put elsewhere.
 
-**Every one of these is a finding about the vault, not the person.** A convention people work around is either badly designed, badly explained, or badly enforced, and the report's job is to say which.
+A convention people work around is either badly designed, badly explained, or badly enforced, and the report's job is to say which.
 
 ## What none of this can support
 
-- **Intent.** The ledger records what was asked, not what was meant. Never diagnose confusion or frustration from wording.
 - **Productivity.** Session counts and durations measure activity, not value. Someone who thinks for an hour and writes one good line will look idle here.
-- **Completeness.** Only Claude Code sessions are recorded. A file edited directly, a page read in a browser, and a question abandoned before it was typed are all invisible, and the last one is often the most important thing that happened.
 - **Causation.** Two signals moving together is a hypothesis worth testing by asking someone, not a finding.
 - **Attribution of a `touched` path.** The scan says a file changed while a tool ran, not that the tool changed it. On a vault several people sync, never name a person as the author of a `touched` path.

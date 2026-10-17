@@ -4,22 +4,21 @@
 
 Emit each only when it fires:
 
-- **Over the cap:** an action file holding **more than 8 open items**. Flag: `<scope>: N open, over the cap of 8 - close or demote before adding. /para-deep-clean grooms`.
-- **Long headline:** an open item whose headline (its bold lead, or the whole line without one) reaches **120 characters**. Flag the count and the worst: `N actions of 120+ characters - worst: <scope>:<line>, N`.
-- **Waiting too long:** a `Waiting on` line whose `since` date is **14 or more days** ago. Flag the oldest, `<what> from <person>: N days - chase or drop?`, and how many more.
+- **Over the cap:** `<scope>: N open, over the cap of 8 - close or demote before adding. /para-deep-clean grooms`.
+- **Waiting too long:** the oldest `Waiting on` line, `<what> from <person>: N days - chase or drop?`, and how many more.
 - **Stray checkboxes:** open checkboxes in a file under `projects/` or `areas/` that is neither an action file nor a contact file (a log, a plan, a meeting note). Flag the total and the worst file: no brief counts them.
-- **Stale file:** an action file with open items last touched **60+ days ago**. Flag with the date.
-- **Falsely-overdue candidates:** items overdue by **more than 30 days**. Flag the count and the worst offender.
-- **Stale recurrence:** a `🔁` item whose `📅` is more than one full cadence period in the past. Flag the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
-- **Undated majority:** when undated items exceed half of all open items and there are **8 or more** open items, one line: `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
+- **Stale file:** an action file with open items, with the date it was last touched.
+- **Falsely-overdue candidates:** the count and the worst offender.
+- **Stale recurrence:** the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
+- **Undated majority:** one line, `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
 - **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, and on contact cards where the vault's `areas/network/` checkbox row says `never`. One line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
 - **Nothing open:** a folder under `projects/` or `areas/` with no open item anywhere under it. One line each for the first three the scan lists: `<entity>: nothing open - finished (archive) or stalled (next step)?`
-- **Over-grown brief:** an entity's brief past **500 lines**. One line per offender: `<file>: N lines - content grooming via /para-deep-clean`.
-- **Silent source:** a `## Triage sources` row carrying a cadence hint (`🔁 every <period>`) whose newest delivery to this vault is more than one period old. One line per source: `<source>: nothing since <date> (N days)`. A ledger that cannot be read is flagged, never passed ([para-shared/absent-is-not-zero.md](../../para-shared/absent-is-not-zero.md)).
+- **Over-grown brief:** one line per offender, `<file>: N lines - content grooming via /para-deep-clean`.
+- **Silent source:** one line per source, `<source>: nothing since <date> (N days)`. A ledger that cannot be read is flagged, never passed ([para-shared/absent-is-not-zero.md](../../para-shared/absent-is-not-zero.md)).
 
 ## Step 4d: Ideas lane
 
-The scan's `ideas`, newest-touched first: each idea's `name`, `touched` date and `stage` line, cut to its first sentence. An idea with no stage line renders as name and date. One marked `dormant`, untouched for 6+ months, is a retirement candidate.
+The scan's `ideas`, newest-touched first: each idea's `name`, `touched` date and `stage` line, cut to its first sentence. An idea with no stage line renders as name and date. One marked `dormant` is a retirement candidate.
 
 A **sentence end** is a `.`, `!` or `?` outside parentheses, at the line's end or followed by a space and anything but a lowercase letter or a digit: `€500.000`, `e.g. the call` and `art. 12` hold none.
 

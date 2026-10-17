@@ -9,21 +9,6 @@ argument-hint: '[<vault-path>] [days] [--test]'
 
 Turns the **activity** module's session log into a short list of things to change. It reads that log, checks what it finds against the vault's own stated conventions, and writes a dated report.
 
-The question is **never "what did these people do"**. It is "which parts of this vault work, which are ignored, and which fight the person using them". A finding that names a person rather than a defect is a finding written wrong, and the report is worthless the day anyone reads it as a performance review.
-
-**This skill is vault-agnostic.** It reads the reviewed vault's CLAUDE.md at runtime for the PARA layout, the action rules, the filing conventions and the declared skills, and judges usage against *those* rules rather than any built in here.
-
-Requires the activity module's ledger installed in the vault being reviewed. Without it there is no input, and the honest answer is to say so and stop.
-
-## What it answers
-
-| Question | Reads | The finding it produces |
-|---|---|---|
-| **Adoption** - what gets used | Skill invocations per person | The capabilities invoked zero times. Usually the most valuable line in the report |
-| **Reach** - what gets touched | Tool targets by PARA bucket | The folders nobody opens, and the ones that only ever get written by one person |
-| **Friction** - where it fights back | Failures, denials, prompts per session, rephrasings | The specific step where people stall, with the prompt that preceded it |
-| **Contradiction** - use against the rules | Ledger plus the vault's own CLAUDE.md | A convention people work around, which is either a rule to fix or a rule to teach |
-
 ## Arguments
 
 `/para-activity-review [<vault-path>] [days]`
@@ -66,13 +51,12 @@ Reported lines have done their work. This step deletes, so it is **one question 
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **The report never goes in the reviewed vault when that vault belongs to someone else.** It is a critique of how their tools failed them, written for whoever maintains those tools. Write it where the review was invoked, and if that is ambiguous, ask.
-- **Never delete a ledger file on a batch approval.** One question each, and the delete is recommended only for a file the report demonstrably read. This skill's whole output is an argument that silent, confident wrongness is the failure mode to fear; deleting the evidence on a shrug would be it.
-- **Findings name defects, never people.** Per-person counts exist to distinguish "nobody uses this" from "one person uses this", which are different problems with different fixes. They are a means, and they do not go in the report as a ranking.
-- **Absence is the primary signal, so look for it deliberately.** A log shows what happened; the valuable finding is usually what never did. Enumerate the vault's declared capabilities and folders **first**, then mark which the ledger never touched. A report assembled only from what appears in the log will systematically miss the biggest problem.
-- **Every finding carries the change it implies.** "People rarely run triage" is an observation. "Triage is never invoked and `triage/` holds 40 files, so the walkthrough should open with it rather than mention it at step 9" is a finding. Observations without a proposed change get cut.
-- **Never infer intent from a prompt.** Prompts record what someone asked, not what they meant or how they felt. Quote them as evidence of what the vault was asked to do; do not diagnose confusion, frustration or skill from wording.
-- **Say what the ledger cannot see.** It records Claude Code sessions only: a file edited directly, a document read in a browser, and a question someone gave up on before typing are all invisible. A report that does not state its blind spots reads as complete.
+- **The report never goes in a vault that belongs to someone else**: write it where the review was invoked, and ask where that is ambiguous.
+- **Findings name defects, never people**, in the report and the reply alike. Per-person counts tell "nobody uses this" from "one person uses this" and never appear as a ranking.
+- **Absence is the primary signal.** Enumerate the vault's declared capabilities and folders **first**, then mark which the ledger never touched.
+- **Every finding carries the change it implies**; an observation without one is cut.
+- **Never infer intent from a prompt.** Quote it, without its author, as evidence of what was asked, never of what someone meant or felt.
+- **Say what the ledger cannot see.** It records Claude Code sessions only: a file edited directly, a document read in a browser, and a question someone gave up on before typing are all invisible.
 - **A small window is reported as small.** Under 7 days, or under 5 sessions, the output is a first look with its confidence stated, not a set of conclusions.
 
 ## Edge cases
