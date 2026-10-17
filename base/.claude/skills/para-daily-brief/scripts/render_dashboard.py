@@ -57,7 +57,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        HEADLINE_CAP, OPEN_ITEM_CAP, PRIORITY_RANK, WAITING_FLAG_DAYS, paraos_home_dir,
+        OPEN_ITEM_CAP, PRIORITY_RANK, WAITING_FLAG_DAYS, paraos_home_dir,
         scope_of,
     )
     from brief_scan import EMPHASIS_RE, SENTENCE_END_RE, first_end  # noqa: E402
@@ -169,8 +169,7 @@ def flag_drill(scan, flag):
             raise JudgmentError(f"flag {kind} names {flag.get('file')}, which the scan "
                                 f"did not flag")
         return [task_id(t) for t in scan["tasks"] if t["file"] == flag["file"]], []
-    if kind in ("falsely_overdue", "stale_recurrence", "undated_majority", "long_headlines",
-                "waiting_too_long"):
+    if kind in ("falsely_overdue", "stale_recurrence", "undated_majority", "waiting_too_long"):
         if not raised.get(kind):
             raise JudgmentError(f"flag {kind} is one the scan did not raise")
         if kind == "undated_majority":
@@ -366,14 +365,6 @@ def mechanical_flags(scan):
                             f"files** (worst: {stray[0]['file']}, {stray[0]['open']}) - no brief "
                             f"counts them: move them to `actions.md`, or mark the file frozen",
                     "kind": "stray_checkboxes"})
-    long_ = raised.get("long_headlines") or []
-    if long_:
-        worst = long_[0]
-        out.append({"text": f"**{len(long_)} action{'s' if len(long_) > 1 else ''} of "
-                            f"{HEADLINE_CAP}+ characters** - worst: "
-                            f"{file_label(scan, worst['file'])}:{worst['line']}, {worst['chars']}. "
-                            f"A bold headline, the detail in a sub-bullet or the brief",
-                    "kind": "long_headlines"})
     briefs = raised.get("over_grown_briefs") or []
     if briefs:
         out.append({"text": f"**{briefs[0]['file']}: {briefs[0]['lines']} lines** - content "

@@ -52,7 +52,6 @@ from urllib.parse import unquote
 # tells an operator their file is fine while another says it needs grooming.
 
 OPEN_ITEM_CAP = 8           # open items one action file holds: past it, close or demote first
-HEADLINE_CAP = 120          # characters in an action's headline: its bold lead, else the line
 FALSELY_OVERDUE_DAYS = 30   # overdue by more than this reads as a date that was never real
 DORMANT_ENTITY_DAYS = 180   # untouched this long: a retirement candidate
 BRIEF_LINE_CAP = 500        # a brief past this is over-grown
