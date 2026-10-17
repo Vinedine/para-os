@@ -339,8 +339,7 @@ def mechanical_flags(scan):
     idle = raised.get("nothing_open") or []
     if idle:
         out.append({"text": f"**{idle[0]['label']}: nothing open**"
-                            + (f", and {len(idle) - 1} more" if len(idle) > 1 else "")
-                            + " - finished (archive) or stalled (next step)?",
+                            + (f", and {len(idle) - 1} more" if len(idle) > 1 else ""),
                     "kind": "nothing_open"})
     mis = raised.get("misplaced") or {}
     fired = [(bucket, rows) for bucket, rows in mis.items() if rows]

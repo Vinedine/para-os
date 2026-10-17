@@ -12,7 +12,7 @@ Emit each only when it fires:
 - **Stale recurrence:** the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
 - **Undated majority:** one line, `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
 - **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, and on contact cards where the vault's `areas/network/` checkbox row says `never`. One line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
-- **Nothing open:** a folder under `projects/` or `areas/` with no open item anywhere under it. One line each for the first three the scan lists: `<entity>: nothing open - finished (archive) or stalled (next step)?`
+- **Nothing open:** a folder under `projects/` or `areas/` with no open item anywhere under it. One line each for the first three the scan lists: `<entity>: nothing open`
 - **Over-grown brief:** one line per offender, `<file>: N lines - content grooming via /para-deep-clean`.
 - **Silent source:** one line per source, `<source>: nothing since <date> (N days)`. A ledger that cannot be read is flagged, never passed ([para-shared/absent-is-not-zero.md](../../para-shared/absent-is-not-zero.md)).
 

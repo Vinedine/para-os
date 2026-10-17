@@ -281,8 +281,7 @@ class Mechanical(DashboardCase):
                       json.dumps(self.page(report=report)["tasks"]))
         self.assertIn("projects/acme-website/brief.md: 502 lines", text)
         self.assertIn("undated", text)
-        self.assertIn("<b>stalled: nothing open</b>, and 1 more - finished (archive) or stalled "
-                      "(next step)?", text)
+        self.assertIn("<b>stalled: nothing open</b>, and 1 more", text)
 
     def test_open_card_checkboxes_are_worded_as_the_vaults_own_rule(self):
         write(self.root, "CLAUDE.md", "# BelFoot Vault Conventions\n\n"
