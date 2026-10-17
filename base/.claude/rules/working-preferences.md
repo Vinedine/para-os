@@ -21,5 +21,3 @@ How the operator likes to work, kept here rather than in built-in memory. It gov
 - **A contradiction replaces, never stacks**, once the operator confirms which one holds.
 
 ## Preferences
-
-_None yet._
