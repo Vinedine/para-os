@@ -1604,6 +1604,25 @@ class FileContents(VaultCase):
         path.unlink()
         self.assertEqual(changed(before), [str(path)])
 
+    def test_a_snapshot_keyed_with_forward_slashes_matches_an_untouched_file(self):
+        path = write(self.root, "projects/a/brief.md", "# a\n")
+        key = path.as_posix()
+        before = {key: snapshot([path])[str(path)]}
+        self.assertEqual(changed(before), [])
+        path.write_text("# a, edited elsewhere\n", encoding="utf-8")
+        self.assertEqual(changed(before), [key])
+
+    def test_a_snapshot_key_spelt_another_way_is_still_a_known_file(self):
+        folder = self.root / "triage"
+        seen = write(self.root, "triage/seen.md", "# seen\n")
+        self.assertEqual(arrived({abspath(seen).as_posix(): "x"}, [folder]), [])
+
+    @unittest.skipUnless(os.name == "nt", "a drive letter has a case only on Windows")
+    def test_a_drive_letter_in_the_other_case_is_still_a_known_file(self):
+        seen = write(self.root, "triage/seen.md", "# seen\n")
+        key = str(abspath(seen))
+        self.assertEqual(arrived({key[0].swapcase() + key[1:]: "x"}, [seen.parent]), [])
+
 
 class Normalised(VaultCase):
 
@@ -1847,6 +1866,17 @@ class ChangedCLI(VaultCase):
         target.write_text("# x, edited\n", encoding="utf-8")
         snap_file = self.write_json("snap.json", before)
         self.assertEqual(self.run_main(["changed", str(snap_file)]), 1)
+
+    def test_a_snapshot_keyed_with_forward_slashes_reports_only_what_changed_as_written(self):
+        target = write(self.root, "projects/x/actions.md", "# x\n")
+        key = target.as_posix()
+        snap_file = self.write_json("snap.json", {key: snapshot([target])[str(target)]})
+        self.assertEqual(self.run_main(["changed", str(snap_file)]), 0)
+        target.write_text("# x, edited\n", encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(main(["changed", str(snap_file)]), 1)
+        self.assertEqual(json.loads(out.getvalue()), {"changed": [key], "arrived": []})
 
     def test_a_scan_outputs_top_level_snapshot_key_is_read_too(self):
         target = write(self.root, "projects/x/actions.md", "# x\n")
