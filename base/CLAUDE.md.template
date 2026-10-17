@@ -86,7 +86,7 @@ Folders and structural files in English; content in its source's language, untra
 
 ## Memory
 
-This vault is the memory: never the agent's built-in memory, a `memory/` folder or session logs. A durable fact goes in the file it describes. How the operator likes to work is kept apart: the full convention is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. A draft to send follows `para-shared/drafting.md`; a voice profile is built per `para-shared/voice-profile.md`.
+This vault is the memory: never the agent's built-in memory, a `memory/` folder or session logs. A durable fact goes in the file it describes before the session ends: what the conversation settled that no file holds yet (a date, a decision and its reason, an action done or promised) is written, or asked about in one question, never left as an offer for later. How the operator likes to work is kept apart: the full convention is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. A draft to send follows `para-shared/drafting.md`; a voice profile is built per `para-shared/voice-profile.md`.
 
 ## File formats
 
