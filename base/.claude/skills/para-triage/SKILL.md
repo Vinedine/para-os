@@ -30,6 +30,8 @@ The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PA
 
 Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-discipline.md#a-vaults-rule-files), quoting the naming convention you apply verbatim in the proposal, and the root `README.md`'s `## Operating model` where present: it decides whether a connector item is this vault's business. **Where no source-document naming convention is stated**, propose destinations only and ask the operator to dictate one before any rename; never invent one or borrow another vault's.
 
+**A vault with a `## Who writes this vault` roster**: settle who is running from what the session knows of its user, matched to one roster row, else ask once with the roster as the options.
+
 ### Step 2: Gather inputs
 
 **Run the scan**, per [para-shared/scripts.md](../para-shared/scripts.md):
@@ -53,7 +55,7 @@ Read each loose file, weigh the scan's duplicates and inbound links, then find i
 
 ### Steps 5 and 6: Propose, then approve item by item
 
-Group the linked items, **then print the manifest** as [para-shared/asking.md](../para-shared/asking.md) sets out: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. Then ask **one `AskUserQuestion` per item or linked group**, from [references/approval.md](references/approval.md)'s vocabulary.
+Group the linked items, **then print the manifest** as [para-shared/asking.md](../para-shared/asking.md) sets out: the count line (`N items, N questions (N grouped), N rounds.`, worded exactly so on the table paths too, where each question is a row), one line per question, then `items.subdirectories_line` as the scan printed it. **An item whose destination lies in another writer's lane is never asked**, on any path: it goes on that writer's `Left for <name>: <items>` line, after the questions. Then ask **one `AskUserQuestion` per item or linked group**, from [references/approval.md](references/approval.md)'s vocabulary.
 
 **On `preview`, `apply`, `table`, or any run with no interactive operator, do not ask**: after the manifest, build the markdown proposal table - `| # | Source item | Action | Why | Destination |` - gated on a single "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path), never **Create entity**: that item is **Leave in triage**, its Why naming the entity to create. Follow-on edits and any draft go under the table in full, never "as listed above". `preview` stops at the table; `apply` skips the gate. **Do not proceed on silence, on "ok", or on tangential replies.**
 
@@ -63,7 +65,7 @@ Moves, deletes, connector writes and follow-on edits: [references/execute.md](re
 
 ### Step 9: Summarize
 
-One line per category: files moved (each linked to its new path), deleted (with the reason), follow-on edits (each file named), each declared source skipped or unreachable, and what is left in `triage/`. **Name the deferrals too**: every `Leave in triage` or `Note to triage`, and every amendment made through Other.
+One line per category: files moved (each linked to its new path), deleted (with the reason), follow-on edits (each file named), each declared source skipped or unreachable, and what is left in `triage/`, per writer where there is a roster. **Name the deferrals too**: every `Leave in triage` or `Note to triage`, and every amendment made through Other.
 
 ## Strict rules
 
