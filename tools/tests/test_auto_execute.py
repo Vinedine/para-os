@@ -33,7 +33,7 @@ import triage_scan  # noqa: E402
 def write(root, rel, text):
     path = Path(root) / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    path.write_bytes(text.encode("utf-8"))
     return path
 
 
