@@ -356,6 +356,19 @@ class RowPlanning(VaultCase):
         self.assertEqual(plans["clean"], "skip")
         self.assertEqual(plans["broken"], "pull")
 
+    def test_a_recording_row_pulls_where_ingest_covers_the_vault(self):
+        write(self.root, "CLAUDE.md", sources_claude_md([
+            "| mail | connector: google-workspace | mail@example-work.com | A. |",
+            "| calls | connector: notetaker recording | mail@example-work.com | B. |",
+        ]))
+        write_run(self.home, "20260922-090000.json", {
+            "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
+            "files_written": [str(self.root / "triage" / "x.md")],
+            "source_plan": {"declaring_vaults": {"mail@example-work.com": ["Alpha"]}},
+        })
+        plans = {r["source"]: r["plan"] for r in self.plan()["sources"]["rows"]}
+        self.assertEqual((plans["mail"], plans["calls"]), ("skip", "pull"))
+
     def test_a_covered_mailbox_asking_for_sent_mail_still_runs_the_sent_pass(self):
         # /para-ingest reads the inbox only, so its coverage never covers the sent pass.
         write(self.root, "CLAUDE.md", sources_claude_md([

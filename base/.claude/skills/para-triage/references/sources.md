@@ -12,7 +12,7 @@ A mailbox read by a script that prints candidates and writes nothing: `<script> 
 
 ## connector sources
 
-A live mailbox over MCP, fetched per [connectors.md](../../para-shared/connectors.md), then judged thread by thread:
+A `recording` row is read per [connectors.md](../../para-shared/connectors.md#recording), each item judged as a staged note. A mailbox is fetched per [connectors.md](../../para-shared/connectors.md#mail), then judged thread by thread:
 
 1. **Another vault's business**, by the README's `## Operating model`, is **Dismiss (other vault)**.
 2. **Read the operator's own messages**, on a fetched thread or a staged note's re-read, from the true message list (the shared file's step 6); where that call could not run, surface the thread instead. Still one next step, a promise before a wait:

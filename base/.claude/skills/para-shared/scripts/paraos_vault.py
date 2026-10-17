@@ -1240,7 +1240,8 @@ def _triage_kind(type_text):
     if lowered.startswith("connector"):
         after = type_text.split(":", 1)[1] if ":" in type_text else ""
         after = SENT_HINT_RE.sub("", CADENCE_HINT_RE.sub("", after)).strip()
-        return "connector", _normalize_connector(after)
+        name, recording = re.subn(r"\s+recording$", "", after, flags=re.IGNORECASE)
+        return "recording" if recording else "connector", _normalize_connector(name)
     return "unknown", None
 
 
@@ -1292,7 +1293,7 @@ def _triage_row(header, cells, lineno):
 
 def triage_sources(vault):
     """The `## Triage sources` block of a vault's CLAUDE.md, machine-read: one row per
-    mailbox, script or drive lookup the vault declares, so `/para-triage` and `/para-ingest`
+    mailbox, recording source, script or drive lookup the vault declares, so `/para-triage` and `/para-ingest`
     answer the same question about it from one reading rather than two. `declared` says
     whether the section exists at all, so a vault with none is not reported the same as a
     vault whose table merely holds no rows. A table inside a fenced block is a sample, not a

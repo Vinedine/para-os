@@ -34,13 +34,7 @@ The terminal brief lists the scan's `triage` by name only; `triage_preview`, eac
 
 Two sources, merged. Entries dedupe by (date, start time, normalised title), case and spacing ignored, or by a shared iCalUID; two entries at the same time with different titles both show. An entry with no time dedupes by (date, title).
 
-**1. Calendar connectors - the optional `## Agenda sources` block.** If the vault's CLAUDE.md has one, it is a table `| Source | Type | Endpoint | Relevant when |`, the same shape as `## Triage sources`. For each `connector:` row, read the calendar **read-only**:
-
-- `connector: google-workspace`: `list_calendars` / `get_events` with the Endpoint as `user_google_email`, time-bounded to today through `T+30` in every scope.
-- Any other calendar connector: ToolSearch for the tool *suffix* (`list_events`, `search_events`, `get_events`). Only when that search comes back empty is the connector absent: skip the source and note it (`<source> declared but not connected - skipped`).
-- **A source that answers with an error is not absent.** Carry on with the other sources and print one line under the agenda naming the source, what failed, and the remedy the error gives.
-- Apply the row's `Relevant when` filter, drop all-day "free" placeholders, and never write, accept, or decline anything.
-- Convert every start into the vault's declared time zone before bucketing or printing it, per [para-shared/timestamps.md](../../para-shared/timestamps.md).
+**1. Calendar connectors - the optional `## Agenda sources` block**, the same table shape as `## Triage sources`: each `connector:` row read per [para-shared/connectors.md](../../para-shared/connectors.md#calendar).
 
 **2. `meetings.md` - the manual fallback.** Grep the vault: `pattern`: `^- 🗓 `, `glob`: `**/meetings.md`, content mode, unlimited. Discard `archive/` paths. Parse `- 🗓 <date> [<time>] · <title> [· <field>...] [🔁 every <cadence>]`.
 

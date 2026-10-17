@@ -189,7 +189,7 @@ def _norm_script(path):
 def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs, vault_reason):
     """`pull` / `run` / `skip` / `sent` / `lookup` / `unknown` for one Triage sources row, by
     these conditions. A drive row is never ingest's and
-    always `lookup`; an unrecognised row is `unknown`; everything else follows the vault's
+    always `lookup`, a recording row always `pull`; an unrecognised row is `unknown`; everything else follows the vault's
     coverage verdict, refined per row for a mailbox `declaring_vaults` does not list, a
     mailbox an ingest error names, or a sync script `sync_runs` does not record without an
     error. A covered mailbox row asking for the sent pass is `sent`, not `skip`: /para-ingest
@@ -201,6 +201,8 @@ def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs,
 
     if kind == "drive":
         return "lookup", "a drive row is never ingest's and always stays"
+    if kind == "recording":
+        return "pull", "/para-ingest reads no recordings"
     if kind not in ("connector", "fetch-script", "sync-script"):
         return "unknown", f"unrecognised source type: {row.get('type') or 'none'}"
 

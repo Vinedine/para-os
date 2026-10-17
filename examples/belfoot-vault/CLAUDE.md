@@ -126,6 +126,19 @@ Markdown and plain text first; `.csv`, `.docx` and `.xlsx` for material received
 
 A script the agent writes lives in `resources/scripts/` (its `README.md` names the state buckets); credentials, caches and bulk data live under `~/.paraos/`, never in a synced folder.
 
+## Triage sources
+
+| Source | Type | Endpoint | Relevant when |
+|---|---|---|---|
+| engagement mail | connector: mailserver | `bram@lemmens-advisory.example` | Threads with the BelFoot project team or its vendors. |
+| steering calls | connector: notetaker recording | `bram@lemmens-advisory.example` | Calls whose title carries `BF`. |
+
+## Agenda sources
+
+| Source | Type | Endpoint | Relevant when |
+|---|---|---|---|
+| engagement calendar | connector: calendar | `bram@lemmens-advisory.example` | Meetings with a BelFoot attendee. |
+
 ## Do not add
 
 - **Cross-client material**: never reference another engagement here; it violates the engagement letter. BelFoot-confidential data (financials, contracts, employee records) stays in this vault, and outputs are reviewed before they leave it.
