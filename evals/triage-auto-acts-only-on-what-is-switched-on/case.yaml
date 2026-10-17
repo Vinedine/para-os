@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: triage-auto-acts-only-on-what-is-switched-on
+tags: [triage, shell, write]
+context:
+  scaffold_script: setup.sh

@@ -24,11 +24,11 @@ A **sentence end** is a `.`, `!` or `?` outside parentheses, at the line's end o
 
 ## Step 4e: Read the Vision
 
-On every run, for the Next action, read the root `README.md`'s `## Vision` section: Grep `-n` for the heading, then Read from that line to the next `## ` heading. If the README or the section is missing, skip silently.
+On every run, for the Next action, read the root `README.md`'s `## Vision` section: Grep `-n` for the heading, then Read from that line to the next `## ` heading.
 
 ## Step 5b: Check the triage folder
 
-The terminal brief lists the scan's `triage` by name only; `triage_preview`, each item's sender and subject, is the dashboard's.
+The terminal brief lists the scan's `triage` by name only; `triage_preview`, each item's sender and subject, is the dashboard's. `unattended`, where set, goes beside the count in one clause.
 
 ## Step 5c: Build the agenda
 
