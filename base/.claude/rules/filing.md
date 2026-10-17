@@ -6,8 +6,6 @@ paths:
 
 # Filing source documents
 
-How a filed document is named and where it lives.
-
 ## Naming
 
 Match the folder you file into, and never mass-rename a folder to another convention.

@@ -6,8 +6,6 @@ paths:
 
 # Figures
 
-Where a number lives and how an amount is written, in every brief and entity README.
-
 ## One number, one home
 
 **A figure is typed into this vault once.** Everywhere else, in this order:
