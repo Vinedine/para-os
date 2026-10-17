@@ -9,7 +9,7 @@ argument-hint: '[ref=<git-ref>] [--clone <path>] [--test]'
 
 Reads every vault the registry lists and reports, in one table, how far each has drifted from the para-os template. Every finding names its fix, which is nearly always `/para-upgrade` run in that vault.
 
-**It never writes to a vault.** `/para-upgrade` owns every write inside one, and a second skill writing the same files under a different contract is the failure this boundary exists to prevent.
+**It never writes to a vault**, not even a fix the operator approves on the spot: `/para-upgrade` owns every write inside one.
 
 - **It needs `para-shared/` and `para-upgrade/` beside it.** Its scan runs over their scripts, and its `../para-shared/` links resolve only there.
 - **Run it from anywhere.** Like `/para-ingest`, it is not scoped to the cwd: the registry outside the vaults is what tells it they exist.
@@ -60,12 +60,9 @@ What a finding means for the operator, beyond its cell: [references/checks.md](r
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **Never write to a vault**, not even a fix the operator approves on the spot. The fix is `/para-upgrade` run in that vault, or the operator's own edit.
-- **The registry is the only list.** Never glob a directory for vaults, and never audit a folder the registry does not name.
 - **Never drop a vault silently.** Every retired, unreachable or malformed entry is stated: a vault left out reads exactly like one never found.
 - **Read every master at a committed ref, never from the clone's working tree.** Where git cannot run, say the comparison was not made and why.
 - **A vault ahead of the master is judged on nothing that master answers,** and never sent to `/para-upgrade`, which refuses to downgrade.
-- **A type and kind mismatch names both values and decides neither.** Nothing in the files says which one is stale.
 - **Size is an adherence finding.** Never present extraction as a token saving.
 - **Exact patterns are literal matches**, by the scan: markers, headings and declaration lines, never a reading of prose by a sub-agent.
 

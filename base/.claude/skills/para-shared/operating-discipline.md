@@ -30,7 +30,7 @@ A link, checkbox, marker, heading or placeholder inside a fenced block or an inl
 
 ## Defer to the vault
 
-- **Resolve the vault root once** (`pwd` before anything has run, or the path the operator named), hold it, and build absolute paths from it: a `cd` in one command persists into the next.
+- **Resolve the vault root once** (`pwd` before anything has run, or the path the operator named), hold it, and build absolute paths from it: a `cd` in one command persists into the next. A root holds `projects/`, one of `areas/` `archive/`, and a `CLAUDE.md`; anywhere else, stop and say so, naming the path checked.
 - **Read the vault's `CLAUDE.md` first**, with [its rule files](#a-vaults-rule-files). The skill brings procedure; the vault brings parameters.
 - **Invent no date or completion marker.** Externally gated items stay undated.
 - **Commit only under a declared commit policy**: the vault's `CLAUDE.md`, else the operator's global instructions. Neither: stop after the change; the operator commits.
