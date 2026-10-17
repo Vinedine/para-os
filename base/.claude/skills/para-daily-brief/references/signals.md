@@ -34,7 +34,7 @@ The terminal brief lists the scan's `triage` by name only; `triage_preview`, eac
 
 Two sources, merged. Entries dedupe by (date, start time, normalised title), case and spacing ignored, or by a shared iCalUID; two entries at the same time with different titles both show. An entry with no time dedupes by (date, title).
 
-**1. Calendar connectors - the optional `## Agenda sources` block**, the same table shape as `## Triage sources`: each `connector:` row read per [para-shared/connectors.md](../../para-shared/connectors.md#calendar).
+**1. Calendar connectors - the optional `## Agenda sources` block**, the same table shape as `## Triage sources`: each `connector:` row read per [para-shared/connectors.md](../../para-shared/connectors.md#calendar). Drop all-day "free" placeholders, and convert every start into the vault's declared time zone before bucketing or printing it ([timestamps.md](../../para-shared/timestamps.md)). A source that answers with an error is not absent: carry on and print one line under the agenda naming the source, what failed, and the remedy the error gives.
 
 **2. `meetings.md` - the manual fallback.** Grep the vault: `pattern`: `^- 🗓 `, `glob`: `**/meetings.md`, content mode, unlimited. Discard `archive/` paths. Parse `- 🗓 <date> [<time>] · <title> [· <field>...] [🔁 every <cadence>]`.
 

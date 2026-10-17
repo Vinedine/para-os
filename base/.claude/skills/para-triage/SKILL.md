@@ -73,7 +73,6 @@ One line per category: files moved (each linked to its new path), deleted (with 
 
 - **Every deletion is approved on its own** - its own question, or its own Delete row on the table path - never a verbal go-ahead alone.
 - **Never invent a top-level PARA folder** without asking. Sub-folders inside an existing entity are fine where the convention supports them (`sources/photos/`).
-- **Never search Drive without the `drive` row's drive id**: an unscoped query can answer "No files found" while the document sits in the folder. With no `drive` row, say the drive is undeclared; never infer an id.
 - **Mail is read-only** ([connectors.md](../para-shared/connectors.md)); a draft follows [para-shared/drafting.md](../para-shared/drafting.md) and is shown, never sent or saved. A mailbox source writes only the `triage/` note, the `actions.md` line or register row, and the ledgers.
 - **Connector items land in `triage/`, `actions.md` or a register row**, never straight into an entity folder or another vault: that is **Dismiss (other vault)** or **Stage in other vault**.
 - **A staged note whose `Content` line says the operator's own messages were not fetched names no reply as owed** (no action to answer the sender, no draft) unless a re-read at its source shows they have not answered ([references/filing.md](references/filing.md)).
