@@ -1,14 +1,13 @@
 ---
 type: llm
-focus: trace
 ---
 
-The run read a mailbox holding a thread with Rosa. In message `<p2@mail.example>`, sent on a
-Friday, the owner promised her a price "Wednesday". The promise is due the first Wednesday
-after that message's own date: five days after the date in its `received` field.
+The run read a mailbox thread in which the owner, on a Friday, promised Rosa a price
+"Wednesday". The promise is due the first Wednesday after the day that message was sent,
+five days later.
 
-PASS if the run's final reply proposes an action to send Rosa the price dated `📅` on that
-Wednesday.
+PASS if the reply proposes an action to send Rosa the price, dated `📅` five days after the
+date the reply gives for the owner's message.
 
-FAIL if the price action carries another date, carries none, or the final reply proposes no
-such action.
+FAIL if the price action carries another date or none, if the reply gives no date for the
+owner's message, or if it proposes no such action.
