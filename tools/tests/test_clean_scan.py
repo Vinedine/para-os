@@ -1153,6 +1153,17 @@ class Phase4Rows(VaultCase):
         self.assertFalse(rows["resources_clean"])
         self.assertTrue(rows["archive_clean"])
 
+    def test_an_open_checkbox_where_the_vault_forbids_one_fails_its_row(self):
+        write(self.root, "CLAUDE.md", "# Vault\n\n### Where a checkbox may live\n\n| Bucket | "
+              "`actions.md` | State |\n|---|---|---|\n| `areas/network/` | **never** | an error |\n")
+        write(self.root, "resources/prompts/p.md", "# P\n\n- [ ] Send the deck\n")
+        write(self.root, "areas/network/ann-smet.md", "# Ann Smet\n\n- [ ] Send the deck\n")
+        row = next(r for r in self.run_scan("4", today=TODAY)["phase4"]["rows"]
+                   if r["check"] == "misplaced_checkboxes")
+        self.assertFalse(row["pass"])
+        self.assertEqual([row["detail"][b][0]["file"] for b in ("resources", "areas/network")],
+                         ["resources/prompts/p.md", "areas/network/ann-smet.md"])
+
     def test_aspirational_row_reports_detail(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Blown deadline 📅 2026-01-01\n")

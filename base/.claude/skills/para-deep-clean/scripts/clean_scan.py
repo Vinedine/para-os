@@ -854,9 +854,9 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
            name_only_columns=()):
     touched, rows = set(), []
 
-    mc = misplaced_checkboxes(vault)
-    touched |= {vault / r["file"] for r in mc["archive"]}
-    rows.append({"check": "archived_open_items", "pass": not mc["archive"], "detail": mc["archive"]})
+    mc = misplaced_checkboxes(vault, with_closed=True)
+    touched |= {vault / f for f in misplaced_files(mc)}
+    rows.append({"check": "misplaced_checkboxes", "pass": not misplaced_files(mc), "detail": mc})
 
     tri = triage_precondition(vault)
     triage_ok = not tri["triage_loose"] and not tri["triage_readme"]
@@ -868,7 +868,6 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
     arch = archive_findings(vault, dated_pattern)
     archive_clean = not (arch["loose_root_files"] or arch["meetings_naming"] or arch["missing_record"])
     touched |= {vault / f for f in arch["loose_root_files"] + arch["meetings_naming"] + arch["missing_record"]}
-    touched |= {vault / f for f in misplaced_files(arch["misplaced_checkboxes"])}
     rows.append({"check": "archive_clean", "pass": archive_clean, "detail": arch})
 
     res_loose = resources_loose(vault)
