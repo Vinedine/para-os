@@ -10,7 +10,7 @@ One question per open item:
 
 - **Done already**: tick it.
 - **Survives**: name the destination where it is obvious (`Route to areas/business/actions.md`); otherwise Step 4 asks.
-- **Drop**: the record keeps a line saying it was dropped, as the option says.
+- **Drop**: the record keeps the line `Dropped: <reason>`.
 
 A recurring item survives into the recurring section of the area taking the work over, or is dropped. A resolved Backlog item stays as a prose line stating its disposition and reason, undated.
 

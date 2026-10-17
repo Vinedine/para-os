@@ -556,8 +556,8 @@ class Actions(VaultCase):
         self.assertIsNone(open_one["by"])
 
     def test_a_lowercase_done_inside_a_sentence_is_not_settled(self):
-        # reconcile.md Step 2: the match is a capitalised Done, Decided or Resolved as a
-        # whole word, case-sensitive - a lowercase "done" inside a condition is not a
+        # reconcile.md Step 2: the match is a capitalised Done, Decided, Dropped or Resolved
+        # as a whole word, case-sensitive - a lowercase "done" inside a condition is not a
         # disposition, and reading it as one would silently skip asking about live work.
         write(self.root, "projects/acme/brief.md", "# Acme\n")
         write(self.root, "projects/acme/actions.md",
@@ -578,6 +578,31 @@ class Actions(VaultCase):
               "- Pricing tier, still to be decided.\n")
         settled = [b["settled"] for b in self.plan("acme")["actions"]["backlog"]]
         self.assertEqual(settled, [True, True, False])
+
+    def test_a_disposition_in_markdown_emphasis_is_settled(self):
+        # A vault writes dispositions in italics: the underscore does not hide the word in
+        # either form, and a word inside a longer one still does not count.
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme - Actions\n\n## Backlog\n"
+              "- Retest the export. _Decided at handover, dropped: covered elsewhere._\n"
+              "- _resolved: the vendor took it back._\n"
+              "- Undone work from the pitch, still open.\n")
+        backlog = self.plan("acme")["actions"]["backlog"]
+        self.assertEqual([(b["settled"], b["by"]) for b in backlog],
+                         [(True, "Decided"), (True, "Resolved"), (False, None)])
+
+    def test_a_dropped_line_is_settled(self):
+        # Step 2's Drop leaves a line saying so, read under the same rule as Done.
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "projects/acme/actions.md",
+              "# Acme - Actions\n\n## Backlog\n"
+              "- Retest the export. Dropped: the new check covers it.\n"
+              "- dropped: no owner after the handover.\n"
+              "- Chase the deliveries that dropped off the schedule.\n")
+        backlog = self.plan("acme")["actions"]["backlog"]
+        self.assertEqual([(b["settled"], b["by"]) for b in backlog],
+                         [(True, "Dropped"), (True, "Dropped"), (False, None)])
 
     def test_backlog_is_read_from_both_actions_and_brief(self):
         write(self.root, "projects/acme/brief.md",

@@ -286,15 +286,15 @@ def any_ahead(task, today):
     return False
 
 
-SETTLE_PATTERNS = tuple(
-    (word, re.compile(rf"\b{word}\b|(?:^|[.:;(]\s*)\b{word.lower()}\b"))
-    for word in ("Done", "Decided", "Resolved"))
+SETTLE_PATTERNS = tuple((word, re.compile(
+    rf"(?:(?<![A-Za-z0-9]){word}|(?:^|[.:;(]\s*)[_*]*{word.lower()})(?![A-Za-z0-9])"))
+    for word in ("Done", "Decided", "Dropped", "Resolved"))
 
 
 def settle_check(text):
-    """Whether a Backlog item is settled: a capitalised Done, Decided or Resolved as a whole
-    word anywhere in it, or a lowercase one opening the item or a clause ("decided: x").
-    `by` names the leftmost match among the three."""
+    """Whether a Backlog item is settled: a capitalised Done, Decided, Dropped or Resolved
+    with no letter or digit either side (`_Decided_` counts), or a lowercase one opening the
+    item or a clause ("decided: x"). `by` names the leftmost match."""
     best = None
     for label, pattern in SETTLE_PATTERNS:
         m = pattern.search(text)
