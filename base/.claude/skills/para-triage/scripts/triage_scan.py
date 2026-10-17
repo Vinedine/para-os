@@ -23,8 +23,7 @@ Reading the vault's primitives - the registry, run logs, staged-note names, thre
 watermarks, content hashes, tasks, links, snapshots - is not this script's own work:
 para-shared/scripts/paraos_vault.py holds it. What lives here is what this skill alone
 decides: how a triage source row's `plan` is computed from the vault's ingest coverage, how a
-staged note's two header shapes are parsed, when its Content line calls itself incomplete,
-which registered vaults its Routed line names, and how a fetched thread folds against an
+staged note's two header shapes are parsed, which registered vaults its Routed line names, and how a fetched thread folds against an
 already-staged note.
 
 What it deliberately does NOT do, so the skill keeps owning it: run a sync script, fetch a
@@ -279,14 +278,6 @@ LINK_THREAD_RE = re.compile(r"#[^/]+/([0-9a-fA-F]{16})")
 # claude.ai Gmail's link form carries the same thread id in decimal: `#all/thread-f:<decimal>`.
 LINK_THREAD_F_RE = re.compile(r"#[^/]+/thread-f:(\d+)")
 
-# "incomplete" is here, and checked first, because the held phrase "complete" is inside it.
-INCOMPLETE_PHRASES = ("snippet", "preview", "opening lines", "no readable body", "cut mid",
-                      "truncat", "excerpt", "trimmed", "not read", "not fetched", "incomplete")
-COMPLETE_PHRASES = ("full body", "full text", "plain-text body", "complete")
-# A Content line's clauses: split at `;`, `,`, `:` and a sentence end, never inside `invite.ics`.
-CLAUSE_SPLIT_RE = re.compile(r"[;,:]|\.(?:\s|$)")
-BESIDE_BODY_RE = re.compile(r"attach|linked (?:document|file)|enclos")
-
 
 def _unquote(value):
     value = value.strip()
@@ -342,24 +333,6 @@ def _extract_mailbox(source_value):
         return None
     match = re.search(r"\(([^)]+)\)", source_value)
     return match.group(1).strip() if match else None
-
-
-def _content_incomplete(text):
-    """`(True/False/None, matched phrase)` from a note's `Content` line. The vocabulary is
-    this script's own, not stated in references/filing.md or references/approval.md, which
-    only name the field. An incomplete
-    signal wins even where a "held" phrase is also present, since "false" means the body is
-    held *with none* of the incomplete signals. Only the clauses describing the body are
-    read: a clause naming an attachment or linked document ("26 image attachments not read")
-    names something *beside* the body, so it settles nothing either way."""
-    if not text:
-        return None, None
-    clauses = [c for c in CLAUSE_SPLIT_RE.split(text.lower()) if not BESIDE_BODY_RE.search(c)]
-    for phrases, verdict in ((INCOMPLETE_PHRASES, True), (COMPLETE_PHRASES, False)):
-        for phrase in phrases:
-            if any(phrase in clause for clause in clauses):
-                return verdict, phrase
-    return None, None
 
 
 def _mentioned_vaults(routed_text, entries, this_vault_name):
@@ -462,18 +435,15 @@ def note_block(path, entries, vault_name, ledger_mailboxes):
         mail_note = bool(fields.get("Source")) and bool(fields.get("Link"))
         mailbox = _extract_mailbox(source_value)
         mentioned_vaults = _mentioned_vaults(fields.get("Routed"), entries, vault_name)
-        incomplete, evidence = _content_incomplete(fields.get("Content"))
         link_value = fields.get("Link")
     elif shape == "frontmatter":
         source_value = fields.get("source")
         mail_note = bool(fields.get("thread_id"))
         mailbox = _extract_mailbox(source_value)
         mentioned_vaults = []
-        incomplete, evidence = None, None
         link_value = fields.get("link")
     else:
-        mail_note, mailbox, mentioned_vaults = False, None, []
-        incomplete, evidence, link_value = None, None, None
+        mail_note, mailbox, mentioned_vaults, link_value = False, None, [], None
 
     routed_vaults, routed_from = _routed_from_ledger(ledger_mailboxes, mailbox, filename_hash,
                                                       vault_name)
@@ -481,8 +451,7 @@ def note_block(path, entries, vault_name, ledger_mailboxes):
     return {
         "shape": shape, "fields": fields, "mail_note": mail_note, "mailbox": mailbox,
         "mentioned_vaults": mentioned_vaults, "routed_vaults": routed_vaults,
-        "routed_from": routed_from, "content_incomplete": incomplete,
-        "content_evidence": evidence, "thread_hash": filename_hash,
+        "routed_from": routed_from, "thread_hash": filename_hash,
         "thread_id": _extract_thread_id(link_value, filename_hash),
         "message_id": fields.get("Message id") if shape == "ingest" else None,
         "conversation_id": fields.get("Conversation id") if shape == "ingest" else None,

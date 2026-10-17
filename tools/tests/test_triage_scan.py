@@ -38,7 +38,7 @@ from triage_scan import (
     build_loose, build_snapshot, ingest_block, main, note_block, over_threshold_block, plan,
     same_thread_block, seen_ledger_block, subdirectories_block, subdirectories_line,
     vault_block,
-    _content_incomplete, _extract_thread_id, _ingest_seen, _mentioned_vaults,
+    _extract_thread_id, _ingest_seen, _mentioned_vaults,
     _routed_from_ledger,
 )
 
@@ -591,7 +591,6 @@ class NoteShapes(unittest.TestCase):
         self.assertFalse(note["mail_note"])
         self.assertIsNone(note["mailbox"])
         self.assertEqual(note["mentioned_vaults"], [])
-        self.assertTrue(note["content_incomplete"])
         self.assertIsNone(note["thread_id"])
 
     def test_a_ledger_record_that_is_not_an_object_is_passed_over(self):
@@ -700,90 +699,6 @@ class NoteShapes(unittest.TestCase):
         for link in ("https://mail.google.com/mail/u/0/",
                      "https://outlook.office.com/mail/inbox/id/AAQkAGI2"):
             self.assertIsNone(_extract_thread_id(link, "88604c"), link)
-
-
-class ContentIncomplete(unittest.TestCase):
-
-    def test_snippet_only_gmail_is_incomplete(self):
-        got, phrase = _content_incomplete(
-            "Snippet only: the ~200-character preview Gmail search returns; the body was "
-            "not read.")
-        self.assertTrue(got)
-        self.assertEqual(phrase, "snippet")
-
-    def test_snippet_only_fetch_script_cut_mid_is_incomplete(self):
-        got, _ = _content_incomplete(
-            "Snippet only: the preview outlook.py returns for the message (about 250 "
-            "characters, cut mid-sentence); full body and the attached receipt not read.")
-        self.assertTrue(got)
-
-    def test_opening_lines_only_is_incomplete(self):
-        got, phrase = _content_incomplete(
-            "The opening lines of the newest message only. The quoted order history and "
-            "the attached invoice PDF were not read or copied")
-        self.assertTrue(got)
-        self.assertEqual(phrase, "opening lines")
-
-    def test_no_readable_body_is_incomplete(self):
-        got, phrase = _content_incomplete(
-            "No readable body: a calendar acceptance whose only content is an invite.ics "
-            "attachment (1.3 KB), not opened, so the meeting date is not in this note.")
-        self.assertTrue(got)
-        self.assertEqual(phrase, "no readable body")
-
-    def test_plain_text_body_with_an_unopened_linked_document_is_complete(self):
-        # The one case the brief calls out by name: an attachment or linked document not
-        # read does not make the BODY incomplete.
-        got, phrase = _content_incomplete(
-            "Plain-text body of the notes email, footer and feedback links dropped; the "
-            "linked document (\"Open meeting notes\") was not opened.")
-        self.assertFalse(got)
-        self.assertEqual(phrase, "plain-text body")
-
-    def test_unread_attachments_beside_a_full_body_are_complete(self):
-        got, phrase = _content_incomplete("Full text, 26 image attachments not read")
-        self.assertFalse(got)
-        self.assertEqual(phrase, "full text")
-
-    def test_an_excerpt_or_a_trimmed_body_is_incomplete(self):
-        for line, want in (("Excerpt of the newest message; 3 attachments not read.", "excerpt"),
-                           ("Body trimmed to the first paragraph.", "trimmed")):
-            got, phrase = _content_incomplete(line)
-            self.assertTrue(got, line)
-            self.assertEqual(phrase, want)
-
-    def test_a_full_body_without_the_operators_own_messages_is_incomplete(self):
-        got, phrase = _content_incomplete(
-            "Full body of the two inbound messages; own messages not fetched.")
-        self.assertTrue(got)
-        self.assertEqual(phrase, "not fetched")
-
-    def test_a_clause_naming_an_attachment_settles_nothing(self):
-        got, phrase = _content_incomplete("The attached PDF was not read.")
-        self.assertIsNone(got)
-        self.assertIsNone(phrase)
-
-    def test_the_word_incomplete_is_not_read_as_complete(self):
-        # "complete" is a held phrase and sits inside "incomplete": the line says the body
-        # is not held, so it must not read as held.
-        for line in ("The body is incomplete.", "Incompletely fetched: the thread's first reply."):
-            got, phrase = _content_incomplete(line)
-            self.assertTrue(got, line)
-            self.assertEqual(phrase, "incomplete")
-
-    def test_complete_on_its_own_still_reads_as_held(self):
-        got, phrase = _content_incomplete("Complete message body, signature dropped.")
-        self.assertFalse(got)
-        self.assertEqual(phrase, "complete")
-
-    def test_no_content_line_is_null(self):
-        got, phrase = _content_incomplete(None)
-        self.assertIsNone(got)
-        self.assertIsNone(phrase)
-
-    def test_unremarkable_text_is_null(self):
-        got, _ = _content_incomplete("Routine confirmation, nothing further to say.")
-        self.assertIsNone(got)
 
 
 # --------------------------------------------------------------------------- duplicates etc
