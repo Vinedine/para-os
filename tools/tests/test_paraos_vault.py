@@ -2089,6 +2089,13 @@ class TriageSourcesTable(VaultCase):
         self.assertEqual(row["connector"], "claude_ai_Gmail")
         self.assertEqual(row["mailbox"], "alex.rivera@example.com")
 
+    def test_a_connector_row_ending_recording_is_a_recording_source(self):
+        self.write_claude(["# V", "", "## Triage sources", "", "| Source | Type | Endpoint | R |",
+                           "|---|---|---|---|", "| calls | connector: notetaker recording | "
+                           "`ann@example.com` | Client calls. |"])
+        row = triage_sources(self.root)["rows"][0]
+        self.assertEqual((row["kind"], row["connector"]), ("recording", "notetaker"))
+
     def test_a_fetch_script_row_takes_the_qualifying_backtick_span(self):
         self.write_claude(TRIAGE_LINES)
         row = triage_sources(self.root)["rows"][3]

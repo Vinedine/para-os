@@ -235,6 +235,12 @@ def build_plugin(workdir, only=None):
 
     shutil.copytree(EVALS, plugin / "evals", ignore=skip_cases)
     shutil.copytree(EXAMPLES, plugin / "evals" / "_fixture" / "examples", ignore=no_skill_copy)
+    # A mock stands in only for a server the plugin declares; the declared command never runs.
+    servers = sorted({d.name for d in (plugin / "evals").glob("*/mocks/*") if d.is_dir()})
+    if servers:
+        (plugin / ".mcp.json").write_text(json.dumps(
+            {"mcpServers": {s: {"command": "false"} for s in servers}}, indent=2) + "\n",
+            encoding="utf-8")
     return plugin
 
 

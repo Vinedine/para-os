@@ -103,6 +103,14 @@ class GrantPerCase(unittest.TestCase):
             rc = eval_tool.main(list(argv))
         return rc, harness, out.getvalue()
 
+    def test_a_mocked_server_is_declared_so_its_mock_stands_in(self):
+        mocks = eval_tool.EVALS / "reads-only" / "mocks" / "mailserver"
+        mocks.mkdir(parents=True)
+        (mocks / "search_messages.md").write_text("[]\n", encoding="utf-8")
+        plugin = eval_tool.build_plugin(self.tmp / "work")
+        declared = json.loads((plugin / ".mcp.json").read_text(encoding="utf-8"))
+        self.assertEqual(list(declared["mcpServers"]), ["mailserver"])
+
     def gated(self, name):
         return [t for t in eval_tool.GATED if t in self.tools[name]]
 
