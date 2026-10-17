@@ -1958,15 +1958,19 @@ def snapshot(paths):
 
 
 def changed(before):
-    """The paths of a snapshot whose contents no longer match it, one since deleted included."""
+    """The paths of a snapshot whose contents no longer match it, one since deleted included.
+    Read back under the key `snapshot()` writes, so a snapshot whose keys use the other
+    separator names its own file rather than a file that never matched."""
     now = snapshot(before)
-    return sorted(p for p, digest in before.items() if now.get(p) != digest)
+    return sorted(p for p, digest in before.items() if now.get(str(Path(p))) != digest)
 
 
 def arrived(before, folders):
     """The files directly in each folder that the snapshot does not hold: arrivals since it
-    was taken, which no approval covered. A `.gitkeep` is not a file here, as in triage/."""
-    known = set(before)
+    was taken, which no approval covered. A `.gitkeep` is not a file here, as in triage/.
+    Held and looked up as `same_place` writes a place, so the separator or case a snapshot's
+    keys carry decides nothing; what is reported stays the path as written."""
+    known = {same_place(p) for p in before}
     out = []
     for folder in folders:
         try:
@@ -1974,7 +1978,7 @@ def arrived(before, folders):
         except OSError:
             continue
         out += [str(abspath(c)) for c in children
-                if c.is_file() and c.name != ".gitkeep" and str(abspath(c)) not in known]
+                if c.is_file() and c.name != ".gitkeep" and same_place(c) not in known]
     return out
 
 

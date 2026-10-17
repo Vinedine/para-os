@@ -1604,6 +1604,15 @@ class FileContents(VaultCase):
         path.unlink()
         self.assertEqual(changed(before), [str(path)])
 
+    def test_a_snapshot_keyed_with_forward_slashes_still_reads_as_unchanged(self):
+        # Two spellings of one path are one file: a snapshot written with the other
+        # separator compared nothing and reported every file changed (#466).
+        path = write(self.root, "projects/a/brief.md", "# a\n")
+        before = {Path(p).as_posix(): digest for p, digest in snapshot([path]).items()}
+        self.assertEqual(changed(before), [])
+        path.write_text("# a, edited elsewhere\n", encoding="utf-8")
+        self.assertEqual(changed(before), [path.as_posix()])
+
 
 class Normalised(VaultCase):
 
@@ -1903,6 +1912,22 @@ class ChangedCLI(VaultCase):
         write(self.root, "triage/inbox/late.md", "# late\n")
         write(self.root, "projects/x/late.md", "# late\n")
         self.assertEqual(self.run_main(["changed", str(scan_file)]), 0)
+
+    def test_a_snapshot_and_a_folder_written_with_forward_slashes_agree(self):
+        # Both sides of the guard hold one spelling each: a snapshot keyed with the other
+        # separator reported every file changed and every file arrived (#466).
+        folder = self.root / "triage"
+        seen = write(self.root, "triage/seen.md", "# seen\n")
+        before = {Path(p).as_posix(): digest for p, digest in snapshot([abspath(seen)]).items()}
+        scan = {"snapshot": before, "snapshot_folders": [abspath(folder).as_posix()]}
+        scan_file = self.write_json("scan.json", scan)
+        self.assertEqual(self.run_main(["changed", str(scan_file)]), 0)
+        late = write(self.root, "triage/late.md", "# late\n")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(main(["changed", str(scan_file)]), 1)
+        self.assertEqual(json.loads(out.getvalue()),
+                         {"changed": [], "arrived": [str(abspath(late))]})
 
     def test_a_snapshot_folder_since_removed_holds_no_arrivals(self):
         self.assertEqual(arrived({}, [str(self.root / "triage")]), [])
