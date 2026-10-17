@@ -273,7 +273,6 @@ class Destination(VaultCase):
         write(self.root, "projects/acme/brief.md", "# Acme\n")
         d = self.plan("acme")["destination"]
         self.assertEqual(d["path"], "archive/projects/acme")
-        self.assertTrue(d["default"])
         self.assertFalse(d["exists"])
 
     def test_default_destination_for_an_idea(self):
@@ -291,7 +290,6 @@ class Destination(VaultCase):
         write(self.root, "areas/harbor-website/brief.md", "# Harbor website\n")
         d = self.plan("harbor-website", destination="archive/websites/harbor-website")["destination"]
         self.assertEqual(d["path"], "archive/websites/harbor-website")
-        self.assertFalse(d["default"])
         self.assertFalse(d["needs_vault_rule"])
 
     def test_destination_that_already_exists_is_flagged(self):
@@ -404,7 +402,6 @@ class Lifecycle(VaultCase):
         write(self.root, "projects/acme/brief.md",
               "# Acme\n\n**Stage:** Goal (since 2026-09-01)\n")
         lc = self.plan("acme")["lifecycle"]
-        self.assertEqual(lc["current_stage"], "Goal")
         self.assertIsNone(lc["destination_matches"])
         self.assertFalse(lc["stage_line_names_destination"])
         self.assertIsNone(lc["reason"])
@@ -415,7 +412,6 @@ class Lifecycle(VaultCase):
               "# Acme\n\n**Stage:** Qualified (since 2026-08-01)\n")
         r = self.plan("acme")
         self.assertTrue(r["destination"]["needs_vault_rule"])
-        self.assertEqual(r["lifecycle"]["current_stage"], "Qualified")
         self.assertIsNone(r["lifecycle"]["destination_matches"])
         self.assertIsNone(r["lifecycle"]["reason"])
 
@@ -445,7 +441,6 @@ class Lifecycle(VaultCase):
         write(self.root, "resources/ideas/acme/brief.md",
               "# Acme\n\n**Stage:** Qualified (since 2026-08-01)\n**Opened:** 2026-08-01\n")
         lc = self.plan("acme")["lifecycle"]
-        self.assertEqual(lc["current_stage"], "Qualified")
         self.assertEqual(lc["destination_matches"], "Lost")
         self.assertFalse(lc["stage_line_names_destination"])
         self.assertIsNone(lc["reason"]["raw"])
@@ -520,17 +515,7 @@ class Actions(VaultCase):
         write(self.root, "projects/acme/brief.md", "# Acme\n")
         a = self.plan("acme")["actions"]
         self.assertIsNone(a["file"])
-        self.assertEqual(a["done"], [])
         self.assertEqual(a["open"], [])
-
-    def test_open_task_carries_ahead_when_its_date_is_on_or_after_today(self):
-        write(self.root, "projects/acme/brief.md", "# Acme\n")
-        write(self.root, "projects/acme/actions.md",
-              "# Acme - Actions\n\n- [ ] Still ahead 📅 2026-09-22\n- [ ] Already past 📅 2026-09-01\n")
-        a = self.plan("acme")["actions"]
-        ahead = {t["text"]: t["ahead"] for t in a["open"]}
-        self.assertTrue(ahead["Still ahead"])
-        self.assertFalse(ahead["Already past"])
 
     def test_a_fenced_checkbox_is_never_counted_open(self):
         write(self.root, "projects/acme/brief.md", "# Acme\n")
@@ -551,9 +536,7 @@ class Actions(VaultCase):
         settled = next(v for k, v in by_text.items() if k.startswith("Considered"))
         open_one = next(v for k, v in by_text.items() if k.startswith("Still"))
         self.assertTrue(settled["settled"])
-        self.assertEqual(settled["by"], "Decided")
         self.assertFalse(open_one["settled"])
-        self.assertIsNone(open_one["by"])
 
     def test_a_lowercase_done_inside_a_sentence_is_not_settled(self):
         # reconcile.md Step 2: the match is a capitalised Done, Decided, Dropped or Resolved
@@ -565,7 +548,6 @@ class Actions(VaultCase):
               "- Revisit once the migration is done, no capital marker here.\n")
         item = self.plan("acme")["actions"]["backlog"][0]
         self.assertFalse(item["settled"])
-        self.assertIsNone(item["by"])
 
     def test_a_lowercase_disposition_opening_a_clause_is_settled(self):
         # A Backlog item opening "decided:" is as settled as one saying "Decided"; one that
@@ -589,8 +571,7 @@ class Actions(VaultCase):
               "- _resolved: the vendor took it back._\n"
               "- Undone work from the pitch, still open.\n")
         backlog = self.plan("acme")["actions"]["backlog"]
-        self.assertEqual([(b["settled"], b["by"]) for b in backlog],
-                         [(True, "Decided"), (True, "Resolved"), (False, None)])
+        self.assertEqual([b["settled"] for b in backlog], [True, True, False])
 
     def test_a_dropped_line_is_settled(self):
         # Step 2's Drop leaves a line saying so, read under the same rule as Done.
@@ -601,8 +582,7 @@ class Actions(VaultCase):
               "- dropped: no owner after the handover.\n"
               "- Chase the deliveries that dropped off the schedule.\n")
         backlog = self.plan("acme")["actions"]["backlog"]
-        self.assertEqual([(b["settled"], b["by"]) for b in backlog],
-                         [(True, "Dropped"), (True, "Dropped"), (False, None)])
+        self.assertEqual([b["settled"] for b in backlog], [True, True, False])
 
     def test_backlog_is_read_from_both_actions_and_brief(self):
         write(self.root, "projects/acme/brief.md",
@@ -684,15 +664,12 @@ class Actions(VaultCase):
         backlog = self.plan("acme")["actions"]["backlog"]
         self.assertEqual([b["text"] for b in backlog], ["Rebuild site"])
 
-    def test_other_checkbox_files_names_a_stray_file_and_whether_it_is_in_sources(self):
+    def test_other_checkbox_files_names_each_stray_file(self):
         write(self.root, "projects/acme/brief.md", "# Acme\n")
         write(self.root, "projects/acme/plan.md", "# Plan\n\n- [ ] Stray open item\n")
         write(self.root, "projects/acme/sources/notes.md", "# Notes\n\n- [ ] Also stray\n")
-        other = self.plan("acme")["actions"]["other_checkbox_files"]
-        by_file = {o["file"]: o for o in other}
-        self.assertEqual(by_file["projects/acme/plan.md"]["count"], 1)
-        self.assertFalse(by_file["projects/acme/plan.md"]["in_sources"])
-        self.assertTrue(by_file["projects/acme/sources/notes.md"]["in_sources"])
+        self.assertEqual(self.plan("acme")["actions"]["other_checkbox_files"],
+                         ["projects/acme/plan.md", "projects/acme/sources/notes.md"])
 
     def test_idea_holds_actions_flags_a_filing_error(self):
         write(self.root, "resources/ideas/acme/brief.md", "# Acme\n")
@@ -958,8 +935,6 @@ class Verify(VaultCase):
         for moved_from, moved_to in (("projects/acme/", "archive/projects/acme/"),
                                      ("projects\\acme", " archive\\projects\\acme ")):
             v = self.verify(moved_from, moved_to)
-            self.assertEqual((v["moved_from"], v["moved_to"]),
-                             ("projects/acme", "archive/projects/acme"))
             self.assertEqual(len(v["stale_mentions"]), 1)
             self.assertFalse(v["clean"])
 
@@ -1150,10 +1125,9 @@ class CommandLine(VaultCase):
         write(self.root, "projects/acme/brief.md", "# Acme\n\nRenew by 2026-10-01.\n")
         write(self.root, "projects/acme/actions.md",
               "# Acme - Actions\n\n- [ ] Wrap-up call 📅 2026-09-25\n")
-        for today, ahead, future in (("2026-09-22", True, 1), ("2026-10-01", False, 0)):
+        for today, future in (("2026-09-22", 1), ("2026-10-01", 0)):
             _, out = self.run_main("--entity", "acme", "--today", today)
             report = json.loads(out)
-            self.assertEqual(report["actions"]["open"][0]["ahead"], ahead, today)
             self.assertEqual(len(report["gate"]["future_dated_lines"]), future, today)
 
     def test_route_is_repeatable_on_the_command_line(self):
@@ -1177,7 +1151,6 @@ class CommandLine(VaultCase):
                                   "--routed", "resources/acme/playbook.md")
         self.assertEqual(code, 0)
         report = json.loads(out)
-        self.assertEqual(report["moved_to"], "archive/projects/acme")
         self.assertEqual(len(report["inside"]["dangling"]), 1)
         self.assertFalse(report["clean"])
 

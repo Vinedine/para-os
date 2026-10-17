@@ -130,15 +130,6 @@ def resolve_link(base_dir, link):
         return None
 
 
-def dated_facts_out(raw_facts, today):
-    out = []
-    for clause, date_str in raw_facts:
-        d = parse_date(date_str)
-        out.append({"clause": clause, "date": iso(d),
-                     "days_ahead": (d - today).days if d else None})
-    return out
-
-
 # --------------------------------------------------------------------------- the next step
 
 def effective_date(task):
@@ -154,10 +145,10 @@ def pick_next(tasks):
     return ordered[0] if ordered else None
 
 
-def make_next_step(task, source, today):
+def make_next_step(task, today):
     d = effective_date(task)
     return {"text": task["text"], "date": iso(d), "days": (d - today).days if d else None,
-            "file": task["file"], "line": task["line"], "source": source}
+            "file": task["file"], "line": task["line"]}
 
 
 def champion_step(vault, today, context_dir, fields):
@@ -178,7 +169,7 @@ def champion_step(vault, today, context_dir, fields):
     h1 = doc_h1(resolved)
     candidates = [t for t in tag_tasks(vault, resolved) if t["section"] in (None, h1)]
     picked = pick_next(candidates)
-    return make_next_step(picked, "champion", today) if picked else None
+    return make_next_step(picked, today) if picked else None
 
 
 def next_step_for_folder(vault, today, doc, fields, other_files):
@@ -186,7 +177,7 @@ def next_step_for_folder(vault, today, doc, fields, other_files):
     if own.is_file() and is_live(own.relative_to(vault)):
         picked = pick_next(tag_tasks(vault, own))
         if picked:
-            return make_next_step(picked, "own_actions", today)
+            return make_next_step(picked, today)
 
     target = doc.resolve()
     candidates = []
@@ -197,7 +188,7 @@ def next_step_for_folder(vault, today, doc, fields, other_files):
                 candidates.append(t)
     picked = pick_next(candidates)
     if picked:
-        return make_next_step(picked, "linked_checkbox", today)
+        return make_next_step(picked, today)
 
     return champion_step(vault, today, doc.parent, fields)
 
@@ -231,19 +222,21 @@ def next_step_for_row(vault, today, reg_path, row, header_cols):
         return None
     d = step_date(text)
     return {"text": text, "date": iso(d), "days": (d - today).days if d else None,
-            "file": reg_path.relative_to(vault).as_posix(), "line": row.get("line"),
-            "source": "register_row"}
+            "file": reg_path.relative_to(vault).as_posix(), "line": row.get("line")}
 
 
 # -------------------------------------------------------------------------------- the flags
 
-def build_flags(entity, next_step, stage_idx, today):
+def build_flags(entity, dated_facts, next_step, stage_idx, today):
     fields = entity["fields"]
     signer_raw = field_ci(fields, "Signer")
     first_clause = re.split(r"[;,(]| - ", signer_raw or "")[0]
     signer_unknown = first_clause.strip().lower() == "unknown" and stage_idx >= 1
-    expiring = [f for f in entity["dated_facts"]
-                if f["days_ahead"] is not None and 0 <= f["days_ahead"] <= EXPIRING_DAYS]
+    expiring = []
+    for clause, date_str in dated_facts:
+        d = parse_date(date_str)
+        if d and 0 <= (d - today).days <= EXPIRING_DAYS:
+            expiring.append({"clause": clause, "date": iso(d), "days_ahead": (d - today).days})
 
     # The latest movement: a last touch, the stage's `since`, or a first-stage Opened.
     moves = []
@@ -324,18 +317,14 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
         since_date = parse_date(info["since"])
         opened_date = extract_date(field_ci(fields, "Opened"))
         last_touch_date = extract_date(field_ci(fields, "Last touch"))
-        closed = matched["terminal"]
 
         entity = {
             "name": d.name, "name_from": None,
             "path": doc.relative_to(vault).as_posix(), "line": None, "kind": "folder",
-            "section": None,
-            "stage": matched["name"], "terminal": matched["terminal"], "closed": closed,
-            "live": not closed,
-            "duplicate_document": (d / "brief.md").is_file() and (d / "README.md").is_file(),
+            "stage": matched["name"], "terminal": matched["terminal"],
+            "live": not matched["terminal"],
             "days_in_stage": (today - since_date).days if since_date else None,
-            "since": iso(since_date), "since_from": None, "qualifier": info["qualifier"],
-            "dated_facts": dated_facts_out(info["dated_facts"], today), "fields": fields,
+            "since": iso(since_date), "since_from": None, "fields": fields,
             "opened": iso(opened_date), "source": field_ci(fields, "Source"),
             "last_touch": {"date": iso(last_touch_date),
                            "days": (today - last_touch_date).days if last_touch_date else None},
@@ -345,7 +334,7 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
         if entity["live"]:
             step = next_step_for_folder(vault, today, doc, fields, other_files)
             entity["next_step"] = step
-            entity["flags"] = build_flags(entity, step, idx, today)
+            entity["flags"] = build_flags(entity, info["dated_facts"], step, idx, today)
         else:
             entity["next_step"] = None
             entity["flags"] = None
@@ -406,12 +395,10 @@ def collect_row_entities(vault, home, stage_by_name, stage_index, today):
         entity = {
             "name": name_val, "name_from": name_from,
             "path": reg_path.relative_to(vault).as_posix(), "line": row.get("line"),
-            "kind": "row", "section": row.get("section"),
-            "stage": matched["name"], "terminal": matched["terminal"],
-            "closed": closed, "live": not closed, "duplicate_document": False,
+            "kind": "row", "stage": matched["name"], "terminal": matched["terminal"],
+            "live": not closed,
             "days_in_stage": (today - since_date).days if since_date else None,
-            "since": iso(since_date), "since_from": since_from, "qualifier": info["qualifier"],
-            "dated_facts": dated_facts_out(info["dated_facts"], today),
+            "since": iso(since_date), "since_from": since_from,
             "fields": {k: row[k] for k in header_cols},
             "opened": iso(opened_date), "source": field_ci(row, "Source"),
             "last_touch": {"date": iso(last_touch_date),
@@ -422,7 +409,7 @@ def collect_row_entities(vault, home, stage_by_name, stage_index, today):
         if entity["live"]:
             step = next_step_for_row(vault, today, reg_path, row, header_cols)
             entity["next_step"] = step
-            entity["flags"] = build_flags(entity, step, idx, today)
+            entity["flags"] = build_flags(entity, info["dated_facts"], step, idx, today)
         else:
             entity["next_step"] = None
             entity["flags"] = None
@@ -515,7 +502,7 @@ def won_outside_homes(vault, promoting_home):
         won_date = extract_date(field_ci(fields, "Won"))
         if won_date:
             opened_date = extract_date(field_ci(fields, "Opened"))
-            out.append({"name": d.name, "kind": "folder", "stage": None, "closed": True,
+            out.append({"name": d.name, "kind": "folder", "stage": None,
                         "path": doc.relative_to(vault).as_posix(), "fields": fields,
                         "opened": iso(opened_date), "source": field_ci(fields, "Source"),
                         "won_date": won_date, "opened_date": opened_date})
@@ -581,7 +568,7 @@ def counted_once(vault, entities):
     names = {name_key(e["name"]) for e in folders}
 
     def moved(e):
-        if e["kind"] != "row" or not e["closed"]:
+        if e["kind"] != "row" or e["live"]:
             return False
         link = first_link(field_ci(e["fields"], "Outcome") or "")
         target = resolve_link((vault / e["path"]).parent, link) if link else None
@@ -642,7 +629,7 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
         reason_field = f"{s['name']} reason"
         this_q, reasons_q, reasons_all, missing = 0, {}, {}, []
         for e in entities:
-            if e["stage"] != s["name"] or not e["closed"]:
+            if e["stage"] != s["name"] or e["live"]:
                 continue
             since_date = parse_date(e["since"])
             in_quarter = bool(since_date and q_start <= since_date <= q_end)
@@ -662,7 +649,7 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
 
     terminal_this_quarter = sum(v["this_quarter"] for v in terminal.values())
     metrics = {
-        "quarter": quarter["name"], "quarter_start": iso(q_start), "quarter_end": iso(q_end),
+        "quarter": quarter["name"],
         "year_end_unread": year_end_text if year_end_text and not year_end else None,
         "opened": opened,
         "promoting_stage": promoting["name"] if promoting else None,
@@ -706,7 +693,7 @@ def revisits_due(vault, lc, entities, today):
             continue
         out.append({"name": w["name"], "path": w["path"],
                     "value": field_ci(w["fields"], "Value"), "basis": w["basis"],
-                    "since": iso(w["since_date"]), "days": (today - w["since_date"]).days})
+                    "days": (today - w["since_date"]).days})
     return sorted(out, key=lambda r: -r["days"])
 
 
@@ -757,8 +744,7 @@ def scan_lifecycle(vault, lc, today, loc=None):
                                                      loc.get("year_end"))
     currency = vault_currency(loc)
     return {
-        "heading": lc["heading"], "noun": lc["noun"],
-        "stages": [s["name"] for s in lc["stages"]],
+        "heading": lc["heading"], "stages": [s["name"] for s in lc["stages"]],
         "entities": entities, "no_stage": no_stage, "unknown_stage": unknown_stage,
         "empty_homes": empty_homes,
         "counts_by_stage": with_totals(counts_by_stage(lc, entities), entities, currency),

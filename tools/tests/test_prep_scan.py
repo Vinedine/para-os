@@ -180,7 +180,7 @@ class TheCard(VaultCase):
             "- [x] Call Jan back ✅ 2026-09-01", ""]))
         card = self.person("Jan Janssen")["card"]
         self.assertEqual(card["kind"], "buyer")
-        self.assertEqual(card["emails"], ["jan@acme.example"])
+        self.assertEqual(card["header"]["Email"], "jan@acme.example")
         self.assertEqual([(i["text"], i["due"]) for i in card["items"]],
                          [("Send Jan the revised quote", "2026-09-25")])
         self.assertNotIn("first_link", card["items"][0])
@@ -254,7 +254,7 @@ class Mentions(VaultCase):
         self.assertIsNone(p["mentions"])
         self.assertIsNone(p["rows"])
         self.assertIsNone(p["unfiled"])
-        self.assertEqual((p["records"], p["records_total"]), (None, None))
+        self.assertIsNone(p["records"])
 
 
 class AcmeDeal(VaultCase):
@@ -284,10 +284,7 @@ class Entities(AcmeDeal):
         write(self.root, "areas/network/ann-peeters.md", "# Ann Peeters\n")
         report = self.scan("Jan Janssen")
         self.assertEqual(report["people"][0]["entities"], [
-            {"path": "areas/business", "via": "card"},
-            {"path": "projects/acme", "via": "both"},
-            {"path": "projects/beta", "via": "entity"},
-            {"path": "resources/ideas/acme", "via": "card"}])
+            "areas/business", "projects/acme", "projects/beta", "resources/ideas/acme"])
         self.assertEqual([e["path"] for e in report["entities"]],
                          ["areas/business", "projects/acme", "projects/beta",
                           "resources/ideas/acme"])
@@ -306,7 +303,6 @@ class Entities(AcmeDeal):
             "**Champion:** [Jan](../../../areas/network/jan-janssen.md)",
             "**Signer:** unknown", "**Last touch:** 2026-09-15, proposal sent"]))
         e = self.entity()
-        self.assertEqual(e["stage"]["lifecycle"], "Deal lifecycle")
         self.assertEqual(e["stage"]["name"], "Proposal")
         self.assertEqual(e["stage"]["days_in_stage"], 20)
         self.assertEqual(e["stage"]["columns"]["Exit criterion"],
@@ -343,7 +339,8 @@ class Entities(AcmeDeal):
             "| Stage | Exit criterion | PARA home |", "|---|---|---|",
             "| Proposal | The offer is accepted | `areas/properties/<property>/` |", ""]) + "\n")
         self.deal("**Stage:** Proposal (since 2026-09-11)")
-        self.assertEqual(self.entity()["stage"]["lifecycle"], "Deal lifecycle")
+        self.assertEqual(self.entity()["stage"]["columns"]["Exit criterion"],
+                         "The signer has seen it, and the next meeting is dated")
 
     def test_the_next_dated_open_item_and_the_open_count(self):
         self.deal("**Stage:** Qualified")
@@ -352,21 +349,7 @@ class Entities(AcmeDeal):
             "- [ ] Sooner ⏳ 2026-09-25", "- [x] Done ✅ 2026-09-01", ""]))
         self.assertEqual(self.entity()["actions"], {
             "path": "resources/ideas/acme/actions.md", "open": 3,
-            "next": {"line": 5, "text": "Sooner", "due": "2026-09-25"}})
-
-    def test_the_newest_source_is_read_from_the_date_its_name_opens_on(self):
-        self.deal("**Stage:** Qualified")
-        write(self.root, "resources/ideas/acme/sources/20260801 Acme intro call.md", "x")
-        write(self.root, "resources/ideas/acme/sources/2026-09-10 Acme demo.md", "x")
-        write(self.root, "resources/ideas/acme/sources/zz notes.md", "x")
-        self.assertEqual(self.entity()["newest_source"], {
-            "path": "resources/ideas/acme/sources/2026-09-10 Acme demo.md",
-            "date": "2026-09-10", "days_ago": 11})
-
-    def test_no_dated_source_is_none(self):
-        self.deal("**Stage:** Qualified")
-        write(self.root, "resources/ideas/acme/sources/notes.md", "x")
-        self.assertIsNone(self.entity()["newest_source"])
+            "next": {"text": "Sooner", "due": "2026-09-25"}})
 
     def test_the_network_area_is_never_an_entity(self):
         write(self.root, "areas/network/jan-janssen.md", "# Jan Janssen\n\n[Ann](ann-peeters.md)\n")
@@ -409,7 +392,7 @@ class Records(VaultCase):
 
     def found(self, who="Jan Janssen"):
         p = self.person(who)
-        return [(r["path"], r["by"]) for r in p["records"]], p["records_total"]
+        return [(r["path"], r["by"]) for r in p["records"]]
 
     def test_a_record_names_the_person_by_file_name_link_address_or_name(self):
         write(self.root, "projects/acme/sources/20260901 Jan Janssen kickoff.pdf", "%PDF")
@@ -419,11 +402,11 @@ class Records(VaultCase):
         write(self.root, "archive/meetings/20260912 Review.md", "Janssen, Jan joined late.\n")
         write(self.root, "resources/ideas/beta/sources/20260801 Intro.txt", "Nobody here.\n")
         write(self.root, "archive/projects/old/sources/20260915 Jan Janssen.md", "Archived.\n")
-        self.assertEqual(self.found(), ([
+        self.assertEqual(self.found(), [
             ("archive/meetings/20260912 Review.md", "name"),
             ("areas/business/sources/20260910 Thread.eml", "email"),
             ("projects/acme/sources/20260905 Steering.md", "link"),
-            ("projects/acme/sources/20260901 Jan Janssen kickoff.pdf", "file name")], 4))
+            ("projects/acme/sources/20260901 Jan Janssen kickoff.pdf", "file name")])
 
     def test_a_record_carries_its_date_and_age_and_an_undated_one_sorts_last(self):
         write(self.root, "projects/acme/sources/notes.md", "Jan Janssen\n")
@@ -432,11 +415,11 @@ class Records(VaultCase):
         self.assertEqual([(r["date"], r["days_ago"]) for r in records],
                          [("2026-09-11", 10), (None, None)])
 
-    def test_only_the_newest_are_listed_and_the_total_counts_the_rest(self):
+    def test_only_the_newest_are_listed(self):
         for day in range(1, RECORDS_SHOWN + 3):
             write(self.root, f"archive/meetings/202609{day:02d} Call.md", "Jan Janssen\n")
-        records, total = self.found()
-        self.assertEqual((len(records), total), (RECORDS_SHOWN, RECORDS_SHOWN + 2))
+        records = self.found()
+        self.assertEqual(len(records), RECORDS_SHOWN)
         self.assertEqual(records[0][0], f"archive/meetings/202609{RECORDS_SHOWN + 2:02d} Call.md")
 
     def test_an_unfiled_triage_item_naming_the_person_is_listed_apart(self):
@@ -449,7 +432,7 @@ class Records(VaultCase):
 
     def test_a_first_name_alone_does_not_make_a_record(self):
         write(self.root, "archive/meetings/20260912 Review.md", "Jan joined late.\n")
-        self.assertEqual(self.found(), ([], 0))
+        self.assertEqual(self.found(), [])
 
 
 class RegisterRows(VaultCase):
@@ -478,20 +461,10 @@ class RegisterRows(VaultCase):
 
 class Report(VaultCase):
 
-    def test_the_report_names_the_vault_the_date_its_root_and_its_lifecycles(self):
+    def test_the_report_names_the_date(self):
         report = self.scan("Ann Peeters")
-        self.assertEqual(report["vault"], self.root.resolve().as_posix())
+        self.assertEqual(set(report), {"today", "people", "entities"})
         self.assertEqual(report["today"], "2026-09-21")
-        self.assertEqual(report["root"], {"root": False, "missing": ["areas/ or archive/"]})
-        self.assertEqual(report["lifecycles"], ["Deal lifecycle"])
-        self.assertEqual(report["cards_hold"], "yes")
-
-    def test_what_a_card_may_hold_is_the_vaults_checkbox_row(self):
-        write(self.root, "CLAUDE.md", LIFECYCLE + "\n".join([
-            "### Where a checkbox may live", "",
-            "| Bucket | `actions.md` | State |", "|---|---|---|",
-            "| `areas/network/` | never | open items about a person live with the entity |", ""]))
-        self.assertEqual(self.scan("Ann Peeters")["cards_hold"], "never")
 
 
 class CommandLine(VaultCase):

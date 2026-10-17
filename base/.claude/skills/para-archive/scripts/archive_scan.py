@@ -48,7 +48,7 @@ try:
     from paraos_vault import (  # noqa: E402
         DATE_RE, H1_RE, H2_RE, HEADING_RE, LINK_ROOTS, NOT_VAULT_CONTENT,
         abspath, blank_spans,
-        closed_tasks, contact_card_level, extract_links, field_ci, git_untracked, header_fields,
+        contact_card_level, extract_links, field_ci, git_untracked, header_fields,
         inbound_references, is_under, lifecycles, link_files, link_spans, live_lines,
         move_plan, open_tasks, parse_date, read_lines, read_text,
         registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
@@ -89,8 +89,7 @@ def entity_block(vault, name, paraos_home):
     status = result["status"]
     block = {
         "status": status, "kind": None, "source": None,
-        "candidates": [], "already_archived": None, "elsewhere": [],
-        "other_vaults": [], "this_vault": None,
+        "candidates": [], "already_archived": None, "other_vaults": [], "this_vault": None,
     }
     if status == "resolved":
         m = result["match"]
@@ -104,7 +103,6 @@ def entity_block(vault, name, paraos_home):
     elsewhere = result.get("elsewhere") or []
     archived_hit = next((e for e in elsewhere if e["path"].startswith("archive/")), None)
     block["already_archived"] = archived_hit["path"] if archived_hit else None
-    block["elsewhere"] = elsewhere
     block["other_vaults"] = registry_holding(registry(paraos_home), name, exclude=vault)
     ideas_dir, projects_dir = vault / "resources" / "ideas", vault / "projects"
     block["this_vault"] = {
@@ -139,18 +137,14 @@ def vault_rel_arg(arg):
 def destination_block(vault, kind, folder_name, destination_arg):
     if destination_arg:
         path = vault_rel_arg(destination_arg)
-        default = False
+    elif kind == "project":
+        path = f"archive/projects/{folder_name}"
+    elif kind == "idea":
+        path = f"archive/ideas/{folder_name}"
     else:
-        if kind == "project":
-            path = f"archive/projects/{folder_name}"
-        elif kind == "idea":
-            path = f"archive/ideas/{folder_name}"
-        else:
-            path = None
-        default = True
+        path = None
 
-    block = {"path": path, "default": default,
-             "exists": (vault / path).exists() if path else False}
+    block = {"path": path, "exists": (vault / path).exists() if path else False}
     if kind == "area":
         block["needs_vault_rule"] = path is None
     if kind == "project":
@@ -216,7 +210,7 @@ def reason_allowed(vault, stage_name):
 
 def lifecycle_block(vault, doc, dest, folder_name):
     """None unless the entity's own Stage line names a stage of a lifecycle the vault
-    declares. Otherwise: the lifecycle, every terminal stage with its home made concrete
+    declares. Otherwise: every terminal stage of that lifecycle with its home made concrete
     for this entity, which terminal stage (if any) the destination matches, whether the
     Stage line already names it, the reason-gate's raw material for that stage, and `won`:
     the Stage line names the promoting stage (the first in table order whose home sits
@@ -268,9 +262,7 @@ def lifecycle_block(vault, doc, dest, folder_name):
                or (won_line and DATE_RE.search(won_line)))
 
     return {
-        "heading": matched_lc["heading"], "noun": matched_lc["noun"],
-        "current_stage": matched_stage["name"], "terminal_stages": terminal_stages,
-        "destination_matches": destination_matches,
+        "terminal_stages": terminal_stages, "destination_matches": destination_matches,
         "stage_line_names_destination": stage_line_names_destination,
         "reason": reason, "won": won,
     }
@@ -278,29 +270,16 @@ def lifecycle_block(vault, doc, dest, folder_name):
 
 # ----------------------------------------------------------------------------- the actions
 
-def any_ahead(task, today):
-    for key in ("due", "scheduled", "start"):
-        d = parse_date(task.get(key))
-        if d and d >= today:
-            return True
-    return False
-
-
-SETTLE_PATTERNS = tuple((word, re.compile(
-    rf"(?:(?<![A-Za-z0-9]){word}|(?:^|[.:;(]\s*)[_*]*{word.lower()})(?![A-Za-z0-9])"))
+SETTLE_PATTERNS = tuple(re.compile(
+    rf"(?:(?<![A-Za-z0-9]){word}|(?:^|[.:;(]\s*)[_*]*{word.lower()})(?![A-Za-z0-9])")
     for word in ("Done", "Decided", "Dropped", "Resolved"))
 
 
-def settle_check(text):
+def settled(text):
     """Whether a Backlog item is settled: a capitalised Done, Decided, Dropped or Resolved
     with no letter or digit either side (`_Decided_` counts), or a lowercase one opening the
-    item or a clause ("decided: x"). `by` names the leftmost match."""
-    best = None
-    for label, pattern in SETTLE_PATTERNS:
-        m = pattern.search(text)
-        if m and (best is None or m.start() < best[1]):
-            best = (label, m.start())
-    return (True, best[0]) if best else (False, None)
+    item or a clause ("decided: x")."""
+    return any(pattern.search(text) for pattern in SETTLE_PATTERNS)
 
 
 TOP_BULLET_RE = re.compile(r"^- (?!\[[ xX]\])(.*)$")
@@ -357,45 +336,28 @@ def backlog_items(path, vault):
     out = []
     for it in items:
         text = " ".join(it["lines"]).strip()
-        settled, by = settle_check(text)
-        out.append({"file": rel, "line": it["line"], "text": text, "settled": settled,
-                    "by": by})
+        out.append({"file": rel, "line": it["line"], "text": text, "settled": settled(text)})
     return out
 
 
 def other_checkbox_files(vault, entity_dir, actions_path):
-    out = []
-    for path in sorted(entity_dir.rglob("*.md")):
-        if actions_path and path.resolve() == actions_path.resolve():
-            continue
-        opens = open_tasks(path)
-        if not opens:
-            continue
-        in_sources = "sources" in path.relative_to(entity_dir).parts[:-1]
-        out.append({"file": rel_posix(vault, path), "count": len(opens),
-                    "in_sources": in_sources})
-    return out
+    return [rel_posix(vault, path) for path in sorted(entity_dir.rglob("*.md"))
+            if not (actions_path and path.resolve() == actions_path.resolve())
+            and open_tasks(path)]
 
 
-def actions_block(vault, entity_dir, kind, doc, today):
+def actions_block(vault, entity_dir, kind, doc):
     actions_path = entity_dir / "actions.md"
     has_file = actions_path.is_file()
     rel_actions = rel_posix(vault, actions_path) if has_file else None
-    done, open_ = [], []
-    if has_file:
-        for t in closed_tasks(actions_path):
-            done.append(dict(t, file=rel_actions))
-        for t in open_tasks(actions_path):
-            entry = dict(t, file=rel_actions)
-            entry["ahead"] = any_ahead(t, today)
-            open_.append(entry)
+    open_ = [dict(t, file=rel_actions) for t in open_tasks(actions_path)] if has_file else []
 
     backlog = backlog_items(actions_path, vault) if has_file else []
     if doc:
         backlog += backlog_items(doc, vault)
 
     return {
-        "file": rel_actions, "done": done, "open": open_, "backlog": backlog,
+        "file": rel_actions, "open": open_, "backlog": backlog,
         "other_checkbox_files": other_checkbox_files(vault, entity_dir,
                                                       actions_path if has_file else None),
         "idea_holds_actions": bool(kind == "idea" and has_file),
@@ -557,7 +519,7 @@ def plan(vault, entity_name, destination_arg, today, paraos_home, route_files=()
     doc = pick_doc(entity_dir)
     report["lifecycle"] = lifecycle_block(vault, doc, dest, folder_name)
 
-    actions = actions_block(vault, entity_dir, kind, doc, today)
+    actions = actions_block(vault, entity_dir, kind, doc)
     report["actions"] = actions
 
     report["gate"] = gate_block(doc, actions["open"], today)
@@ -701,7 +663,6 @@ def verify(vault, moved_from, moved_to, routed, kept=()):
     clean = (not s_links and not s_mentions and not inbound["unresolved"]
              and not inside["dangling"] and not inside["missing"])
     return {
-        "vault": vault.as_posix(), "moved_from": moved_from, "moved_to": moved_to,
         "stale_links": s_links, "stale_mentions": s_mentions,
         "stale_mentions_exempt": s_exempt, "stale_mentions_kept": s_kept,
         "inbound_resolved": inbound, "inside": inside,

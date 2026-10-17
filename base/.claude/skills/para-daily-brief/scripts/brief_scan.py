@@ -79,7 +79,6 @@ AUTH_RE = re.compile(
     r"|\b(?:reset|recover)\b[^.\n]{0,30}\bpassword\b|\bpassword\b[^.\n]{0,30}\b(?:reset|recovery)\b",
     re.IGNORECASE)
 PREVIEW_BYTES = 64 * 1024  # a triage item's head: enough for headers and a first paragraph
-PREVIEW_CHARS = 240
 UNDATED_MAJORITY_MIN = 8  # below this, a new vault's bootstrap actions are not a backlog
 
 
@@ -238,11 +237,9 @@ def ideas_lane(vault, today):
         age = (today - touched_date).days if touched_date else None
         stage = stage_of(brief)
         since = parse_date(stage["since"]) if stage else None
-        rows.append({"name": d.name, "path": brief.relative_to(vault).as_posix(),
-                     "touched": touched,
+        rows.append({"name": d.name, "touched": touched,
                      "stage": short_stage(stage_line(brief)),
                      "since": iso(since) if since else None,
-                     "days_in_stage": (today - since).days if since else None,
                      "revisit": revisit_sentence(brief),
                      "dormant": bool(age is not None and age >= DORMANT_ENTITY_DAYS)})
     rows.sort(key=lambda r: r["name"])
@@ -265,10 +262,10 @@ def revisit_sentence(brief):
 
 
 def triage_preview(vault, names):
-    """Who sent each triage item and its first prose lines, read from the file's head: an
-    .eml's headers and plain-text body, a note's `From:` field and first paragraph. A PDF
-    reads through its extracted markdown twin; any other format has no preview. An item
-    holding a sign-in or security code is `{"auth": True}` and nothing else."""
+    """Who sent each triage item and its subject, read from the file's head: an .eml's
+    headers, a note's `From:` field and H1. A PDF reads through its extracted markdown twin;
+    any other format has no preview. An item whose head, first prose lines included, holds a
+    sign-in or security code is `{"auth": True}` and nothing else."""
     out = {}
     for name in names:
         if AUTH_RE.search(name):
@@ -294,14 +291,10 @@ def triage_preview(vault, names):
                 continue
         except (OSError, LookupError, ValueError):
             continue
-        excerpt = " ".join((text or "").split())
-        if AUTH_RE.search(f"{subject or ''} {excerpt}"):
+        if AUTH_RE.search(f"{subject or ''} {' '.join((text or '').split())}"):
             out[name] = {"auth": True}
             continue
-        if len(excerpt) > PREVIEW_CHARS:
-            excerpt = excerpt[:PREVIEW_CHARS].rsplit(" ", 1)[0] + "…"
-        row = {k: str(v).strip() for k, v in
-               (("from", sender), ("subject", subject), ("excerpt", excerpt)) if v}
+        row = {k: str(v).strip() for k, v in (("from", sender), ("subject", subject)) if v}
         if row:
             out[name] = row
     return out
@@ -412,7 +405,7 @@ def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
             days = -(t["days"] or 0)
             if days > FALSELY_OVERDUE_DAYS:
                 flags["falsely_overdue"].append({"file": t["file"], "line": t["line"],
-                                                 "days": days, "text": t["text"][:120]})
+                                                 "days": days})
         if t["recurring"] and overdue:
             period = cadence_days(t["recurring"])
             if period:
@@ -521,10 +514,8 @@ def nothing_open(vault, tasks, per_file_dates):
     for e in entity_candidates(vault):
         if (e["bucket"], e["label"]) in busy or e["path"] in skip:
             continue
-        own = Path(vault) / e["path"] / "actions.md"
-        file = own.relative_to(vault).as_posix() if own.is_file() else None
         out.append({"bucket": e["bucket"], "label": e["label"], "path": e["path"],
-                    "file": file, "touched": per_file_dates.get(own) if file else None})
+                    "touched": per_file_dates.get(Path(vault) / e["path"] / "actions.md")})
     out.sort(key=lambda r: (r["touched"] or "", r["path"]))
     return out
 
@@ -548,13 +539,11 @@ def review_window(arg, today):
     days ending today, `month` the thirty, and a YYYY-MM-DD date every day since it. None for
     anything else, a date after today included."""
     key = (arg or "").strip().lower()
-    if key in REVIEW_DAYS:
-        start, name = today - timedelta(days=REVIEW_DAYS[key] - 1), key
-    else:
-        start, name = parse_date(key), "since"
-        if not start or start > today:
-            return None
-    return {"name": name, "start": start.isoformat(), "end": today.isoformat(),
+    start = (today - timedelta(days=REVIEW_DAYS[key] - 1) if key in REVIEW_DAYS
+             else parse_date(key))
+    if not start or start > today:
+        return None
+    return {"start": start.isoformat(), "end": today.isoformat(),
             "days": (today - start).days + 1}
 
 
@@ -584,7 +573,7 @@ def done_in_window(vault, files, archived, start, end):
                 "bucket": bucket, "label": label, "archived": gone, "count": 0, "items": []})
             row["count"] += 1
             row["items"].append({"file": rel, "line": task["line"], "text": task["text"],
-                                 "done": task["done"], "section": task["section"],
+                                 "done": task["done"],
                                  "person": path.stem if label == "network" and not gone else None})
     out = sorted(rows.values(), key=lambda r: (-r["count"], r["archived"], r["label"]))
     for row in out:
@@ -595,9 +584,8 @@ def done_in_window(vault, files, archived, start, end):
 def slipped(tasks, start, end):
     """Open items whose `📅` fell inside the window, before today: a deadline the window let
     pass. One due today has not slipped yet, and a `⏳` is a plan, not a deadline."""
-    out = [{"file": t["file"], "line": t["line"], "bucket": t["bucket"], "scope": t["scope"],
-            "person": t["person"], "text": t["text"], "due": t["due"],
-            "days_late": (end - parse_date(t["due"])).days, "recurring": t["recurring"]}
+    out = [{"file": t["file"], "line": t["line"], "scope": t["scope"], "person": t["person"],
+            "text": t["text"], "due": t["due"], "days_late": (end - parse_date(t["due"])).days}
            for t in tasks if t["due"] and start <= parse_date(t["due"]) < end]
     out.sort(key=lambda s: (s["due"], s["file"], s["line"]))
     return out
@@ -710,11 +698,11 @@ def log_files(vault, own=None):
 def decisions_in_window(vault, start, end, own=None):
     out = []
     for path in log_files(vault, own):
-        bucket, label = scope_of(vault, path)
+        label = scope_of(vault, path)[1]
         for lineno, day, text in log_entries(path):
             if start <= parse_date(day) <= end:
                 out.append({"file": path.relative_to(vault).as_posix(), "line": lineno,
-                            "date": day, "text": text, "bucket": bucket, "scope": label})
+                            "date": day, "text": text, "scope": label})
     out.sort(key=lambda d: (d["date"], d["file"], d["line"]))
     return out
 
@@ -729,8 +717,7 @@ def stuck(report, tasks, match):
     else:
         none = report["flags"].get("nothing_open") or []
     return {"overdue": report["lanes"].get("overdue", []),
-            "no_next_step": [{"bucket": e["bucket"], "label": e["label"], "path": e["path"]}
-                             for e in none]}
+            "no_next_step": [e["label"] for e in none]}
 
 
 def review_block(vault, window, files, tasks, report, match):
@@ -841,9 +828,9 @@ def next_step_for(e, contact, tasks, deals_of):
     return None
 
 
-def pipeline_items(vault, today, tasks):
+def pipeline_items(vault, tasks):
     """Every live staged entity, read by `staged_entities` so the list and the counts agree:
-    its contact, days in stage, last touch and next step."""
+    its contact, the date it entered its stage, its last touch and its next step."""
     found = []
     for lc in lifecycles(vault):
         for e in staged_entities(vault, lc):
@@ -865,12 +852,10 @@ def pipeline_items(vault, today, tasks):
     out = []
     for lc, e, card, raw, fields, step in found:
         touched, note = last_touch(field_ci(fields, "Last touch"))
-        since = parse_date(e["since"])
         out.append({"lifecycle": lc["heading"], "stage": e["stage"], "name": e["name"],
-                    "path": e["path"], "line": e["line"], "contact": card,
+                    "contact": card,
                     "contact_text": NAME_LINK_RE.sub(r"\1", raw).split("(")[0].strip(" *"),
-                    "since": e["since"], "days_in_stage": (today - since).days if since else None,
-                    "last_touch": touched, "last_touch_note": note,
+                    "since": e["since"], "last_touch": touched, "last_touch_note": note,
                     "next_step": step or next_step_for(e, card, tasks, deals_of)})
     return out
 
@@ -901,13 +886,11 @@ def people(vault, tasks, items):
             dated = sorted(t["effective_date"] for t in owe if t["effective_date"])
             since = sorted(t["waiting_on"]["since"] for t in waits if t["waiting_on"]["since"])
             names = contact_names(card)
-            out.append({"person": stem, "file": f"{folder}/{card.name}",
-                        "name": names[0] if names else stem,
+            out.append({"person": stem, "name": names[0] if names else stem,
                         "kind": kind[0].strip("*_").lower() if kind else None,
                         "owe": len(owe), "owe_next_due": dated[0] if dated else None,
                         "waiting": len(waits), "waiting_since": since[0] if since else None,
-                        "entity": entity and {"name": entity["name"], "stage": entity["stage"],
-                                              "lifecycle": entity["lifecycle"]},
+                        "entity": entity and {"name": entity["name"], "stage": entity["stage"]},
                         "last_touch": touched[0], "last_touch_from": touched[1]})
     return out
 
@@ -971,7 +954,7 @@ def scan(vault, today, entity=None, paraos_home=None, review=None):
             idea["actions"] = [{"file": t["file"], "line": t["line"]}
                                for t in mentions_elsewhere(vault, tasks, match)]
         annotate_owed_to(vault, tasks)
-        report["pipeline_items"] = pipeline_items(vault, today, tasks)
+        report["pipeline_items"] = pipeline_items(vault, tasks)
         report["people"] = people(vault, tasks, report["pipeline_items"])
         report["triage"] = triage_items(vault)
         report["triage_preview"] = triage_preview(vault, report["triage"])

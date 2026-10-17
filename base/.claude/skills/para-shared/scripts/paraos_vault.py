@@ -621,12 +621,12 @@ def resolve_entity(vault, query, buckets=("projects", "areas")):
     exact = [c for c in candidates if folded(c["path"]) == folded(query)] or \
         [c for c in candidates if c["key"] == key]
     if len(exact) == 1:
-        return {"query": query, "status": "resolved", "match": exact[0]}
+        return {"status": "resolved", "match": exact[0]}
     partial = [c for c in candidates if key and key in c["key"]]
     if len(partial) == 1:
-        return {"query": query, "status": "resolved", "match": partial[0]}
+        return {"status": "resolved", "match": partial[0]}
     if len(partial) > 1:
-        return {"query": query, "status": "ambiguous", "match": None,
+        return {"status": "ambiguous", "match": None,
                 "candidates": [c["path"] for c in partial]}
 
     elsewhere = []
@@ -642,7 +642,7 @@ def resolve_entity(vault, query, buckets=("projects", "areas")):
                       for d in sorted(archive.rglob("*")) if d.is_dir() and norm(d.name) == key]
     near = sorted(c["path"] for c in candidates
                   if key and (key[:6] in c["key"] or c["key"][:6] in key))[:3]
-    return {"query": query, "status": "elsewhere" if elsewhere else "unresolved",
+    return {"status": "elsewhere" if elsewhere else "unresolved",
             "match": None, "elsewhere": elsewhere, "nearest": near}
 
 

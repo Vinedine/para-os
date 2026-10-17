@@ -134,7 +134,7 @@ class Preconditions(VaultCase):
     def test_no_clone_anywhere_is_not_found_never_unverified(self):
         write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
         m = self.run_scan("1", clone=None)["preconditions"]["template_marker"]
-        self.assertEqual((m["verdict"], m["clone"]), ("no_clone", None))
+        self.assertEqual(m["verdict"], "no_clone")
         self.assertIsNone(m["master"])
 
     def test_a_clone_at_the_default_path_is_found_without_clone(self):
@@ -142,7 +142,6 @@ class Preconditions(VaultCase):
         write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
         m = self.run_scan("1", clone=None)["preconditions"]["template_marker"]
         self.assertEqual((m["verdict"], m["master"]), ("behind", "2026.09.05"))
-        self.assertEqual(m["clone"], (self.home / "para-os").as_posix())
 
     def test_an_explicit_clone_wins_over_the_default_path(self):
         make_clone(base_marker="2026.08.01", root=self.home / "para-os")
@@ -300,8 +299,7 @@ class UncitedContacts(VaultCase):
         write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
         write(self.root, "projects/acme/brief.md", "# Acme\n\nJan Claes flagged a risk.\n")
         found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
-        self.assertEqual(found["areas/network/jan-claes.md"]["files"],
-                         [{"file": "projects/acme/brief.md", "mentions": 1}])
+        self.assertEqual(found["areas/network/jan-claes.md"]["files"], ["projects/acme/brief.md"])
 
     def test_mention_with_a_link_is_not_flagged(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -366,8 +364,7 @@ class UncitedContacts(VaultCase):
         write(self.root, "projects/beta/brief.md",
               "# Beta\n\nJan Claes agreed, per [20260922 Jan Claes call](sources/call.md).\n")
         found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
-        self.assertEqual(found["areas/network/jan-claes.md"]["files"],
-                         [{"file": "projects/beta/brief.md", "mentions": 1}])
+        self.assertEqual(found["areas/network/jan-claes.md"]["files"], ["projects/beta/brief.md"])
 
     def test_a_link_only_line_to_the_card_still_cites_a_prose_mention(self):
         # A line naming the person only as the card link's label counts no mention, but
@@ -401,8 +398,7 @@ class UncitedContacts(VaultCase):
         write(self.root, "projects/acme/brief.md", "# Acme\n\nMarketing owns `Mark` now.\n")
         write(self.root, "projects/beta/brief.md", "# Beta\n\nMarketing said Mark agreed.\n")
         found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
-        self.assertEqual(found["areas/network/mark.md"]["files"],
-                         [{"file": "projects/beta/brief.md", "mentions": 1}])
+        self.assertEqual(found["areas/network/mark.md"]["files"], ["projects/beta/brief.md"])
 
     def test_a_ledger_record_is_exempt_but_named_for_override(self):
         # Finding 3: the mechanical proxy for "analytical and ledger records that are
@@ -439,7 +435,7 @@ class UncitedContacts(VaultCase):
         write(self.root, "areas/usage/20260101 Digest.md", "# Digest\n\nJan Claes logged in.\n")
         phase1 = self.run_scan("1")["phase1"]
         found = {c["card"]: c for c in phase1["uncited_contacts"]}
-        self.assertEqual([f["file"] for f in found["areas/network/jan-claes.md"]["files"]],
+        self.assertEqual(found["areas/network/jan-claes.md"]["files"],
                          ["areas/acme-technologies-website/brief.md",
                           "projects/acme/reviewer-feedback.md"])
         self.assertEqual(sorted(phase1["uncited_exempt"]),
@@ -460,7 +456,7 @@ class UncitedContacts(VaultCase):
         write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
 
     def uncited_files(self, **declared):
-        return [f["file"] for c in self.run_scan("1", **declared)["phase1"]["uncited_contacts"]
+        return [f for c in self.run_scan("1", **declared)["phase1"]["uncited_contacts"]
                 for f in c["files"]]
 
     def test_prompts_and_declared_template_folders_are_excluded(self):
@@ -536,7 +532,7 @@ class InlineContactDetails(VaultCase):
         hits = self.run_scan("1")["phase1"]["inline_contact_details"]
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0]["names_on_line"], ["Jan Claes"])
-        self.assertEqual(hits[0]["kind"], "email")
+        self.assertEqual(hits[0]["detail"], "jan.claes@example.com")
         self.assertNotIn("card", hits[0])
 
     def test_a_sentence_full_stop_is_not_part_of_the_email(self):
@@ -588,8 +584,7 @@ class InlineContactDetails(VaultCase):
         write(self.root, "projects/acme/brief.md",
               "# Acme\n\nReach Jan Claes at +32 470 12 34 56.\n")
         hits = self.run_scan("1")["phase1"]["inline_contact_details"]
-        self.assertEqual([h["kind"] for h in hits], ["phone"])
-        self.assertEqual(hits[0]["detail"], "+32 470 12 34 56")
+        self.assertEqual([h["detail"] for h in hits], ["+32 470 12 34 56"])
 
     def test_eight_digit_phone_with_only_spaces_is_flagged(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -597,7 +592,7 @@ class InlineContactDetails(VaultCase):
         write(self.root, "projects/acme/brief.md",
               "# Acme\n\nReach Jan Claes at 03 234 56 78.\n")
         hits = self.run_scan("1")["phase1"]["inline_contact_details"]
-        self.assertEqual([h["kind"] for h in hits], ["phone"])
+        self.assertEqual([h["detail"] for h in hits], ["03 234 56 78"])
 
     def test_a_short_digit_run_with_no_plus_is_not_a_phone(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -944,13 +939,12 @@ class BriefsToRead(VaultCase):
 
 class StaleUndated(VaultCase):
 
-    def test_tracked_item_measured_by_git_blame_line(self):
+    def test_a_tracked_item_is_measured_by_git_blame_on_its_line(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Old undated item\n")
         git_init(self.root)
         git_commit_at(self.root, "2026-01-01")
         rows = self.run_scan("3", today=TODAY)["phase3"]["stale_undated"]["projects/acme/actions.md"]
-        self.assertEqual(rows[0]["measured_by"], "git_blame_line")
         self.assertGreaterEqual(rows[0]["days"], STALE_FILE_DAYS)
 
     def test_a_line_shifted_by_a_later_edit_is_still_measured_by_its_own_last_touch(self):
@@ -970,7 +964,7 @@ class StaleUndated(VaultCase):
             "projects/acme/actions.md", [])
         self.assertNotIn("Shifted item, edited", [r["text"] for r in rows])
 
-    def test_an_uncommitted_edit_is_measured_by_uncommitted(self):
+    def test_an_uncommitted_edit_is_unmeasurable(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "projects/acme/actions.md", "# Acme\n\n- [ ] Old item\n")
         git_init(self.root)
@@ -979,7 +973,8 @@ class StaleUndated(VaultCase):
               "# Acme\n\n- [ ] A brand new uncommitted item\n- [ ] Old item\n")
         rows = self.run_scan("3", today=TODAY)["phase3"]["stale_undated"]["projects/acme/actions.md"]
         by_text = {r["text"]: r for r in rows}
-        self.assertEqual(by_text["A brand new uncommitted item"]["measured_by"], "uncommitted")
+        self.assertEqual(by_text["A brand new uncommitted item"]["unmeasurable"],
+                         "line not yet committed")
 
     def test_untracked_file_falls_back_to_mtime_per_file(self):
         # Finding 3 of the 20260916-0030 test run: a git-less vault still gets a real
@@ -989,7 +984,7 @@ class StaleUndated(VaultCase):
         old = time.time() - (STALE_FILE_DAYS + 1) * 86400
         os.utime(path, (old, old))
         rows = self.run_scan("3", today=date.today())["phase3"]["stale_undated"]["projects/acme/actions.md"]
-        self.assertEqual(rows[0]["measured_by"], "mtime")
+        self.assertGreaterEqual(rows[0]["days"], STALE_FILE_DAYS)
 
     def test_untracked_file_whose_mtime_cannot_be_read_is_unmeasurable_per_item(self):
         # A synced file can vanish between the read and the stat; each item still comes
@@ -1028,8 +1023,7 @@ class Demotion(VaultCase):
         write(self.root, "projects/acme/actions.md",
               "# Acme\n\n- [x] Kick-off 📅 2026-01-10 ✅ 2026-01-11\n- [ ] Tidy the brief\n")
         rows = self.candidates()
-        self.assertEqual(rows, [{"project": "projects/acme", "newest_date": "2026-01-10",
-                                 "days": (TODAY - date(2026, 1, 10)).days}])
+        self.assertEqual(rows, [{"project": "projects/acme", "newest_date": "2026-01-10"}])
 
     def test_a_project_with_a_future_date_is_not(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -1275,11 +1269,7 @@ class CommandLine(VaultCase):
         write(self.root, "CLAUDE.md", "# Vault\n")
         for phase in ("1", "3", "4"):
             report = self.run_json("--phase", phase, "--today", "2026-09-22")
-            self.assertEqual(set(report), {"vault", "today", "phase", "preconditions",
-                                           f"phase{phase}"}, phase)
-            self.assertEqual(report["phase"], phase)
-            self.assertEqual(report["today"], "2026-09-22")
-            self.assertEqual(report["vault"], self.root.resolve().as_posix())
+            self.assertEqual(set(report), {"preconditions", f"phase{phase}"}, phase)
             self.assertIn("snapshot", report[f"phase{phase}"])
 
     def test_uncited_contact_declarations_reach_the_scan(self):
@@ -1297,16 +1287,9 @@ class CommandLine(VaultCase):
                 rows = {r["check"]: r["detail"] for r in report["phase4"]["rows"]}
                 self.assertEqual(rows["uncited_contacts"], {"cards": 0, "card_files": 0})
 
-    def test_today_defaults_to_the_system_date(self):
-        write(self.root, "CLAUDE.md", "# Vault\n")
-        before = date.today().isoformat()
-        report = self.run_json("--phase", "4")
-        self.assertIn(report["today"], {before, date.today().isoformat()})
-
     def test_ref_defaults_to_origin_stable_and_the_marker_is_not_found_without_a_clone(self):
         write(self.root, "CLAUDE.md", marker_claude_md("2026.09.05"))
         marker = self.run_json("--phase", "1")["preconditions"]["template_marker"]
-        self.assertEqual(marker["ref"], "origin/stable")
         self.assertEqual(marker["verdict"], "no_clone")
         self.assertFalse(marker["ref_missing"])
 
@@ -1320,17 +1303,15 @@ class CommandLine(VaultCase):
         missing, present = (r["preconditions"]["template_marker"] for r in (missing, present))
         self.assertEqual((missing["master"], missing["verdict"], missing["ref_missing"]),
                          (None, "unverified", True))
-        self.assertEqual((present["ref"], present["master"], present["verdict"],
-                          present["ref_missing"]),
-                         ("origin/stable", "2026.09.05", "behind", False))
+        self.assertEqual((present["master"], present["verdict"], present["ref_missing"]),
+                         ("2026.09.05", "behind", False))
 
     def test_clone_and_ref_reach_the_template_marker_precondition(self):
         clone = self.clone(base_marker="2026.09.05")
         write(self.root, "CLAUDE.md", marker_claude_md("2026.08.01"))
         marker = self.run_json("--phase", "1", "--clone", str(clone),
                                "--ref", "HEAD")["preconditions"]["template_marker"]
-        self.assertEqual((marker["ref"], marker["master"], marker["verdict"]),
-                         ("HEAD", "2026.09.05", "behind"))
+        self.assertEqual((marker["master"], marker["verdict"]), ("2026.09.05", "behind"))
 
     def test_templates_dir_is_repeatable(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -1339,8 +1320,8 @@ class CommandLine(VaultCase):
             write(self.root, f"{folder}/note.md", "# Note\n\nDear Jan Claes,\n")
         report = self.run_json("--phase", "1", "--templates-dir", "resources/tmpl-a",
                                "--templates-dir", "resources/tmpl-b")
-        self.assertEqual([f["file"] for c in report["phase1"]["uncited_contacts"]
-                          for f in c["files"]], ["resources/real/note.md"])
+        self.assertEqual([f for c in report["phase1"]["uncited_contacts"] for f in c["files"]],
+                         ["resources/real/note.md"])
 
     def test_dated_pattern_reaches_the_meetings_naming_check(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -1365,8 +1346,8 @@ class CommandLine(VaultCase):
         code, out, _ = self.run_main("--vault", str(self.root), "--phase", "4",
                                      "--today", "2026-09-22", "--indent", "2")
         self.assertEqual(code, 0)
-        self.assertIn('\n  "phase": "4"', out)
-        self.assertEqual(json.loads(out)["phase"], "4")
+        self.assertIn('\n  "phase4": {', out)
+        self.assertIn("phase4", json.loads(out))
 
     def test_a_malformed_today_is_a_usage_error(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -1401,7 +1382,6 @@ class ScriptRun(VaultCase):
                                  env=dict(os.environ, PYTHONIOENCODING="ascii"))
         self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
         report = json.loads(result.stdout.decode("utf-8"))
-        self.assertEqual(report["vault"], self.root.resolve().as_posix())
         self.assertEqual([c["name"] for c in report["phase1"]["uncited_contacts"]],
                          ["Zoë Peeters"])
 

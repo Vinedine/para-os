@@ -176,8 +176,6 @@ class VaultRoot(unittest.TestCase):
         info = vault_block(root, [{"name": "Beta", "path": str(root), "active": True}])
         self.assertTrue(info["root"])
         self.assertEqual(info["name"], "Beta")
-        self.assertTrue(info["registered"])
-        self.assertTrue(info["active"])
 
     def test_an_unregistered_root_falls_back_to_the_folder_name(self):
         import tempfile
@@ -188,8 +186,6 @@ class VaultRoot(unittest.TestCase):
             (root / d).mkdir(parents=True)
         info = vault_block(root, [])
         self.assertEqual(info["name"], "SomeFolder")
-        self.assertFalse(info["registered"])
-        self.assertFalse(info["active"])
 
     def test_a_subfolder_of_a_registered_vault_names_that_vault_as_the_hint(self):
         # The session started inside the vault rather than at its root.
@@ -206,8 +202,7 @@ class VaultRoot(unittest.TestCase):
         ])
         self.assertFalse(info["root"])
         self.assertEqual(info["hint"], {"name": "Alpha", "path": str(root)})
-        self.assertFalse(info["registered"])  # the subfolder is not the entry's own path
-        self.assertEqual(info["name"], "projects")
+        self.assertEqual(info["name"], "projects")  # the subfolder is not the entry's own path
 
     def test_the_folded_name_fallback_skips_entries_that_do_not_fold_to_it(self):
         import tempfile
@@ -243,8 +238,6 @@ class IngestCoverage(VaultCase):
         self.assertFalse(ingest["covered"])
         self.assertEqual(ingest["reason"],
                          "ingest staged 3 for Alpha outside this root - pulled locally")
-        self.assertEqual(ingest["count_for_vault"], 3)
-        self.assertEqual(ingest["staged_here"], 0)
 
     def test_an_explicit_zero_count_is_covered(self):
         write_run(self.home, "20260922-090000.json", {
@@ -263,7 +256,6 @@ class IngestCoverage(VaultCase):
         ingest, _ = ingest_block(self.root, registry(str(self.home)), "Alpha",
                                  str(self.home), NOW)
         self.assertTrue(ingest["covered"])
-        self.assertEqual(ingest["staged_here"], 1)
 
     def test_forty_nine_hours_old_is_not_covered(self):
         write_run(self.home, "20260920-110000.json", {
@@ -312,13 +304,11 @@ class IngestCoverage(VaultCase):
         self.assertEqual(report["ingest"]["reason"],
                          "registry lists this vault inactive - pulled as normal")
 
-    def test_a_log_that_fails_to_parse_is_reported_not_swallowed(self):
+    def test_a_log_that_fails_to_parse_is_never_coverage(self):
         path = self.home / "cache" / "ingest" / "runs" / "20260922-090000.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("not json", encoding="utf-8")
-        report = self.plan()
-        self.assertEqual(len(report["ingest"]["log_errors"]), 1)
-        self.assertEqual(report["ingest"]["log_errors"][0]["file"], "20260922-090000.json")
+        self.assertFalse(self.plan()["ingest"]["covered"])
 
 
 # ------------------------------------------------------------------------------ row planning
@@ -759,14 +749,12 @@ class DuplicatesAndCrossVault(VaultCase):
         loose = build_loose(self.root, [], "Alpha", {})
         item = next(i for i in loose if i["name"] == "20260920 Duplicate arrival.md")
         self.assertEqual(item["duplicates"], ["areas/wealth/sources/20260908 Original document.md"])
-        self.assertIsNone(item["hash_skipped"])
 
     def test_a_file_under_min_hash_bytes_is_never_silently_empty(self):
         write(self.root, "triage/tiny.md", "short\n")
         loose = build_loose(self.root, [], "Alpha", {})
         item = next(i for i in loose if i["name"] == "tiny.md")
         self.assertIsNone(item["duplicates"])
-        self.assertIsNotNone(item["hash_skipped"])
 
     def test_cross_vault_finds_a_byte_identical_file_via_a_text_mention_alone(self):
         # No ledger entry for this thread (empty ledger_mailboxes): cross_vault still finds
@@ -1160,22 +1148,14 @@ class SeenLedger(VaultCase):
 
     def test_missing_ledger_reports_not_exists(self):
         block = seen_ledger_block(str(self.home), "Alpha")
-        self.assertFalse(block["exists"])
-        self.assertEqual(block["entries"], 0)
+        self.assertEqual((block["exists"], block["load_error"]), (False, None))
 
-    def test_entries_and_legacy_are_counted(self):
+    def test_a_ledger_that_parses_is_no_error(self):
         path = self.home / "cache" / "triage-email" / "Alpha.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({
-            "thread-full": {"disposition": "actioned", "date": "2026-09-10",
-                            "seen_through": "<msg-1>",
-                            "seen_date": "2026-09-10T01:00:00+02:00"},
-            "thread-legacy": {"disposition": "noted", "date": "2026-09-01"},
-        }), encoding="utf-8")
+        path.write_text(json.dumps({"thread-legacy": {"disposition": "noted"}}), encoding="utf-8")
         block = seen_ledger_block(str(self.home), "Alpha")
-        self.assertTrue(block["exists"])
-        self.assertEqual(block["entries"], 2)
-        self.assertEqual(block["legacy"], 1)
+        self.assertEqual((block["exists"], block["load_error"]), (True, None))
 
     def test_a_ledger_that_fails_to_parse_is_reported(self):
         path = self.home / "cache" / "triage-email" / "Alpha.json"
@@ -1189,8 +1169,7 @@ class SeenLedger(VaultCase):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(["1a0c556d2559b07c"]), encoding="utf-8")
         block = seen_ledger_block(str(self.home), "Alpha")
-        self.assertEqual((block["exists"], block["entries"], block["load_error"]),
-                         (True, 0, "not a JSON object"))
+        self.assertEqual((block["exists"], block["load_error"]), (True, "not a JSON object"))
 
 
 # ---------------------------------------------------------------------------------- threads
@@ -1203,9 +1182,7 @@ class ThreadsFold(VaultCase):
         threads_data = [{"thread_id": "1a0c556d2559b07c"}]  # thread_hash -> "88604c"
         report = self.plan(threads=threads_data)
         self.assertIn("threads", report)
-        entry = report["threads"][0]
-        self.assertEqual(entry["thread_hash"], "88604c")
-        self.assertEqual(entry["staged_notes"], ["20260920 Subject 88604c.md"])
+        self.assertEqual(report["threads"][0]["staged_notes"], ["20260920 Subject 88604c.md"])
 
     def test_a_ledgered_thread_carries_its_watermark_verdict(self):
         ledger_path = self.home / "cache" / "triage-email" / "Alpha.json"
@@ -1249,7 +1226,7 @@ class ThreadsFold(VaultCase):
         write(self.root, "triage/20260920 Subject 88604c.md", "# Subject\n\nBody.\n")
         report = self.plan(threads=["1a0c556d2559b07c", {"newest_date": "2026-09-20T10:00:00Z"}])
         self.assertEqual(report["threads"], [{
-            "thread_id": None, "thread_hash": None, "staged_notes": [], "ledger": None,
+            "thread_id": None, "staged_notes": [], "ledger": None,
             "watermark": {"verdict": "new", "legacy": False, "watermark": None},
             "unanswered": None}])
 
@@ -1311,9 +1288,7 @@ class CommandLine(VaultCase):
             "counts": {"per_vault": {"Alpha": 0}},
         })
         _, out = self.run_main("--now", "2026-09-22T12:00:00Z")
-        ingest = json.loads(out)["ingest"]
-        self.assertEqual(ingest["newest_write"]["age_hours"], 1.0)
-        self.assertTrue(ingest["covered"])
+        self.assertTrue(json.loads(out)["ingest"]["covered"])
 
     def test_now_with_no_offset_is_read_as_local_time_not_rejected(self):
         # A naive instant compared against a log's aware one would raise, not answer.
@@ -1322,7 +1297,7 @@ class CommandLine(VaultCase):
         })
         code, out = self.run_main("--now", "2026-09-22T12:00:00")
         self.assertEqual(code, 0)
-        self.assertIsInstance(json.loads(out)["ingest"]["newest_write"]["age_hours"], float)
+        self.assertIn("2026-09-22T11:00:00+00:00", json.loads(out)["ingest"]["reason"])
 
     def test_a_now_that_is_no_instant_is_a_usage_error(self):
         self.assertIn("--now wants an ISO-8601 instant", self.usage_error("--now", "yesterday"))
