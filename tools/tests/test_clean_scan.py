@@ -195,23 +195,13 @@ class Phase1Map(VaultCase):
 
 class Placeholders(VaultCase):
 
-    def test_placeholder_found_in_entity_brief(self):
-        write(self.root, "CLAUDE.md", "# Vault\n")
-        write(self.root, "projects/acme/brief.md", "# Acme\n\n{{fill me in}}\n")
+    def test_only_the_root_files_the_bootstrap_fills_are_read(self):
+        write(self.root, "CLAUDE.md", "# Vault\n\n{{vault-type}}\n")
+        write(self.root, "README.md", "# Vault\n")
+        write(self.root, "resources/ideas/flow/brief.md",
+              '# Flow\n\n::: mermaid\nWait1{{"Wait"}} --> Step3\n:::\n')
         hits = self.run_scan("1")["phase1"]["placeholders"]
-        self.assertEqual([h["file"] for h in hits], ["projects/acme/brief.md"])
-
-    def test_templates_dir_argument_excludes_its_folder(self):
-        write(self.root, "CLAUDE.md", "# Vault\n")
-        write(self.root, "projects/tmpl-folder/brief.md", "# Tmpl\n\n{{x}}\n")
-        hits = self.run_scan("1", templates_dirs=["projects/tmpl-folder"])["phase1"]["placeholders"]
-        self.assertEqual(hits, [])
-
-    def test_resources_prompts_excluded_by_default(self):
-        write(self.root, "CLAUDE.md", "# Vault\n")
-        write(self.root, "resources/prompts/draft/brief.md", "# Draft\n\n{{x}}\n")
-        hits = self.run_scan("1")["phase1"]["placeholders"]
-        self.assertEqual(hits, [])
+        self.assertEqual([h["file"] for h in hits], ["CLAUDE.md"])
 
 
 class DanglingLinks(VaultCase):
@@ -1333,13 +1323,13 @@ class CommandLine(VaultCase):
 
     def test_templates_dir_is_repeatable(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
-        write(self.root, "projects/tmpl-a/brief.md", "# A\n\n{{x}}\n")
-        write(self.root, "projects/tmpl-b/brief.md", "# B\n\n{{x}}\n")
-        write(self.root, "projects/real/brief.md", "# Real\n\n{{x}}\n")
-        report = self.run_json("--phase", "1", "--templates-dir", "projects/tmpl-a",
-                               "--templates-dir", "projects/tmpl-b")
-        self.assertEqual([h["file"] for h in report["phase1"]["placeholders"]],
-                         ["projects/real/brief.md"])
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        for folder in ("resources/tmpl-a", "resources/tmpl-b", "resources/real"):
+            write(self.root, f"{folder}/note.md", "# Note\n\nDear Jan Claes,\n")
+        report = self.run_json("--phase", "1", "--templates-dir", "resources/tmpl-a",
+                               "--templates-dir", "resources/tmpl-b")
+        self.assertEqual([f["file"] for c in report["phase1"]["uncited_contacts"]
+                          for f in c["files"]], ["resources/real/note.md"])
 
     def test_dated_pattern_reaches_the_meetings_naming_check(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
