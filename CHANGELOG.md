@@ -20,7 +20,7 @@ Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero
 
 Retired: `.claude/skills/para-*/scripts/test_*.py`
 - Before re-copying anything, check for Python 3.9 or later (`py -3 --version` on Windows, `python3 --version` elsewhere) and stop where it is missing, naming https://www.python.org/downloads/: this machine (#383)
-- Reaction: re-copy `/para-upgrade` from the kit as a tree before anything else, `/para-audit` with it where installed, and run the re-copied skill for the rest of this upgrade: `.claude/skills/para-upgrade/` (#372)
+- Reaction: re-copy `/para-upgrade` and `para-shared/` from the kit as trees before anything else, `/para-audit` with them where installed, and run the re-copied skill for the rest of this upgrade: `.claude/skills/para-upgrade/`, `.claude/skills/para-shared/` (#372)
 - Replace the sentence saying `/para-upgrade` never overwrites an integration script with base's: `resources/scripts/README.md` (#372)
 Retired: `.claude/skills/para-upgrade/references/`
 Retired: `.claude/skills/para-triage/references/after-a-meeting.md`, `.claude/skills/para-daily-brief/references/task-scan.md`, `.claude/skills/para-deep-clean/references/phase4-audit.md`
