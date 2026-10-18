@@ -18,7 +18,7 @@ The window is the caller's: 30 days for `/para-triage`, per mode for `/para-inge
 
 Per source:
 
-1. **Query**: the `Relevant when` text and the window, inbox only, bulk mail dropped (promotions and social categories where the server has them, else the `List-Unsubscribe` header), in the server's own syntax. Machine senders (`noreply@`) stay in; narrow only for a mailbox measurably mostly bot mail, by that application's own domain, and say so in the report.
+1. **Query**: the `Relevant when` text and the window, bulk mail dropped (promotions and social categories where the server has them, else the `List-Unsubscribe` header), in the server's own syntax. Machine senders (`noreply@`) stay in; narrow only for a mailbox measurably mostly bot mail, by that application's own domain, and say so in the report.
 2. **Normalise to threads.** A server returning messages: group them by thread id and report how many messages became how many threads. Fetch subject, sender, date and the RFC822 `Message-ID` where the source has one; a date shown or written follows [timestamps.md](timestamps.md).
 3. **Apply the operator's exclusions** from `${PARAOS_HOME:-~/.paraos}/triage-exclusions.json`, keyed by mailbox, each entry one of `subject` (equal, trimmed, case-insensitive) or `from` (equal address) plus a `reason`; a thread drops only when no message in it survives. Match after the fetch, never as a query operator. Report every entry with how many it dropped, zero included; a file that fails to parse is reported and applies nothing.
 4. **Page until the window is exhausted** ([absent-is-not-zero.md](absent-is-not-zero.md)). A cap you stop at is a finding: `<mailbox>: stopped at N pages, window not fully covered`.
