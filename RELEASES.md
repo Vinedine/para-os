@@ -37,6 +37,8 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **Properties no longer show as unknown deal stages.** In a vault with both the property and sales add-ons, the pipeline listed every property sharing a folder with the deals as a deal at an unknown stage. A stage another lifecycle declares now belongs to that lifecycle.
 - **The deep clean no longer flags the archive's own index page.** A fresh vault's meetings archive ships with a short page describing the folder, and the deep clean listed it as an undated meeting record, so the archive never came out clean.
 - **The brief names only a project's champion or contact as the one its tasks are owed to.** A card the project brief links for another reason, such as the agent who referred a property, no longer gets every unlinked task in that project.
+- **Rewording a vault's heading no longer starts a second dashboard.** The daily brief names its dashboard after the vault's name in the vault registry, so editing the heading of the vault's instructions leaves the page it updates where it was.
+- **The deep clean stops reporting false contacts and false phone numbers.** The contacts folder's own index page is no longer read as a person, and only numbers written the way phone numbers are (an international prefix, or a leading zero with grouped digits) are reported as phones to move onto a card, so bank account numbers, file references and identity numbers stay where they are.
 
 ### Removed
 
