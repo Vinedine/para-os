@@ -7,14 +7,12 @@
 Prints one JSON document on stdout: every lifecycle the vault's CLAUDE.md declares, the
 entities collected from the union of each stage's home, each entity's stage, days in stage,
 next step and flag inputs, the counts by stage, and the quarter's metrics. It never writes
-to the vault and never words anything an operator reads - that stays with the skill, per
-references/scan.md and references/render.md.
+to the vault; wording stays with references/scan.md and references/render.md.
 
 Why a script. The board rests on a mechanical read: which folder or row belongs to
 which stage, where a next step lives, which dates fall in a quarter (of the financial year
 the vault's `**Locale:**` line declares, else the calendar's). Two correct runs have to
-agree, and instructions re-derived per run do not, so this pins the rules the same way
-brief_scan.py pins /para-daily-brief's.
+agree; instructions re-derived per run do not.
 
 Reading the vault's primitives - Stage lines, header fields, register rows, lifecycle
 tables, open tasks - is not this script's own work: para-shared/scripts/paraos_vault.py
@@ -763,6 +761,7 @@ def matches_lifecycle(lc, query):
 def scan(vault, today, lifecycle=None):
     vault = Path(vault).resolve()
     declared = lifecycles(vault)
+    known = {s["name"].lower() for lc in declared for s in lc["stages"]}
 
     report = {"vault": vault.as_posix(), "today": today.isoformat()}
     if lifecycle:
@@ -775,6 +774,8 @@ def scan(vault, today, lifecycle=None):
 
     loc = locale(vault)
     report["lifecycles"] = [scan_lifecycle(vault, lc, today, loc) for lc in declared]
+    for lc in report["lifecycles"]:
+        lc["unknown_stage"] = [u for u in lc["unknown_stage"] if u["stage"].lower() not in known]
     return report, 0
 
 
@@ -786,8 +787,7 @@ def main(argv=None):
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
 
-    # A Windows console and a Windows pipe both default to a codepage that cannot encode a
-    # task marker, and the traceback lands where the JSON was meant to be.
+    # A Windows console or pipe defaults to a codepage that cannot encode a task marker.
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, OSError):
