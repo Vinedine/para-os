@@ -89,6 +89,7 @@ class GlobalScan(unittest.TestCase):
         for stamp in ("20260309-0800", "20260310-0700"):
             write(self.home, f"cache/triage/proposals/north-{stamp}.md", "x\n")
         write(self.home, "cache/triage/proposals/northwest-20260311-0700.md", "x\n")
+        write(self.home, "cache/triage/proposals/north-east-20260311-0700.md", "x\n")
         north = self.report()["vaults"][0]
         self.assertTrue(north["proposal"].endswith("north-20260310-0700.md"))
 
