@@ -923,6 +923,7 @@ def field_ci(fields, name):
 
 
 ALIASES_RE = re.compile(r"^\*\*Aliases:\*\*\s*(.+)$", re.IGNORECASE)
+NOT_CARDS = {"readme.md", "actions.md"}   # files beside the contact cards that are no one's
 ALSO_RE = re.compile(r"^Also:\s*(.+)$", re.IGNORECASE)
 
 

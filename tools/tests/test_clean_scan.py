@@ -522,7 +522,26 @@ class UncitedContacts(VaultCase):
         self.assertEqual([c["name"] for c in found], ["Jan Claes"])
 
 
+    def test_the_network_readme_is_not_a_card(self):
+        # Finding 1 of the 20261018 test runs: the folder README base ships was read as a
+        # card named after its H1, so a "Network" tab in a script README was an uncited
+        # contact.
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/README.md", "# Network\n\nOne file per person.\n")
+        write(self.root, "areas/network/actions.md", "# Network actions\n")
+        write(self.root, "resources/scripts/README.md",
+              "# Scripts\n\nOpen DevTools, Network tab, then reload.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["uncited_contacts"], [])
+
+
 class InlineContactDetails(VaultCase):
+
+    def test_the_network_readme_puts_no_name_on_the_line(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/README.md", "# Network\n")
+        write(self.root, "resources/scripts/README.md",
+              "# Scripts\n\nNetwork support: +32 470 12 34 56.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
 
     def test_email_beside_a_named_contact_is_flagged_unattributed(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -621,6 +640,36 @@ class InlineContactDetails(VaultCase):
         write(self.root, "projects/acme/brief.md",
               "# Acme\n\nJan Claes: see [scan](Jan%20Claes%2020260619.pdf).\n")
         self.assertEqual(self.run_scan("1")["phase1"]["inline_contact_details"], [])
+
+
+    def phones_on(self, line):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md", f"# Acme\n\nJan Claes: {line}\n")
+        return [h["detail"] for h in self.run_scan("1")["phase1"]["inline_contact_details"]]
+
+    def test_phone_shaped_numbers_are_phones(self):
+        # A leading + or a leading 0 with grouped digits, in the shapes people write them.
+        for number in ("+32 470 12 34 56", "+33 6 12 34 56 78", "+31 (0)20 123 4567",
+                       "03 234 56 78", "0470/12.34.56", "06 12 34 56 78", "06.12.34.56.78",
+                       "06-12345678", "020 123 4567"):
+            with self.subTest(number=number):
+                self.assertEqual(self.phones_on(f"call {number} after six."), [number])
+
+    def test_two_phones_on_one_line_are_two_details(self):
+        self.assertEqual(self.phones_on("03 234 56 78 / 0470 12 34 56."),
+                         ["03 234 56 78", "0470 12 34 56"])
+
+    def test_identifiers_and_references_are_not_phones(self):
+        # Finding 2 of the 20261018 test runs: file numbers, personal identifiers, case
+        # references, IBANs and register numbers were reported as phones to move to a card.
+        for line in ("file 4417.3300912 is closed.", "identifier 123456782 on the letter.",
+                     "case 2019 07311 is pending.", "docket 1834/20977.",
+                     "IBAN BE71 0961 2345 6769.", "account NL91 ABNA 0417 1643 00.",
+                     "register number 90.01.01-123.45.", "ref. 0391 552 708.",
+                     "n° 0470 12 34 56 on the invoice.", "total 5172.4400391 units."):
+            with self.subTest(line=line):
+                self.assertEqual(self.phones_on(line), [])
 
 
 class Duplicates(VaultCase):

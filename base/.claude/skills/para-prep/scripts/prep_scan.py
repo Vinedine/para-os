@@ -38,7 +38,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        EMAIL_RE, H1_RE, HEADING_RE, abspath, action_files, contact_names,
+        EMAIL_RE, H1_RE, HEADING_RE, NOT_CARDS, abspath, action_files, contact_names,
         extract_links, field_ci, header_fields, lifecycles, live_lines, open_tasks, parse_date,
         read_lines,
         read_text, register_rows, rel_posix, resolve_link, stage_of, stage_parts, strip_code,
@@ -49,7 +49,6 @@ except ImportError as missing:  # para-shared/scripts.md: the skill stops
     sys.exit(2)
 
 CARD_DIR = ("areas", "network")
-NOT_CARDS = {"readme.md", "actions.md"}
 ENTITY_BUCKETS = ("projects", "areas", "resources/ideas")
 TEXT_SUFFIXES = {".md", ".txt", ".eml"}
 RECORDS_SHOWN = 5        # newest first
