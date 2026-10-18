@@ -1,4 +1,5 @@
 ---
 type: regex
-pattern: '[Ee]ast[^\n]*(UNREACHABLE|unreachable)|(UNREACHABLE|unreachable)[^\n]*[Ee]ast'
+pattern: '\beast\b[^\n]*(?:unreachable|(?:could not|couldn.t|cannot|can.t) be reached)|(?:unreachable|(?:could not|couldn.t|cannot|can.t) be reached)[^\n]*\beast\b'
+flags: i
 ---
