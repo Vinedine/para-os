@@ -55,7 +55,8 @@ class FakeHarness:
             "suite": {}, "costUsd": 1.5, "durationSeconds": 60,
             "cases": [{"name": n, "aggregates": {"score": 1.0}, "arms": {"with": [{}]}}
                       for n in names]}), encoding="utf-8")
-        self.calls.append({"cases": names, "grant": grant, "out_dir": out_dir})
+        cost = cmd[cmd.index("--max-cost-usd") + 1] if "--max-cost-usd" in cmd else None
+        self.calls.append({"cases": names, "grant": grant, "out_dir": out_dir, "cost": cost})
         return mock.Mock(returncode=0)
 
 
@@ -139,6 +140,12 @@ class GrantPerCase(unittest.TestCase):
         self.assertEqual(merged["costUsd"], 1.5 * len(harness.calls))
         self.assertEqual(merged["durationSeconds"], 60 * len(harness.calls))
 
+    def test_each_invocation_gets_the_ceiling_share_of_its_cases(self):
+        _, harness, _ = self.run_eval("--shell", "--", "--max-cost-usd", "50")
+        self.assertEqual({tuple(c["cases"]): c["cost"] for c in harness.calls}, {
+            ("reads-only", "reads-too"): "20", ("needs-shell",): "10",
+            ("needs-shell-and-write",): "10", ("writes",): "10"})
+
     def test_one_grant_runs_once_in_the_run_folder_itself(self):
         rc, harness, _ = self.run_eval("--case", "reads-*")
         self.assertEqual(len(harness.calls), 1)
@@ -152,10 +159,10 @@ class GrantPerCase(unittest.TestCase):
 
 
 class SplitCost(unittest.TestCase):
-    def test_the_ceiling_is_shared_across_invocations(self):
-        self.assertEqual(eval_tool.split_cost(["--runs", "1", "--max-cost-usd", "40"], 2),
+    def test_each_invocation_gets_its_share_of_the_ceiling(self):
+        self.assertEqual(eval_tool.split_cost(["--runs", "1", "--max-cost-usd", "40"], 0.5),
                          ["--runs", "1", "--max-cost-usd", "20"])
-        self.assertEqual(eval_tool.split_cost(["--max-cost-usd=30"], 3), ["--max-cost-usd=10"])
+        self.assertEqual(eval_tool.split_cost(["--max-cost-usd=30"], 1 / 3), ["--max-cost-usd=10"])
 
     def test_one_invocation_keeps_the_ceiling(self):
         self.assertEqual(eval_tool.split_cost(["--max-cost-usd", "40"], 1), ["--max-cost-usd", "40"])
