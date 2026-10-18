@@ -11,6 +11,13 @@ Everything a vault declares under the `**Type:**` line of its `CLAUDE.md`, one f
 
 Both ship `CLAUDE.md.sections`, merged in beside the vault's own sections and never over one. The test between them: a flavor changes what every entity in the vault *is*; a module adds a kind of entity, or a function, beside them (a property developer carries the real-estate flavor for its properties and the sales module for its buyers).
 
+## Available
+
+- [`real-estate/`](real-estate/), a flavor for buying, renovating, selling and holding property.
+- [`sales/`](sales/), a module for prospects, demos and deals.
+- [`activity/`](activity/), a module that adds a usage review.
+- [`brainstorm/`](brainstorm/), a module that adds a guided brainstorm.
+
 ## What a folder may ship
 
 `README.md` (its first line naming the kind) and `CLAUDE.md.sections`; then, as needed, `.claude/rules/` for the shapes it governs, `.claude/skills/` installed beside base's, `skeleton/` for files copied into the vault, and `pipeline/` for scripts, each carrying a `para-os-integration` marker like an [integration](../integrations/).

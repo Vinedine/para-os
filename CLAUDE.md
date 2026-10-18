@@ -37,7 +37,7 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | `multi-vault/` | `/para-ingest`, `/para-audit` and `/para-global-brief`, for operators running several vaults |
 | `examples/belfoot-vault/` | The example vault: a working instance of everything base ships. Read it, never copy it |
 | `evals/` | Behaviour cases for the skills, run by `tools/eval.py` |
-| `docs/` | Design notes for maintainers; never copied into a vault |
+| `docs/` | User guides and design notes; never copied into a vault |
 | `tools/check.py`, `tools/tests/` | Contract checks, and the unit suite of every skill script |
 | `tools/coverage_report.py` | The same suites under coverage, with a floor CI enforces |
 | `CHANGELOG.md` | One entry per template revision; `/para-upgrade` executes each entry's Reaction |
