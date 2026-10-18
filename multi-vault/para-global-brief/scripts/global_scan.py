@@ -12,7 +12,7 @@ read, and what a retired, malformed or missing one becomes, is para-audit's
 `vaults`, in registry order: `name`, `open`, `overdue`, `this_week` (due in the next seven
 days), `undated`, `triage` (loose files in `triage/`), `flags` (the name of every health flag
 the scan fired) and `proposal`, the newest
-`<paraos home>/cache/triage/proposals/<name>-*.md` by name, else null.
+`<paraos home>/cache/triage/proposals/<name>-<YYYYMMDD-HHMM>.md` by name, else null.
 
 `urgent`: every task overdue or due today across the vaults, each with its `vault`, sorted
 as render_dashboard.py's `--mechanical` sorts a vault's Next action, uncapped.
@@ -47,7 +47,7 @@ URGENT_LANES = ("overdue", "today")
 
 
 def proposal(home, name):
-    found = sorted((home / "cache" / "triage" / "proposals").glob(f"{name}-*.md"))
+    found = sorted((home / "cache" / "triage" / "proposals").glob(f"{name}-{'[0-9]' * 8}-{'[0-9]' * 4}.md"))
     return found[-1].as_posix() if found else None
 
 

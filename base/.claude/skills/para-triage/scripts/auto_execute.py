@@ -297,7 +297,7 @@ def status(args):
             runs.append({"run": r, "acted": counts, "restore":
                          f"auto_execute.py restore --vault-name {state.vault} --run {r}"})
     proposal = None
-    found = sorted(state.proposals.glob(f"{state.vault}-*.md"))
+    found = sorted(state.proposals.glob(f"{state.vault}-{'[0-9]' * 8}-{'[0-9]' * 4}.md"))
     if found:
         m = proposal_manifest(found[-1])
         items = []

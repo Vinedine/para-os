@@ -177,6 +177,11 @@ class Executor(unittest.TestCase):
         _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
         self.assertIsNone(status["proposal"])
 
+    def test_status_reads_no_proposal_of_a_vault_whose_name_extends_this_one(self):
+        write(self.home, "cache/triage/proposals/north-east-20261018-1200.md", "x\n")
+        _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
+        self.assertIsNone(status["proposal"])
+
     def test_an_offer_needs_fifty_decisions_at_ninety_five_percent(self):
         def ledger(accepted, rejected):
             rows = [{"item": f"i{n}", "recommended": "Dismiss (noise)",
