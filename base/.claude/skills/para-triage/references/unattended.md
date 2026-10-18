@@ -14,7 +14,7 @@ A scheduled run acts only on the action types the operator switched on for this 
 python3 "<this skill's base directory>/scripts/auto_execute.py" run --scan <the scan's saved_to> --decisions <file>
 ```
 
-5. **Report in at most ten lines**: refusals first, then what was acted on per type, what was left for the operator, any sender whose last three staged notes all ended deleted or dismissed (proposed for the ingest exclusions, never written), and the `restore` command.
+5. **Report in at most ten lines**: refusals first, then what was acted on per type, what was left for the operator, and the `restore` command.
 
 ## The interactive side
 
