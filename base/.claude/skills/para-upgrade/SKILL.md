@@ -70,7 +70,7 @@ Each Reaction in `revision.entries` changes the vault's own content (a declarati
 ## Step 5 - Stamp and verify
 
 1. **Re-run the scan.** A row the operator approved is gone from `files`; one still there names what did not land.
-2. **Write the master's marker** into the vault's `CLAUDE.md`, only once the steps above applied: the next run trusts it.
+2. **Write the master's marker** into the vault's `CLAUDE.md` once everything the operator approved has landed; a row left for the operator never holds it back.
 3. **Check the result**: `paraos_vault.py links dangling --vault <root>`, in `para-shared/scripts/`, finds no dangling link the run made, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
 4. **Report** what changed per step, what was proposed and declined, and what you did not verify.
 
