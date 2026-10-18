@@ -489,7 +489,7 @@ def unattended(vault, paraos_home=None):
                  and e.get("path") and same_place(e["path"]) == place), Path(vault).name)
     home = paraos_home_dir(paraos_home)
     runs = sorted((home / "quarantine" / name).glob("*/manifest.json"))
-    waiting = bool(list((home / "cache" / "triage" / "proposals").glob(f"{name}-*.md")))
+    waiting = bool(list((home / "cache" / "triage" / "proposals").glob(f"{name}-{'[0-9]' * 8}-{'[0-9]' * 4}.md")))
     if not runs and not waiting:
         return None
     acted = {}
