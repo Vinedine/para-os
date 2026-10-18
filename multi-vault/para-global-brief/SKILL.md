@@ -7,7 +7,7 @@ argument-hint: '[--test]'
 
 # Global brief
 
-One view across every registered vault, so an operator with several does not run `/para-daily-brief` in each. **It never writes**, to a vault or anywhere else.
+One view across every registered vault, so an operator with several does not run `/para-daily-brief` in each. **It writes nothing but its scan output.**
 
 - **It needs `para-audit/`, `para-daily-brief/` and `para-shared/` beside it.** Its scan runs over their scripts.
 - **Run it from anywhere.** The registry, `${PARAOS_HOME:-~/.paraos}/vaults.json`, is the only list of vaults. A para-os home the operator names in prose replaces it for the run.
