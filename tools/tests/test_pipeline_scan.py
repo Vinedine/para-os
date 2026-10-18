@@ -1218,6 +1218,17 @@ class Scope(VaultCase):
         self.assertEqual([lc["heading"] for lc in report["lifecycles"]],
                          ["Deal lifecycle", "Property lifecycle"])
 
+    def test_a_stage_of_another_declared_lifecycle_is_not_an_unknown_stage(self):
+        # Issue #517: every property dossier sharing a deal home was an unknown deal stage.
+        write(self.root, "CLAUDE.md", LIFECYCLE + PROPERTY_LIFECYCLE.replace("# Vault\n", ""))
+        write(self.root, "projects/elm-row-4/brief.md",
+              "# Elm Row 4\n\n**Stage:** Acquiring (since 2026-09-01)\n**Opened:** 2026-07-15\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n**Stage:** Pondering (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        for lifecycle in (None, "deal"):
+            self.assertEqual(self.deal(lifecycle=lifecycle)["unknown_stage"],
+                             [{"path": "projects/acme/brief.md", "stage": "Pondering"}])
+
 
 class CommandLine(VaultCase):
     """main() as SKILL.md's Steps 2 and 3 call it: --vault, an optional --lifecycle and
