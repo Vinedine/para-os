@@ -48,7 +48,7 @@ These scripts dedupe against their own central ledgers, so running them is idemp
 
 ### Step 3: Fetch each mailbox once
 
-Follow **[../para-shared/connectors.md](../para-shared/connectors.md)**, the same fetch protocol `/para-triage` uses: dispatch, query frame, thread normalisation, dedup, message list. Two differences:
+Follow **[../para-shared/connectors.md](../para-shared/connectors.md)**, the same fetch protocol `/para-triage` uses, with these differences:
 
 - **The query frame is the union of every declaring vault's `Relevant when`**, not one vault's. Fetch once, route after. A per-vault query would refetch the same mailbox N times, which is the cost this layer exists to remove.
 - **A connector this file's `allowed-tools` does not name is refused, not absent**: report it and carry on, never reporting it as an absence, since that silently unroutes every vault it feeds. Never edit this file mid-run to widen your own permissions; pre-approving another connector is the operator's edit to this frontmatter.

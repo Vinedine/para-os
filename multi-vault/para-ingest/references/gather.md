@@ -22,7 +22,7 @@ Four row types appear in the block. Handle them differently:
 | `connector: <name>` | **By `Endpoint`.** One mailbox, however many vaults declare it, fetched once. Carry each declaring vault's `Relevant when` text with the group: that set is the router's candidate list for every thread the mailbox yields. |
 | `fetch-script` | **By `Endpoint` mailbox, like a connector.** The script reads a mailbox that has no MCP connector and prints candidates without writing anything, so it belongs to the fetch in Step 3 rather than to the script runs here. Run it once per mailbox, not once per declaring vault. |
 | `sync-script` | **Per vault.** The script writes into the vault it belongs to and is run from that vault's root. |
-| `drive`, or a `connector:` row ending `recording` | **Skipped.** A `drive` row is not an inbox; it is the lookup that lets `/para-triage` resolve a Google-native stub already sitting in `triage/`. It pulls nothing, so it contributes nothing here. |
+| `drive`, or a `connector:` row ending `recording` | **Skipped.** A `drive` row is the lookup that lets `/para-triage` resolve a Google-native stub already sitting in `triage/`; a recording row `/para-triage` pulls in its own vault. |
 
 Then say the plan out loud before acting on it: **N vaults, N mailboxes, N script runs**, with the error rows named. On a healthy fleet those three numbers barely move between runs, so a number that jumps is the cheapest possible signal that a vault changed its sources.
 
