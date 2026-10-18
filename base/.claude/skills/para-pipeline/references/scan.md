@@ -10,7 +10,7 @@
 | `lifecycles[].entities` | One record per entity, [below](#what-a-record-holds) |
 | `lifecycles[].no_stage`, `.unknown_stage` | Documents in a declared home that look like a filing gap: no Stage line, or one naming no declared stage (`{path, stage}`) |
 | `lifecycles[].empty_homes` | Declared homes that do not exist yet or hold nothing |
-| `lifecycles[].counts_by_stage` | `{stage, count, total}` per live, non-terminal stage, in table order, `total` summing the vault's currency only, null where no entity there has a value |
+| `lifecycles[].counts_by_stage`, `.terminal_this_quarter` | `{stage, count, total}` per live, non-terminal stage, in table order, `total` summing the vault's currency only, null where no entity there has a value; then how many entities closed into any terminal stage this quarter |
 | `lifecycles[].by_value` | `{currency, ranked, unknown}`: the live folder entities with a value, the vault's currency largest first, then each other currency's; then the names with none. Null where no folder entity carries a `Value` line |
 | `lifecycles[].revisits_due` | Won entities archived out of the promoting home, six months past their `Last touch` (else `Won`) with no dated next step and no `Revisit: none` line, one per client, longest first: `{name, path, value, basis, days}` |
 | `lifecycles[].metrics` | `quarter`, `year_end_unread`, `opened`, `promoting_stage`, `reached_promoting`, `median_days_opened_to_promoting` (`n`, `median`), `terminal` (per stage: `this_quarter`, `reasons_this_quarter`, `all_time_reasons`, `missing_reason`) and `referrers` |
