@@ -206,6 +206,7 @@ class BehindCase(CloneCase):
             "triage/README.md": "retired",
             str(Path(user, "para-audit", "SKILL.md")): "edited",
             str(Path(user, "para-notes", "old.md")): "retired",
+            str(Path(user, "para-shared", "scripts", "lib.py")): "missing",
         })
 
     def test_rows_name_their_kind_and_master(self):
@@ -274,6 +275,16 @@ class StatesCase(CloneCase):
         self.assertIn(str((user / "para-notes" / "references" / "new.md").resolve()),
                       [r["path"] for r in files])
         self.assertFalse(any(r["path"].startswith(".claude/skills") for r in files))
+
+    def test_a_user_level_skill_is_compared_with_the_user_level_shared_library_it_imports(self):
+        user = self.tmp / "user-and-vault"
+        write(user, "para-notes/SKILL.md", "# Notes v2\n")
+        write(user, "para-shared/scripts/lib.py", "LIB = 0\n")
+        v = self.vault("vault-shared", files={".claude/skills/para-shared/scripts/lib.py": "LIB = 0\n"})
+        states = self.states(self.scan(v, user=user)[0])
+        self.assertEqual(states[str((user / "para-shared" / "scripts" / "lib.py").resolve())],
+                         "edited")
+        self.assertEqual(states[".claude/skills/para-shared/scripts/lib.py"], "edited")
 
     def test_a_copy_that_only_adds_lines_to_its_master_has_nothing_to_take(self):
         v = self.vault("adds", files={".claude/rules/filing.md": RULE.format("v2") + "Ours.\n"})

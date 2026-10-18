@@ -5,8 +5,7 @@ ref, as one JSON document on stdout.
     py -3 upgrade_scan.py --vault <path> [--clone <path>] [--ref origin/stable]
                           [--user-skills DIR] [--paraos-home DIR] [--indent N]
 
-Read-only: it never writes, fetches or asks, and reads every master at the ref's commit,
-never the clone's working tree.
+Read-only: it never writes, fetches or asks, and reads every master at the ref's commit.
 
 clone     `path`, `ref`, `commit` (the ref's commit, which a re-copy reads), `error` on exit 4-6.
 revision  The vault's template marker (`vault`) against the master's (`master`): `verdict`
@@ -16,12 +15,11 @@ revision  The vault's template marker (`vault`) against the master's (`master`):
           it still does, else the parent of the newest commit changing it; null where none.
 files     Every vault file the kit owns that is not `current`: `path` (vault-relative,
           absolute outside the vault), `kind`, `master` (its path in the clone), `state`.
-          kind   skill: a base or declared add-on skill, para-shared included, where the vault
-                 runs it (its bundled copy, else the user-level one; a missing one goes where
-                 its other kit skills are, none where it has none), and a multi-vault skill
-                 where installed. rule, settings. integration: a file carrying a
-                 `para-os-integration:` marker, its master under integrations/ or an add-on's
-                 pipeline/. Null on any other retired file.
+          kind   skill: a base or declared add-on skill where the vault runs it (its bundled
+                 copy, else the user-level one; a missing one beside its other kit skills;
+                 para-shared wherever one runs), a multi-vault skill where installed. rule,
+                 settings. integration: a file with a `para-os-integration:` marker, its master
+                 under integrations/ or an add-on's pipeline/. Null on any other retired file.
           state  current: nothing to take from the kit, the ref's bytes or those bytes with
                  lines of the vault's own added (a rule file the vault writes into), or for a
                  JSON file, keys and list entries of its own (settings with more deny rules).
@@ -233,12 +231,13 @@ def plan_files(vault, kit, decl, user_dir):
             if path.startswith(prefix) and rest and \
                     not (optional and f"{prefix}{name}/SKILL.md" not in kit.tree):
                 folders.setdefault(name, (prefix + name, optional))
-    home = next((d for d in homes if any((d / n).is_dir() for n in folders)), None)
+    in_use = [d for d in homes if any((d / n).is_dir() for n in folders)]
     for name, (folder, optional) in folders.items():
-        at = next((d / name for d in homes if (d / name).is_dir()), None)
-        if at or (home and not optional):
-            for master in kit.under(folder):
-                planned[(at or home / name) / master[len(folder) + 1:]] = ("skill", master)
+        at = [d / name for d in homes if (d / name).is_dir()][:1] or \
+            ([] if optional else [d / name for d in in_use[:1]])
+        at = [d / name for d in in_use] if name == "para-shared" else at
+        for master in kit.under(folder):
+            planned.update((p / master[len(folder) + 1:], ("skill", master)) for p in at)
 
     for prefix in ["base/.claude/rules/"] + [f"{r}/.claude/rules/" for r in roots]:
         for master in kit.tree:
