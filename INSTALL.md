@@ -11,7 +11,7 @@ The operator's prompt says nothing about the vault itself: Step 4's questions as
 The session's working directory becomes the vault root. Look at it before writing anything:
 
 - **Empty, or holding only files the operator just put there**: go on.
-- **It already holds a `CLAUDE.md`**: this is an existing vault, not a new one. Stop, say so, and name `/para-upgrade` as the way to bring a vault up to date.
+- **It already holds a `CLAUDE.md`**: this is an existing vault, not a new one. Stop, say so, and name `/para-upgrade` as the way to bring a vault up to date; never offer to install over it.
 - **It holds anything else**: list what is there and ask whether this really is the folder for the new vault. A session started from a folder already in the Claude desktop sidebar opens *in that folder*.
 
 ## 2. Get the kit, outside the folder
