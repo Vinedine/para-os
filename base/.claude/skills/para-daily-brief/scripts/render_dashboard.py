@@ -57,8 +57,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        OPEN_ITEM_CAP, PRIORITY_RANK, WAITING_FLAG_DAYS, paraos_home_dir,
-        scope_of,
+        OPEN_ITEM_CAP, PRIORITY_RANK, WAITING_FLAG_DAYS, paraos_home_dir, registry,
+        same_place, scope_of,
     )
     from brief_scan import EMPHASIS_RE, SENTENCE_END_RE, first_end  # noqa: E402
 except ImportError as missing:
@@ -110,7 +110,13 @@ def cut(text):
 
 
 def display_name(vault):
-    """The vault's CLAUDE.md H1 without a trailing `Vault Conventions`, else its folder."""
+    """The vault's registry name, else its CLAUDE.md H1 without a trailing `Vault
+    Conventions`, else its folder. The registry comes first because the page title is the
+    update key (references/dashboard.md) and an H1 gets reworded."""
+    place = same_place(vault)
+    for entry in registry():
+        if entry.get("name") and entry.get("path") and same_place(entry["path"]) == place:
+            return entry["name"]
     claude = Path(vault) / "CLAUDE.md"
     if claude.is_file():
         for line in claude.read_text(encoding="utf-8", errors="replace").splitlines():

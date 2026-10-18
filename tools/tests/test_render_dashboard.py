@@ -77,6 +77,22 @@ class Page(DashboardCase):
         self.assertEqual(title, "BelFoot Dashboard")
         self.assertIn("<title>BelFoot Dashboard</title>", page)
 
+    def registers(self, name, path):
+        self.home.mkdir(parents=True, exist_ok=True)
+        (self.home / "vaults.json").write_text(json.dumps([{"name": name, "path": str(path)}]),
+                                               encoding="utf-8")
+
+    def test_the_registry_name_outranks_a_reworded_h1(self):
+        write(self.root, "CLAUDE.md", "# BelFoot (Harlow) Vault Conventions\n")
+        self.registers("BelFoot", self.root)
+        self.assertEqual(render(self.report(), self.judgment(self.report()))[0],
+                         "BelFoot Dashboard")
+
+    def test_a_registered_parent_folder_does_not_name_the_vault(self):
+        self.registers("Documents", self.root.parent)
+        self.assertEqual(render(self.report(), self.judgment(self.report()))[0],
+                         "BelFoot Dashboard")
+
     def test_the_page_loads_nothing_from_the_network(self):
         _, page = render(self.report(), self.judgment(self.report()))
         self.assertNotIn("<link", page)
