@@ -957,6 +957,11 @@ class Unattended(VaultCase):
             "run": "20260102-0700", "acted": {"Dismiss (noise)": 2, "Delete (duplicate)": 1},
             "proposal_waiting": True})
 
+    def test_a_proposal_of_a_vault_whose_name_extends_this_one_is_not_waiting(self):
+        write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
+        write(self.home, "cache/triage/proposals/north-east-20260102-0700.md", "x\n")
+        self.assertIsNone(self.unattended())
+
 
 class CommandLineCase(unittest.TestCase):
     """The command the skill runs: one JSON document, and a usage error for a bad argument."""
