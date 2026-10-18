@@ -810,6 +810,12 @@ class Archive(VaultCase):
         naming = self.run_scan("1")["phase1"]["archive"]["meetings_naming"]
         self.assertEqual(naming, ["archive/meetings/not-dated.md"])
 
+    def test_meetings_readme_is_not_a_naming_violation(self):
+        write(self.root, "archive/meetings/README.md", "# archive / meetings\n")
+        write(self.root, "archive/meetings/not-dated.md", "x\n")
+        naming = self.run_scan("1")["phase1"]["archive"]["meetings_naming"]
+        self.assertEqual(naming, ["archive/meetings/not-dated.md"])
+
     def test_dated_pattern_is_overridable(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "archive/meetings/2026-01-01 Kickoff.md", "x\n")

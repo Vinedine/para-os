@@ -576,7 +576,7 @@ def archive_findings(vault, dated_pattern):
             pattern = re.compile(dated_pattern)
             meetings_naming = sorted(p.relative_to(vault).as_posix()
                                      for p in meetings.iterdir()
-                                     if p.is_file() and not pattern.match(p.name))
+                                     if p.is_file() and p.name != "README.md" and not pattern.match(p.name))
         for bucket_dir in sorted(d for d in archive.iterdir() if d.is_dir() and d.name != "meetings"):
             for entity_dir in sorted(d for d in bucket_dir.iterdir() if d.is_dir()):
                 if not (entity_dir / "brief.md").is_file() and not (entity_dir / "README.md").is_file():
