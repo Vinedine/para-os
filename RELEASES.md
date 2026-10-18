@@ -39,6 +39,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **The brief names only a project's champion or contact as the one its tasks are owed to.** A card the project brief links for another reason, such as the agent who referred a property, no longer gets every unlinked task in that project.
 - **Rewording a vault's heading no longer starts a second dashboard.** The daily brief names its dashboard after the vault's name in the vault registry, so editing the heading of the vault's instructions leaves the page it updates where it was.
 - **The deep clean stops reporting false contacts and false phone numbers.** The contacts folder's own index page is no longer read as a person, and only numbers written the way phone numbers are (an international prefix, or a leading zero with grouped digits) are reported as phones to move onto a card, so bank account numbers, file references and identity numbers stay where they are.
+- **The upgrade keeps your shared skill library in step with every skill that uses it.** Where some skills run from your user-level skills folder and others from the vault, the upgrade now checks the shared library in both places, so re-copying a skill can no longer leave it importing an older library and failing to start.
 
 ### Removed
 
