@@ -23,7 +23,7 @@ How to ask is [asking.md](../../para-shared/asking.md); an option comes from thi
 - **Dismiss (noise)**: never action-worthy anywhere; ledgered. A sign-in or security code is always this, counted and never named ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 - **Dismiss (other vault)**: real correspondence for another vault.
 
-**A staged mail note** (`note.mail_note`) stands in for its thread and takes both lists, each option saying what happens to the note: `Update existing, note deleted` by default. Dismiss (noise) is Delete (no lasting value) here. **Dismiss (other vault)** deletes it only where `note.mailbox_readers` names that vault; otherwise it is **Stage in other vault**, the note moved unchanged into that vault's `triage/`.
+**A staged mail note** (`note.mail_note`) stands in for its thread and takes both lists, each option saying what happens to the note: `Update existing, note deleted` by default. **Dismiss (noise)** deletes it. **Dismiss (other vault)** deletes it only where `note.mailbox_readers` names that vault; otherwise it is **Stage in other vault**, the note moved unchanged into that vault's `triage/`.
 
 ## Choosing
 
