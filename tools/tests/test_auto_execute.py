@@ -201,22 +201,21 @@ class Executor(unittest.TestCase):
                          "--paraos-home", self.home)
         self.assertEqual(code, 3)
 
-    def test_a_git_vault_gets_one_commit(self):
+    def test_a_git_vault_is_left_for_the_operator_to_commit(self):
         def git(*a):
-            subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-                            *a], cwd=self.vault, check=True, capture_output=True)
+            return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
+                                   *a], cwd=self.vault, check=True, capture_output=True,
+                                  text=True).stdout
         git("init", "-q")
         git("add", "-A")
         git("commit", "-qm", "start")
         self.switch_on("Delete (duplicate)")
-        with mock.patch.dict(os.environ, {"GIT_AUTHOR_NAME": "t", "GIT_COMMITTER_NAME": "t",
-                                          "GIT_AUTHOR_EMAIL": "t@example.invalid",
-                                          "GIT_COMMITTER_EMAIL": "t@example.invalid"}):
-            _, out = self.run_all(self.ROWS[:1])
-        self.assertEqual(out["commit"], "committed")
-        log = subprocess.run(["git", "log", "-1", "--format=%s"], cwd=self.vault,
-                             capture_output=True, text=True).stdout
-        self.assertIn("Delete (duplicate) dup.pdf", log)
+        _, out = self.run_all(self.ROWS[:1])
+        self.assertNotIn("commit", out)
+        self.assertEqual(git("log", "-1", "--format=%s").strip(), "start")
+        self.assertEqual(git("status", "--porcelain").strip(), "D triage/dup.pdf")
+        call("restore", "--vault-name", "north", "--run", out["run"], "--paraos-home", self.home)
+        self.assertEqual(git("status", "--porcelain"), "")
 
     def test_purge_trashes_only_expired_runs(self):
         self.switch_on("Delete (duplicate)")

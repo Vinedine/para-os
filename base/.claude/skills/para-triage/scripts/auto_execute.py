@@ -25,8 +25,7 @@ inbound link to it, its bytes still match the scan's snapshot, and the run is un
 Acting moves it into the quarantine, never deletes it. Everything else goes into the run's
 proposal, with each item's name, size, mtime and md5, and `refused` says why. The whole run
 is refused while the kill switch exists, and for a vault whose `CLAUDE.md` has a
-`## Who writes this vault` roster. Where the vault is a git repository, one commit names
-each item it removed.
+`## Who writes this vault` roster. A run commits nothing: the operator commits.
 
 `restore` moves a run's items back, checks each md5, and switches the item's action off for
 the vault (`demoted`). `status` reads the switched-on actions, the kill switch, the runs and
@@ -147,21 +146,6 @@ def item_record(path):
     return {"size": st.st_size, "mtime": int(st.st_mtime), "md5": md5(path)}
 
 
-def git_commit(vault, rels, message):
-    """One commit for the items a run removed, where they were tracked; None where the vault
-    is not a git repository or tracked none of them."""
-    def git(*args):
-        return subprocess.run(["git", "-C", str(vault), *args], capture_output=True, text=True)
-    try:
-        tracked = [r for r in rels if git("ls-files", "--error-unmatch", "--", r).returncode == 0]
-    except OSError:
-        return None
-    if not tracked:
-        return None
-    done = git("commit", "-q", "-m", message, "--", *tracked)
-    return "committed" if done.returncode == 0 else done.stderr.strip() or "commit failed"
-
-
 def write_proposal(state, run, vault_root, rows):
     lines = ["# Unattended triage: waiting for the operator", "",
              "| Item | Recommended | Why | Held because |", "|---|---|---|---|"]
@@ -230,16 +214,13 @@ def run(args):
     report = {"vault": state.vault, "run": run_id, "kill_switch": False,
               "acted": [{"item": a["item"], "action": a["action"]} for a in acted],
               "refused": [{"item": h["item"], "reason": h["refused"]} for h in held],
-              "quarantine": None, "proposal": None, "commit": None}
+              "quarantine": None, "proposal": None}
     if acted:
         write_json(folder / "manifest.json", {"vault": state.vault, "root": str(vault_root),
                                               "run": run_id, "items": acted})
         state.append({"date": today, "item": a["item"], "recommended": a["action"],
                       "chosen": a["action"], "path": "unattended"} for a in acted)
         report["quarantine"] = str(folder)
-        report["commit"] = git_commit(vault_root, [a["original"] for a in acted],
-                                      "Unattended triage: " + "; ".join(
-                                          f"{a['action']} {a['item']}" for a in acted))
     if held:
         report["proposal"] = str(write_proposal(state, run_id, vault_root, held))
     return report
