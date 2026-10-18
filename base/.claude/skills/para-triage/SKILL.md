@@ -7,7 +7,7 @@ argument-hint: '[preview|apply|convert|table|auto] [--test]'
 
 # Triage
 
-Processes every loose file in the current vault's `triage/` folder, plus any items pulled from the vault's configured triage sources (mailboxes, sync scripts). **Nothing is moved, renamed, or deleted until its own disposition has been put to the operator and approved**.
+Processes every loose file in the current vault's `triage/` folder, plus any items pulled from the vault's configured triage sources (mailboxes, sync scripts). **Nothing is moved, renamed, or deleted without the operator's approval.**
 
 The vault's `CLAUDE.md`, read at runtime, supplies the naming convention, the PARA layout and the optional `## Triage sources` block; without that block the run is folder-only.
 
