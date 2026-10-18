@@ -22,6 +22,6 @@ What Step 2's `status` reports:
 
 - **`runs`** since the last interactive decision, one line each with its restore command. A restore switches that action off for the vault; say so.
 - **A waiting `proposal`**: its `unchanged` items join this run's questions with the run's recommendation; a `changed` or `missing` one is named and dropped.
-- **An `offer`**: one question, after the items, to switch that action on (`switch --on "<action>"`).
+- **An `offer`**: one question, after the items, to switch that action on (`switch --vault-name <vault.name> --on "<action>"`).
 
 Step 7's `record` passes `--proposal <path>` where the run decided one.
