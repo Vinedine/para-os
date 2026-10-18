@@ -795,10 +795,10 @@ def detail_text(lines, lineno):
 
 
 def contact_of(vault, path, fields):
-    """The card a brief or register row names as its contact: a `Champion` or `Contact`
-    field linking one, else the first card the brief's header links. (stem, as written)."""
+    """The card a brief or register row's `Champion` or `Contact` field links.
+    (stem, as written)."""
     raw = next((field_ci(fields, f) for f in CONTACT_FIELDS if field_ci(fields, f)), "") or ""
-    for target in links_from(vault, path, raw) + links_from(vault, path, " ".join(fields.values())):
+    for target in links_from(vault, path, raw):
         if card_stem(target):
             return card_stem(target), raw
     return None, raw
@@ -815,8 +815,7 @@ def entity_contact(vault, entity_dir, cache):
 
 def annotate_owed_to(vault, tasks):
     """Each task's `links` (its line and its indented detail lines) and `owed_to`: the card
-    it sits on, else a card it links, else the main contact of the project or idea it sits
-    in."""
+    it sits on, else a card it links, else the contact of the project or idea it sits in."""
     lines, contacts = {}, {}
     for t in tasks:
         raw = lines.setdefault(t["file"], read_lines(vault / t["file"]))

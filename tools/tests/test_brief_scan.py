@@ -643,6 +643,15 @@ class Dashboard(VaultCase):
         self.assertEqual(self.owed("Call [Piet](../network/piet-peeters.md) about the 11:00 slot"), "piet-peeters")
         self.assertEqual(self.owed("Draft the plan"), "piet-peeters")
 
+    def test_a_card_the_brief_links_on_another_field_is_not_owed_its_tasks(self):
+        write(self.root, "projects/house/brief.md",
+              "# house\n\n**Source:** [Piet](../../areas/network/piet-peeters.md)\n")
+        write(self.root, "projects/house/actions.md", "# house\n\n## Next actions\n"
+              "- [ ] Book the survey 📅 2026-09-30\n")
+        report = scan(self.root, TODAY)
+        self.assertIsNone(self.task(report, "Book the survey")["owed_to"])
+        self.assertEqual(self.task(report, "Draft the plan")["owed_to"], "piet-peeters")
+
     def test_links_include_the_indented_detail_lines(self):
         t = self.task(self.report, "Chase the acme signature")
         self.assertEqual(t["links"], ["resources/ideas/acme/brief.md"])
