@@ -34,6 +34,9 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **The upgrade no longer replaces a filled-in file that matches something else in the kit.** A file counts as an old, unchanged copy only when it matches what the kit once shipped in that same place; any other file is shown to you before it changes.
 - **The daily brief stops asking whether an area is finished.** A project or area with nothing open is now flagged as just that, since an area is kept up rather than finished.
 - **Triage proposes a delete where you would choose one.** An item whose outcome is kept elsewhere, such as in a shop's own account or a portal, is proposed for deletion instead of left waiting, nothing a portal, a direct debit or your calendar already tracks becomes an action, and the facts of a summary or another tool's export are copied into the projects and areas they concern, each naming where it came from. A contract, an invoice or a signed letter is still filed. A document no project or area owns is handled the same way: deleted when its outcome is kept elsewhere, or filed in the business area when it is worth keeping, such as a policy covering the whole business.
+- **Properties no longer show as unknown deal stages.** In a vault with both the property and sales add-ons, the pipeline listed every property sharing a folder with the deals as a deal at an unknown stage. A stage another lifecycle declares now belongs to that lifecycle.
+- **The deep clean no longer flags the archive's own index page.** A fresh vault's meetings archive ships with a short page describing the folder, and the deep clean listed it as an undated meeting record, so the archive never came out clean.
+- **The brief names only a project's champion or contact as the one its tasks are owed to.** A card the project brief links for another reason, such as the agent who referred a property, no longer gets every unlinked task in that project.
 
 ### Removed
 
