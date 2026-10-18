@@ -46,7 +46,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        FROZEN_MARKER_RE, STALE_UNDATED_DAYS, TASK_RE,
+        FROZEN_MARKER_RE, NOT_CARDS, STALE_UNDATED_DAYS, TASK_RE,
         LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
         dangling_links, duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
@@ -89,9 +89,11 @@ MONEY_RE = re.compile(r"(?:[€$]|EUR)\s?-?\d(?:[\d.,]*\d)?(?:\s?[kK]\b)?"
 LEDGER_EXEMPT_RE = re.compile(
     r"(?:^|[-_. ])(?:log|usage|review|digest|ledger|transcript)s?(?:[-_. ]|$)", re.IGNORECASE)
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-PHONE_CANDIDATE_RE = re.compile(r"\+?\d[\d ./]{6,}\d")
-ISO_DATE_SHAPE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
-COMPACT_DATE_SHAPE_RE = re.compile(r"^\d{8}$")
+PHONE_RE = re.compile(r"(?<![\w.,/+-])(?<!\d[ ./-])"
+                      r"(?:\+\d{1,3}(?:[ ./-]?\(0\))?(?:[ ./-]?\d+)+|0\d{1,4}(?:[ ./-]\d+)+)"
+                      r"(?!\w|[ ./-]\d)")
+IBAN_RE = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b")
+REFERENCE_LABEL_RE = re.compile(r"(?:\b(?:r[eé]f|nr|no)\b\.?|n°|#)\s*:?\s*$", re.IGNORECASE)
 
 
 def whole_word(name):
@@ -168,19 +170,25 @@ def name_only_lines(path, columns):
 
 
 def phone_matches(text):
-    """Phone-shaped runs in `text`: a leading `+`, or at least eight digits separated only
-    by spaces, dots or slashes - never a `YYYY-MM-DD` or `YYYYMMDD` date shape. Run on the
-    href-stripped, percent-decoded line link_targets_stripped() produces, so a date or a
-    path segment sitting inside a link target is never mistaken for a phone."""
+    """Phone-shaped runs in `text`: a `+` and 8 to 15 digits, or a trunk `0` and 9 to 11 in
+    two groups or more, never part of a longer number (`2019 07311`), an IBAN, or a number
+    after a reference label (`ref.`, `nr`, `#`). Run on the line link_targets_stripped()
+    produces, so a date or a path segment inside a link target is never a phone."""
+    text = IBAN_RE.sub(lambda m: " " * len(m.group(0)), text)
     out = []
-    for m in PHONE_CANDIDATE_RE.finditer(text):
-        candidate = m.group(0)
-        digits = re.sub(r"\D", "", candidate)
-        if ISO_DATE_SHAPE_RE.search(candidate) or COMPACT_DATE_SHAPE_RE.match(digits):
+    for m in PHONE_RE.finditer(text):
+        digits = len(re.sub(r"\D", "", m.group(0)))
+        if REFERENCE_LABEL_RE.search(text[:m.start()]):
             continue
-        if candidate.strip().startswith("+") or len(digits) >= 8:
-            out.append(candidate)
+        if 8 <= digits <= 15 if m.group(0)[0] == "+" else 9 <= digits <= 11:
+            out.append(m.group(0))
     return out
+
+
+def contact_cards(vault):
+    """Every person's card in areas/network/, without the folder's README or actions."""
+    return [c for c in sorted((vault / "areas" / "network").glob("*.md"))
+            if c.name.lower() not in NOT_CARDS]
 
 
 # --------------------------------------------------------------------------- preconditions
@@ -355,8 +363,8 @@ def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
     finding, one entry per card with the files that named it uncited; `exempt` is every
     file a mention was found in but dropped as a ledger record, so the skill can override
     the proxy."""
-    network_dir = vault / "areas" / "network"
-    if not network_dir.is_dir():
+    cards = contact_cards(vault)
+    if not cards:
         return [], []
     excluded = ("resources/prompts", *excluded_dirs)
     columns = {}
@@ -367,7 +375,7 @@ def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
                if (vault / rel).is_file()}
     frozen, targets = {}, {}
     out, exempt = [], set()
-    for card in sorted(network_dir.glob("*.md")):
+    for card in cards:
         card_rel = card.relative_to(vault).as_posix()
         names = contact_names(card)
         if not names:
@@ -425,11 +433,11 @@ def inline_contact_details(vault):
     forbids assigning a detail to whoever shares its line, so this reports `names_on_line`
     and leaves the assignment to the skill. Matched on the line with inline code spans blanked and every link target
     stripped and percent-decoded, so a path or a code sample never reads as a detail."""
-    network_dir = vault / "areas" / "network"
-    if not network_dir.is_dir():
+    cards = contact_cards(vault)
+    if not cards:
         return []
     names_by_card, patterns = {}, {}
-    for card in sorted(network_dir.glob("*.md")):
+    for card in cards:
         card_rel = card.relative_to(vault).as_posix()
         for name in contact_names(card):
             names_by_card[name] = card_rel
