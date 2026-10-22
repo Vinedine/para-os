@@ -27,8 +27,8 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from brief_scan import scan
-from render_dashboard import (JudgmentError, cut, local_page, main, mechanical_now,
-                              publish_choice, remember, remembered_url, render)
+from render_dashboard import PAGE, JudgmentError, cut, main, mechanical_now, render
+from paraos_pages import local_page, publish_choice, remember, remembered_url
 from test_brief_scan import build_people_vault, build_vault, write
 
 TODAY = date(2026, 9, 15)
@@ -371,24 +371,14 @@ class Cut(unittest.TestCase):
 
 class Cache(DashboardCase):
 
-    def test_a_url_round_trips_per_vault(self):
-        self.assertIsNone(remembered_url(self.root))
-        remember(self.root, "https://example.invalid/a")
-        self.assertEqual(remembered_url(self.root), "https://example.invalid/a")
-        self.assertIsNone(remembered_url(Path(self.tmp.name) / "other"))
-
-    def test_a_corrupt_cache_reads_as_empty(self):
-        write(self.home, "cache/daily-brief/dashboards.json", "{not json")
-        self.assertIsNone(remembered_url(self.root))
-        self.assertEqual(publish_choice(self.root), "claude")
-
-    def test_claude_is_the_default_and_a_choice_survives_a_remembered_url(self):
-        self.assertEqual(publish_choice(self.root), "claude")
-        with contextlib.redirect_stdout(io.StringIO()):
+    def test_the_daily_brief_keeps_its_cache_file(self):
+        with contextlib.redirect_stdout(io.StringIO()) as printed:
             self.assertEqual(main(["--publish", "local", "--vault", str(self.root)]), 0)
-        remember(self.root, "https://example.invalid/b")
-        self.assertEqual(publish_choice(self.root), "local")
-        self.assertEqual(remembered_url(self.root), "https://example.invalid/b")
+        self.assertEqual(Path(json.loads(printed.getvalue())["cache"]),
+                         self.home / "cache" / "daily-brief" / "dashboards.json")
+        remember(self.root, PAGE, "https://example.invalid/b", "BelFoot Dashboard")
+        self.assertEqual(publish_choice(self.root, PAGE), "local")
+        self.assertEqual(remembered_url(self.root, PAGE), "https://example.invalid/b")
 
 
 class Cli(DashboardCase):
@@ -411,8 +401,8 @@ class Cli(DashboardCase):
             self.assertEqual(main(self.files() + ["--out", str(self.root / "page.html")]), 2)
         self.assertFalse((self.root / "page.html").exists())
         code, printed = self.run_main(self.files() + ["--out", str(Path(self.tmp.name) / "o.html")])
-        self.assertEqual((code, printed["title"], printed["publish"]),
-                         (0, "BelFoot Dashboard", "claude"))
+        self.assertEqual((code, printed["title"], printed["page"], printed["publish"]),
+                         (0, "BelFoot Dashboard", "daily-brief", "claude"))
         self.assertFalse(data(Path(printed["out"]).read_text(encoding="utf-8"))["local"])
 
     def test_a_claude_page_needs_an_out_and_a_mechanical_render_no_judgment(self):
@@ -426,9 +416,10 @@ class Cli(DashboardCase):
             main(["--publish", "local", "--vault", str(self.root)])
         code, printed = self.run_main(self.files(mechanical=True))
         self.assertEqual((code, printed["publish"]), (0, "local"))
-        self.assertEqual(Path(printed["out"]), local_page(self.root))
-        self.assertTrue(local_page(self.root).is_relative_to(self.home))
-        self.assertTrue(data(local_page(self.root).read_text(encoding="utf-8"))["local"])
+        page = local_page(self.root, PAGE)
+        self.assertEqual(Path(printed["out"]), page)
+        self.assertEqual(page, self.home / "cache" / "daily-brief" / "vault.html")
+        self.assertTrue(data(page.read_text(encoding="utf-8"))["local"])
 
 
 if __name__ == "__main__":

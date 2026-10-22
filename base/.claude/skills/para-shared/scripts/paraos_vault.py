@@ -24,9 +24,10 @@ a link points at and what a move would have to rewrite, whether two files hold t
 what a vault declares it is built from and the locale it declares, the numbers a vault's own
 rules state, the last day to give notice on a renewing agreement, and the date a promised
 weekday points at. A second implementation of any of those is a vault getting two answers to
-one question, which is the failure this repo exists to prevent. Two siblings hold what is not
+one question, which is the failure this repo exists to prevent. Three siblings hold what is not
 about the vault itself: `paraos_clone.py` reads the para-os clone a vault is measured against,
-and `paraos_mail.py` reads mail threads, the notes they become and the ledgers that track them.
+`paraos_mail.py` reads mail threads, the notes they become and the ledgers that track them, and
+`paraos_pages.py` says where a skill's page goes.
 
 What does NOT live here: anything a single skill decides. Bucketing against a date,
 ranking, thresholds a skill invents for its own report, and every word an operator reads

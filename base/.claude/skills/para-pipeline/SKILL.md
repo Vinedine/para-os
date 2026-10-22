@@ -1,7 +1,7 @@
 ---
 name: para-pipeline
 description: Render the board for every lifecycle the vault declares - each entity at its stage with days in stage, its next dated step and where it came from, the flags for what has stopped moving, the counts by stage and the quarter's metrics - closing on one next action. Use when the user asks "where does the pipeline stand", "what is in the funnel", "which deals have gone quiet", "what stage is <name> at", "show me the property pipeline", or types /para-pipeline [<lifecycle>].
-allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read
+allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Artifact
 argument-hint: '[<lifecycle>] [--test]'
 ---
 
@@ -50,8 +50,12 @@ Pass `--lifecycle` only under a lifecycle scope. Exit 3 (`no such lifecycle`, wi
 
 Word what the scan computed into the board, the flags, the counts, the metrics and the one Next action, reading nothing past it. **Layout and rules: [references/render.md](references/render.md).**
 
+### Step 5: The page
+
+Without a lifecycle argument, and only where the vault declares a page for `para-pipeline`: build it from the Steps 2 and 3 scan output and publish it, per [para-shared/pages.md](../para-shared/pages.md#a-page-the-vault-declares).
+
 ## Strict rules
 
 - **Never invent a stage, a date or a next step.** Unknown stays unknown, and a missing step is flagged.
 - **Never score, weight or forecast.** The one ordering beyond stage and days is the By value line, by stated Value, unweighted. No probability, conversion rate or funnel percentage: a pipeline of a dozen entities is read, not modelled.
-- **A value figure is internal.** It renders in the terminal, never into a file or anything shared outside the vault.
+- **A value figure is internal.** It renders in the terminal, never into a file, a page or anything shared outside the vault.
