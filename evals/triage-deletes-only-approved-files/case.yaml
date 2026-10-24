@@ -1,5 +1,0 @@
-schema_version: "1.1"
-name: triage-deletes-only-approved-files
-tags: [triage, shell, write]
-context:
-  scaffold_script: setup.sh
