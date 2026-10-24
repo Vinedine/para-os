@@ -41,9 +41,8 @@ jobs:
         run: |
           npm install -g @anthropic-ai/claude-code
           claude --version
-      # The harness runs a granted shell inside bubblewrap and refuses it with no sandbox.
-      # Ubuntu 24.04's AppArmor policy stops bwrap creating user namespaces; the profile below
-      # is the one Claude Code's sandboxing docs give, and it covers bwrap alone.
+      # A granted shell runs inside bubblewrap. Ubuntu 24.04's AppArmor stops bwrap creating user
+      # namespaces; the profile below, from Claude Code's sandboxing docs, covers bwrap alone.
       - name: Install the sandbox
         run: |
           sudo apt-get update
@@ -62,11 +61,12 @@ jobs:
           fi
           bwrap --ro-bind / / true
       # --threshold 0: a low score never fails the job. --keep-temp keeps the traces the summary
-      # reads the model from. Results land under PARAOS_HOME, outside the checkout.
+      # reads the model from. TMPDIR keeps case folders off /tmp, which the shell cannot write.
       - name: Evals
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PARAOS_HOME: ${{ runner.temp }}/paraos
+          TMPDIR: ${{ runner.temp }}
           CASE: ${{ inputs.case }}
           MODEL: ${{ inputs.model }}
         run: |
