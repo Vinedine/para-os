@@ -40,7 +40,7 @@ Ask only where the answer is not forced. "Add Alex Rivera as a contact" is a per
 | *(none)* | Ask what the user wants to create, then run the full flow. |
 | `<name>` | Full flow: classify, interview, propose, scaffold. |
 | `project` / `area` / `idea` / `contact` `<name>` | Same, with the shape declared. **The sorting test still runs** and still overrules a declared shape that is wrong. |
-| `<noun> <name>` | The noun of a lifecycle the vault declares (`deal`, `property`): create a **staged entity** at that lifecycle's first non-row stage, with its Stage line and header. **[references/scaffold.md](references/scaffold.md).** |
+| `<noun> <name>` | The noun of a lifecycle the vault declares (`deal`, `property`): create a **staged entity**. **[references/scaffold.md](references/scaffold.md).** |
 | `promote <name>` | The idea-to-project path. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 

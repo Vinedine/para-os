@@ -23,7 +23,7 @@ Nothing is written until the proposal is approved: the folder path, the files, a
 
 ### A staged entity
 
-For a lifecycle the vault declares ([para-shared/lifecycles.md](../../para-shared/lifecycles.md)) whose noun the operator used, the path is **the first stage whose `PARA home` is a folder**. An entity belonging at an earlier row home is **one row appended to that register**, in its column order, and nothing else: say which before writing. The document opens with `**Stage:** <Stage> (since <today>)` and the header lines the lifecycle's rule file declares, in its order, an unsettled field written as its `## Placeholders` says. The champion's contact file comes with it, as below: without one, the next step has no home.
+For a lifecycle the vault declares ([para-shared/lifecycles.md](../../para-shared/lifecycles.md)) whose noun the operator used, an entity whose stage's home is a register is **one row appended to it**, in its column order, and nothing else: say which before writing.
 
 ## Seed exactly one action
 
