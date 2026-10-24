@@ -22,4 +22,4 @@ Both ship `CLAUDE.md.sections`, merged in beside the vault's own sections and ne
 
 `README.md` (its first line naming the kind) and `CLAUDE.md.sections`; then, as needed, `.claude/rules/` for the shapes it governs, `.claude/skills/` installed beside base's, `skeleton/` for files copied into the vault, and `pipeline/` for scripts, each carrying a `para-os-integration` marker like an [integration](../integrations/).
 
-`/para-upgrade` resolves every declared name to `addons/<name>/` and compares each file it ships as it compares base's; the declaration lines themselves are never removed. `tools/check.py` holds an add-on's skills to the same contract as base's.
+`/para-upgrade` resolves every declared name to `addons/<name>/` and compares each file it ships as it compares base's; the declaration lines themselves are never removed. `/para-upgrade --add <name>` adopts one, running its README's Setup. `tools/check.py` holds an add-on's skills to the same contract as base's.

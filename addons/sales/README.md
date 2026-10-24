@@ -20,7 +20,7 @@ It sits beside any [flavor](../real-estate/), including none. A property develop
 
 ## Setup
 
-A new vault for a business gets the module from the bootstrap, which offers it and runs these steps itself. An existing vault adopts it by hand:
+A new vault for a business gets the module from the bootstrap, which offers it and runs these steps itself. An existing vault adopts it with `/para-upgrade --add sales`, which runs them:
 
 1. Add `**Modules:** sales` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one, and merge in `CLAUDE.md.sections`. Replace the register placeholder with the real path.
 2. Copy `.claude/rules/deal-brief.md` into the vault's `.claude/rules/`. Where the vault has a `brief-structure.md`, add a line to it: `deal-brief.md` takes over briefs whose Stage line names a deal stage.

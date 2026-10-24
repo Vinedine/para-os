@@ -1,8 +1,8 @@
 ---
 name: para-upgrade
-description: Bring a vault in line with a newer para-os template revision - compares every file the kit owns with a para-os clone at an explicit ref by hash and re-copies on approval, takes the operator through the template's change to CLAUDE.md hunk by hunk, proposes deleting the files the kit retired, applies the content changes the changelog asks for, and restamps the marker. Use when the user asks to "upgrade the vault", "align this vault to para-os", "is this vault on the latest structure", "apply the new para-os structure", or types /para-upgrade.
+description: Bring a vault in line with a newer para-os template revision - compares every file the kit owns with a para-os clone at an explicit ref by hash and re-copies on approval, takes the operator through the template's change to CLAUDE.md hunk by hunk, proposes deleting the files the kit retired, applies the content changes the changelog asks for, restamps the marker, and adopts an add-on the operator names. Use when the user asks to "upgrade the vault", "align this vault to para-os", "is this vault on the latest structure", "apply the new para-os structure", or types /para-upgrade.
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git -C * fetch *), Bash(git rm *), Glob, Grep, Read, Edit, Write
-argument-hint: '[--ref <git-ref>] [--clone <path>] [audit] [--test]'
+argument-hint: '[--ref <git-ref>] [--clone <path>] [--add <name>] [audit] [--test]'
 ---
 
 # Para upgrade
@@ -16,6 +16,7 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 | *(none)* | Full flow against `origin/stable` |
 | `--ref <git-ref>` | Read the kit at this branch, tag or commit instead. A bare positional ref (`/para-upgrade feat/x`), or one after a qualifier word (`local feat/x`), is the same. |
 | `--clone <path>` | Read this para-os clone instead of the default one, per [para-shared/scripts.md](../para-shared/scripts.md) |
+| `--add <name>` | Also adopt `addons/<name>/`, or one named in words: before Step 5, run its README's Setup from the clone, each step on its own yes. Step 5's scan then holds its files to the ref. |
 | `audit` | Read-only: report what an upgrade would change, and change nothing |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 | any other `--` argument | Stops the run, `audit` or not: name it and show this table. Never read as a ref, bare or not. |
