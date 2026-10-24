@@ -600,11 +600,16 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
     reached_promoting, median_info = None, {"n": 0, "median": None}
     if promoting:
         reach_deltas, count = [], 0
+        promoting_index = stages.index(promoting)
         for e in entities:
-            if e["stage"] != promoting["name"]:
+            entity_index = next((i for i, s in enumerate(stages)
+                                 if s["name"] == e["stage"]), -1)
+            if entity_index < promoting_index:
                 continue
             won_date = extract_date(field_ci(e["fields"], "Won"))
-            reach_date = won_date or parse_date(e["since"])
+            promoting_date = extract_date(field_ci(e["fields"], promoting["name"]))
+            reach_date = won_date or promoting_date or (
+                parse_date(e["since"]) if entity_index == promoting_index else None)
             if reach_date and q_start <= reach_date <= q_end:
                 count += 1
                 opened_date = parse_date(e["opened"])

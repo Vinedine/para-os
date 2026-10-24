@@ -712,6 +712,20 @@ class Metrics(VaultCase):
         self.assertEqual(m["promoting_stage"], "Goal")
         self.assertEqual(m["reached_promoting"], 1)
 
+    def test_reached_promoting_counts_an_entity_that_has_advanced_this_quarter(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "## Deal lifecycle", "",
+            "| Stage | PARA home |", "|---|---|",
+            "| Lead | `areas/business/leads.md` (row) |",
+            "| Acquiring | `projects/<company>/` |",
+            "| Permitting | `projects/<company>/` |",
+            "| Lost | `archive/ideas/<company>/` |", "",
+        ]) + "\n")
+        write(self.root, "projects/oakview/brief.md",
+              "# Oakview\n\n**Stage:** Permitting (since 2026-10-20)\n"
+              "**Acquiring:** 2026-10-03\n**Opened:** 2026-09-01\n")
+        self.assertEqual(self.deal(today=date(2026, 10, 24))["metrics"]["reached_promoting"], 1)
+
     def test_a_won_date_on_an_archived_project_counts_as_reached(self):
         write(self.root, "archive/projects/nova/brief.md",
               "# Nova\n\n**Won:** 2026-08-15\n**Opened:** 2026-07-01\n")
