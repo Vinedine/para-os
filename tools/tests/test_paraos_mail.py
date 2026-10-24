@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from pathlib import Path
 from unittest import mock
 
@@ -16,8 +17,8 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from paraos_mail import (  # noqa: E402
-    dedup_key, ingest_ledger, ingest_logs, log_instant, main, note_name_parts, thread_hash,
-    unanswered, watermark, written_under,
+    dedup_key, eml, ingest_ledger, ingest_logs, log_instant, main, note_name_parts,
+    thread_hash, unanswered, watermark, written_under,
 )
 
 
@@ -488,6 +489,107 @@ class DedupKey(VaultCase):
             run_main(["key", str(path)])
         self.assertEqual(stop.exception.code, 2)
         self.assertIn("message 2", err.getvalue())
+
+
+LEGACY_EML = (
+    b"From: =?iso-8859-1?q?Ren=E9e_Exemple?= <renee@example.fr>\r\n"
+    b"To: me@example.org\r\n"
+    b"Subject: =?iso-8859-1?q?Facture_n=B0_12_=E9t=E9?=\r\n"
+    b"Date: Fri, 23 Oct 2026 11:14:07 +0200\r\n"
+    b"Message-ID: <legacy.1@example.fr>\r\n"
+    b"MIME-Version: 1.0\r\n"
+    b"Content-Type: text/plain; charset=windows-1252\r\n"
+    b"Content-Transfer-Encoding: quoted-printable\r\n"
+    b"\r\n"
+    b"Montant d=FB pour l'=E9t=E9 : 80 =80.\r\n"
+)
+
+
+class Eml(VaultCase):
+    """`eml`: a saved message's headers, text and attachments, decoded."""
+
+    def save(self, message, name="message.eml"):
+        path = self.root / name
+        path.write_bytes(message if isinstance(message, bytes) else message.as_bytes())
+        return path
+
+    def multipart(self):
+        message = EmailMessage()
+        message["From"] = "Anna Example <anna@example.org>"
+        message["To"] = "me@example.org"
+        message["Cc"] = "Bo <bo@example.org>"
+        message["Date"] = "Fri, 23 Oct 2026 11:14:07 +0200"
+        message["Subject"] = "Quarterly report"
+        message["Message-ID"] = "<abc.123@example.org>"
+        message.set_content("The figures are attached.\n")
+        message.add_alternative("<p>The <b>figures</b> are attached.</p>", subtype="html")
+        message.add_attachment(b"%PDF-1.4 fake", maintype="application", subtype="pdf",
+                               filename="report.pdf")
+        return message
+
+    def test_the_headers_text_and_attachments_of_a_multipart_message(self):
+        got = eml(self.save(self.multipart()))
+        self.assertEqual(got["headers"], {
+            "From": "Anna Example <anna@example.org>", "To": "me@example.org",
+            "Cc": "Bo <bo@example.org>", "Date": "Fri, 23 Oct 2026 11:14:07 +0200",
+            "Subject": "Quarterly report", "Message-ID": "<abc.123@example.org>"})
+        self.assertEqual((got["text"], got["text_from"]), ("The figures are attached.", "plain"))
+        self.assertEqual(got["attachments"],
+                         [{"name": "report.pdf", "type": "application/pdf", "size": 13}])
+
+    def test_an_html_only_message_is_reduced_to_text(self):
+        message = EmailMessage()
+        message["Subject"] = "Notice"
+        message.set_content("<html><head><style>p{color:red}</style></head><body>"
+                            "<p>Line one &amp; more</p><p>Line<br>two</p>"
+                            "<script>alert(1)</script></body></html>", subtype="html")
+        got = eml(self.save(message))
+        self.assertEqual((got["text"], got["text_from"]), ("Line one & more\n\nLine\ntwo", "html"))
+        self.assertEqual(got["headers"]["From"], None)
+
+    def test_a_legacy_character_set_is_decoded_in_headers_and_body(self):
+        got = eml(self.save(LEGACY_EML))
+        self.assertEqual(got["headers"]["Subject"], "Facture n° 12 été")
+        self.assertEqual(got["headers"]["From"], "Renée Exemple <renee@example.fr>")
+        self.assertEqual(got["text"], "Montant dû pour l'été : 80 €.")
+
+    def test_a_character_set_python_does_not_know_still_reads(self):
+        raw = LEGACY_EML.replace(b"charset=windows-1252", b"charset=x-unknown-legacy")
+        self.assertIn("Montant d", eml(self.save(raw))["text"])
+
+    def test_a_forwarded_message_is_an_attachment_not_more_body(self):
+        outer = self.multipart()
+        inner = EmailMessage()
+        inner["Subject"] = "Original"
+        inner.set_content("Forwarded words.\n")
+        outer.add_attachment(inner)
+        got = eml(self.save(outer))
+        self.assertEqual(got["text"], "The figures are attached.")
+        self.assertEqual([a["type"] for a in got["attachments"]],
+                         ["application/pdf", "message/rfc822"])
+
+    def test_extract_writes_each_attachment_inside_the_folder(self):
+        message = self.multipart()
+        message.add_attachment(b"second", maintype="application", subtype="pdf",
+                               filename="report.pdf")
+        message.add_attachment(b"escape", maintype="text", subtype="plain",
+                               filename="../../evil.txt")
+        out = self.root / "out"
+        got = eml(self.save(message), extract=out)
+        saved = [Path(a["saved_to"]) for a in got["attachments"]]
+        self.assertEqual([p.name for p in saved], ["report.pdf", "report (2).pdf", "evil.txt"])
+        self.assertTrue(all(p.parent == out for p in saved))
+        self.assertEqual(saved[1].read_bytes(), b"second")
+
+    def test_the_command_prints_the_message(self):
+        code, out = run_main(["eml", str(self.save(LEGACY_EML))])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["headers"]["Message-ID"], "<legacy.1@example.fr>")
+
+    def test_the_command_refuses_a_missing_file_with_exit_2(self):
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as stop:
+            run_main(["eml", str(self.root / "absent.eml")])
+        self.assertEqual(stop.exception.code, 2)
 
 
 class Unanswered(unittest.TestCase):
