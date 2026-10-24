@@ -7,7 +7,7 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
 
     py -3 paraos_vault.py links dangling [--vault .]
     py -3 paraos_vault.py move-plan <src> <dst> [--vault .]
-    py -3 paraos_vault.py changed <file>
+    py -3 paraos_vault.py changed <file> [--done <path>...]
     py -3 paraos_vault.py notice-date <renewal> "<n> months" [--term "1 year"] [--today D]
     py -3 paraos_vault.py weekday-after <day> <weekday>
 
@@ -1959,16 +1959,19 @@ def snapshot(paths):
     return out
 
 
-def changed(before):
-    """The paths of a snapshot whose contents no longer match it, one since deleted included."""
-    now = snapshot(before)
-    return sorted(p for p, digest in before.items() if now.get(str(Path(p))) != digest)
+def changed(before, done=()):
+    """The paths of a snapshot whose contents no longer match it, one since deleted included,
+    less `done`: the paths the run itself has moved, deleted or written."""
+    now, mine = snapshot(before), {os.path.normcase(abspath(p)) for p in done}
+    return sorted(p for p, digest in before.items() if now.get(str(Path(p))) != digest
+                  and os.path.normcase(abspath(p)) not in mine)
 
 
-def arrived(before, folders):
-    """The files directly in each folder that the snapshot does not hold: arrivals since it
-    was taken, which no approval covered. A `.gitkeep` is not a file here, as in triage/."""
-    known = {os.path.normcase(abspath(p)) for p in before}
+def arrived(before, folders, done=()):
+    """The files directly in each folder that neither the snapshot nor `done` holds: arrivals
+    since it was taken, which no approval covered. A `.gitkeep` is not a file here, as in
+    triage/."""
+    known = {os.path.normcase(abspath(p)) for p in [*before, *done]}
     out = []
     for folder in folders:
         try:
@@ -2076,6 +2079,9 @@ def main(argv=None):
     changed_cmd.add_argument(
         "file", help="a JSON snapshot ({path: digest}), or scan output carrying a "
                      "'snapshot' key, top-level or under a phase key")
+    changed_cmd.add_argument("--done", nargs="*", default=[], metavar="PATH",
+                             help="paths this run moved (source and destination), deleted "
+                                  "or wrote: never reported")
     notice = sub.add_parser("notice-date", help="the last day to give notice on a renewing "
                                                 "agreement")
     notice.add_argument("renewal", help="the renewal date, YYYY-MM-DD")
@@ -2113,7 +2119,8 @@ def main(argv=None):
         snap = scan_snapshot(data)
         if snap is None:
             ap.error(f"{args.file} holds no snapshot")
-        diffs = {"changed": changed(snap), "arrived": arrived(snap, scan_snapshot_folders(data))}
+        diffs = {"changed": changed(snap, args.done),
+                 "arrived": arrived(snap, scan_snapshot_folders(data), args.done)}
         json.dump(diffs, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 1 if diffs["changed"] or diffs["arrived"] else 0

@@ -54,7 +54,7 @@ A contract, lease, subscription or policy that renews unless notice is given is 
 
 ## A synced vault can change mid-run
 
-Another session, device or the sync client itself can write a synced vault between two steps. Snapshot a file before proposing a change to it, and run `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" changed <scan output path>` (Windows: `py -3`) immediately before every delete or move: it exits 1 when a file in the snapshot changed or one arrived in a folder it watches. Re-read what changed; leave what arrived alone.
+Snapshot a file before proposing a change to it. Immediately before every delete or move, run `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" changed <scan output path> --done <each path this run moved from or to, deleted or wrote>` (Windows: `py -3`): it exits 1 when another writer changed a file in the snapshot or added one to a folder it watches. Re-read what changed; leave what arrived alone.
 
 ## Entity creation
 
