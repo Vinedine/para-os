@@ -31,7 +31,7 @@ Every question follows [para-shared/asking.md](../para-shared/asking.md): a clos
 ### Step 1 - Read the vault first
 
 1. **Resolve and verify the vault root** per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault).
-2. Read `CLAUDE.md`, the root `README.md`, every brief under `resources/ideas/`, and the retired ideas under the archive. The frame asks only what these do not already say, and a candidate matching an existing or retired idea is named as such in Step 7.
+2. Read `CLAUDE.md` and the root `README.md`. The frame asks only what these do not already say.
 3. With a `<path>`, read it and note which rounds it already answers.
 
 ### Steps 2 to 6 - The rounds
@@ -46,7 +46,7 @@ Every question follows [para-shared/asking.md](../para-shared/asking.md): a clos
 
 ### Step 7 - Land
 
-Two or three candidates, put to the operator item by item. Each approved one is one `/para-new` run whose brief links the session record, its path fixed first; the record follows. **Where each output lands, the brief's four lines and the record's shape: [references/landing.md](references/landing.md).**
+Read the briefs under `resources/ideas/` and the retired ideas under the archive, then put two or three candidates to the operator item by item, naming any that match one. Each approved one is one `/para-new` run whose brief links the session record, its path fixed first; the record follows. **Where each output lands, the brief's four lines and the record's shape: [references/landing.md](references/landing.md).**
 
 ## Strict rules
 
