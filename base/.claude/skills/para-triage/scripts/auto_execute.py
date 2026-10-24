@@ -51,7 +51,6 @@ import hashlib
 import json
 import re
 import shutil
-import subprocess
 import sys
 import time
 from datetime import datetime
@@ -62,7 +61,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
 try:
-    from paraos_vault import paraos_home_dir, same_place, snapshot  # noqa: E402
+    from paraos_vault import paraos_home_dir, same_place, snapshot, trash  # noqa: E402
 except ImportError as missing:
     print(f"auto_execute: {missing}. install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
@@ -329,25 +328,6 @@ def switch(args):
     if not QUARANTINE_RE.match(args.action):
         raise Refused(f"{args.action} is never unattended: only Delete and Dismiss actions are")
     return {"vault": state.vault, **state.switch(args.action, args.on)}
-
-
-def trash(path):
-    """The system trash, per operating-discipline.md; False where none is reachable."""
-    if sys.platform == "win32":
-        quoted = str(path).replace("'", "''")
-        cmd = ["powershell", "-NoProfile", "-Command",
-               "Add-Type -AssemblyName Microsoft.VisualBasic; "
-               "[Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory("
-               f"'{quoted}', 'OnlyErrorDialogs', 'SendToRecycleBin')"]
-    elif sys.platform == "darwin":
-        quoted = str(path).replace("\\", "\\\\").replace('"', '\\"')
-        cmd = ["osascript", "-e", f'tell application "Finder" to delete POSIX file "{quoted}"']
-    else:
-        cmd = ["gio", "trash", str(path)]
-    try:
-        return subprocess.run(cmd, capture_output=True).returncode == 0
-    except OSError:
-        return False
 
 
 def purge(args):

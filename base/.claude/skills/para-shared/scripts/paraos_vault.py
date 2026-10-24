@@ -8,6 +8,7 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
     py -3 paraos_vault.py links dangling [--vault .]
     py -3 paraos_vault.py move <src> <dst> [--apply] [--vault .]
     py -3 paraos_vault.py changed <file> [--done <path>...]
+    py -3 paraos_vault.py trash <path>...
     py -3 paraos_vault.py notice-date <renewal> "<n> months" [--term "1 year"] [--today D]
     py -3 paraos_vault.py weekday-after <day> <weekday>
 
@@ -1935,6 +1936,30 @@ def vault_path(vault, path):
     return abspath(path if path.is_absolute() else Path(vault) / path)
 
 
+# --- deleting a file -------------------------------------------------------------------------
+
+def trash(path):
+    """Send a file or a folder to the system trash, per operating-discipline.md; False where
+    none is reachable. The path is quoted here, never by hand."""
+    path = abspath(path)
+    if sys.platform == "win32":
+        quoted = str(path).replace("'", "''")
+        method = "DeleteDirectory" if path.is_dir() else "DeleteFile"
+        cmd = ["powershell", "-NoProfile", "-Command",
+               "Add-Type -AssemblyName Microsoft.VisualBasic; "
+               f"[Microsoft.VisualBasic.FileIO.FileSystem]::{method}("
+               f"'{quoted}', 'OnlyErrorDialogs', 'SendToRecycleBin')"]
+    elif sys.platform == "darwin":
+        quoted = str(path).replace("\\", "\\\\").replace('"', '\\"')
+        cmd = ["osascript", "-e", f'tell application "Finder" to delete POSIX file "{quoted}"']
+    else:
+        cmd = ["gio", "trash", str(path)]
+    try:
+        return subprocess.run(cmd, capture_output=True).returncode == 0
+    except OSError:
+        return False
+
+
 # --- file contents ---------------------------------------------------------------------------
 
 MIN_HASH_BYTES = 200        # below this, a stub matches every other stub and says nothing
@@ -2171,6 +2196,9 @@ def main(argv=None):
                                                     "points at: the first one after a day")
     promised.add_argument("day", help="the day the promise was made, YYYY-MM-DD")
     promised.add_argument("weekday", help="an English day name, or 1 (Monday) to 7")
+    gone = sub.add_parser("trash", help="send files or folders to the system trash (exit 1 "
+                                        "if one could not be)")
+    gone.add_argument("paths", nargs="+")
     for parser in (dangling, plan, items):
         parser.add_argument("--vault", default=".", help="vault root (default: .)")
     args = ap.parse_args(argv)
@@ -2180,6 +2208,17 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, OSError):
         pass
+
+    if args.command == "trash":
+        missing = [p for p in args.paths if not Path(p).exists()]
+        if missing:
+            ap.error(f"nothing at {', '.join(missing)}")
+        answer = {"trashed": [], "not_trashed": []}
+        for p in args.paths:
+            answer["trashed" if trash(p) else "not_trashed"].append(p)
+        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 1 if answer["not_trashed"] else 0
 
     if args.command == "changed":
         try:

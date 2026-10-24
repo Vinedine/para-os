@@ -36,9 +36,8 @@ from paraos_vault import (
     notice_date, open_items, open_tasks, over_grown_briefs, parse_markers, register_rows,
     registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
     scope_of, snapshot, split_lines, stage_line, stage_of, strip_code, table_cells,
-    template_marker, triage_items, triage_sources, unticked_tasks, vault_root, waiting_on,
-    weekday_after,
-    weekday_index, working_days, year_end_of,
+    template_marker, trash, triage_items, triage_sources, unticked_tasks, vault_root,
+    waiting_on, weekday_after, weekday_index, working_days, year_end_of,
 )
 from paraos_clone import changelog_entries, entries_between  # noqa: E402
 
@@ -1930,6 +1929,45 @@ class NoticeDates(unittest.TestCase):
                         self.assertRaises(SystemExit) as stop:
                     self.run_main(argv)
                 self.assertEqual(stop.exception.code, 2)
+
+
+class Trash(VaultCase):
+    """`trash`: the recoverable delete operating-discipline.md asks for, quoted in code."""
+
+    def run_trash(self, *paths, returncode=0):
+        calls, out = [], io.StringIO()
+        done = subprocess.CompletedProcess([], returncode)
+        with mock.patch("paraos_vault.subprocess.run",
+                        side_effect=lambda cmd, **kw: calls.append(cmd) or done), \
+                contextlib.redirect_stdout(out):
+            code = main(["trash", *map(str, paths)])
+        return code, json.loads(out.getvalue()), calls
+
+    def test_each_path_goes_to_the_trash_and_is_reported(self):
+        a = write(self.root, "triage/it's here.md", "x\n")
+        folder = self.root / "quarantine" / "run"
+        folder.mkdir(parents=True)
+        code, got, calls = self.run_trash(a, folder)
+        self.assertEqual(code, 0)
+        self.assertEqual(got, {"trashed": [str(a), str(folder)], "not_trashed": []})
+        self.assertEqual(len(calls), 2)
+        if sys.platform == "win32":
+            self.assertIn("::DeleteFile('" + str(a).replace("'", "''") + "'", calls[0][-1])
+            self.assertIn("::DeleteDirectory(", calls[1][-1])
+
+    def test_a_path_with_no_trash_reachable_is_reported_and_exits_1(self):
+        a = write(self.root, "triage/a.md", "x\n")
+        code, got, _ = self.run_trash(a, returncode=1)
+        self.assertEqual((code, got["not_trashed"]), (1, [str(a)]))
+        with mock.patch("paraos_vault.subprocess.run", side_effect=OSError):
+            self.assertFalse(trash(a))
+
+    def test_a_missing_path_is_refused_before_anything_is_trashed(self):
+        a = write(self.root, "triage/a.md", "x\n")
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as stop:
+            self.run_trash(a, self.root / "triage" / "gone.md")
+        self.assertEqual(stop.exception.code, 2)
+        self.assertTrue(a.exists())
 
 
 class ChangedCLI(VaultCase):
