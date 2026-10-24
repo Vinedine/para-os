@@ -14,6 +14,15 @@ Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero
 
 **One legacy label.** The first revision shipped as `2026.08` and was renumbered `2026.08.01`: a vault stamped `2026.08` is already on `2026.08.01`, collects only the entries after it, and is restamped.
 
+## 2026.10.04
+
+- Compare each section with base's template whole, and with each declared add-on's `CLAUDE.md.sections`, as for a vault with no marker: `CLAUDE.md` (#592)
+- Re-copy a vault mirror script that carries no integration marker, keeping a local change only on the operator's yes, since an older copy can delete a folder's files from the mirror: `resources/scripts/vault-mirror/mirror.py` (#615)
+- In a vault with the sales module, add `when done` after `🔁 every week` on the open weekly pipeline review line, so its next one is dated from when it is ticked: the business area's `actions.md` (#633)
+- Where the vault's copy of `.claude/rules/filing.md` differs from the kit's, move the naming default and each folder variant it names into the Source documents line, then re-copy the kit's file: `CLAUDE.md`, `.claude/rules/filing.md` (#617)
+- Where the vault's copy of `.claude/rules/figures.md` adds its own rule that an estimate names its basis, propose removing those lines, which the kit's file now carries: `.claude/rules/figures.md` (#632)
+- In a real-estate vault whose deal-sheet template has no own-home variant, offer the one in the add-on's skeleton template, its `OWN HOME` stage line and its `VARIANT C: OWN HOME` block, merged into the vault's copy on the operator's yes: `resources/prompts/dealsheet-template.html` (#638)
+
 ## 2026.10.03
 
 ## 2026.10.02

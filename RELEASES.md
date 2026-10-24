@@ -8,6 +8,49 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ---
 
+## 2026.10.04
+
+### Highlights
+
+- **The upgrade stops skipping changes to your vault's instructions.** An upgrade could leave out what changed in the template between two releases, so this one goes through your vault's instructions section by section, once, and offers whatever an earlier upgrade missed.
+- **The daily brief says what to run next.** The triage count names `/para-triage` beside it, and once a month has passed without a deep clean, or none has run on this computer, a health line names `/para-deep-clean`.
+- **A new vault is offered unattended triage at setup.** The bootstrap offers to schedule the triage routine for a single vault too, at the cadence you name. It acts only on the kinds of item you switch on, which triage offers once your decisions repeat.
+- **A shared inbox is read only where it belongs.** In a vault several people write, a source can say which writer pulls it, and the others skip it. Before reading a mailbox or recorder, triage checks that the connector is signed in to the account the source names, so one partner's private mail is never proposed into the shared vault.
+
+### Safer by default
+
+- **A failed copy during an upgrade leaves the file as it was.** The upgrade used to empty a file when the version it copied in could not be read; it now writes the new version whole or not at all.
+- **Your sign-in tokens can stay out of the assistant's reach.** The sync scripts read their own tokens and no skill opens them, so one setting can keep the assistant out of that folder. [Data and privacy](docs/data-and-privacy.md#keep-the-secrets-folder-out-of-the-agents-reach) shows it.
+
+### Also new
+
+- **A vault can give a skill a page of its own.** Name the skill and a script under Pages in the vault's instructions, and `/para-pipeline` builds that page from its board after every run and publishes it the way the daily brief publishes its dashboard.
+- **Deep clean finds the copies a sync client leaves behind.** A file like `brief (1).md`, a "conflicted copy", or a copy named after another computer is listed beside the file it duplicates, and nothing is proposed until you have compared the two.
+- **Moving a folder or a file fixes its links in the same step.** Archiving, promoting an idea and a deep clean's moves all go through one shared command that refuses to overwrite anything and rewrites every link into and out of what moved, so no session writes a script of its own for it.
+- **An estimate says what it rests on.** A figure that is an estimate now carries its basis beside its date: a quote, a comparable, a rule of thumb or a guess.
+- **A second vault on the same mailbox has a setup page.** Setting up a second vault beside your first now offers the steps that give each vault only its own mail, instead of both reading the whole mailbox.
+- **The upgrade adds an add-on you ask for.** Name one, such as `/para-upgrade --add sales`, and it runs that add-on's setup in an existing vault, each step on your yes, where you used to follow the steps by hand.
+
+### Fixes
+
+- **The upgrade finds sync scripts installed before they carried a version line.** It used to skip them, so an old copy of the vault mirror kept a fault that could delete files from the mirror.
+- **A kit file you added lines to takes the kit's later changes.** The upgrade used to treat it as your own edit and keep it as it was; it now updates the kit's part and keeps your lines where they stood, and names them when it cannot place them.
+- **`/para-ingest` stages through one script.** Its notes, ledger and run log are written by `stage.py` instead of code each run wrote for itself, so every staged note has the same shape, says whether your own messages were fetched, and names the command that reads it at source.
+- **A date in a lead's context no longer becomes its next step's date.** In a register's Next step cell, a `by` or `on` date counts only after the last semicolon, where the step itself sits, so a launch or meeting date written before it is no longer flagged as an overdue step.
+- **The quarter's promoted count includes what has already moved on.** An entity promoted and moved to a later stage in the same quarter is counted by its Won date, where it used to drop out of the count.
+- **A late weekly pipeline review no longer starts its successor overdue.** The next review is now dated a week after the one you tick, not a week after the date the late one carried.
+- **Your own file naming lives in your vault's instructions, not in a kit file.** Saying how your vault names documents used to mean editing a kit file, which then stopped receiving the kit's later fixes. The upgrade moves your naming into your instructions and restores the kit's file.
+- **A connection that fails gets repaired, not replaced.** When a shipped integration cannot connect, the assistant fixes or reports it instead of writing a script of its own, and the deep clean points out a second script reading the same source. Granola now says which step to run when its sign-in is missing or has expired.
+- **A second computer no longer imports what the first already did.** The record of which meetings and recordings were imported now lives in the vault, beside its sync scripts, so it syncs with the vault. The old record on each computer is still read, and carried in on the next import. Getting started now says what to set up on each computer when one vault runs on two.
+- **Property vaults get the deal sheet for a home you mean to live in.** It reached the kit after most property vaults were set up, and theirs never received it; the upgrade now offers it.
+
+### What to do
+
+1. Run `/para-upgrade`.
+2. If you run `/para-ingest`, copy its folder from the kit's multi-vault folder again, beside the other skills.
+
+Full details: [CHANGELOG.md at this tag](https://github.com/Vinedine/para-os/blob/2026.10.04/CHANGELOG.md).
+
 ## 2026.10.03
 
 ### Highlights
