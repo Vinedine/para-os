@@ -45,7 +45,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        MIN_HASH_BYTES, OPEN_ITEM_CAP, abspath, cap_count, action_files, contact_card_level,
+        MIN_HASH_BYTES, OPEN_ITEM_CAP, TEXT_SUFFIXES, abspath, cap_count, action_files, contact_card_level,
         hashes, inbound_references, live_lines, norm, open_tasks, read_lines, registered_vault,
         registry, rel_posix, same_place, snapshot, triage_items, triage_sources, vault_root,
     )
@@ -440,13 +440,26 @@ def note_block(path, entries, vault_name, ledger_mailboxes):
 
 # -------------------------------------------------------------------- items: duplicates etc
 
+def _twin_sizes(vault, item):
+    """The sizes a copy of this item can have: its own, and for a text note both the LF and
+    the CRLF size of its text, so twins that differ only in line endings meet."""
+    if Path(item["name"]).suffix.lower() not in TEXT_SUFFIXES:
+        return {item["size"]}
+    try:
+        lf = (vault / "triage" / item["name"]).read_bytes().replace(b"\r\n", b"\n")
+    except OSError:
+        return {item["size"]}
+    return {item["size"], len(lf), len(lf) + lf.count(b"\n")}
+
+
 def _fill_duplicates(vault, items):
     """`duplicates` per item, one batched `hashes()` call across every item's size rather
     than one call per item - size first is the point, on a streaming cloud mount reading a
     file's bytes downloads it. `skip=()`: a triage photo duplicating one under
     `sources/photos/` is a real duplicate here."""
-    sizes = {item["size"] for item in items if item["size"] >= MIN_HASH_BYTES}
-    digests = hashes(vault, skip=(), sizes=sizes)["files"] if sizes else {}
+    sizes = set().union(*(_twin_sizes(vault, item) for item in items
+                          if item["size"] >= MIN_HASH_BYTES))
+    digests = hashes(vault, skip=(), sizes=sizes, eol=True)["files"] if sizes else {}
     for item in items:
         rel = f"triage/{item['name']}"
         if item["size"] < MIN_HASH_BYTES:
