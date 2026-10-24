@@ -28,7 +28,8 @@ stale item's date is measured, and which project has had no dated commitment for
 
 What it deliberately does NOT do, so the skill keeps owning it: decide whether a finding
 is a real defect or an exempt third-party file, propose a fix, ask a question, or write
-anything. Every list here is candidates for the skill to judge.
+anything but phase 3's date to `deep_clean_stamp`, outside the vault, which /para-daily-brief
+reads. Every list here is candidates for the skill to judge.
 """
 
 import argparse
@@ -48,7 +49,7 @@ try:
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
         FROZEN_MARKER_RE, NOT_CARDS, NOT_VAULT_CONTENT, STALE_UNDATED_DAYS, TASK_RE,
         LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
-        dangling_links, duplicates, find_clone,
+        dangling_links, deep_clean_stamp, duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
         iso, lifecycles, link_files, link_spans, live_lines, misplaced_checkboxes, norm,
         open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
@@ -983,6 +984,12 @@ def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, heading
                                   name_only_columns)
     elif phase == "3":
         report["phase3"] = phase3(vault, today, headings)
+        stamp = deep_clean_stamp(vault)
+        try:
+            stamp.parent.mkdir(parents=True, exist_ok=True)
+            stamp.write_text(iso(today) + "\n", encoding="utf-8")
+        except OSError:
+            pass  # the brief then calls the deep clean due, which is the safe side
     elif phase == "4":
         report["phase4"] = phase4(vault, templates_dirs, dated_pattern, today, generated_dirs,
                                   name_only_columns)
