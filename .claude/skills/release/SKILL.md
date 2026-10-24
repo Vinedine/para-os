@@ -84,18 +84,19 @@ Steps 7 and 8 run once every pull request in the revision's milestone has merged
 Record the commit under test, `<sha>`, as `git fetch origin && git rev-parse origin/main`
 prints it. Stop if `git ls-tree --name-only <sha> changelog.d/` lists more than its
 `README.md`: `/para-upgrade` reads `CHANGELOG.md` alone, so that change would ship untested
-and unannounced. Fold it first (steps 2-6). Start the evals on it with
-`gh workflow run evals.yml --ref main` and read the run's summary page when it finishes: a case that dropped since the last weekly run is a finding like
-those below. Beside them, run the `claude-api` skill's `prompt-audit` at `<sha>`, scoped to the
-shipped files the revision changed (`git diff --name-only origin/stable...<sha> -- base addons
-multi-vault`), or to every shipped skill when a Claude model has shipped since the last revision.
-It applies nothing; each finding it would edit is a finding like those below, and a removal it
-proposes is compared on the evals first. The maintainer syncs the installed skills from `<sha>`,
-then upgrades two vaults of
-different shapes with `/para-upgrade --ref <sha>`: one on the previous revision, one further
-behind or on an add-on. In each, run every skill the revision changed with `--test`. Every
-finding is fixed on `main` through its own issue and pull request, and the validation reruns
-from a new `<sha>` until it is clean.
+and unannounced. Fold it first (steps 2-6). Start the evals with
+`gh workflow run evals.yml --ref main`; a case that dropped since the last weekly run is a
+finding only if the drop holds over
+[three runs on both commits](../../../evals/README.md#checking-a-skill-change). Run the
+`claude-api` skill's `prompt-audit` at `<sha>`, scoped to the shipped files the revision changed
+(`git diff --name-only origin/stable...<sha> -- base addons multi-vault`), or to every shipped
+skill when a Claude model has shipped since the last revision. It applies nothing; each edit it
+would make is a finding, and a removal it proposes is compared on the evals first. The
+maintainer syncs the installed skills from `<sha>`, then upgrades two vaults of different shapes
+with `/para-upgrade --ref <sha>`: one on the previous revision, one further behind or on an
+add-on. In each, run every skill the revision changed with `--test`. Every finding is fixed on
+`main` through its own issue and pull request, and validation reruns from a new `<sha>` until
+clean.
 
 **Do not go on to step 8 until the maintainer has named both vaults and confirmed each ran
 clean at `<sha>`.** Ask with `AskUserQuestion`; an answer that names fewer than two vaults is a
