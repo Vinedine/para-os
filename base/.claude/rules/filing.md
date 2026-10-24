@@ -10,8 +10,7 @@ paths:
 
 Match the folder you file into, and never mass-rename a folder to another convention.
 
-- **`YYYYMMDD <Who> <Description>.<ext>` is the default** for a one-off dated document. The date is the document's own (issue, signing, inspection), never its arrival; `<Who>` is the most identifying party; `<Description>` is the document type, ending in any reference number.
-- **A folder on a variant keeps it**: one on `YYYYMMDD_<Description>_<Ref>.<ext>` stays underscored. The vault's copy of this file names each variant and its folders.
+- **The default and its folder variants are the vault's**, on its `CLAUDE.md` Source documents line. A date in a name is the document's own (issue, signing, inspection), never its arrival; the party is the most identifying one; the description is the document type, ending in any reference number.
 - **A document attesting to a period files under the period it covers**: an annual attestation is `YYYY - <Issuer> - <Person>.<ext>`, the year the one covered, not the one issued.
 - **A machine-generated export keeps its system's name**; a second of that name takes a numeric suffix (`statement-2.csv`).
 - **An executed filing rule outranks everything above.** Where a vault script names and files a document type, run it and never file that type by hand: `/para-triage` runs the script instead of proposing a name. The vault's `CLAUDE.md` names each such script in one line.

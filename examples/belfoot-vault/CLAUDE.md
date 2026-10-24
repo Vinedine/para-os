@@ -75,7 +75,7 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 - **Contacts**: one file per stakeholder at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics): relationship context, an optional `## History`, then `## Next actions` (`_None currently._` when empty or at `never`), then any `## Backlog`. A shared workstream lives in the primary stakeholder's file; the others point to it.
 - **Dated conversation records**: in the owning workstream's or area's `sources/`; in `archive/meetings/YYYYMMDD Description.md` only when they span several entities.
-- **Source documents**: `sources/YYYYMMDD <Who> <Description>.<ext>`, dated by the document itself (signing, issue, inspection). The full convention (folder variants, period attestations, machine exports, executed filing rules, and where a document lives) is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on its own when a triage item or a source document is read; read it explicitly before filing one.
+- **Source documents**: `sources/YYYYMMDD <Who> <Description>.<ext>`, dated by the document itself (signing, issue, inspection). The rest of the convention is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on its own when a triage item or a source document is read; read it explicitly before filing one.
 - **A contact file and a workstream brief cross-link** both ways.
 
 ## Entity structures
