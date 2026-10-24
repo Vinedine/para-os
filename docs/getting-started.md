@@ -1,14 +1,22 @@
 # Getting started
 
-> **You need** the [Claude desktop app](https://claude.com/download), [Git](https://git-scm.com/downloads) and [Python 3](https://www.python.org/downloads/), on Windows or macOS.
+> **You need** the [Claude desktop app](https://claude.com/download) and [Python 3](https://www.python.org/downloads/), on Windows or macOS. [Git](https://git-scm.com/downloads) can wait for your first upgrade.
 
 ## Quickstart
 
-**1. Install Git and Python 3** if you don't have them. On Windows, download Git from [git-scm.com](https://git-scm.com/downloads/win) and Python from [python.org](https://www.python.org/downloads/), accepting the defaults; on a Mac, macOS offers to install both the first time they are needed. The setup uses Git to fetch para-os and your vault uses it to keep its history; the skills use Python to read the vault.
+Five steps, and no terminal.
+
+**1. Install Python 3** if you don't have it. On Windows, download it from [python.org](https://www.python.org/downloads/) and accept the defaults; on a Mac, macOS offers to install it the first time it is needed. The skills use it to read the vault.
+
+<!-- screenshot: the python.org download page -->
 
 **2. Make an empty folder** for the vault, wherever you keep your files (your cloud drive is fine), and not inside an existing vault.
 
+<!-- screenshot: the empty folder in File Explorer or Finder -->
+
 **3. Open it in the Claude desktop app.** In the **Code** tab, click **New** at the top of the sidebar, keep **Local**, click **Select folder** and pick the folder. Don't use the `+` beside a folder already in the sidebar: that opens the session inside *that* folder, which is how a new vault ends up inside an old one.
+
+<!-- screenshot: the Code tab, New, Local and Select folder -->
 
 **4. Paste this**, exactly as it is:
 
@@ -18,7 +26,13 @@ Set up a new para-os vault in this folder: read https://raw.githubusercontent.co
 
 It downloads the kit, copies [`base/`](../base/) in, and runs the bootstrap interview: a few short questions about the vault, then it fills `CLAUDE.md` and `README.md` and creates a self-retiring `vault-setup` project that walks you through the rest. It ends by filing a few of your own papers and your current to-do list, so keep them at hand. The steps are in [`INSTALL.md`](../INSTALL.md): read what it will do before you paste it, or follow it by hand.
 
+<!-- screenshot: the line pasted in the chat box, and the first questions -->
+
 **5. Come back with `/para-daily-brief`.** The vault answers from day one, and better once you run the short brainstorm the `vault-setup` project starts with.
+
+<!-- screenshot: a first daily brief -->
+
+**Add Git before your first upgrade**, from [git-scm.com](https://git-scm.com/downloads/win) on Windows with the defaults (macOS offers it): `/para-upgrade` reads the kit as a Git copy. Until then the setup downloads the kit as a zip, and [the upgrade steps](../INSTALL.md#upgrading) swap it for the copy.
 
 To see a lived-in vault first, open [`examples/belfoot-vault/`](../examples/belfoot-vault/), a fictional consulting engagement; [`examples/`](../examples/README.md) says how to run the skills against it.
 

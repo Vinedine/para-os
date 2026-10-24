@@ -34,7 +34,7 @@ To see a lived-in vault first, open [`examples/belfoot-vault/`](examples/belfoot
 
 ## Quickstart
 
-1. **Install [Git](https://git-scm.com/downloads) and [Python 3](https://www.python.org/downloads/)** if you don't have them, accepting the defaults. On a Mac, macOS offers both the first time they are needed.
+1. **Install [Git](https://git-scm.com/downloads) and [Python 3](https://www.python.org/downloads/)** if you don't have them, accepting the defaults. On a Mac, macOS offers both the first time they are needed. Never used a terminal? [Getting started](docs/getting-started.md#quickstart) leaves Git for later.
 2. **Make an empty folder and open it in the [Claude desktop app](https://claude.com/download).** In the **Code** tab, click **New**, keep **Local**, click **Select folder**. Not the `+` beside a folder already in the sidebar: that puts the new vault inside the old one.
 3. **Paste this**, exactly as it is:
 
