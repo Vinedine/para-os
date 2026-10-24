@@ -42,7 +42,7 @@ Then fill the templates:
 - Fill every `{{placeholder}}` in `CLAUDE.md.template` and `README.md.template`. Keep the invariant blocks (the PARA sorting test, Lifecycle, Archive hygiene, Actions, Filing and naming, Language, Memory, File formats, the standing "Do not add" items) exactly as written. For the taxonomy slots, use these **defaults** verbatim unless I volunteered otherwise:
   - **project** = time-bound work with a committed deliverable and deadline.
   - **extra `areas/` subfolders** = none. `business/` + `network/` only; more emerge later.
-  - **source-document naming** = `YYYYMMDD <Who> <Description>.<ext>`. Leave `.claude/rules/filing.md` and `.claude/rules/figures.md` in place: they are conventions the vault needs from its first filed document, not shapes waiting for a second instance. Leave `.claude/rules/working-preferences.md` in place too, its `## Preferences` empty: it fills as I state how I like to work.
+  - **source-document naming** = `YYYYMMDD <Who> <Description>.<ext>`. Leave `.claude/rules/filing.md`, `figures.md` and `working-preferences.md` in place, the last with its `## Preferences` empty.
   - **archive `projects/`** = omit unless I said the vault archives finished projects.
   - **`{{operator language}}`** = the language I picked; default to English.
   - **The `**Locale:**` line** = the country and year end I gave (31 December where I gave none), and that country's currency (its ISO 4217 code and symbol), number convention, date order and time zone, each value I did not state flagged as inferred so I can correct it. `README.md` restates none of the six: where its Identity needs one, it links this line. Ask about the time zone only where the country has several and my answers do not settle which.
