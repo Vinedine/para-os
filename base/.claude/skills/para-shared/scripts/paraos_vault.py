@@ -493,14 +493,16 @@ def is_separator_row(cells):
     return bool(cells) and all(SEPARATOR_CELL_RE.match(c.replace(" ", "")) for c in cells)
 
 
-def _tasks(path, pattern, extra=None):
+def _tasks(path, pattern, extra=None, keep=None):
     """Every checkbox `pattern` matches in one file, with the heading it sits under and its
-    markers. Shared by `open_tasks` and `closed_tasks`, so what counts as a checkbox and
-    which heading owns it is one rule stated once rather than kept in step by hand.
+    markers. Shared by `open_tasks`, `unticked_tasks` and `closed_tasks`, so what counts as
+    a checkbox and which heading owns it is one rule stated once rather than kept in step by
+    hand.
 
     The section is the nearest `##`, except under `## Next actions`, where the document's
     `#` says more than the heading does. `extra`, given the raw text after the checkbox
-    marker, returns fields to add beyond what every checkbox already carries.
+    marker, returns fields to add beyond what every checkbox already carries; `keep`, given
+    the same text, drops the checkbox where it returns false.
     """
     h1 = h2 = None
     out = []
@@ -514,7 +516,7 @@ def _tasks(path, pattern, extra=None):
             h2 = m.group(1).strip()
             continue
         m = pattern.match(text)
-        if not m:
+        if not m or (keep and not keep(m.group(1))):
             continue
         task = {"line": lineno,
                 "section": h1 if (h2 or "").lower() == "next actions" else (h2 or h1)}
@@ -526,13 +528,25 @@ def _tasks(path, pattern, extra=None):
     return out
 
 
+def _done_date(raw):
+    found = DONE_RE.search(raw)
+    return {"done": found.group(1) if found and parse_date(found.group(1)) else None}
+
+
 def open_tasks(path):
-    """Every open checkbox in one file, with the heading it sits under and its markers.
+    """Every open checkbox in one file, with the heading it sits under and its markers,
+    less the ones `unticked_tasks` lists.
 
     The section is the nearest `##`, except under `## Next actions`, where the document's
     `#` says more than the heading does.
     """
-    return _tasks(path, TASK_RE)
+    return _tasks(path, TASK_RE, keep=lambda raw: not _done_date(raw)["done"])
+
+
+def unticked_tasks(path):
+    """Every open checkbox carrying a `✅ YYYY-MM-DD`: done, with the box never ticked. The
+    shape `closed_tasks` returns."""
+    return _tasks(path, TASK_RE, extra=_done_date, keep=lambda raw: _done_date(raw)["done"])
 
 
 def closed_tasks(path):
@@ -541,10 +555,7 @@ def closed_tasks(path):
     None where it carries none. What counts as a checkbox is this library's rule, so this
     reads `open_tasks`'s own section and marker logic rather than a second copy of it.
     """
-    def done_date(raw):
-        found = DONE_RE.search(raw)
-        return {"done": found.group(1) if found and parse_date(found.group(1)) else None}
-    return _tasks(path, CLOSED_TASK_RE, extra=done_date)
+    return _tasks(path, CLOSED_TASK_RE, extra=_done_date)
 
 
 # --- where things live --------------------------------------------------------------------

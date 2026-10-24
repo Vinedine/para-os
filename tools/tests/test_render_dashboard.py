@@ -280,7 +280,8 @@ class Mechanical(DashboardCase):
 
     def test_every_fired_flag_is_worded_and_opens_on_its_items(self):
         write(self.root, "areas/busy/actions.md",
-              "# b\n\n" + "".join(f"- [ ] Thing {n}\n" for n in range(12)))
+              "# b\n\n" + "".join(f"- [ ] Thing {n}\n" for n in range(12))
+              + "- [ ] Sent the offer ✅ 2026-09-10\n")
         write(self.root, "archive/old/actions.md", "# o\n\n- [ ] Left open\n")
         write(self.root, "projects/acme-website/brief.md", "# a\n" + "line\n" * 501)
         write(self.root, "projects/stalled/actions.md", "# s\n\n- [x] Kicked off\n")
@@ -298,6 +299,7 @@ class Mechanical(DashboardCase):
         self.assertIn("projects/acme-website/brief.md: 502 lines", text)
         self.assertIn("undated", text)
         self.assertIn("<b>stalled: nothing open</b>, and 1 more", text)
+        self.assertIn("<b>1 done item with its box open</b> (areas/busy/actions.md:15)", text)
 
     def test_open_card_checkboxes_are_worded_as_the_vaults_own_rule(self):
         write(self.root, "CLAUDE.md", "# BelFoot Vault Conventions\n\n"
