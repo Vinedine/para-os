@@ -97,19 +97,9 @@ Report as a table of vault, staged count and unrouted count, then name every sou
 - **Mail is read-only.** No send, no reply, no archive, no label.
 - **Decide which vault, never what to do.** A staged note carrying a proposed action has already made the judgment this skill exists not to make.
 - **One source failing never aborts the run.** Record it, skip it, continue, name it in the report.
-- **Never stage into an unregistered path, an inactive vault, or a vault whose path is not mounted.** A one-way mirror or a backup copy is not a vault: staging into one writes an item the next sync destroys, and the item is then routed nowhere with nothing left to show it was lost.
-- **Never ledger a thread you could not deliver.** A thread routed to a vault whose path was not mounted gets no ledger entry, so the next run picks it up again; `by_message_id` stops the vaults that did receive it from receiving it twice. `stage.py` applies it; never edit the ledger by hand.
 - **Preview writes nothing at all.** Not a note, not a ledger entry, not a `--write` on a sync script. The run log is the only artefact.
 - **The Step 3 reconcile reports carry-over and never stages it.** Reaching past the write window is `--days N`, typed by a person who has read the count. A scheduled run that silently recovers its own gap has removed the only thing limiting how much history can land in a `triage/` folder at once.
 - **Never `--write` a sync script whose dry run came back over the volume gate**, whatever mode the run is in and however routine the source looks. The gate is the only check standing between an unfiltered inbox importer and every `triage/` folder it feeds.
-
-## Edge cases
-
-- **A registry path is not mounted** (a network drive, an unsynced client library): record an error row, stage nothing there, keep going. Never read "not mounted" as "no items".
-- **A mailbox is declared but its connector is absent from the harness:** skip it, name it in the report, do not fail the run. The fetch protocol's tool-suffix rule is what tells absent from merely renamed.
-- **A thread routes to two vaults:** stage it in both. It is one thread and two operators' business, and collapsing it to one vault silently loses it from the other.
-- **A thread routes nowhere:** ledger it as unrouted and stage nothing. Unrouted is a normal outcome rather than a failure, but a *rising* unrouted count means the `Relevant when` rules need widening, not the router rewriting.
-- **A thread routes to a vault whose path is not mounted:** stage into the vaults that are mounted, write **no** ledger entry, and report it under `undelivered`. It comes back on the next run and lands the moment the path does. Do not soften this into "routed nowhere": the routing was right and only the delivery failed, and recording it as unrouted loses that distinction exactly when it matters.
 
 ## Related skills
 
