@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.10.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: outlook 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 """Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph and hand the
 messages to a caller that decides what they mean. Writes nothing, anywhere, ever.
 
@@ -94,13 +94,14 @@ Usage (on Windows, `py` works in place of `python3`):
   python3 outlook.py fetch --days 30            # candidates as JSON on stdout, counts on stderr
   python3 outlook.py fetch --sent               # the same, the owner's Sent Items included
   python3 outlook.py search "contract renewal"  # search the mailboxes feeding this vault
-  python3 outlook.py raw '/me/messages?$top=1'  # any Graph path, prints JSON (debug)
+  python3 outlook.py raw 'me/messages?$top=1'   # any Graph path, prints JSON (debug)
 """
 import argparse
 import base64
 import hashlib
 import json
 import os
+import re
 import secrets
 import sys
 import time
@@ -572,7 +573,7 @@ def graph_get(token, path, prefer=None):
     call sites so the search path gets it too, and bounded so a throttled mailbox fails
     loudly rather than hanging.
     """
-    url = path if path.startswith("http") else f"{GRAPH}{path}"
+    url = path if path.startswith("http") else f"{GRAPH}/{path.lstrip('/')}"
     headers = {"Authorization": f"Bearer {token}"}
     if prefer:
         headers["Prefer"] = prefer
@@ -800,6 +801,17 @@ def resolve_feeds(cfg, account_arg):
     return [e for e in feeds if e in known], missing
 
 
+# Git Bash (MSYS) rewrites an argument opening on `/` into a Windows path before Python
+# sees it: `/me/messages/x` arrives as `C:/Program Files/Git/me/messages/x`.
+MSYS_REWRITE = re.compile(r"^[A-Za-z]:/(?:[^/]+/)*?((?:me|users)(?:[/?].*)?)$")
+
+
+def graph_path(path):
+    """A `raw` path as Graph expects it, undoing an MSYS rewrite."""
+    m = MSYS_REWRITE.match(path)
+    return m.group(1) if m else path
+
+
 def cmd_raw(cfg, args):
     accounts = list(cfg.get("accounts", {}))
     if not args.account and len(accounts) > 1:
@@ -810,7 +822,7 @@ def cmd_raw(cfg, args):
     if not email:
         sys.exit("No account. Pass --account or configure one.")
     token = access_token(cfg, email)
-    print(json.dumps(graph_get(token, args.path), indent=2, ensure_ascii=False))
+    print(json.dumps(graph_get(token, graph_path(args.path)), indent=2, ensure_ascii=False))
 
 
 def has_unsubscribe(msg):
@@ -927,7 +939,7 @@ def cmd_fetch(cfg, args):
                 "account": email,
                 **newest,
                 "thread_id": key,
-                "read": f"raw {root}/messages/{newest['id']} --account {token_account}",
+                "read": f"raw {root.lstrip('/')}/messages/{newest['id']} --account {token_account}",
                 "message_count": len(group),
                 # Everyone who WROTE on the thread, minus the mailbox owner. The caller's
                 # contact rule matches a counterparty, and reading only the newest message
