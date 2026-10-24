@@ -6,12 +6,13 @@ Emit each only when it fires:
 
 - **Over the cap:** `<scope>: N open, over the cap of 8 - close or demote before adding. /para-deep-clean grooms`.
 - **Waiting too long:** the oldest `Waiting on` line, `<what> from <person>: N days - chase or drop?`, and how many more.
-- **Stray checkboxes:** open checkboxes in a file under `projects/` or `areas/` that is neither an action file nor a contact file (a log, a plan, a meeting note). Flag the total and the worst file: no brief counts them.
+- **Stray checkboxes:** open checkboxes in a file under `projects/` or `areas/` that is neither an action file nor a contact file. Flag the total and the worst file: no brief counts them.
+- **Done, box open:** `N done items with their box open (<file>:<line>, and N more) - tick the box`.
 - **Stale file:** an action file with open items, with the date it was last touched.
 - **Falsely-overdue candidates:** the count and the worst offender.
 - **Stale recurrence:** the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
 - **Undated majority:** one line, `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
-- **Misplaced checkboxes:** open checkboxes under `archive/` or `resources/`, and on contact cards where the vault's `areas/network/` checkbox row says `never`. One line per bucket, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
+- **Misplaced checkboxes:** one line per bucket the scan lists, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
 - **Nothing open:** a folder under `projects/` or `areas/` with no open item anywhere under it. One line each for the first three the scan lists: `<entity>: nothing open`
 - **Over-grown brief:** one line per offender, `<file>: N lines - content grooming via /para-deep-clean`.
 - **Silent source:** one line per source, `<source>: nothing since <date> (N days)`. A ledger that cannot be read is flagged, never passed ([para-shared/absent-is-not-zero.md](../../para-shared/absent-is-not-zero.md)).

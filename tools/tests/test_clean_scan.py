@@ -915,6 +915,37 @@ class StaleDrafts(VaultCase):
         self.assertEqual([d["draft"] for d in drafts], ["projects/acme/sources/Old.DOC"])
 
 
+class ConflictCopies(VaultCase):
+
+    def test_sync_conflict_copies_are_listed_with_their_survivor(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        for rel in ("projects/acme/brief.md", "projects/acme/brief (1).md",
+                    "projects/acme/notes (Ann's conflicted copy 2026-10-10).md",
+                    "projects/acme/data.csv",
+                    "projects/acme/data.sync-conflict-20261010-101010-ABCDEFG.csv",
+                    ".claude/settings.local.json", ".claude/settings.local-DESKTOP7.json",
+                    "archive/old/brief.md", "archive (1)/old/other.md",
+                    "projects/acme/invoice.pdf", "projects/acme/invoice-signed.pdf",
+                    "projects/acme/report.md", "projects/acme/report-v2.md",
+                    ".claude/skills/x/SKILL (1).md"):
+            write(self.root, rel, "x\n")
+        write(self.root, "archive (1)/old/brief.md", "")
+        rows = self.run_scan("1")["phase1"]["conflict_copies"]
+        self.assertEqual(rows, [
+            {"copy": ".claude/settings.local-DESKTOP7.json",
+             "survivor": ".claude/settings.local.json", "empty": False},
+            {"copy": "archive (1)", "survivor": "archive", "empty": False},
+            {"copy": "archive (1)/old/brief.md", "survivor": "archive/old/brief.md",
+             "empty": True},
+            {"copy": "projects/acme/brief (1).md", "survivor": "projects/acme/brief.md",
+             "empty": False},
+            {"copy": "projects/acme/data.sync-conflict-20261010-101010-ABCDEFG.csv",
+             "survivor": "projects/acme/data.csv", "empty": False},
+            {"copy": "projects/acme/notes (Ann's conflicted copy 2026-10-10).md",
+             "survivor": None, "empty": False},
+        ])
+
+
 # ------------------------------------------------------------------------------------- Phase 3
 
 class OverThreshold(VaultCase):

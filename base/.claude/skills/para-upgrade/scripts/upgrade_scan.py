@@ -4,22 +4,27 @@ ref, as one JSON document on stdout.
 
     py -3 upgrade_scan.py --vault <path> [--clone <path>] [--ref origin/stable]
                           [--user-skills DIR] [--paraos-home DIR] [--indent N]
+    py -3 upgrade_scan.py copy --vault <path> --clone <path> --commit <clone.commit> <master> <row path>
 
-Read-only: it never writes, fetches or asks, and reads every master at the ref's commit.
+The scan is read-only: it never writes, fetches or asks, and reads every master at the ref's
+commit. `copy` writes one master as the commit holds it over a row's path, whole or not at all,
+creating its folder; where the master cannot be read it changes nothing and exits 4.
 
 clone     `path`, `ref`, `commit` (the ref's commit, which a re-copy reads), `error` on exit 4-6.
 revision  The vault's template marker (`vault`) against the master's (`master`): `verdict`
           equal, behind, ahead or no-marker. `entries`: each changelog revision after the
           vault's, up to the master's, with its `- ` lines as `reactions`, the lead dropped.
-          `baseline`: the commit whose template carries the vault's marker, the ref's own where
-          it still does, else the parent of the newest commit changing it; null where none.
+          `baseline`: the ref's commit where its template still carries the vault's marker, else
+          the marker's release tag, else the commit that added it; null where none.
 files     Every vault file the kit owns that is not `current`: `path` (vault-relative,
           absolute outside the vault), `kind`, `master` (its path in the clone), `state`.
           kind   skill: a base or declared add-on skill where the vault runs it (its bundled
                  copy, else the user-level one; a missing one beside its other kit skills;
                  para-shared wherever one runs), a multi-vault skill where installed. rule,
-                 settings. integration: a file with a `para-os-integration:` marker, its master
-                 under integrations/ or an add-on's pipeline/. Null on any other retired file.
+                 settings. integration: a file with a `para-os-integration:` marker, or one at
+                 resources/scripts/[<name>/]<file> where the ref ships a marked master of that
+                 name, under integrations/<name>/ or a declared add-on's pipeline/. Null on any
+                 other retired file.
           state  current: nothing to take from the kit, the ref's bytes or those bytes with
                  lines of the vault's own added (a rule file the vault writes into), or for a
                  JSON file, keys and list entries of its own (settings with more deny rules).
@@ -49,8 +54,10 @@ import argparse
 import difflib
 import hashlib
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 SHARED_DIR = Path(__file__).resolve().parents[2] / "para-shared" / "scripts"
@@ -59,7 +66,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        H2_RE, TEMPLATE_MARKER_RE, declarations, find_clone, git, git_bytes,
+        H2_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, declarations, find_clone, git, git_bytes,
         integration_markers, normalised, paraos_home_dir, read_text,
         snapshot, template_marker, vault_root,
     )
@@ -157,11 +164,10 @@ def baseline(kit, raw, mine):
         return kit.commit
     if not raw:
         return None
-    out = git(kit.clone, ["log", kit.commit, "--format=%H",
-                          f"-S<!-- para-os-template: {raw} -->", "--", BASE_TEMPLATE])
-    newest = (out or "").split()
-    parent = git(kit.clone, ["rev-parse", newest[0] + "^1"]) if newest else None
-    return parent.strip() if parent else None
+    hits = (git(kit.clone, ["log", kit.commit, "--format=%H",
+                            f"-S<!-- para-os-template: {raw} -->", "--", BASE_TEMPLATE]) or "").split()
+    tag = git(kit.clone, ["rev-parse", "-q", "--verify", f"refs/tags/{raw}^{{commit}}"])
+    return (tag or hits[-1]).strip() if hits else None
 
 
 def sections(text):
@@ -253,6 +259,17 @@ def plan_files(vault, kit, decl, user_dir):
                                    f"{root}/pipeline/{filename}" if root else None)
                        if m in kit.tree), None)
         planned.setdefault(vault / marker["file"], ("integration", master))
+
+    scripts = vault / "resources" / "scripts"
+    shipped = [(m.split("/")[1], m) for m in kit.tree
+               if m.startswith("integrations/") and m.count("/") == 2]
+    shipped += [(r.rsplit("/", 1)[-1], m) for r in roots for m in kit.under(f"{r}/pipeline")]
+    for name, master in shipped:
+        filename = master.rsplit("/", 1)[-1]
+        for path in (scripts / filename, scripts / name / filename):
+            if path not in planned and path.is_file() and \
+                    INTEGRATION_MARKER_RE.search(kit.text(master) or ""):
+                planned[path] = ("integration", master)
     return planned
 
 
@@ -371,7 +388,47 @@ def build_report(vault, clone, ref, user_dir, default_clone=None):
     return report, 0
 
 
+def copy(clone, commit, master, target):
+    """None once `target` holds the master's bytes, else what stopped it."""
+    data = clone_read(clone, commit, master)
+    if data is None:
+        return f"{commit}:{master} cannot be read"
+    target = Path(target)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.")
+    except OSError as error:
+        return str(error)
+    try:
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        os.replace(temp, target)
+    except OSError as error:
+        Path(temp).unlink(missing_ok=True)
+        return str(error)
+    return None
+
+
+def copy_main(argv):
+    ap = argparse.ArgumentParser(prog="upgrade_scan.py copy",
+                                 description="Write one master over its vault copy, atomically.")
+    ap.add_argument("--vault", required=True, help="vault root")
+    ap.add_argument("--clone", required=True)
+    ap.add_argument("--commit", required=True, help="the scan's clone.commit")
+    ap.add_argument("master", help="the row's master")
+    ap.add_argument("path", help="the row's path")
+    args = ap.parse_args(argv)
+    error = copy(Path(args.clone), args.commit, args.master, Path(args.vault) / args.path)
+    if error:
+        print(f"upgrade_scan copy: {error}", file=sys.stderr)
+        return 4
+    return 0
+
+
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv[:1] == ["copy"]:
+        return copy_main(argv[1:])
     ap = argparse.ArgumentParser(description="Scan a vault and a para-os clone for /para-upgrade.")
     ap.add_argument("--vault", required=True, help="vault root")
     ap.add_argument("--clone", help="a local para-os clone (default: $PARAOS_HOME/para-os)")

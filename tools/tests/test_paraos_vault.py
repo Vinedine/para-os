@@ -36,7 +36,8 @@ from paraos_vault import (
     notice_date, open_items, open_tasks, over_grown_briefs, parse_markers, register_rows,
     registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
     scope_of, snapshot, split_lines, stage_line, stage_of, strip_code, table_cells,
-    template_marker, triage_items, triage_sources, vault_root, waiting_on, weekday_after,
+    template_marker, triage_items, triage_sources, unticked_tasks, vault_root, waiting_on,
+    weekday_after,
     weekday_index, working_days, year_end_of,
 )
 from paraos_clone import changelog_entries, entries_between  # noqa: E402
@@ -301,6 +302,15 @@ class ClosedTasks(VaultCase):
     def test_a_fenced_sample_closed_box_is_not_counted(self):
         path = write(self.root, "projects/x/actions.md", "# x\n\n```\n- [x] Sample\n```\n")
         self.assertEqual(closed_tasks(path), [])
+
+    def test_an_open_box_carrying_a_done_date_is_unticked_not_open(self):
+        path = write(self.root, "projects/x/actions.md",
+                     "# x\n\n- [ ] Send the signed offer 📅 2026-10-10 ✅ 2026-10-14\n"
+                     "- [ ] Still open 📅 2026-10-10\n")
+        self.assertEqual([t["text"] for t in open_tasks(path)], ["Still open"])
+        got = unticked_tasks(path)
+        self.assertEqual([(t["line"], t["text"], t["done"]) for t in got],
+                         [(3, "Send the signed offer", "2026-10-14")])
 
     def test_open_tasks_shape_is_unchanged_by_sharing_the_reader_with_closed_tasks(self):
         path = write(self.root, "projects/x/actions.md",
@@ -1928,6 +1938,26 @@ class ChangedCLI(VaultCase):
             self.assertEqual(main(["changed", str(scan_file)]), 1)
         self.assertEqual(json.loads(out.getvalue()),
                          {"changed": [], "arrived": [str(abspath(late))]})
+
+    def test_the_runs_own_moves_and_writes_given_to_done_are_left_out(self):
+        scan_file = self.arrival_scan()
+        other = write(self.root, "projects/x/actions.md", "# x\n")
+        scan = json.loads(scan_file.read_text(encoding="utf-8"))
+        scan["snapshot"].update(snapshot([abspath(other)]))
+        scan_file = self.write_json("scan.json", scan)
+        self.assertEqual(self.run_main(["changed", str(scan_file), "--done"]), 0)
+        src, dst = self.root / "triage" / "seen.md", self.root / "archive" / "seen.md"
+        dst.parent.mkdir()
+        src.rename(dst)
+        note = write(self.root, "triage/fold.md", "# fold\n")
+        done = ["--done", str(src), str(dst), str(note)]
+        self.assertEqual(self.run_main(["changed", str(scan_file), *done]), 0)
+        other.write_text("# x, edited elsewhere\n", encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(main(["changed", str(scan_file), *done]), 1)
+        self.assertEqual(json.loads(out.getvalue()),
+                         {"changed": [str(abspath(other))], "arrived": []})
 
     def test_a_file_arriving_in_a_subfolder_or_outside_is_not_an_arrival(self):
         scan_file = self.arrival_scan()

@@ -203,6 +203,18 @@ class HealthFlags(VaultCase):
                            "what": "the signed copy", "days": 20}])
         self.assertNotIn("undated", got["lanes"])
 
+    def test_an_open_box_carrying_a_done_date_is_flagged_not_overdue(self):
+        write(self.root, "projects/acme/actions.md", "# acme\n\n"
+              "- [ ] Send the signed offer 📅 2026-09-10 ✅ 2026-09-14\n"
+              "- [ ] Book the venue 📅 2026-09-30\n")
+        got = scan(self.root, TODAY)
+        self.assertEqual([t["text"] for t in got["tasks"]], ["Book the venue"])
+        self.assertEqual(got["totals"]["overdue"], 0)
+        self.assertEqual(got["flags"]["unticked"],
+                         [{"file": "projects/acme/actions.md", "line": 3, "done": "2026-09-14"}])
+        self.assertEqual(scan(self.root, TODAY, entity="acme")["flags"]["unticked"],
+                         got["flags"]["unticked"])
+
     def test_waits_stay_out_of_the_cap(self):
         items = "\n".join(f"- [ ] Item {n}" for n in range(OPEN_ITEM_CAP))
         waits = "\n".join(f"- [ ] Waiting on Jan: part {n} (since 2026-09-20)" for n in range(3))

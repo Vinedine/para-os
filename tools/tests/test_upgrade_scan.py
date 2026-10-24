@@ -53,6 +53,8 @@ def logbook(rev, body):
     return f"#!/usr/bin/env python3\n# para-os-integration: logbook {rev}\nVALUE = {body!r}\n"
 
 
+MIRROR_OLD = "WALK = 'past errors'\n"
+MIRROR_NEW = "# para-os-integration: vault-mirror 2026.10.01\nWALK = 'stop'\n"
 RULE = "---\npaths:\n  - \"**\"\n---\n# Filing {}\n"
 OLD_ENTRY = "## 2026.09.01\n\n- Start a notes log: `notes/`\n"
 NEW_ENTRY = ("## 2026.10.01\n\n- Move each deal note to its deal folder: `notes/`\n"
@@ -72,6 +74,8 @@ REV_A = {
     "base/.claude/skills/para-notes/old.md": "Old.\n",
     "base/.claude/skills/para-shared/scripts/lib.py": "LIB = 1\n",
     "integrations/logbook/logbook.py": logbook("2026.09.01", "v1"),
+    "integrations/vault-mirror/mirror.py": MIRROR_OLD,
+    "integrations/vault-mirror/test_mirror.py": "TESTS = 1\n",
     "addons/sales/CLAUDE.md.sections": "<!-- sales -->\n\n## Deals\n\nDeals v1.\n",
     "addons/sales/.claude/rules/deal.md": "---\npaths:\n  - \"deals/**\"\n---\n# Deal\n",
     "addons/sales/.claude/skills/deal-skill/SKILL.md": "# Deal skill\n",
@@ -90,6 +94,7 @@ REV_B = {
     "base/.claude/skills/para-notes/references/new.md": "New.\n",
     "base/.claude/skills/para-prep/SKILL.md": "# Prep\n",
     "integrations/logbook/logbook.py": logbook("2026.10.01", "v2"),
+    "integrations/vault-mirror/mirror.py": MIRROR_NEW,
     "addons/sales/CLAUDE.md.sections": "<!-- sales -->\n\n## Deals\n\nDeals v2.\n",
 }
 
@@ -301,6 +306,21 @@ class StatesCase(CloneCase):
             v = self.vault(name, files={".claude/settings.json": text})
             self.assertEqual(self.states(self.scan(v)[0])[".claude/settings.json"], "edited")
 
+    def test_an_unmarked_copy_at_an_install_path_is_compared_with_its_master(self):
+        v = self.vault("unmarked", files={
+            "resources/scripts/vault-mirror/mirror.py": MIRROR_OLD,
+            "resources/scripts/logbook.py": "VALUE = 'ours'\n",
+            "resources/scripts/test_mirror.py": "TESTS = 1\n",
+            "resources/scripts/notes/mirror.py": MIRROR_OLD,
+        })
+        rows = {r["path"]: (r["kind"], r["master"], r["state"]) for r in self.scan(v)[0]["files"]}
+        self.assertEqual(rows["resources/scripts/vault-mirror/mirror.py"],
+                         ("integration", "integrations/vault-mirror/mirror.py", "untouched"))
+        self.assertEqual(rows["resources/scripts/logbook.py"],
+                         ("integration", "integrations/logbook/logbook.py", "edited"))
+        self.assertNotIn("resources/scripts/test_mirror.py", rows)
+        self.assertNotIn("resources/scripts/notes/mirror.py", rows)
+
     def test_a_vault_with_no_skill_home_gets_no_skill_rows(self):
         v = self.vault("no-skills")
         self.assertFalse(any(r["kind"] == "skill" for r in self.scan(v)[0]["files"]))
@@ -355,6 +375,47 @@ class RevisionCase(CloneCase):
         self.assertEqual((code, report["revision"]["verdict"]), (0, "equal"))
 
 
+class BetweenBumpsCase(CloneCase):
+    """Two template changes merge on 2026.10.01, then a fold bumps the marker and nothing
+    else, as a revision's pull requests land before its fold."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.later = cls.tmp / "later"
+        shutil.copytree(cls.clone, cls.later)
+        text = REV_B["base/CLAUDE.md.template"]
+        for old, new in (("Facts.", "Facts, dated."), ("English.", "English or the vault's own."),
+                         ("2026.10.01", "2026.11.01")):
+            text = text.replace(old, new)
+            write(cls.later, "base/CLAUDE.md.template", text)
+            git_in(cls.later, "commit", "-q", "-am", new)
+        cls.released = git_in(cls.later, "rev-parse", "main~2")
+        cls.tagged = cls.tmp / "tagged"
+        shutil.copytree(cls.later, cls.tagged)
+        git_in(cls.tagged, "tag", "-a", "-m", "2026.10.01", "2026.10.01", cls.released)
+        git_in(cls.tagged, "tag", "2026.11.01", "main")
+
+    def contract(self, name, marker, ref, clone):
+        report, _ = self.scan(self.vault(name, marker=marker), ref=ref, clone=clone)
+        return report["revision"], {r["heading"]: r["diff"] for r in report["contract"]}
+
+    def test_a_change_merged_before_the_bump_is_in_the_contract(self):
+        rev, rows = self.contract("between", "2026.10.01", "main", self.later)
+        self.assertEqual(rev["baseline"], self.rev_b)
+        self.assertEqual(sorted(rows), ["Language", "Memory"])
+        self.assertIn("+Facts, dated.", rows["Memory"])
+
+    def test_the_release_tag_the_marker_names_is_the_baseline(self):
+        rev, rows = self.contract("released", "2026.10.01", "main", self.tagged)
+        self.assertEqual(rev["baseline"], self.released)
+        self.assertEqual(list(rows), ["Language"])
+
+    def test_a_tag_the_ref_never_carried_is_no_baseline(self):
+        rev, _ = self.contract("ahead-tagged", "2026.11.01", "main~1", self.tagged)
+        self.assertEqual((rev["verdict"], rev["baseline"]), ("ahead", None))
+
+
 class ExitCase(CloneCase):
     def test_not_a_vault_root_is_exit_3(self):
         (self.tmp / "loose").mkdir()
@@ -396,6 +457,48 @@ class ExitCase(CloneCase):
         report, code = self.scan(self.vault("v4c"), ref="main", clone=plain)
         self.assertEqual(code, 4)
         self.assertIn("marker", report["clone"]["error"])
+
+
+class CopyCase(CloneCase):
+    def copy(self, master, target, commit=None, vault=None):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code = main(["copy", "--vault", str(vault or self.tmp), "--clone", str(self.clone),
+                         "--commit", commit or self.rev_b, master, str(target)])
+        return code, err.getvalue()
+
+    def test_copy_writes_the_master_s_bytes_creating_its_folder(self):
+        v = self.vault("copy-new")
+        self.assertEqual(self.copy("base/.claude/rules/filing.md", ".claude/rules/filing.md",
+                                   vault=v)[0], 0)
+        self.assertEqual((v / ".claude" / "rules" / "filing.md").read_bytes(),
+                         RULE.format("v2").encode())
+
+    def test_copy_replaces_a_copy_on_disk(self):
+        target = write(self.tmp / "copy-old", "filing.md", RULE.format("v1"), newline="\r\n")
+        self.assertEqual(self.copy("base/.claude/rules/filing.md", target)[0], 0)
+        self.assertEqual(target.read_bytes(), RULE.format("v2").encode())
+
+    def test_a_master_that_cannot_be_read_leaves_the_target_as_it_was(self):
+        folder = self.tmp / "copy-kept"
+        target = write(folder, "filing.md", "Ours.\n")
+        for master, commit in (("base/.claude/rules/nope.md", None),
+                               ("base/.claude/rules/filing.md", "no-such-ref"),
+                               ("base/.claude/rules", None)):
+            code, err = self.copy(master, target, commit)
+            self.assertEqual(code, 4)
+            self.assertIn(master, err)
+            self.assertEqual(target.read_bytes(), b"Ours.\n")
+            self.assertEqual([p.name for p in folder.iterdir()], ["filing.md"])
+
+    def test_a_target_that_cannot_be_written_leaves_nothing_behind(self):
+        folder = self.tmp / "copy-blocked"
+        (folder / "a-folder").mkdir(parents=True)
+        write(folder, "a-file", "Ours.\n")
+        for target in (folder / "a-folder", folder / "a-file" / "filing.md"):
+            self.assertEqual(self.copy("base/.claude/rules/filing.md", target)[0], 4)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["a-file", "a-folder"])
+        self.assertEqual(list((folder / "a-folder").iterdir()), [])
 
 
 class CliCase(CloneCase):
