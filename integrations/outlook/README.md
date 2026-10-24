@@ -88,7 +88,7 @@ Both read and neither writes; they differ in the question they answer. `fetch` w
 
 The scopes differ on purpose. `fetch` asks "what has arrived that nobody has dealt with", so Junk Email and Deleted Items are answers someone already gave and it does not reopen them; `search` asks "where is this thing", and a thing can be anywhere, so it reads everything.
 
-Both print Graph's `bodyPreview`, a couple of hundred characters. **To read a hit in full**, `raw '/me/messages?$search="<query>"&$select=id,subject,from,receivedDateTime,body'`, then `raw /me/messages/<id>/attachments` for its files: decode an attachment's `contentBytes` (base64) to a scratch file and read that. A shared mailbox is `/users/<shared address>/...` with `--account` naming its `via` user. Under Git Bash, set `MSYS_NO_PATHCONV=1` for any `raw` call, or the leading `/me/...` becomes a Windows path and Graph answers 404.
+Both print Graph's `bodyPreview`, a couple of hundred characters. **To read a hit in full**, `raw 'me/messages?$search="<query>"&$select=id,subject,from,receivedDateTime,body'`, then `raw me/messages/<id>/attachments` for its files: decode an attachment's `contentBytes` (base64) to a scratch file and read that. A shared mailbox is `users/<shared address>/...` with `--account` naming its `via` user.
 
 ### `fetch`: read now, decide before writing
 
@@ -114,7 +114,7 @@ A record describes the **newest** message in its thread and carries the whole of
 |---|---|
 | `subject`, `from`, `from_name`, `received`, `preview`, `link`, `id`, `message_id` | The newest message. `message_id` is the RFC822 one, so a message reaching two mailboxes is recognisable as one message. |
 | `thread_id` | The Graph conversation, or the message id where there is none. |
-| `read` | The newest message's single-message read, ready to follow `outlook.py`: `raw <root>/messages/<id> --account <token account>`, with the `/users/<address>` root and `via` account a shared mailbox needs. A staged note's `Message id` line. |
+| `read` | The newest message's single-message read, ready to follow `outlook.py`: `raw <root>/messages/<id> --account <token account>`, with the `users/<address>` root and `via` account a shared mailbox needs. A staged note's `Message id` line. |
 | `message_count`, `messages` | How many messages the window held for this thread, and all of them, newest first. |
 | `participants` | Everyone who **wrote** on the thread, minus the mailbox owner. Match contacts against this, never against `from` alone: a thread where the owner replied last would otherwise hide the counterparty, which is the most ordinary thing a live thread does. Senders only, because who received a message says nothing about whose business it is. |
 | `from_owner` | Whether the newest message is from the mailbox owner. |

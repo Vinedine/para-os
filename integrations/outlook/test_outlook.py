@@ -610,6 +610,21 @@ class GraphGet(unittest.TestCase):
         next_link = "https://graph.microsoft.com/v1.0/me/messages?$skip=100"
         self.assertEqual(self.get("tok", next_link).get.call_args.args[0], next_link)
 
+    def test_a_path_without_its_leading_slash_is_joined_the_same(self):
+        # fetch prints `raw me/messages/<id>` so Git Bash has no POSIX path to rewrite.
+        self.assertEqual(self.get("tok", "me/messages").get.call_args.args[0],
+                         f"{osync.GRAPH}/me/messages")
+
+    def test_a_path_git_bash_rewrote_is_cut_back_to_its_graph_segment(self):
+        for rewritten, want in (
+                ("C:/Program Files/Git/me/messages/AAMk=", "me/messages/AAMk="),
+                ("C:/Program Files/Git/users/info@x.com/messages/1",
+                 "users/info@x.com/messages/1"),
+                ("D:/tools/git/me?$select=id", "me?$select=id")):
+            self.assertEqual(osync.graph_path(rewritten), want)
+        for untouched in ("me/messages/1", "/me/messages/1", "users/a@x.com/messages"):
+            self.assertEqual(osync.graph_path(untouched), untouched)
+
     def test_reads_go_through_one_pooled_session(self):
         # fetch_messages makes this one call per filed message. Through `requests.get` each would
         # build and discard its own session, paying a fresh DNS + TCP + TLS handshake.
@@ -1413,12 +1428,12 @@ class CmdFetch(unittest.TestCase):
         # What a staged note's Message id line holds: the webLink's item id is not a Graph
         # path, and a shared mailbox also needs /users/<address>/ and --account.
         records, _ = self.run_fetch()
-        self.assertEqual(records[0]["read"], "raw /me/messages/1 --account a@x.com")
+        self.assertEqual(records[0]["read"], "raw me/messages/1 --account a@x.com")
         cfg = {"accounts": {"a@x.com": {"refresh_token": "t"},
                             "info@x.com": {"via": "a@x.com"}}}
         records, _ = self.run_fetch(cfg=cfg, feeds=("info@x.com",))
         self.assertEqual(records[0]["read"],
-                         "raw /users/info@x.com/messages/1 --account a@x.com")
+                         "raw users/info@x.com/messages/1 --account a@x.com")
 
     def test_a_record_carries_the_conversation_id(self):
         # Parity with the connector path, where one conversation is one candidate rather
