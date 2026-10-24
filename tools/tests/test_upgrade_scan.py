@@ -439,6 +439,48 @@ class ExitCase(CloneCase):
         self.assertIn("marker", report["clone"]["error"])
 
 
+class CopyCase(CloneCase):
+    def copy(self, master, target, commit=None, vault=None):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code = main(["copy", "--vault", str(vault or self.tmp), "--clone", str(self.clone),
+                         "--commit", commit or self.rev_b, master, str(target)])
+        return code, err.getvalue()
+
+    def test_copy_writes_the_master_s_bytes_creating_its_folder(self):
+        v = self.vault("copy-new")
+        self.assertEqual(self.copy("base/.claude/rules/filing.md", ".claude/rules/filing.md",
+                                   vault=v)[0], 0)
+        self.assertEqual((v / ".claude" / "rules" / "filing.md").read_bytes(),
+                         RULE.format("v2").encode())
+
+    def test_copy_replaces_a_copy_on_disk(self):
+        target = write(self.tmp / "copy-old", "filing.md", RULE.format("v1"), newline="\r\n")
+        self.assertEqual(self.copy("base/.claude/rules/filing.md", target)[0], 0)
+        self.assertEqual(target.read_bytes(), RULE.format("v2").encode())
+
+    def test_a_master_that_cannot_be_read_leaves_the_target_as_it_was(self):
+        folder = self.tmp / "copy-kept"
+        target = write(folder, "filing.md", "Ours.\n")
+        for master, commit in (("base/.claude/rules/nope.md", None),
+                               ("base/.claude/rules/filing.md", "no-such-ref"),
+                               ("base/.claude/rules", None)):
+            code, err = self.copy(master, target, commit)
+            self.assertEqual(code, 4)
+            self.assertIn(master, err)
+            self.assertEqual(target.read_bytes(), b"Ours.\n")
+            self.assertEqual([p.name for p in folder.iterdir()], ["filing.md"])
+
+    def test_a_target_that_cannot_be_written_leaves_nothing_behind(self):
+        folder = self.tmp / "copy-blocked"
+        (folder / "a-folder").mkdir(parents=True)
+        write(folder, "a-file", "Ours.\n")
+        for target in (folder / "a-folder", folder / "a-file" / "filing.md"):
+            self.assertEqual(self.copy("base/.claude/rules/filing.md", target)[0], 4)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["a-file", "a-folder"])
+        self.assertEqual(list((folder / "a-folder").iterdir()), [])
+
+
 class CliCase(CloneCase):
     def run_main(self, *args):
         out, err = io.StringIO(), io.StringIO()

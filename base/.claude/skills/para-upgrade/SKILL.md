@@ -1,7 +1,7 @@
 ---
 name: para-upgrade
 description: Bring a vault in line with a newer para-os template revision - compares every file the kit owns with a para-os clone at an explicit ref by hash and re-copies on approval, takes the operator through the template's change to CLAUDE.md hunk by hunk, proposes deleting the files the kit retired, applies the content changes the changelog asks for, and restamps the marker. Use when the user asks to "upgrade the vault", "align this vault to para-os", "is this vault on the latest structure", "apply the new para-os structure", or types /para-upgrade.
-allowed-tools: Bash(python3 *), Bash(py *), Bash(git -C * fetch *), Bash(git -C * show *), Bash(git rm *), Bash(mkdir *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write
+allowed-tools: Bash(python3 *), Bash(py *), Bash(git -C * fetch *), Bash(git rm *), Bash(gio trash *), Bash(osascript -e 'tell application "Finder" to delete POSIX file *), Glob, Grep, Read, Edit, Write
 argument-hint: '[--ref <git-ref>] [--clone <path>] [audit] [--test]'
 ---
 
@@ -53,7 +53,7 @@ Every `files` row, by `state`:
 - **retired**: the kit no longer ships it. Each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
 - **no-master**: an integration the ref ships nothing for. Report it and leave it, unless a collected Reaction retires it: then its deletion is its own question.
 
-A `path` outside the vault is a user-level install, shared by every vault on the machine: say so when proposing it. Copy with `git -C <clone> show <clone.commit>:<master> > <path>` in Bash, never PowerShell, whose `>` re-encodes the file, creating its folder first where it has none.
+A `path` outside the vault is a user-level install, shared by every vault on the machine: say so when proposing it. Copy each with `upgrade_scan.py copy --vault <root> --clone <clone> --commit <clone.commit> <master> <path>`; exit 4 changed nothing.
 
 ## Step 3 - The contract
 
