@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: upgrade-adds-an-add-on-named-in-words
+tags: [upgrade, native]
+context:
+  scaffold_script: setup.sh
