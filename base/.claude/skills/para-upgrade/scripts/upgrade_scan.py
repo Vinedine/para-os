@@ -4,8 +4,11 @@ ref, as one JSON document on stdout.
 
     py -3 upgrade_scan.py --vault <path> [--clone <path>] [--ref origin/stable]
                           [--user-skills DIR] [--paraos-home DIR] [--indent N]
+    py -3 upgrade_scan.py copy --vault <path> --clone <path> --commit <clone.commit> <master> <row path>
 
-Read-only: it never writes, fetches or asks, and reads every master at the ref's commit.
+The scan is read-only: it never writes, fetches or asks, and reads every master at the ref's
+commit. `copy` writes one master as the commit holds it over a row's path, whole or not at all,
+creating its folder; where the master cannot be read it changes nothing and exits 4.
 
 clone     `path`, `ref`, `commit` (the ref's commit, which a re-copy reads), `error` on exit 4-6.
 revision  The vault's template marker (`vault`) against the master's (`master`): `verdict`
@@ -49,8 +52,10 @@ import argparse
 import difflib
 import hashlib
 import json
+import os
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 SHARED_DIR = Path(__file__).resolve().parents[2] / "para-shared" / "scripts"
@@ -370,7 +375,47 @@ def build_report(vault, clone, ref, user_dir, default_clone=None):
     return report, 0
 
 
+def copy(clone, commit, master, target):
+    """None once `target` holds the master's bytes, else what stopped it."""
+    data = clone_read(clone, commit, master)
+    if data is None:
+        return f"{commit}:{master} cannot be read"
+    target = Path(target)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.")
+    except OSError as error:
+        return str(error)
+    try:
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        os.replace(temp, target)
+    except OSError as error:
+        Path(temp).unlink(missing_ok=True)
+        return str(error)
+    return None
+
+
+def copy_main(argv):
+    ap = argparse.ArgumentParser(prog="upgrade_scan.py copy",
+                                 description="Write one master over its vault copy, atomically.")
+    ap.add_argument("--vault", required=True, help="vault root")
+    ap.add_argument("--clone", required=True)
+    ap.add_argument("--commit", required=True, help="the scan's clone.commit")
+    ap.add_argument("master", help="the row's master")
+    ap.add_argument("path", help="the row's path")
+    args = ap.parse_args(argv)
+    error = copy(Path(args.clone), args.commit, args.master, Path(args.vault) / args.path)
+    if error:
+        print(f"upgrade_scan copy: {error}", file=sys.stderr)
+        return 4
+    return 0
+
+
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if argv[:1] == ["copy"]:
+        return copy_main(argv[1:])
     ap = argparse.ArgumentParser(description="Scan a vault and a para-os clone for /para-upgrade.")
     ap.add_argument("--vault", required=True, help="vault root")
     ap.add_argument("--clone", help="a local para-os clone (default: $PARAOS_HOME/para-os)")
