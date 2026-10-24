@@ -18,7 +18,9 @@ para-os home, never in a vault:
     quarantine/<vault>/<run>/           the items a run took out, with manifest.json
 
 `run` reads the triage scan's saved copy (`saved_to`) and a decisions file, a JSON list of
-`{"item", "action", "reason", "survivor", "hold"}`, `item` a loose file's name in `triage/`.
+`{"item", "action", "reason", "survivor", "hold"}`, `item` a loose file's name in `triage/`,
+and removes the decisions file once the run is written, so the next run writes its own. One
+older than the scan was not written this run: it is refused, and removed.
 An item is acted on only where its action is a `Delete (...)` or `Dismiss (...)` switched on
 for this vault, it carries no `hold`, it is a loose file of the scan, the scan lists no
 inbound link to it, its bytes still match the scan's snapshot, and the run is under `--cap`.
@@ -40,7 +42,8 @@ withdrawal. `purge` sends each quarantined run older than `--days` to the system
 leaves one where no trash is reachable.
 
 Exit codes: 0 answered; 2 the library is missing; 3 refused (kill switch, shared vault, an
-unreadable scan or decisions file, a run or item not found); 4 a restored md5 differs.
+unreadable scan, an unreadable or stale decisions file, a run or item not found); 4 a restored
+md5 differs.
 """
 
 import argparse
@@ -169,7 +172,13 @@ def proposal_manifest(path):
 
 def run(args):
     scan = load_json(args.scan)
-    decisions = load_json(args.decisions)
+    decisions_file = Path(args.decisions)
+    if decisions_file.is_file() and \
+            decisions_file.stat().st_mtime < Path(args.scan).stat().st_mtime:
+        decisions_file.unlink()
+        raise Refused(f"{decisions_file} is older than the scan: its decisions were not "
+                      "written this run. Removed it, so the next run's write lands")
+    decisions = load_json(decisions_file)
     vault_root = Path(scan["vault"]["path"])
     state = State(args.paraos_home, scan["vault"]["name"])
     if (state.home / "auto-triage.off").exists():
@@ -223,6 +232,7 @@ def run(args):
         report["quarantine"] = str(folder)
     if held:
         report["proposal"] = str(write_proposal(state, run_id, vault_root, held))
+    decisions_file.unlink()
     return report
 
 

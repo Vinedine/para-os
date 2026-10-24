@@ -7,7 +7,7 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
 
     py -3 paraos_vault.py links dangling [--vault .]
     py -3 paraos_vault.py move-plan <src> <dst> [--vault .]
-    py -3 paraos_vault.py changed <file>
+    py -3 paraos_vault.py changed <file> [--done <path>...]
     py -3 paraos_vault.py notice-date <renewal> "<n> months" [--term "1 year"] [--today D]
     py -3 paraos_vault.py weekday-after <day> <weekday>
 
@@ -493,14 +493,16 @@ def is_separator_row(cells):
     return bool(cells) and all(SEPARATOR_CELL_RE.match(c.replace(" ", "")) for c in cells)
 
 
-def _tasks(path, pattern, extra=None):
+def _tasks(path, pattern, extra=None, keep=None):
     """Every checkbox `pattern` matches in one file, with the heading it sits under and its
-    markers. Shared by `open_tasks` and `closed_tasks`, so what counts as a checkbox and
-    which heading owns it is one rule stated once rather than kept in step by hand.
+    markers. Shared by `open_tasks`, `unticked_tasks` and `closed_tasks`, so what counts as
+    a checkbox and which heading owns it is one rule stated once rather than kept in step by
+    hand.
 
     The section is the nearest `##`, except under `## Next actions`, where the document's
     `#` says more than the heading does. `extra`, given the raw text after the checkbox
-    marker, returns fields to add beyond what every checkbox already carries.
+    marker, returns fields to add beyond what every checkbox already carries; `keep`, given
+    the same text, drops the checkbox where it returns false.
     """
     h1 = h2 = None
     out = []
@@ -514,7 +516,7 @@ def _tasks(path, pattern, extra=None):
             h2 = m.group(1).strip()
             continue
         m = pattern.match(text)
-        if not m:
+        if not m or (keep and not keep(m.group(1))):
             continue
         task = {"line": lineno,
                 "section": h1 if (h2 or "").lower() == "next actions" else (h2 or h1)}
@@ -526,13 +528,25 @@ def _tasks(path, pattern, extra=None):
     return out
 
 
+def _done_date(raw):
+    found = DONE_RE.search(raw)
+    return {"done": found.group(1) if found and parse_date(found.group(1)) else None}
+
+
 def open_tasks(path):
-    """Every open checkbox in one file, with the heading it sits under and its markers.
+    """Every open checkbox in one file, with the heading it sits under and its markers,
+    less the ones `unticked_tasks` lists.
 
     The section is the nearest `##`, except under `## Next actions`, where the document's
     `#` says more than the heading does.
     """
-    return _tasks(path, TASK_RE)
+    return _tasks(path, TASK_RE, keep=lambda raw: not _done_date(raw)["done"])
+
+
+def unticked_tasks(path):
+    """Every open checkbox carrying a `✅ YYYY-MM-DD`: done, with the box never ticked. The
+    shape `closed_tasks` returns."""
+    return _tasks(path, TASK_RE, extra=_done_date, keep=lambda raw: _done_date(raw)["done"])
 
 
 def closed_tasks(path):
@@ -541,10 +555,7 @@ def closed_tasks(path):
     None where it carries none. What counts as a checkbox is this library's rule, so this
     reads `open_tasks`'s own section and marker logic rather than a second copy of it.
     """
-    def done_date(raw):
-        found = DONE_RE.search(raw)
-        return {"done": found.group(1) if found and parse_date(found.group(1)) else None}
-    return _tasks(path, CLOSED_TASK_RE, extra=done_date)
+    return _tasks(path, CLOSED_TASK_RE, extra=_done_date)
 
 
 # --- where things live --------------------------------------------------------------------
@@ -1959,16 +1970,19 @@ def snapshot(paths):
     return out
 
 
-def changed(before):
-    """The paths of a snapshot whose contents no longer match it, one since deleted included."""
-    now = snapshot(before)
-    return sorted(p for p, digest in before.items() if now.get(str(Path(p))) != digest)
+def changed(before, done=()):
+    """The paths of a snapshot whose contents no longer match it, one since deleted included,
+    less `done`: the paths the run itself has moved, deleted or written."""
+    now, mine = snapshot(before), {os.path.normcase(abspath(p)) for p in done}
+    return sorted(p for p, digest in before.items() if now.get(str(Path(p))) != digest
+                  and os.path.normcase(abspath(p)) not in mine)
 
 
-def arrived(before, folders):
-    """The files directly in each folder that the snapshot does not hold: arrivals since it
-    was taken, which no approval covered. A `.gitkeep` is not a file here, as in triage/."""
-    known = {os.path.normcase(abspath(p)) for p in before}
+def arrived(before, folders, done=()):
+    """The files directly in each folder that neither the snapshot nor `done` holds: arrivals
+    since it was taken, which no approval covered. A `.gitkeep` is not a file here, as in
+    triage/."""
+    known = {os.path.normcase(abspath(p)) for p in [*before, *done]}
     out = []
     for folder in folders:
         try:
@@ -2076,6 +2090,9 @@ def main(argv=None):
     changed_cmd.add_argument(
         "file", help="a JSON snapshot ({path: digest}), or scan output carrying a "
                      "'snapshot' key, top-level or under a phase key")
+    changed_cmd.add_argument("--done", nargs="*", default=[], metavar="PATH",
+                             help="paths this run moved (source and destination), deleted "
+                                  "or wrote: never reported")
     notice = sub.add_parser("notice-date", help="the last day to give notice on a renewing "
                                                 "agreement")
     notice.add_argument("renewal", help="the renewal date, YYYY-MM-DD")
@@ -2113,7 +2130,8 @@ def main(argv=None):
         snap = scan_snapshot(data)
         if snap is None:
             ap.error(f"{args.file} holds no snapshot")
-        diffs = {"changed": changed(snap), "arrived": arrived(snap, scan_snapshot_folders(data))}
+        diffs = {"changed": changed(snap, args.done),
+                 "arrived": arrived(snap, scan_snapshot_folders(data), args.done)}
         json.dump(diffs, sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 1 if diffs["changed"] or diffs["arrived"] else 0

@@ -51,7 +51,7 @@ try:
         file_dates, is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes,
         open_tasks, read_lines, never_folders,
         over_grown_briefs, parse_date, register_rows, resolve_entity,
-        resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items,
+        resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items, unticked_tasks,
     )
     from paraos_vault import paraos_home_dir, registry, same_place, triage_sources  # noqa: E402
     from paraos_mail import ingest_ledger  # noqa: E402
@@ -136,6 +136,16 @@ def collect_tasks(vault, files):
                          "person": path.stem if scope == "network" else None})
             tasks.append(task)
     return tasks
+
+
+def unticked(vault, files, own=""):
+    out = []
+    for path in files:
+        rel = path.relative_to(vault).as_posix()
+        if rel.startswith(own):
+            out += [{"file": rel, "line": t["line"], "done": t["done"]}
+                    for t in unticked_tasks(path)]
+    return out
 
 
 def mentions_elsewhere(vault, tasks, match):
@@ -968,6 +978,8 @@ def scan(vault, today, entity=None, paraos_home=None, review=None):
                                    scoped=report["scope"] == "entity", entity_path=entity_path)
     report["flags"]["silent_sources"] = None if report["scope"] == "entity" \
         else silent_sources(vault, today, paraos_home)
+    report["flags"]["unticked"] = [] if resolution and not entity_path \
+        else unticked(vault, files, entity_path + "/" if entity_path else "")
     if report["scope"] == "vault":
         report["ideas"] = ideas_lane(vault, today)
         for idea in report["ideas"]:  # an idea holds no actions.md: its work lives elsewhere

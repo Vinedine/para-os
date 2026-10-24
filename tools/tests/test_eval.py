@@ -158,6 +158,31 @@ class GrantPerCase(unittest.TestCase):
         self.assertEqual(sorted(harness.calls[0]["cases"]), sorted(self.tools))
 
 
+class Summary(unittest.TestCase):
+    def summary(self, runs, suite=None):
+        out_dir = Path(tempfile.mkdtemp(prefix="test-eval-"))
+        self.addCleanup(shutil.rmtree, out_dir, ignore_errors=True)
+        (out_dir / "aggregate-result.json").write_text(json.dumps({
+            "claudeVersion": "2.1.0", "suite": {"judgeModel": "sonnet", **(suite or {})},
+            "cases": [{"name": "a", "aggregates": {"score": 1.0}, "arms": {"with": runs}}]}),
+            encoding="utf-8")
+        return eval_tool.summary_markdown(out_dir)
+
+    def test_names_the_model_a_kept_trace_ran_on(self):
+        trace = Path(tempfile.mkdtemp(prefix="test-eval-")) / "trace.jsonl"
+        self.addCleanup(shutil.rmtree, trace.parent, ignore_errors=True)
+        trace.write_text(json.dumps({"type": "system", "subtype": "hook_started"}) + "\n" +
+                         json.dumps({"type": "system", "subtype": "init",
+                                     "model": "claude-test-1"}) + "\n", encoding="utf-8")
+        self.assertIn("Claude Code 2.1.0, model claude-test-1, judge sonnet",
+                      self.summary([{"tracePath": str(trace)}]))
+
+    def test_without_a_trace_names_the_override_or_nothing(self):
+        gone = [{"tracePath": "/no/such/trace.jsonl"}]
+        self.assertIn("model opus, judge", self.summary(gone, {"modelOverride": "opus"}))
+        self.assertIn("model ?, judge", self.summary(gone))
+
+
 class SplitCost(unittest.TestCase):
     def test_each_invocation_gets_its_share_of_the_ceiling(self):
         self.assertEqual(eval_tool.split_cost(["--runs", "1", "--max-cost-usd", "40"], 0.5),

@@ -46,7 +46,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        FROZEN_MARKER_RE, NOT_CARDS, STALE_UNDATED_DAYS, TASK_RE,
+        FROZEN_MARKER_RE, NOT_CARDS, NOT_VAULT_CONTENT, STALE_UNDATED_DAYS, TASK_RE,
         LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
         dangling_links, duplicates, find_clone,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
@@ -621,6 +621,53 @@ def stale_drafts(vault):
     return out
 
 
+# `name (1).ext`, a `conflicted copy` in parentheses, and a `.sync-conflict-...` stem suffix.
+CONFLICT_RE = re.compile(r" \((?:\d+|[^)]*conflicted copy[^)]*)\)(?=\.[^.]*$|$)"
+                         r"|\.sync-conflict-[\w-]+(?=\.[^.]*$|$)", re.IGNORECASE)
+# A machine name as a sync client appends it, `-DESKTOP7`: uppercase, so a hyphenated name a
+# person chose (`invoice-signed`, `report-v2`) never reads as one.
+MACHINE_RE = re.compile(r"[A-Z0-9-]*[A-Z][A-Z0-9-]*")
+
+
+def unconflicted(folder, name):
+    """`name` less its conflict pattern, or None where it carries none. A machine suffix
+    counts only beside the file it would leave."""
+    clean = CONFLICT_RE.sub("", name)
+    if clean != name:
+        return clean
+    stem, dot, ext = name.rpartition(".") if "." in name else (name, "", "")
+    parts = stem.split("-")
+    for i in range(1, len(parts)):
+        clean = "-".join(parts[:i]) + dot + ext
+        if MACHINE_RE.fullmatch("-".join(parts[i:])) and (folder / clean).exists():
+            return clean
+    return None
+
+
+def conflict_copies(vault):
+    """A sync client's conflict copies anywhere in the vault, as `{copy, survivor, empty}`:
+    every file or folder whose name carries a conflict pattern, and every zero-byte file
+    under such a folder whose path, less the pattern, is a non-empty file. `survivor` is
+    that path where it exists, else None."""
+    out = []
+    for path in sorted(vault.rglob("*")):
+        rel = path.relative_to(vault)
+        if under_any(rel.as_posix(), NOT_VAULT_CONTENT):
+            continue
+        clean = []
+        for part in rel.parts:
+            clean.append(unconflicted(vault.joinpath(*clean), part) or part)
+        survivor = vault.joinpath(*clean)
+        if survivor == path:
+            continue
+        empty = path.is_file() and path.stat().st_size == 0
+        if clean[-1] != rel.name or (empty and survivor.is_file() and survivor.stat().st_size):
+            out.append({"copy": rel.as_posix(),
+                        "survivor": survivor.relative_to(vault).as_posix()
+                        if survivor.exists() else None, "empty": empty})
+    return out
+
+
 # ----------------------------------------------------------------------------------- phase 1
 
 def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_columns=()):
@@ -665,11 +712,16 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
     drafts = stale_drafts(vault)
     touched |= {vault / d["draft"] for d in drafts}
 
+    conflicts = conflict_copies(vault)
+    touched |= {vault / p for c in conflicts for p in (c["copy"], c["survivor"])
+                if p and (vault / p).is_file()}
+
     return {"map": map_, "placeholders": placeholders, "dangling": dangling,
             "wikilinks": wikilinks, "uncited_contacts": uncited,
             "uncited_exempt": uncited_exempt, "inline_contact_details": inline_details,
             "duplicates": dup, "figure_pairs": figs, "archive": archive,
-            "resources_loose": res_loose, "stale_drafts": drafts, "snapshot": snapshot(sorted(touched, key=str))}
+            "resources_loose": res_loose, "stale_drafts": drafts,
+            "conflict_copies": conflicts, "snapshot": snapshot(sorted(touched, key=str))}
 
 
 # ----------------------------------------------------------------------------------- phase 3
