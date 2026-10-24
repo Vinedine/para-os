@@ -355,6 +355,47 @@ class RevisionCase(CloneCase):
         self.assertEqual((code, report["revision"]["verdict"]), (0, "equal"))
 
 
+class BetweenBumpsCase(CloneCase):
+    """Two template changes merge on 2026.10.01, then a fold bumps the marker and nothing
+    else, as a revision's pull requests land before its fold."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.later = cls.tmp / "later"
+        shutil.copytree(cls.clone, cls.later)
+        text = REV_B["base/CLAUDE.md.template"]
+        for old, new in (("Facts.", "Facts, dated."), ("English.", "English or the vault's own."),
+                         ("2026.10.01", "2026.11.01")):
+            text = text.replace(old, new)
+            write(cls.later, "base/CLAUDE.md.template", text)
+            git_in(cls.later, "commit", "-q", "-am", new)
+        cls.released = git_in(cls.later, "rev-parse", "main~2")
+        cls.tagged = cls.tmp / "tagged"
+        shutil.copytree(cls.later, cls.tagged)
+        git_in(cls.tagged, "tag", "-a", "-m", "2026.10.01", "2026.10.01", cls.released)
+        git_in(cls.tagged, "tag", "2026.11.01", "main")
+
+    def contract(self, name, marker, ref, clone):
+        report, _ = self.scan(self.vault(name, marker=marker), ref=ref, clone=clone)
+        return report["revision"], {r["heading"]: r["diff"] for r in report["contract"]}
+
+    def test_a_change_merged_before_the_bump_is_in_the_contract(self):
+        rev, rows = self.contract("between", "2026.10.01", "main", self.later)
+        self.assertEqual(rev["baseline"], self.rev_b)
+        self.assertEqual(sorted(rows), ["Language", "Memory"])
+        self.assertIn("+Facts, dated.", rows["Memory"])
+
+    def test_the_release_tag_the_marker_names_is_the_baseline(self):
+        rev, rows = self.contract("released", "2026.10.01", "main", self.tagged)
+        self.assertEqual(rev["baseline"], self.released)
+        self.assertEqual(list(rows), ["Language"])
+
+    def test_a_tag_the_ref_never_carried_is_no_baseline(self):
+        rev, _ = self.contract("ahead-tagged", "2026.11.01", "main~1", self.tagged)
+        self.assertEqual((rev["verdict"], rev["baseline"]), ("ahead", None))
+
+
 class ExitCase(CloneCase):
     def test_not_a_vault_root_is_exit_3(self):
         (self.tmp / "loose").mkdir()

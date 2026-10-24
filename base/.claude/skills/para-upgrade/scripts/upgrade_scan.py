@@ -11,8 +11,8 @@ clone     `path`, `ref`, `commit` (the ref's commit, which a re-copy reads), `er
 revision  The vault's template marker (`vault`) against the master's (`master`): `verdict`
           equal, behind, ahead or no-marker. `entries`: each changelog revision after the
           vault's, up to the master's, with its `- ` lines as `reactions`, the lead dropped.
-          `baseline`: the commit whose template carries the vault's marker, the ref's own where
-          it still does, else the parent of the newest commit changing it; null where none.
+          `baseline`: the ref's commit where its template still carries the vault's marker, else
+          the marker's release tag, else the commit that added it; null where none.
 files     Every vault file the kit owns that is not `current`: `path` (vault-relative,
           absolute outside the vault), `kind`, `master` (its path in the clone), `state`.
           kind   skill: a base or declared add-on skill where the vault runs it (its bundled
@@ -157,11 +157,10 @@ def baseline(kit, raw, mine):
         return kit.commit
     if not raw:
         return None
-    out = git(kit.clone, ["log", kit.commit, "--format=%H",
-                          f"-S<!-- para-os-template: {raw} -->", "--", BASE_TEMPLATE])
-    newest = (out or "").split()
-    parent = git(kit.clone, ["rev-parse", newest[0] + "^1"]) if newest else None
-    return parent.strip() if parent else None
+    hits = (git(kit.clone, ["log", kit.commit, "--format=%H",
+                            f"-S<!-- para-os-template: {raw} -->", "--", BASE_TEMPLATE]) or "").split()
+    tag = git(kit.clone, ["rev-parse", "-q", "--verify", f"refs/tags/{raw}^{{commit}}"])
+    return (tag or hits[-1]).strip() if hits else None
 
 
 def sections(text):
