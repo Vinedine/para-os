@@ -2,6 +2,8 @@
 
 **The scan's `plan` decides each `## Triage sources` row**: `pull` and `run` execute below; `sent` runs only [the sent pass](../../para-shared/connectors.md), which `/para-ingest` never reads; `skip`, `lookup` and `unknown` pull nothing. The summary carries `ingest.reason` unless it reads `pulled as normal`.
 
+**A row carrying `pulled by <name>`**, a writer on the `## Who writes this vault` roster, is read only on that writer's runs; anyone else's skips it: `<source>: pulled by <name> - skipped`.
+
 ## sync-script sources
 
 A script writing items into `triage/` (`granola.js`), dry-run by default: run it from the vault root with `--write`, or on `preview` without it, listing what it would add. An error is reported and the other sources carry on.

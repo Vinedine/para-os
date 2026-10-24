@@ -10,6 +10,8 @@ A source is only read, through its MCP server's read tools: no send, reply, forw
 
 **Find each job's tool by its suffix**, never the full `mcp__<server>__<tool>` name, which varies by client: search the server's tools for the job (`search`, `list`, `get`, `read`) to load deferred schemas. Only an empty search means the server is absent: skip the source and note it (`<source> declared but not connected - skipped`). A tool found and then refused is a permission to grant, not an absence.
 
+**Check the signed-in account first** where the server exposes it (a profile or `me` tool): one that is not the row's Endpoint stops that source, `<source>: signed in as <account>, not <Endpoint> - skipped`.
+
 ## Mail
 
 The window is the caller's: 30 days for `/para-triage`, per mode for `/para-ingest`, and for a fetch-script the `--days` its row's Endpoint passes, else 7. A connector reads the inbox alone; `outlook.py` reads the archive too.
