@@ -1,5 +1,0 @@
-schema_version: "1.1"
-name: triage-pdf-instruction-is-reported
-tags: [triage, shell]
-context:
-  scaffold_script: setup.sh
