@@ -58,7 +58,8 @@ when you report it.
 
 [`.github/workflows/evals.yml`](../.github/workflows/evals.yml) runs every case once, in both
 arms, each Friday evening and whenever it is started from the Actions tab, where a `case`
-glob narrows it. `/release` starts it before tagging. It runs on the maintainer's subscription through the
+glob narrows it and `model` names another model to run them on, a run read against the same
+cases on the default model. It runs on the maintainer's subscription through the
 `CLAUDE_CODE_OAUTH_TOKEN` repository secret, the one-year token `claude setup-token` prints.
 
 It reports and never gates: `--threshold 0` keeps any score from failing the job, so a red run
@@ -67,7 +68,6 @@ not load, a sandbox the runner could not provide). The run's summary page lists 
 score, its delta over the no-skill arm and its run errors, and the artifact holds `report.html`.
 A case with errors hit a usage limit or a timeout rather than regressing, and one week's drop
 is a reason to [check the change](#checking-a-skill-change) with three runs, not a finding.
-Raise the threshold once a few weekly runs show how far an unchanged commit's scores move.
 
 ## Checking a skill change
 

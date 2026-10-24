@@ -12,6 +12,10 @@ on:
         description: "Case name glob, such as triage-*; empty runs every case"
         required: false
         default: ""
+      model:
+        description: "Model the cases run on, such as haiku; empty runs the default"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -64,6 +68,7 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           PARAOS_HOME: ${{ runner.temp }}/paraos
           CASE: ${{ inputs.case }}
+          MODEL: ${{ inputs.model }}
         run: |
           if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
             echo "::error::No CLAUDE_CODE_OAUTH_TOKEN secret: run claude setup-token and add it"
@@ -71,8 +76,9 @@ jobs:
           fi
           args=(--shell --summary "$GITHUB_STEP_SUMMARY")
           if [ -n "$CASE" ]; then args+=(--case "$CASE"); fi
-          python tools/eval.py "${args[@]}" -- \
-            --runs 1 --threshold 0 --concurrency 4 --max-cost-usd 40 --keep-temp
+          vendor=(--runs 1 --threshold 0 --concurrency 4 --max-cost-usd 40 --keep-temp)
+          if [ -n "$MODEL" ]; then vendor+=(--model "$MODEL"); fi
+          python tools/eval.py "${args[@]}" -- "${vendor[@]}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
