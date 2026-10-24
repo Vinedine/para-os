@@ -178,8 +178,8 @@ to, not after.
 The baseline arm answers a sharper question than "did it work": it runs the same prompt
 with no skills loaded at all. **A case whose score is the same in both arms is measuring
 something the model already did on its own**, and a suite of those costs money to learn
-nothing. Two cases here were exactly that before they were rewritten: a bare model already
-reports an archived project as archived, and already resolves a name written with dots.
+nothing. Rewrite such a case, unless the model changed since it was written: then try deleting
+the rule it grades, and rewrite it only if the rule [survives](#checking-a-skill-change).
 
 So a grader checks what the vault's conventions require and a bare model has no reason to
 do: that at most five items are offered as the work to do now and the rest are counted,

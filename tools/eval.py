@@ -143,6 +143,20 @@ def claim_run_dir(runs):
             pass
 
 
+def trace_model(path):
+    """The model a run's trace names on its init line, or None: the harness keeps a trace only
+    under --keep-temp."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                event = json.loads(line)
+                if event.get("subtype") == "init":
+                    return event.get("model")
+    except (OSError, TypeError, ValueError):
+        pass
+    return None
+
+
 def summary_markdown(out_dir):
     """The run as Markdown, one row per case in case order, so one run reads against the
     last. Scores are counted against 1.0 rather than the run's threshold, which CI sets to 0
@@ -159,12 +173,15 @@ def summary_markdown(out_dir):
 
     suite, cases = result.get("suite", {}), result.get("cases", [])
     scores = [c.get("aggregates", {}).get("score", 0) for c in cases]
+    models = {trace_model(r.get("tracePath"))
+              for c in cases for r in c.get("arms", {}).get("with", [])}
+    model = ", ".join(sorted(m for m in models if m)) or suite.get("modelOverride", "?")
     lines = ["## Evals", ""]
     if result.get("partial"):
         lines += [f"**Partial run** ({result.get('partialReason', 'no reason given')}): "
                   f"leave it out of any trend.", ""]
     lines += [f"{sum(s >= 1 for s in scores)} of {len(cases)} cases scored 1.00. "
-              f"Claude Code {result.get('claudeVersion', '?')}, judge "
+              f"Claude Code {result.get('claudeVersion', '?')}, model {model}, judge "
               f"{suite.get('judgeModel', '?')}, ablation {suite.get('ablation', '?')}, "
               f"{result.get('costUsd', 0):.2f} USD at list price, "
               f"{round(result.get('durationSeconds', 0) / 60)} min.", "",

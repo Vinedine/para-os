@@ -57,8 +57,8 @@ jobs:
             sudo systemctl reload apparmor
           fi
           bwrap --ro-bind / / true
-      # --threshold 0: a low score never fails the job, so a failed run means the suite could
-      # not run. Results land under PARAOS_HOME, outside the checkout, for the upload below.
+      # --threshold 0: a low score never fails the job. --keep-temp keeps the traces the summary
+      # reads the model from. Results land under PARAOS_HOME, outside the checkout.
       - name: Evals
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -72,7 +72,7 @@ jobs:
           args=(--shell --summary "$GITHUB_STEP_SUMMARY")
           if [ -n "$CASE" ]; then args+=(--case "$CASE"); fi
           python tools/eval.py "${args[@]}" -- \
-            --runs 1 --threshold 0 --concurrency 4 --max-cost-usd 40
+            --runs 1 --threshold 0 --concurrency 4 --max-cost-usd 40 --keep-temp
       - uses: actions/upload-artifact@v4
         if: always()
         with:
