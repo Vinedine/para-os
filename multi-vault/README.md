@@ -2,7 +2,7 @@
 
 An **optional layer**, not part of the base skeleton. Most people run one vault and need none of this.
 
-It is for the case where you run several vaults. It ships three skills over one registry of them: `/para-ingest` reads their shared inputs once, `/para-audit` reports how far each has drifted from the template, and `/para-global-brief` shows where they all stand.
+It is for the case where you run several vaults; [second-vault.md](second-vault.md) sets up a second one on the same mailbox. It ships three skills over one registry of them: `/para-ingest` reads their shared inputs once, `/para-audit` reports how far each has drifted from the template, and `/para-global-brief` shows where they all stand.
 
 ## /para-audit
 
