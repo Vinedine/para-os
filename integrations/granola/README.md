@@ -45,7 +45,7 @@ node granola.js --write    # create the notes
 node granola.js --days 14  # override the look-back window
 ```
 
-Re-runs skip a meeting that is in the dedup ledger (`~/.paraos/data/granola/synced.json`) or whose note is still in `triage/`; once `/para-triage` has filed a note elsewhere the ledger is the only record of it, so a cleared ledger re-imports every meeting in the look-back window. Delete a synced note and it will not come back unless you also clear it from the ledger.
+Re-runs skip a meeting that is in the dedup ledger (`resources/scripts/granola.synced.json` in the vault the note went to, so a second machine reads it through the vault's sync) or whose note is still in `triage/`; once `/para-triage` has filed a note elsewhere the ledger is the only record of it, so a cleared ledger re-imports every meeting in the look-back window. Delete a synced note and it will not come back unless you also clear it from the ledger.
 
 Two different meetings with the same date and title both land: the second gets the first six characters of its id appended. Each note carries YAML front-matter (`title`, `date`, `granola_id`, `source: granola`, `attendees`), a `## Summary` (Granola's enhanced notes), and a `## Transcript` (speaker-attributed).
 
@@ -57,7 +57,7 @@ This integration follows the para-os rule *scripts live in the vault, their secr
 |---|---|---|
 | The two scripts | `<vault>/resources/scripts/` | (in the vault, version-controlled) |
 | Login token | `~/.paraos/secrets/granola.json` | secret - never syncs to a cloud drive or git |
-| Dedup ledger | `~/.paraos/data/granola/synced.json` | data - it does not rebuild once notes have left `triage/`; an older `cache/granola/synced.json` is still read and merged in |
+| Dedup ledger | `<vault>/resources/scripts/granola.synced.json` | data - it does not rebuild once notes have left `triage/`; an older `~/.paraos/data/granola/` or `cache/granola/` ledger is still read, and its entries carried in |
 
 The root is `PARAOS_HOME` (default `~/.paraos`). See [`integrations/README.md`](../README.md) and `~/.paraos/README.md`.
 

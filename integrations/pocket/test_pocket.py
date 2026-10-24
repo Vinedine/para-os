@@ -437,51 +437,67 @@ class Files(unittest.TestCase):
 class Ledger(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.saved = pocket.STATE
-        pocket.STATE = Path(self.tmp.name) / "data" / "pocket" / "synced.json"
-        self.legacy = Path(self.tmp.name) / "cache" / "pocket" / "synced.json"
+        self.saved = {k: getattr(pocket, k) for k in ("VAULT_ROOT", "LEGACY")}
+        root = Path(self.tmp.name)
+        pocket.VAULT_ROOT = root / "Acme"
+        pocket.LEGACY = (root / "data" / "pocket" / "synced.json", root / "cache" / "pocket" / "synced.json")
+        self.state = pocket.VAULT_ROOT / "resources" / "scripts" / "pocket.synced.json"
+        self.legacy = pocket.LEGACY[1]
 
     def tearDown(self):
-        pocket.STATE = self.saved
+        for k, v in self.saved.items():
+            setattr(pocket, k, v)
         self.tmp.cleanup()
 
-    def test_ledger_lives_under_data(self):
-        self.assertEqual(self.saved.parts[-3:], ("data", "pocket", "synced.json"))
+    def test_ledger_lives_in_the_vault_and_the_machine_ledgers_are_legacy(self):
+        self.assertEqual(pocket.ledger_path("Acme"), self.state)
+        self.assertEqual(pocket.ledger_path("Home"), pocket.VAULT_ROOT.parent / "Home" / pocket.LEDGER)
+        self.assertEqual([q.parts[-3:] for q in self.saved["LEGACY"]],
+                         [("data", "pocket", "synced.json"), ("cache", "pocket", "synced.json")])
 
-    def test_legacy_cache_ledger_is_merged_and_never_written(self):
+    def test_legacy_ledgers_are_merged_carried_into_the_vault_and_never_written(self):
         self.legacy.parent.mkdir(parents=True)
         self.legacy.write_text('{"old@Acme": "a.md", "both@Acme": "legacy.md"}', encoding="utf-8")
         before = self.legacy.read_bytes()
-        pocket.STATE.parent.mkdir(parents=True)
-        pocket.STATE.write_text('{"both@Acme": "new.md"}', encoding="utf-8")
-        self.assertEqual(pocket.load_ledger(), {"old@Acme": "a.md", "both@Acme": "new.md"})
-        pocket.record("three@Acme", "c.md")
-        self.assertEqual(json.loads(pocket.STATE.read_text(encoding="utf-8")),
+        self.state.parent.mkdir(parents=True)
+        self.state.write_text('{"both@Acme": "new.md"}', encoding="utf-8")
+        self.assertEqual(pocket.load_ledger(["Acme"]), {"old@Acme": "a.md", "both@Acme": "new.md"})
+        pocket.record("three@Acme", "c.md", "Acme")
+        self.assertEqual(json.loads(self.state.read_text(encoding="utf-8")),
                          {"old@Acme": "a.md", "both@Acme": "new.md", "three@Acme": "c.md"})
         self.assertEqual(self.legacy.read_bytes(), before)
+
+    def test_an_entry_goes_to_the_ledger_of_the_vault_it_was_written_to(self):
+        self.legacy.parent.mkdir(parents=True)
+        self.legacy.write_text('{"old@Acme": "a.md"}', encoding="utf-8")
+        pocket.record("one@Home", "b.md", "Home")
+        self.assertFalse(self.state.exists())
+        self.assertEqual(json.loads(pocket.ledger_path("Home").read_text(encoding="utf-8")),
+                         {"one@Home": "b.md"})
+        self.assertEqual(pocket.load_ledger(["Acme", "Home"]), {"old@Acme": "a.md", "one@Home": "b.md"})
 
     def test_unreadable_legacy_ledger_stops(self):
         self.legacy.parent.mkdir(parents=True)
         self.legacy.write_text("{half", encoding="utf-8")
         with self.assertRaises(SystemExit):
-            pocket.load_ledger()
+            pocket.load_ledger(["Acme"])
 
     def test_record_merges_what_another_run_saved(self):
-        pocket.record("one@Acme", "a.md")
-        # Another vault's copy saves while this run is going.
-        on_disk = json.loads(pocket.STATE.read_text(encoding="utf-8"))
-        pocket.STATE.write_text(json.dumps({**on_disk, "two@Home": "b.md"}), encoding="utf-8")
-        pocket.record("three@Acme", "c.md")
-        self.assertEqual(json.loads(pocket.STATE.read_text(encoding="utf-8")),
-                         {"one@Acme": "a.md", "two@Home": "b.md", "three@Acme": "c.md"})
-        self.assertEqual([p.name for p in pocket.STATE.parent.iterdir()], ["synced.json"])
+        pocket.record("one@Acme", "a.md", "Acme")
+        # Another machine's run saves while this one is going.
+        on_disk = json.loads(self.state.read_text(encoding="utf-8"))
+        self.state.write_text(json.dumps({**on_disk, "two@Acme": "b.md"}), encoding="utf-8")
+        pocket.record("three@Acme", "c.md", "Acme")
+        self.assertEqual(json.loads(self.state.read_text(encoding="utf-8")),
+                         {"one@Acme": "a.md", "two@Acme": "b.md", "three@Acme": "c.md"})
+        self.assertEqual([q.name for q in self.state.parent.iterdir()], ["pocket.synced.json"])
 
     def test_unreadable_ledger_stops_rather_than_being_overwritten(self):
-        pocket.STATE.parent.mkdir(parents=True)
-        pocket.STATE.write_text("{half", encoding="utf-8")
+        self.state.parent.mkdir(parents=True)
+        self.state.write_text("{half", encoding="utf-8")
         with self.assertRaises(SystemExit):
-            pocket.record("one@Acme", "a.md")
-        self.assertEqual(pocket.STATE.read_text(encoding="utf-8"), "{half")
+            pocket.record("one@Acme", "a.md", "Acme")
+        self.assertEqual(self.state.read_text(encoding="utf-8"), "{half")
 
 
 class RetryAfter(unittest.TestCase):
@@ -604,12 +620,13 @@ class MainLoop(unittest.TestCase):
         }
         self.errors = {}   # path -> exception raised instead of answering
         self.pages = None  # listing: None answers one page; a number keeps has_more true that long
-        self.saved = {k: getattr(pocket, k) for k in ("VAULT_ROOT", "CONFIG_PATH", "AUTH", "STATE")}
+        self.saved = {k: getattr(pocket, k) for k in ("VAULT_ROOT", "CONFIG_PATH", "AUTH", "LEGACY")}
         pocket.VAULT_ROOT = self.vault
         pocket.CONFIG_PATH = self.vault / "resources" / "scripts" / "pocket.config.json"
         pocket.AUTH = home / "secrets" / "pocket.json"
-        pocket.STATE = home / "data" / "pocket" / "synced.json"
-        self.legacy = home / "cache" / "pocket" / "synced.json"
+        pocket.LEGACY = (home / "data" / "pocket" / "synced.json", home / "cache" / "pocket" / "synced.json")
+        self.state = self.vault / "resources" / "scripts" / "pocket.synced.json"
+        self.legacy = pocket.LEGACY[1]
         mock.patch.object(pocket.urllib.request, "urlopen", side_effect=self.fake_urlopen).start()
         mock.patch.object(pocket.time, "sleep").start()
         self.addCleanup(mock.patch.stopall)
@@ -645,7 +662,9 @@ class MainLoop(unittest.TestCase):
         return sorted(p.name for p in folder.iterdir()) if folder.exists() else []
 
     def ledger(self):
-        return sorted(json.loads(pocket.STATE.read_text(encoding="utf-8"))) if pocket.STATE.exists() else []
+        """The keys of every vault's ledger this run could write: this vault's and "Home"'s."""
+        paths = [self.state, self.vault.parent / "Home" / "resources" / "scripts" / "pocket.synced.json"]
+        return sorted(k for q in paths if q.exists() for k in json.loads(q.read_text(encoding="utf-8")))
 
     def test_dry_run_write_rerun(self):
         out = self.run_main()
@@ -656,7 +675,7 @@ class MainLoop(unittest.TestCase):
         self.assertIn("would write: 1 · skipped(exists): 0 · held(processing): 1 · held(unreadable): 0 · "
                       "failed: 0 · undated: 0 · unrouted: 1 · other vaults: 0", out)
         self.assertEqual(self.triage(), [])
-        self.assertFalse(pocket.STATE.exists())
+        self.assertFalse(self.state.exists())
 
         out = self.run_main("--write")
         self.assertIn("wrote: 1", out)
@@ -670,7 +689,7 @@ class MainLoop(unittest.TestCase):
         out = self.run_main("--write")
         self.assertIn("wrote: 0 · skipped(exists): 1 · held(processing): 1", out)
 
-    def test_legacy_cache_ledger_is_honoured_and_carried_into_data(self):
+    def test_legacy_cache_ledger_is_honoured_and_carried_into_the_vault(self):
         # ready1's note has left triage/; only the old cache/ ledger remembers it.
         self.legacy.parent.mkdir(parents=True)
         self.legacy.write_text('{"ready1@Acme": "filed elsewhere"}', encoding="utf-8")
@@ -687,8 +706,7 @@ class MainLoop(unittest.TestCase):
     def test_entries_in_both_ledgers_are_honoured(self):
         self.legacy.parent.mkdir(parents=True)
         self.legacy.write_text('{"ready1@Acme": "filed elsewhere"}', encoding="utf-8")
-        pocket.STATE.parent.mkdir(parents=True)
-        pocket.STATE.write_text('{"fresh8@Acme": "filed elsewhere"}', encoding="utf-8")
+        self.state.write_text('{"fresh8@Acme": "filed elsewhere"}', encoding="utf-8")
         self.list.append({"id": "fresh8", "title": "ACME - Fresh", "recording_at": self.list[0]["recording_at"],
                           "state": "completed"})
         out = self.run_main("--write")
@@ -735,7 +753,7 @@ class MainLoop(unittest.TestCase):
         with self.assertRaises(SystemExit) as stop:
             self.run_main("--write")
         self.assertIn("unreachable", str(stop.exception.code))
-        self.assertFalse(pocket.STATE.exists())
+        self.assertFalse(self.state.exists())
 
     def test_each_note_is_ledgered_as_it_is_written(self):
         self.list.insert(0, {"id": "crash6", "title": "ACME - Second", "recording_at": self.list[0]["recording_at"],
@@ -778,7 +796,7 @@ class MainLoop(unittest.TestCase):
 
         out = self.run_main()
         self.assertIn("(exists, would record)", out)
-        self.assertFalse(pocket.STATE.exists())
+        self.assertFalse(self.state.exists())
 
         out = self.run_main("--write")
         self.assertIn("(exists, recorded)", out)
@@ -842,7 +860,7 @@ class MainLoop(unittest.TestCase):
         out = self.run_main("--dump", "ready1", "--write")
         self.assertEqual(json.loads(out), {"data": self.detail["ready1"], "success": True})
         self.assertEqual(self.triage(), [])
-        self.assertFalse(pocket.STATE.exists())
+        self.assertFalse(self.state.exists())
 
     def test_dump_of_an_unknown_recording_stops_with_the_reason(self):
         self.errors["/public/recordings/nope"] = http_error("u", 404, body=b"not found")

@@ -22,11 +22,13 @@ const path = require("path");
 // USERPROFILE is unset off Windows, where homedir() is the same folder.
 const PARAOS_HOME = process.env.PARAOS_HOME || path.join(process.env.USERPROFILE || os.homedir(), ".paraos");
 const AUTH = path.join(PARAOS_HOME, "secrets", "granola.json");
-// The dedup ledger is data, not cache: once /para-triage has filed a note out of triage/ it is
-// the only record that the meeting was imported. LEGACY_STATE is where it used to live. It is
-// read, never written, and merged in, so an older copy still writing it is not lost either.
-const STATE = path.join(PARAOS_HOME, "data", "granola", "synced.json");
-const LEGACY_STATE = path.join(PARAOS_HOME, "cache", "granola", "synced.json");
+// The dedup ledger is the only record that a meeting was imported once /para-triage has filed
+// its note, so it lives in the vault it wrote to (ledgerPath) and syncs with it: a second
+// machine then never imports the same meeting again. LEGACY is where older copies kept it, per
+// machine: read and merged, never written.
+const LEDGER = path.join("resources", "scripts", "granola.synced.json");
+const LEGACY = [path.join(PARAOS_HOME, "data", "granola", "synced.json"),
+                path.join(PARAOS_HOME, "cache", "granola", "synced.json")];
 // A file saved with a byte-order mark (some Windows editors write one) is still JSON.
 const readJson = f => JSON.parse(fs.readFileSync(f, "utf8").replace(/^\uFEFF/, ""));
 // A meeting with no enhanced notes yet is HELD (not written, not ledgered, retried next run) while
@@ -175,15 +177,19 @@ function writeAtomic(file, text, mode) {
   }
 }
 
-// The ledger at STATE, over the one an older copy kept under cache/ (read, never written).
 const readLedger = f => fs.existsSync(f) ? readJson(f) : {};
-const loadLedger = () => ({ ...readLedger(LEGACY_STATE), ...readLedger(STATE) });
-// Add one ledger entry. Every vault's copy shares the file and runs may overlap, so re-read and
-// merge rather than write back what this run loaded. Matches pocket.py's record.
-function record(id, dest) {
-  const ledger = loadLedger();
-  ledger[id] = dest;
-  writeAtomic(STATE, JSON.stringify(ledger, null, 2));
+// One join serves this vault and every sibling, as in resolveDest.
+const ledgerPath = vault => path.join(PARENT, vault, LEDGER);
+// The legacy machine ledgers, then the ledger of each vault this run may write to.
+const loadLedger = vaults => Object.assign({}, ...[...LEGACY, ...vaults.map(ledgerPath)].map(readLedger));
+// Add one entry to the ledger of the vault the note went to, carrying in that vault's entries from
+// the legacy ledgers. Another copy or machine may write it meanwhile, so re-read and merge rather
+// than write back what this run loaded. Matches pocket.py's record.
+function record(id, dest, vault) {
+  const inVault = f => { const rel = path.relative(path.join(PARENT, vault), f); return !rel.startsWith("..") && !path.isAbsolute(rel); };
+  const carried = LEGACY.map(readLedger).flatMap(Object.entries).filter(([, f]) => typeof f === "string" && inVault(f));
+  const ledger = { ...Object.fromEntries(carried), ...readLedger(ledgerPath(vault)), [id]: dest };
+  writeAtomic(ledgerPath(vault), JSON.stringify(ledger, null, 2));
 }
 
 // ---- ProseMirror -> Markdown ----
@@ -295,7 +301,7 @@ function resolveDest(d) {
 
 async function main() {
   const t = await token();
-  const state = loadLedger();
+  const state = loadLedger([...new Set([VAULT_NAME, ...Object.values(ROUTE_CI)])]);
   const cutoff = Date.now() - DAYS * 86400000;
 
   // recent documents. A failed page stops the run: listing nothing reads exactly like a quiet month.
@@ -377,7 +383,7 @@ async function main() {
     console.log(`  ${WRITE ? "->" : "+ "}  ${label}-> ${r.vault}/${MEETINGS_SUBDIR}/${fname}  [min ${minutes.length}c · tr ${transcript.length}c]`);
     if (WRITE) {
       writeAtomic(dest, md);
-      record(d.id, dest);
+      record(d.id, dest, r.vault);
     }
     written++;
   }

@@ -573,7 +573,7 @@ globalThis.fetch = async (url, init = {}) => {
   fs.appendFileSync(process.env.GRANOLA_TEST_LOG,
     JSON.stringify({ url, auth: (init.headers || {}).Authorization || null, body: sent }) + "\\n");
   if (side && url.endsWith("/get-document-panels")) {
-    const f = path.join(process.env.PARAOS_HOME, "data", "granola", "synced.json");
+    const f = process.env.GRANOLA_TEST_VAULT_LEDGER;
     const l = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
     fs.mkdirSync(path.dirname(f), { recursive: true });
     fs.writeFileSync(f, JSON.stringify({ ...l, ...side })); side = null;
@@ -615,10 +615,14 @@ function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {}, responses = {
   // Owner-only, as granola-auth-init.js writes it, so a test can see a refresh keep that.
   if (auth !== false) fs.writeFileSync(secret, JSON.stringify(auth || { access_token: "test", access_expires: Math.floor(Date.now() / 1000) + 3600 }),
     { mode: 0o600 });
-  const ledger = bucket => path.join(home, bucket, "granola", "synced.json");
+  // "vault" is the ledger in the vault itself; "data" and "cache" the legacy machine ones.
+  const ledger = bucket => bucket === "vault" ? path.join(scripts, "granola.synced.json")
+    : path.join(home, bucket, "granola", "synced.json");
   for (const [bucket, entries] of Object.entries(ledgers)) {
     fs.mkdirSync(path.dirname(ledger(bucket)), { recursive: true });
-    fs.writeFileSync(ledger(bucket), JSON.stringify(entries));
+    // __VAULT__ stands for this vault's folder, which a test cannot know in advance.
+    fs.writeFileSync(ledger(bucket), JSON.stringify(entries)
+      .replaceAll("__VAULT__", JSON.stringify(path.join(parent, "myvault")).slice(1, -1)));
   }
   const stub = path.join(parent, "fetch-stub.js");
   fs.writeFileSync(stub, FETCH_STUB);
@@ -630,7 +634,8 @@ function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {}, responses = {
     encoding: "utf8",
     env: { ...process.env, TZ: tz, PARAOS_HOME: home, GRANOLA_TEST_DOCS: JSON.stringify(docs),
            GRANOLA_TEST_RESPONSES: JSON.stringify(responses), GRANOLA_TEST_SIDE: JSON.stringify(sideEntry),
-           GRANOLA_TEST_LOG: log, GRANOLA_TEST_BLOCK: block ? path.join(triage, block) : "" },
+           GRANOLA_TEST_LOG: log, GRANOLA_TEST_BLOCK: block ? path.join(triage, block) : "",
+           GRANOLA_TEST_VAULT_LEDGER: ledger("vault") },
   });
   assert.equal(r.status, expectStatus, `sync exited ${r.status}: ${r.stdout}${r.stderr}`);
   if (!expectStatus) assert.doesNotMatch(r.stdout + r.stderr, /\[x\]/, `sync failed: ${r.stdout}${r.stderr}`);
@@ -696,15 +701,22 @@ test("a hand-written note that shares the name is kept, and the meeting takes a 
   assert.equal(sync.read(name), "# Standup\nmy own notes\n");
 });
 
-test("the ledger is written under data/, and a ledger left in cache/ is still honoured", () => {
+test("the ledger is written in the vault, and the machine ledgers are still honoured, never written", () => {
   // Meeting A was filed out of triage/ long ago: only the cache/ ledger remembers it.
   const sync = syncInVault([
     { id: ID_A, title: "Filed", created_at: `${DAY}T09:00:00.000Z` },
     { id: ID_B, title: "Fresh", created_at: `${DAY}T15:00:00.000Z` },
   ], { ledgers: { cache: { [ID_A]: "filed elsewhere" } } });
   assert.deepEqual(sync.files, [`${compact(DAY)} Fresh.md`], "a meeting in the old ledger was re-imported");
-  assert.deepEqual(Object.keys(sync.ledger("data") || {}).sort(), [ID_A, ID_B]);
+  assert.deepEqual(Object.keys(sync.ledger("vault") || {}).sort(), [ID_B]);
+  assert.equal(sync.ledger("data"), null);
   assert.deepEqual(sync.ledger("cache"), { [ID_A]: "filed elsewhere" }, "the old ledger is read, never written");
+});
+
+test("a legacy entry for a note written into this vault is carried into the vault's ledger", () => {
+  const sync = syncInVault([{ id: ID_B, title: "Fresh", created_at: `${DAY}T15:00:00.000Z` }], {
+    ledgers: { data: { [ID_A]: "__VAULT__/triage/20260101 Old.md", "elsewhere": "/elsewhere/triage/x.md" } } });
+  assert.deepEqual(Object.keys(sync.ledger("vault")).sort(), [ID_A, ID_B]);
 });
 
 test("a meeting in either ledger is skipped when both exist", () => {
@@ -739,7 +751,7 @@ for (const [endpoint, status] of [["/get-document-panels", 429], ["/get-document
     const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }],
                              { responses: { [endpoint]: { status, body: { error: "nope" } } } });
     assert.deepEqual(sync.files, []);
-    assert.deepEqual(sync.ledger("data"), null);
+    assert.deepEqual(sync.ledger("vault"), null);
     assert.match(sync.stdout, /FAILED/);
     assert.match(sync.stdout, /failed: 1/);
   });
@@ -761,7 +773,7 @@ test("a full page cap warns that older meetings were not listed", () => {
 test("a recent meeting whose notes are not generated yet is held, not ledgered", () => {
   const sync = syncInVault([{ id: ID_A, title: "Just now", created_at: NOW }]);
   assert.deepEqual(sync.files, []);
-  assert.equal(sync.ledger("data"), null);
+  assert.equal(sync.ledger("vault"), null);
   assert.match(sync.stdout, /HELD/);
 });
 
@@ -780,7 +792,7 @@ test("an older meeting without notes is written rather than held forever", () =>
 test("an entry another run ledgers mid-sync is kept, not overwritten", () => {
   const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }],
                            { sideEntry: { [ID_B]: "written by another vault's run" } });
-  assert.deepEqual(Object.keys(sync.ledger("data")).sort(), [ID_A, ID_B]);
+  assert.deepEqual(Object.keys(sync.ledger("vault")).sort(), [ID_A, ID_B]);
 });
 
 test("the module loads without USERPROFILE, so the suite runs off Windows", () => {
@@ -802,7 +814,7 @@ test("a note that cannot be moved into place leaves no temp file, is not ledgere
   const sync = syncInVault([{ id: ID_A, title: "Kickoff", created_at: `${DAY}T09:00:00.000Z` }],
                            { block: name, expectStatus: 1 });
   assert.deepEqual(sync.files, [name], "only the folder that blocked the note may be there");
-  assert.equal(sync.ledger("data"), null, "a note that was never written must not be ledgered");
+  assert.equal(sync.ledger("vault"), null, "a note that was never written must not be ledgered");
   assert.match(sync.stderr, /\[x\]/);
 });
 
@@ -817,7 +829,7 @@ const listed = sync => sync.requests.filter(q => q.url.endsWith("/get-documents"
 test("a dry run reports what it would write and writes nothing", () => {
   const sync = syncInVault(OLD_MEETING, { argv: [] });
   assert.deepEqual(sync.files, []);
-  assert.equal(sync.ledger("data"), null);
+  assert.equal(sync.ledger("vault"), null);
   assert.match(sync.stdout, /^DRY RUN/m);
   assert.ok(sync.stdout.includes(`-> myvault/triage/${compact(DAY)} Kickoff.md`), sync.stdout);
   assert.match(sync.stdout, /would write: 1/);

@@ -929,6 +929,14 @@ class SilentSources(VaultCase):
         self.assertEqual([(s["source"], s["newest"], s["error"]) for s in got],
                          [("granola", None, "unreadable")])
 
+    def test_the_ledger_in_the_vault_counts_whichever_machine_wrote_it(self):
+        self.declare(self.GRANOLA)
+        write(self.vault, "resources/scripts/granola.synced.json", json.dumps(
+            {"a": "D:/Other machine/vault/triage/20260901 Kickoff.md"}))
+        self.ledger("data/granola/synced.json", self.notes(self.vault, "20260905 Older here.md"))
+        self.assertEqual([(s["newest"], s["ledger"].endswith("resources/scripts/granola.synced.json"))
+                          for s in self.silent()], [("2026-09-05", True)])
+
     def test_the_older_cache_copy_of_a_ledger_is_read_too(self):
         self.declare(self.GRANOLA)
         self.ledger("data/granola/synced.json", self.notes(self.vault, "20260901 Early.md"))
