@@ -250,8 +250,6 @@ class Executor(unittest.TestCase):
             self.assertEqual(call("purge", "--paraos-home", self.home)[1]["trashed"],
                              [out["quarantine"]])
             trash.assert_called_once()
-        with mock.patch.object(auto_execute.subprocess, "run", side_effect=OSError):
-            self.assertFalse(auto_execute.trash(Path(out["quarantine"])))
 
 
 if __name__ == "__main__":

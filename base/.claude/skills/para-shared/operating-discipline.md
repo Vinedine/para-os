@@ -14,7 +14,7 @@ A leftover argument is a shape the skill's Arguments table names with no sentenc
 ## Deleting a file
 
 - **Compare the contents first.** A matching name or size is not proof: read both, confirm the survivor supersedes, then ask.
-- **A delete stays recoverable**: `git rm` for a tracked file; the system trash for an untracked one (Windows PowerShell `Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile("<path>", 'OnlyErrorDialogs', 'SendToRecycleBin')`, macOS `osascript -e 'tell application "Finder" to delete POSIX file "<absolute path>"'`, Linux `gio trash "<path>"`). No trash reachable: say the delete is permanent and ask before `rm`. One file per command, named in full, and the summary says which way each went.
+- **A delete stays recoverable**: `git rm` for a tracked file; for an untracked one, the system trash through `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" trash <path>...` (Windows: `py -3`). A path it reports `not_trashed` had no trash reachable: say the delete is permanent and ask before `rm`. The summary says which way each went.
 
 ## Preserve, don't rewrite
 
