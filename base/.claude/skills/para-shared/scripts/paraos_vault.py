@@ -6,7 +6,7 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
 `para-daily-brief/scripts/brief_scan.py`.
 
     py -3 paraos_vault.py links dangling [--vault .]
-    py -3 paraos_vault.py move-plan <src> <dst> [--vault .]
+    py -3 paraos_vault.py move <src> <dst> [--apply] [--vault .]
     py -3 paraos_vault.py changed <file> [--done <path>...]
     py -3 paraos_vault.py notice-date <renewal> "<n> months" [--term "1 year"] [--today D]
     py -3 paraos_vault.py weekday-after <day> <weekday>
@@ -20,7 +20,7 @@ What lives here is what two skills would otherwise each answer their own way abo
 whether a folder is a vault root, what the machine's registry says about it and its neighbours,
 where a checkbox may live, what counts as one, what a task marker means, which folder a name
 resolves to, which names a contact card answers to, when a file was really last touched, what
-a link points at and what a move would have to rewrite, whether two files hold the same bytes,
+a link points at and what a move has to rewrite, whether two files hold the same bytes,
 what a vault declares it is built from and the locale it declares, the numbers a vault's own
 rules state, the last day to give notice on a renewing agreement, and the date a promised
 weekday points at. A second implementation of any of those is a vault getting two answers to
@@ -1841,36 +1841,92 @@ def link_rewrite(vault, path, line, href, raw, target, moved_target, from_dir):
 
 
 def move_plan(vault, src, dst):
-    """What moving a folder has to rewrite, in two lists, before anything moves.
+    """What moving a folder or a file has to rewrite, in two lists, before anything moves.
 
-    `inside`: a link in the moved folder whose target lies outside it, resolved from the old
+    `inside`: a link in what moves whose target lies outside it, resolved from the old
     location and rewritten relative to the new one, never shifted by the difference in depth.
     A link to something that travels with the folder keeps its href and is not listed.
-    `inbound`: a link from the rest of the vault into the folder, with the href it must
+    `inbound`: a link from the rest of the vault into what moves, with the href it must
     become. A mention that is not a link has no href to rewrite and stays with
-    `inbound_references`. Nothing here is applied.
+    `inbound_references`. `move` applies both.
     """
     vault = Path(vault)
-    src_dir, dst_dir = vault_path(vault, src), vault_path(vault, dst)
+    src_path, dst_path = vault_path(vault, src), vault_path(vault, dst)
+    files = sorted(src_path.rglob("*.md")) if src_path.is_dir() else \
+        [src_path] if src_path.suffix.lower() == ".md" else []
     inside = []
-    for path in sorted(src_dir.rglob("*.md")):
-        moved = dst_dir / path.relative_to(src_dir)
+    for path in files:
+        moved = dst_path / path.relative_to(src_path)
         for line, href, raw in extract_links(strip_code(read_text(path))):
             target = resolve_link(path, href)
-            if not is_under(target, src_dir):
+            if not is_under(target, src_path):
                 inside.append(link_rewrite(vault, path, line, href, raw, target, target,
                                            moved.parent))
     inbound = []
-    for hit in inbound_references(vault, src_dir.name):
+    for hit in inbound_references(vault, src_path.name):
         path = vault / hit["file"]
-        if is_under(path, src_dir):
+        if is_under(path, src_path):
             continue
         for _, href, raw in extract_links(strip_code(hit["text"])):
             target = resolve_link(path, href)
-            if is_under(target, src_dir):
+            if is_under(target, src_path):
                 inbound.append(link_rewrite(vault, path, hit["line"], href, raw, target,
-                                            dst_dir / target.relative_to(src_dir), path.parent))
+                                            dst_path / target.relative_to(src_path),
+                                            path.parent))
     return {"inside": inside, "inbound": inbound}
+
+
+def rewrite_links(path, rows):
+    """Write each row's `new_href` over its `raw` target on its `line`, every other byte of the
+    file kept; the rows whose link is not there come back."""
+    data = Path(path).read_bytes()
+    bom = UTF8_BOM if data.startswith(UTF8_BOM) else b""
+    try:
+        text = data[len(bom):].decode("utf-8")
+    except UnicodeDecodeError:
+        return list(rows)
+    code = strip_code(text)
+    spans = [(s, e) for s, e, _ in link_spans(code)]
+    edits, missed = [], []
+    for row in rows:
+        for s, e in spans:
+            written = LINK_TITLE_RE.sub("", text[s:e].strip())
+            if written == row["raw"] and code.count("\n", 0, s) + 1 == row["line"]:
+                at = text.index(written, s)
+                edits.append((at, at + len(written), row["new_href"]))
+                spans.remove((s, e))
+                break
+        else:
+            missed.append(row)
+    for start, end, new in sorted(edits, reverse=True):
+        text = text[:start] + new + text[end:]
+    if edits:
+        Path(path).write_bytes(bom + text.encode("utf-8"))
+    return missed
+
+
+def move(vault, src, dst):
+    """Move a folder or a file in one rename and apply its `move_plan`, returned with each
+    `inside` row at its new path, plus `missed`: rows whose link was not on its line. Refuses
+    (ValueError) a source that is not there and a destination that is, before anything moves.
+    """
+    vault = Path(vault)
+    src_path, dst_path = vault_path(vault, src), vault_path(vault, dst)
+    if not src_path.exists():
+        raise ValueError(f"nothing to move at {src}")
+    if dst_path.exists():
+        raise ValueError(f"{dst} exists: settle it with the operator, never merge or overwrite")
+    plan = move_plan(vault, src, dst)
+    dst_path.parent.mkdir(parents=True, exist_ok=True)
+    src_path.rename(dst_path)
+    old = Path(rel_posix(vault, src_path))
+    for row in plan["inside"]:
+        row["file"] = rel_posix(vault, dst_path / Path(row["file"]).relative_to(old))
+    by_file = {}
+    for row in plan["inside"] + plan["inbound"]:
+        by_file.setdefault(row["file"], []).append(row)
+    plan["missed"] = [r for f, rows in by_file.items() for r in rewrite_links(vault / f, rows)]
+    return plan
 
 
 def vault_path(vault, path):
@@ -2070,8 +2126,8 @@ def integration_markers(vault, exclude=NOT_VAULT_CONTENT):
 # --- from the command line ------------------------------------------------------------------
 
 def answer_for(args, root):
-    if args.command == "move-plan":
-        return move_plan(root, args.src, args.dst)
+    if args.command in ("move", "move-plan"):
+        return (move if args.apply else move_plan)(root, args.src, args.dst)
     return dangling_links(root)
 
 
@@ -2081,9 +2137,12 @@ def main(argv=None):
     links = sub.add_parser("links", help="what points at what")
     kinds = links.add_subparsers(dest="kind", required=True)
     dangling = kinds.add_parser("dangling", help="links whose target does not exist")
-    plan = sub.add_parser("move-plan", help="the links a folder move has to rewrite")
-    plan.add_argument("src", help="the folder as it stands")
+    plan = sub.add_parser("move", aliases=["move-plan"],
+                          help="the links moving a folder or file has to rewrite")
+    plan.add_argument("src", help="the folder or file as it stands")
     plan.add_argument("dst", help="where it is going")
+    plan.add_argument("--apply", action="store_true",
+                      help="move it and rewrite those links, refused where dst exists")
     changed_cmd = sub.add_parser(
         "changed", help="which paths in a snapshot no longer match it, and which files "
                         "arrived in its snapshot_folders since (exit 1 if any)")
@@ -2182,9 +2241,13 @@ def main(argv=None):
         json.dump(open_items(root, files), sys.stdout, ensure_ascii=False, indent=2)
         sys.stdout.write("\n")
         return 0
-    json.dump(answer_for(args, root), sys.stdout, ensure_ascii=False, indent=2)
+    try:
+        answer = answer_for(args, root)
+    except (ValueError, OSError) as err:
+        ap.error(str(err))
+    json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
-    return 0
+    return 1 if isinstance(answer, dict) and answer.get("missed") else 0
 
 
 if __name__ == "__main__":

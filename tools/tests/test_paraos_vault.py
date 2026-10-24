@@ -32,7 +32,7 @@ from paraos_vault import (
     field_ci, file_dates, find_clone, first_link, git, git_blame_line_date, git_bytes,
     git_last_commit_date, git_modified, git_untracked, hashes, header_fields, headline,
     inbound_references, integration_markers, lifecycles, live_lines, locale, main,
-    match_encoding, misplaced_checkboxes, move_plan, next_occurrence, norm, normalised,
+    match_encoding, misplaced_checkboxes, move_plan, next_occurrence, norm, normalised, rewrite_links,
     notice_date, open_items, open_tasks, over_grown_briefs, parse_markers, register_rows,
     registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
     scope_of, snapshot, split_lines, stage_line, stage_of, strip_code, table_cells,
@@ -1550,6 +1550,85 @@ class MovePlan(VaultCase):
                          "<../New Home/b.md>")
         self.assertEqual(match_encoding("../a/b.md?v=2#x", "../New Home/b.md"),
                          "../New%20Home/b.md?v=2#x")
+
+
+class Move(VaultCase):
+    """`move --apply`: the plan above, applied."""
+
+    build = MovePlan.build
+
+    def run_move(self, *argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(["move", *argv, "--vault", str(self.root)])
+        return code, json.loads(out.getvalue())
+
+    def test_apply_moves_the_folder_and_rewrites_both_halves(self):
+        self.build()
+        card = self.root / "areas/network/jan-janssen.md"
+        card.write_bytes(b"\xef\xbb\xbf# Jan Janssen\r\n\r\n"
+                         b"Owns [Orchard Lane](../properties/orchard-lane/brief.md) and "
+                         b"[its deed](<../properties/orchard-lane/sources/20260101 Deed - Scan.md>)."
+                         b"\r\n")
+        code, got = self.run_move("areas/properties/orchard-lane",
+                                  "archive/properties/orchard-lane", "--apply")
+        self.assertEqual(code, 0)
+        self.assertEqual(got["missed"], [])
+        self.assertFalse((self.root / "areas/properties/orchard-lane").exists())
+        brief = (self.root / "archive/properties/orchard-lane/brief.md").read_text("utf-8")
+        self.assertIn("[Jan Janssen](../../../areas/network/jan-janssen.md)", brief)
+        self.assertIn("[actions](actions.md)", brief)
+        self.assertIn("[a source](sources/20260101 Deed - Scan.md)", brief)
+        self.assertEqual(card.read_bytes(), b"\xef\xbb\xbf# Jan Janssen\r\n\r\n"
+                         b"Owns [Orchard Lane](../../archive/properties/orchard-lane/brief.md) "
+                         b"and [its deed](<../../archive/properties/orchard-lane/sources/"
+                         b"20260101 Deed - Scan.md>).\r\n")
+        self.assertEqual({r["file"] for r in got["inside"]},
+                         {"archive/properties/orchard-lane/brief.md"})
+        self.assertEqual([r["file"] for r in got["inbound"]],
+                         ["areas/network/jan-janssen.md"] * 2)
+
+    def test_apply_moves_a_single_file_with_its_links(self):
+        self.build()
+        write(self.root, "areas/properties/orchard-lane/notes.md",
+              "# Notes\n\nFor [Jan](../../network/jan-janssen.md).\n")
+        write(self.root, "areas/network/piet.md",
+              "# Piet\n\nRead [the notes](../properties/orchard-lane/notes.md).\n")
+        code, _ = self.run_move("areas/properties/orchard-lane/notes.md",
+                                "resources/orchard-lane/notes.md", "--apply")
+        self.assertEqual(code, 0)
+        self.assertIn("[Jan](../../areas/network/jan-janssen.md)",
+                      (self.root / "resources/orchard-lane/notes.md").read_text("utf-8"))
+        self.assertIn("[the notes](../../resources/orchard-lane/notes.md)",
+                      (self.root / "areas/network/piet.md").read_text("utf-8"))
+
+    def test_an_existing_destination_is_refused_and_nothing_moves(self):
+        self.build()
+        write(self.root, "archive/properties/orchard-lane/brief.md", "# Older\n")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as stop:
+            self.run_move("areas/properties/orchard-lane", "archive/properties/orchard-lane",
+                          "--apply")
+        self.assertEqual(stop.exception.code, 2)
+        self.assertIn("exists", err.getvalue())
+        self.assertTrue((self.root / "areas/properties/orchard-lane/brief.md").is_file())
+        self.assertIn("../properties/orchard-lane/brief.md",
+                      (self.root / "areas/network/jan-janssen.md").read_text("utf-8"))
+
+    def test_a_row_whose_link_is_gone_comes_back_and_the_file_is_untouched(self):
+        path = write(self.root, "areas/network/piet.md", "# Piet\n\n[a](../x/a.md)\n")
+        row = {"line": 3, "raw": "../x/b.md", "new_href": "../y/b.md"}
+        self.assertEqual(rewrite_links(path, [row]), [row])
+        self.assertEqual(path.read_text("utf-8"), "# Piet\n\n[a](../x/a.md)\n")
+
+    def test_without_apply_it_prints_the_plan_and_moves_nothing(self):
+        self.build()
+        code, got = self.run_move("areas/properties/orchard-lane",
+                                  "archive/properties/orchard-lane")
+        self.assertEqual(code, 0)
+        self.assertEqual(got, move_plan(self.root, "areas/properties/orchard-lane",
+                                        "archive/properties/orchard-lane"))
+        self.assertTrue((self.root / "areas/properties/orchard-lane").is_dir())
 
 
 class FileContents(VaultCase):
