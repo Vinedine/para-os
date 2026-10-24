@@ -57,6 +57,18 @@ class TestRedaction(unittest.TestCase):
             "Bash", {"command": "TOKEN=\"sk live 123\" NOTE='a b' node sync.js"}, ROOT)
         self.assertEqual(got, "node")
 
+    def test_bash_skips_a_leading_cd_pushd_or_export(self):
+        for command in ('cd "/vaults/My Vault" && py resources/scripts/export.py --write',
+                        "cd /vaults/a; py export.py",
+                        "pushd 'C:/My Vault' && py export.py",
+                        "export TOKEN=sk-live-123; py export.py",
+                        'cd /v && export A=1 B="x y" && py export.py'):
+            with self.subTest(command=command):
+                self.assertEqual(ledger.redact_tool_input("Bash", {"command": command}, ROOT), "py")
+
+    def test_a_bare_cd_is_still_recorded_as_cd(self):
+        self.assertEqual(ledger.redact_tool_input("Bash", {"command": "cd /vaults/a"}, ROOT), "cd")
+
     def test_bash_of_only_assignments_records_nothing(self):
         for command in ("OPENAI_API_KEY=sk-live-123", "A=1 B='two words'", "TOKEN=\"unclosed sk-live"):
             with self.subTest(command=command):
