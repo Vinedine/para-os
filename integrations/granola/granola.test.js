@@ -613,7 +613,7 @@ function syncInVault(docs, { tz = "UTC", notes = {}, ledgers = {}, responses = {
   const secret = path.join(home, "secrets", "granola.json");
   fs.mkdirSync(path.dirname(secret), { recursive: true });
   // Owner-only, as granola-auth-init.js writes it, so a test can see a refresh keep that.
-  fs.writeFileSync(secret, JSON.stringify(auth || { access_token: "test", access_expires: Math.floor(Date.now() / 1000) + 3600 }),
+  if (auth !== false) fs.writeFileSync(secret, JSON.stringify(auth || { access_token: "test", access_expires: Math.floor(Date.now() / 1000) + 3600 }),
     { mode: 0o600 });
   const ledger = bucket => path.join(home, bucket, "granola", "synced.json");
   for (const [bucket, entries] of Object.entries(ledgers)) {
@@ -980,9 +980,15 @@ test("a refresh that returns no new refresh token keeps the old one", () => {
 test("a failed refresh stops the run before anything is listed, and leaves the secret alone", () => {
   const sync = syncInVault(OLD_MEETING, { auth: EXPIRING, expectStatus: 1,
     responses: { "/authenticate": { status: 401, body: { error: "invalid_grant" } } } });
-  assert.match(sync.stderr, /refresh failed 401/);
+  assert.match(sync.stderr, /refresh failed 401: run granola-auth-init\.js again/);
   assert.deepEqual(sync.secret(), EXPIRING);
   assert.deepEqual(listed(sync), []);
+  assert.deepEqual(sync.files, []);
+});
+
+test("a run with no stored sign-in names the step that creates it", () => {
+  const sync = syncInVault(OLD_MEETING, { auth: false, expectStatus: 1 });
+  assert.match(sync.stderr, /no Granola sign-in at .*granola\.json: run granola-auth-init\.js once/);
   assert.deepEqual(sync.files, []);
 });
 
@@ -990,7 +996,7 @@ test("a refresh refused with a body that is not JSON still reports its status", 
   // A proxy's HTML 502 used to surface as a JSON parse error, and the status was lost.
   const sync = syncInVault(OLD_MEETING, { auth: EXPIRING, expectStatus: 1,
     responses: { "/authenticate": { status: 502, raw: "<html>Bad gateway</html>" } } });
-  assert.match(sync.stderr, /refresh failed 502/);
+  assert.match(sync.stderr, /refresh failed 502$/m);
   assert.deepEqual(sync.secret(), EXPIRING);
 });
 

@@ -49,12 +49,13 @@ try:
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
         FROZEN_MARKER_RE, NOT_CARDS, NOT_VAULT_CONTENT, STALE_UNDATED_DAYS, TASK_RE,
         LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
-        dangling_links, deep_clean_stamp, duplicates, find_clone,
+        MARKED_SUFFIXES, dangling_links, deep_clean_stamp, duplicates, find_clone,
+        integration_markers,
         extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
         iso, lifecycles, link_files, link_spans, live_lines, misplaced_checkboxes, norm,
         open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
         reference_shape,
-        resolve_link, snapshot, stage_of, strip_code, table_cells,
+        rel_posix, resolve_link, snapshot, stage_of, strip_code, table_cells,
         template_marker, triage_items,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
@@ -671,6 +672,20 @@ def conflict_copies(vault):
 
 # ----------------------------------------------------------------------------------- phase 1
 
+def unmarked_scripts(vault):
+    """Each script under resources/scripts/ that carries no `para-os-integration:` marker,
+    beside the marked ones, so the skill can judge whether one reads a source an
+    integration or a connector row already covers."""
+    marked = integration_markers(vault)
+    names = {m["file"] for m in marked}
+    folder = vault / "resources" / "scripts"
+    unmarked = sorted(rel_posix(vault, p) for p in folder.rglob("*") if p.is_file()
+                      and p.suffix.lower() in MARKED_SUFFIXES
+                      and rel_posix(vault, p) not in names) if folder.is_dir() else []
+    return {"marked": [{"file": m["file"], "name": m["name"]} for m in marked],
+            "unmarked": unmarked}
+
+
 def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_columns=()):
     touched = set()
 
@@ -717,12 +732,16 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
     touched |= {vault / p for c in conflicts for p in (c["copy"], c["survivor"])
                 if p and (vault / p).is_file()}
 
+    scripts = unmarked_scripts(vault)
+    touched |= {vault / f for f in scripts["unmarked"]}
+
     return {"map": map_, "placeholders": placeholders, "dangling": dangling,
             "wikilinks": wikilinks, "uncited_contacts": uncited,
             "uncited_exempt": uncited_exempt, "inline_contact_details": inline_details,
             "duplicates": dup, "figure_pairs": figs, "archive": archive,
             "resources_loose": res_loose, "stale_drafts": drafts,
-            "conflict_copies": conflicts, "snapshot": snapshot(sorted(touched, key=str))}
+            "conflict_copies": conflicts, "scripts": scripts,
+            "snapshot": snapshot(sorted(touched, key=str))}
 
 
 # ----------------------------------------------------------------------------------- phase 3
