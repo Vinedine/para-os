@@ -766,6 +766,26 @@ class Metrics(VaultCase):
         self.assertEqual(m["opened"], 1)
         self.assertEqual(m["referrers"][0]["entities"], 1)
 
+    def test_an_entity_past_the_promoting_stage_counts_by_its_won_date(self):
+        # Issue #635: promoted and moved on within the quarter, it was missing from the count.
+        # Past the promoting stage, only a Won date says when it was reached.
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "## Deal lifecycle", "",
+            "| Stage | PARA home |", "|---|---|",
+            "| Qualified | `resources/ideas/<company>/` |",
+            "| Goal | `projects/<company>/` |",
+            "| Delivery | `projects/<company>/` |", "",
+        ]) + "\n")
+        for name, since, won in (("Nova", "2026-09-10", "2026-08-15"),
+                                 ("Early", "2026-08-01", "2026-05-20"),
+                                 ("Unwon", "2026-08-01", None)):
+            write(self.root, f"projects/{name.lower()}/brief.md",
+                  f"# {name}\n\n**Stage:** Delivery (since {since})\n**Opened:** 2026-07-01\n"
+                  + (f"**Won:** {won}\n" if won else ""))
+        m = self.deal()["metrics"]
+        self.assertEqual(m["reached_promoting"], 1)
+        self.assertEqual(m["median_days_opened_to_promoting"], {"n": 1, "median": None})
+
     def test_a_won_date_is_the_reach_date_over_the_stage_since_date(self):
         write(self.root, "projects/nova/brief.md",
               "# Nova\n\n**Stage:** Goal (since 2026-05-01)\n**Opened:** 2026-07-01\n"
