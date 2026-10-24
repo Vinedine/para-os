@@ -896,6 +896,15 @@ class Archive(VaultCase):
                          [{"file": "areas/network/ann-smet.md", "closed": 1}])
 
 
+    def test_a_checkbox_in_a_meeting_record_or_under_sources_is_the_records(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/meetings/20260101 Kickoff.md", "# Kickoff\n\n- [ ] Next step\n")
+        write(self.root, "archive/projects/old/sources/offer.md", "# Offer\n\n- [ ] Sign\n")
+        write(self.root, "archive/projects/old/notes.md", "# Notes\n\n- [ ] Left open\n")
+        found = self.run_scan("1")["phase1"]["archive"]["misplaced_checkboxes"]
+        self.assertEqual(found["archive"], [{"file": "archive/projects/old/notes.md", "open": 1}])
+
+
 class StaleDrafts(VaultCase):
 
     def test_doc_beside_pdf_is_flagged(self):
@@ -992,6 +1001,11 @@ class OtherCheckboxFiles(VaultCase):
         write(self.root, "projects/acme/notes.md", "# Notes\n\n- [x] Done already\n")
         rows = self.run_scan("3")["phase3"]["other_checkbox_files"]
         self.assertEqual(rows, [])
+
+    def test_a_document_under_sources_is_never_reported(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/sources/proposal.md", "# Proposal\n\n- [ ] Phase one\n")
+        self.assertEqual(self.run_scan("3")["phase3"]["other_checkbox_files"], [])
 
     def test_resources_and_archive_are_out_of_scope(self):
         write(self.root, "CLAUDE.md", "# Vault\n")

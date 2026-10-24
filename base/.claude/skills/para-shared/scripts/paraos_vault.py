@@ -567,14 +567,22 @@ def is_live(rel):
     return not (posix.startswith("archive/") or posix.startswith("resources/"))
 
 
+def is_record(rel):
+    """A path whose checkboxes are the record's, never the vault's work: anything under a
+    `sources/` folder, which keeps originals as they came, or under `archive/meetings/`."""
+    rel = Path(rel)
+    return "sources" in rel.parts[:-1] or rel.as_posix().startswith("archive/meetings/")
+
+
 def action_files(vault):
     """Every file a checkbox may live in, per the vault's own rule: action files and
-    contact files, never archive/ and never resources/."""
+    contact files, never archive/, resources/ or a record."""
     vault = Path(vault)
     found = list(sorted(vault.rglob("actions.md")))
     for pattern in ("areas/network/*.md", "contacts/*.md", "people/*.md"):
         found += [p for p in sorted(vault.glob(pattern)) if p.name != "actions.md"]
-    return [p for p in found if is_live(p.relative_to(vault))]
+    return [p for p in found if is_live(p.relative_to(vault))
+            and not is_record(p.relative_to(vault))]
 
 
 def scope_of(vault, path):
@@ -1399,7 +1407,7 @@ def misplaced_checkboxes(vault, with_closed=False):
     `resources`, `areas/network` where the vault's contact-card level is `never`, and any
     other folder its checkbox table declares at `never` (work tracked somewhere else).
     `with_closed` adds `closed`, the ticked checkboxes on those cards, which `never` forbids
-    too.
+    too. A record (`is_record`) is never read.
 
     A file is a frozen record - and left alone - by either of two independent triggers in
     its first fifteen live lines before the first checkbox: a blockquote (unchanged from
@@ -1420,7 +1428,8 @@ def misplaced_checkboxes(vault, with_closed=False):
         if base.is_dir():
             paths = base.glob("*.md") if parent == "areas/network" else base.rglob("*.md")
             for path in sorted(paths):
-                if parent == "areas/network" and path.name.lower() == "readme.md":
+                if (parent == "areas/network" and path.name.lower() == "readme.md") or \
+                        is_record(path.relative_to(vault)):
                     continue
                 lines = read_lines(path)
                 open_lines = [n for n, text in live_lines(lines) if TASK_RE.match(text)]
@@ -1442,9 +1451,9 @@ def misplaced_checkboxes(vault, with_closed=False):
 
 
 def other_checkbox_paths(vault):
-    """Every `.md` under `projects/` and `areas/` that is not an action file or a contact
-    file (action_files() already covers both) and carries at least one open checkbox: the
-    boxes no brief counts, in a log, a plan or a meeting note."""
+    """Every `.md` under `projects/` and `areas/` that is not an action file, a contact file
+    (action_files() already covers both) or a record, and carries at least one open
+    checkbox: the boxes no brief counts, in a log, a plan or a meeting note."""
     vault = Path(vault)
     action_set = set(action_files(vault))
     out = []
@@ -1453,7 +1462,8 @@ def other_checkbox_paths(vault):
         if not base.is_dir():
             continue
         for path in sorted(base.rglob("*.md")):
-            if path in action_set or path.name == "actions.md":
+            if path in action_set or path.name == "actions.md" or \
+                    is_record(path.relative_to(vault)):
                 continue
             if open_tasks(path):
                 out.append(path)

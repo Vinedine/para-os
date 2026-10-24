@@ -35,8 +35,8 @@ from paraos_vault import (
     match_encoding, misplaced_checkboxes, move_plan, next_occurrence, norm, normalised, rewrite_links,
     notice_date, open_items, open_tasks, over_grown_briefs, parse_markers, register_rows,
     registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
-    scope_of, snapshot, split_lines, stage_line, stage_of, strip_code, table_cells,
-    template_marker, trash, triage_items, triage_sources, unticked_tasks, vault_root,
+    scope_of, snapshot, split_lines, stage_line, stage_of, stray_checkboxes, strip_code,
+    table_cells, template_marker, trash, triage_items, triage_sources, unticked_tasks, vault_root,
     waiting_on, weekday_after, weekday_index, working_days, year_end_of,
 )
 from paraos_clone import changelog_entries, entries_between  # noqa: E402
@@ -902,32 +902,41 @@ class Hygiene(VaultCase):
         self.assertEqual(got["resources"][0]["open"], 1)
 
     def test_a_frozen_record_is_left_alone(self):
-        write(self.root, "archive/meetings/20260101 Notes.md", "\n".join([
+        write(self.root, "archive/projects/old/20260101 notes.md", "\n".join([
             "# Notes", "", "> A point-in-time record of the meeting, not live work.", "",
             "- [ ] Something the room agreed", "",
         ]) + "\n")
         self.assertEqual(misplaced_checkboxes(self.root)["archive"], [])
 
     def test_a_plain_prose_marker_is_honoured_with_no_blockquote(self):
-        write(self.root, "archive/meetings/20260102 Notes.md", "\n".join([
+        write(self.root, "archive/projects/old/20260102 notes.md", "\n".join([
             "# Notes", "", "This is a frozen record, kept as generated; boxes never ticked.", "",
             "- [ ] Something the room agreed", "",
         ]) + "\n")
         self.assertEqual(misplaced_checkboxes(self.root)["archive"], [])
 
     def test_an_unrelated_blockquote_with_no_marker_text_is_still_exempt(self):
-        write(self.root, "archive/meetings/20260103 Notes.md", "\n".join([
+        write(self.root, "archive/projects/old/20260103 notes.md", "\n".join([
             "# Notes", "", "> Someone quoted in the room, nothing about being frozen.", "",
             "- [ ] Something the room agreed", "",
         ]) + "\n")
         self.assertEqual(misplaced_checkboxes(self.root)["archive"], [])
 
     def test_neither_trigger_present_is_flagged_as_before(self):
-        write(self.root, "archive/meetings/20260104 Notes.md", "\n".join([
+        write(self.root, "archive/projects/old/20260104 notes.md", "\n".join([
             "# Notes", "", "Plain prose, no marker and no blockquote.", "",
             "- [ ] Something the room agreed", "",
         ]) + "\n")
         self.assertEqual(len(misplaced_checkboxes(self.root)["archive"]), 1)
+
+    def test_a_checkbox_under_sources_or_archive_meetings_is_the_records(self):
+        for rel in ("archive/meetings/20260104 Notes.md", "archive/projects/old/sources/offer.md",
+                    "resources/clients/sources/proposal.md", "projects/acme/sources/call.md",
+                    "projects/acme/sources/actions.md"):
+            write(self.root, rel, "# Record\n\n- [ ] Their next step\n")
+        self.assertEqual(misplaced_checkboxes(self.root), {"archive": [], "resources": []})
+        self.assertEqual(stray_checkboxes(self.root), [])
+        self.assertEqual(action_files(self.root), [])
 
     def test_an_over_grown_brief_is_named_with_its_length(self):
         write(self.root, "projects/wordy/brief.md", "# wordy\n" + ("line\n" * 600))
