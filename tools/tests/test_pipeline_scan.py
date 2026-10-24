@@ -507,6 +507,18 @@ class NextStep(VaultCase):
             with self.subTest(cell=cell):
                 self.assertEqual(self.row_entity(cell)["next_step"]["date"], due)
 
+    def test_a_by_or_on_date_counts_only_in_the_cells_last_clause(self):
+        # Issue #642: a date in the row's context, before the step's own clause, read as due.
+        for cell, due in (
+                ("Angle: their new site launched on 2026-09-30; call to book the demo", None),
+                ("Met them by 2026-09-20; send the quote", None),
+                ("Angle: their new site launched on 2026-09-30; book the demo by 2026-11-04",
+                 "2026-11-04"),
+                ("Call 📅 2026-09-30 about the relaunch; book the demo", "2026-09-30"),
+                ("Launched on 2026-09-30; call on 2026-10-06", "2026-10-06")):
+            with self.subTest(cell=cell):
+                self.assertEqual(self.row_entity(cell)["next_step"]["date"], due)
+
     def test_a_no_step_wording_is_no_next_step(self):
         # Issue #34, finding 2: "None planned" suppressed the no_next_step flag.
         for cell in ("None planned: raised at the partners meeting on 2026-09-10", "none planned",
