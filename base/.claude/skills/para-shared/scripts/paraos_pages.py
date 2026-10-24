@@ -4,6 +4,7 @@
     py -3 paraos_pages.py publish claude|local --page <name> --vault <path>
     py -3 paraos_pages.py remember <url> --page <name> --title <title> --vault <path>
     py -3 paraos_pages.py run --skill <skill> --scan <scan.json> --out-dir <folder> --vault <path>
+    py -3 paraos_pages.py refresh --page <name> [--out-dir <folder>] --vault <path>
 
 A page has a name: a skill's own page is named for the skill (`daily-brief`), a page the vault
 declares for its script's stem (`vendor-board`). Per vault and page,
@@ -23,6 +24,11 @@ JSON document: `pages`, one entry per row with its `page`, `script`, `out`, `pub
 `title`, `description`, the remembered `url`, and `error`, null or why the row has no page: a
 missing script, an `out` inside the vault, a non-zero exit, or a last line that is not that
 JSON.
+
+`refresh` rebuilds one declared page without its skill: it reruns the declaring skill's
+`scripts/*_scan.py --vault <root>`, keeps the output beside the page, and runs the page's row
+as `run` does, printing that one entry. `--out-dir` defaults to `$PARAOS_HOME/cache/<page>/`.
+A page no row builds, a skill with no single scan, or a scan that fails is its `error`.
 """
 
 import argparse
@@ -37,6 +43,7 @@ from paraos_vault import (  # noqa: E402
     table_cells,
 )
 
+SKILLS_DIR = Path(__file__).resolve().parents[2]
 PUBLISH = ("claude", "local")
 PAGES_HEADING = "pages"
 RUN_TIMEOUT = 300
@@ -179,6 +186,30 @@ def run(vault, skill, scan, out_dir, paraos_home=None):
             for row in declared_pages(vault) if row["skill"] == wanted]
 
 
+def refresh(vault, page, out_dir=None, paraos_home=None, skills_dir=SKILLS_DIR):
+    vault = Path(vault).resolve()
+    row = next((r for r in declared_pages(vault) if Path(r["script"]).stem == page), None)
+    if row is None:
+        return {"page": page, "error": f"no row under ## Pages builds {page}"}
+    scans = sorted((Path(skills_dir) / row["skill"] / "scripts").glob("*_scan.py"))
+    if len(scans) != 1:
+        return {"page": page, "error": f"no single scan for {row['skill']}"}
+    try:
+        done = subprocess.run([sys.executable, str(scans[0]), "--vault", str(vault)],
+                              cwd=vault, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=RUN_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired) as failed:
+        return {"page": page, "error": f"the scan did not run: {failed}"}
+    if done.returncode != 0:
+        tail = (done.stderr or "").strip().splitlines()[-1:] or [f"exit {done.returncode}"]
+        return {"page": page, "error": f"the scan failed: {tail[0]}"}
+    out_dir = Path(out_dir) if out_dir else cache_file(page, paraos_home).parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+    scan = out_dir / f"{page}.scan.json"
+    scan.write_text(done.stdout, encoding="utf-8")
+    return run_page(vault, row, scan, out_dir, paraos_home)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Where a skill's page goes.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -196,6 +227,10 @@ def main(argv=None):
     g.add_argument("--scan", required=True, help="the skill's own scan output")
     g.add_argument("--out-dir", required=True, help="a scratch folder outside the vault")
     g.add_argument("--vault", required=True)
+    f = sub.add_parser("refresh", help="rebuild one declared page from a fresh scan")
+    f.add_argument("--page", required=True)
+    f.add_argument("--out-dir", help="default: the page's cache folder")
+    f.add_argument("--vault", required=True)
     args = ap.parse_args(argv)
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -208,6 +243,8 @@ def main(argv=None):
     elif args.cmd == "remember":
         path = remember(args.vault, args.page, args.url, args.title)
         print(json.dumps({"remembered": args.url, "cache": path.as_posix()}))
+    elif args.cmd == "refresh":
+        print(json.dumps(refresh(args.vault, args.page, args.out_dir), ensure_ascii=False))
     else:
         print(json.dumps({"pages": run(args.vault, args.skill, args.scan, args.out_dir)},
                          ensure_ascii=False))
