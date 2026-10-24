@@ -8,7 +8,7 @@ What every skill that ends on a page shares, for its own page and for one the va
 - **Where it goes is the vault's choice, per page**: a private claude.ai artifact by default, or a local page that never leaves the machine, recorded with `paraos_pages.py publish claude|local --page <page> --vault <vault root>`. Change it only when the operator asks; the daily brief's is asked at onboarding and by `/para-upgrade`.
 - **A local page is already in place** at `out`: give that path and stop.
 - **Otherwise publish `out`** to the printed `url`, with the printed `description`; icon `chart` on the first publish, none on a republish. Then record it: `paraos_pages.py remember <url> --page <page> --title <title> --vault <vault root>`, `page` and `title` as printed.
-- **No `url`, or the publish refuses it:** the printed `title` is the update key, and an existing page may differ from it in case or separators. List existing artifacts and compare normalized forms of both sides: lowercase, `-` and `_` to spaces, runs of whitespace collapsed, and a `vault` token immediately before `dashboard` dropped. Read the first title that matches, then republish to its `url`; create a new artifact only when nothing does, and never rename one: a matched page keeps its title.
+- **No `url`, or the publish refuses it:** list existing artifacts and pass their titles to `paraos_pages.py match <title> <listed title>...`. Read the artifact whose title it prints, then republish to its `url`; create a new artifact only when it prints null, and never rename one: a matched page keeps its title.
 - **Without an Artifact tool, or when the publish fails,** say so in one line and move on. Otherwise give the page's link on one line.
 
 ## A page the vault declares

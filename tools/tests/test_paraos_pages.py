@@ -25,8 +25,8 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from paraos_pages import (  # noqa: E402
-    declared_pages, local_page, main, publish_choice, refresh, remember, remembered_url, run,
-    store,
+    declared_pages, local_page, main, match, publish_choice, refresh, remember, remembered_url,
+    run, store,
 )
 
 PAGES = """# Example Vault Conventions
@@ -99,6 +99,17 @@ class Cache(PagesCase):
         remember(self.root, "board", "https://example.invalid/b", "Example Board")
         self.assertEqual(publish_choice(self.root, "board"), "local")
         self.assertEqual(local_page(self.root, "board"), self.home / "cache" / "board" / "vault.html")
+
+
+class Match(unittest.TestCase):
+
+    def test_case_separators_and_an_old_vault_token_name_the_same_page(self):
+        listed = ["Example Board", "example_vault-dashboard", "Example  dashboard"]
+        self.assertEqual(match("Example Dashboard", listed), "example_vault-dashboard")
+
+    def test_vault_stays_anywhere_else_and_no_match_is_none(self):
+        self.assertIsNone(match("Example board", ["Example vault board", "Vault example board"]))
+        self.assertIsNone(match("Example dashboard", []))
 
 
 class Declared(PagesCase):
@@ -207,6 +218,8 @@ class Cli(PagesCase):
                                    "--out-dir", str(self.out_dir)] + vault)
         self.assertEqual((code, [p["url"] for p in printed["pages"]]),
                          (0, ["https://example.invalid/d"]))
+        self.assertEqual(self.call(["match", "Example Board", "Other", "example-board"])[1],
+                         {"match": "example-board"})
 
 
 if __name__ == "__main__":
