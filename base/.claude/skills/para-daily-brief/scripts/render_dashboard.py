@@ -197,6 +197,11 @@ def flag_drill(scan, flag):
             raise JudgmentError(f"flag {kind} is one the scan did not raise")
         return [], [{"label": r["path"], "meta": "since " + r["touched"] if r["touched"]
                      else "no actions.md"} for r in raised[kind]]
+    if kind == "unticked":
+        if not raised.get(kind):
+            raise JudgmentError(f"flag {kind} is one the scan did not raise")
+        return [], [{"label": f"{r['file']}:{r['line']}", "meta": f"✅ {r['done']}"}
+                    for r in raised[kind]]
     raise JudgmentError(f"flag kind {kind!r} is not a scan flag")
 
 
@@ -362,6 +367,13 @@ def mechanical_flags(scan):
                             + (f", and {len(late) - 1} more" if len(late) > 1 else "")
                             + " - chase or drop?",
                     "kind": "waiting_too_long"})
+    unticked = raised.get("unticked") or []
+    if unticked:
+        u, n = unticked[0], len(unticked)
+        out.append({"text": f"**{n} done item{'s' if n > 1 else ''} with "
+                            f"{'their' if n > 1 else 'its'} box open** ({u['file']}:{u['line']}"
+                            + (f", and {n - 1} more" if n > 1 else "") + ") - tick the box",
+                    "kind": "unticked"})
     stray = raised.get("stray_checkboxes") or []
     if stray:
         out.append({"text": f"**{sum(r['open'] for r in stray)} open checkboxes outside the action "
