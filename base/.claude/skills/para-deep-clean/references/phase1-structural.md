@@ -44,4 +44,4 @@ One table, shown before anything is applied:
 
 ## Step 1.4 - Apply
 
-Lossless changes first, deletions last and one at a time, per [Deleting a file](../../para-shared/operating-discipline.md#deleting-a-file). Before any move, run the shared `paraos_vault.py move-plan <src> <dst>` and apply its `inside` and `inbound` rewrites; re-run the dangling check after the moves.
+Lossless changes first, deletions last and one at a time, per [Deleting a file](../../para-shared/operating-discipline.md#deleting-a-file). Move per [Moving an entity folder](../../para-shared/operating-discipline.md#moving-an-entity-folder), then re-run the dangling check.

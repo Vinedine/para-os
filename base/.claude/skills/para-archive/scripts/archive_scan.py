@@ -13,11 +13,10 @@ references/reconcile.md and references/move.md.
 
 Plan mode answers Steps 1 to 6: where the entity is, what its default archive destination is,
 whether it sits in a declared lifecycle and what that lifecycle's terminal-stage gate needs,
-its open and settled actions, the done-gate's raw material, every inbound reference, and the
-move plan.
-Verify mode answers Step 8, after the skill has moved the entity by hand: whether anything in
-the vault still names the old path, whether every repointed link actually resolves, and what
-git shows untracked at the new path.
+its open and settled actions, the done-gate's raw material and every inbound reference.
+Verify mode answers Step 8, after the move: whether anything in the vault still names the old
+path, whether every repointed link actually resolves, and what git shows untracked at the new
+path.
 
 Reading the vault's primitives - resolving an entity, the registry, header fields, stage
 lines, lifecycle tables, tasks, links, snapshots - is not this script's own work:
@@ -50,7 +49,7 @@ try:
         abspath, blank_spans,
         contact_card_level, extract_links, field_ci, git_untracked, header_fields,
         inbound_references, is_under, lifecycles, link_files, link_spans, live_lines,
-        move_plan, open_tasks, parse_date, read_lines, read_text,
+        open_tasks, parse_date, read_lines, read_text,
         registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
         snapshot, stage_line, stage_of, strip_code, vault_root,
     )
@@ -503,7 +502,7 @@ def plan(vault, entity_name, destination_arg, today, paraos_home, route_files=()
         "vault": vault_block(vault, paraos_home),
         "entity": entity_block(vault, entity_name, paraos_home),
         "destination": None, "lifecycle": None, "actions": None, "gate": None,
-        "inbound": None, "move_plan": None, "snapshot": {},
+        "inbound": None, "snapshot": {},
     }
     if report["entity"]["status"] != "resolved":
         return report, 0
@@ -527,7 +526,6 @@ def plan(vault, entity_name, destination_arg, today, paraos_home, route_files=()
     inbound = inbound_block(vault, entity_dir, folder_name, route_files)
     report["inbound"] = inbound
 
-    report["move_plan"] = move_plan(vault, source, dest["path"]) if dest["path"] else None
     report["snapshot"] = build_snapshot(vault, entity_dir, inbound["references"])
     return report, 0
 
