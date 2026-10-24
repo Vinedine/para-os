@@ -310,7 +310,7 @@ def check_fragments():
 
 # Each a little above the largest real file of its kind, so the cap catches regrowth.
 TEMPLATE_MAX_WORDS = 1650   # base's CLAUDE.md.template: a vault starts here and adds its own
-FINISHED_MAX_WORDS = 2250   # a populated vault's own CLAUDE.md, which the example is
+FINISHED_MAX_WORDS = 2275   # a populated vault's own CLAUDE.md, which the example is
 SPINE_MAX_WORDS = 2300      # a SKILL.md: its body loads on every invoke
 
 

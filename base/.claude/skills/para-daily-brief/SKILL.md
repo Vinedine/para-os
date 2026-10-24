@@ -85,7 +85,7 @@ Exact layout, line rules, and the single Next action close. **Full spec: [refere
 
 ### Step 7: The visual dashboard
 
-Default and `all` scopes only. Render the page with `scripts/render_dashboard.py` from the scan and a small judgment file, per [references/dashboard.md](references/dashboard.md), which owns what the judgment holds, where the page goes, the remembered URL and the title match that updates yesterday's page in place. The page is **never written inside the vault**. Give the user its link on one line: the published artifact's, or the local file's where the vault keeps its dashboard local. Without an Artifact tool, or when the publish fails, say so in one line and move on.
+Default and `all` scopes only. Render the page with `scripts/render_dashboard.py` from the scan and a small judgment file, per [references/dashboard.md](references/dashboard.md), and publish it per [para-shared/pages.md](../para-shared/pages.md).
 
 ## Strict rules
 

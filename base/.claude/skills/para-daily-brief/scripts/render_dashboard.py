@@ -3,23 +3,19 @@
 
     py -3 render_dashboard.py --scan <scan.json> --judgment <judgment.json> [--out <page.html>]
     py -3 render_dashboard.py --scan <scan.json> --mechanical [--out <page.html>]
-    py -3 render_dashboard.py --remember <artifact url> --vault <path>
     py -3 render_dashboard.py --publish claude|local --vault <path>
 
 The page is `dashboard.html` beside this script with the data embedded: it loads nothing
 from the network, and its script works out lateness, days waited and days in stage from the
 day it is opened, so a page read two days after its data still reads right.
 
-Where it goes is the vault's choice, set with `--publish` and kept beside the remembered
-artifact URL under `$PARAOS_HOME/cache/daily-brief/dashboards.json`, keyed by vault path:
-`claude` (the default) publishes it as a claude.ai artifact, `local` keeps it a file on this
-machine. A local page is written to `$PARAOS_HOME/cache/daily-brief/<vault folder>.html`,
-the page scripts/refresh_dashboard.py keeps current, and carries "Work on this" links that
-open a Claude Code session in the vault, which the artifact viewer would block; `--out` is
-then not needed. Render prints one JSON line: `out`, `publish`, the page's `title` and
-`description`, and `url`, the artifact this vault's dashboard was last published to (null
-when none is remembered). Deleting the cache only sends the next run back to the title match
-in references/dashboard.md, and to the default.
+Where it goes, and the artifact it was last published to, is para-shared's
+`paraos_pages.py`, under the page name `daily-brief`; `--publish` records the choice there.
+A local page, the one scripts/refresh_dashboard.py keeps current, carries "Work on this"
+links that open a Claude Code session in the vault, which the artifact viewer would block;
+`--out` is then not needed. Render prints one JSON line: `out`, `page`, `publish`, the
+page's `title` and `description`, and `url`, the artifact this vault's dashboard was last
+published to (null when none is remembered).
 
 Everything on the page with one right answer comes from the scan: tiles, per-entity bars,
 Today, Chase or drop, the next 14 days, people, the pipeline and its drill-down, ideas,
@@ -57,17 +53,18 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        OPEN_ITEM_CAP, PRIORITY_RANK, WAITING_FLAG_DAYS, paraos_home_dir, registry,
+        OPEN_ITEM_CAP, PRIORITY_RANK, WAITING_FLAG_DAYS, registry,
         same_place, scope_of,
     )
     from brief_scan import EMPHASIS_RE, SENTENCE_END_RE, first_end  # noqa: E402
+    from paraos_pages import PUBLISH, local_page, publish_choice, remembered_url, store  # noqa: E402
 except ImportError as missing:
     print(f"render_dashboard: {missing}. install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 TEMPLATE = Path(__file__).with_name("dashboard.html")
 TEXT_CAP = 100
-PUBLISH = ("claude", "local")
+PAGE = "daily-brief"
 LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 BOLD_LEAD_RE = re.compile(r"^\*\*(.+?)\*\*")
 CLAUSE_END_RE = re.compile(r";| - |" + SENTENCE_END_RE.pattern)
@@ -112,7 +109,7 @@ def cut(text):
 def display_name(vault):
     """The vault's registry name, else its CLAUDE.md H1 without a trailing `Vault
     Conventions`, else its folder. The registry comes first because the page title is the
-    update key (references/dashboard.md) and an H1 gets reworded."""
+    update key (para-shared/pages.md) and an H1 gets reworded."""
     place = same_place(vault)
     for entry in registry():
         if entry.get("name") and entry.get("path") and same_place(entry["path"]) == place:
@@ -405,58 +402,6 @@ def render(scan, judgment=None, local=False):
     return title, page
 
 
-# ------------------------------------------------------- where the page goes, remembered
-
-def cache_file(paraos_home=None):
-    return paraos_home_dir(paraos_home) / "cache" / "daily-brief" / "dashboards.json"
-
-
-def local_page(vault, paraos_home=None):
-    """The page a local vault keeps, the one scripts/refresh_dashboard.py rewrites."""
-    return paraos_home_dir(paraos_home) / "cache" / "daily-brief" / f"{Path(vault).name}.html"
-
-
-def vault_key(vault):
-    return Path(vault).resolve().as_posix().lower()
-
-
-def load_cache(paraos_home=None):
-    path = cache_file(paraos_home)
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-
-
-def cached(vault, paraos_home=None):
-    entry = load_cache(paraos_home).get(vault_key(vault))
-    return entry if isinstance(entry, dict) else {}
-
-
-def remembered_url(vault, paraos_home=None):
-    return cached(vault, paraos_home).get("url")
-
-
-def publish_choice(vault, paraos_home=None):
-    """`claude` unless the operator chose `local` for this vault."""
-    return "local" if cached(vault, paraos_home).get("publish") == "local" else "claude"
-
-
-def store(vault, paraos_home=None, **fields):
-    path = cache_file(paraos_home)
-    data = load_cache(paraos_home)
-    entry = data.get(vault_key(vault)) if isinstance(data.get(vault_key(vault)), dict) else {}
-    entry.update(fields)
-    data[vault_key(vault)] = entry
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    return path
-
-
-def remember(vault, url, paraos_home=None):
-    return store(vault, paraos_home, url=url, title=f"{display_name(vault)} Dashboard")
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Render the daily-brief dashboard page.")
     ap.add_argument("--scan", help="brief_scan.py output")
@@ -464,24 +409,19 @@ def main(argv=None):
     ap.add_argument("--mechanical", action="store_true",
                     help="render from the scan alone, with no judgment file")
     ap.add_argument("--out", help="where to write a page for claude.ai (never inside the vault)")
-    ap.add_argument("--remember", metavar="URL", help="store the published artifact URL")
     ap.add_argument("--publish", choices=PUBLISH, help="where this vault's dashboard goes")
-    ap.add_argument("--vault", help="vault root, with --remember or --publish")
+    ap.add_argument("--vault", help="vault root, with --publish")
     args = ap.parse_args(argv)
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, OSError):
         pass
 
-    if args.remember or args.publish:
+    if args.publish:
         if not args.vault:
-            ap.error("--remember and --publish need --vault")
-        if args.publish:
-            path = store(args.vault, publish=args.publish)
-            print(json.dumps({"publish": args.publish, "cache": path.as_posix()}))
-        if args.remember:
-            path = remember(args.vault, args.remember)
-            print(json.dumps({"remembered": args.remember, "cache": path.as_posix()}))
+            ap.error("--publish needs --vault")
+        path = store(args.vault, PAGE, publish=args.publish)
+        print(json.dumps({"publish": args.publish, "cache": path.as_posix()}))
         return 0
     if args.mechanical and args.judgment:
         ap.error("--mechanical renders without a judgment file; drop one or the other")
@@ -491,9 +431,9 @@ def main(argv=None):
     scan = json.loads(Path(args.scan).read_text(encoding="utf-8"))
     judgment = None if args.mechanical else \
         json.loads(Path(args.judgment).read_text(encoding="utf-8"))
-    publish = publish_choice(scan["vault"])
+    publish = publish_choice(scan["vault"], PAGE)
     if publish == "local":
-        out = local_page(scan["vault"])
+        out = local_page(scan["vault"], PAGE)
     elif args.out:
         out = Path(args.out).resolve()
     else:
@@ -509,8 +449,8 @@ def main(argv=None):
         return 2
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page, encoding="utf-8")
-    print(json.dumps({"out": out.as_posix(), "publish": publish, "title": title,
-                      "description": DESCRIPTION, "url": remembered_url(scan["vault"])},
+    print(json.dumps({"out": out.as_posix(), "page": PAGE, "publish": publish, "title": title,
+                      "description": DESCRIPTION, "url": remembered_url(scan["vault"], PAGE)},
                      ensure_ascii=False))
     return 0
 

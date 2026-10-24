@@ -139,6 +139,12 @@ A script the agent writes lives in `resources/scripts/` (its `README.md` names t
 |---|---|---|---|
 | engagement calendar | connector: calendar | `bram@lemmens-advisory.example` | Meetings with a BelFoot attendee. |
 
+## Pages
+
+| Skill | Script |
+|---|---|
+| para-pipeline | `resources/scripts/vendor-board.py` |
+
 ## Do not add
 
 - **Cross-client material**: never reference another engagement here; it violates the engagement letter. BelFoot-confidential data (financials, contracts, employee records) stays in this vault, and outputs are reviewed before they leave it.
