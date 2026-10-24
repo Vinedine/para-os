@@ -62,7 +62,7 @@ A project, area, idea or contact is created through `/para-new`, whatever form t
 
 ## Moving an entity folder
 
-Rewrite the relative links *inside* whatever moved, which an inbound scan cannot see: a link to something that travels with the folder stays as written; every other link is resolved from its old location and rewritten relative to the new one, never shifted by the depth difference. Verify each rewritten link resolves to a file.
+Move a folder or a file with `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" move <src> <dst> --apply` (Windows: `py -3`): it refuses an existing destination, and rewrites the links into what moved and out of it.
 
 ## Fetching template content
 

@@ -7,8 +7,9 @@ ref, as one JSON document on stdout.
     py -3 upgrade_scan.py copy --vault <path> --clone <path> --commit <clone.commit> <master> <row path>
 
 The scan is read-only: it never writes, fetches or asks, and reads every master at the ref's
-commit. `copy` writes one master as the commit holds it over a row's path, whole or not at all,
-creating its folder; where the master cannot be read it changes nothing and exits 4.
+commit. `copy` writes one master as the commit holds it over a row's path, keeping an
+untouched row's `own` lines, whole or not at all and creating its folder; where the master
+cannot be read it changes nothing and exits 4.
 
 clone     `path`, `ref`, `commit` (the ref's commit, which a re-copy reads), `error` on exit 4-6.
 revision  The vault's template marker (`vault`) against the master's (`master`): `verdict`
@@ -28,9 +29,10 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
           state  current: nothing to take from the kit, the ref's bytes or those bytes with
                  lines of the vault's own added (a rule file the vault writes into), or for a
                  JSON file, keys and list entries of its own (settings with more deny rules).
-                 untouched:
-                 bytes the master held at some commit along the ref, so a re-copy loses
-                 nothing local. edited: any other bytes, with `diff` from the master to the copy.
+                 untouched: bytes the master held at some commit along the ref, or those with
+                 inserted lines (`own`) whose neighbours the ref still holds, so a re-copy
+                 loses nothing local. edited: any other bytes, with `diff` from the master to
+                 the copy, and `own` where only the ref's change to a neighbour stopped them.
                  missing. no-master: an integration the ref ships no master for. retired: a
                  file a changelog `Retired:` line names that the kit no longer ships, `master`
                  null.
@@ -295,6 +297,36 @@ def state_of(path, kit, master):
     return "current" if all(op[0] in ("equal", "insert") for op in ops) else "edited"
 
 
+def with_own_lines(data, kit, master):
+    """Where `data` is a text the kit shipped at `master` plus inserted lines only: (the ref's
+    text with those lines placed between the neighbours they had, or None where the ref
+    changed a neighbour, [the inserted lines]). None otherwise."""
+    if master.endswith(".json"):
+        return None
+    copy, best = lines_of(data), None
+    for blob in kit.shipped(master) - {kit.tree[master]}:
+        old = lines_of(git_bytes(kit.clone, ["cat-file", "blob", blob]) if blob.strip("0") else b"")
+        ops = difflib.SequenceMatcher(None, old, copy, autojunk=False).get_opcodes()
+        if not old or any(op[0] not in ("equal", "insert") for op in ops):
+            continue
+        inserts = [(i1, copy[j1:j2]) for tag, i1, _, j1, j2 in ops if tag == "insert"]
+        if best is None or sum(len(c) for _, c in inserts) < sum(len(c) for _, c in best[1]):
+            best = (old, inserts)
+    if best is None:
+        return None
+    (old, inserts), ref = best, lines_of(clone_read(kit.clone, kit.commit, master))
+    at = {-1: -1, len(old): len(ref)}
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old, ref, autojunk=False).get_opcodes():
+        if tag == "equal":
+            at.update(zip(range(i1, i2), range(j1, j2)))
+    own = [line for _, chunk in inserts for line in chunk]
+    if any(at.get(k - 1) is None or at.get(k) != at[k - 1] + 1 for k, _ in inserts):
+        return None, own
+    for k, chunk in reversed(inserts):
+        ref[at[k]:at[k]] = chunk
+    return "".join(ref), own
+
+
 def holds(have, want):
     """Whether parsed JSON `have` holds every key, value and list entry of `want`."""
     if isinstance(want, dict):
@@ -331,6 +363,10 @@ def files_block(vault, kit, decl, user_dir=None):
     rows = {}
     for path, (kind, master) in planned.items():
         rows[path] = {"kind": kind, "master": master, "state": state_of(path, kit, master)}
+        added = rows[path]["state"] == "edited" and with_own_lines(path.read_bytes(), kit, master)
+        if added:
+            rows[path]["own"] = [line.rstrip("\n") for line in added[1]]
+            rows[path]["state"] = "untouched" if added[0] is not None else "edited"
         if rows[path]["state"] == "edited":
             rows[path]["diff"] = diff(clone_read(kit.clone, kit.commit, master), path.read_bytes(),
                                       master, shown(path, vault))
@@ -389,11 +425,15 @@ def build_report(vault, clone, ref, user_dir, default_clone=None):
 
 
 def copy(clone, commit, master, target):
-    """None once `target` holds the master's bytes, else what stopped it."""
+    """None once `target` holds the master's bytes, with any lines of the vault's own the scan
+    calls untouched, else what stopped it."""
     data = clone_read(clone, commit, master)
     if data is None:
         return f"{commit}:{master} cannot be read"
     target = Path(target)
+    added = target.is_file() and with_own_lines(target.read_bytes(), Kit(clone, commit), master)
+    if added and added[0] is not None:
+        data = added[0].encode("utf-8")
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         fd, temp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.")

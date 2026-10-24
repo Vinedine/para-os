@@ -2,7 +2,7 @@
 
 ## Inspect (Step 3)
 
-- **Read it**, rendering a PDF `Read` cannot (PyMuPDF, `pypdfium2`). An encrypted one is proposed from its name and date, saying "(content not readable - name-only inference)"; with no renderer, ask before inferring from a name.
+- **Read it**, rendering a PDF `Read` cannot (PyMuPDF, `pypdfium2`) and decoding a saved message with `paraos_mail.py eml <file>` ([shared library](../../para-shared/scripts.md)). An encrypted one is proposed from its name and date, saying "(content not readable - name-only inference)"; with no renderer, ask before inferring from a name.
 - **A staged note whose `Content` line says it lacks the operator's own messages** is re-read at its source first, unless a filed survivor of that message exists. Read-only, by `note.message_id`, never an id derived from `Link`: `get_thread`, `get_gmail_thread_content`, or the fetch-script command its Content line gives. With no `Message id`, re-read a Gmail thread by `note.thread_id`, any other by sender and subject; an `.ics`-only thread gets one attachment read. Judge it as a fetched thread ([sources.md](sources.md#connector-sources)), a fact found only there going into the annotation or a follow-on edit, never the note.
 - **One no re-read can reach** is judged on what it holds, its row saying so.
 - **A Google-native stub** is converted first ([sources.md](sources.md#google-native-files)).

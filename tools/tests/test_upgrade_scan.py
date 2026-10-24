@@ -56,6 +56,7 @@ def logbook(rev, body):
 MIRROR_OLD = "WALK = 'past errors'\n"
 MIRROR_NEW = "# para-os-integration: vault-mirror 2026.10.01\nWALK = 'stop'\n"
 RULE = "---\npaths:\n  - \"**\"\n---\n# Filing {}\n"
+PREFS = "# Preferences\n\nHow {}.\n\n## Preferences\n\n"
 OLD_ENTRY = "## 2026.09.01\n\n- Start a notes log: `notes/`\n"
 NEW_ENTRY = ("## 2026.10.01\n\n- Move each deal note to its deal folder: `notes/`\n"
              "- In a sales vault, add a `**Stage:**` line: each deal brief  \n"
@@ -70,6 +71,7 @@ REV_A = {
     "base/projects/README.md": "# projects\n\n<!-- Placeholder so the folder exists. -->\n",
     "base/.claude/settings.json": '{"autoMemoryEnabled": false}\n',
     "base/.claude/rules/filing.md": RULE.format("v1"),
+    "base/.claude/rules/prefs.md": PREFS.format("v1"),
     "base/.claude/skills/para-notes/SKILL.md": "# Notes v1\n",
     "base/.claude/skills/para-notes/old.md": "Old.\n",
     "base/.claude/skills/para-shared/scripts/lib.py": "LIB = 1\n",
@@ -90,6 +92,7 @@ REV_B = {
     "base/CLAUDE.md.template": template("2026.10.01", "One checkbox per line.\n\nAreas too.",
                                         "\n## Language\n\nEnglish.\n"),
     "base/.claude/rules/filing.md": RULE.format("v2"),
+    "base/.claude/rules/prefs.md": PREFS.format("v2"),
     "base/.claude/skills/para-notes/SKILL.md": "# Notes v2\n",
     "base/.claude/skills/para-notes/references/new.md": "New.\n",
     "base/.claude/skills/para-prep/SKILL.md": "# Prep\n",
@@ -199,6 +202,7 @@ class BehindCase(CloneCase):
         self.assertEqual(self.states(self.report), {
             ".claude/rules/deal.md": "edited",
             ".claude/rules/filing.md": "untouched",
+            ".claude/rules/prefs.md": "missing",
             ".claude/settings.json": "missing",
             ".claude/skills/deal-skill/SKILL.md": "missing",
             ".claude/skills/para-notes/SKILL.md": "untouched",
@@ -294,6 +298,25 @@ class StatesCase(CloneCase):
     def test_a_copy_that_only_adds_lines_to_its_master_has_nothing_to_take(self):
         v = self.vault("adds", files={".claude/rules/filing.md": RULE.format("v2") + "Ours.\n"})
         self.assertNotIn(".claude/rules/filing.md", self.states(self.scan(v)[0]))
+
+    def test_an_older_kit_text_with_lines_of_the_vault_s_own_is_offered_as_untouched(self):
+        v = self.vault("older-adds", files={".claude/rules/prefs.md": PREFS.format("v1") + "- Short.\n"})
+        row = next(r for r in self.scan(v)[0]["files"] if r["path"] == ".claude/rules/prefs.md")
+        self.assertEqual((row["state"], row["own"]), ("untouched", ["- Short."]))
+        self.assertNotIn("diff", row)
+
+    def test_a_vault_line_whose_neighbour_the_kit_changed_stays_edited_and_is_named(self):
+        text = PREFS.format("v1").replace("How v1.\n", "How v1.\nAnd ours.\n")
+        v = self.vault("older-moved", files={".claude/rules/prefs.md": text + "- Short.\n"})
+        row = next(r for r in self.scan(v)[0]["files"] if r["path"] == ".claude/rules/prefs.md")
+        self.assertEqual((row["state"], row["own"]), ("edited", ["And ours.", "- Short."]))
+        self.assertIn("+And ours.", row["diff"])
+
+    def test_an_edited_copy_that_is_no_kit_text_plus_lines_names_none(self):
+        v = self.vault("not-added", files={".claude/rules/prefs.md": "Ours.\n"})
+        row = next(r for r in self.scan(v)[0]["files"] if r["path"] == ".claude/rules/prefs.md")
+        self.assertEqual(row["state"], "edited")
+        self.assertNotIn("own", row)
 
     def test_settings_that_only_add_keys_and_entries_have_nothing_to_take(self):
         ours = {"autoMemoryEnabled": False, "permissions": {"deny": ["mcp__*__send_message"]}}
@@ -478,6 +501,15 @@ class CopyCase(CloneCase):
         target = write(self.tmp / "copy-old", "filing.md", RULE.format("v1"), newline="\r\n")
         self.assertEqual(self.copy("base/.claude/rules/filing.md", target)[0], 0)
         self.assertEqual(target.read_bytes(), RULE.format("v2").encode())
+
+    def test_copy_keeps_the_vault_s_own_lines_where_they_stood(self):
+        v = self.vault("copy-adds", files={
+            ".claude/rules/prefs.md": "# Preferences\nMine.\n" + PREFS.format("v1")[14:]
+            + "- Short.\n"})
+        self.assertEqual(self.copy("base/.claude/rules/prefs.md", ".claude/rules/prefs.md",
+                                   vault=v)[0], 0)
+        self.assertEqual((v / ".claude" / "rules" / "prefs.md").read_text(),
+                         "# Preferences\nMine.\n" + PREFS.format("v2")[14:] + "- Short.\n")
 
     def test_a_master_that_cannot_be_read_leaves_the_target_as_it_was(self):
         folder = self.tmp / "copy-kept"

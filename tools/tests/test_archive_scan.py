@@ -230,7 +230,6 @@ class EntityResolution(VaultCase):
         self.assertIsNone(r["actions"])
         self.assertIsNone(r["gate"])
         self.assertIsNone(r["inbound"])
-        self.assertIsNone(r["move_plan"])
         self.assertEqual(r["snapshot"], {})
 
 
@@ -856,21 +855,9 @@ class Inbound(VaultCase):
         self.assertEqual(self.plan("acme")["inbound"]["routed"], {})
 
 
-# ------------------------------------------------------------------------------ move plan
+# ------------------------------------------------------------------------------- snapshot
 
-class MovePlanAndSnapshot(VaultCase):
-
-    def test_move_plan_is_present_when_the_destination_is_known(self):
-        write(self.root, "projects/acme/brief.md", "# Acme\n")
-        r = self.plan("acme")
-        self.assertIsNotNone(r["move_plan"])
-        self.assertIn("inside", r["move_plan"])
-        self.assertIn("inbound", r["move_plan"])
-
-    def test_move_plan_is_null_for_an_area_with_no_destination(self):
-        write(self.root, "areas/harbor-website/brief.md", "# Harbor website\n")
-        r = self.plan("harbor-website")
-        self.assertIsNone(r["move_plan"])
+class Snapshot(VaultCase):
 
     def test_snapshot_covers_the_entity_folder_and_reference_hits(self):
         write(self.root, "projects/acme/brief.md", "# Acme\n")

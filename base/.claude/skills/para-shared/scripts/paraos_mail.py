@@ -6,6 +6,7 @@ that reads mail. Nothing here reads a vault's own files; that is `paraos_vault.p
 file, which holds the date arithmetic this builds on.
 
     py -3 paraos_mail.py key <messages.json>
+    py -3 paraos_mail.py eml <message.eml> [--extract <dir>]
 
     import sys
     from pathlib import Path
@@ -17,18 +18,23 @@ both need: the dedup key both are keyed on, reading the run logs (older ones a m
 naming their fields inconsistently between runs), recomputing a staged note's name from the
 thread id that produced it, deciding whether a ledger entry still covers a thread's newest
 message, and how many working days a sent message has waited. A vault without `/para-ingest`
-reads empty logs and an absent ledger here, which is the truth about it.
+reads empty logs and an absent ledger here, which is the truth about it. It also reads a
+message saved as an `.eml`, for a mailbox that reaches a vault only that way.
 """
 
 import argparse
 import hashlib
 import json
+import mimetypes
 import os
 import re
 import sys
 from datetime import datetime, timezone
+from email import policy
+from email.parser import BytesParser
 from email.utils import parseaddr, parsedate_to_datetime
-from pathlib import Path
+from html.parser import HTMLParser
+from pathlib import Path, PurePosixPath
 
 from paraos_vault import is_under, iso, paraos_home_dir, parse_date, same_place, working_days
 
@@ -362,6 +368,121 @@ def unanswered(sent, now):
             "waiting": count >= UNANSWERED_WORKING_DAYS}
 
 
+EML_HEADERS = ("From", "To", "Cc", "Date", "Subject", "Message-ID")
+BLOCK_TAGS = {"p", "div", "br", "li", "tr", "table", "ul", "ol", "blockquote", "hr",
+              "h1", "h2", "h3", "h4", "h5", "h6"}
+
+
+class _HtmlText(HTMLParser):
+    """An HTML part's words: script and style dropped, a line break at each block."""
+
+    def __init__(self):
+        super().__init__()
+        self.chunks, self.hidden = [], 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self.hidden += 1
+        elif tag in BLOCK_TAGS:
+            self.chunks.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style"):
+            self.hidden = max(0, self.hidden - 1)
+        elif tag in BLOCK_TAGS:
+            self.chunks.append("\n")
+
+    def handle_data(self, data):
+        if not self.hidden:
+            self.chunks.append(data)
+
+
+def _html_text(html):
+    parser = _HtmlText()
+    parser.feed(html)
+    parser.close()
+    lines = [" ".join(line.split()) for line in "".join(parser.chunks).split("\n")]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def _part_text(part):
+    """A text part decoded by its declared charset; one Python does not know, or that its
+    bytes break, is read as UTF-8, else cp1252, never refused."""
+    try:
+        text = part.get_content()
+    except (LookupError, UnicodeError):
+        data = part.get_payload(decode=True) or b""
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            text = data.decode("cp1252", errors="replace")
+    return text.replace("\r\n", "\n").strip()
+
+
+def _leaves(part):
+    if part.get_content_maintype() == "multipart":
+        for sub in part.iter_parts():
+            yield from _leaves(sub)
+    else:
+        yield part
+
+
+def _is_body(part):
+    return (part.get_content_type() in ("text/plain", "text/html")
+            and part.get_content_disposition() != "attachment" and not part.get_filename())
+
+
+def _attachment_bytes(part):
+    if part.get_content_maintype() == "message":
+        inner = part.get_payload()
+        inner = inner[0] if isinstance(inner, list) and inner else inner
+        return inner.as_bytes() if hasattr(inner, "as_bytes") else b""
+    return part.get_payload(decode=True) or b""
+
+
+def _save(folder, name, data):
+    """`data` as `name` inside `folder`, never outside it or over another file: a path in
+    the name keeps only its last part, and a taken name gets ` (2)`, ` (3)`."""
+    folder.mkdir(parents=True, exist_ok=True)
+    base = PurePosixPath(name.replace("\\", "/")).name
+    base = " ".join(re.sub(r'[<>:"|?*\x00-\x1f]', " ", base).split()).strip(" .") or "attachment"
+    target, n = folder / base, 2
+    while target.exists():
+        target = folder / f"{PurePosixPath(base).stem} ({n}){PurePosixPath(base).suffix}"
+        n += 1
+    target.write_bytes(data)
+    return target
+
+
+def eml(path, extract=None):
+    """What a saved message holds: `headers` (From, To, Cc, Date, Subject and Message-ID,
+    decoded, None where absent), `text` with `text_from` (`plain`, the plain parts; else
+    `html`, the HTML parts reduced to text; else None), and `attachments`, each part that is
+    no body as `{"name", "type", "size"}` in bytes, a forwarded message among them. With
+    `extract`, each is written into that folder and carries `saved_to`."""
+    with open(path, "rb") as f:
+        message = BytesParser(policy=policy.default).parse(f)
+    headers = {name: (None if message.get(name) is None else str(message.get(name)))
+               for name in EML_HEADERS}
+    leaves = list(_leaves(message))
+    bodies = [p for p in leaves if _is_body(p)]
+    plain = [_part_text(p) for p in bodies if p.get_content_type() == "text/plain"]
+    html = [_html_text(_part_text(p)) for p in bodies if p.get_content_type() == "text/html"]
+    text_from = "plain" if plain else ("html" if html else None)
+    attachments = []
+    for n, part in enumerate((p for p in leaves if not _is_body(p)), 1):
+        data = _attachment_bytes(part)
+        kind = part.get_content_type()
+        name = part.get_filename() or f"part-{n}{mimetypes.guess_extension(kind) or ''}"
+        attachment = {"name": name, "type": kind, "size": len(data)}
+        if extract is not None:
+            attachment["saved_to"] = _save(Path(extract), name, data).as_posix()
+        attachments.append(attachment)
+    return {"file": Path(path).as_posix(), "headers": headers,
+            "text": "\n\n".join(t for t in (plain or html) if t), "text_from": text_from,
+            "attachments": attachments}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Answer one question about mail, as JSON.")
     sub = ap.add_subparsers(dest="command", required=True)
@@ -369,6 +490,9 @@ def main(argv=None):
     key.add_argument("file", help="a JSON message or list of them, each with any of "
                                   "message_id, subject, from, received (ISO-8601 or RFC 2822, "
                                   "with its offset), mailbox and provider_id")
+    saved = sub.add_parser("eml", help="a saved message's headers, text and attachments")
+    saved.add_argument("file", help="the .eml file")
+    saved.add_argument("--extract", metavar="DIR", help="also write the attachments into DIR")
     args = ap.parse_args(argv)
 
     # A Windows console defaults to a codepage that cannot encode a subject.
@@ -376,6 +500,13 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, OSError):
         pass
+
+    if args.command == "eml":
+        if not Path(args.file).is_file():
+            ap.error(f"no such file: {args.file}")
+        json.dump(eml(args.file, args.extract), sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
+        return 0
 
     try:
         messages = json.loads(Path(args.file).read_text(encoding="utf-8"))
