@@ -750,6 +750,17 @@ class DuplicatesAndCrossVault(VaultCase):
         item = next(i for i in loose if i["name"] == "20260920 Duplicate arrival.md")
         self.assertEqual(item["duplicates"], ["areas/wealth/sources/20260908 Original document.md"])
 
+    def test_twins_that_differ_only_in_line_endings_are_flagged(self):
+        # A test-run finding: the CRLF copy differs in size, so size-first never hashed it.
+        text = (self.body("crlf-twin-marker", 5) * 8).encode()
+        for rel, data in (("areas/wealth/sources/20260908 Recording.md",
+                           text.replace(b"\n", b"\r\n")),
+                          ("triage/20260920 Recording.md", text)):
+            write(self.root, rel, "").write_bytes(data)  # bytes: no newline translation
+        loose = build_loose(self.root, [], "Alpha", {})
+        item = next(i for i in loose if i["name"] == "20260920 Recording.md")
+        self.assertEqual(item["duplicates"], ["areas/wealth/sources/20260908 Recording.md"])
+
     def test_a_file_under_min_hash_bytes_is_never_silently_empty(self):
         write(self.root, "triage/tiny.md", "short\n")
         loose = build_loose(self.root, [], "Alpha", {})

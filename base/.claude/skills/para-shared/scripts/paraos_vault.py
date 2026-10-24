@@ -1974,9 +1974,11 @@ def trash(path):
 
 MIN_HASH_BYTES = 200        # below this, a stub matches every other stub and says nothing
 SKIP_HASH_FOLDERS = ("photos", "plans", "styles", "public")  # media, and a build's own assets
+TEXT_SUFFIXES = (".md", ".txt")
 
 
-def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, within=None):
+def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, within=None,
+           eol=False):
     """Every file in the vault at or above `min_bytes` by content digest, as {path: md5},
     with what a skipped folder holds named under `skipped` rather than dropped: a scan that
     passed over a folder in silence reports a vault it never read as clean. A dot-folder is
@@ -1986,6 +1988,7 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
     files are even opened, for a vault synced by a streaming cloud client where reading a
     file's bytes downloads it: a file `stat` alone rules out is not listed at all, not even
     under `skipped`. Both default to `None`, which keeps today's answer exactly.
+    `eol` digests a text file (`TEXT_SUFFIXES`) with its CRLF line endings read as LF.
     """
     vault = Path(vault)
     lowered = {s.lower() for s in skip}
@@ -2008,7 +2011,10 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
             if any(p.lower() in lowered for p in parts[:-1]):
                 skipped.append(rel)
                 continue
-            digests[rel] = hashlib.md5(path.read_bytes()).hexdigest()
+            data = path.read_bytes()
+            if eol and path.suffix.lower() in TEXT_SUFFIXES:
+                data = data.replace(b"\r\n", b"\n")
+            digests[rel] = hashlib.md5(data).hexdigest()
         except OSError:
             continue
     return {"files": digests, "skipped": skipped}
