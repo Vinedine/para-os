@@ -22,7 +22,7 @@ A JSON array of entries:
 | `path` | Absolute path to the vault root, the folder holding `CLAUDE.md` and `triage/`. |
 | `kind` | A free-text label for the operator's own grouping, the same word as the vault's `**Type:**` line, which `/para-audit` holds it against. Nothing dispatches on it. |
 | `purpose` | **The routing input.** One line saying what this vault is for, written for the router rather than for a human index. |
-| `active` | `false` keeps the entry and takes the vault out of the run: no sources pulled, nothing routed to it. |
+| `active` | `false` keeps the entry and takes the vault out of the run: no sources pulled, nothing routed to it. A vault someone else writes is `false` unless its writers agreed to receive routed items. |
 | `retired` | Optional. `true` marks a vault whose work is over: `/para-audit` reports it as excluded and reads nothing in it. It does not take a vault out of this skill's run; `active: false` does. |
 
 ## `purpose` is the field that does the work
@@ -45,5 +45,4 @@ It complements rather than duplicates the vault's own `Relevant when` rules. Tho
 ## Never register
 
 - **A mirror, a backup, or any one-way copy.** It is overwritten by its next sync, so a note staged there is destroyed and the item is then routed nowhere with nothing left to show it was lost. This is the one registry mistake with no visible symptom.
-- **A vault someone else writes.** Routing an item into a shared library puts your post in front of its members.
 - **A folder that merely looks like a vault** (an old skeleton, a template, an examples folder). If nobody triages it, staging into it is a slow leak.
