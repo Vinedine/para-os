@@ -5,6 +5,7 @@
     py -3 paraos_pages.py remember <url> --page <name> --title <title> --vault <path>
     py -3 paraos_pages.py run --skill <skill> --scan <scan.json> --out-dir <folder> --vault <path>
     py -3 paraos_pages.py refresh --page <name> [--out-dir <folder>] --vault <path>
+    py -3 paraos_pages.py match <title> [<listed title> ...]
 
 A page has a name: a skill's own page is named for the skill (`daily-brief`), a page the vault
 declares for its script's stem (`vendor-board`). Per vault and page,
@@ -29,10 +30,16 @@ JSON.
 `scripts/*_scan.py --vault <root>`, keeps the output beside the page, and runs the page's row
 as `run` does, printing that one entry. `--out-dir` defaults to `$PARAOS_HOME/cache/<page>/`.
 A page no row builds, a skill with no single scan, or a scan that fails is its `error`.
+
+`match` finds the artifact a publish with no `url` updates: the first listed title that is
+`<title>` once both are lowercased, `-` and `_` read as spaces, runs of whitespace collapsed,
+and a `vault` just before `dashboard` dropped. It prints `{"match": <that title>}`, null when
+no listed title is the same page.
 """
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -97,6 +104,19 @@ def store(vault, page, paraos_home=None, **fields):
 
 def remember(vault, page, url, title, paraos_home=None):
     return store(vault, page, paraos_home, url=url, title=title)
+
+
+# ------------------------------------------------------------ an existing page, by title
+
+def title_key(title):
+    words = re.sub(r"[-_\s]+", " ", title.lower()).split()
+    return " ".join(w for i, w in enumerate(words)
+                    if not (w == "vault" and words[i + 1:i + 2] == ["dashboard"]))
+
+
+def match(title, listed):
+    key = title_key(title)
+    return next((t for t in listed if title_key(t) == key), None)
 
 
 # ------------------------------------------------------------- pages a vault declares
@@ -231,6 +251,9 @@ def main(argv=None):
     f.add_argument("--page", required=True)
     f.add_argument("--out-dir", help="default: the page's cache folder")
     f.add_argument("--vault", required=True)
+    m = sub.add_parser("match", help="the listed artifact title a page republishes to")
+    m.add_argument("title")
+    m.add_argument("listed", nargs="*")
     args = ap.parse_args(argv)
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -243,6 +266,8 @@ def main(argv=None):
     elif args.cmd == "remember":
         path = remember(args.vault, args.page, args.url, args.title)
         print(json.dumps({"remembered": args.url, "cache": path.as_posix()}))
+    elif args.cmd == "match":
+        print(json.dumps({"match": match(args.title, args.listed)}, ensure_ascii=False))
     elif args.cmd == "refresh":
         print(json.dumps(refresh(args.vault, args.page, args.out_dir), ensure_ascii=False))
     else:

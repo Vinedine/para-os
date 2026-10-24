@@ -109,7 +109,7 @@ def cut(text):
 def display_name(vault):
     """The vault's registry name, else its CLAUDE.md H1 without a trailing `Vault
     Conventions`, else its folder. The registry comes first because the page title is the
-    update key (para-shared/pages.md) and an H1 gets reworded."""
+    update key (`paraos_pages.py match`) and an H1 gets reworded."""
     place = same_place(vault)
     for entry in registry():
         if entry.get("name") and entry.get("path") and same_place(entry["path"]) == place:
