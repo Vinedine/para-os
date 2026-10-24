@@ -18,8 +18,10 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
           kind   skill: a base or declared add-on skill where the vault runs it (its bundled
                  copy, else the user-level one; a missing one beside its other kit skills;
                  para-shared wherever one runs), a multi-vault skill where installed. rule,
-                 settings. integration: a file with a `para-os-integration:` marker, its master
-                 under integrations/ or an add-on's pipeline/. Null on any other retired file.
+                 settings. integration: a file with a `para-os-integration:` marker, or one at
+                 resources/scripts/[<name>/]<file> where the ref ships a marked master of that
+                 name, under integrations/<name>/ or a declared add-on's pipeline/. Null on any
+                 other retired file.
           state  current: nothing to take from the kit, the ref's bytes or those bytes with
                  lines of the vault's own added (a rule file the vault writes into), or for a
                  JSON file, keys and list entries of its own (settings with more deny rules).
@@ -59,7 +61,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        H2_RE, TEMPLATE_MARKER_RE, declarations, find_clone, git, git_bytes,
+        H2_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, declarations, find_clone, git, git_bytes,
         integration_markers, normalised, paraos_home_dir, read_text,
         snapshot, template_marker, vault_root,
     )
@@ -252,6 +254,17 @@ def plan_files(vault, kit, decl, user_dir):
                                    f"{root}/pipeline/{filename}" if root else None)
                        if m in kit.tree), None)
         planned.setdefault(vault / marker["file"], ("integration", master))
+
+    scripts = vault / "resources" / "scripts"
+    shipped = [(m.split("/")[1], m) for m in kit.tree
+               if m.startswith("integrations/") and m.count("/") == 2]
+    shipped += [(r.rsplit("/", 1)[-1], m) for r in roots for m in kit.under(f"{r}/pipeline")]
+    for name, master in shipped:
+        filename = master.rsplit("/", 1)[-1]
+        for path in (scripts / filename, scripts / name / filename):
+            if path not in planned and path.is_file() and \
+                    INTEGRATION_MARKER_RE.search(kit.text(master) or ""):
+                planned[path] = ("integration", master)
     return planned
 
 
