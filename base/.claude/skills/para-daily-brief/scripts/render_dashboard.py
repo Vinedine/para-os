@@ -386,6 +386,10 @@ def mechanical_flags(scan):
                             f"grooming via `/para-deep-clean`"
                             + (f", and {len(briefs) - 1} more" if len(briefs) > 1 else ""),
                     "kind": "over_grown_briefs"})
+    due = raised.get("deep_clean_due")
+    if due:
+        out.append(f"**Last `/para-deep-clean` {due['last']}** ({due['days']} days ago)"
+                   if due["last"] else "**`/para-deep-clean` has not run on this machine**")
     for r in raised.get("silent_sources") or []:
         out.append({"text": f"**{r['source']}: ledger unreadable** - its silence is unknown"
                     if r.get("error") else

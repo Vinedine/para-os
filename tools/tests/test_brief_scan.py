@@ -988,6 +988,35 @@ class Unattended(VaultCase):
         self.assertIsNone(self.unattended())
 
 
+class DeepCleanDue(VaultCase):
+    """The day /para-deep-clean's phase 3 last ran, where that is over a month ago or never."""
+
+    def setUp(self):
+        super().setUp()
+        self.vault = self.root / "vault"
+        self.home = self.root / "home"
+        build_vault(self.vault)
+
+    def due(self, **kw):
+        return scan(self.vault, TODAY, paraos_home=self.home, **kw)["flags"]["deep_clean_due"]
+
+    def test_never_run_is_due_with_no_date(self):
+        self.assertEqual(self.due(), {"last": None, "days": None})
+
+    def test_a_run_within_the_month_is_not_due(self):
+        write(self.home, "data/deep-clean/vault.txt", "2026-08-22\n")
+        self.assertIsNone(self.due())
+
+    def test_an_older_run_under_the_registry_name_is_due_with_its_age(self):
+        write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
+        write(self.home, "data/deep-clean/vault.txt", "2026-09-20\n")
+        write(self.home, "data/deep-clean/north.txt", "2026-08-21\n")
+        self.assertEqual(self.due(), {"last": "2026-08-21", "days": 31})
+
+    def test_an_entity_scope_does_not_check_it(self):
+        self.assertIsNone(self.due(entity="acme-website"))
+
+
 class CommandLineCase(unittest.TestCase):
     """The command the skill runs: one JSON document, and a usage error for a bad argument."""
 

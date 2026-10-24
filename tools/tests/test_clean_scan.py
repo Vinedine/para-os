@@ -120,6 +120,19 @@ class VaultCase(unittest.TestCase):
 
 # ------------------------------------------------------------------------------ preconditions
 
+class DeepCleanStamp(VaultCase):
+    """Phase 3 dates its run outside the vault, for the daily brief; no other phase does."""
+
+    def test_only_phase_3_writes_its_date_under_the_vaults_name(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        stamp = self.home / "data" / "deep-clean" / f"{self.root.name}.txt"
+        self.run_scan("1")
+        self.run_scan("4")
+        self.assertFalse(stamp.exists())
+        self.run_scan("3")
+        self.assertEqual(stamp.read_text(encoding="utf-8"), "2026-09-22\n")
+
+
 class Preconditions(VaultCase):
 
     def test_triage_loose_excludes_readme_and_flags_it_separately(self):

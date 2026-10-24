@@ -8,7 +8,8 @@
 Prints one JSON document on stdout: the vault's open tasks with their markers parsed and
 bucketed against a date, the per-entity totals, the health-flag inputs, the ideas lane and
 the triage count. It never writes to the vault and never reads a mailbox; outside the vault
-it reads only the ledgers of the sources the vault declares, under PARAOS_HOME.
+it reads only what is under PARAOS_HOME: the ledgers of the sources the vault declares, the
+unattended triage runs, and the date /para-deep-clean's phase 3 last ran.
 
 Why a script. Everything here has exactly one right answer: which folder a name resolves
 to, which marker a line carries, which side of today a date falls on, which files share an
@@ -53,7 +54,9 @@ try:
         over_grown_briefs, parse_date, register_rows, resolve_entity,
         resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items, unticked_tasks,
     )
-    from paraos_vault import paraos_home_dir, registry, same_place, triage_sources  # noqa: E402
+    from paraos_vault import (  # noqa: E402
+        DEEP_CLEAN_DUE_DAYS, deep_clean_stamp, paraos_home_dir, same_place, triage_sources,
+        vault_name)
     from paraos_mail import ingest_ledger  # noqa: E402
     from paraos_vault import HEADING_RE, closed_tasks, table_cells  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -494,9 +497,7 @@ def unattended(vault, paraos_home=None):
     """The newest unattended triage run's count per action, and whether a proposal waits:
     para-triage/scripts/auto_execute.py's quarantine and proposals, under the vault's
     registry name, else its folder name. Null where neither exists."""
-    place = same_place(vault)
-    name = next((e["name"] for e in registry(paraos_home) if isinstance(e, dict)
-                 and e.get("path") and same_place(e["path"]) == place), Path(vault).name)
+    name = vault_name(vault, paraos_home)
     home = paraos_home_dir(paraos_home)
     runs = sorted((home / "quarantine" / name).glob("*/manifest.json"))
     waiting = bool(list((home / "cache" / "triage" / "proposals").glob(f"{name}-{'[0-9]' * 8}-{'[0-9]' * 4}.md")))
@@ -510,6 +511,19 @@ def unattended(vault, paraos_home=None):
         pass
     return {"run": runs[-1].parent.name if runs else None, "acted": acted,
             "proposal_waiting": waiting}
+
+
+def deep_clean_due(vault, today, paraos_home=None):
+    """The day /para-deep-clean's phase 3 last ran on this vault, from its stamp, where that
+    is over DEEP_CLEAN_DUE_DAYS ago or never: `{"last", "days"}`, both null for never. Null
+    while it is recent."""
+    try:
+        last = parse_date(deep_clean_stamp(vault, paraos_home).read_text(encoding="utf-8").strip())
+    except OSError:
+        last = None
+    if last and (today - last).days <= DEEP_CLEAN_DUE_DAYS:
+        return None
+    return {"last": iso(last) if last else None, "days": (today - last).days if last else None}
 
 
 def silent_sources(vault, today, paraos_home=None):
@@ -981,6 +995,8 @@ def scan(vault, today, entity=None, paraos_home=None, review=None):
                                    scoped=report["scope"] == "entity", entity_path=entity_path)
     report["flags"]["silent_sources"] = None if report["scope"] == "entity" \
         else silent_sources(vault, today, paraos_home)
+    report["flags"]["deep_clean_due"] = None if report["scope"] == "entity" \
+        else deep_clean_due(vault, today, paraos_home)
     report["flags"]["unticked"] = [] if resolution and not entity_path \
         else unticked(vault, files, entity_path + "/" if entity_path else "")
     if report["scope"] == "vault":

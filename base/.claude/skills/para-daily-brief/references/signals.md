@@ -15,6 +15,7 @@ Emit each only when it fires:
 - **Misplaced checkboxes:** one line per bucket the scan lists, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
 - **Nothing open:** a folder under `projects/` or `areas/` with no open item anywhere under it. One line each for the first three the scan lists: `<entity>: nothing open`
 - **Over-grown brief:** one line per offender, `<file>: N lines - content grooming via /para-deep-clean`.
+- **Deep clean due:** `last /para-deep-clean <date> (N days ago)`, or `/para-deep-clean has not run on this machine` where the scan's `last` is null.
 - **Silent source:** one line per source, `<source>: nothing since <date> (N days)`. A ledger that cannot be read is flagged, never passed ([para-shared/absent-is-not-zero.md](../../para-shared/absent-is-not-zero.md)).
 
 ## Step 4d: Ideas lane

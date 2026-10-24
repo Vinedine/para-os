@@ -60,6 +60,7 @@ BRIEF_LINE_CAP = 500        # a brief past this is over-grown
 STALE_FILE_DAYS = 60        # an action file with open items, untouched this long
 STALE_UNDATED_DAYS = 30     # an open, undated item untouched this long: offered for demotion
 WAITING_FLAG_DAYS = 14      # a wait on someone else this old asks: chase or drop?
+DEEP_CLEAN_DUE_DAYS = 30    # a vault not groomed this long: the brief names /para-deep-clean
 CLUSTER_SECONDS = 60        # mtimes this close mean a bulk write, not an edit
 
 # --- what a task looks like ---------------------------------------------------------------
@@ -181,6 +182,22 @@ def registered_vault(entries, path):
         if target == root or target.startswith(root if root.endswith(os.sep) else root + os.sep):
             return entry
     return None
+
+
+def vault_name(vault, paraos_home=None):
+    """The vault's registry name, else its folder's: what its files under the para-os home
+    are named by."""
+    place = same_place(vault)
+    return next((e["name"] for e in registry(paraos_home) if isinstance(e, dict)
+                 and e.get("name") and e.get("path") and same_place(e["path"]) == place),
+                Path(vault).name)
+
+
+def deep_clean_stamp(vault, paraos_home=None):
+    """The file /para-deep-clean's phase-3 scan writes its date to, outside the vault, for
+    the daily brief to read."""
+    return (paraos_home_dir(paraos_home) / "data" / "deep-clean"
+            / f"{vault_name(vault, paraos_home)}.txt")
 
 
 def registry_holding(entries, name, exclude=None):

@@ -34,7 +34,7 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 - <idea-name> - touched <YYYY-MM-DD> - <Stage line, when present>
 - <idea-name> - touched <YYYY-MM-DD> - ⚠️ dormant 6+ months, retirement candidate
 
-## 📥 Triage (N to process)
+## 📥 Triage (N to process) - /para-triage
 - [<filename>](triage/<filename>)
 - sign-in and security codes: N
 
