@@ -10,6 +10,8 @@ Its **runtime state does not live here.** Credentials, caches, and bulk data go 
 | `~/.paraos/cache/<service>/` | regenerable output | yes; the script rebuilds it |
 | `~/.paraos/data/<name>/` | working source data | no, but not vault-worthy |
 
+No skill reads a file under `secrets/`: a script that needs a token reads it itself.
+
 Every script resolves that root the same way, from the `PARAOS_HOME` environment variable (default `~/.paraos`), so nothing hardcodes a home path:
 
 ```python
@@ -31,6 +33,6 @@ const authPath = path.join(PARAOS_HOME, "secrets", "SERVICE.json");
 
 Write scripts in **Python by default**. Use JS only when the integration is bound to a JS/Electron source, such as a desktop app's local token.
 
-A script installed from a para-os **integration** carries a version marker in its header - `para-os-integration: <name> <revision>` - recording the revision it was copied at. `/para-upgrade` re-copies a copy you never changed on your approval, and shows you the diff of one you did. **Every shipped integration keeps its vault-specific settings out of the script**, in a `<name>.config.json` beside it, with credentials in `~/.paraos/secrets/<name>.json` and the vault derived from the copy's own path - so re-syncing one is a straight copy from `integrations/<name>/`, and your config survives untouched. The two names differ by more than the folder they sit in on purpose: one is public and syncs with the vault, the other never leaves this machine, and two files sharing a name across opposite trust zones is how a credential ends up inside a synced folder. That only holds while you respect it: configure a script through its `.config.json`, never by editing the script, or the next resync silently discards the edit. Keep the marker on the line it's on: a script that loses it stops being checked. A script written for this vault alone carries no marker and is skipped.
+A script installed from a para-os **integration** carries a version marker in its header - `para-os-integration: <name> <revision>` - recording the revision it was copied at. `/para-upgrade` re-copies a copy you never changed on your approval, and shows you the diff of one you did. **Every shipped integration keeps its vault-specific settings out of the script**, in a `<name>.config.json` beside it, with credentials in `~/.paraos/secrets/<name>.json` and the vault derived from the copy's own path - so re-syncing one is a straight copy from `integrations/<name>/`, and your config survives untouched. That only holds while you respect it: configure a script through its `.config.json`, never by editing the script, or the next resync silently discards the edit. Keep the marker on the line it's on: a script that loses it stops being checked. A script written for this vault alone carries no marker and is skipped.
 
 When you add a script, add a one-line entry to the manifest at `~/.paraos/README.md` (its secret, what it writes) so "what's installed" stays answerable. On first run, `~/.paraos/` and its buckets won't exist yet - create the ones you use.
