@@ -2,7 +2,7 @@
 
 ## Step 2 - Reconcile open actions
 
-**Open is every `actions.open` checkbox and every `actions.backlog` item not `settled`.** A settled item stays in the closed record and is never asked about. `actions.other_checkbox_files` names the entity's other files still holding open checkboxes, reconciled the same way.
+**Open is every `actions.open` checkbox and every `actions.backlog` item not `settled`.** `actions.other_checkbox_files` names the entity's other files still holding open checkboxes, reconciled the same way.
 
 Skip this step for an idea: it holds no checkbox, and `actions.idea_holds_actions` flags one that does. Where `actions.file` is null the vault tracks no actions: settle the next steps its brief states in prose the same way, record survivors as prose, and create no `actions.md`.
 

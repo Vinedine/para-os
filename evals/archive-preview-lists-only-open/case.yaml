@@ -1,5 +1,0 @@
-schema_version: "1.1"
-name: archive-preview-lists-only-open
-tags: [archive, shell]
-context:
-  scaffold_script: setup.sh
