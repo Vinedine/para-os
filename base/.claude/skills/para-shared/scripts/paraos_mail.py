@@ -14,12 +14,12 @@ file, which holds the date arithmetic this builds on.
     from paraos_mail import watermark, unanswered, note_name_parts
 
 What lives here is what `/para-triage`'s per-vault seen-ledger and `/para-ingest`'s central one
-both need: the dedup key both are keyed on, reading the run logs a model writes (and so names
-its fields inconsistently between runs), recomputing a staged note's name from the thread id
-that produced it, deciding whether a ledger entry still covers a thread's newest message, and
-how many working days a sent message has waited. A vault without `/para-ingest` reads empty
-logs and an absent ledger here, which is the truth about it. It also reads a message saved
-as an `.eml`, for a mailbox that reaches a vault only that way.
+both need: the dedup key both are keyed on, reading the run logs (older ones a model wrote,
+naming their fields inconsistently between runs), recomputing a staged note's name from the
+thread id that produced it, deciding whether a ledger entry still covers a thread's newest
+message, and how many working days a sent message has waited. A vault without `/para-ingest`
+reads empty logs and an absent ledger here, which is the truth about it. It also reads a
+message saved as an `.eml`, for a mailbox that reaches a vault only that way.
 """
 
 import argparse
@@ -89,8 +89,8 @@ def ingest_logs(paraos_home=None):
     """Every `/para-ingest` run log under `<paraos_home>/cache/ingest/runs/`, newest first.
     `paraos_home` defaults the way `registry()` does: `$PARAOS_HOME`, else `~/.paraos`.
 
-    These logs are written by a model, not by code, so their field names drift between
-    runs - this reads every spelling seen on this machine rather than one. A file that
+    `stage.py` writes them; one a model wrote by hand names its fields as that run chose,
+    so this reads every spelling seen on this machine rather than one. A file that
     fails to parse still comes back as a record with `load_error` set, its `started_at`
     read from the filename: dropping it would report an ingest run that never happened
     rather than one this reader could not read. A missing directory is `[]`.

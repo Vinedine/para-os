@@ -67,7 +67,7 @@ Two things close it, and both are **reporting, not staging**:
 
 **Count carry-over by distinct thread id, never by decision record.** A log written by a run that failed to group messages into threads holds one decision per *message*, so counting records reports a number several times the real one - and reports it as a fleet-sized problem when it is a modest one. The grouping rule is in the shared fetch protocol, but the reconcile reads logs it did not write, so it defends itself rather than trusting them.
 
-**The reconcile reads logs it did not write**, so the field it reads is a contract `references/staging.md` states and this step depends on: routing decisions are always under `decisions`. Accept any `decisions*` key from a log written before that rule, and say in the report that you did.
+**The reconcile reads routing decisions under `decisions`**, where `scripts/stage.py` writes them. Accept any `decisions*` key from an older log, and say in the report that you did.
 
 **Never let the reconcile stage anything by itself.** The reason write mode has a short window is that a person decides what a backfill drops into their vaults; a reconcile that quietly stages has made that decision for them, and it would do it on a scheduled run with nobody reading. Report, and stop.
 
@@ -81,7 +81,7 @@ The whole decision is *which vault*. Not urgency, not a drafted action, not a de
 
 ### Step 5: Stage, ledger, log, report
 
-In write mode: one note per routed thread into that vault's `triage/`, one ledger entry per thread whether routed or not, one run log. The single exception is a thread routed to a vault that could not be written, which gets **no** entry so the next run can deliver it. In preview: the run log only. **Note shape, ledger shape, run log shape and the idempotency rule: [references/staging.md](references/staging.md).**
+One run of `scripts/stage.py` writes them: in write mode a note per routed thread into that vault's `triage/`, a ledger entry per thread, and the run log; in preview the run log only. **What it needs from the run: [references/staging.md](references/staging.md).**
 
 Report as a table of vault, staged count and unrouted count, then name every source that errored, every carry-over thread Step 3 left outstanding, and every thread that routed to a vault it could not be delivered to. A run that staged nothing says so, rather than reporting nothing.
 
@@ -98,7 +98,7 @@ Report as a table of vault, staged count and unrouted count, then name every sou
 - **Decide which vault, never what to do.** A staged note carrying a proposed action has already made the judgment this skill exists not to make.
 - **One source failing never aborts the run.** Record it, skip it, continue, name it in the report.
 - **Never stage into an unregistered path, an inactive vault, or a vault whose path is not mounted.** A one-way mirror or a backup copy is not a vault: staging into one writes an item the next sync destroys, and the item is then routed nowhere with nothing left to show it was lost.
-- **Never ledger a thread you could not deliver.** A thread routed to a vault whose path was not mounted gets no ledger entry, so the next run picks it up again; `by_message_id` stops the vaults that did receive it from receiving it twice. Full rule in [references/staging.md](references/staging.md).
+- **Never ledger a thread you could not deliver.** A thread routed to a vault whose path was not mounted gets no ledger entry, so the next run picks it up again; `by_message_id` stops the vaults that did receive it from receiving it twice. `stage.py` applies it; never edit the ledger by hand.
 - **Preview writes nothing at all.** Not a note, not a ledger entry, not a `--write` on a sync script. The run log is the only artefact.
 - **The Step 3 reconcile reports carry-over and never stages it.** Reaching past the write window is `--days N`, typed by a person who has read the count. A scheduled run that silently recovers its own gap has removed the only thing limiting how much history can land in a `triage/` folder at once.
 - **Never `--write` a sync script whose dry run came back over the volume gate**, whatever mode the run is in and however routine the source looks. The gate is the only check standing between an unfiltered inbox importer and every `triage/` folder it feeds.
