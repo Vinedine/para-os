@@ -16,8 +16,8 @@ What lives here is what `/para-triage`'s per-vault seen-ledger and `/para-ingest
 both need: the dedup key both are keyed on, reading the run logs (older ones a model wrote,
 naming their fields inconsistently between runs), recomputing a staged note's name from the
 thread id that produced it, deciding whether a ledger entry still covers a thread's newest
-message, and how many working days a sent message has waited. A vault without `/para-ingest` reads empty
-logs and an absent ledger here, which is the truth about it.
+message, and how many working days a sent message has waited. A vault without `/para-ingest`
+reads empty logs and an absent ledger here, which is the truth about it.
 """
 
 import argparse
