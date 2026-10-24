@@ -1,5 +1,7 @@
 """Tests for paraos_mail.py: mail threads, the triage notes they become, and the ledgers
 that track them."""
+import contextlib
+import io
 import json
 import os
 import sys
@@ -14,8 +16,8 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from paraos_mail import (  # noqa: E402
-    ingest_ledger, ingest_logs, log_instant, note_name_parts, thread_hash, unanswered,
-    watermark, written_under,
+    dedup_key, ingest_ledger, ingest_logs, log_instant, main, note_name_parts, thread_hash,
+    unanswered, watermark, written_under,
 )
 
 
@@ -392,6 +394,100 @@ class Watermark(VaultCase):
         entry = {"seen_through": "<msg-1>", "seen_date": "not-a-date"}
         got = watermark(entry, newest_date="2026-09-10T00:00:00+00:00")
         self.assertEqual(got["verdict"], "carry")
+
+
+def run_main(argv):
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = main(argv)
+    return code, out.getvalue()
+
+
+class DedupKey(VaultCase):
+    """The key connectors.md step 6 dedupes every message on, in its three forms."""
+
+    MESSAGE = {"subject": "Re: Quarterly report", "from": "Anna Example <Anna@Example.org>",
+               "received": "2026-10-18T11:14:59+02:00"}
+    KEY = "content:15a3092a9e8a20e6"  # as an earlier run wrote it into a ledger
+
+    def test_the_message_id_wins_with_its_angle_brackets(self):
+        message = dict(self.MESSAGE, message_id="<abc.123@mail.example.org>")
+        self.assertEqual(dedup_key(message), "<abc.123@mail.example.org>")
+
+    def test_a_message_id_given_without_brackets_gets_them(self):
+        self.assertEqual(dedup_key({"message_id": " abc.123@mail.example.org "}),
+                         "<abc.123@mail.example.org>")
+
+    def test_a_key_an_earlier_run_wrote_is_reproduced(self):
+        self.assertEqual(dedup_key(self.MESSAGE), self.KEY)
+
+    def test_every_reply_and_forward_prefix_is_stripped(self):
+        for subject in ("Quarterly report", "RE: Quarterly report", "Fwd: Quarterly report",
+                        "FW: Quarterly report", "fw:Quarterly report",
+                        "Re: Fwd: RE: Quarterly report", "Re :  Quarterly report"):
+            with self.subTest(subject=subject):
+                self.assertEqual(dedup_key(dict(self.MESSAGE, subject=subject)), self.KEY)
+
+    def test_a_word_that_only_starts_like_a_prefix_is_kept(self):
+        self.assertNotEqual(dedup_key(dict(self.MESSAGE, subject="Reply: Quarterly report")),
+                            self.KEY)
+
+    def test_whitespace_is_collapsed(self):
+        message = dict(self.MESSAGE, subject="  Re:  Quarterly \t\n report  ")
+        self.assertEqual(dedup_key(message), self.KEY)
+
+    def test_the_sender_is_its_address_lowercased(self):
+        for sender in ("anna@example.org", "ANNA@EXAMPLE.ORG",
+                       '"Example, Anna" <anna@example.org>'):
+            with self.subTest(sender=sender):
+                self.assertEqual(dedup_key(dict(self.MESSAGE, **{"from": sender})), self.KEY)
+
+    def test_the_received_time_is_cut_to_the_minute_in_utc(self):
+        for received in ("2026-10-18T09:14:00Z", "2026-10-18T09:14:59.999+00:00",
+                         "2026-10-18T05:14:30-04:00", "Sun, 18 Oct 2026 11:14:07 +0200"):
+            with self.subTest(received=received):
+                self.assertEqual(dedup_key(dict(self.MESSAGE, received=received)), self.KEY)
+
+    def test_the_next_minute_is_another_key(self):
+        self.assertNotEqual(dedup_key(dict(self.MESSAGE, received="2026-10-18T09:15:00Z")),
+                            self.KEY)
+
+    def test_a_received_time_with_no_offset_is_refused_not_guessed(self):
+        for received in ("2026-10-18T09:14:00", "last Sunday"):
+            with self.subTest(received=received):
+                with self.assertRaises(ValueError):
+                    dedup_key(dict(self.MESSAGE, received=received, mailbox="me@example.org",
+                                   provider_id="18c2"))
+
+    def test_the_provider_id_is_the_last_resort(self):
+        message = {"subject": "Quarterly report", "mailbox": "me@example.org",
+                   "provider_id": "18c2f0a1b2"}
+        self.assertEqual(dedup_key(message), "provider:me@example.org:18c2f0a1b2")
+
+    def test_a_message_nothing_keys_is_refused(self):
+        with self.assertRaises(ValueError):
+            dedup_key({"subject": "Quarterly report", "from": "anna@example.org"})
+
+    def test_the_command_prints_one_key_per_message_in_order(self):
+        path = write(self.root, "messages.json", json.dumps([
+            dict(self.MESSAGE, message_id="<abc@example.org>"), self.MESSAGE,
+            {"mailbox": "me@example.org", "provider_id": "18c2"}]))
+        code, out = run_main(["key", str(path)])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["keys"],
+                         ["<abc@example.org>", self.KEY, "provider:me@example.org:18c2"])
+
+    def test_the_command_reads_one_message_as_a_list_of_one(self):
+        path = write(self.root, "message.json", json.dumps(self.MESSAGE))
+        self.assertEqual(json.loads(run_main(["key", str(path)])[1])["keys"], [self.KEY])
+
+    def test_the_command_refuses_a_message_it_cannot_key_with_exit_2(self):
+        path = write(self.root, "messages.json", json.dumps([self.MESSAGE, {"subject": "x"}]))
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as stop:
+            run_main(["key", str(path)])
+        self.assertEqual(stop.exception.code, 2)
+        self.assertIn("message 2", err.getvalue())
 
 
 class Unanswered(unittest.TestCase):

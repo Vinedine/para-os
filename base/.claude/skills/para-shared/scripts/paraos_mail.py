@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Reading mail threads, the triage notes they become, and the ledgers that track them.
 
-Imported by `/para-triage` and `/para-daily-brief`. Nothing here reads a vault's own files;
-that is `paraos_vault.py`, beside this file, which holds the date arithmetic this builds on.
+Imported by `/para-triage` and `/para-daily-brief`, and run from the command line by any skill
+that reads mail. Nothing here reads a vault's own files; that is `paraos_vault.py`, beside this
+file, which holds the date arithmetic this builds on.
+
+    py -3 paraos_mail.py key <messages.json>
 
     import sys
     from pathlib import Path
@@ -10,18 +13,21 @@ that is `paraos_vault.py`, beside this file, which holds the date arithmetic thi
     from paraos_mail import watermark, unanswered, note_name_parts
 
 What lives here is what `/para-triage`'s per-vault seen-ledger and `/para-ingest`'s central one
-both need: reading the run logs a model writes (and so names its fields inconsistently between
-runs), recomputing a staged note's name from the thread id that produced it, deciding whether a
-ledger entry still covers a thread's newest message, and how many working days a sent message
-has waited. A vault without `/para-ingest` reads empty logs and an absent ledger here, which is
-the truth about it.
+both need: the dedup key both are keyed on, reading the run logs a model writes (and so names
+its fields inconsistently between runs), recomputing a staged note's name from the thread id
+that produced it, deciding whether a ledger entry still covers a thread's newest message, and
+how many working days a sent message has waited. A vault without `/para-ingest` reads empty
+logs and an absent ledger here, which is the truth about it.
 """
 
+import argparse
 import hashlib
 import json
 import os
 import re
+import sys
 from datetime import datetime, timezone
+from email.utils import parseaddr, parsedate_to_datetime
 from pathlib import Path
 
 from paraos_vault import is_under, iso, paraos_home_dir, parse_date, same_place, working_days
@@ -195,6 +201,53 @@ def written_under(entry, folder):
     return is_under(Path(same_place(text)), Path(same_place(folder)))
 
 
+REPLY_PREFIX_RE = re.compile(r"^(?:(?:re|fwd?)\s*:\s*)+", re.IGNORECASE)
+
+
+def received_instant(text):
+    """A message's received time, an ISO-8601 instant or an RFC 2822 date (a `Date:`
+    header), as an aware datetime. None where it reads as neither, or has no offset."""
+    instant = _parse_instant(text)
+    if instant is not None or not text:
+        return instant
+    try:
+        instant = parsedate_to_datetime(str(text))
+    except (TypeError, ValueError, IndexError):
+        return None
+    return instant if instant.tzinfo is not None else None
+
+
+def dedup_key(message):
+    """The key connectors.md step 6 dedupes one message on, from a mapping with any of
+    `message_id`, `subject`, `from`, `received`, `mailbox` and `provider_id`.
+
+    In this order: the RFC822 Message-ID in angle brackets; else `content:` plus the first 16
+    hex of `sha1("<subject>|<sender>|<received>")`, the subject stripped of every leading
+    Re/Fwd/FW with whitespace collapsed, the sender's bare address lowercased, and the received
+    time cut to the minute in UTC as `YYYY-MM-DDTHH:MM`, with no `Z`, as most keys already in
+    a ledger have it; else `provider:<mailbox>:<provider_id>`. A received time that is no
+    instant raises ValueError rather than falling through to another form, as does a message
+    none fits.
+    """
+    message_id = str(message.get("message_id") or "").strip().strip("<>")
+    if message_id:
+        return f"<{message_id}>"
+    sender = parseaddr(str(message.get("from") or ""))[1].lower()
+    received = message.get("received")
+    if sender and received:
+        instant = received_instant(received)
+        if instant is None:
+            raise ValueError(f"received {received!r} is not an instant with its offset")
+        minute = instant.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M")
+        subject = REPLY_PREFIX_RE.sub("", " ".join(str(message.get("subject") or "").split()))
+        digest = hashlib.sha1(f"{subject}|{sender}|{minute}".encode("utf-8")).hexdigest()
+        return f"content:{digest[:16]}"
+    mailbox, provider_id = message.get("mailbox"), message.get("provider_id")
+    if mailbox and provider_id:
+        return f"provider:{mailbox}:{provider_id}"
+    raise ValueError("no message_id, no from and received, and no mailbox and provider_id")
+
+
 def thread_hash(thread_id):
     """The first six hex characters of `sha1(thread_id)` - the derivation `/para-ingest`
     names every staged note with, so a later run can recompute a note's filename from the
@@ -307,3 +360,39 @@ def unanswered(sent, now):
     count = working_days(since, now.date())
     return {"since": iso(since), "working_days": count,
             "waiting": count >= UNANSWERED_WORKING_DAYS}
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Answer one question about mail, as JSON.")
+    sub = ap.add_subparsers(dest="command", required=True)
+    key = sub.add_parser("key", help="the dedup key of each message, in order")
+    key.add_argument("file", help="a JSON message or list of them, each with any of "
+                                  "message_id, subject, from, received (ISO-8601 or RFC 2822, "
+                                  "with its offset), mailbox and provider_id")
+    args = ap.parse_args(argv)
+
+    # A Windows console defaults to a codepage that cannot encode a subject.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, OSError):
+        pass
+
+    try:
+        messages = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as err:
+        ap.error(f"cannot read {args.file}: {err}")
+    if isinstance(messages, dict):
+        messages = [messages]
+    keys = []
+    for n, message in enumerate(messages, 1):
+        try:
+            keys.append(dedup_key(message if isinstance(message, dict) else {}))
+        except ValueError as err:
+            ap.error(f"message {n}: {err}")
+    json.dump({"keys": keys}, sys.stdout, ensure_ascii=False, indent=2)
+    sys.stdout.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
