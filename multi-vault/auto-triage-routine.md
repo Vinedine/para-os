@@ -1,6 +1,6 @@
 # Unattended triage: the routine
 
-The prompt a scheduled task runs, after `/para-ingest`, for the vaults an operator has switched an action type on in. Set up the task only once `/para-triage auto` has run by hand in one vault and its report and quarantine manifest have been read end to end.
+The prompt a scheduled task runs, after `/para-ingest`, for the vaults an operator has switched an action type on in. It skips a vault with nothing switched on, so it can be set up with the vault; read the first run after a switch end to end, report and quarantine manifest.
 
 ## Always allow, and nothing else
 
