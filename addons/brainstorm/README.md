@@ -15,7 +15,7 @@ No rule file and no skeleton: an idea's brief follows the vault's own shape, and
 
 ## Setup
 
-A new vault is offered the module once its phase 2 plan is approved, and the onboarding runs these steps itself. An existing vault adopts it by hand:
+A new vault is offered the module once its phase 2 plan is approved, and the onboarding runs these steps itself. An existing vault adopts it with `/para-upgrade --add brainstorm`, which runs them:
 
 1. Add `**Modules:** brainstorm` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one, and merge in `CLAUDE.md.sections`.
 2. Copy `.claude/skills/para-brainstorm/` beside the base skills.
