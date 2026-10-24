@@ -1,5 +1,5 @@
 // granola.js - pull recent Granola meetings (enhanced notes + transcript) into a vault's triage/.
-// para-os-integration: granola 2026.09.05 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: granola 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 // Drop this file in <vault>/resources/scripts/ and run it there. By default every recent meeting is
 // written to THIS vault's triage/ as a dated Markdown note, ready for /para-triage to file.
 //   node granola.js            # DRY RUN: shows what it would write, touches nothing
@@ -27,6 +27,8 @@ const AUTH = path.join(PARAOS_HOME, "secrets", "granola.json");
 // read, never written, and merged in, so an older copy still writing it is not lost either.
 const STATE = path.join(PARAOS_HOME, "data", "granola", "synced.json");
 const LEGACY_STATE = path.join(PARAOS_HOME, "cache", "granola", "synced.json");
+// A file saved with a byte-order mark (some Windows editors write one) is still JSON.
+const readJson = f => JSON.parse(fs.readFileSync(f, "utf8").replace(/^\uFEFF/, ""));
 // A meeting with no enhanced notes yet is HELD (not written, not ledgered, retried next run) while
 // it is this recent: Granola generates the notes after the call ends. Past this, no notes means
 // none are coming, and the note is written without them rather than held forever.
@@ -70,7 +72,7 @@ const CONFIG = (() => {
   if (!fs.existsSync(VAULT_CONFIG)) return {};
   let parsed;
   try {
-    parsed = JSON.parse(fs.readFileSync(VAULT_CONFIG, "utf8"));
+    parsed = readJson(VAULT_CONFIG);
   } catch (e) {
     // Never fall through to {}: an unreadable config silently means single-vault mode, which
     // writes every other vault's meetings into this one. Stop instead.
@@ -140,7 +142,7 @@ const H = t => ({ "Authorization": "Bearer " + t, "Content-Type": "application/j
 const exp = t => JSON.parse(Buffer.from(t.split(".")[1], "base64").toString()).exp;
 
 async function token() {
-  const a = JSON.parse(fs.readFileSync(AUTH, "utf8"));
+  const a = readJson(AUTH);
   if (a.access_token && (a.access_expires || exp(a.access_token)) > Math.floor(Date.now() / 1000) + 30) return a.access_token;
   const r = await fetch("https://api.workos.com/user_management/authenticate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ grant_type: "refresh_token", client_id: a.client_id, refresh_token: a.refresh_token }) });
   // Status first: a refusal need not be JSON (a proxy's HTML 502), and parsing it first
@@ -173,7 +175,7 @@ function writeAtomic(file, text, mode) {
 }
 
 // The ledger at STATE, over the one an older copy kept under cache/ (read, never written).
-const readLedger = f => fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : {};
+const readLedger = f => fs.existsSync(f) ? readJson(f) : {};
 const loadLedger = () => ({ ...readLedger(LEGACY_STATE), ...readLedger(STATE) });
 // Add one ledger entry. Every vault's copy shares the file and runs may overlap, so re-read and
 // merge rather than write back what this run loaded. Matches pocket.py's record.
@@ -387,4 +389,4 @@ async function main() {
 // A failed run exits non-zero, so a scheduled run that synced nothing cannot pass for one that had nothing to do.
 if (require.main === module) main().catch(e => { console.error("[x]", e.message); process.exitCode = 1; });
 
-module.exports = { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest };
+module.exports = { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest, readJson };

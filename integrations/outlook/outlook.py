@@ -156,16 +156,18 @@ def _load_json(path):
     """Parse a JSON file, or exit cleanly rather than let a malformed one surface as a raw
     traceback - the same clean-failure bar this file already holds for a missing one."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError as e:
         sys.exit(f"{path} is not valid JSON ({e}). Fix it or delete it and re-run.")
 
 
-def load_config():
-    if not CONFIG_FILE.exists():
-        sys.exit(f"No config at {CONFIG_FILE}. Create it with at least: "
-                 '{"client_id": "...", "accounts": {}}')
-    return _load_json(CONFIG_FILE)
+def load_config(client_id=None):
+    """The secrets file, or for a first `login --client-id` the one it is about to write."""
+    if CONFIG_FILE.exists():
+        return _load_json(CONFIG_FILE)
+    if client_id:
+        return {"client_id": client_id, "accounts": {}}
+    sys.exit(f"No config at {CONFIG_FILE}. Run:  outlook.py login <email> --client-id <app id>")
 
 
 def load_vault_config(required=True):
@@ -1059,7 +1061,7 @@ def main():
     # convention no longer points at it. An explicit verb beats a bare call that silently
     # picks a behaviour, especially for a script that reads mailboxes.
     args = p.parse_args()
-    cfg = load_config()
+    cfg = load_config(getattr(args, "client_id", None))
     {"accounts": cmd_accounts, "login": cmd_login, "fetch": cmd_fetch,
      "search": cmd_search, "raw": cmd_raw}[args.cmd](cfg, args)
 

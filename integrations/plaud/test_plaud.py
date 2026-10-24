@@ -516,6 +516,12 @@ class Config(unittest.TestCase):
     def test_missing_is_single_vault(self):
         self.assertEqual(plaud.load_config(Path(tempfile.gettempdir()) / "nope" / "plaud.config.json"), {})
 
+    def test_a_byte_order_mark_is_still_json(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "plaud.config.json"
+            p.write_text('{"route": {}}', encoding="utf-8-sig")
+            self.assertEqual(plaud.load_config(p), {"route": {}})
+
     def test_malformed_or_wrong_shape_stops(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "plaud.config.json"

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """plaud.py - pull recent Plaud recordings (AI summary + transcript) into a vault's triage/.
-para-os-integration: plaud 2026.10.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+para-os-integration: plaud 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 Plaud (plaud.ai) is a wearable recorder (NotePin, Note); its app transcribes and summarises every
 recording. Drop this file in <vault>/resources/scripts/ and run it there. By default every
@@ -96,7 +96,7 @@ def load_config(path):
     if not path.exists():
         return {}
     try:
-        parsed = json.loads(path.read_text(encoding="utf-8"))
+        parsed = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as e:
         # Never fall through to {}: an unreadable config silently means single-vault mode,
         # which writes every other vault's recordings into this one. Stop instead.
@@ -251,7 +251,7 @@ def load_ledger():
     if not STATE.exists():
         return {}
     try:
-        ledger = json.loads(STATE.read_text(encoding="utf-8"))
+        ledger = json.loads(STATE.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as e:
         ledger = e
     if not isinstance(ledger, dict):
@@ -420,7 +420,7 @@ def access_token():
     if not AUTH.exists():
         sys.exit(f"Not signed in to Plaud. Run once:  py {Path(__file__).name} login")
     try:
-        tok = json.loads(AUTH.read_text(encoding="utf-8"))
+        tok = json.loads(AUTH.read_text(encoding="utf-8-sig"))
         if not isinstance(tok, dict) or not tok.get("access_token"):
             raise ValueError("no access_token")
     except (OSError, ValueError) as e:

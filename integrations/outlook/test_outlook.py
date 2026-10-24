@@ -212,6 +212,13 @@ class LoadJson(unittest.TestCase):
             p.write_text('{"a": 1}', encoding="utf-8")
             self.assertEqual(osync._load_json(p), {"a": 1})
 
+    def test_a_byte_order_mark_is_still_json(self):
+        # Windows PowerShell's `Set-Content -Encoding UTF8` and some editors write one.
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "x.json"
+            p.write_text('{"a": 1}', encoding="utf-8-sig")
+            self.assertEqual(osync._load_json(p), {"a": 1})
+
     def test_malformed_json_exits_cleanly_instead_of_raising(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "x.json"
@@ -278,6 +285,18 @@ class LoadConfigFiles(unittest.TestCase):
             secrets.parent.mkdir()
             secrets.write_text('{"client_id": "X", "accounts": {}}', encoding="utf-8")
             self.assertEqual(osync.load_config(), {"client_id": "X", "accounts": {}})
+
+    def test_a_first_login_writes_the_secrets_file_nobody_wrote_by_hand(self):
+        secrets = self.dir / "secrets" / "outlook.json"
+        args = argparse.Namespace(email="a@h.com", client_id="APP", authority=None,
+                                  shared=False, device_code=True)
+        with mock.patch.object(osync, "CONFIG_FILE", secrets), \
+                mock.patch.object(osync, "device_login", return_value="tok"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            osync.cmd_login(osync.load_config(args.client_id), args)
+        on_disk = json.loads(secrets.read_text(encoding="utf-8"))
+        self.assertEqual(on_disk["client_id"], "APP")
+        self.assertEqual(on_disk["accounts"]["a@h.com"]["refresh_token"], "tok")
 
 
 class CommandRouting(unittest.TestCase):
