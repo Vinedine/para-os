@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Append-only record of how a vault actually gets used.
 
-para-os-integration: activity 2026.09.05
+para-os-integration: activity 2026.10.04
 
 A Claude Code hook. Reads one event as JSON on stdin, writes one JSONL line into
 `<vault>/resources/logs/sessions/`, exits 0 no matter what. `/para-activity-review`
@@ -156,15 +156,19 @@ def redact_tool_input(tool_name, tool_input, root):
 # A leading `NAME=value` sets the command's environment: `OPENAI_API_KEY=sk-... python run.py`.
 # The value may be quoted and hold spaces, so this matches it whole rather than splitting.
 _ASSIGNMENT = re.compile(r"""\s*[A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|"(?:\\.|[^"\\])*"|[^\s'"])*(?=\s|$)""")
+# A leading `cd <path> &&`, `pushd <path> ;` or `export NAME=value;` only sets the scene for the
+# command that follows, and recorded as `cd` it hides which script a session ran.
+_WORD = r"""(?:'[^']*'|"(?:\\.|[^"\\])*"|[^\s;&'"])+"""
+_PREFIX = re.compile(rf"""\s*(?:(?:cd|pushd)\s+{_WORD}|export(?:\s+[A-Za-z_][A-Za-z0-9_]*={_WORD}?)+)\s*(?:&&|;)""")
 
 
 def command_name(command):
-    """The command a Bash line runs, past any leading environment assignments, or None. A line
-    that is only assignments - or one whose quoting defeats the match - records nothing: its
-    first token would be `NAME=` plus a value."""
+    """The command a Bash line runs, past any leading environment assignments and `cd`,
+    `pushd` or `export` prefixes, or None. A line that is only assignments - or one whose
+    quoting defeats the match - records nothing: its first token would be `NAME=` plus a value."""
     pos = 0
     while True:
-        m = _ASSIGNMENT.match(command, pos)
+        m = _ASSIGNMENT.match(command, pos) or _PREFIX.match(command, pos)
         if not m:
             break
         pos = m.end()
