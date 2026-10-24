@@ -25,7 +25,8 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from paraos_pages import (  # noqa: E402
-    declared_pages, local_page, main, publish_choice, remember, remembered_url, run, store,
+    declared_pages, local_page, main, publish_choice, refresh, remember, remembered_url, run,
+    store,
 )
 
 PAGES = """# Example Vault Conventions
@@ -152,6 +153,29 @@ class Run(PagesCase):
         write(self.root, "resources/scripts/board.py", "print('done')\n")
         [silent] = run(self.root, "para-pipeline", self.scan, self.out_dir)
         self.assertIn("no {title, description}", silent["error"])
+
+
+class Refresh(PagesCase):
+
+    def skills(self, scan_body):
+        skills = Path(self.tmp.name) / "skills"
+        write(skills, "para-pipeline/scripts/pipeline_scan.py", scan_body)
+        return skills
+
+    def test_a_declared_page_is_rebuilt_from_a_fresh_scan_of_its_skill(self):
+        skills = self.skills('import json\nprint(json.dumps({"rows": [1, 2]}))\n')
+        store(self.root, "board", publish="local")
+        page = refresh(self.root, "board", skills_dir=skills)
+        self.assertEqual((page["title"], page["error"]), ("Example Board", None))
+        self.assertEqual(local_page(self.root, "board").read_text(encoding="utf-8"),
+                         "<title>Board</title>2")
+
+    def test_each_failure_is_named_not_raised(self):
+        self.assertIn("no row", refresh(self.root, "nothing")["error"])
+        self.assertIn("no single scan", refresh(self.root, "board",
+                                                 skills_dir=Path(self.tmp.name))["error"])
+        failing = self.skills("import sys\nsys.exit('vault unreadable')\n")
+        self.assertIn("vault unreadable", refresh(self.root, "board", skills_dir=failing)["error"])
 
 
 class Example(PagesCase):

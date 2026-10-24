@@ -19,4 +19,4 @@ A vault names pages of its own under `## Pages` in its `CLAUDE.md`, one row per 
 |---|---|
 | para-pipeline | `resources/scripts/vendor-board.py` |
 
-A skill whose steps link here runs the rows naming it after its own output, with `paraos_pages.py run --skill <skill> --scan <its scan output> --out-dir <scratch folder> --vault <vault root>`, and publishes each page it prints as above. A page with an `error` is said in one line and skipped. The script is the vault's, and the skill's strict rules hold for what it shows.
+A skill whose steps link here runs the rows naming it after its own output, with `paraos_pages.py run --skill <skill> --scan <its scan output> --out-dir <scratch folder> --vault <vault root>`, and publishes each page it prints as above. A page with an `error` is said in one line and skipped. The script is the vault's, and the skill's strict rules hold for what it shows. A later step that changes what a page shows rebuilds it with `paraos_pages.py refresh --page <page> --vault <vault root>` and republishes it, never the whole skill.
