@@ -1929,6 +1929,26 @@ class ChangedCLI(VaultCase):
         self.assertEqual(json.loads(out.getvalue()),
                          {"changed": [], "arrived": [str(abspath(late))]})
 
+    def test_the_runs_own_moves_and_writes_given_to_done_are_left_out(self):
+        scan_file = self.arrival_scan()
+        other = write(self.root, "projects/x/actions.md", "# x\n")
+        scan = json.loads(scan_file.read_text(encoding="utf-8"))
+        scan["snapshot"].update(snapshot([abspath(other)]))
+        scan_file = self.write_json("scan.json", scan)
+        self.assertEqual(self.run_main(["changed", str(scan_file), "--done"]), 0)
+        src, dst = self.root / "triage" / "seen.md", self.root / "archive" / "seen.md"
+        dst.parent.mkdir()
+        src.rename(dst)
+        note = write(self.root, "triage/fold.md", "# fold\n")
+        done = ["--done", str(src), str(dst), str(note)]
+        self.assertEqual(self.run_main(["changed", str(scan_file), *done]), 0)
+        other.write_text("# x, edited elsewhere\n", encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(main(["changed", str(scan_file), *done]), 1)
+        self.assertEqual(json.loads(out.getvalue()),
+                         {"changed": [str(abspath(other))], "arrived": []})
+
     def test_a_file_arriving_in_a_subfolder_or_outside_is_not_an_arrival(self):
         scan_file = self.arrival_scan()
         write(self.root, "triage/inbox/late.md", "# late\n")
