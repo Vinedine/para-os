@@ -53,6 +53,8 @@ def logbook(rev, body):
     return f"#!/usr/bin/env python3\n# para-os-integration: logbook {rev}\nVALUE = {body!r}\n"
 
 
+MIRROR_OLD = "WALK = 'past errors'\n"
+MIRROR_NEW = "# para-os-integration: vault-mirror 2026.10.01\nWALK = 'stop'\n"
 RULE = "---\npaths:\n  - \"**\"\n---\n# Filing {}\n"
 OLD_ENTRY = "## 2026.09.01\n\n- Start a notes log: `notes/`\n"
 NEW_ENTRY = ("## 2026.10.01\n\n- Move each deal note to its deal folder: `notes/`\n"
@@ -72,6 +74,8 @@ REV_A = {
     "base/.claude/skills/para-notes/old.md": "Old.\n",
     "base/.claude/skills/para-shared/scripts/lib.py": "LIB = 1\n",
     "integrations/logbook/logbook.py": logbook("2026.09.01", "v1"),
+    "integrations/vault-mirror/mirror.py": MIRROR_OLD,
+    "integrations/vault-mirror/test_mirror.py": "TESTS = 1\n",
     "addons/sales/CLAUDE.md.sections": "<!-- sales -->\n\n## Deals\n\nDeals v1.\n",
     "addons/sales/.claude/rules/deal.md": "---\npaths:\n  - \"deals/**\"\n---\n# Deal\n",
     "addons/sales/.claude/skills/deal-skill/SKILL.md": "# Deal skill\n",
@@ -90,6 +94,7 @@ REV_B = {
     "base/.claude/skills/para-notes/references/new.md": "New.\n",
     "base/.claude/skills/para-prep/SKILL.md": "# Prep\n",
     "integrations/logbook/logbook.py": logbook("2026.10.01", "v2"),
+    "integrations/vault-mirror/mirror.py": MIRROR_NEW,
     "addons/sales/CLAUDE.md.sections": "<!-- sales -->\n\n## Deals\n\nDeals v2.\n",
 }
 
@@ -300,6 +305,21 @@ class StatesCase(CloneCase):
                            ("settings-broken", '{"autoMemoryEnabled": false,\n')):
             v = self.vault(name, files={".claude/settings.json": text})
             self.assertEqual(self.states(self.scan(v)[0])[".claude/settings.json"], "edited")
+
+    def test_an_unmarked_copy_at_an_install_path_is_compared_with_its_master(self):
+        v = self.vault("unmarked", files={
+            "resources/scripts/vault-mirror/mirror.py": MIRROR_OLD,
+            "resources/scripts/logbook.py": "VALUE = 'ours'\n",
+            "resources/scripts/test_mirror.py": "TESTS = 1\n",
+            "resources/scripts/notes/mirror.py": MIRROR_OLD,
+        })
+        rows = {r["path"]: (r["kind"], r["master"], r["state"]) for r in self.scan(v)[0]["files"]}
+        self.assertEqual(rows["resources/scripts/vault-mirror/mirror.py"],
+                         ("integration", "integrations/vault-mirror/mirror.py", "untouched"))
+        self.assertEqual(rows["resources/scripts/logbook.py"],
+                         ("integration", "integrations/logbook/logbook.py", "edited"))
+        self.assertNotIn("resources/scripts/test_mirror.py", rows)
+        self.assertNotIn("resources/scripts/notes/mirror.py", rows)
 
     def test_a_vault_with_no_skill_home_gets_no_skill_rows(self):
         v = self.vault("no-skills")

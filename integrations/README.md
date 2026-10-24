@@ -38,7 +38,7 @@ para-os-integration: granola 2026.08.02
 
 The version is **per integration, not per file**: every script in the folder carries the same one, stamped with the revision that folder's *code* last changed in. Bump it when a change is something an already-installed copy has to react to (a fixed API call, a new argument, a changed output path); a one-time migration an installed copy needs beyond the re-copy gets a line in the pull request's [changelog fragment](../changelog.d/README.md). A README rewording is not a bump.
 
-`/para-upgrade` finds each installed script by its marker and compares its bytes with every version its master has had: a copy matching one is re-copied on the operator's approval, and one carrying a local fix is shown as a diff for the operator to decide. The scripts themselves hold nothing vault-specific (routing lives in a `<name>.config.json` beside the script, secrets under `~/.paraos/secrets/`), so re-syncing one is a straight file copy plus whatever one-time migration the changelog entry names. A script with no marker is left alone and named as skipped.
+`/para-upgrade` finds each installed script by its marker, or by its install path and file name, and compares its bytes with every version its master has had: a copy matching one is re-copied on the operator's approval, and one carrying a local fix is shown as a diff for the operator to decide. The scripts themselves hold nothing vault-specific (routing lives in a `<name>.config.json` beside the script, secrets under `~/.paraos/secrets/`), so re-syncing one is a straight file copy plus whatever one-time migration the changelog entry names.
 
 ## Adding one
 
