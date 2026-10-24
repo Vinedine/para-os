@@ -930,7 +930,10 @@ def people(vault, tasks, items):
 
 def scan(vault, today, entity=None, paraos_home=None, review=None):
     vault = Path(vault).resolve()
-    files = action_files(vault)
+    # A `never` folder's work is tracked elsewhere: its checkboxes count in nothing here.
+    never = tuple(f + "/" for f in never_folders(vault))
+    files = [p for p in action_files(vault)
+             if not p.relative_to(vault).as_posix().startswith(never)]
     report = {
         "vault": vault.as_posix(),
         "today": today.isoformat(),

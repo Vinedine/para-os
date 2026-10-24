@@ -304,6 +304,19 @@ class HealthFlags(VaultCase):
         got = scan(self.root, TODAY)["flags"]["nothing_open"]
         self.assertEqual([e["path"] for e in got], ["areas/garden"])
 
+    def test_a_never_folders_generated_actions_file_counts_in_nothing(self):
+        write(self.root, "CLAUDE.md", "# V\n\n### Where a checkbox may live\n\n"
+              "| Bucket | `actions.md` | State |\n|---|---|---|\n"
+              "| `areas/support/` | never | mirrored from the ticket tracker |\n")
+        write(self.root, "areas/support/actions.md", "# support\n\n" + "".join(
+            f"- [ ] Ticket {n} 📅 2026-01-01\n" for n in range(40)))
+        write(self.root, "projects/live/actions.md", "# live\n\n- [ ] Open one\n")
+        got = scan(self.root, TODAY)
+        self.assertEqual(got["totals"]["open"], 1)
+        self.assertEqual(got["flags"]["over_threshold"], [])
+        self.assertEqual(got["flags"]["falsely_overdue"], [])
+        self.assertEqual(got["lanes"].get("overdue", []), [])
+
     def test_open_work_anywhere_under_an_entity_or_in_a_contact_file_keeps_it_off(self):
         write(self.root, "areas/properties/main-street-4/actions.md",
               "# main-street-4\n\n- [ ] Index the rent 📅 2027-01-01\n")
