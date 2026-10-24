@@ -201,8 +201,14 @@ STEP_DATE_RES = [re.compile(p, re.IGNORECASE) for p in (
 
 
 def step_date(text):
-    for rx in STEP_DATE_RES:
-        m = rx.search(text)
+    # The 📅 marker marks the step's date wherever it sits; the wording ranks count
+    # only in the cell's last clause, where the step itself sits. A date beside the
+    # context in an earlier clause belongs to that context, not the step (#642).
+    if m := STEP_DATE_RES[0].search(text):
+        return parse_date(m.group(1))
+    clause = text.rsplit(";", 1)[-1]
+    for rx in STEP_DATE_RES[1:]:
+        m = rx.search(clause)
         if m:
             return parse_date(m.group(1))
     return None

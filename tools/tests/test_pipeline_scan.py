@@ -495,6 +495,18 @@ class NextStep(VaultCase):
             with self.subTest(cell=cell):
                 self.assertEqual(self.row_entity(cell)["next_step"]["date"], due)
 
+    def test_a_date_in_the_row_context_is_not_the_step_date(self):
+        # Issue #642: the Next step cell often carries context beside the step, and a
+        # date in that context (a prospect's launch, a demo) read as the due date.
+        # A 📅 still counts wherever it sits; `by`/`on` count only in the last clause.
+        for cell, due in (
+                ("Angle: their new site launched on 2026-09-30; call to book the demo", None),
+                ("Their new site launched 2026-09-30; call to book the demo", None),
+                ("Angle: launch set for 2026-09-30; book the demo by 2026-11-04", "2026-11-04"),
+                ("Call 📅 2026-09-30 about the relaunch; book the demo", "2026-09-30")):
+            with self.subTest(cell=cell):
+                self.assertEqual(self.row_entity(cell)["next_step"]["date"], due)
+
     def test_a_weekday_between_by_or_on_and_the_date_still_attaches_it(self):
         # Issue #301: "by Tuesday <date>" missed `by`, so an incidental `on` date won.
         for cell, due in (
