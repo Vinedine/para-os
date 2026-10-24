@@ -2,7 +2,7 @@
 
 The steps an agent follows when an operator pastes the Quickstart prompt from [README.md](README.md#quickstart) into a Claude Code session: set up a new vault in the session's folder from this repository, then hand over to the bootstrap interview. A person can follow them by hand too.
 
-**Needs:** Claude Code, git and Python 3.9 or later, which the README's Quickstart has the operator install first (the zip below is a fallback only, since `/para-upgrade` needs the clone).
+**Needs:** Claude Code and Python 3.9 or later. Git can wait: without it, step 2 takes the zip, and git comes in before the first `/para-upgrade`, which needs the clone.
 
 The operator's prompt says nothing about the vault itself: Step 4's questions ask for it.
 
@@ -40,13 +40,13 @@ Read `bootstrap-prompt.md` in the vault root and follow the block below its `---
 
 ## 5. Hand over
 
-The bootstrap's [Finish](base/bootstrap-prompt.md#finish) ends on the operator's own material, filed, and a first `/para-daily-brief`. Tell them where the kit is, and that the brief is how to come back in. If a skill is not recognised when they type it, open a new session in the same folder.
+The bootstrap's [Finish](base/bootstrap-prompt.md#finish) ends on the operator's own material, filed, and a first `/para-daily-brief`. Tell them where the kit is, and that the brief is how to come back in. Where step 2 took the zip, say that `/para-upgrade` will need git installed first. If a skill is not recognised when they type it, open a new session in the same folder.
 
 Say once where the skills live: bundled in the vault's own `.claude/skills/`. An operator who runs several vaults can move them to `~/.claude/skills/` instead, so one copy serves them all.
 
 ## Upgrading
 
-Pull the kit (`git -C ~/.paraos/para-os pull`, after the one-time switch to `stable` in [step 2](#2-get-the-kit-outside-the-folder) where the clone is not on it), then run `/para-upgrade` in the vault, giving it that path. [RELEASES.md](RELEASES.md) says what each revision changes and whether you need to do anything first.
+Pull the kit (`git -C ~/.paraos/para-os pull`, after the one-time switch to `stable` in [step 2](#2-get-the-kit-outside-the-folder) where the clone is not on it), then run `/para-upgrade` in the vault, giving it that path. A kit from the zip has no `.git` to pull: once git is installed, move that folder aside and clone into its place as in step 2. [RELEASES.md](RELEASES.md) says what each revision changes and whether you need to do anything first.
 
 ## Uninstalling
 
