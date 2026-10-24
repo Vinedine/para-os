@@ -22,7 +22,7 @@ A structural pass (reorganising, retensing, renaming) keeps every fact and every
 
 ## Leave other people's words alone
 
-Third-party verbatim content is out of scope for every normalisation pass: synced publications, transcripts and their auto-extracted next steps, quoted correspondence, signed documents. Name what was excluded. A checkbox inside a transcript records what was said: mark the record frozen and route surviving work to a real `actions.md`, never tick it.
+Third-party verbatim content is out of scope for every normalisation pass: synced publications, transcripts and their auto-extracted next steps, quoted correspondence, signed documents. Name what was excluded. A checkbox inside a transcript records what was said: route surviving work to a real `actions.md`, never tick it.
 
 ## A quoted syntax is not a used syntax
 
