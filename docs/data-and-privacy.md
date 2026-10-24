@@ -3,3 +3,13 @@
 A vault is just files on storage you already control - a local disk, a company cloud drive, or a git repo. para-os adds no server or database of its own and never copies your vault anywhere. Content leaves your storage only when the agent reads part of a file to answer a request: the same exposure as sending an email through a cloud provider, and per-request, not a standing copy. Integrations keep their state under `~/.paraos/`, outside the vault: credentials in plain text and cached copies of source data, on local disk ([what goes where](../base/resources/scripts/README.md)).
 
 For GDPR or data-sovereignty needs there's a ladder: a provider plan whose commercial terms exclude training and minimise retention (for a business, a Team or Enterprise plan rather than a personal one; on a personal Pro or Max plan, turn off the setting that lets your chats be used to improve the models); regional processing; or the model running inside a cloud tenant you control, for a hard "data must not leave our cloud" requirement. Because the root `CLAUDE.md` is read every session, it is also where you encode data-handling rules - what to redact, retention expectations, who the data subjects are - so the agent follows them by construction.
+
+## Keep the secrets folder out of the agent's reach
+
+Integration scripts read their own tokens from `~/.paraos/secrets/`; the agent never needs to open that folder. Where an agent can read its own credentials, a prompt injection only has to ask it to. So deny it the folder in your harness's user settings. In Claude Code, a `Read` deny rule also covers Grep and Glob; on Windows give both spellings of the path:
+
+```json
+{ "permissions": { "deny": ["Read(~/.paraos/secrets/**)", "Read(//c/Users/<you>/.paraos/secrets/**)"] } }
+```
+
+A shell command such as `cat` is not covered by that rule; guarding the shell is your own harness setting, since it names your environment. The scripts keep working, because a permission rule binds only the agent's tools. To check it, ask the agent to read a file under `secrets/`: the read is refused.
