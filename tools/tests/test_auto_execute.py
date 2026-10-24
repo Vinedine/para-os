@@ -117,6 +117,28 @@ class Executor(unittest.TestCase):
                                    "over the run's cap of 1"])
         self.assertEqual([a["item"] for a in out["acted"]], ["invoice.md"])
 
+    def test_a_run_consumes_its_decisions_file(self):
+        self.switch_on("Delete (duplicate)")
+        saved = self.scan()
+        decisions = self.decide(self.ROWS)
+        code, out = call("run", "--scan", saved, "--decisions", decisions,
+                         "--paraos-home", self.home)
+        self.assertEqual(code, 0)
+        self.assertTrue(Path(out["quarantine"], "manifest.json").is_file())
+        self.assertFalse(decisions.exists())
+
+    def test_a_decisions_file_older_than_the_scan_is_refused_and_removed(self):
+        self.switch_on("Delete (duplicate)")
+        decisions = self.decide(self.ROWS)
+        old = time.time() - 86400
+        os.utime(decisions, (old, old))
+        code, out = call("run", "--scan", self.scan(), "--decisions", decisions,
+                         "--paraos-home", self.home)
+        self.assertEqual(code, 3)
+        self.assertIn("not written this run", out["refused"])
+        self.assertTrue((self.vault / "triage" / "dup.pdf").exists())
+        self.assertFalse(decisions.exists())
+
     def test_the_kill_switch_and_a_shared_vault_refuse_the_whole_run(self):
         self.switch_on("Delete (duplicate)")
         write(self.home, "auto-triage.off", "")
