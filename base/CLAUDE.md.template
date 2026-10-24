@@ -96,6 +96,8 @@ Markdown and plain text first; `.csv`, `.docx` and `.xlsx` for material received
 
 A script the agent writes lives in `resources/scripts/` (its `README.md` names the state buckets); credentials, caches and bulk data live under `~/.paraos/`, never in a synced folder.
 
+**A failing integration is repaired or reported, never replaced**: two scripts for one source is a defect, and one for a source no integration covers is first proposed as that gap.
+
 ## Do not add
 
 - **Templates** before a second instance proves the shape.

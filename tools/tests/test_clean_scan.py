@@ -937,6 +937,24 @@ class StaleDrafts(VaultCase):
         self.assertEqual([d["draft"] for d in drafts], ["projects/acme/sources/Old.DOC"])
 
 
+class Scripts(VaultCase):
+
+    def test_an_unmarked_script_is_listed_beside_the_marked_integrations(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/scripts/outlook.py",
+              "# para-os-integration: outlook 2026.10.03\n")
+        write(self.root, "resources/scripts/my-mail.py", "print('mail')\n")
+        write(self.root, "resources/scripts/README.md", "# scripts\n")
+        got = self.run_scan("1")["phase1"]["scripts"]
+        self.assertEqual(got, {"marked": [{"file": "resources/scripts/outlook.py",
+                                           "name": "outlook"}],
+                               "unmarked": ["resources/scripts/my-mail.py"]})
+
+    def test_a_vault_with_no_scripts_folder_lists_none(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["scripts"], {"marked": [], "unmarked": []})
+
+
 class ConflictCopies(VaultCase):
 
     def test_sync_conflict_copies_are_listed_with_their_survivor(self):

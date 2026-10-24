@@ -142,12 +142,13 @@ const H = t => ({ "Authorization": "Bearer " + t, "Content-Type": "application/j
 const exp = t => JSON.parse(Buffer.from(t.split(".")[1], "base64").toString()).exp;
 
 async function token() {
+  if (!fs.existsSync(AUTH)) throw new Error(`no Granola sign-in at ${AUTH}: run granola-auth-init.js once`);
   const a = readJson(AUTH);
   if (a.access_token && (a.access_expires || exp(a.access_token)) > Math.floor(Date.now() / 1000) + 30) return a.access_token;
   const r = await fetch("https://api.workos.com/user_management/authenticate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ grant_type: "refresh_token", client_id: a.client_id, refresh_token: a.refresh_token }) });
   // Status first: a refusal need not be JSON (a proxy's HTML 502), and parsing it first
   // would report a parse error with the status lost.
-  if (!r.ok) throw new Error("refresh failed " + r.status);
+  if (!r.ok) throw new Error("refresh failed " + r.status + (r.status < 500 ? ": run granola-auth-init.js again" : ""));
   const j = await r.json();
   a.access_token = j.access_token; if (j.refresh_token) a.refresh_token = j.refresh_token; a.access_expires = exp(a.access_token);
   // Atomic, and with the secret's own permissions: a torn write here loses the rotated refresh

@@ -22,6 +22,7 @@ Every finding below is a field of the `--phase 1` scan except five the agent jud
 - **Duplicates** (`duplicates.groups`), by content hash; a `cross_entity` group is its own finding. Name what `duplicates.skipped` lists.
 - **Sync conflict copies** (`conflict_copies`): report each with its `survivor`, and propose nothing before the operator has compared both ([Deleting a file](../../para-shared/operating-discipline.md#deleting-a-file)).
 - **One figure, two values** (`figure_pairs`): a roll-up file states a figure about an entity that its own file does not. Name the file that should own it and propose links in place of the copies. Which value is right is Step 3.5's question.
+- **A second route to one source** (`scripts`): an `unmarked` script that reads a source a `marked` integration or a `connector:` row already reads. Propose removing it, or reporting what the integration lacks.
 - **Figures with no as-of date, or projections among facts**: flag the tables that break the shape `CLAUDE.md` prescribes to keep them apart. A formatting finding, not an accuracy one.
 
 ## Step 1.2b - Filing hygiene
