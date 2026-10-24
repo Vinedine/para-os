@@ -57,7 +57,7 @@ It downloads the kit, asks a few short questions, and ends by filing a few of yo
 
 - [Getting started](docs/getting-started.md): requirements, a terminal or VS Code, synced drives, version history.
 - [How it works](docs/how-it-works.md), [skills](docs/skills.md), [add-ons](addons/README.md), [integrations](integrations/README.md), [several vaults](multi-vault/README.md).
-- [Data and privacy](docs/data-and-privacy.md), and [what the assistant may do on its own](docs/autonomy-tiers.md).
+- [Data and privacy](docs/data-and-privacy.md), [what the assistant may do on its own](docs/autonomy-tiers.md), and [reporting a vulnerability](SECURITY.md).
 - [`RELEASES.md`](RELEASES.md): what each revision changes, and whether you need to act.
 - Contributing: [`CLAUDE.md`](CLAUDE.md), [`tools/check.py`](tools/check.py), [`evals/`](evals/README.md).
 
