@@ -15,7 +15,7 @@ Personal Microsoft accounts no longer accept Basic Auth or app passwords, so OAu
 
 - **Python 3.9+** and `requests` (`pip install requests`). Examples below use `python3`; on Windows `py` works in its place.
 - **An Entra app registration** - public client, delegated `Mail.Read` + `offline_access`, with "Accounts in any organizational directory and personal Microsoft accounts" (or personal-only) enabled. You need its **client id**; there is no secret. Add `http://localhost` as a redirect URI under the **Mobile and desktop applications** platform, which is what the browser sign-in redirects to. Add delegated `Mail.Read.Shared` only if that app serves a **shared** mailbox; see "Scope is per account" below.
-- **A Microsoft 365 mailbox needs an app registration in its own tenant** (step 4 below), made by someone allowed to register apps there. Where the tenant blocks user consent to `Mail.Read`, an admin must grant it. That is routine for an owner who administers their own tenant, and a blocker for a client's mailbox under a no-admin-consent rule: settle it with the client's IT before promising mail access.
+- **A Microsoft 365 mailbox needs an app registration in its own tenant** (step 3 below), made by someone allowed to register apps there. Where the tenant blocks user consent to `Mail.Read`, an admin must grant it. That is routine for an owner who administers their own tenant, and a blocker for a client's mailbox under a no-admin-consent rule: settle it with the client's IT before promising mail access.
 - One login **per mailbox**, once per machine. Auth is machine-global, so adding another vault later needs no re-login.
 
 ## Install
@@ -27,11 +27,7 @@ Personal Microsoft accounts no longer accept Basic Auth or app passwords, so OAu
    ```
    If you reply from an alias, pass an object instead to name it, so those replies don't hide the counterparty: `{ "accounts": { "someone@hotmail.com": { "self": ["alias@domain.com"] } } }`.
    Not named `outlook.json`: that is the machine-global **secret** below, and two files sharing one name across opposite trust zones is how a credential ends up inside a synced vault.
-3. Create `~/.paraos/secrets/outlook.json` with your client id:
-   ```json
-   { "client_id": "00000000-0000-0000-0000-000000000000", "authority": "consumers", "accounts": {} }
-   ```
-4. Log in once per mailbox: `python3 outlook.py login someone@hotmail.com`
+3. Log in once per mailbox: `python3 outlook.py login someone@hotmail.com`, adding `--client-id <app>` the first time on a machine, which writes `~/.paraos/secrets/outlook.json`.
    A Microsoft 365 mailbox needs its own tenant's app: `python3 outlook.py login someone@company.com --client-id <app> --authority <tenant-id>`. A personal-accounts app is registered against the `consumers` authority, which refuses work accounts outright, so both settings resolve per account.
 
 ### Scope is per account, and narrow by default

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """pocket.py - pull recent Pocket recordings (AI summary + transcript) into a vault's triage/.
-para-os-integration: pocket 2026.09.03 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+para-os-integration: pocket 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 Pocket (heypocket.com) is a wearable recorder; its app transcribes and summarises every
 conversation. Drop this file in <vault>/resources/scripts/ and run it there. By default every
@@ -75,7 +75,7 @@ def load_config(path):
     if not path.exists():
         return {}
     try:
-        parsed = json.loads(path.read_text(encoding="utf-8"))
+        parsed = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as e:
         # Never fall through to {}: an unreadable config silently means single-vault mode,
         # which writes every other vault's recordings into this one. Stop instead.
@@ -469,7 +469,7 @@ def read_ledger(path):
     if not path.exists():
         return {}
     try:
-        ledger = json.loads(path.read_text(encoding="utf-8"))
+        ledger = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as e:
         ledger = e
     if not isinstance(ledger, dict):
@@ -567,7 +567,7 @@ def load_key(path=None):
                  '  {"api_key": "pk_..."}\n'
                  "in that file. It is a secret: it lives under ~/.paraos, never in the vault.")
     try:
-        key = str(json.loads(path.read_text(encoding="utf-8")).get("api_key") or "").strip()
+        key = str(json.loads(path.read_text(encoding="utf-8-sig")).get("api_key") or "").strip()
     except (OSError, ValueError, AttributeError) as e:
         sys.exit(f"{path} is unreadable: {e}")
     if not key.startswith("pk_"):

@@ -18,7 +18,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { spawnSync } = require("child_process");
-const { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest } = require("./granola.js");
+const { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest, readJson } = require("./granola.js");
 
 // The vault convention, from base/CLAUDE.md.template: `YYYYMMDD Description.ext`. Both shipped
 // integrations write into the same triage/ folder, so both must satisfy this. The outlook suite
@@ -28,6 +28,12 @@ const TRIAGE_NAME = /^\d{8} \S.*\.md$/;
 const doc = (...content) => ({ type: "doc", content });
 const para = (...content) => ({ type: "paragraph", content });
 const text = (t, marks) => ({ type: "text", text: t, ...(marks ? { marks } : {}) });
+
+test("readJson: a file saved with a byte-order mark is still JSON", () => {
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "granola-")), "x.json");
+  fs.writeFileSync(f, "\uFEFF" + JSON.stringify({ a: 1 }), "utf8");
+  assert.deepStrictEqual(readJson(f), { a: 1 });
+});
 
 test("marks: applies bold, italic and code", () => {
   assert.equal(marks("x", [{ type: "bold" }]), "**x**");
