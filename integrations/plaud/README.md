@@ -47,7 +47,7 @@ py plaud.py --days 90     # widen the look-back window
 py plaud.py --dump <id>   # print one recording's raw API JSON
 ```
 
-Re-runs skip a recording that is in the dedup ledger (`~/.paraos/data/plaud/synced.json`), and ledger one whose note (matched by its `plaud_id`) is still in `triage/` but missing from it; once `/para-triage` has filed a note elsewhere the ledger is the only record of it, so a cleared ledger re-imports every recording in the look-back window. Two different recordings with the same date and title both land: the second gets the first six characters of its id appended, or the whole id when those are taken.
+Re-runs skip a recording that is in the dedup ledger (`resources/scripts/plaud.synced.json` in the vault the note went to, so a second machine reads it through the vault's sync), and ledger one whose note (matched by its `plaud_id`) is still in `triage/` but missing from it; once `/para-triage` has filed a note elsewhere the ledger is the only record of it, so a cleared ledger re-imports every recording in the look-back window. Two different recordings with the same date and title both land: the second gets the first six characters of its id appended, or the whole id when those are taken.
 
 Each note carries YAML front-matter (`title`, `date`, `plaud_id`, `source: plaud`, `duration_min`), then `## Summary` and `## Transcript`. The date is when the recording started, in local time.
 
@@ -74,7 +74,7 @@ The script reads Plaud's third-party API, the one Plaud's own command-line tool,
 | The script | `<vault>/resources/scripts/plaud.py` | (in the vault, version-controlled) |
 | Routing config | `<vault>/resources/scripts/plaud.config.json` | (in the vault; never secret) |
 | Sign-in tokens | `~/.paraos/secrets/plaud.json` | secret - never syncs to a cloud drive or git |
-| Dedup ledger | `~/.paraos/data/plaud/synced.json` | data - it does not rebuild once notes have left `triage/` |
+| Dedup ledger | `<vault>/resources/scripts/plaud.synced.json` | data - it does not rebuild once notes have left `triage/`; an older `~/.paraos/data/plaud/synced.json` is still read, and its entries carried in |
 
 The root is `PARAOS_HOME` (default `~/.paraos`). See [`integrations/README.md`](../README.md).
 

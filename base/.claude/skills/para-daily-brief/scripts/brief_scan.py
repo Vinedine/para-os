@@ -449,17 +449,19 @@ def delivered(vault, row, paraos_home):
     """(ledger, dates of what the source delivered to this vault, error) from the source's
     own ledger on this machine, or None where it keeps none here.
 
-    A sync script keeps `{id: path of the note it wrote}` at
-    `<PARAOS_HOME>/data/<script name>/synced.json`, an older copy's at `cache/<name>/`, each
-    note named from its item's date; a note is this vault's when it was written under it. A
-    mailbox's own ledger is `/para-ingest`'s, its threads this vault's when routed to the
-    folder's name. `/para-triage`'s seen-ledger is the vault's, not a source's, so a mailbox
-    read without ingest has none."""
+    A sync script keeps `{id: path of the note it wrote}` beside itself in the vault it wrote
+    to, `<script name>.synced.json`, every entry this vault's whichever machine wrote it; an
+    older copy kept one per machine at `<PARAOS_HOME>/data/<name>/synced.json` or
+    `cache/<name>/`, where a note is this vault's when it was written under it. Each note is
+    named from its item's date. A mailbox's own ledger is `/para-ingest`'s, its threads this
+    vault's when routed to the folder's name. `/para-triage`'s seen-ledger is the vault's,
+    not a source's, so a mailbox read without ingest has none."""
     home = paraos_home_dir(paraos_home)
     if row["kind"] == "sync-script" and row["path"]:
-        name = Path(row["path"].replace("\\", "/")).stem
-        ledgers = [p for p in (home / "data" / name / "synced.json",
-                               home / "cache" / name / "synced.json") if p.is_file()]
+        script = Path(row["path"].replace("\\", "/"))
+        own = Path(vault) / script.parent / f"{script.stem}.synced.json"
+        ledgers = [p for p in (own, home / "data" / script.stem / "synced.json",
+                               home / "cache" / script.stem / "synced.json") if p.is_file()]
         if not ledgers:
             return None
         mine, places, dates = same_place(vault), {}, []
@@ -474,7 +476,8 @@ def delivered(vault, row, paraos_home):
                 parent = str(Path(note).parent)
                 place = places.setdefault(parent, same_place(parent))
                 m = NOTE_DATE_RE.match(Path(note).name)
-                if m and (place == mine or place.startswith(mine.rstrip(os.sep) + os.sep)):
+                if m and (path == own or place == mine
+                          or place.startswith(mine.rstrip(os.sep) + os.sep)):
                     dates.append(parse_date("-".join(m.groups())))
         return ledgers[0], dates, None
     if row["mailbox"]:

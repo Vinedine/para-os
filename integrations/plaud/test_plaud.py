@@ -67,19 +67,20 @@ class Offline(unittest.TestCase):
         return p.start()
 
     def use_home(self):
-        """AUTH and STATE under a fresh temporary PARAOS_HOME, restored afterwards."""
+        """AUTH and the legacy ledger under a fresh temporary PARAOS_HOME, restored afterwards."""
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         home = Path(tmp.name)
         self.patch(plaud, "AUTH", new=home / "secrets" / "plaud.json")
-        self.patch(plaud, "STATE", new=home / "data" / "plaud" / "synced.json")
+        self.patch(plaud, "LEGACY", new=(home / "data" / "plaud" / "synced.json",))
         return home
 
 
 class Paths(unittest.TestCase):
     def test_state_lives_under_the_temporary_paraos_home(self):
         self.assertEqual(plaud.AUTH, Path(HOME.name) / "secrets" / "plaud.json")
-        self.assertEqual(plaud.STATE.parts[-3:], ("data", "plaud", "synced.json"))
+        self.assertEqual(plaud.LEGACY[0].parts[-3:], ("data", "plaud", "synced.json"))
+        self.assertEqual(plaud.LEDGER.parts, ("resources", "scripts", "plaud.synced.json"))
 
 
 class Sanitize(unittest.TestCase):
@@ -553,23 +554,37 @@ class Files(unittest.TestCase):
 class Ledger(Offline):
     def setUp(self):
         super().setUp()
-        self.use_home()
+        home = self.use_home()
+        self.patch(plaud, "VAULT_ROOT", new=home / "Acme")
+        self.state = home / "Acme" / "resources" / "scripts" / "plaud.synced.json"
 
     def test_record_merges_what_another_run_saved(self):
-        plaud.record("one@Acme", "a.md")
-        on_disk = json.loads(plaud.STATE.read_text(encoding="utf-8"))
-        plaud.STATE.write_text(json.dumps({**on_disk, "two@Home": "b.md"}), encoding="utf-8")
-        plaud.record("three@Acme", "c.md")
-        self.assertEqual(json.loads(plaud.STATE.read_text(encoding="utf-8")),
-                         {"one@Acme": "a.md", "two@Home": "b.md", "three@Acme": "c.md"})
+        plaud.record("one@Acme", "a.md", "Acme")
+        on_disk = json.loads(self.state.read_text(encoding="utf-8"))
+        self.state.write_text(json.dumps({**on_disk, "two@Acme": "b.md"}), encoding="utf-8")
+        plaud.record("three@Acme", "c.md", "Acme")
+        self.assertEqual(json.loads(self.state.read_text(encoding="utf-8")),
+                         {"one@Acme": "a.md", "two@Acme": "b.md", "three@Acme": "c.md"})
+
+    def test_the_legacy_ledger_is_read_and_its_vaults_entries_carried_into_each_vault(self):
+        legacy = plaud.LEGACY[0]
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text('{"old@Acme": "a.md", "old@Home": "b.md"}', encoding="utf-8")
+        before = legacy.read_bytes()
+        self.assertEqual(plaud.load_ledger(["Acme"]), {"old@Acme": "a.md", "old@Home": "b.md"})
+        plaud.record("new@Home", "c.md", "Home")
+        self.assertEqual(json.loads(plaud.ledger_path("Home").read_text(encoding="utf-8")),
+                         {"old@Home": "b.md", "new@Home": "c.md"})
+        self.assertFalse(self.state.exists())
+        self.assertEqual(legacy.read_bytes(), before)
 
     def test_unreadable_ledger_stops_rather_than_being_overwritten(self):
-        plaud.STATE.parent.mkdir(parents=True)
+        self.state.parent.mkdir(parents=True)
         for text in ("{half", "[]"):
-            plaud.STATE.write_text(text, encoding="utf-8")
+            self.state.write_text(text, encoding="utf-8")
             with self.assertRaises(SystemExit):
-                plaud.record("one@Acme", "a.md")
-            self.assertEqual(plaud.STATE.read_text(encoding="utf-8"), text)
+                plaud.record("one@Acme", "a.md", "Acme")
+            self.assertEqual(self.state.read_text(encoding="utf-8"), text)
 
 
 TRANSCRIPT = json.dumps([
@@ -594,6 +609,7 @@ class MainLoop(Offline):
         home = self.use_home()
         self.patch(plaud, "VAULT_ROOT", new=self.vault)
         self.patch(plaud, "CONFIG_PATH", new=config)
+        self.state = self.vault / "resources" / "scripts" / "plaud.synced.json"
         plaud.AUTH.parent.mkdir(parents=True)
         plaud.AUTH.write_text(json.dumps({"access_token": "tok_test", "refresh_token": "r1",
                                           "expires_at": time.time() + 3600}), encoding="utf-8")
@@ -655,7 +671,9 @@ class MainLoop(Offline):
         return sorted(p.name for p in folder.iterdir()) if folder.exists() else []
 
     def ledger(self):
-        return sorted(json.loads(plaud.STATE.read_text(encoding="utf-8"))) if plaud.STATE.exists() else []
+        """The keys of every vault's ledger this run could write: this vault's and "Home"'s."""
+        paths = [self.state, self.vault.parent / "Home" / "resources" / "scripts" / "plaud.synced.json"]
+        return sorted(k for q in paths if q.exists() for k in json.loads(q.read_text(encoding="utf-8")))
 
     def test_dry_run_writes_nothing(self):
         out = self.run_main()
@@ -665,7 +683,7 @@ class MainLoop(Offline):
         self.assertIn("would write: 1 · skipped(exists): 0 · held(pending): 1 · held(unreadable): 0 · "
                       "failed: 0 · undated: 0 · unrouted: 1 · other vaults: 0", out)
         self.assertEqual(self.triage(), [])
-        self.assertFalse(plaud.STATE.exists())
+        self.assertFalse(self.state.exists())
 
     def test_write_makes_one_dated_note_with_summary_and_transcript_then_skips_it(self):
         out = self.run_main("--write")
@@ -680,7 +698,7 @@ class MainLoop(Offline):
                       "[01:05] **Speaker 2:** Agreed.", note)
         self.assertNotIn("Not the transcript.", note)
         self.assertEqual(self.ledger(), ["ready1@Acme"])
-        self.assertEqual(json.loads(plaud.STATE.read_text(encoding="utf-8"))["ready1@Acme"],
+        self.assertEqual(json.loads(self.state.read_text(encoding="utf-8"))["ready1@Acme"],
                          str(self.vault / "triage" / self.triage()[0]))
 
         out = self.run_main("--write")
@@ -768,7 +786,7 @@ class MainLoop(Offline):
         with self.assertRaises(SystemExit) as stop:
             self.run_main("--write")
         self.assertIn("unreachable", str(stop.exception.code))
-        self.assertFalse(plaud.STATE.exists())
+        self.assertFalse(self.state.exists())
 
     def test_an_expired_token_is_refreshed_before_the_run(self):
         plaud.AUTH.write_text(json.dumps({"access_token": "old", "refresh_token": "r1",
@@ -785,7 +803,7 @@ class MainLoop(Offline):
 
         out = self.run_main()
         self.assertIn("(exists, would record)", out)
-        self.assertFalse(plaud.STATE.exists())
+        self.assertFalse(self.state.exists())
 
         out = self.run_main("--write")
         self.assertIn("wrote: 0 · recorded: 1 · skipped(exists): 0", out)
@@ -844,7 +862,7 @@ class MainLoop(Offline):
         out = self.run_main("--dump", "ready1", "--write")
         self.assertEqual(json.loads(out), {"status": 0, "data": self.detail["ready1"]})
         self.assertEqual(self.triage(), [])
-        self.assertFalse(plaud.STATE.exists())
+        self.assertFalse(self.state.exists())
 
     def test_login_is_dispatched_before_any_config_or_token(self):
         plaud.CONFIG_PATH.write_text("{half", encoding="utf-8")

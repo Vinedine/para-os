@@ -32,6 +32,14 @@ Beyond the list at the top:
 - **Real, readable files.** On a synced drive (OneDrive/iCloud/Drive), set the vault to *always keep on this device* so on-demand sync doesn't hand the agent a placeholder stub instead of the file. Keep files in open formats (Markdown, PDF, CSV, readable Office files); convert cloud-native stubs (Google Docs/Sheets) and closed proprietary formats first.
 - **Storage that can undo.** Keep the vault in a git repo or on a drive with version history (OneDrive, Google Drive, Dropbox all qualify). The skills edit many files in one pass, and version history is the only thing that makes a bad pass reversible. A vault on a synced drive keeps no `.git`, which the drive can corrupt, and takes its git history from [`vault-mirror`](../integrations/vault-mirror/), a repository kept outside the drive. What the agent may change on its own, and what enforces it, is in [the autonomy tiers](autonomy-tiers.md).
 
+## One vault on two machines
+
+A vault on a synced drive can be worked from a laptop and a desktop, or a home server. What syncs is everything in the vault, including each sync script's dedup ledger (`resources/scripts/<name>.synced.json`), so the second machine skips what the first imported.
+
+What lives per machine, under `~/.paraos/`, is set up on each: the sign-ins in `secrets/`, the para-os clone, the vault registry, and triage's mailbox ledger, so a mail one machine dismissed can be proposed again on the other. Claude Code asks each machine to trust the folder once.
+
+What breaks is anything scheduled: a scheduled task runs on the machine it was made on, and stops without a word while that machine is off or restarting for updates. Run the sync scripts and the unattended triage routine from one machine, the one that stays on, and read its run reports.
+
 ## You don't need to be a programmer
 
 You work in one free app: the [Claude desktop app](https://claude.com/download), which runs [Claude Code](https://claude.com/claude-code), Anthropic's AI assistant, in its Code tab (the AI itself needs a paid Claude plan). Point it at your vault folder and you get your files on one side and a chat box on the other. You type plain English; the assistant handles the files. Those files are **Markdown** (the `.md` ending): plain text with a few simple marks, readable on any device. If you can use email and a file explorer, you can run this.

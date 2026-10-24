@@ -2,7 +2,7 @@
 
 Persistent tools this vault needs: a script that pulls from a connected system (accounting, mail, a scraper, an export), kept because it earns its place - not the throwaway one-offs the agent writes, runs once, and discards. The script is code, so it lives here in the vault, version-controlled next to the work it serves.
 
-Its **runtime state does not live here.** Credentials, caches, and bulk data go under `~/.paraos/`, out of the vault so secrets never sync to a cloud drive or git remote and large files never bloat it. Three buckets, named for what's safe to delete:
+Its **runtime state does not live here.** Credentials, caches, and bulk data go under `~/.paraos/`, out of the vault so secrets never sync to a cloud drive or git remote and large files never bloat it. The one exception is a sync script's dedup ledger, `<name>.synced.json` here: the only record that an item was imported, so it syncs with the vault and a second machine never imports it again. Three buckets, named for what's safe to delete:
 
 | Path | Holds | Safe to delete? |
 |------|-------|-----------------|

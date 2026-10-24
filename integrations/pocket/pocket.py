@@ -47,7 +47,12 @@ API = "https://public.heypocketai.com/api/v1"
 # Integration state lives under ~/.paraos (override with PARAOS_HOME); see ~/.paraos/README.md.
 PARAOS_HOME = Path(os.environ.get("PARAOS_HOME") or Path.home() / ".paraos")
 AUTH = PARAOS_HOME / "secrets" / "pocket.json"
-STATE = PARAOS_HOME / "data" / "pocket" / "synced.json"
+# The dedup ledger is the only record that a recording was imported once /para-triage has
+# filed its note, so it lives in the vault it wrote to and syncs with it: a second machine
+# then never imports the same recording again. LEGACY is where older copies kept it, per
+# machine; read and merged, never written.
+LEDGER = Path("resources") / "scripts" / "pocket.synced.json"
+LEGACY = (PARAOS_HOME / "data" / "pocket" / "synced.json", PARAOS_HOME / "cache" / "pocket" / "synced.json")
 
 # This copy lives in <vault>/resources/scripts/, so the vault root is two levels up.
 HERE = Path(__file__).resolve().parent
@@ -478,19 +483,28 @@ def read_ledger(path):
     return ledger
 
 
-def load_ledger():
-    """The ledger at STATE, over the one an older copy kept under cache/. That legacy file is
-    read, never written or deleted."""
-    legacy = STATE.parents[2] / "cache" / STATE.parent.name / STATE.name
-    return {**read_ledger(legacy), **read_ledger(STATE)}
+def ledger_path(vault):
+    """The ledger of `vault`, this one or a sibling: PARENT/VAULT_NAME is VAULT_ROOT."""
+    return VAULT_ROOT.parent / vault / LEDGER
 
 
-def record(key, value):
-    """Add one ledger entry. Every vault's copy shares the file, so re-read and merge rather than
+def load_ledger(vaults):
+    """The legacy machine ledgers, then the ledger of each vault this run may write to."""
+    out = {}
+    for path in (*LEGACY, *(ledger_path(v) for v in vaults)):
+        out.update(read_ledger(path))
+    return out
+
+
+def record(key, value, vault):
+    """Add one entry to `vault`'s ledger, carrying in that vault's entries from the legacy
+    ledgers. Another copy or machine may write it meanwhile, so re-read and merge rather than
     write back what this run loaded."""
-    ledger = load_ledger()
+    path = ledger_path(vault)
+    ledger = {k: v for q in LEGACY for k, v in read_ledger(q).items() if k.endswith(f"@{vault}")}
+    ledger.update(read_ledger(path))
     ledger[key] = value
-    write_atomic(STATE, json.dumps(ledger, indent=2, ensure_ascii=False))
+    write_atomic(path, json.dumps(ledger, indent=2, ensure_ascii=False))
 
 
 def note_id(path):
@@ -704,7 +718,7 @@ def main(argv=None):
         print(json.dumps(body, indent=2, ensure_ascii=False))
         return
 
-    state = load_ledger()
+    state = load_ledger(sorted({vault_name, *routes.values()}))
     cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
     try:
         listed = [(recorded_at(r), r) for r in list_recordings(key, cutoff.date())]
@@ -748,7 +762,7 @@ def main(argv=None):
             # now, or it is imported again once /para-triage files the note out of this folder.
             print(f"  ==  {label}-> {vault}/{subdir}/{dest.name} (exists, {'recorded' if args.write else 'would record'})")
             if args.write:
-                record(f"{rid}@{vault}", str(dest))
+                record(f"{rid}@{vault}", str(dest), vault)
             n["recorded"] += 1
             continue
 
@@ -775,7 +789,7 @@ def main(argv=None):
               f"[sum {sum(len(b) for _, b in summaries)}c · actions {actions.count(chr(10) + '- ') + bool(actions)} · tr {len(transcript)}c]")
         if args.write:
             write_atomic(dest, render_note(rec, when, transcript, summaries, actions))
-            record(f"{rid}@{vault}", str(dest))
+            record(f"{rid}@{vault}", str(dest), vault)
         n["written"] += 1
 
     tail = f" · unrouted: {n['unrouted']} · other vaults: {n['elsewhere']}" if routes else ""
