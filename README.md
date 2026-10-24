@@ -47,7 +47,7 @@ It downloads the kit, asks a few short questions, and ends by filing a few of yo
 ## What makes it different
 
 - **Plain files on your own storage.** No app, no database, no lock-in: para-os adds no server of its own and never copies your vault anywhere ([data and privacy](docs/data-and-privacy.md)).
-- **Any AI, Claude recommended today.** The Quickstart uses Claude (the AI itself needs a paid plan), but the structure is plain files any capable AI can read, and vaults built with it have run on Google Antigravity. When a better assistant appears, you point it at the same folders and keep everything.
+- **Any AI, Claude recommended today.** The Quickstart uses Claude (the AI itself needs a paid plan), but the structure is plain files any capable AI can read, and vaults built with it have run on Google Antigravity. Its house rules hold only what the assistant would get wrong without them, and shrink as models improve. The folders hold what your business knows, which no new model brings: point a better assistant at them and keep everything.
 - **Portable by rule.** Where an AI platform ships one of the kit's features built in, the kit uses it only if your knowledge stays in your own files and keeps working when you switch AI. Otherwise it keeps its own.
 - **Free and open.** MIT-licensed, and kept up because the maintainer's own daily work runs on it.
 
