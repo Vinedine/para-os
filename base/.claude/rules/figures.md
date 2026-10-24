@@ -18,7 +18,7 @@ paths:
 
 ## Freshness stamps
 
-**A hand-maintained figure carries its as-of date next to it**: an `As of` column or `_(as of YYYY-MM-DD)_` after the number, or a date field per row in a registry. An undated hand-maintained figure is a defect: date it, or propose removing it.
+**A hand-maintained figure carries its as-of date next to it**: an `As of` column or `_(as of YYYY-MM-DD)_` after the number, or a date field per row in a registry. An undated hand-maintained figure is a defect: date it, or propose removing it. **An estimate also carries its basis there**: a quote, a comparable, a rule of thumb or a guess.
 
 ## Amounts
 
