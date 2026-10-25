@@ -2,8 +2,6 @@
 
 ## Step 4c: Health flags
 
-Emit each only when it fires:
-
 - **Over the cap:** `<scope>: N open, over the cap of 8 - close or demote before adding. /para-deep-clean grooms`.
 - **Waiting too long:** the oldest `Waiting on` line, `<what> from <person>: N days - chase or drop?`, and how many more.
 - **Stray checkboxes:** open checkboxes in a file under `projects/` or `areas/` that is neither an action file nor a contact file. Flag the total and the worst file: no brief counts them.
@@ -26,7 +24,7 @@ A **sentence end** is a `.`, `!` or `?` outside parentheses, at the line's end o
 
 ## Step 4e: Read the Vision
 
-On every run, for the Next action, read the root `README.md`'s `## Vision` section: Grep `-n` for the heading, then Read from that line to the next `## ` heading.
+For the Next action, read the root `README.md`'s `## Vision` section on every run.
 
 ## Step 5b: Check the triage folder
 
@@ -38,8 +36,8 @@ Two sources, merged. Entries dedupe by (date, start time, normalised title), cas
 
 **1. Calendar connectors - the optional `## Agenda sources` block**, the same table shape as `## Triage sources`: each `connector:` row read per [para-shared/connectors.md](../../para-shared/connectors.md#calendar). Drop all-day "free" placeholders, and convert every start into the vault's declared time zone before bucketing or printing it ([timestamps.md](../../para-shared/timestamps.md)). A source that answers with an error is not absent: carry on and print one line under the agenda naming the source, what failed, and the remedy the error gives.
 
-**2. `meetings.md` - the manual fallback.** Grep the vault: `pattern`: `^- 🗓 `, `glob`: `**/meetings.md`, content mode, unlimited. Discard `archive/` paths. Parse `- 🗓 <date> [<time>] · <title> [· <field>...] [🔁 every <cadence>]`.
+**2. `meetings.md` - the manual fallback.** Every `meetings.md` outside `archive/`, its lines `- 🗓 <date> [<time>] · <title> [· <field>...] [🔁 every <cadence>]`.
 
-Bucket both sources against `T`: `🔁` to Recurring; `== T` to Today; `<= T+7` to This week; later to Upcoming (count only, expanded in `all`); past and not recurring is ignored. Sort by date then time. Omit the Agenda entirely if both sources are empty or absent.
+Bucket both sources against `T`: `🔁` to Recurring; `== T` to Today; `<= T+7` to This week; later to Upcoming (count only, expanded in `all`); past and not recurring is ignored. Omit the Agenda where both sources are empty or absent.
 
 **When Today and This week are both empty, expand Upcoming instead of counting it** (nearest five, then a count for the rest).

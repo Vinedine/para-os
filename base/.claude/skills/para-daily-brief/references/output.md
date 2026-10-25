@@ -1,6 +1,6 @@
 # Rendering the brief (Step 6)
 
-Exact terminal layout, filtered to the argument's sections. Always start with the H1 title.
+The terminal layout, filtered to the argument's sections.
 
 ````
 # Daily Brief - <YYYY-MM-DD> - <vault name>
@@ -48,15 +48,15 @@ Exact terminal layout, filtered to the argument's sections. Always start with th
 
 **A triage item the scan's `triage_preview` marks `auth` is never listed**: it is counted on the codes line, which is omitted at zero ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 
-The 📊 Vault state rows (top 10 entities by open count, remainder aggregated to the `(+N more)` line) render inside their own fenced code block. Bar rows: width 10, the row's `bar` filled `█`, padded with `░`. Entity labels left-aligned to one width. In `all`, append one full section per bucket, each a complete list in the Now line format, after Health flags.
+📊 Vault state shows the top 10 entities by open count, the rest on the `(+N more)` line, in a fenced block: bars 10 wide, the row's `bar` in `█`, padded with `░`. In `all`, append one full section per bucket, each a complete list in the Now line format, after Health flags.
 
-**Line rules:** one line per task, no wraps; priority emoji at bullet start when present; date suffix in parens ("(22d ago)", "(in 5d)"); link text `<scope>:<line>`, or `<person>:<line>` from the scan's `person` field for a contact item; relative link targets from CWD. **A long task text is cut, never wrapped:** link syntax and emphasis reduced to their text, then to its bold lead where it has one, else to its first clause (up to the first `;`, ` - ` or [sentence end](signals.md#step-4d-ideas-lane) outside parentheses), and to 100 characters at a word boundary with `…` if still longer. **A heading's `(N)` counts the items rendered under it**: a recurring item overdue or due today counts under both its date bucket and `🔁 Recurring`, while `Totals:` counts it once, under Recurring.
+**Line rules:** one line per task; link text `<scope>:<line>`, or `<person>:<line>` from the scan's `person` field for a contact item. **A long task text is cut, never wrapped:** link syntax and emphasis reduced to their text, then to its bold lead where it has one, else to its first clause (up to the first `;`, ` - ` or [sentence end](signals.md#step-4d-ideas-lane) outside parentheses), and to 100 characters at a word boundary with `…` if still longer. **A heading's `(N)` counts the items rendered under it**: a recurring item overdue or due today counts under both its date bucket and `🔁 Recurring`, while `Totals:` counts it once, under Recurring.
 
 **Percent-encode every link target** (spaces, commas, `#`, `&`, brackets), never the link text.
 
 ## The entity scope
 
-A different layout, not the vault brief with rows removed: the buckets lead, and every open item renders in the Now line format.
+The buckets lead, and every open item renders in the Now line format.
 
 ````
 # <entity> - <YYYY-MM-DD>
@@ -89,7 +89,7 @@ Rules specific to this scope:
 - **`🔗 Mentioned elsewhere` is not this entity's work.** It is the scan's `mentioned_elsewhere`, five lines then `(+N more)`. Its counts never join the header totals, and each line names the file that owns it.
 - **The Next action still closes it**, chosen from this entity's own items only, never from `🔗 Mentioned elsewhere`.
 
-**The Next action close.** Exactly one item: concrete, startable in roughly two minutes, chosen from the Now list (or, when Now is empty, the most Vision-advancing undated item). Prefer the item that unblocks others or advances the Vision. Phrase it as the *first physical step* ("Open X and check Y"), not the whole task, and link it. Never a question.
+**The Next action close.** Exactly one item from the Now list (when Now is empty, the most Vision-advancing undated item), preferring one that unblocks others or advances the Vision, phrased as its first physical step ("Open X and check Y") and linked. Never a question.
 
 ## The review scope
 
@@ -126,20 +126,7 @@ A look back over the window, every number from the scan's `review` block. The en
 - **An undated close is never dated into the window.** The italic count line renders whenever `undated` is above zero, whatever the window holds.
 - **Moved leads with its count**, one line per declared lifecycle and a quiet one included (`**<Lifecycle>:** nothing moved`); a terminal or closed move says so. The board stays `/para-pipeline`'s.
 - **Stuck names the oldest overdue item only**, since Slipped already lists the recent ones, and at most three entities with no next step, plus a count.
-- **Decisions render as written**, cut like a task.
-- **An empty section is omitted**, Moved excepted; with nothing in the window at all, the count line alone says so.
+- **Moved stays when empty**; with nothing in the window at all, the count line alone says so.
 - **The Next action** is the first step on the oldest slipped item, else on Stuck, by the rule above.
 
 **For one entity, close by offering a status update** the operator can send: one line after the Next action, `Draft a status update for <entity>?`. On a yes, draft it in chat per [para-shared/drafting.md](../../para-shared/drafting.md), each recipient's address from their contact card: what was done (from Done, in plain words), what is next (the entity's soonest open items), and what we need from you (the open items waiting on the recipient's side, a paragraph omitted when none is). No links, counts, flags or undated closes.
-
-## Example fragment
-
-```
-## 🎯 Now (5 of 14)
-1. 🔺 Score the two remaining ticketing vendor bids - [ticketing-platform-replacement:13](projects/ticketing-platform-replacement/actions.md#L13) · 📅 2026-03-31 (22d ago)
-2. Jan to send the legacy POS transaction export - [cashless-stadium-rollout:7](projects/cashless-stadium-rollout/actions.md#L7) · 📅 2026-04-02 (20d ago)
-**Later:** 4 this week · 2 next 30 days · 1 recurring · 6 undated
-
----
-**Next action:** Open the two vendor bid PDFs and re-read your scoring notes from March - [ticketing-platform-replacement:13](projects/ticketing-platform-replacement/actions.md#L13)
-```
