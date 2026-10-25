@@ -40,7 +40,7 @@ python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root>
 
 Run it per [para-shared/scripts.md](../para-shared/scripts.md), then `auto_execute.py status --vault-name <vault.name>`: any `runs`, `proposal` or `offers` follow [unattended.md](references/unattended.md#the-interactive-side).
 
-Each `sources.rows[].plan` decides whether that source runs, per [references/sources.md](references/sources.md). **Re-run the scan** after anything writes into `triage/`.
+Each `sources.rows[].plan` decides whether that source runs, per [references/sources.md](references/sources.md). **Re-run the scan** after anything writes into `triage/`, and with `--threads <file>` once a local mailbox pull has its candidate threads: that folds each into a note already staged for it and counts a sent message's working days unanswered.
 
 Then read `items.loose` and `items.subdirectories`. Subdirectories are **listed, never asked**. Propose deleting a `triage/README.md` (`readme: true`).
 
@@ -48,11 +48,11 @@ Then read `items.loose` and `items.subdirectories`. Subdirectories are **listed,
 
 ### Steps 3 and 4: Inspect, then choose a destination
 
-Read each loose file and choose its entity, name and action per [references/filing.md](references/filing.md).
+Read each loose file and choose its entity, name and action per [references/filing.md](references/filing.md). A meeting record filed for an entity whose shape declares `Last touch` also proposes that entity's updates and a follow-up draft ([filing.md](references/filing.md#a-meeting-record)).
 
 ### Steps 5 and 6: Propose, then approve
 
-Print the manifest per [para-shared/asking.md](../para-shared/asking.md), its count line worded exactly `N items, N questions (N grouped), N rounds.` on the table paths too (each question a row), then `items.subdirectories_line` as the scan printed it. **An item in another writer's lane is never asked**, on any path: it goes on a `Left for <name>: <items>` line after the questions, and nowhere in the table. Then ask one `AskUserQuestion` per item or linked group, from [references/approval.md](references/approval.md)'s vocabulary.
+Print the manifest per [para-shared/asking.md](../para-shared/asking.md), its count line worded exactly `N items, N questions (N grouped), N rounds.` on the table paths too (each question a row), then `items.subdirectories_line` as the scan printed it. **An item whose destination lies in another writer's lane is never asked**, on any path: it goes on a `Left for <name>: <items>` line after the questions, and nowhere in the table. Then ask one `AskUserQuestion` per item or linked group, from [references/approval.md](references/approval.md)'s vocabulary: a money, credential or identity ask is [held](../para-shared/untrusted-content.md).
 
 **On `preview`, `apply`, `table`, or with no interactive operator**, build the table `| # | Source item | Action | Why | Destination |` after the manifest, gated on "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path): an entity to create is **Leave in triage**, its Why naming it. Follow-on edits and any draft go under the table in full. `preview` stops at the table; `apply` skips the gate.
 
@@ -72,5 +72,6 @@ One line per category: moved (each linked to its new path), deleted (with the re
 - **Never invent a top-level PARA folder** without asking.
 - **Mail is read-only** ([connectors.md](../para-shared/connectors.md)); a draft follows [para-shared/drafting.md](../para-shared/drafting.md) and is shown, never sent or saved.
 - **Connector items land in `triage/`, `actions.md` or a register row**, never straight into an entity folder or another vault.
+- **A staged note whose `Content` line says the operator's own messages were not fetched names no reply as owed** (no action to answer the sender, no draft) unless a re-read at its source shows they have not answered ([references/filing.md](references/filing.md)).
 - **Match before creating**, against contacts, projects, ideas, register rows and open `actions.md` items: a thread bearing on tracked work is **Update existing**.
 - **One next step per thread**: at most one new checkbox.
