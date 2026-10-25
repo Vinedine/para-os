@@ -16,16 +16,14 @@ A phased cleanup of a PARA vault with per-entity `sources/`, against the vault's
 | *(none)* | Every phase, from Phase 1 |
 | `phase1`, `phase2`, `phase3`, `phase4` | That phase only |
 | `audit` | Phase 1 and Phase 4, observe only: writes nothing |
-| `ref=<git-ref>` | The committed para-os ref precondition 5 compares against instead of `origin/stable`, with any of the above. A working-tree path is refused. |
+| `ref=<git-ref>` | The committed para-os ref precondition 3 compares against instead of `origin/stable`, with any of the above. A working-tree path is refused. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
 ## Preconditions
 
 1. The vault has a `CLAUDE.md` documenting its structure, naming and "do not add" rules. Missing: stop and ask for one.
-2. It follows the PARA layout: at least `areas/`, `projects/` and `archive/`.
-3. Each entity carries the main document its `CLAUDE.md` prescribes (`brief.md` by default).
-4. **`triage/` holds no loose files** (`preconditions.triage_loose`). Any: stop and say to run `/para-triage` first; `audit` lists them as a finding instead. A `triage_readme` is flagged for deletion in Phase 1.
-5. **The vault is on the newest shipped template revision**, per `preconditions.template_marker` at the `ref=` argument, else `origin/stable`. Detection only: acting on the master's content is `/para-upgrade`'s job.
+2. **`triage/` holds no loose files** (`preconditions.triage_loose`). Any: stop and say to run `/para-triage` first; `audit` lists them as a finding instead. A `triage_readme` is flagged for deletion in Phase 1.
+3. **The vault is on the newest shipped template revision**, per `preconditions.template_marker` at the `ref=` argument, else `origin/stable`. Detection only: acting on the master's content is `/para-upgrade`'s job.
    - **`behind`, or no vault marker:** stop and say to run `/para-upgrade` first.
    - **`ahead`:** name both markers in one line and carry on against the vault's own `CLAUDE.md`. Never send it to `/para-upgrade`.
    - **`no_clone`:** say the revision could not be verified, and carry on.
@@ -33,7 +31,7 @@ A phased cleanup of a PARA vault with per-entity `sources/`, against the vault's
 
 ## Step 0 - Scan
 
-Phases 1, 3 and 4 each open with the scan, per [para-shared/scripts.md](../para-shared/scripts.md): preconditions 4 and 5 plus that phase's candidates. Phase 2 has none.
+Phases 1, 3 and 4 each open with the scan, per [para-shared/scripts.md](../para-shared/scripts.md): preconditions 2 and 3 plus that phase's candidates.
 
 ```bash
 # Windows: py -3
@@ -60,13 +58,13 @@ Close items from documents on file, surface what is time-sensitive, groom action
 
 ### Phase 4 - Final audit
 
-Read-only, and the second half of `audit`. A scan row with `pass: false` is a residual issue unless Phase 1's exclusions or an operator decision this run, recorded in the summary, accounts for it. A `pass: None` row is a count whose verdict is the agent's, `over_threshold_files` included where no file over is an `actions.md` (each may declare its own contract, Step 3.4). Then check by reading what no row covers:
+Read-only, and the second half of `audit`. A scan row with `pass: false` is a residual issue unless Phase 1's exclusions or an operator decision this run accounts for it. A `pass: None` row's verdict is the agent's, `over_threshold_files` included where no file over is an `actions.md` (Step 3.4). Then check what no row covers:
 
 - The root README passes the Step 1.1 shape check, every README follows the structure `CLAUDE.md` documents, and active entities' Open items hold only real work.
 - Every contradiction between live files is corrected in the copies or carried as an open item on the owning entity.
 - Status tables ("where do we stand": cost basis, stage, key numbers) are present and current, where the vault uses them.
 - Content grooming was proposed and ruled on, each removal approved with its text shown, and the summary names the briefs Step 3.5 read and skipped.
-- **`/para-daily-brief` runs** against the cleaned vault, terminal only, and its counts look right. Never simulate it with a grep.
+- **`/para-daily-brief` runs** against the cleaned vault, terminal only, and its counts look right.
 
 Report a clean state, or the residual issues with proposed fixes.
 
@@ -76,7 +74,7 @@ A final summary: what was fixed, by phase; a status snapshot, one row per entity
 
 ## Strict rules
 
-**Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
+**Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** Specific to this skill:
 
 - **Lossless changes batch** on the issues table: demotions, link repoints, renames, README normalisation. **Anything that closes, removes, strips a marker or deletes is one question per item**, per [para-shared/asking.md](../para-shared/asking.md), never a batch approval.
 - **Read every README, and the source document a proposal rests on**, before proposing.

@@ -89,5 +89,5 @@ Each Reaction in `revision.entries` changes the vault's own content (a declarati
 
 ## Related skills
 
-- `/para-deep-clean` - the conformance skill to this one's migration. Its own Precondition 5 sends a vault here when it is behind.
+- `/para-deep-clean` - the conformance skill to this one's migration. Its own Precondition 3 sends a vault here when it is behind.
 - `/para-audit` - the same file table for every registered vault at once.

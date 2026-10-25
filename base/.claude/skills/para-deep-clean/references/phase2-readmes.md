@@ -6,7 +6,7 @@ Fix Phase 1's shape findings against the four headings the vault's `CLAUDE.md` f
 
 ## Step 2.1 - The declared shape
 
-Find the shape for entity READMEs and briefs, per [A vault's rule files](../../para-shared/operating-discipline.md#a-vaults-rule-files). This skill brings no section list of its own.
+Find the shape for entity READMEs and briefs, per [A vault's rule files](../../para-shared/operating-discipline.md#a-vaults-rule-files); this skill brings no section list.
 
 - **Declared:** audit against it and add nothing; propose extending it where it lives if it is genuinely incomplete. Audit an order only where the shape fixes one. "At least" names facts, not headings: the facts must be present under any heading, and renaming to the shape's headings is offered, never applied.
 - **None:** draft a shape file from what the existing READMEs share, per [rule-files.md](../../para-shared/rule-files.md), with `_n/a_` lines for sections that do not apply, and propose it with its pointer. Whether it fixes an order is the operator's call.
