@@ -7,25 +7,25 @@ argument-hint: '[--ref <git-ref>] [--clone <path>] [--add <name>] [audit] [--tes
 
 # Para upgrade
 
-Aligns one vault to a para-os template revision. This is the **migration** skill: it changes what the vault's rules *are*. `/para-deep-clean` checks the vault against the rules it already has; run this one first when both are due.
+Aligns one vault to a para-os template revision: it changes the vault's rules, where `/para-deep-clean` holds the vault to the rules it has. When both are due, run this one first.
 
 ## Arguments
 
 | Arg | Behavior |
 |---|---|
 | *(none)* | Full flow against `origin/stable` |
-| `--ref <git-ref>` | Read the kit at this branch, tag or commit instead. A bare positional ref (`/para-upgrade feat/x`), or one after a qualifier word (`local feat/x`), is the same. |
+| `--ref <git-ref>` | Read the kit at this branch, tag or commit. A bare positional ref (`/para-upgrade feat/x`), or one after a qualifier word (`local feat/x`), is the same. |
 | `--clone <path>` | Read this para-os clone instead of the default one, per [para-shared/scripts.md](../para-shared/scripts.md) |
-| `--add <name>` | Also adopt `addons/<name>/`, or one named in words: before Step 5, run its README's Setup from the clone, each step on its own yes. Step 5's scan then holds its files to the ref. |
-| `audit` | Read-only: report what an upgrade would change, and change nothing |
+| `--add <name>` | Also adopt `addons/<name>/`, or one named in words: before Step 5, run its README's Setup from the clone, each step on its own yes. |
+| `audit` | Read-only: report the plan and change nothing |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 | any other `--` argument | Stops the run, `audit` or not: name it and show this table. Never read as a ref, bare or not. |
 
 ## Preconditions
 
-1. **A local para-os clone**, per [para-shared/scripts.md](../para-shared/scripts.md); with none (the scan's exit 6), ask for its path. Run `git -C <clone> fetch origin` first, so `origin/stable` is current.
+1. **A local para-os clone**, per [para-shared/scripts.md](../para-shared/scripts.md); with none (the scan's exit 6), ask for its path. Run `git -C <clone> fetch origin` first.
 2. **A `CLAUDE.md` in the vault.** Without one this is a bootstrap, not an upgrade: point at `bootstrap-prompt.md` and stop.
-3. **An undo path, named before the first write**: git where the vault is a repository, the drive's version history, or none, which needs the operator's explicit go-ahead. Name any uncommitted change already in the vault, so the upgrade's diff stays its own.
+3. **An undo path, named before the first write**: git, the drive's version history, or none, which needs the operator's explicit go-ahead. Name any uncommitted change already in the vault, so the upgrade's diff stays its own.
 
 ## Step 1 - Scan and plan
 
@@ -34,13 +34,13 @@ Aligns one vault to a para-os template revision. This is the **migration** skill
 python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> [--clone <path>] [--ref <ref>] > <scan output path>
 ```
 
-**Exit codes**: 0 answered; 3 not a vault root (with no `CLAUDE.md`, Precondition 2); 4 the clone or the ref cannot be read: ask for a clone path or a ref that resolves; 5 no ref named and the clone has no `origin/stable`: ask the operator to switch the clone to `stable`, then scan again; 6 no clone: Precondition 1. Every field is in the script's docstring.
+The script's docstring defines every field and exit code. On exit 3 with no `CLAUDE.md`, see Precondition 2; on 4, ask for a clone path or a ref that resolves; on 5, ask the operator to switch the clone to `stable`, then scan again; on 6, see Precondition 1.
 
 By `revision.verdict`:
 
 - **behind** or **no-marker**: Steps 2 to 5.
-- **equal**: a kit file drifts on its own, so `files` still counts. With nothing in it, say the vault is on revision X with nothing to do, and suggest `/para-deep-clean` for a cleanup.
-- **ahead**: stop and ask. The ref is stale, or the marker was edited by hand. Never downgrade a vault.
+- **equal**: a kit file drifts on its own, so `files` still counts. With nothing in it, say the vault is on revision X with nothing to do.
+- **ahead**: stop and ask; the ref is stale or the marker was edited by hand. Never downgrade a vault.
 
 **Present the plan before touching anything**: the `files` rows by state, the `contract` rows, and the Reactions in `revision.entries`. With `audit`, report the plan and stop.
 
@@ -48,25 +48,24 @@ By `revision.verdict`:
 
 Every `files` row, by `state`:
 
-- **untouched**: an older version the kit shipped: behind, with nothing local to lose. Re-copy them all on one approval.
+- **untouched**: a version the kit shipped, with nothing local to lose. Re-copy them all on one approval.
 - **missing**: copy in on one approval. A rule file copied in takes over what the vault already states of its rule, each line moved on its own yes.
 - **edited**: bytes the kit never shipped: local work, a hand edit, or a copy taken from ahead of the ref. Show the row's `diff` and say what it shows; the operator decides each file: re-copy, keep, or carry the kit's change into the vault's wording.
-- **retired**: the kit no longer ships it. Each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
-- **no-master**: an integration the ref ships nothing for. Report it and leave it, unless a collected Reaction retires it: then its deletion is its own question.
+- **retired**: each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
+- **no-master**: report it and leave it, unless a collected Reaction retires it; then treat it as **retired**.
 
 A `path` outside the vault is a user-level install, shared by every vault on the machine: say so when proposing it. Copy each with `upgrade_scan.py copy --vault <root> --clone <clone> --commit <clone.commit> <master> <path>`; exit 4 changed nothing.
 
 ## Step 3 - The contract
 
-`contract` is the template's own change since the vault's revision, one row per changed section of `base/CLAUDE.md.template` or a declared add-on's `CLAUDE.md.sections`. For each hunk, find where the vault states that rule and propose the edit in the vault's own wording and language; the operator rules on each hunk. With `revision.baseline` null there was no earlier template to diff against: each section comes whole, to compare with the vault's.
+For each `contract` hunk, find where the vault states that rule and propose the edit in the vault's own wording and language; the operator rules on each hunk. With `revision.baseline` null, each section comes whole, to compare with the vault's.
 
 - **The template is a floor.** Never remove the vault's own sections, rules or declaration lines; where the template moves a section the vault extended, the vault's content moves with it.
 - **A hunk the vault already states is skipped**, said in one line. A rule the vault deliberately departs from is the operator's call.
-- **The marker line is Step 5's.** Hold the vault's existing marker until then.
 
 ## Step 4 - Content changes
 
-Each Reaction in `revision.entries` changes the vault's own content (a declaration line, a file to move, notes to delete) and is its own item with its own approval. One whose condition the vault does not meet does not apply: say so in one line. Reclassifying or retiring the vault's own entities is proposed, never applied, and every move repoints inbound links in the same pass.
+Each Reaction in `revision.entries` is its own item with its own approval; one whose condition the vault does not meet does not apply, said in one line. Reclassifying or retiring the vault's own entities is proposed, never applied, and a move repoints inbound links in the same pass.
 
 ## Step 5 - Stamp and verify
 
@@ -81,13 +80,5 @@ Each Reaction in `revision.entries` changes the vault's own content (a declarati
 
 - **The plan is the scope.** Drift it does not name belongs to `/para-deep-clean`.
 - **Never overwrite an edited file, or a user-level install, without the operator's yes for that file.**
-- **Never write the marker before the work it claims.** A marker written early hides the rest from every later run.
-
-## Edge cases
-
-- **A write fails mid-pass** (a sync client holding the file): stop, list what landed, have the operator pause syncing, and resume from the failed step. There is no automatic rollback: hand over Precondition 3's undo path.
-
-## Related skills
-
-- `/para-deep-clean` - the conformance skill to this one's migration. Its own Precondition 3 sends a vault here when it is behind.
-- `/para-audit` - the same file table for every registered vault at once.
+- **Never write the marker before the work it claims**, and hold the vault's existing marker until Step 5.
+- **A write that fails mid-pass** (a sync client holding the file) stops the run: list what landed, have the operator pause syncing, and resume from the failed step. There is no automatic rollback beyond Precondition 3's undo path.
