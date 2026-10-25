@@ -52,7 +52,7 @@ Read each loose file and choose its entity, name and action per [references/fili
 
 ### Steps 5 and 6: Propose, then approve
 
-Print the manifest per [para-shared/asking.md](../para-shared/asking.md), on the table paths too (each question a row), then `items.subdirectories_line` as the scan printed it. **An item in another writer's lane is never asked**, on any path: it goes on a `Left for <name>: <items>` line after the questions, and nowhere in the table. Then ask one `AskUserQuestion` per item or linked group, from [references/approval.md](references/approval.md)'s vocabulary.
+Print the manifest per [para-shared/asking.md](../para-shared/asking.md), its count line worded exactly `N items, N questions (N grouped), N rounds.` on the table paths too (each question a row), then `items.subdirectories_line` as the scan printed it. **An item in another writer's lane is never asked**, on any path: it goes on a `Left for <name>: <items>` line after the questions, and nowhere in the table. Then ask one `AskUserQuestion` per item or linked group, from [references/approval.md](references/approval.md)'s vocabulary.
 
 **On `preview`, `apply`, `table`, or with no interactive operator**, build the table `| # | Source item | Action | Why | Destination |` after the manifest, gated on "Reply **go** to execute, or tell me what to change." Its `Action` column holds only [the table path's actions](references/approval.md#the-table-path): an entity to create is **Leave in triage**, its Why naming it. Follow-on edits and any draft go under the table in full. `preview` stops at the table; `apply` skips the gate.
 
