@@ -9,20 +9,6 @@ The agenda is `/para-daily-brief`'s, read by [its Step 5c](../../para-daily-brie
 
 ## What the scan returns
 
-| Field | Holds |
-|---|---|
-| `today` | The date ages are measured against |
-| `people[]` | Per `--person`, in order: `name`, `email`, `status` (`matched`, `ambiguous`, `no_card`), `matched_by` |
-| `people[].candidates` | `ambiguous` only: the possible cards |
-| `people[].card` | `matched` only: `path`, `name`, `kind`, `header`, `items` (its open checkboxes) |
-| `people[].entities` | `matched` only: the paths of the entities the card links or that link it |
-| `people[].mentions` | Open items naming the person in any other file: `file`, `line`, the markers, `by` |
-| `people[].records` | The five newest files naming the person in a live `sources/` or `archive/meetings/`, with `date`, `days_ago`, `by` |
-| `people[].unfiled` | `{path, by}` per `triage/` item naming the person, undated: date it by its content |
-| `people[].rows` | Register rows naming the person: `register`, `line`, `name`, `closed`, `stage`, `cells`, `by` |
-| `entities[]` | Per entity a matched card ties to: `path`, `document`, `title`, `stage`, `header`, `unknown` (fields reading `unknown`), `do_not_raise`, `actions` (`path`, `open`, `next`) |
-| `entities[].stage` | Null unless at a declared stage: `name`, `since`, `days_in_stage`, `dated_facts` (`days_ahead`), `terminal`, and `columns`, the stage's lifecycle row as written (`Exit criterion` among them) |
-
 **Null is not empty**: a null `mentions`, `records`, `unfiled` or `rows` was never searched (an `ambiguous` person, or a one-word name with no card).
 
 ## How much a match is worth

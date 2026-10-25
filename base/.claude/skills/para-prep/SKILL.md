@@ -7,11 +7,7 @@ argument-hint: '[<event>|<person>|today] [--test]'
 
 # Para prep
 
-What the vault already holds about a meeting, gathered in the minutes before it: who is coming, what their cards and entities say, what is open in both directions, what happened last time, and what the vault does not know.
-
 **Read-only contract.** It answers in chat and writes nothing: no vault file, no calendar response, no mail. A person with no card is offered `/para-new`, and a prep worth keeping is the operator's to save.
-
-Nothing assumes a sale: a vault with no lifecycle preps a meeting as well as one with a pipeline.
 
 **Every line names the file it came from.** Where the vault holds nothing, the prep says so and turns the gap into a question to ask.
 
@@ -47,7 +43,7 @@ One call, every attendee of every meeting being prepped, each once, per [para-sh
 python3 "<this skill's base directory>/scripts/prep_scan.py" --vault <root> --person "<name, address, or Name <address>>" [--person ...] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-**Field table and what each match is worth: [references/gather.md](references/gather.md).** Then read what the prep cites and nothing else: each matched card, the newest record per meeting, and an entity's brief where its stage or do-not-raise list is quoted.
+What each match is worth: [references/gather.md](references/gather.md). Then read what the prep cites and nothing else: each matched card, the newest record per meeting, and an entity's brief where its stage or do-not-raise list is quoted.
 
 An `ambiguous` attendee is asked about, naming the candidate cards, before that meeting's prep renders, never resolved by the likelier card.
 
