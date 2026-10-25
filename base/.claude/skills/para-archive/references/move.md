@@ -44,4 +44,4 @@ One `--routed` per file Step 7.1 moved; one `--keep` per mention of the old path
 | `untracked` | files at the new path git does not track; `null` when git cannot answer | listed |
 | `clean` | true when the first four rows pass | the pass line, never instead of reading the lists |
 
-Confirm the archived folder holds only history and any successor the surviving work. Report, after [Step 9](close-out.md): what was archived and its kind, the version decision, files routed, snapshots deleted, the successor, the links repointed in a table (inbound and inside counted separately), Step 9's answers, and whether anything was committed under which commit rule. A touched skill or public repo is flagged for its own review.
+Confirm the archived folder holds only history and any successor the surviving work. Report, after [Step 9](close-out.md): what was archived, the version decision, files routed, snapshots deleted, the successor, the repoints in a table (inbound and inside apart), Step 9's answers and any commit. A touched skill or public repo is flagged for its own review.

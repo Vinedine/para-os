@@ -21,7 +21,7 @@ Ask what to do differently next time, starting from any lessons the brief record
 - **a dated line** in `.claude/rules/working-preferences.md`, for how the operator wants the agent to work;
 - **the closed brief**, which changes nothing.
 
-The report names each lesson's home and says plainly that nothing reads one left in the brief.
+The report names each lesson's home, and that nothing reads one left in the brief.
 
 ## A won deal: the next conversation
 
