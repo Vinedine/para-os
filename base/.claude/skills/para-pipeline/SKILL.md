@@ -7,11 +7,7 @@ argument-hint: '[<lifecycle>] [--test]'
 
 # Para pipeline
 
-The board for **staged entities**: every lifecycle the vault declares, each entity at its stage, the next step and its date, what has stopped moving, and what the quarter did.
-
-**Read-only contract.** It reports; the operator moves the entity, and a flag here is what prompts the edit.
-
-Every line it prints uses the vault's own entity and stage names, never a scan field's.
+**Read-only**: it reports, and the operator moves the entity. Every line uses the vault's own entity and stage names, never a scan field's.
 
 ## Arguments
 
@@ -29,7 +25,7 @@ A leftover argument follows [operating-discipline.md](../para-shared/operating-d
 
 Resolve and verify the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault).
 
-Read the vault's `CLAUDE.md` for every section whose heading ends in `lifecycle` ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), and the rule file their documents load.
+Read every `CLAUDE.md` section whose heading ends in `lifecycle` ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), and the rule file their documents load.
 
 **A vault that declares none has nothing to render.** Say so in one line, name the two places a lifecycle comes from (a flavor, a module), and stop. Never infer stages from folder names.
 
@@ -44,7 +40,7 @@ One call, per [para-shared/scripts.md](../para-shared/scripts.md):
 python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault <root> [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Pass `--lifecycle` only under a lifecycle scope. Exit 3 (`no such lifecycle`, with the `declared` list) is asked about as in Step 1. **Field table: [references/scan.md](references/scan.md).**
+Pass `--lifecycle` only under a lifecycle scope. Exit 3 (`no such lifecycle`, with the `declared` list) is asked about as in Step 1.
 
 ### Step 4: Render
 
@@ -57,5 +53,5 @@ Without a lifecycle argument, and only where the vault declares a page for `para
 ## Strict rules
 
 - **Never invent a stage, a date or a next step.** Unknown stays unknown, and a missing step is flagged.
-- **Never score, weight or forecast.** The one ordering beyond stage and days is the By value line, by stated Value, unweighted. No probability, conversion rate or funnel percentage: a pipeline of a dozen entities is read, not modelled.
+- **Never score, weight or forecast.** The one ordering beyond stage and days is the By value line, by stated Value, unweighted. No probability, conversion rate or funnel percentage.
 - **A value figure is internal.** It renders in the terminal, never into a file, a page or anything shared outside the vault.
