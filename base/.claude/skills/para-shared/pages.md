@@ -1,6 +1,6 @@
 # A skill's page
 
-What every skill that ends on a page shares, for its own page and for one the vault declares for it. [scripts/paraos_pages.py](scripts/paraos_pages.py) does the mechanics; its docstring is the specification.
+For a skill's own page and one the vault declares for it. [scripts/paraos_pages.py](scripts/paraos_pages.py) does the mechanics; its docstring is the specification.
 
 ## Publishing it
 

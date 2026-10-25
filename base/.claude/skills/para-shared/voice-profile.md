@@ -1,6 +1,6 @@
 # Voice profile (shared across skills)
 
-How a vault keeps the way one person writes, so a draft in their name reads as theirs. This file governs building, rebuilding and correcting one, only ever on that person's ask.
+How a vault keeps the way one person writes, so a draft in their name reads as theirs. Build, rebuild or correct one only on that person's ask.
 
 ## Where it lives
 

@@ -1,6 +1,6 @@
 # Asking item by item (shared across skills)
 
-How a skill puts a batch of decisions to the operator through `AskUserQuestion` instead of one table and one `go`. The vocabulary, the dispositions a question may offer, stays in each skill's own reference.
+How a skill puts a batch of decisions to the operator through `AskUserQuestion` instead of one table and one `go`.
 
 ## Before the questions: the manifest
 
@@ -21,7 +21,7 @@ Up to **4 questions per call**, questions about the same entity or file together
 - **`header`**: the position, `Item 3/11`, `Group 5/11`. A skill asking exactly one question names the decision instead: `Shape`, `Disposition`.
 - **`question`**: the item by name and the proposed target in full, never abbreviated.
 - **`options`**: 2 to 4 from the skill's vocabulary, one an escape that changes nothing (leave it, decide later), the proposal first and labelled `(Recommended)`, each description carrying its evidence and the full target. **A question of fact about the operator's own situation carries no recommendation**: order its options by what the vault's evidence suggests and say in each what that answer does to the run.
-- **One decision per question**, and `multiSelect: false`: a disposition is exclusive, and splitting a group is an **Other** answer.
+- **One decision per question**, and `multiSelect: false`; splitting a group is an **Other** answer.
 - **`preview`**, where the options differ in something the operator would rather see than read, shows the content exactly as it will be written, never reformatted to fit; where it cannot fit, a fragment marked abbreviated.
 
 ## A question with a suggested answer
