@@ -37,6 +37,9 @@ def write(root, rel, text):
     return path
 
 
+DUP = b"same bytes\n" * 20
+
+
 def call(*argv):
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
@@ -52,7 +55,8 @@ class Executor(unittest.TestCase):
         write(self.vault, "CLAUDE.md", "# north Vault Conventions\n")
         for p in ("projects", "areas", "triage"):
             (self.vault / p).mkdir(parents=True, exist_ok=True)
-        write(self.vault, "triage/dup.pdf", "same bytes\n")
+        write(self.vault, "triage/dup.pdf", DUP.decode())
+        write(self.vault, "projects/site/dup.pdf", DUP.decode())
         write(self.vault, "triage/noise.md", "A newsletter.\n")
         write(self.vault, "triage/invoice.md", "Pay the host by Friday.\n")
         write(self.vault, "triage/linked.md", "Linked from a project.\n")
@@ -79,7 +83,8 @@ class Executor(unittest.TestCase):
         return call("run", "--scan", self.scan(), "--decisions", self.decide(rows),
                     "--cap", cap, "--paraos-home", self.home)
 
-    ROWS = [{"item": "dup.pdf", "action": "Delete (duplicate)", "survivor": "projects/x.pdf"},
+    ROWS = [{"item": "dup.pdf", "action": "Delete (duplicate)",
+             "survivor": "projects/site/dup.pdf"},
             {"item": "noise.md", "action": "Dismiss (noise)"},
             {"item": "invoice.md", "action": "Delete (duplicate)", "hold": "money owed"},
             {"item": "linked.md", "action": "Delete (duplicate)"}]
@@ -96,7 +101,7 @@ class Executor(unittest.TestCase):
         self.assertFalse((self.vault / "triage" / "dup.pdf").exists())
         manifest = json.loads((Path(out["quarantine"]) / "manifest.json").read_text())
         self.assertEqual(manifest["items"][0]["file"]["md5"],
-                         auto_execute.hashlib.md5(b"same bytes\n").hexdigest())
+                         auto_execute.hashlib.md5(DUP).hexdigest())
         proposal = Path(out["proposal"]).read_text()
         self.assertIn("| invoice.md | Delete (duplicate) |  | money owed |", proposal)
 
@@ -107,7 +112,7 @@ class Executor(unittest.TestCase):
         rows = [{"item": "../CLAUDE.md", "action": "Delete (duplicate)"},
                 {"item": "noise.md", "action": "Dismiss (noise)"},
                 {"item": "dup.pdf", "action": "File it"},
-                {"item": "invoice.md", "action": "Delete (duplicate)"},
+                {"item": "invoice.md", "action": "Dismiss (noise)"},
                 {"item": "dup.pdf", "action": "Delete (duplicate)"}]
         code, out = call("run", "--scan", saved, "--decisions", self.decide(rows),
                          "--cap", 1, "--paraos-home", self.home)
@@ -116,6 +121,16 @@ class Executor(unittest.TestCase):
                                    "changed since the scan", "File it is never unattended",
                                    "over the run's cap of 1"])
         self.assertEqual([a["item"] for a in out["acted"]], ["invoice.md"])
+
+    def test_a_duplicate_the_scan_finds_no_byte_match_for_is_refused(self):
+        self.switch_on("Delete (duplicate)")
+        write(self.vault, "areas/mail/sources/full.md", "A filed mail.\n" * 20)
+        write(self.vault, "triage/shorter.md", "A filed mail.\n" * 19)
+        code, out = self.run_all([{"item": "shorter.md", "action": "Delete (duplicate)",
+                                   "survivor": "areas/mail/sources/full.md"}])
+        self.assertEqual(out["refused"], [{"item": "shorter.md",
+                                           "reason": "the scan finds no byte match for it"}])
+        self.assertTrue((self.vault / "triage" / "shorter.md").exists())
 
     def test_a_run_consumes_its_decisions_file(self):
         self.switch_on("Delete (duplicate)")
@@ -156,7 +171,7 @@ class Executor(unittest.TestCase):
         code, back = call("restore", "--vault-name", "north", "--run", out["run"],
                           "--item", "dup.pdf", "--paraos-home", self.home)
         self.assertEqual(code, 0)
-        self.assertEqual((self.vault / "triage" / "dup.pdf").read_bytes(), b"same bytes\n")
+        self.assertEqual((self.vault / "triage" / "dup.pdf").read_bytes(), DUP)
         _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
         self.assertEqual(status["on"], ["Dismiss (noise)"])
         self.assertEqual(status["runs"][0]["acted"],
