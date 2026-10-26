@@ -22,6 +22,7 @@ Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero
 - Where the vault's copy of `.claude/rules/filing.md` differs from the kit's, move the naming default and each folder variant it names into the Source documents line, then re-copy the kit's file: `CLAUDE.md`, `.claude/rules/filing.md` (#617)
 - Where the vault's copy of `.claude/rules/figures.md` adds its own rule that an estimate names its basis, propose removing those lines, which the kit's file now carries: `.claude/rules/figures.md` (#632)
 - In a real-estate vault whose deal-sheet template has no own-home variant, offer the one in the add-on's skeleton template, its `OWN HOME` stage line and its `VARIANT C: OWN HOME` block, merged into the vault's copy on the operator's yes: `resources/prompts/dealsheet-template.html` (#638)
+Retired: `.claude/skills/para-triage/references/scan.md`, `.claude/skills/para-pipeline/references/scan.md`
 
 ## 2026.10.03
 
