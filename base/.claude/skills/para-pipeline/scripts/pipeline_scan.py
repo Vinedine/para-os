@@ -192,10 +192,8 @@ def next_step_for_folder(vault, today, doc, fields, other_files):
 
 
 # A date the wording attaches to a register row's step, ranked: a 📅 marker, `by` before it,
-# `on` before it, the date closing the cell. The marker counts anywhere; the wording ranks
-# only in the cell's last clause, after its last `;`, since the clauses before it are the row's
-# context. A date anywhere else in the prose is not the due date. `by` and `on` may carry a
-# weekday.
+# `on` before it, the date closing the cell. The highest-ranked match wins wherever it sits.
+# A date anywhere else in the prose is not the due date. `by` and `on` may carry a weekday.
 WEEKDAY = r"(?:(?:mon|tues?|wed(?:s|nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)?\.?,?\s+)?"
 STEP_DATE_RES = [re.compile(p, re.IGNORECASE) for p in (
     r"📅️?\s*(\d{4}-\d{2}-\d{2})", r"\bby\s+" + WEEKDAY + r"(\d{4}-\d{2}-\d{2})",
@@ -203,9 +201,8 @@ STEP_DATE_RES = [re.compile(p, re.IGNORECASE) for p in (
 
 
 def step_date(text):
-    last_clause = text.rsplit(";", 1)[-1]
-    for i, rx in enumerate(STEP_DATE_RES):
-        m = rx.search(text if i == 0 else last_clause)
+    for rx in STEP_DATE_RES:
+        m = rx.search(text)
         if m:
             return parse_date(m.group(1))
     return None
