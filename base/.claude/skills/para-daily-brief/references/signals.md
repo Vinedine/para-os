@@ -10,10 +10,10 @@
 - **Falsely-overdue candidates:** the count and the worst offender.
 - **Stale recurrence:** the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
 - **Undated majority:** one line, `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
-- **Misplaced checkboxes:** one line per bucket the scan lists, naming the worst file: `N open checkboxes under archive/ (worst: <file>, N) - archive hygiene requires zero`.
+- **Misplaced checkboxes:** one line per bucket the scan lists, naming the worst file: `N open checkboxes under <bucket>/ (worst: <file>, N)`.
 - **Nothing open:** a folder under `projects/` or `areas/` with no open item anywhere under it. One line each for the first three the scan lists: `<entity>: nothing open`
 - **Over-grown brief:** one line per offender, `<file>: N lines - content grooming via /para-deep-clean`.
-- **Deep clean due:** `last /para-deep-clean <date> (N days ago)`, or `/para-deep-clean has not run on this machine` where the scan's `last` is null.
+- **Deep clean due:** `last /para-deep-clean <date> (N days ago)`, or `no /para-deep-clean recorded on this machine` where the scan's `last` is null.
 - **Silent source:** one line per source, `<source>: nothing since <date> (N days)`. A ledger that cannot be read is flagged, never passed ([para-shared/absent-is-not-zero.md](../../para-shared/absent-is-not-zero.md)).
 
 ## Step 4d: Ideas lane

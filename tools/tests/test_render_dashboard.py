@@ -182,6 +182,12 @@ class Drilldowns(DashboardCase):
         self.assertEqual(rows, [{"label": "areas/garden", "meta": "no actions.md"},
                                 {"label": "projects/stalled", "meta": f"since {touched}"}])
 
+    def test_a_raised_flag_with_nothing_behind_it_opens_on_nothing(self):
+        report = self.report()
+        flag = {"text": "**No deep clean recorded**", "kind": "deep_clean_due"}
+        got = self.page(self.judgment(report, flags=[flag]), report)["flags"]
+        self.assertEqual(got, [{"html": "<b>No deep clean recorded</b>", "tasks": [], "rows": []}])
+
     def test_a_plain_string_flag_opens_on_nothing(self):
         report = self.report()
         got = self.page(self.judgment(report, flags=["**x: 14 open**"]), report)["flags"]
@@ -302,8 +308,8 @@ class Mechanical(DashboardCase):
         self.assertIn("<b>stalled: nothing open</b>, and 1 more", text)
         self.assertIn("<b>1 done item with its box open</b> (areas/busy/actions.md:15)", text)
 
-    def test_a_deep_clean_due_is_worded_with_its_date_or_as_never_run(self):
-        self.assertIn("<b><code>/para-deep-clean</code> has not run on this machine</b>",
+    def test_a_deep_clean_due_is_worded_with_its_date_or_as_never_recorded(self):
+        self.assertIn("<b>No <code>/para-deep-clean</code> recorded on this machine</b>",
                       " ".join(f["html"] for f in self.page()["flags"]))
         write(self.home, "data/deep-clean/vault.txt", "2026-08-01\n")
         self.assertIn("<b>Last <code>/para-deep-clean</code> 2026-08-01</b> (45 days ago)",
