@@ -22,7 +22,7 @@ A phased cleanup of a PARA vault with per-entity `sources/`, against the vault's
 ## Preconditions
 
 1. The vault has a `CLAUDE.md` documenting its structure, naming and "do not add" rules. Missing: stop and ask for one.
-2. **`triage/` holds no loose files** (`preconditions.triage_loose`). Any: stop and say to run `/para-triage` first; `audit` lists them as a finding instead. A `triage_readme` is flagged for deletion in Phase 1.
+2. **Loose files in `triage/`** (`preconditions.triage_loose`) are a Phase 1 finding, never a stop; a `triage_readme` is flagged for deletion there.
 3. **The vault is on the newest shipped template revision**, per `preconditions.template_marker` at the `ref=` argument, else `origin/stable`. Detection only: acting on the master's content is `/para-upgrade`'s job.
    - **`behind`, or no vault marker:** stop and say to run `/para-upgrade` first.
    - **`ahead`:** name both markers in one line and carry on against the vault's own `CLAUDE.md`. Never send it to `/para-upgrade`.
@@ -58,7 +58,7 @@ Close items from documents on file, surface what is time-sensitive, groom action
 
 ### Phase 4 - Final audit
 
-Read-only, and the second half of `audit`. A scan row with `pass: false` is a residual issue unless Phase 1's exclusions or an operator decision this run accounts for it. A `pass: None` row's verdict is the agent's, `over_threshold_files` included where no file over is an `actions.md` (Step 3.4). Then check what no row covers:
+Read-only, and the second half of `audit`. A scan row with `pass: false` is a residual issue unless Phase 1's exclusions or an operator decision this run accounts for it. A `pass: None` row's verdict is the agent's, `over_threshold_files` included where no file over is an `actions.md` (each may declare its own contract, Step 3.4). Then check what no row covers:
 
 - The root README passes the Step 1.1 shape check, every README follows the structure `CLAUDE.md` documents, and active entities' Open items hold only real work.
 - Every contradiction between live files is corrected in the copies or carried as an open item on the owning entity.

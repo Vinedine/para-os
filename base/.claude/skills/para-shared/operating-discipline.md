@@ -1,6 +1,6 @@
 # Operating discipline (shared across skills)
 
-The discipline every file-mutating skill follows. A read-only skill inherits only [Arguments](#arguments). Each `paraos_vault.py` command below runs as `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py"`, or `py -3` on Windows.
+The discipline every file-mutating skill follows. A read-only skill inherits only [Arguments](#arguments).
 
 ## Arguments
 
@@ -14,7 +14,7 @@ A leftover argument is a shape the skill's Arguments table names with no sentenc
 ## Deleting a file
 
 - **Compare the contents first.** A matching name or size is not proof: read both, confirm the survivor supersedes, then ask.
-- **A delete stays recoverable**: `git rm` for a tracked file; for an untracked one, the system trash through `paraos_vault.py trash <path>...`. A path it reports `not_trashed` had no trash reachable: say the delete is permanent and ask before `rm`. The summary says which way each went.
+- **A delete stays recoverable**: `git rm` for a tracked file; for an untracked one, the system trash through `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" trash <path>...` (Windows: `py -3`). A path it reports `not_trashed` had no trash reachable: say the delete is permanent and ask before `rm`. The summary says which way each went.
 
 ## Preserve, don't rewrite
 
@@ -37,14 +37,14 @@ A link, checkbox, marker, heading or placeholder inside a fenced block or an inl
 
 ## Closing and adding actions
 
-- **Every tick writes its date**, `✅ <today>`. The operator's "sent", "paid", "done" closes the matching item at once, and the reply names the line. A close found rather than stated (a reply in mail, a receipt on file) is proposed, citing it; "probably done" closes nothing.
-- **A ticked `🔁` item is rolled forward in code**: `paraos_vault.py next-occurrence "<the line>"` prints the closed line and its successor; write both.
-- **When work on an entity ends, reconcile it**: `paraos_vault.py open-items --vault <root> <files>` lists the open items and Backlog bullets of what the session touched. Propose closes, re-dates and one next step, each close its own question ([asking.md](asking.md#grouping)).
+- **Every tick writes its date**, `✅ <today>`. A close found rather than stated (a reply in mail, a receipt on file) is proposed, citing it; "probably done" closes nothing.
+- **A ticked `🔁` item is rolled forward in code**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" next-occurrence "<the line>"` (Windows: `py -3`) prints the closed line and its successor; write both.
+- **When work on an entity ends, reconcile it**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" open-items --vault <root> <files>` (Windows: `py -3`) lists the open items and Backlog bullets of what the session touched. Propose closes, re-dates and one next step, each close its own question ([asking.md](asking.md#grouping)).
 - **A follow-up is offered as a checkbox**, not as prose; a waiting state is a `Waiting on` line or a dated follow-up. A folder the checkbox table declares `never` gets none.
 
 ## Dating a renewing agreement
 
-A contract, lease, subscription or policy that renews unless notice is given is dated on its last day to give notice, never on the renewal, and the line's text names the renewal date. That day is the `notice_date` of `paraos_vault.py notice-date <renewal> "<n> months"`; where it reports `passed`, say so, and `--term "<how often it renews>"` gives the next renewal's. Without a shell, count back by hand and say so. A check that comes round yearly is one `🔁 every year` item dated its next occurrence.
+A contract, lease, subscription or policy that renews unless notice is given is dated on its last day to give notice, never on the renewal, and the line's text names the renewal date. That day is the `notice_date` of `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" notice-date <renewal> "<n> months"` (Windows: `py -3`); where it reports `passed`, say so, and `--term "<how often it renews>"` gives the next renewal's. Without a shell, count back by hand and say so. A check that comes round yearly is one `🔁 every year` item dated its next occurrence.
 
 ## A vault's rule files
 
@@ -54,7 +54,7 @@ A contract, lease, subscription or policy that renews unless notice is given is 
 
 ## A synced vault can change mid-run
 
-Snapshot a file before proposing a change to it. Immediately before every delete or move, run `paraos_vault.py changed <scan output path> --done <each path this run moved from or to, deleted or wrote>`: it exits 1 when another writer changed a file in the snapshot or added one to a folder it watches. Re-read what changed; leave what arrived alone.
+Snapshot a file before proposing a change to it. Immediately before every delete or move, run `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" changed <scan output path> --done <each path this run moved from or to, deleted or wrote>` (Windows: `py -3`): it exits 1 when another writer changed a file in the snapshot or added one to a folder it watches. Re-read what changed; leave what arrived alone.
 
 ## Entity creation
 
@@ -62,7 +62,7 @@ A project, area, idea or contact is created through `/para-new`, never by a free
 
 ## Moving an entity folder
 
-Move a folder or a file with `paraos_vault.py move <src> <dst> --apply`: it refuses an existing destination and rewrites the links into and out of what moved.
+Move a folder or a file with `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" move <src> <dst> --apply` (Windows: `py -3`): it refuses an existing destination and rewrites the links into and out of what moved.
 
 ## Fetching template content
 

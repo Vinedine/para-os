@@ -48,7 +48,7 @@ By `revision.verdict`:
 
 Every `files` row, by `state`:
 
-- **untouched**: a version the kit shipped, with nothing local to lose. Re-copy them all on one approval.
+- **untouched**: an older version the kit shipped: behind, with nothing local to lose. Re-copy them all on one approval.
 - **missing**: copy in on one approval. A rule file copied in takes over what the vault already states of its rule, each line moved on its own yes.
 - **edited**: bytes the kit never shipped: local work, a hand edit, or a copy taken from ahead of the ref. Show the row's `diff` and say what it shows; the operator decides each file: re-copy, keep, or carry the kit's change into the vault's wording.
 - **retired**: each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
