@@ -6,11 +6,11 @@ How to ask is [asking.md](../../para-shared/asking.md); an option comes from thi
 
 **Loose files:**
 
-- **File it** (moved and renamed to the convention), **File it + rotate Nx**.
-- **File it + add action**: for a deadline no open line tracks, one **Add action** line dated on it and linking the filed file, shown in full.
+- **File it** (moved, renamed to the convention), **File it + rotate Nx**.
+- **File it + add action**: for a deadline no open line tracks, one **Add action** line dated on it, quoted verbatim with its link to the filed file.
 - **Extract** (an archive) or **Split** (a PDF bundling several documents): each part's destination and name in the option, the original then asked as a Delete.
 - **Run vault script**: the vault's rules hand this kind of file to a script, its dry run the evidence.
-- **Delete (duplicate)**: byte-identical, citing the survivor and the MD5. **Delete (redundant scan)**: the same content, no hash match. **Delete (no lasting value)**.
+- **Delete (duplicate)**: byte-identical, citing the survivor and MD5. **Delete (redundant scan)**: the same content, no hash match. **Delete (no lasting value)**.
 - **Create entity** through `/para-new`.
 - **Leave in triage**, saying what is missing.
 
