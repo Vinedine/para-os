@@ -30,14 +30,14 @@ A link, checkbox, marker, heading or placeholder inside a fenced block or an inl
 
 ## Defer to the vault
 
-- **Resolve the vault root once** (`pwd` before anything has run, or the path the operator named), hold it, and build absolute paths from it: a `cd` in one command persists into the next. A root holds `projects/`, one of `areas/` `archive/`, and a `CLAUDE.md`; anywhere else, stop and say so, naming the path checked.
+- **Resolve the vault root once** (`pwd` before anything has run, or the path the operator named), hold it, and build absolute paths from it: a `cd` in one command persists into the next. A root holds `projects/`, one of `areas/` `archive/`, and a `CLAUDE.md`; anywhere else, stop and name the path checked.
 - **Read the vault's `CLAUDE.md` first**, with [its rule files](#a-vaults-rule-files). The skill brings procedure; the vault brings parameters.
 - **Invent no date or completion marker.** Externally gated items stay undated.
 - **Commit only under a declared commit policy**: the vault's `CLAUDE.md`, else the operator's global instructions. Neither: stop after the change; the operator commits.
 
 ## Closing and adding actions
 
-- **Every tick writes its date**, `✅ <today>`. The operator's "sent", "paid", "done" closes the matching item at once, and the reply names the line. A close found rather than stated (a reply in mail, a receipt on file) is proposed, citing it; "probably done" closes nothing.
+- **Every tick writes its date**, `✅ <today>`. A close found rather than stated (a reply in mail, a receipt on file) is proposed, citing it; "probably done" closes nothing.
 - **A ticked `🔁` item is rolled forward in code**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" next-occurrence "<the line>"` (Windows: `py -3`) prints the closed line and its successor; write both.
 - **When work on an entity ends, reconcile it**: `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" open-items --vault <root> <files>` (Windows: `py -3`) lists the open items and Backlog bullets of what the session touched. Propose closes, re-dates and one next step, each close its own question ([asking.md](asking.md#grouping)).
 - **A follow-up is offered as a checkbox**, not as prose; a waiting state is a `Waiting on` line or a dated follow-up. A folder the checkbox table declares `never` gets none.
@@ -58,11 +58,11 @@ Snapshot a file before proposing a change to it. Immediately before every delete
 
 ## Entity creation
 
-A project, area, idea or contact is created through `/para-new`, whatever form the request takes, not by a freehand `Write` or a script that builds `brief.md` and `actions.md`. Where `/para-new` cannot run as a sub-step, stop and say why.
+A project, area, idea or contact is created through `/para-new`, never by a freehand `Write` or a script. Where `/para-new` cannot run as a sub-step, stop and say why.
 
 ## Moving an entity folder
 
-Move a folder or a file with `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" move <src> <dst> --apply` (Windows: `py -3`): it refuses an existing destination, and rewrites the links into what moved and out of it.
+Move a folder or a file with `python3 "<this skill's base directory>/../para-shared/scripts/paraos_vault.py" move <src> <dst> --apply` (Windows: `py -3`): it refuses an existing destination and rewrites the links into and out of what moved.
 
 ## Fetching template content
 

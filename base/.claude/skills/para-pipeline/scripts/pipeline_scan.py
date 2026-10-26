@@ -7,7 +7,7 @@
 Prints one JSON document on stdout: every lifecycle the vault's CLAUDE.md declares, the
 entities collected from the union of each stage's home, each entity's stage, days in stage,
 next step and flag inputs, the counts by stage, and the quarter's metrics. It never writes
-to the vault; wording stays with references/scan.md and references/render.md.
+to the vault; wording stays with references/render.md.
 
 Why a script. The board rests on a mechanical read: which folder or row belongs to
 which stage, where a next step lives, which dates fall in a quarter (of the financial year

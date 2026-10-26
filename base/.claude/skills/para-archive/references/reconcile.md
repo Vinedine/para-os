@@ -4,7 +4,7 @@
 
 **Open is every `actions.open` checkbox and every `actions.backlog` item not `settled`.** `actions.other_checkbox_files` names the entity's other files still holding open checkboxes, reconciled the same way.
 
-Skip this step for an idea: it holds no checkbox, and `actions.idea_holds_actions` flags one that does. Where `actions.file` is null the vault tracks no actions: settle the next steps its brief states in prose the same way, record survivors as prose, and create no `actions.md`.
+An idea skips this step unless `actions.idea_holds_actions` flags a checkbox. Where `actions.file` is null the vault tracks no actions: settle the next steps its brief states in prose the same way, record survivors as prose, and create no `actions.md`.
 
 One question per open item:
 

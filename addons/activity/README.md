@@ -135,7 +135,7 @@ Whoever uses the vault should hear this before the first session, in their words
 
 - What is recorded: what you ask, which tools run, what fails. Not file contents, not your conversation.
 - Why: to fix the parts of this that do not work, which is otherwise guesswork.
-- Where it lives: in your own vault, in your own tenant. Readable by you.
+- Where it lives: in your own vault, in your own tenant. Readable by everyone who can open the vault folder, so in a shared vault by every writer.
 - What it is not: an audit of individuals or a measure of anyone's output.
 
 If any of that is uncomfortable to say plainly, that discomfort is the finding, and the honest move is not to install this.

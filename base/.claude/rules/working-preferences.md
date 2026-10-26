@@ -15,7 +15,6 @@ How the operator likes to work, kept here rather than in built-in memory. It gov
 
 **Only with the operator's approval.**
 
-- **Propose on repetition**: the second time the operator corrects the same thing, propose one line quoting the correction, and add it on a yes.
 - **An explicit ask is the approval** ("remember that I want..."): add it and say where.
 - **Date each line**: `_(YYYY-MM-DD)_` at its end.
 - **A contradiction replaces, never stacks**, once the operator confirms which one holds.

@@ -14,7 +14,7 @@ A sold, closed or archived entity's Open items soften to `_None - <entity> fully
 
 ## Step 3.3 - Time-sensitive items
 
-Report as a dated list everything overdue, dated inside 30 days, or with a last day to give notice inside 90. Move them to the top of Open items only where the vault declares an order.
+A dated list of everything overdue, dated inside 30 days, or with a last day to give notice inside 90, moved to the top of Open items only where the vault declares an order.
 
 Every live contract, lease or policy with a renewal term in a `sources/` under `projects/` or `areas/` needs its next notice date as a `📅` in a live file, [dated so](../../para-shared/operating-discipline.md#dating-a-renewing-agreement). Read its term and notice clause; where no line carries the date, propose one for the owning `actions.md` on the issues table, linking the document. One ended or replaced needs none.
 
@@ -37,7 +37,7 @@ Grooming never touches `resources/` or `archive/`: checkboxes there are Phase 1 
 
 ## Step 3.5 - Content grooming
 
-Against the content-frontier rule. Read the root `README.md`, every contact card and area README, and the `brief.md` of each entity in `briefs_to_read`, grown by more than half since the last deep clean where git can tell, or holding more development-log entries than open actions. Name the thresholds used and what was not read. Too large for one conversation: split the reading across read-only subagents by bucket and re-verify each finding before asking. `triage/`, `sources/` and `archive/` are out of scope.
+Against the content-frontier rule. Read the root `README.md`, every contact card and area README, and the `brief.md` of each entity in `briefs_to_read`, grown by more than half since the last deep clean where git can tell, or holding more development-log entries than open actions. Name the thresholds used and what was not read. `triage/`, `sources/` and `archive/` are out of scope.
 
 - **Duplicated facts**: name the owning file and propose links for the copies. No file is deleted as a duplicate without a diff against the survivor.
 - **Superseded content** in live buckets: propose moving it to the owning `archive/` entity, or cutting it where git holds it, saying which per item.

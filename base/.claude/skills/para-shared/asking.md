@@ -12,7 +12,7 @@ Four or more questions: print the count line, worded exactly `N items, N questio
  1  <item>                        → <proposed action>  <destination or target>
 ```
 
-One line each, no pipes, no reasoning: that belongs in the option description. Past 20 items, the first question is whether to go item by item or fall back to the written proposal.
+One line each, no pipes, no reasoning: that belongs in the option description.
 
 ## The question
 

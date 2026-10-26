@@ -23,7 +23,7 @@ Nothing is written until the proposal is approved: the folder path, the files, a
 
 ### A staged entity
 
-For a lifecycle the vault declares ([para-shared/lifecycles.md](../../para-shared/lifecycles.md)) whose noun the operator used, an entity whose stage's home is a register is **one row appended to it**, in its column order, and nothing else: say which before writing.
+For a lifecycle the vault declares ([para-shared/lifecycles.md](../../para-shared/lifecycles.md)) whose noun the operator used, an entity whose stage's home is a register is **one row appended to it**, in its column order, and nothing else; one whose home is a folder gets the [Stage line](../../para-shared/lifecycles.md#the-stage-line) and the header its rule file states. Say which before writing.
 
 ## Seed exactly one action
 

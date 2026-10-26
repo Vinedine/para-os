@@ -18,12 +18,12 @@ Every finding below is a field of the `--phase 1` scan except five the agent jud
 - **Dangling links** (`dangling`), each with its likely intended target. An absolute machine-local path is not dangling: mention it once as a portability finding. A README citing a file missing from `sources/` is the same finding: find the file, or mark it missing.
 - **Wikilinks** (`wikilinks`), which the dangling check cannot see: propose the vault's normal link form to the note each `resolved` to, a piped alias keeping its display text.
 - **Uncited contacts** (`uncited_contacts`): a carded person named in a live file that never links the card. Propose linking the first mention per file. Contact details beside a mention (`inline_contact_details`) move to the card; `names_on_line` lists every carded name on the line, so **never attribute an email or phone by same-line proximity**. Drop third-party verbatim files wherever they are filed, and records that are evidence in all but folder name (a usage review, a digest, a run log); `uncited_exempt` names those a path proxy already dropped, for the operator to override.
-- **Archive vs active**: an entity in `areas/` or `projects/` whose README marks it sold, closed, completed, rejected or superseded. `/para-archive` closes it out.
+- **Archive vs active**: a live entity whose README marks it sold, closed, completed, rejected or superseded, for `/para-archive`.
 - **Duplicates** (`duplicates.groups`), by content hash; a `cross_entity` group is its own finding. Name what `duplicates.skipped` lists.
 - **Sync conflict copies** (`conflict_copies`): report each with its `survivor`, and propose nothing before the operator has compared both ([Deleting a file](../../para-shared/operating-discipline.md#deleting-a-file)).
 - **One figure, two values** (`figure_pairs`): a roll-up file states a figure about an entity that its own file does not. Name the file that should own it and propose links in place of the copies. Which value is right is Step 3.5's question.
 - **A second route to one source** (`scripts`): an `unmarked` script that reads a source a `marked` integration or a `connector:` row already reads. Propose removing it, or reporting what the integration lacks.
-- **Figures with no as-of date, or projections among facts**: flag the tables that break the shape `CLAUDE.md` prescribes to keep them apart. A formatting finding, not an accuracy one.
+- **Figures with no as-of date, or projections among facts**: the tables that break the shape `CLAUDE.md` prescribes to keep them apart.
 
 ## Step 1.2b - Filing hygiene
 
@@ -39,7 +39,7 @@ Against the vault's **Archive hygiene** rule and its checkbox table:
 
 ## Step 1.3 - Issues table
 
-One table, shown before anything is applied:
+One table before anything is applied:
 
 | # | Issue | Where | Proposed fix |
 |---|---|---|---|

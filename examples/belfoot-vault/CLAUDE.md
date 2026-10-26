@@ -108,7 +108,7 @@ Name the owning file before answering, and check `triage/` before searching by d
 
 ## Language
 
-Folders and structural files in English; stakeholder notes, meeting records and source documents in Dutch, French or English as their source is, untranslated unless asked. The operator's language is English: answer in it whatever the source's language, quoting the original only where the exact wording matters.
+Folders and structural files in English; notes, meeting records and source documents in their source's language (Dutch, French or English), untranslated unless asked. The operator's language is English, the default; answer a request in its own language, whatever the source's language, quoting the original only where its exact wording matters.
 
 **Locale:** country Belgium · currency EUR (€) · financial year ends 31 December · numbers 1,234.56 · dates day-month-year · time zone Europe/Brussels. This line is the one home of these six. A time follows `para-shared/timestamps.md`, installed beside the `/para-*` skills.
 
