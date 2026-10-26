@@ -8,7 +8,7 @@ A leftover argument is a shape the skill's Arguments table names with no sentenc
 
 ## Approval discipline
 
-- **Show before you change.** A written proposal of what will change and where, before anything is applied; a "just do it" in the opening message does not skip it.
+- **Show before you change.** A written proposal of what will change and where, before anything is applied; a "just do it" in the opening message does not skip it. The proposal is the audit trail, item-by-item questions included.
 - **Non-destructive normalisations batch**: renames, link repoints, moves within one PARA bucket. **Deletions and moves between buckets are approved one by one.**
 
 ## Deleting a file
@@ -31,7 +31,7 @@ A link, checkbox, marker, heading or placeholder inside a fenced block or an inl
 ## Defer to the vault
 
 - **Resolve the vault root once** (`pwd` before anything has run, or the path the operator named), hold it, and build absolute paths from it: a `cd` in one command persists into the next. A root holds `projects/`, one of `areas/` `archive/`, and a `CLAUDE.md`; anywhere else, stop and name the path checked.
-- **Read the vault's `CLAUDE.md` first**, with [its rule files](#a-vaults-rule-files).
+- **Read the vault's `CLAUDE.md` first**, with [its rule files](#a-vaults-rule-files). The skill brings procedure; the vault brings parameters.
 - **Invent no date or completion marker.** Externally gated items stay undated.
 - **Commit only under a declared commit policy**: the vault's `CLAUDE.md`, else the operator's global instructions. Neither: stop after the change; the operator commits.
 
