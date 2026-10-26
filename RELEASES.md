@@ -46,6 +46,10 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **Property vaults get the deal sheet for a home you mean to live in.** It reached the kit after most property vaults were set up, and theirs never received it; the upgrade now offers it.
 - **Answers follow the language you write in.** A request typed in another language than the vault's is answered in that language; the vault's language stays the default for unattended runs.
 
+### Removed
+
+- **Two leftover skill notes are deleted.** The shorter triage and pipeline skills no longer read their scan notes, so the upgrade offers to delete both.
+
 ### What to do
 
 1. Run `/para-upgrade`.
