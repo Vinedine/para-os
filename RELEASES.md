@@ -30,6 +30,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **An estimate says what it rests on.** A figure that is an estimate now carries its basis beside its date: a quote, a comparable, a rule of thumb or a guess.
 - **A second vault on the same mailbox has a setup page.** Setting up a second vault beside your first now offers the steps that give each vault only its own mail, instead of both reading the whole mailbox.
 - **The upgrade adds an add-on you ask for.** Name one, such as `/para-upgrade --add sales`, and it runs that add-on's setup in an existing vault, each step on your yes, where you used to follow the steps by hand.
+- **Exclusions can name a whole sender domain or a word in the subject.** A school, a club or a booking platform that writes from many addresses is dropped with one entry instead of one per address.
 
 ### Fixes
 
@@ -43,6 +44,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **A connection that fails gets repaired, not replaced.** When a shipped integration cannot connect, the assistant fixes or reports it instead of writing a script of its own, and the deep clean points out a second script reading the same source. Granola now says which step to run when its sign-in is missing or has expired.
 - **A second computer no longer imports what the first already did.** The record of which meetings and recordings were imported now lives in the vault, beside its sync scripts, so it syncs with the vault. The old record on each computer is still read, and carried in on the next import. Getting started now says what to set up on each computer when one vault runs on two.
 - **Property vaults get the deal sheet for a home you mean to live in.** It reached the kit after most property vaults were set up, and theirs never received it; the upgrade now offers it.
+- **Answers follow the language you write in.** A request typed in another language than the vault's is answered in that language; the vault's language stays the default for unattended runs.
 
 ### What to do
 
