@@ -165,44 +165,39 @@ def task_row(t, names):
 
 def flag_drill(scan, flag):
     """(task ids, file rows) a flag object opens on, read from the scan flag its `kind`
-    names."""
+    names; a raised flag with nothing behind it opens on nothing."""
     kind, raised = flag.get("kind"), scan["flags"]
+    if not raised.get(kind):
+        raise JudgmentError(f"flag {kind} is one the scan did not raise")
     if kind in ("over_threshold", "stale_files"):
-        if not any(r["file"] == flag.get("file") for r in raised.get(kind) or []):
+        if not any(r["file"] == flag.get("file") for r in raised[kind]):
             raise JudgmentError(f"flag {kind} names {flag.get('file')}, which the scan "
                                 f"did not flag")
         return [task_id(t) for t in scan["tasks"] if t["file"] == flag["file"]], []
     if kind in ("falsely_overdue", "stale_recurrence", "undated_majority", "waiting_too_long"):
-        if not raised.get(kind):
-            raise JudgmentError(f"flag {kind} is one the scan did not raise")
         if kind == "undated_majority":
             return [task_id(t) for t in scan["tasks"] if t["lane"] == "undated"], []
         return [task_id(t) for t in tasks_at(scan, raised[kind])], []
     if kind in ("misplaced", "over_grown_briefs", "stray_checkboxes"):
-        rows = (sum((raised.get(kind) or {}).values(), []) if kind == "misplaced"
-                else raised.get(kind) or [])
+        rows = sum(raised[kind].values(), []) if kind == "misplaced" else raised[kind]
         if not rows:
             raise JudgmentError(f"flag {kind} is one the scan did not raise")
         unit = "lines" if kind == "over_grown_briefs" else "open"
         return [], [{"label": r["file"], "meta": f"{r[unit]} {unit}"} for r in rows]
     if kind == "silent_sources":
-        row = next((r for r in raised.get(kind) or [] if r["source"] == flag.get("source")), None)
+        row = next((r for r in raised[kind] if r["source"] == flag.get("source")), None)
         if not row:
             raise JudgmentError(f"flag {kind} names {flag.get('source')}, which the scan "
                                 f"did not flag")
         return [], [{"label": row["ledger"], "meta": f"newest {row['newest'] or 'unread'} · "
                                                      f"expected {row['cadence']}"}]
     if kind == "nothing_open":
-        if not raised.get(kind):
-            raise JudgmentError(f"flag {kind} is one the scan did not raise")
         return [], [{"label": r["path"], "meta": "since " + r["touched"] if r["touched"]
                      else "no actions.md"} for r in raised[kind]]
     if kind == "unticked":
-        if not raised.get(kind):
-            raise JudgmentError(f"flag {kind} is one the scan did not raise")
         return [], [{"label": f"{r['file']}:{r['line']}", "meta": f"✅ {r['done']}"}
                     for r in raised[kind]]
-    raise JudgmentError(f"flag kind {kind!r} is not a scan flag")
+    return [], []
 
 
 def flag_rows(scan, items):
@@ -389,7 +384,7 @@ def mechanical_flags(scan):
     due = raised.get("deep_clean_due")
     if due:
         out.append(f"**Last `/para-deep-clean` {due['last']}** ({due['days']} days ago)"
-                   if due["last"] else "**`/para-deep-clean` has not run on this machine**")
+                   if due["last"] else "**No `/para-deep-clean` recorded on this machine**")
     for r in raised.get("silent_sources") or []:
         out.append({"text": f"**{r['source']}: ledger unreadable** - its silence is unknown"
                     if r.get("error") else
