@@ -18,12 +18,12 @@ para-os home, never in a vault:
     quarantine/<vault>/<run>/           the items a run took out, with manifest.json
 
 `run` reads the triage scan's saved copy (`saved_to`) and a decisions file, a JSON list of
-`{"item", "action", "reason", "survivor", "hold"}`, `item` a loose file's name in `triage/`,
-and removes the decisions file once the run is written, so the next run writes its own. One
-older than the scan was not written this run: it is refused, and removed.
-An item is acted on only where its action is a `Delete (...)` or `Dismiss (...)` switched on
-for this vault, it carries no `hold`, it is a loose file of the scan, the scan lists no
-inbound link to it, its bytes still match the scan's snapshot, and the run is under `--cap`.
+`{"item", "action", "reason", "survivor", "hold"}`, and removes the decisions file once the
+run is written; one older than the scan is refused, and removed. An item is acted on only
+where its action is a `Delete (...)` or `Dismiss (...)` switched on for this vault, it
+carries no `hold`, it is a loose file of the scan, the scan lists no inbound link to it and,
+for `Delete (duplicate)`, a byte match, its bytes still match the scan's snapshot, and the
+run is under `--cap`.
 Acting moves it into the quarantine, never deletes it. Everything else goes into the run's
 proposal, with each item's name, size, mtime and md5, and `refused` says why. The whole run
 is refused while the kill switch exists, and for a vault whose `CLAUDE.md` has a
@@ -32,18 +32,16 @@ is refused while the kill switch exists, and for a vault whose `CLAUDE.md` has a
 `restore` moves a run's items back, checks each md5, and switches the item's action off for
 the vault (`demoted`). `status` reads the switched-on actions, the kill switch, the runs and
 proposal waiting since the last interactive decision, each proposed item as `unchanged`,
-`changed` or `missing`, `nothing_new` with `--vault` (every loose file is a proposed item,
-unchanged, so a scheduled run can skip the vault), and `offers`: each action whose last 50
+`changed` or `missing`, `nothing_new` with `--vault` (every loose file a proposed item,
+unchanged: a scheduled run skips the vault), and `offers`: each action whose last 50
 interactive decisions in the vault were at least 95% the recommendation unchanged, not yet
-switched on. `record` appends
-the interactive path's decisions, `{"item", "recommended", "chosen"}`, and moves a decided
-proposal into `proposals/decided/`. `switch` is the operator's standing approval, or its
-withdrawal. `purge` sends each quarantined run older than `--days` to the system trash, and
-leaves one where no trash is reachable.
+switched on. `record` appends the interactive path's decisions, `{"item", "recommended",
+"chosen"}`, and moves a decided proposal into `proposals/decided/`. `switch` is the
+operator's standing approval, or its withdrawal. `purge` moves each quarantined run older
+than `--days` to the system trash, keeping one where no trash is reachable.
 
-Exit codes: 0 answered; 2 the library is missing; 3 refused (kill switch, shared vault, an
-unreadable scan, an unreadable or stale decisions file, a run or item not found); 4 a restored
-md5 differs.
+Exit codes: 0 answered; 2 the library is missing; 3 refused, `refused` saying why; 4 a
+restored md5 differs.
 """
 
 import argparse
@@ -207,6 +205,9 @@ def run(args):
             why = f"{action} is not switched on for this vault"
         elif loose[name].get("inbound"):
             why = "other files link to it"
+        elif action == "Delete (duplicate)" and not (loose[name].get("duplicates") or any(
+                c.get("path") for c in loose[name].get("cross_vault") or ())):
+            why = "the scan finds no byte match for it"
         elif list(snapshot([path]).values()) != [snap.get(same_place(path))]:
             why = "changed since the scan"
         elif len(acted) >= args.cap:
