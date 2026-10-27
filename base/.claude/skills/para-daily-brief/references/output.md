@@ -29,6 +29,7 @@ The terminal layout, filtered to the argument's sections.
 
 ## 🚩 Health flags
 - <flag lines>
+**Vault health:** <healthy | watch | needs care> · <each signal of the scan's `health` at watch or care, with its figure>
 
 ## 💡 Ideas (N)
 - <idea-name> - touched <YYYY-MM-DD> - <Stage line, when present>

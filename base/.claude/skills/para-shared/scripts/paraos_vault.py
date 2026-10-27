@@ -64,6 +64,13 @@ WAITING_FLAG_DAYS = 14      # a wait on someone else this old asks: chase or dro
 DEEP_CLEAN_DUE_DAYS = 30    # a vault not groomed this long: the brief names /para-deep-clean
 CLUSTER_SECONDS = 60        # mtimes this close mean a bulk write, not an edit
 
+# A vault's health card: past the first number a signal reads watch, past the second care.
+QUIET_DAYS = (7, 21)            # since any action file changed
+TRIAGE_AGE_DAYS = (7, 14)       # the oldest loose item in triage/
+TRIAGE_PILE = 20                # loose items in triage/ that read watch whatever their age
+TEMPLATE_BEHIND = (1, 3)        # template revisions the vault has not had
+WAITS_PAST_FLAG = (1, 3)        # waits older than WAITING_FLAG_DAYS
+
 # --- what a task looks like ---------------------------------------------------------------
 
 TASK_RE = re.compile(r"^- \[ \] (.*)$")
@@ -2239,6 +2246,22 @@ def integration_markers(vault, exclude=NOT_VAULT_CONTENT):
         m = INTEGRATION_MARKER_RE.search(header)
         if m:
             out.append({"file": rel, "name": m.group(1), "revision": m.group(2)})
+    return out
+
+
+REVIEW_MARKER_RE = re.compile(r"<!--\s*reviewed with:\s*([A-Za-z0-9._:-]+)\s*-->")
+
+
+def skill_reviews(vault):
+    """Every skill in the vault's `.claude/skills/`, bundled or its own, as {skill, model}:
+    the model its SKILL.md was last reviewed against, from a `<!-- reviewed with: <model id>
+    -->` line in its first MARKER_HEADER_LINES lines, else None. A stronger model needs fewer
+    instructions, so a skill reviewed against another model may carry text that can go."""
+    folder = Path(vault) / ".claude" / "skills"
+    out = []
+    for path in sorted(folder.glob("*/SKILL.md")) if folder.is_dir() else []:
+        m = REVIEW_MARKER_RE.search("\n".join(read_lines(path)[:MARKER_HEADER_LINES]))
+        out.append({"skill": path.parent.name, "model": m.group(1) if m else None})
     return out
 
 # --- from the command line ------------------------------------------------------------------

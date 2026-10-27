@@ -72,6 +72,8 @@ class GlobalScan(unittest.TestCase):
                           north["undated"], north["triage"]), ("north", 4, 1, 1, 1, 1))
         self.assertEqual((south["name"], south["open"], south["overdue"]), ("south", 1, 1))
         self.assertIsNone(north["proposal"])
+        self.assertIn(north["health"]["level"], ("ok", "watch", "care"))
+        self.assertEqual(north["health"]["signals"]["triage"]["items"], 1)
         self.assertEqual(south["flags"], [])
         write(self.tmp / "south", "resources/notes.md", "- [ ] A checkbox out of place\n")
         self.assertEqual(self.report()["vaults"][1]["flags"], ["misplaced"])

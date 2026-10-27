@@ -34,7 +34,7 @@ One call from the vault root, per [para-shared/scripts.md](../para-shared/script
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/brief_scan.py" --vault . [--entity <name>] [--review week|month|YYYY-MM-DD] [--today YYYY-MM-DD] > <scan output path>
+python3 "<this skill's base directory>/scripts/brief_scan.py" --vault . --model <your own model id> [--entity <name>] [--review week|month|YYYY-MM-DD] [--today YYYY-MM-DD] > <scan output path>
 ```
 
 ### Step 1b: Resolve an entity scope

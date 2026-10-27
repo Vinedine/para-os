@@ -2,14 +2,15 @@
 """The mechanical half of /para-daily-brief, as a script instead of instructions.
 
     py -3 tools/../scripts/brief_scan.py --vault <path> [--today YYYY-MM-DD] [--entity <name>]
-                                         [--paraos-home <dir>]
+                                         [--paraos-home <dir>] [--model <id>]
     python3 scripts/brief_scan.py --vault <path>
 
 Prints one JSON document on stdout: the vault's open tasks with their markers parsed and
 bucketed against a date, the per-entity totals, the health-flag inputs, the ideas lane and
-the triage count. It never writes to the vault and never reads a mailbox; outside the vault
-it reads only what is under PARAOS_HOME: the ledgers of the sources the vault declares, the
-unattended triage runs, and the date /para-deep-clean's phase 3 last ran.
+the triage count, and the vault's health card (`health`). It never writes to the vault and
+never reads a mailbox; outside the vault it reads only what is under PARAOS_HOME: the ledgers
+of the sources the vault declares, the unattended triage runs, the date /para-deep-clean's
+phase 3 last ran, and the para-os clone's template revision at `origin/stable`.
 
 Why a script. Everything here has exactly one right answer: which folder a name resolves
 to, which marker a line carries, which side of today a date falls on, which files share an
@@ -57,6 +58,11 @@ try:
     from paraos_vault import (  # noqa: E402
         DEEP_CLEAN_DUE_DAYS, deep_clean_stamp, paraos_home_dir, same_place, triage_sources,
         vault_name)
+    from paraos_vault import (  # noqa: E402
+        QUIET_DAYS, TEMPLATE_BEHIND, TRIAGE_AGE_DAYS, TRIAGE_PILE, WAITS_PAST_FLAG,
+        find_clone, read_text, skill_reviews, template_marker)
+    from paraos_clone import (  # noqa: E402
+        changelog_entries, clone_read, clone_session, entries_between, master_template)
     from paraos_mail import ingest_ledger  # noqa: E402
     from paraos_vault import HEADING_RE, closed_tasks, table_cells  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -529,6 +535,87 @@ def deep_clean_due(vault, today, paraos_home=None):
     return {"last": iso(last) if last else None, "days": (today - last).days if last else None}
 
 
+def triage_age(vault, names, today):
+    """Days the oldest loose item has sat in `triage/`, by the earlier of its creation, where
+    the filesystem records one, and its last change: a synced note carries the day it
+    landed. None where `triage/` holds nothing."""
+    days = []
+    for name in names:
+        try:
+            st = (Path(vault) / "triage" / name).stat()
+        except OSError:
+            continue
+        born = getattr(st, "st_birthtime", None)
+        stamp = min(born, st.st_mtime) if born else st.st_mtime
+        days.append((today - date.fromtimestamp(stamp)).days)
+    return max(days) if days else None
+
+
+@clone_session()
+def template_behind(vault, paraos_home=None, ref="origin/stable"):
+    """The vault's template revision against the para-os clone's at `ref`: {vault, master,
+    behind}, `behind` the changelog revisions the vault has not had. None with no clone, or
+    a ref or template it cannot read."""
+    clone, _ = find_clone(None, paraos_home)
+    master = master_template(clone, ref)["marker"] if clone else None
+    if not master:
+        return None
+    mine = template_marker(read_text(Path(vault) / "CLAUDE.md") or "")
+    raw = clone_read(clone, ref, "CHANGELOG.md")
+    entries = changelog_entries(raw.decode("utf-8", errors="replace")) if raw else []
+    return {"vault": mine, "master": master, "behind": len(entries_between(entries, mine, master))}
+
+
+def level(value, bounds):
+    """`ok`, `watch` past the first bound, `care` past the second."""
+    return "care" if value >= bounds[1] else "watch" if value >= bounds[0] else "ok"
+
+
+def health(vault, today, report, paraos_home=None, model=None):
+    """The vault's health card: one entry per signal with its `level` (`ok`, `watch`, `care`,
+    or `unknown` where nothing could be read) and the figures behind it, and `level` overall,
+    the worst of every signal but `auto_triage` and `skills`, which inform. Thresholds are
+    paraos_vault.py's. `model` is the running model's id: a skill reviewed against another
+    one reads watch; with none given, only unrecorded reviews do."""
+    signals = {}
+    edited = max((d for d in report["file_dates"].values() if d), default=None)
+    quiet = (today - parse_date(edited)).days if edited else None
+    signals["last_edit"] = {"level": level(quiet, QUIET_DAYS) if edited else "unknown",
+                            "date": edited, "days": quiet}
+    items, oldest = len(report["triage"]), triage_age(vault, report["triage"], today)
+    signals["triage"] = {"level": "ok" if not items else max(
+        level(oldest or 0, TRIAGE_AGE_DAYS), "watch" if items >= TRIAGE_PILE else "ok",
+        key=LEVELS.index), "items": items, "oldest_days": oldest}
+    run = report.get("unattended") or {}
+    signals["auto_triage"] = {"level": "watch" if run.get("proposal_waiting") else "ok",
+                              "run": run.get("run"),
+                              "proposal_waiting": bool(run.get("proposal_waiting"))}
+    try:
+        last = parse_date(deep_clean_stamp(vault, paraos_home).read_text(encoding="utf-8").strip())
+    except OSError:
+        last = None
+    since = (today - last).days if last else None
+    signals["deep_clean"] = {"level": level(since, (DEEP_CLEAN_DUE_DAYS + 1,
+                                                    2 * DEEP_CLEAN_DUE_DAYS + 1))
+                             if last else "watch", "last": iso(last) if last else None,
+                             "days": since}
+    rev = template_behind(vault, paraos_home)
+    signals["template"] = dict(rev, level=level(rev["behind"], TEMPLATE_BEHIND)) if rev \
+        else {"level": "unknown", "vault": None, "master": None, "behind": None}
+    waits = len(report["flags"]["waiting_too_long"])
+    signals["waits"] = {"level": level(waits, WAITS_PAST_FLAG), "count": waits}
+    reviews = skill_reviews(vault)
+    unrecorded = [r["skill"] for r in reviews if not r["model"]]
+    other = [r["skill"] for r in reviews if r["model"] and model and r["model"] != model]
+    signals["skills"] = {"level": "watch" if unrecorded or other else "ok", "model": model,
+                         "skills": len(reviews), "not_recorded": unrecorded, "other_model": other}
+    counted = [s["level"] for k, s in signals.items() if k not in ("auto_triage", "skills")]
+    return {"level": max(counted, key=LEVELS.index), "signals": signals}
+
+
+LEVELS = ("unknown", "ok", "watch", "care")
+
+
 def silent_sources(vault, today, paraos_home=None):
     """Every Triage sources row carrying a cadence hint whose newest delivery to this vault
     is older than one cadence, or whose ledger cannot be read: a source gone silent reads
@@ -945,7 +1032,7 @@ def people(vault, tasks, items):
 
 # ------------------------------------------------------------------------------- the report
 
-def scan(vault, today, entity=None, paraos_home=None, review=None):
+def scan(vault, today, entity=None, paraos_home=None, review=None, model=None):
     vault = Path(vault).resolve()
     # A `never` folder's work is tracked elsewhere: its checkboxes count in nothing here.
     never = tuple(f + "/" for f in never_folders(vault))
@@ -1015,6 +1102,7 @@ def scan(vault, today, entity=None, paraos_home=None, review=None):
         report["triage_preview"] = triage_preview(vault, report["triage"])
         report["unattended"] = unattended(vault, paraos_home)
         report["lifecycles"] = lifecycle_counts(vault)
+        report["health"] = health(vault, today, report, paraos_home, model)
     if review:
         window = review_window(review, today)
         if window is None:
@@ -1034,6 +1122,7 @@ def main(argv=None):
                     help="add the review block: week, month, or a YYYY-MM-DD date to review since")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
+    ap.add_argument("--model", help="the running model's id, for the health card's skills review")
     args = ap.parse_args(argv)
 
     # A Windows console and a Windows pipe both default to a codepage that cannot encode a
@@ -1052,7 +1141,7 @@ def main(argv=None):
     if args.review is not None and not review_window(args.review, today):
         ap.error("--review wants week, month, or a YYYY-MM-DD date no later than today")
 
-    report = scan(root, today, args.entity, args.paraos_home, args.review)
+    report = scan(root, today, args.entity, args.paraos_home, args.review, args.model)
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     return 0

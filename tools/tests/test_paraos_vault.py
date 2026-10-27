@@ -35,7 +35,7 @@ from paraos_vault import (
     match_encoding, misplaced_checkboxes, move_plan, next_occurrence, norm, normalised, rewrite_links,
     notice_date, open_items, open_tasks, operator_card, over_grown_briefs, parse_markers,
     register_rows, registered_vault, registry, registry_holding, rel_posix, resolve_entity,
-    resolve_link, roster, scope_of, snapshot, split_lines, stage_line, stage_of,
+    resolve_link, roster, scope_of, skill_reviews, snapshot, split_lines, stage_line, stage_of,
     stray_checkboxes, strip_code, table_cells, template_marker, trash, triage_items,
     triage_sources, unticked_tasks, vault_root, waiting_on, weekday_after, weekday_index,
     working_days, writer, year_end_of,
@@ -1236,6 +1236,21 @@ class Register(VaultCase):
             "| Sample Co | Lead |", "```", "",
         ]) + "\n")
         self.assertEqual(register_rows(path), [])
+
+
+class SkillReviews(VaultCase):
+    """The model each of the vault's skills was last reviewed against."""
+
+    def test_each_skill_names_its_stamp_or_none(self):
+        write(self.root, ".claude/skills/alpha/SKILL.md",
+              "---\nname: alpha\n---\n\n<!-- reviewed with: claude-opus-5-5 -->\n# Alpha\n")
+        write(self.root, ".claude/skills/beta/SKILL.md", "---\nname: beta\n---\n# Beta\n")
+        write(self.root, ".claude/skills/notes.md", "not a skill\n")
+        self.assertEqual(skill_reviews(self.root), [
+            {"skill": "alpha", "model": "claude-opus-5-5"}, {"skill": "beta", "model": None}])
+
+    def test_a_vault_with_no_skills_folder_has_none(self):
+        self.assertEqual(skill_reviews(self.root), [])
 
 
 class Roster(VaultCase):

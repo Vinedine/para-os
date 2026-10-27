@@ -261,6 +261,65 @@ def triage(scan):
     return rows, codes
 
 
+LEVEL_WORDS = {"ok": "healthy", "watch": "watch", "care": "needs care", "unknown": "not judged"}
+# Each signal of the health card: its label, what it measures, why it matters, what to do.
+HEALTH_SIGNALS = (
+    ("last_edit", "Last edit", "When any action file last changed.",
+     "A vault nobody edits stops being the truth, and the work moves back to mail and memory.",
+     "Ask who should be using it."),
+    ("triage", "Triage", "Loose items in triage/ and how long the oldest has waited.",
+     "Triage is the inbox: an old item is a decision nobody made.", "Run /para-triage."),
+    ("auto_triage", "Auto-triage", "The last unattended triage run, and whether a proposal waits.",
+     "It files the easy items, so a person decides only the rest.",
+     "Read a waiting proposal in the next /para-triage."),
+    ("deep_clean", "Deep clean", "When /para-deep-clean last ran its full pass on this machine.",
+     "It catches what a daily brief cannot: stale briefs, dangling links, overgrown files.",
+     "Run /para-deep-clean once a month."),
+    ("template", "Template", "Template revisions the vault has not had.",
+     "Fixes and new rules reach a vault only through an upgrade.", "Run /para-upgrade."),
+    ("waits", "Waits", "Waiting on lines older than two weeks.",
+     "A wait nobody chases is a promise quietly dropped.", "Chase or drop each one."),
+    ("skills", "Skills review", "Skills not reviewed against the model running now.",
+     "A stronger model needs fewer instructions, so an older skill may carry text that can go.",
+     "Review the skill, then set its `<!-- reviewed with: <model id> -->` line."),
+)
+
+
+def signal_value(key, s):
+    """One signal's figures in a few words."""
+    if key == "last_edit":
+        return "unknown" if s["days"] is None else "today" if not s["days"] else f"{s['days']}d ago"
+    if key == "triage":
+        return "empty" if not s["items"] else \
+            f"{s['items']} item{'s' * (s['items'] > 1)}, oldest {s['oldest_days']}d"
+    if key == "auto_triage":
+        run = s["run"] and f"{s['run'][6:8]}-{s['run'][4:6]}-{s['run'][:4]}"
+        return (f"last run {run}" if run else "off") + (", proposal waiting" if s["proposal_waiting"] else "")
+    if key == "deep_clean":
+        return "no run recorded" if not s["last"] else f"{s['days']}d ago"
+    if key == "template":
+        return "not judged: no para-os clone" if s["behind"] is None else \
+            "current" if not s["behind"] else f"{s['behind']} revision{'s' * (s['behind'] > 1)} behind"
+    if key == "waits":
+        return str(s["count"])
+    missing, other = len(s["not_recorded"]), len(s["other_model"])
+    parts = [f"{missing} of {s['skills']} not recorded"] if missing else []
+    parts += [f"{other} reviewed with another model"] if other else []
+    return ", ".join(parts) or ("no skills" if not s["skills"] else "all reviewed")
+
+
+def health_card(scan):
+    """The scan's health block as the page shows it, or None where the scan has none."""
+    h = scan.get("health")
+    if not h:
+        return None
+    return {"level": h["level"], "word": LEVEL_WORDS[h["level"]],
+            "rows": [{"key": key, "label": label, "level": h["signals"][key]["level"],
+                      "value": signal_value(key, h["signals"][key]), "what": what, "why": why,
+                      "fix": plain(fix)}
+                     for key, label, what, why, fix in HEALTH_SIGNALS]}
+
+
 def page_data(scan, judgment, mechanical, local):
     names = {p["person"]: p["name"] for p in scan.get("people") or []}
     tri, codes = triage(scan)
@@ -278,7 +337,7 @@ def page_data(scan, judgment, mechanical, local):
             else inline(judgment["agenda_note"]),
             "ideas": ideas(scan), "triage": tri, "triage_codes": codes,
             "people": scan.get("people") or [], "pipeline": scan.get("lifecycles") or [],
-            "pipeline_items": items}
+            "pipeline_items": items, "health": health_card(scan)}
 
 
 # ------------------------------------------------------------- without a judgment file
