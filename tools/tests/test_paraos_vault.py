@@ -33,11 +33,12 @@ from paraos_vault import (
     git_last_commit_date, git_modified, git_untracked, hashes, header_fields, headline,
     inbound_references, integration_markers, lifecycles, live_lines, locale, main,
     match_encoding, misplaced_checkboxes, move_plan, next_occurrence, norm, normalised, rewrite_links,
-    notice_date, open_items, open_tasks, over_grown_briefs, parse_markers, register_rows,
-    registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
-    scope_of, snapshot, split_lines, stage_line, stage_of, stray_checkboxes, strip_code,
-    table_cells, template_marker, trash, triage_items, triage_sources, unticked_tasks, vault_root,
-    waiting_on, weekday_after, weekday_index, working_days, year_end_of,
+    notice_date, open_items, open_tasks, operator_card, over_grown_briefs, parse_markers,
+    register_rows, registered_vault, registry, registry_holding, rel_posix, resolve_entity,
+    resolve_link, roster, scope_of, snapshot, split_lines, stage_line, stage_of,
+    stray_checkboxes, strip_code, table_cells, template_marker, trash, triage_items,
+    triage_sources, unticked_tasks, vault_root, waiting_on, weekday_after, weekday_index,
+    working_days, writer, year_end_of,
 )
 from paraos_clone import changelog_entries, entries_between  # noqa: E402
 
@@ -1235,6 +1236,66 @@ class Register(VaultCase):
             "| Sample Co | Lead |", "```", "",
         ]) + "\n")
         self.assertEqual(register_rows(path), [])
+
+
+class Roster(VaultCase):
+    """Who writes a vault (bootstrap-prompt.md's `## Who writes this vault`), and which of
+    them the operator is."""
+
+    def claude_md(self, *rows, header="| Person | Role | Lane |", heading=True):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# V", "", "**Type:** vault", "",
+            *(["## Who writes this vault", ""] if heading else []),
+            header, "|---|---|---|", *rows, "", "## Actions", "", "A rule.", ""]))
+
+    def home(self, data):
+        home = self.root / "home"
+        home.mkdir(exist_ok=True)
+        (home / "operator.json").write_text(
+            data if isinstance(data, str) else json.dumps(data), encoding="utf-8")
+        return str(home)
+
+    def test_a_vault_with_no_roster_has_none(self):
+        write(self.root, "CLAUDE.md", "# V\n\n**Type:** vault\n")
+        self.assertIsNone(roster(self.root))
+
+    def test_a_row_carries_its_person_card_role_and_line(self):
+        self.claude_md("| [Ada Peeters](areas/network/ada-peeters.md) | Keeper | Sales |",
+                       "| Bram | **steward** (no lane) | - |")
+        self.assertEqual(roster(self.root), [
+            {"person": "Ada Peeters", "card": "ada-peeters", "role": "keeper", "line": 9},
+            {"person": "Bram", "card": "bram", "role": "steward", "line": 10}])
+
+    def test_a_role_outside_the_three_or_no_role_column_is_none(self):
+        self.claude_md("| Ada | owner | Sales |")
+        self.assertIsNone(roster(self.root)[0]["role"])
+        self.claude_md("| Ada | Sales | - |", header="| Person | Lane | Note |")
+        self.assertIsNone(roster(self.root)[0]["role"])
+
+    def test_a_table_under_another_heading_is_not_the_roster(self):
+        self.claude_md("| Ada | keeper | Sales |", heading=False)
+        self.assertIsNone(roster(self.root))
+
+    def test_the_operator_card_comes_from_the_identity_file(self):
+        self.assertEqual(operator_card(self.home({"card": "ada-peeters"})), "ada-peeters")
+        self.assertEqual(operator_card(self.home({"card": "Ada Peeters.md"})), "ada-peeters")
+
+    def test_no_identity_file_or_one_naming_no_card_is_none(self):
+        self.assertIsNone(operator_card(str(self.root / "nowhere")))
+        self.assertIsNone(operator_card(self.home("not json")))
+        self.assertIsNone(operator_card(self.home({"card": " "})))
+        self.assertIsNone(operator_card(self.home(["ada-peeters"])))
+
+    def test_with_no_roster_the_operator_keeps_the_vault(self):
+        write(self.root, "CLAUDE.md", "# V\n\n**Type:** vault\n")
+        self.assertEqual(writer(self.root, None)["role"], "keeper")
+
+    def test_with_a_roster_the_operator_is_their_own_row_or_none(self):
+        self.claude_md("| [Ada Peeters](areas/network/ada-peeters.md) | keeper | Sales |",
+                       "| [Bram Wouters](areas/network/bram-wouters.md) | steward | - |")
+        self.assertEqual(writer(self.root, "bram-wouters")["role"], "steward")
+        self.assertIsNone(writer(self.root, "cas-janssens"))
+        self.assertIsNone(writer(self.root, None))
 
 
 class TaskLinks(VaultCase):

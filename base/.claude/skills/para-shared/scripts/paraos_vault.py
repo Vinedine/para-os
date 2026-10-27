@@ -20,7 +20,8 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
 What lives here is what two skills would otherwise each answer their own way about a vault:
 whether a folder is a vault root, what the machine's registry says about it and its neighbours,
 where a checkbox may live, what counts as one, what a task marker means, which folder a name
-resolves to, which names a contact card answers to, when a file was really last touched, what
+resolves to, which names a contact card answers to, who writes the vault and in which role,
+which of them the operator is, when a file was really last touched, what
 a link points at and what a move has to rewrite, whether two files hold the same bytes,
 what a vault declares it is built from and the locale it declares, the numbers a vault's own
 rules state, the last day to give notice on a renewing agreement, and the date a promised
@@ -152,7 +153,7 @@ def find_clone(explicit=None, paraos_home=None):
 
 def registry(paraos_home=None):
     """The machine's vault registry, `<paraos_home>/vaults.json`: every vault this machine
-    knows about, as written (`name`, `path`, `kind`, `purpose`, `active`). `paraos_home`
+    knows about, as written (`name`, `path`, `purpose`, `active`, `retired`). `paraos_home`
     defaults to `$PARAOS_HOME`, else `~/.paraos`. `[]` where the file is missing or
     unparseable, never an exception: a registry read is background context for a stop line,
     not something a run needs to fail on.
@@ -1009,6 +1010,65 @@ def register_rows(path):
                     "cells": len(cells)})
         rows.append(row)
     return rows
+
+
+# --- who writes the vault ------------------------------------------------------------------
+
+ROSTER_HEADING = "Who writes this vault"
+ROLES = ("keeper", "member", "steward")
+ROLE_WORD_RE = re.compile(r"[a-z]+")
+
+
+def roster(vault):
+    """The `## Who writes this vault` table, one dict per person: `person`, the first cell's
+    text; `card`, the file name without `.md` of the contact card that cell links, else the
+    person folded by `norm`; `role`, the first word of the `Role` cell where it is one of
+    ROLES, any case, else None; and `line`. None where the vault has no roster: it then has
+    one writer, the operator, who keeps it."""
+    path = Path(vault) / "CLAUDE.md"
+    headings = (H2_RE.match(t) for _, t in live_lines(read_lines(path)))
+    if not any(m and m.group(1).strip() == ROSTER_HEADING for m in headings):
+        return None
+    out = []
+    for row in register_rows(path):
+        if row["section"] != ROSTER_HEADING:
+            continue
+        cell = row["name"]
+        person = CELL_MARKS_RE.sub("", re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", cell)).strip()
+        href = first_link(cell)
+        card = norm(Path(unquote(href)).stem if href and href.endswith(".md") else person)
+        role_cell = next((v for k, v in row.items() if str(k).strip().lower() == "role"), "")
+        word = ROLE_WORD_RE.match(CELL_MARKS_RE.sub("", role_cell).strip().lower())
+        out.append({"person": person, "card": card,
+                    "role": word.group(0) if word and word.group(0) in ROLES else None,
+                    "line": row["line"]})
+    return out
+
+
+def operator_card(paraos_home=None):
+    """Who "I" am, which a vault's shared files cannot say: the file name without `.md` of the
+    operator's own contact card, from `<paraos home>/operator.json`, `{"card": "jane-doe"}`.
+    None where the file is missing, does not parse, or names no card."""
+    try:
+        data = json.loads((paraos_home_dir(paraos_home) / "operator.json")
+                          .read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    card = data.get("card") if isinstance(data, dict) else None
+    if not isinstance(card, str) or not card.strip():
+        return None
+    return norm(re.sub(r"\.md$", "", card.strip(), flags=re.IGNORECASE))
+
+
+def writer(vault, card):
+    """The operator's place in a vault: their roster row, matched on `card`. A vault with no
+    roster has one writer, the operator, so it answers `{"person": None, "card": card,
+    "role": "keeper", "line": None}`. None where the roster has no row for `card`, or `card`
+    is None."""
+    rows = roster(vault)
+    if rows is None:
+        return {"person": None, "card": card, "role": "keeper", "line": None}
+    return next((r for r in rows if card and r["card"] == card), None)
 
 
 # --- what the vault declares ---------------------------------------------------------------

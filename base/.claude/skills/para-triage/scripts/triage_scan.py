@@ -15,7 +15,9 @@ the run logs under `<paraos_home>/cache/ingest/runs/`; every loose file in `tria
 kind, its ingest-staged-note fields where it is one, its in-vault and cross-vault duplicates,
 and every inbound reference to it; the vault's subdirectories; which staged notes share a
 thread; the seen-ledger's shape; what the vault lets a contact card hold, where a meeting
-record's next step may go; and, given `--threads`, whether a freshly fetched thread is
+record's next step may go; which roster row is the operator's, in a vault with a roster
+(`writer`, null where the operator's identity file names no row); and, given `--threads`,
+whether a freshly fetched thread is
 already staged as a note, where its seen-ledger watermark stands, and how many working days
 a message of the operator's own has gone unanswered.
 
@@ -46,8 +48,9 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         MIN_HASH_BYTES, OPEN_ITEM_CAP, TEXT_SUFFIXES, abspath, cap_count, action_files, contact_card_level,
-        hashes, inbound_references, live_lines, norm, open_tasks, read_lines, registered_vault,
-        registry, rel_posix, same_place, snapshot, triage_items, triage_sources, vault_root,
+        hashes, inbound_references, live_lines, norm, open_tasks, operator_card, read_lines,
+        registered_vault, registry, rel_posix, roster, same_place, snapshot, triage_items,
+        triage_sources, vault_root, writer,
     )
     from paraos_mail import (  # noqa: E402
         ingest_ledger, ingest_logs, log_instant, note_name_parts, thread_hash, unanswered,
@@ -758,6 +761,7 @@ def plan(vault, paraos_home, now, threads_data):
         "ingest_ledger": ingest_ledger_summary, "items": items,
         "seen_ledger": seen_ledger, "over_threshold": over_threshold_block(vault),
         "contact_card_level": contact_card_level(vault),
+        "writer": None if roster(vault) is None else writer(vault, operator_card(paraos_home)),
         "snapshot": build_snapshot(vault),
         "snapshot_folders": [str(abspath(vault / "triage"))],
     }

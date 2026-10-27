@@ -19,7 +19,6 @@ The registry's schema is `/para-ingest`'s [registry.md](../../para-ingest/refere
 ## Reading the findings
 
 - **`route: upgrade`** resolves with `/para-upgrade` run in that vault: say it once per vault, not once per finding.
-- **A type mismatch is the operator's call.** The registry and the vault say different things and either may be the stale one; offer both corrections.
 - **A vault ahead of the master** is on a draft revision, or the clone is stale: `git -C <clone> fetch`, or audit again with `ref=` naming the revision it is on.
 - **A topic-file observation** may be a convention the vault grew on purpose. Report it, never as a defect.
 - **Size** is about how reliably a session follows the file. The template's lever is extracting procedure to `.claude/rules/` with a one-line pointer left behind, never cutting the vault's own rules.
