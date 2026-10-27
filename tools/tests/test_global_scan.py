@@ -157,7 +157,7 @@ class GlobalScan(unittest.TestCase):
     def test_meetings_in_the_horizon_and_a_recurring_one_rolled_forward(self):
         write(self.tmp / "north", "meetings.md", "\n".join([
             "# Meetings", "", "## Upcoming", "",
-            "- 🗓 2026-03-11 10:00–11:00 · Kick-off · Ann · Teams",
+            "- 🗓 2026-03-11 10:00\u201311:00 · Kick-off · Ann · Teams",
             "- 🗓 2026-03-01 · Already past",
             "- 🗓 2026-05-01 · Too far out", "", "## Recurring", "",
             "- 🗓 2026-03-02 09:00 · Weekly sync 🔁 every week · Teams",
