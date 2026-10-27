@@ -27,7 +27,7 @@ Per [para-shared/scripts.md](../para-shared/scripts.md):
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/global_scan.py" [--paraos-home <folder holding vaults.json>] > <scan output path>
+python3 "<this skill's base directory>/scripts/global_scan.py" --model <your own model id> [--paraos-home <folder holding vaults.json>] > <scan output path>
 ```
 
 Exit 3: no registry, or one listing nothing. Say so, point at `vaults.json.template` in the multi-vault README, and stop. The output's fields are in the script's docstring.
@@ -36,7 +36,7 @@ Exit 3: no registry, or one listing nothing. Say so, point at `vaults.json.templ
 
 Everything comes from the scan. Read no vault's files.
 
-1. **One table, one row per vault**, in registry order: `Vault`, `Open`, `Overdue`, `This week`, `Undated`, `Triage`, and `Flags` naming the flags fired. Where `proposal` is set, the row says a triage proposal is waiting.
+1. **One table, one row per vault**, in registry order: `Vault`, `Open`, `Overdue`, `This week`, `Undated`, `Triage`, `Flags` naming the flags fired, and `Health`: the health card's level (healthy, watch, needs care) and each signal at watch or care. Where `proposal` is set, the row says a triage proposal is waiting.
 2. **Urgent**: the `urgent` items, at most ten, each tagged with its vault. With more, count the rest per vault.
 3. **Excluded**: every `excluded` entry with its `status` word as the scan gives it, and its reason, or one line saying none was.
 4. **One next action**, closing the brief: the single item to do first, its vault named, and the vault to open `/para-daily-brief` in for the rest; the close names no second item.

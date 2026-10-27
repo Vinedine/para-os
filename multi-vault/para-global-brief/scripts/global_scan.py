@@ -2,7 +2,7 @@
 """The mechanics of /para-global-brief: every vault the registry lists, scanned the way its
 own /para-daily-brief scans it, as one JSON document on stdout.
 
-    py -3 global_scan.py [--today YYYY-MM-DD] [--paraos-home DIR] [--indent N]
+    py -3 global_scan.py [--today YYYY-MM-DD] [--paraos-home DIR] [--model <id>] [--indent N]
 
 Read-only: never writes a file. Each vault's numbers come from para-daily-brief's
 `brief_scan.scan()`, so they cannot disagree with that vault's own brief; which entries are
@@ -11,8 +11,9 @@ read, and what a retired, malformed or missing one becomes, is para-audit's
 
 `vaults`, in registry order: `name`, `open`, `overdue`, `this_week` (due in the next seven
 days), `undated`, `triage` (loose files in `triage/`), `flags` (the name of every health flag
-the scan fired) and `proposal`, the newest
-`<paraos home>/cache/triage/proposals/<name>-<YYYYMMDD-HHMM>.md` by name, else null.
+the scan fired), `proposal`, the newest
+`<paraos home>/cache/triage/proposals/<name>-<YYYYMMDD-HHMM>.md` by name, else null, and
+`health`, the vault's health card as brief_scan.py's `health()` gives it.
 
 `urgent`: every task overdue or due today across the vaults, each with its `vault`, sorted
 as render_dashboard.py's `--mechanical` sorts a vault's Next action, uncapped.
@@ -62,10 +63,10 @@ def vault_row(name, report, home):
             "this_week": len(lanes.get("this_week", [])), "undated": t["undated"],
             "triage": len(report["triage"]),
             "flags": sorted(k for k, v in report["flags"].items() if fired(v)),
-            "proposal": proposal(home, name)}
+            "proposal": proposal(home, name), "health": report["health"]}
 
 
-def build_report(entries, today, paraos_home=None):
+def build_report(entries, today, paraos_home=None, model=None):
     home = paraos_home_dir(paraos_home)
     vaults, urgent, excluded = [], [], []
     for entry in entries:
@@ -73,7 +74,7 @@ def build_report(entries, today, paraos_home=None):
         name = entry.get("name") if isinstance(entry, dict) else None
         if status is None:
             try:
-                report = scan(entry["path"], today, paraos_home=paraos_home)
+                report = scan(entry["path"], today, paraos_home=paraos_home, model=model)
             except OSError as err:
                 status = ("UNREACHABLE", f"the scan could not read it: {err}")
         if status:
@@ -92,6 +93,7 @@ def main(argv=None):
     ap.add_argument("--today", help="date to bucket against (default: the system date)")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
+    ap.add_argument("--model", help="the running model's id, for each health card's skills review")
     args = ap.parse_args(argv)
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -104,7 +106,7 @@ def main(argv=None):
     if not entries:
         print("global_scan: no registry, or one listing no vault", file=sys.stderr)
         return 3
-    json.dump(build_report(entries, today, args.paraos_home), sys.stdout,
+    json.dump(build_report(entries, today, args.paraos_home, args.model), sys.stdout,
               ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     return 0

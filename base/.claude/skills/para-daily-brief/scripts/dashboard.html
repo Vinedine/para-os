@@ -81,6 +81,12 @@ details>ul.tasks,details>.more{margin:.2rem 0 .5rem .9rem;padding-left:.7rem;bor
 .ev time{font-size:.78rem;color:var(--accent)}
 .lbl{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:.5rem 0 .15rem}
 footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
+.health{display:grid;gap:.1rem}
+.sig summary{display:grid;grid-template-columns:.9rem minmax(0,9rem) minmax(0,1fr);gap:0 .5rem;font-size:.86rem;padding:.25rem 0}
+.sig p{margin:.1rem 0 .5rem .9rem}
+.sig-value.ok,.pill.ok{color:var(--accent)}.sig-value.watch,.pill.watch{color:var(--amber)}
+.sig-value.care,.pill.care{color:var(--alert);font-weight:600}.sig-value.unknown,.pill.unknown{color:var(--muted)}
+.pill{font-size:.7rem;text-transform:none;letter-spacing:0;margin-left:.4rem}
 @media (max-width:720px){.grid2{grid-template-columns:1fr}.week{grid-template-columns:1fr}.day.none{display:none}
 .row{grid-template-columns:1fr;gap:.15rem}.n{text-align:left}.ev{grid-template-columns:1fr;gap:0}
 .hide-narrow{display:none}}
@@ -101,6 +107,7 @@ footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
   <section id="people-box" hidden><h2>People</h2><div class="card"><table><thead><tr><th>Who</th><th>You owe</th><th>They owe</th><th class="hide-narrow">Stage</th><th>Last touch</th></tr></thead><tbody id="people"></tbody></table></div></section>
   <section id="pipeline-box" hidden><h2>Pipeline</h2><div class="card" id="pipeline"></div></section>
   <section id="flags-box" hidden><h2>Housekeeping</h2><div class="card"><ul class="flags" id="flags"></ul><p class="meta">Repairs go through <code>/para-deep-clean</code>.</p></div></section>
+  <section id="health-box" hidden><h2>Vault health <span class="pill" id="health-level"></span></h2><div class="card"><div class="health" id="health"></div></div></section>
   <footer id="foot"></footer>
 </div>
 <script id="data" type="application/json">__PARAOS_DATA__</script>
@@ -382,6 +389,19 @@ footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
         li.append(d);
       } else { li.innerHTML = f.html; }
       $("flags").append(li);
+    });
+  }
+
+  // vault health: one line per signal, its explainer one click away
+  if (D.health) {
+    $("health-box").hidden = false;
+    $("health-level").textContent = D.health.word;
+    $("health-level").className = "pill " + D.health.level;
+    D.health.rows.forEach(function (r) {
+      var d = el("details", "sig"), s = el("summary", "x");
+      s.append(el("span", "sig-label", r.label), el("span", "sig-value " + r.level, r.value));
+      d.append(s, el("p", "meta", r.what + " " + r.why + " " + r.fix));
+      $("health").append(d);
     });
   }
 

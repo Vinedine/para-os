@@ -18,11 +18,13 @@ two produce together.
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -1023,6 +1025,92 @@ class DeepCleanDue(VaultCase):
 
     def test_an_entity_scope_does_not_check_it(self):
         self.assertIsNone(self.due(entity="acme-website"))
+
+
+class Health(VaultCase):
+    """The vault's health card: one level per signal, and the worst of the counted ones."""
+
+    def setUp(self):
+        super().setUp()
+        self.vault = self.root / "vault"
+        self.home = self.root / "home"
+        build_vault(self.vault)
+        self.today = date.today()
+
+    def card(self, model=None):
+        return scan(self.vault, self.today, paraos_home=self.home, model=model)["health"]
+
+    def age(self, rel, days):
+        stamp = time.time() - days * 86400
+        os.utime(self.vault / rel, (stamp, stamp))
+
+    def test_an_old_triage_item_needs_care_and_a_new_one_is_ok(self):
+        self.assertEqual(self.card()["signals"]["triage"]["level"], "ok")
+        self.age("triage/20260919 Something - Note.md", 20)
+        got = self.card()["signals"]["triage"]
+        self.assertEqual((got["level"], got["items"], got["oldest_days"]), ("care", 1, 20))
+
+    def test_a_pile_of_new_items_reads_watch(self):
+        for n in range(20):
+            write(self.vault, f"triage/note {n}.md", "x\n")
+        self.assertEqual(self.card()["signals"]["triage"]["level"], "watch")
+
+    def test_the_deep_clean_stamp_reads_by_its_age(self):
+        self.assertEqual(self.card()["signals"]["deep_clean"],
+                         {"level": "watch", "last": None, "days": None})
+        for days, want in ((10, "ok"), (40, "watch"), (70, "care")):
+            stamp = (self.today - timedelta(days=days)).isoformat()
+            write(self.home, "data/deep-clean/vault.txt", stamp + "\n")
+            self.assertEqual(self.card()["signals"]["deep_clean"]["level"], want, days)
+
+    def test_with_no_clone_the_template_is_not_judged(self):
+        self.assertEqual(self.card()["signals"]["template"]["level"], "unknown")
+
+    def test_the_template_counts_the_revisions_the_vault_has_not_had(self):
+        clone = self.home / "para-os"
+        git = lambda *a: subprocess.run(["git", "-C", str(clone), *a], check=True,
+                                         capture_output=True)
+        clone.mkdir(parents=True)
+        git("init", "-q")
+        write(clone, "CHANGELOG.md", "".join(f"## 2026.10.0{n}\n\nEntry.\n\n" for n in (3, 2, 1)))
+        write(clone, "base/CLAUDE.md.template", "# V\n\n<!-- para-os-template: 2026.10.03 -->\n")
+        git("add", "-A")
+        git("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "x")
+        git("update-ref", "refs/remotes/origin/stable", "HEAD")
+        write(self.vault, "CLAUDE.md", "# V\n\n<!-- para-os-template: 2026.10.01 -->\n")
+        got = self.card()["signals"]["template"]
+        self.assertEqual((got["level"], got["vault"], got["master"], got["behind"]),
+                         ("watch", "2026.10.01", "2026.10.03", 2))
+
+    def test_waits_past_two_weeks_are_counted(self):
+        since = (self.today - timedelta(days=30)).isoformat()
+        write(self.vault, "areas/business/actions.md",
+              "".join(f"- [ ] Waiting on Jan: part {n} (since {since})\n" for n in range(3)))
+        self.assertEqual(self.card()["signals"]["waits"], {"level": "care", "count": 3})
+
+    def test_skills_read_by_their_review_stamp(self):
+        write(self.vault, ".claude/skills/alpha/SKILL.md",
+              "---\nname: alpha\n---\n<!-- reviewed with: model-one -->\n")
+        write(self.vault, ".claude/skills/beta/SKILL.md", "---\nname: beta\n---\n")
+        got = self.card(model="model-two")["signals"]["skills"]
+        self.assertEqual((got["level"], got["not_recorded"], got["other_model"]),
+                         ("watch", ["beta"], ["alpha"]))
+        write(self.vault, ".claude/skills/beta/SKILL.md",
+              "---\nname: beta\n---\n<!-- reviewed with: model-one -->\n")
+        self.assertEqual(self.card(model="model-one")["signals"]["skills"]["level"], "ok")
+
+    def test_the_overall_level_leaves_out_skills_and_auto_triage(self):
+        write(self.home, "data/deep-clean/vault.txt", self.today.isoformat() + "\n")
+        write(self.vault, ".claude/skills/beta/SKILL.md", "---\nname: beta\n---\n")
+        write(self.home, "cache/triage/proposals/vault-20260101-0700.md", "x\n")
+        card = self.card()
+        self.assertEqual((card["signals"]["skills"]["level"],
+                          card["signals"]["auto_triage"]["level"]), ("watch", "watch"))
+        self.assertEqual(card["level"], "ok")
+
+    def test_an_entity_scope_has_no_card(self):
+        self.assertNotIn("health", scan(self.vault, self.today, entity="acme-website",
+                                        paraos_home=self.home))
 
 
 class CommandLineCase(unittest.TestCase):

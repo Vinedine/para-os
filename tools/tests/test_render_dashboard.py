@@ -352,6 +352,26 @@ class SilentSource(DashboardCase):
             render(report, self.judgment(report, flags=[dict(flag, source="pocket")]))
 
 
+class HealthCard(DashboardCase):
+    """The scan's health block as the page shows it: every signal, worded, with its explainer."""
+
+    def test_every_signal_is_a_row_worded_from_its_figures(self):
+        card = self.page()["health"]
+        self.assertIn(card["word"], ("healthy", "watch", "needs care"))
+        rows = {r["key"]: r for r in card["rows"]}
+        self.assertEqual(list(rows), ["last_edit", "triage", "auto_triage", "deep_clean",
+                                      "template", "waits", "skills"])
+        self.assertEqual(rows["deep_clean"]["value"], "no run recorded")
+        self.assertEqual(rows["auto_triage"]["value"], "off")
+        self.assertTrue(all(r["what"] and r["why"] and r["fix"] for r in rows.values()))
+        self.assertNotIn("`", rows["skills"]["fix"])
+
+    def test_a_vault_scan_without_a_card_renders_none(self):
+        report = self.report()
+        del report["health"]
+        self.assertIsNone(self.page(report=report)["health"])
+
+
 class Cut(unittest.TestCase):
 
     def test_a_bold_lead_is_the_whole_line(self):
