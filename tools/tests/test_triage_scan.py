@@ -1094,6 +1094,31 @@ class ContactCards(VaultCase):
         self.assertEqual(self.plan()["contact_card_level"], "yes")
 
 
+class Writer(VaultCase):
+    """Which roster row is running (SKILL.md Step 1), from the operator's identity file."""
+
+    def roster(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "**Type:** vault", "", "## Who writes this vault", "",
+            "| Person | Role | Lane |", "|---|---|---|",
+            "| [Sam Peeters](areas/network/sam-peeters.md) | keeper | Business |",
+            "| [Robin Maes](areas/network/robin-maes.md) | member | Acme website |", ""]))
+
+    def test_the_identity_file_names_the_running_row(self):
+        self.roster()
+        (self.home / "operator.json").write_text('{"card": "robin-maes"}', encoding="utf-8")
+        got = self.plan()["writer"]
+        self.assertEqual((got["person"], got["role"]), ("Robin Maes", "member"))
+
+    def test_with_no_identity_file_no_row_is_assumed(self):
+        self.roster()
+        self.assertIsNone(self.plan()["writer"])
+
+    def test_a_vault_with_no_roster_carries_none(self):
+        (self.home / "operator.json").write_text('{"card": "robin-maes"}', encoding="utf-8")
+        self.assertIsNone(self.plan()["writer"])
+
+
 # -------------------------------------------------------------------------------- snapshot
 
 class Snapshot(VaultCase):
@@ -1287,7 +1312,7 @@ class CommandLine(VaultCase):
         report = json.loads(out)
         self.assertEqual(set(report), {"vault", "sources", "ingest", "ingest_ledger", "items",
                                        "seen_ledger", "over_threshold", "contact_card_level",
-                                       "snapshot", "snapshot_folders", "saved_to",
+                                       "writer", "snapshot", "snapshot_folders", "saved_to",
                                        "save_error"})
         self.assertEqual([i["name"] for i in report["items"]["loose"]],
                          ["20260920 Subject 88604c.md"])

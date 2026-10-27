@@ -152,12 +152,12 @@ class CloneCase(unittest.TestCase):
         self.work = Path(tempfile.mkdtemp(prefix="audit-vaults-", dir=self.tmp))
 
     @staticmethod
-    def entry_at(work, name, kind="client-vault", **extra):
-        return dict({"name": name, "path": str(work / name), "kind": kind,
-                     "purpose": "A fixture.", "active": True}, **extra)
+    def entry_at(work, name, **extra):
+        return dict({"name": name, "path": str(work / name), "purpose": "A fixture.",
+                     "active": True}, **extra)
 
-    def entry(self, name, kind="client-vault", **extra):
-        return self.entry_at(self.work, name, kind, **extra)
+    def entry(self, name, **extra):
+        return self.entry_at(self.work, name, **extra)
 
     @classmethod
     def audit_at(cls, work, entries, ref=None):
@@ -305,31 +305,42 @@ class RevisionCase(CloneCase):
 # ================================================================ type and declarations
 
 class DeclarationCase(CloneCase):
-    def row(self, kind="client-vault", **vault):
-        build_vault(self.work / "v", **vault)
-        report, _ = self.run_audit([self.entry("v", kind=kind)])
+    def row(self, roster_rows=None, **vault):
+        root = build_vault(self.work / "v", **vault)
+        if roster_rows is not None:
+            with (root / "CLAUDE.md").open("a", encoding="utf-8") as f:
+                f.write("\n## Who writes this vault\n\n| Person | Role | Lane |\n|---|---|---|\n"
+                        + "".join(f"| {p} | {r} | - |\n" for p, r in roster_rows))
+        report, _ = self.run_audit([self.entry("v")])
         return self.vault_row(report, "v")
 
-    def test_a_type_kind_mismatch_names_both_and_decides_neither(self):
-        row = self.row(kind="personal-vault")
-        found = self.findings(row, "type")
-        self.assertEqual(len(found), 1)
-        self.assertIn("client-vault", found[0]["detail"])
-        self.assertIn("personal-vault", found[0]["detail"])
-        self.assertEqual(found[0]["route"], "operator")
-        self.assertEqual(row["cells"]["type"], "mismatch")
-
-    def test_type_and_kind_compare_as_one_name(self):
-        row = self.row(kind="Client Vault")
+    def test_the_type_is_the_vault_s_own_label_never_judged(self):
+        row = self.row(type_line="**Type:** personal-vault")
+        self.assertEqual(row["cells"]["type"], "personal-vault")
         self.assertEqual(self.findings(row, "type"), [])
 
-    def test_an_entry_with_no_kind_is_a_finding(self):
+    def test_a_registry_kind_is_not_read(self):
         build_vault(self.work / "v")
-        entry = self.entry("v")
-        del entry["kind"]
-        report, _ = self.run_audit([entry])
+        report, _ = self.run_audit([self.entry("v", kind="something-else")])
         row = self.vault_row(report, "v")
-        self.assertEqual(row["cells"]["type"], "no kind")
+        self.assertEqual((row["cells"]["type"], row["findings"]), ("client-vault", []))
+
+    def test_a_roster_with_no_roles_is_one_finding(self):
+        found = self.findings(self.row(roster_rows=[("Ada", ""), ("Bram", "")]),
+                              "declarations")
+        self.assertEqual(len(found), 1)
+        self.assertIn("no one a role", found[0]["detail"])
+        self.assertEqual(found[0]["route"], "operator")
+
+    def test_a_roster_row_with_no_role_is_named(self):
+        found = self.findings(self.row(roster_rows=[("Ada", "keeper"), ("Bram", "boss")]),
+                              "declarations")
+        self.assertEqual([("Bram" in f["detail"], f["route"]) for f in found],
+                         [(True, "operator")])
+
+    def test_a_roster_with_every_role_set_is_clean(self):
+        row = self.row(roster_rows=[("Ada", "keeper"), ("Bram", "steward")])
+        self.assertEqual(self.findings(row, "declarations"), [])
 
     def test_an_unknown_add_on_name_is_a_finding_and_a_known_one_is_not(self):
         row = self.row(extra_header="**Modules:** sales, nonesuch\n",
@@ -468,10 +479,10 @@ class StateWordingCase(unittest.TestCase):
 
 
 class TopicFileCase(CloneCase):
-    def fleet(self, sibling_rules, sibling_kind="client-vault"):
+    def fleet(self, sibling_rules, sibling_type="client-vault"):
         build_vault(self.work / "a", rules=("filing.md", "house.md"))
-        build_vault(self.work / "b", rules=sibling_rules)
-        report, _ = self.run_audit([self.entry("a"), self.entry("b", kind=sibling_kind)])
+        build_vault(self.work / "b", rules=sibling_rules, type_line=f"**Type:** {sibling_type}")
+        report, _ = self.run_audit([self.entry("a"), self.entry("b")])
         return self.vault_row(report, "a")
 
     def test_a_topic_file_no_sibling_carries_is_an_observation(self):
@@ -483,8 +494,8 @@ class TopicFileCase(CloneCase):
     def test_a_topic_file_a_sibling_carries_is_not(self):
         self.assertEqual(self.fleet(("filing.md", "house.md"))["observations"], [])
 
-    def test_with_no_sibling_of_the_same_kind_there_is_nothing_to_compare(self):
-        self.assertEqual(self.fleet(("filing.md",), sibling_kind="other")["observations"], [])
+    def test_with_no_sibling_of_the_same_type_there_is_nothing_to_compare(self):
+        self.assertEqual(self.fleet(("filing.md",), sibling_type="other")["observations"], [])
 
     def test_a_voice_profile_is_one_person_s_and_never_a_topic(self):
         build_vault(self.work / "a", rules=("filing.md", "voice-ada-peeters.md"))
@@ -529,8 +540,9 @@ class RegistryCase(CloneCase):
         self.assertEqual(report["upgrade_first"]["name"], "two")
 
     def test_an_operator_only_finding_never_names_a_vault_to_upgrade(self):
-        build_vault(self.work / "v")
-        report, _ = self.run_audit([self.entry("v", kind="other")])
+        build_vault(self.work / "v", type_line="**Type:** {{vault-type}}")
+        report, _ = self.run_audit([self.entry("v")])
+        self.assertTrue(self.vault_row(report, "v")["findings"])
         self.assertIsNone(report["upgrade_first"])
 
 

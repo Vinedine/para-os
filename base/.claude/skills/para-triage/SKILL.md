@@ -29,7 +29,7 @@ Run Step 2's scan now on the vault root (the path the operator named, else `pwd`
 
 Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-discipline.md#a-vaults-rule-files), quoting in the proposal the naming convention you apply. **No source-document naming convention stated**: propose destinations only, and ask the operator for one before any rename.
 
-**A `## Who writes this vault` roster**: settle which row is running, asking once, with the roster as the options, where the session does not say.
+**A `## Who writes this vault` roster**: the row running is the one the session names, else the scan's `writer`, else ask once, with the roster as the options.
 
 ### Step 2: Gather inputs
 

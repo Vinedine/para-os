@@ -24,11 +24,11 @@ vault south "- [ ] Pay the south host invoice 🔺 📅 $(day 0)"
 mkdir -p paraos
 cat > paraos/vaults.json <<JSON
 [
-  {"name": "north", "path": "$here/vaults/north", "kind": "client-vault",
+  {"name": "north", "path": "$here/vaults/north",
    "purpose": "The northern client engagement.", "active": true},
-  {"name": "south", "path": "$here/vaults/south", "kind": "client-vault",
+  {"name": "south", "path": "$here/vaults/south",
    "purpose": "The southern client engagement.", "active": true},
-  {"name": "east", "path": "$here/vaults/east", "kind": "client-vault",
+  {"name": "east", "path": "$here/vaults/east",
    "purpose": "The eastern client engagement, on a shared drive.", "active": true}
 ]
 JSON

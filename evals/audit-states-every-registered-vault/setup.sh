@@ -2,9 +2,9 @@
 # A registry of four vaults for /para-audit, and no para-os clone, so no vault can be held
 # against a master: the case grades the registry's rules and what reads without git.
 #
-#   north  active, its `**Type:**` matching its `kind`
-#   south  `active: false`, still audited; `**Type:** personal-vault` against the registry's
-#          `client-vault`; a CLAUDE.md of 240 lines, over the 200-line target
+#   north  active, nothing to report on its declarations
+#   south  `active: false`, still audited; a roster on which Bram has no role; a CLAUDE.md of
+#          240 lines, over the 200-line target
 #   east   registered at a path that does not exist: UNREACHABLE
 #   west   `retired: true`, on disk all the same: RETIRED (excluded)
 #
@@ -23,19 +23,20 @@ vault() {  # <name> <type> <extra rule lines>
 }
 
 vault north client-vault 0
-vault south personal-vault 230
+vault south personal-vault 223
 vault west client-vault 0
+printf '\n## Who writes this vault\n\n| Person | Role | Lane |\n|---|---|---|\n| Ada | keeper | Sales |\n| Bram | | Support |\n' >> vaults/south/CLAUDE.md
 
 mkdir -p paraos
 cat > paraos/vaults.json <<EOF
 [
-  {"name": "north", "path": "$here/vaults/north", "kind": "client-vault",
+  {"name": "north", "path": "$here/vaults/north",
    "purpose": "The northern client engagement.", "active": true},
-  {"name": "south", "path": "$here/vaults/south", "kind": "client-vault",
+  {"name": "south", "path": "$here/vaults/south",
    "purpose": "The southern client engagement, paused.", "active": false},
-  {"name": "east", "path": "$here/vaults/east", "kind": "client-vault",
+  {"name": "east", "path": "$here/vaults/east",
    "purpose": "The eastern client engagement, on a shared drive.", "active": true},
-  {"name": "west", "path": "$here/vaults/west", "kind": "client-vault",
+  {"name": "west", "path": "$here/vaults/west",
    "purpose": "A finished engagement, kept for reference.", "active": false, "retired": true}
 ]
 EOF

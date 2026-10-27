@@ -22,7 +22,7 @@ whose path is not a folder, or holds no `CLAUDE.md`, is `UNREACHABLE`. Each land
 drive is unreachable, and the drive holds two or more of them or its root is not there,
 `drives` names the drive.
 
-The seven checks, one cell each in `cells`, every defect a `finding` with its `fix` and a
+The seven columns, one cell each in `cells`, every defect a `finding` with its `fix` and a
 `route` (`upgrade` where /para-upgrade applies it, `operator` where a person decides):
 
 1. revision      The vault's template marker against the master's: `aligned`, `behind N`
@@ -31,16 +31,17 @@ The seven checks, one cell each in `cells`, every defect a `finding` with its `f
                  or `UNSTAMPED`, which counts as behind by every revision. A vault ahead is
                  judged on nothing a master older than it would answer: no add-on names,
                  rules, integrations or skills (`not judged`).
-2. type          The `**Type:**` line against the entry's `kind`, compared as one name
-                 (`paraos_vault.norm`). A mismatch names both and decides neither.
+2. type          The `**Type:**` line as written: the operator's own label, never judged.
 3. declarations  The marker, `**Type:**`, `**Flavor:**` and `**Modules:**` lines: a marker
                  comment that does not parse, a line away from the title (read by nothing),
                  a line off the literal `**Name:** value` shape, a template placeholder,
                  two flavors, an add-on no `addons/<name>/` holds at the ref, and any other
-                 bold line under the title, `**Delivery:**` included.
+                 bold line under the title, `**Delivery:**` included. Then the roster: a
+                 `## Who writes this vault` row with no role, or one finding where no row
+                 has one.
 4. rules         Each `.claude/rules/` file base or a declared add-on ships, from the table:
                  missing, behind (`untouched`) or retired. An edited copy is the vault's own.
-                 A rule file no master ships that no other audited vault of the same `kind`
+                 A rule file no master ships that no other audited vault of the same `**Type:**`
                  carries is an `observation`, never a finding, and only where such a sibling
                  exists. A `voice-*.md` profile is one person's, never a topic file.
 5. integrations  Each `para-os-integration:` script's row in the table. `none` where the vault
@@ -88,7 +89,7 @@ sys.path[:0] = [str(SKILLS_ROOT / lib / "scripts") for lib in ("para-shared", "p
 try:
     from paraos_vault import (  # noqa: E402
         HEADER_FIELD_RE, TEMPLATE_MARKER_RE, declarations, find_clone, header_fields,
-        live_lines, norm, paraos_home_dir, read_lines, registry,
+        live_lines, norm, paraos_home_dir, read_lines, registry, roster,
     )
     from paraos_clone import addon_root, clone_session, master_template  # noqa: E402
     from upgrade_scan import files_block, open_clone, revision_block  # noqa: E402
@@ -207,19 +208,15 @@ def revision_check(vault, kit, in_development):
         "fetch the clone, or audit again with ref= naming the revision the vault is on")]
 
 
-def type_check(decl, entry):
-    declared, kind = decl["type"], entry.get("kind")
-    if not declared or PLACEHOLDER in declared:
-        return "-", []
-    if not isinstance(kind, str) or not kind.strip():
-        return "no kind", [finding(
-            "type", f"the registry entry has no `kind`; the vault declares `**Type:** {declared}`",
-            "add `kind` to the registry entry")]
-    if norm(declared) == norm(kind):
-        return "ok", []
-    return "mismatch", [finding(
-        "type", f"`**Type:** {declared}` against the registry's `kind: {kind}`",
-        "decide which is stale, then correct the registry's `kind` or the vault's `**Type:**` line")]
+def roster_check(vault):
+    """A roster with no role on any row is one finding; otherwise one per row without one."""
+    rows = roster(vault) or []
+    fix = "give each person on the roster a Role: keeper, member or steward"
+    if rows and all(r["role"] is None for r in rows):
+        return [finding("declarations", "the `## Who writes this vault` roster gives no one a "
+                        "role", fix)]
+    return [finding("declarations", f"line {r['line']}: {r['person']} has no role on the roster",
+                    fix) for r in rows if r["role"] is None]
 
 
 def _line_of(lines, key):
@@ -251,7 +248,8 @@ def declaration_check(vault, decl):
                                      f"title, so nothing reads it", "move it under the title"))
             elif key == "type":
                 found.append(finding("declarations", "no `**Type:**` line under the title",
-                                     "add `**Type:** <the registry's kind>` under the title"))
+                                     "add `**Type:** <a label for this class of vault>` under "
+                                     "the title"))
             continue
         if not SHAPE_RE.match(text):
             found.append(finding("declarations", f"line {n} is written `{text}`; the "
@@ -346,10 +344,10 @@ def audit_vault(entry, kit, ref, in_development):
     vault = Path(entry["path"]).resolve()
     decl = declarations(vault)
     revision, cell, found = revision_check(vault, kit, in_development)
-    cells = {"revision": cell}
-    cells["type"], more = type_check(decl, entry)
-    found += more
+    cells = {"revision": cell,
+             "type": decl["type"] if decl["type"] and PLACEHOLDER not in decl["type"] else "-"}
     declared, resolvable = declaration_check(vault, decl)
+    declared += roster_check(vault)
     judged = revision["verdict"] not in ("ahead", "unverified")
     if judged:
         declared += addon_check(kit, resolvable, ref)
@@ -375,24 +373,24 @@ def audit_vault(entry, kit, ref, in_development):
     cells["size"], more = size_check(vault)
     found += more
 
-    row = {"name": entry["name"], "path": entry["path"], "kind": entry.get("kind"),
+    row = {"name": entry["name"], "path": entry["path"],
            "active": entry.get("active"), "type": decl["type"], "revision": revision,
            "cells": {c: cells[c] for c in COLUMNS}, "findings": found, "observations": []}
     return row, topics
 
 
 def topic_observations(rows, topics, carried):
-    """A topic file no other audited vault of the same kind carries, where one exists."""
+    """A topic file no other audited vault of the same `**Type:**` carries, where one exists."""
     for i, row in enumerate(rows):
-        kind = norm(row["kind"]) if isinstance(row["kind"], str) and row["kind"].strip() else None
-        siblings = [carried[j] for j, other in enumerate(rows) if j != i and kind
-                    and isinstance(other["kind"], str) and norm(other["kind"]) == kind]
+        label = norm(row["type"]) if row["type"] else None
+        siblings = [carried[j] for j, other in enumerate(rows)
+                    if j != i and label and other["type"] and norm(other["type"]) == label]
         if not siblings:
             continue
         for name in topics[i]:
             if not any(name in files for files in siblings):
                 row["observations"].append({"check": "rules", "detail": (
-                    f"`.claude/rules/{name}` is a topic file no other `{row['kind']}` vault "
+                    f"`.claude/rules/{name}` is a topic file no other `{row['type']}` vault "
                     f"carries")})
 
 
