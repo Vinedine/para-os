@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>__PARAOS_TITLE__</title>
+<style>
+/* Time first (today, the rest of the week, the next two weeks), then the operator's own vaults by area and person, then every vault's health. The daily brief's tokens, so the two pages read as one family. */
+:root{--bg:#F7F7F4;--surface:#FFFFFF;--ink:#20242B;--muted:#6B7280;--line:#E3E4DF;
+--accent:#1F6E68;--accent-soft:#E4EFED;--alert:#B4423A;--amber:#A86A12;--upcoming:#3E6C93;--undated:#C9CCC3;--chip:#EEEFEA}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+--bg:#14171B;--surface:#1C2026;--ink:#E7E5DF;--muted:#8E959F;--line:#2C313A;--accent:#55A79D;
+--accent-soft:#1E3330;--alert:#D06B60;--amber:#D19A45;--upcoming:#6E9CC4;--undated:#3B414B;--chip:#262B33}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#14171B;--surface:#1C2026;--ink:#E7E5DF;
+--muted:#8E959F;--line:#2C313A;--accent:#55A79D;--accent-soft:#1E3330;--alert:#D06B60;--amber:#D19A45;
+--upcoming:#6E9CC4;--undated:#3B414B;--chip:#262B33}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5}
+code,.meta,.tile b,time{font-family:Consolas,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1100px;margin:0 auto;padding-block:2rem 3rem;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+h1{font-size:1.65rem;font-weight:700;margin:0;letter-spacing:-.015em}
+.date{color:var(--muted);font-size:.85rem}
+h2{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:2rem 0 .6rem}
+h2 span{text-transform:none;letter-spacing:0;font-weight:400}
+h3{font-size:.85rem;margin:0 0 .4rem;display:flex;justify-content:space-between;gap:.5rem;align-items:baseline}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.75rem 1rem;min-width:0}
+.next{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:.75rem 1rem;font-size:.95rem}
+.next strong{color:var(--accent);text-transform:uppercase;font-size:.7rem;letter-spacing:.08em;display:block;margin-bottom:.2rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-top:1.2rem}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.6rem .75rem}
+.tile b{display:block;font-size:1.4rem;font-weight:600}
+.tile span{font-size:.75rem;color:var(--muted)}
+.tile.alert b{color:var(--alert)}.tile.warn b{color:var(--amber)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:.9rem}
+.grid-v,.span2,.eng{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem}
+ul.list{list-style:none;margin:0;padding:0;display:grid}
+ul.list li{display:flex;flex-wrap:wrap;align-items:baseline;gap:.1rem .5rem;font-size:.86rem;padding:.32rem 0;border-bottom:1px solid var(--line)}
+ul.list li:last-child{border-bottom:0}
+ul.list li .txt{flex:1 1 16rem;min-width:0}
+.meta{font-size:.72rem;color:var(--muted)}
+.late{color:var(--alert);font-weight:600}
+.chip{display:inline-block;font-size:.68rem;color:var(--muted);background:var(--chip);border-radius:3px;padding:0 .35rem;white-space:nowrap}
+.chip.v{color:var(--accent);background:var(--accent-soft)}
+.empty{font-size:.85rem;color:var(--muted);margin:.2rem 0}
+.lbl{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:.7rem 0 .15rem}
+.lbl:first-child{margin-top:0}
+.eng-line{font-size:.8rem;color:var(--muted);border-top:1px dashed var(--line);margin-top:.6rem;padding-top:.45rem}
+.ev{display:grid;grid-template-columns:5.6rem minmax(0,1fr);gap:.5rem;font-size:.86rem;padding:.3rem 0;border-bottom:1px solid var(--line)}
+.ev:last-child{border-bottom:0}
+.ev time{font-size:.76rem;color:var(--accent)}
+.ev.rec,.ev.rec time{color:var(--muted)}
+.week{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.45rem}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.45rem .55rem;font-size:.78rem;min-width:0}
+.day.weekend{background:var(--bg)}
+.day h4{margin:0 0 .3rem;font-size:.7rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.day ul{list-style:none;margin:0;padding:0;display:grid;gap:.3rem}
+.day li{line-height:1.35;overflow-wrap:anywhere}
+.day li.rec{color:var(--muted)}
+.day time{color:var(--accent);font-size:.7rem;margin-right:.25rem}
+.day .t{border-left:2px solid var(--upcoming);padding-left:.35rem}
+.dgroup+.dgroup{margin-top:.5rem}
+.rows{display:grid;gap:.1rem}
+.row{display:grid;grid-template-columns:minmax(0,11rem) minmax(3rem,1fr) 6.5rem;gap:.6rem;align-items:center;padding:.18rem 0;font-size:.84rem}
+.row .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.row .b{color:var(--muted);font-size:.68rem;margin-right:.25rem}
+.bar{display:flex;height:12px;border-radius:3px;overflow:hidden;background:var(--chip)}
+.bar i{display:block;height:100%}
+.seg-over{background:var(--alert)}.seg-up{background:var(--upcoming)}.seg-und{background:var(--undated)}
+.row .n{font-size:.72rem;color:var(--muted);text-align:right;white-space:nowrap}
+details.grp>summary,details.more>summary,details.sig>summary{cursor:pointer;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details.grp>summary .name::before{content:"▸";display:inline-block;width:.85rem;color:var(--muted);transition:transform .15s}
+details.grp[open]>summary .name::before{transform:rotate(90deg)}
+details.grp>.rows{margin:0 0 .3rem .85rem;padding-left:.6rem;border-left:2px solid var(--line)}
+details.more>summary{font-size:.8rem;color:var(--accent);margin-top:.4rem}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend{display:flex;gap:.9rem;flex-wrap:wrap;font-size:.72rem;color:var(--muted);margin-top:.5rem}
+.legend i{display:inline-block;width:.7rem;height:.7rem;border-radius:2px;margin-right:.3rem;vertical-align:-1px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+th{text-align:left;font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:.3rem .45rem;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:.4rem .45rem;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tr.grouphead td{background:var(--bg);font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+td .sub{display:block;font-size:.68rem;color:var(--muted);font-weight:400}
+.ok{color:var(--accent)}.watch{color:var(--amber)}.care{color:var(--alert);font-weight:600}.unknown{color:var(--muted)}
+.counts{display:flex;gap:1rem;flex-wrap:wrap;margin:.1rem 0 .4rem}
+.counts div{font-size:.72rem;color:var(--muted)}
+.counts b{display:block;font-size:1.1rem;color:var(--ink);font-family:Consolas,monospace}
+.counts .late b{color:var(--alert)}
+dl.signals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem 1.4rem;margin:0}
+dl.signals dt{font-weight:600;font-size:.86rem}
+dl.signals dd{margin:.15rem 0 0;font-size:.82rem;color:var(--muted)}
+footer{margin-top:1.6rem;font-size:.72rem;color:var(--muted)}
+@media (max-width:820px){.grid2,.grid-v,.span2,.eng,dl.signals{grid-template-columns:1fr}
+.row{grid-template-columns:minmax(0,1fr) 5.5rem}.row .bar{grid-column:1/-1;grid-row:2}.ev{grid-template-columns:4.6rem minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>All vaults</h1><span class="date" id="asof"></span></header>
+  <div class="next" id="next"></div>
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Today <span id="today-label"></span></h2>
+  <div class="grid2">
+    <section class="card"><div class="lbl">Meetings</div><div id="today-ev"></div></section>
+    <section class="card"><div id="today-tasks"></div><div class="eng-line" id="today-eng" hidden></div></section>
+  </div>
+
+  <h2>Rest of this week <span id="week-label"></span></h2>
+  <div class="week" id="week"></div>
+
+  <h2>Next two weeks <span id="next2-label"></span></h2>
+  <div class="span2" id="next2"></div>
+  <p class="meta" id="later"></p>
+
+  <section id="areas-box" hidden><h2>Your vaults by area and project <span>· open items, late, dated and undated</span></h2>
+  <div class="grid-v" id="areas"></div>
+  <div class="legend"><span><i class="seg-over"></i>late</span><span><i class="seg-up"></i>dated, not late</span><span><i class="seg-und"></i>undated</span></div></section>
+
+  <section id="people-box" hidden><h2>People <span>· the contact cards in your vaults</span></h2>
+  <div class="card"><div class="tablewrap"><table><thead><tr><th>Person</th><th>Kind</th><th>Where</th><th>You owe them</th><th>They owe you</th><th>Last touch</th></tr></thead><tbody id="people"></tbody></table></div><div id="people-more"></div></div></section>
+
+  <section id="eng-box" hidden><h2>Summed vaults <span>· counted, not listed</span></h2><div class="eng" id="eng"></div></section>
+
+  <h2>Vault health <span>· every vault, the same signals</span></h2>
+  <div class="card"><div class="tablewrap"><table><thead id="health-head"></thead><tbody id="health"></tbody></table></div><p class="meta" id="excluded"></p></div>
+
+  <h2>What the health signals mean</h2>
+  <div class="card"><dl class="signals" id="signals"></dl></div>
+
+  <footer id="foot"></footer>
+</div>
+<script id="data" type="application/json">__PARAOS_DATA__</script>
+<script>
+(function () {
+  "use strict";
+  var D = JSON.parse(document.getElementById("data").textContent);
+  var MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  function $(id) { return document.getElementById(id); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function parse(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function iso(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function add(s, n) { var d = parse(s); d.setDate(d.getDate() + n); return iso(d); }
+  function diff(a, b) { return Math.round((parse(a) - parse(b)) / 864e5); }
+  function short(s) { var d = parse(s); return d.getDate() + " " + MON[d.getMonth()]; }
+  function wd(s) { return WD[parse(s).getDay()]; }
+  var T = D.today;
+  var WEEK_END = add(T, (7 - parse(T).getDay()) % 7);
+  var NEXT2_END = add(WEEK_END, 14);
+  var PRIO = {"🔺": 0, "🔼": 1, "🔽": 3, "⏬": 4};
+  function rank(t) { return t.priority in PRIO ? PRIO[t.priority] : 2; }
+  var tasks = D.tasks;
+  var overdue = tasks.filter(function (t) { return t.date < T; }).sort(function (a, b) { return rank(a) - rank(b) || (a.date < b.date ? -1 : 1); });
+  var dueToday = tasks.filter(function (t) { return t.date === T; });
+  var week = tasks.filter(function (t) { return t.date > T && t.date <= WEEK_END; });
+  var next2 = tasks.filter(function (t) { return t.date > WEEK_END && t.date <= NEXT2_END; });
+  var later = tasks.filter(function (t) { return t.date > NEXT2_END; });
+  var ev = D.events;
+
+  function taskLi(t, showDate) {
+    var li = el("li");
+    li.append(el("span", "chip v", t.vault));
+    var txt = el("span", "txt", (t.priority && rank(t) < 2 ? t.priority + " " : "") + t.text);
+    li.append(txt);
+    var n = diff(t.date, T);
+    li.append(el("span", "meta" + (n < 0 ? " late" : ""), (n < 0 ? (-n) + "d late" : showDate ? wd(t.date) + " " + short(t.date) : "today") + (t.recurring ? " · recurring" : "")));
+    li.title = t.vault + " · " + t.file + ":" + t.line;
+    return li;
+  }
+  function list(items, showDate, cap) {
+    var wrap = el("div"), ul = el("ul", "list");
+    items.slice(0, cap || items.length).forEach(function (t) { ul.append(taskLi(t, showDate)); });
+    wrap.append(ul);
+    if (cap && items.length > cap) {
+      var det = el("details", "more"), ul2 = el("ul", "list");
+      det.append(el("summary", null, "Show " + (items.length - cap) + " more"));
+      items.slice(cap).forEach(function (t) { ul2.append(taskLi(t, showDate)); });
+      det.append(ul2);
+      wrap.append(det);
+    }
+    return wrap;
+  }
+  function evRow(e) {
+    var d = el("div", "ev" + (e.recurring ? " rec" : ""));
+    d.append(el("time", null, e.start ? e.start + (e.end ? "-" + e.end : "") : "all day"));
+    var t = el("div");
+    t.append(document.createTextNode(e.title + " "), el("span", "chip", e.source));
+    d.append(t);
+    return d;
+  }
+
+  $("asof").textContent = wd(T) + " " + short(T) + " " + T.slice(0, 4);
+  var nx = $("next");
+  nx.append(el("strong", null, "Do this first"), document.createTextNode(D.next_action.text + " "));
+  if (D.next_action.vault) nx.append(el("span", "chip v", D.next_action.vault));
+
+  var todayEv = ev.filter(function (e) { return e.date === T; });
+  var care = D.health.filter(function (h) { return h.card.level === "care"; }).length;
+  [[todayEv.length, "meetings today", ""], [dueToday.length, "due today", dueToday.length ? "warn" : ""],
+   [overdue.length, "overdue in your vaults", overdue.length ? "alert" : ""],
+   [week.length + next2.length, "dated to " + short(NEXT2_END), ""],
+   [care, "vaults needing care", care ? "alert" : ""]].forEach(function (t) {
+    var d = el("div", "tile " + t[2]); d.append(el("b", null, String(t[0])), el("span", null, t[1])); $("tiles").append(d);
+  });
+
+  $("today-label").textContent = "· " + wd(T) + " " + short(T);
+  if (todayEv.length) todayEv.forEach(function (e) { $("today-ev").append(evRow(e)); });
+  else $("today-ev").append(el("p", "empty", "No meetings."));
+  var tt = $("today-tasks");
+  tt.append(el("div", "lbl", "Due today (" + dueToday.length + ")"));
+  tt.append(dueToday.length ? list(dueToday, false) : el("p", "empty", "Nothing dated today."));
+  tt.append(el("div", "lbl", "Overdue (" + overdue.length + "), most important first"));
+  tt.append(overdue.length ? list(overdue, true, 6) : el("p", "empty", "Nothing overdue."));
+  if (D.summaries.length) {
+    $("today-eng").hidden = false;
+    $("today-eng").textContent = "Summed · " + D.summaries.map(function (s) {
+      var parts = [];
+      if (s.overdue) parts.push(s.overdue + " overdue");
+      if (s.today) parts.push(s.today + " due today");
+      return s.vault + ": " + (parts.length ? parts.join(", ") : "nothing due");
+    }).join(" · ");
+  }
+
+  $("week-label").textContent = WEEK_END > T ? "· " + short(add(T, 1)) + " to " + short(WEEK_END) : "· today is the last day";
+  for (var d = add(T, 1); d <= WEEK_END; d = add(d, 1)) {
+    var day = el("div", "day" + (/Sat|Sun/.test(wd(d)) ? " weekend" : ""));
+    day.append(el("h4", null, wd(d) + " " + short(d)));
+    var ul = el("ul");
+    ev.filter(function (e) { return e.date === d; }).forEach(function (e) {
+      var li = el("li", e.recurring ? "rec" : null);
+      li.append(el("time", null, e.start || ""), document.createTextNode(e.title + " "), el("span", "chip", e.source));
+      ul.append(li);
+    });
+    week.filter(function (t) { return t.date === d; }).forEach(function (t) {
+      var li = el("li", "t"); li.append(el("span", "chip v", t.vault), document.createTextNode(" " + t.text)); ul.append(li);
+    });
+    if (!ul.children.length) ul.append(el("li", "rec", "Nothing planned"));
+    day.append(ul);
+    $("week").append(day);
+  }
+
+  $("next2-label").textContent = "· " + short(add(WEEK_END, 1)) + " to " + short(NEXT2_END);
+  [[add(WEEK_END, 1), add(WEEK_END, 7)], [add(WEEK_END, 8), NEXT2_END]].forEach(function (w) {
+    var card = el("section", "card"), any = false;
+    card.append(el("h3", null, short(w[0]) + " to " + short(w[1])));
+    for (var d = w[0]; d <= w[1]; d = add(d, 1)) {
+      var es = ev.filter(function (e) { return e.date === d && !e.recurring; });
+      var rec = ev.filter(function (e) { return e.date === d && e.recurring; });
+      var ts = next2.filter(function (t) { return t.date === d; });
+      if (!es.length && !ts.length) continue;
+      any = true;
+      var g = el("div", "dgroup");
+      g.append(el("div", "lbl", wd(d) + " " + short(d) + (rec.length ? " · +" + rec.length + " recurring" : "")));
+      es.forEach(function (e) { g.append(evRow(e)); });
+      if (ts.length) g.append(list(ts, true));
+      card.append(g);
+    }
+    if (!any) card.append(el("p", "empty", "Nothing dated yet."));
+    $("next2").append(card);
+  });
+  $("later").textContent = later.length + " dated items fall after " + short(NEXT2_END) + ", and " + D.undated + " in your vaults carry no date.";
+
+  if (D.own_vaults.length) {
+    $("areas-box").hidden = false;
+    D.own_vaults.forEach(function (v) {
+      var ents = D.entities.filter(function (e) { return e.vault === v; });
+      var card = el("section", "card");
+      var tot = ents.reduce(function (s, e) { return [s[0] + e.open, s[1] + e.overdue]; }, [0, 0]);
+      var h = el("h3", null, v); h.append(el("span", "meta", tot[0] + " open · " + tot[1] + " late")); card.append(h);
+      var max = Math.max.apply(null, ents.map(function (e) { return e.open; }).concat([1]));
+      function bar(e, label) {
+        var row = el("div", "row"), nm = el("span", "name");
+        nm.append(el("span", "b", e.bucket || ""), document.createTextNode(label));
+        var b = el("div", "bar");
+        [["seg-over", e.overdue], ["seg-up", e.open - e.overdue - e.undated], ["seg-und", e.undated]].forEach(function (s) {
+          if (s[1] > 0) { var i = el("i", s[0]); i.style.width = (100 * s[1] / max) + "%"; b.append(i); }
+        });
+        row.append(nm, b, el("span", "n", e.open + " open" + (e.overdue ? " · " + e.overdue + " late" : "")));
+        return row;
+      }
+      var groups = {}, rows = el("div", "rows");
+      ents.forEach(function (e) { var k = e.label.split("/")[0]; (groups[k] = groups[k] || []).push(e); });
+      Object.keys(groups).map(function (k) {
+        var es = groups[k];
+        var agg = es.reduce(function (s, e) { return {open: s.open + e.open, overdue: s.overdue + e.overdue, undated: s.undated + e.undated}; }, {open: 0, overdue: 0, undated: 0});
+        return {k: k, es: es, agg: agg};
+      }).sort(function (a, b) { return b.agg.overdue - a.agg.overdue || b.agg.open - a.agg.open; }).forEach(function (g) {
+        if (g.es.length === 1) { rows.append(bar(g.es[0], g.es[0].label)); return; }
+        max = Math.max(max, g.agg.open);
+        var det = el("details", "grp"), sum = el("summary"), inner = el("div", "rows");
+        sum.append(bar(g.agg, g.k + " (" + g.es.length + ")"));
+        g.es.forEach(function (e) { inner.append(bar(e, e.label.split("/").slice(1).join("/"))); });
+        det.append(sum, inner);
+        rows.append(det);
+      });
+      card.append(rows);
+      $("areas").append(card);
+    });
+  }
+
+  function personRow(p) {
+    var tr = el("tr"), who = el("td");
+    who.append(el("span", null, p.name));
+    if (p.entity) who.append(el("span", "meta", " · " + p.entity.name + (p.entity.stage ? ", " + p.entity.stage : "")));
+    tr.append(who, el("td", "meta", p.kind || "-"), el("td", "meta", p.vaults.join(", ")));
+    var owe = el("td");
+    if (p.owe) { owe.textContent = p.owe + (p.owe_next_due ? " · next " + short(p.owe_next_due) : " · undated"); if (p.owe_next_due && p.owe_next_due < T) owe.className = "late"; }
+    else { owe.textContent = "-"; owe.className = "meta"; }
+    var wt = el("td");
+    if (p.waiting) { var days = p.waiting_since ? diff(T, p.waiting_since) : null; wt.textContent = p.waiting + (days != null ? " · " + days + "d" : ""); if (days > D.chase_days) wt.className = "late"; }
+    else { wt.textContent = "-"; wt.className = "meta"; }
+    tr.append(owe, wt, el("td", "meta", p.last_touch ? short(p.last_touch) : "-"));
+    return tr;
+  }
+  if (D.people.length) {
+    $("people-box").hidden = false;
+    var PCAP = 12;
+    D.people.slice(0, PCAP).forEach(function (p) { $("people").append(personRow(p)); });
+    if (D.people.length > PCAP) {
+      var det = el("details", "more"), tw = el("div", "tablewrap"), tb = el("table"), body = el("tbody");
+      det.append(el("summary", null, "Show " + (D.people.length - PCAP) + " more people"));
+      D.people.slice(PCAP).forEach(function (p) { body.append(personRow(p)); });
+      tb.append(body); tw.append(tb); det.append(tw);
+      $("people-more").append(det);
+    }
+  }
+
+  if (D.summaries.length) {
+    $("eng-box").hidden = false;
+    D.summaries.forEach(function (s) {
+      var c = el("section", "card"), cn = el("div", "counts");
+      c.append(el("h3", null, s.vault));
+      [["overdue", s.overdue, s.overdue ? "late" : ""], ["today", s.today, ""], ["next 7 days", s.this_week, ""]].forEach(function (x) {
+        var dv = el("div", x[2]); dv.append(el("b", null, String(x[1])), document.createTextNode(x[0])); cn.append(dv);
+      });
+      c.append(cn);
+      if (s.by_area.length) c.append(el("p", "meta", "By area: " + s.by_area.map(function (a) { return a[0] + " " + a[1]; }).join(" · ")));
+      if (s.top.length) { c.append(el("div", "lbl", "Top priority, late or due today")); c.append(list(s.top, true)); }
+      $("eng").append(c);
+    });
+  }
+
+  var hr = el("tr");
+  ["Vault", "Overall"].concat(D.signals.map(function (s) { return s.label; })).forEach(function (h) { hr.append(el("th", null, h)); });
+  $("health-head").append(hr);
+  var GROUPS = [["full", "Yours"], ["summary", "Yours, summed"], ["health", "Health only"]];
+  var ROLE = {keeper: "you keep it", member: "you are a member", steward: "you steward it"};
+  GROUPS.forEach(function (g) {
+    var rows = D.health.filter(function (h) { return h.treatment === g[0]; });
+    if (!rows.length) return;
+    var gh = el("tr", "grouphead"), td = el("td", null, g[1]); td.colSpan = 2 + D.signals.length; gh.append(td); $("health").append(gh);
+    rows.forEach(function (h) {
+      var tr = el("tr"), nm = el("td");
+      nm.append(document.createTextNode(h.vault), el("span", "sub", [ROLE[h.role] || "not on its roster", h.type].filter(Boolean).join(" · ")));
+      tr.append(nm, el("td", h.card.level, h.card.word));
+      h.card.rows.forEach(function (r) { tr.append(el("td", r.level, r.value)); });
+      $("health").append(tr);
+    });
+  });
+  if (D.excluded.length) $("excluded").textContent = "Not read: " + D.excluded.map(function (e) { return (e.name || "an entry") + " (" + e.status + ": " + e.reason + ")"; }).join("; ") + ".";
+
+  D.signals.forEach(function (s) {
+    var dv = el("div");
+    dv.append(el("dt", null, s.label), el("dd", null, s.what + " " + s.why + " " + s.fix));
+    $("signals").append(dv);
+  });
+
+  $("foot").textContent = "Generated " + D.today + " by /para-global-brief from every registered vault's scan" + (D.agenda_note ? " · " + D.agenda_note : "") + (D.local ? " · a local page: nothing on it leaves this machine." : "");
+})();
+</script>
+</body>
+</html>

@@ -95,6 +95,86 @@ class GlobalScan(unittest.TestCase):
         north = self.report()["vaults"][0]
         self.assertTrue(north["proposal"].endswith("north-20260310-0700.md"))
 
+    def test_a_vault_you_keep_lists_its_dated_tasks_areas_and_undated_count(self):
+        report = self.report()
+        self.assertEqual([v["treatment"] for v in report["vaults"]], ["full", "full"])
+        self.assertEqual(sorted((t["vault"], t["effective_date"]) for t in report["tasks"]),
+                         [("north", "2026-03-08"), ("north", "2026-03-10"),
+                          ("north", "2026-03-12"), ("south", "2026-03-09")])
+        self.assertEqual({e["vault"] for e in report["entities"]}, {"north", "south"})
+        self.assertEqual(report["undated"], 1)
+
+    def test_a_summary_setting_counts_the_vault_instead_of_listing_it(self):
+        self.entries[1]["brief"] = "summary"
+        write(self.tmp / "south", "areas/ops/actions.md", "- [ ] Restart the box 🔺 📅 2026-03-10\n")
+        report = self.report()
+        south = report["summaries"][0]
+        self.assertEqual((south["vault"], south["overdue"], south["today"]), ("south", 1, 1))
+        self.assertEqual([t["text"] for t in south["top"]], ["Restart the box"])
+        self.assertEqual(dict(south["by_area"]), {"site": 1, "ops": 1})
+        self.assertFalse([t for t in report["tasks"] + report["urgent"] if t["vault"] == "south"])
+
+    def roster(self, me=None):
+        write(self.tmp / "north", "CLAUDE.md", "# North\n\n**Type:** client-vault\n\n"
+              "## Who writes this vault\n\n| Person | Role | Lane |\n|---|---|---|\n"
+              "| [Ann Smet](areas/network/ann-smet.md) | keeper | Sales |\n"
+              "| [Bo Peeters](areas/network/bo-peeters.md) | steward | - |\n")
+        if me:
+            write(self.home, "operator.json", json.dumps({"card": me}))
+
+    def test_a_vault_you_steward_shows_its_health_only(self):
+        self.roster(me="bo-peeters")
+        north = self.report()["vaults"][0]
+        self.assertEqual((north["role"], north["treatment"], north["type"]),
+                         ("steward", "health", "client-vault"))
+        self.assertFalse([t for t in self.report()["tasks"] if t["vault"] == "north"])
+        self.assertIn("level", north["health"])
+
+    def test_a_roster_that_does_not_name_you_is_health_only(self):
+        self.roster()
+        north = self.report()["vaults"][0]
+        self.assertEqual((north["role"], north["treatment"]), (None, "health"))
+
+    def test_a_card_in_two_vaults_is_one_person(self):
+        for vault in ("north", "south"):
+            write(self.tmp / vault, "areas/network/ann-smet.md",
+                  "# Ann Smet\n\n## Next actions\n\n- [ ] Send Ann the deck 📅 2026-03-15\n")
+        people = self.report()["people"]
+        self.assertEqual([(p["person"], p["vaults"], p["owe"]) for p in people],
+                         [("ann-smet", ["north", "south"], 2)])
+
+    def test_a_calendar_two_vaults_declare_is_read_once(self):
+        for vault, kind in (("north", "connector: google-workspace"),
+                            ("south", "connector: `google-workspace`")):
+            write(self.tmp / vault, "CLAUDE.md",
+                  "# V\n\n**Type:** vault\n\n## Agenda sources\n\n"
+                  "| Source | Type | Endpoint | Relevant when |\n|---|---|---|---|\n"
+                  f"| work | {kind} | `Me@Example.com` | All events |\n")
+        cals = self.report()["calendars"]
+        self.assertEqual([(c["endpoint"], c["vaults"]) for c in cals],
+                         [("me@example.com", ["north", "south"])])
+
+    def test_meetings_in_the_horizon_and_a_recurring_one_rolled_forward(self):
+        write(self.tmp / "north", "meetings.md", "\n".join([
+            "# Meetings", "", "## Upcoming", "",
+            "- 🗓 2026-03-11 10:00–11:00 · Kick-off · Ann · Teams",
+            "- 🗓 2026-03-01 · Already past",
+            "- 🗓 2026-05-01 · Too far out", "", "## Recurring", "",
+            "- 🗓 2026-03-02 09:00 · Weekly sync 🔁 every week · Teams",
+            "- 🗓 2026-03-03 09:30 · Stand-up · Teams 🔁 every Tuesday", ""]))
+        write(self.tmp / "north", "archive/meetings.md", "- 🗓 2026-03-12 · Archived one\n")
+        meetings = self.report()["meetings"]
+        self.assertEqual(next(m["end"] for m in meetings if m["title"] == "Kick-off"), "11:00")
+        got = [(m["date"], m["start"], m["title"], m["recurring"]) for m in meetings]
+        self.assertEqual(got, [
+            ("2026-03-10", "09:30", "Stand-up", True),
+            ("2026-03-11", "10:00", "Kick-off", False),
+            ("2026-03-16", "09:00", "Weekly sync", True),
+            ("2026-03-17", "09:30", "Stand-up", True),
+            ("2026-03-23", "09:00", "Weekly sync", True),
+            ("2026-03-24", "09:30", "Stand-up", True),
+            ("2026-03-30", "09:00", "Weekly sync", True)])
+
     def test_the_cli_prints_json_and_stops_without_a_registry(self):
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(main(["--paraos-home", str(self.home)]), 3)

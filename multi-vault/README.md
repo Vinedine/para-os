@@ -10,7 +10,7 @@ It is for the case where you run several vaults; [second-vault.md](second-vault.
 
 ## /para-global-brief
 
-`/para-global-brief` runs each vault's own daily-brief scan and reports them together: one row of counts per vault, the overdue and due-today items across vaults with their vault named, and one next action. It writes nothing but its scan output, and lists retired and unreachable vaults as `/para-audit` does.
+`/para-global-brief` runs each vault's own daily-brief scan and shows them together, in chat and on one page: today, the rest of the week and the next two weeks with every calendar's meetings, your own vaults by area and person, and every vault's health card. A vault you keep is shown in full, or summed where its registry entry says `"brief": "summary"`; one you steward, or whose roster does not name you, shows its health only. It writes nothing in a vault, and lists retired and unreachable vaults as `/para-audit` does.
 
 ## Unattended triage
 
