@@ -517,6 +517,11 @@ class NextStep(VaultCase):
             with self.subTest(cell=cell):
                 self.assertEqual(self.row_entity(cell)["next_step"]["date"], due)
 
+    def test_a_marker_date_outranks_a_date_in_the_context(self):
+        # Issue #642: the register rule dates a step with 📅, so a context date before it loses.
+        cell = "Angle: their new site launched on 2026-09-30; call to book the demo 📅 2026-11-04"
+        self.assertEqual(self.row_entity(cell)["next_step"]["date"], "2026-11-04")
+
     def test_a_no_step_wording_is_no_next_step(self):
         # Issue #34, finding 2: "None planned" suppressed the no_next_step flag.
         for cell in ("None planned: raised at the partners meeting on 2026-09-10", "none planned",

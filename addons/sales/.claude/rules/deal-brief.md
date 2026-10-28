@@ -56,7 +56,7 @@ The lead register named in `## Deal lifecycle` is one table under `## Open` and 
 
 - **Company** is the row's name and the folder slug it would earn at Qualified. **Contact** is a name, not a link: a lead has no contact file yet.
 - **Source**, **Opened**, **Stage** and **Last touch** carry exactly what the header lines of the same name carry.
-- **Next step** is the step and its date, and it is the one place a next step lives outside an actions file, because a lead has neither an actions file nor a contact file to hold one.
+- **Next step** is the step, dated `📅 YYYY-MM-DD`, and the one place a next step lives outside an actions file, since a lead has no actions or contact file.
 - **Outcome** is empty while the row is open. A row moves to `## Closed` with its outcome filled in (no reply, not a fit, went quiet), or leaves the register entirely for a folder at Qualified, with a line in the closed table saying where it went.
 
 ## Placeholders
