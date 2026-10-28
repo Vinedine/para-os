@@ -273,7 +273,7 @@ def status(args):
                            default="")
     on, by_type = state.switched_on(), {}
     for ln in lines:
-        if ln.get("path") == "interactive":
+        if ln.get("path") == "interactive" and ln.get("recommended"):
             by_type.setdefault(ln["recommended"], []).append(ln["chosen"] == ln["recommended"])
     offers = [t for t, hits in sorted(by_type.items()) if t not in on and QUARANTINE_RE.match(t)
               and len(hits) >= OFFER_WINDOW and

@@ -233,6 +233,15 @@ class Executor(unittest.TestCase):
         self.assertEqual(call("status", "--vault-name", "north",
                               "--paraos-home", self.home)[1]["offers"], [])
 
+    def test_a_decision_with_no_recommendation_counts_toward_no_offer(self):
+        rows = [{"item": f"i{n}", "recommended": "Dismiss (noise)", "chosen": "Dismiss (noise)"}
+                for n in range(50)]
+        rows.append({"item": "odd", "recommended": None, "chosen": "Dismiss (noise)"})
+        call("record", "--vault-name", "north", "--decisions", self.decide(rows),
+             "--paraos-home", self.home)
+        self.assertEqual(call("status", "--vault-name", "north", "--paraos-home", self.home)
+                         [1]["offers"], ["Dismiss (noise)"])
+
     def test_only_delete_and_dismiss_can_be_switched_on(self):
         code, out = call("switch", "--vault-name", "north", "--on", "File it",
                          "--paraos-home", self.home)
