@@ -4,7 +4,7 @@
     py -3 clean_scan.py --vault <path> --phase 1|3|4 [--today YYYY-MM-DD] [--ref <git-ref>]
                          [--clone <path>] [--templates-dir <dir>]... [--dated-pattern <regex>]
                          [--next-steps-heading <heading>]... [--generated-dir <dir>]...
-                         [--name-only-column <file>:<column>]... [--indent N]
+                         [--indent N]
     python3 clean_scan.py --vault <path> --phase 1
 
 Prints one JSON document on stdout: the preconditions every phase checks, plus the
@@ -149,10 +149,9 @@ def is_frozen_record(path):
     return any(FROZEN_MARKER_RE.search(t) for _, t in live_lines(read_lines(path)[:15]))
 
 
-def name_only_lines(path, columns):
-    """{line: row text with every cell under one of `columns` blanked}, for each table row
-    in `path`: a column its rule file declares a name, not a link."""
-    wanted = {c.strip().lower() for c in columns}
+def name_only_lines(path):
+    """{line: row text with every cell under a `Contact` column blanked}, for each table row
+    in `path`: a lifecycle register's column the sales add-on declares a name, not a link."""
     out, header = {}, None
     for lineno, text in live_lines(read_lines(path)):
         stripped = text.strip()
@@ -166,7 +165,7 @@ def name_only_lines(path, columns):
         if is_separator_row(cells):
             continue
         out[lineno] = "| " + " | ".join(
-            "" if i < len(header) and header[i] in wanted else c
+            "" if i < len(header) and header[i] == "contact" else c
             for i, c in enumerate(cells)) + " |"
     return out
 
@@ -357,24 +356,20 @@ def top_level_area_readme(vault, card_rel):
     return "README.md"
 
 
-def uncited_contacts(vault, excluded_dirs=(), name_only_columns=()):
+def uncited_contacts(vault, excluded_dirs=()):
     """Every carded person named in a live file with no link to their card, minus what
     phase1-structural.md exempts: resources/prompts/ and `excluded_dirs` (declared template
-    and sync-output folders), a file carrying the frozen-record marker, and a cell under a
-    declared name-only column (`<file>:<column>`). Returns (cards, exempt): `cards` is the
-    finding, one entry per card with the files that named it uncited; `exempt` is every
+    and sync-output folders), a file carrying the frozen-record marker, and a Contact cell
+    in a register a declared lifecycle keeps its rows in. Returns (cards, exempt): `cards` is
+    the finding, one entry per card with the files that named it uncited; `exempt` is every
     file a mention was found in but dropped as a ledger record, so the skill can override
     the proxy."""
     cards = contact_cards(vault)
     if not cards:
         return [], []
     excluded = ("resources/prompts", *excluded_dirs)
-    columns = {}
-    for spec in name_only_columns:
-        rel, _, column = spec.rpartition(":")
-        columns.setdefault(rel.strip("/"), []).append(column)
-    blanked = {rel: name_only_lines(vault / rel, cols) for rel, cols in columns.items()
-               if (vault / rel).is_file()}
+    registers = {s["home"].strip("/") for lc in lifecycles(vault) for s in lc["stages"] if s["row"]}
+    blanked = {rel: name_only_lines(vault / rel) for rel in registers if (vault / rel).is_file()}
     frozen, targets = {}, {}
     out, exempt = [], set()
     for card in cards:
@@ -686,7 +681,7 @@ def unmarked_scripts(vault):
             "unmarked": unmarked}
 
 
-def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_columns=()):
+def phase1(vault, templates_dirs, dated_pattern, generated_dirs=()):
     touched = set()
 
     map_ = phase1_map(vault)
@@ -701,8 +696,7 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=(), name_only_co
     wikilinks = find_wikilinks(vault)
     touched |= {vault / w["file"] for w in wikilinks}
 
-    uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs),
-                                               name_only_columns)
+    uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs))
     touched |= {vault / c["card"] for c in uncited}
     touched |= {vault / f for c in uncited for f in c["files"]}
     touched |= {vault / f for f in uncited_exempt}
@@ -924,8 +918,7 @@ def phase3(vault, today, headings):
 
 # ----------------------------------------------------------------------------------- phase 4
 
-def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
-           name_only_columns=()):
+def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=()):
     touched, rows = set(), []
 
     mc = misplaced_checkboxes(vault, with_closed=True)
@@ -976,8 +969,7 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
     # Candidates only, pass: None - SKILL.md's Phase 4 lists contact citation and detail
     # attribution among what this phase re-verifies, and the verdict (real defect, or a
     # legitimate exemption) is the skill's, not this script's.
-    uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs),
-                                               name_only_columns)
+    uncited, uncited_exempt = uncited_contacts(vault, (*templates_dirs, *generated_dirs))
     touched |= {vault / c["card"] for c in uncited}
     touched |= {vault / f for c in uncited for f in c["files"]}
     touched |= {vault / f for f in uncited_exempt}
@@ -995,12 +987,11 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=(),
 # ------------------------------------------------------------------------------- the report
 
 def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, headings,
-         generated_dirs=(), name_only_columns=()):
+         generated_dirs=()):
     vault = Path(vault).resolve()
     report = {"preconditions": preconditions(vault, clone, ref)}
     if phase == "1":
-        report["phase1"] = phase1(vault, templates_dirs, dated_pattern, generated_dirs,
-                                  name_only_columns)
+        report["phase1"] = phase1(vault, templates_dirs, dated_pattern, generated_dirs)
     elif phase == "3":
         report["phase3"] = phase3(vault, today, headings)
         stamp = deep_clean_stamp(vault)
@@ -1010,8 +1001,7 @@ def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, heading
         except OSError:
             pass  # the brief then calls the deep clean due, which is the safe side
     elif phase == "4":
-        report["phase4"] = phase4(vault, templates_dirs, dated_pattern, today, generated_dirs,
-                                  name_only_columns)
+        report["phase4"] = phase4(vault, templates_dirs, dated_pattern, today, generated_dirs)
     return report, 0
 
 
@@ -1030,9 +1020,6 @@ def main(argv=None):
     ap.add_argument("--generated-dir", action="append", default=[], metavar="DIR",
                     help="a folder the vault names as a sync script's output, excluded from "
                          "the uncited-contact scan (repeatable)")
-    ap.add_argument("--name-only-column", action="append", default=[], metavar="FILE:COLUMN",
-                    help="a register column its rule file declares a name, not a link, "
-                         "excluded from the uncited-contact scan (repeatable)")
     ap.add_argument("--dated-pattern", default=DEFAULT_DATED_PATTERN,
                     help=f"naming pattern archive/meetings/ files must match "
                          f"(default: {DEFAULT_DATED_PATTERN!r})")
@@ -1059,7 +1046,7 @@ def main(argv=None):
 
     report, code = scan(root, today, args.phase, args.ref, args.clone,
                         args.templates_dir, args.dated_pattern, headings,
-                        args.generated_dir, args.name_only_column)
+                        args.generated_dir)
 
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
