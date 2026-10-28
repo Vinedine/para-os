@@ -2290,7 +2290,7 @@ def main(argv=None):
     changed_cmd.add_argument(
         "file", help="a JSON snapshot ({path: digest}), or scan output carrying a "
                      "'snapshot' key, top-level or under a phase key")
-    changed_cmd.add_argument("--done", nargs="*", default=[], metavar="PATH",
+    changed_cmd.add_argument("--done", nargs="*", action="extend", default=[], metavar="PATH",
                              help="paths this run moved (source and destination), deleted "
                                   "or wrote: never reported")
     notice = sub.add_parser("notice-date", help="the last day to give notice on a renewing "

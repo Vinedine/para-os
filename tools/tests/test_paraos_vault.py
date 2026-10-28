@@ -2161,6 +2161,17 @@ class ChangedCLI(VaultCase):
         self.assertEqual(json.loads(out.getvalue()),
                          {"changed": [str(abspath(other))], "arrived": []})
 
+    def test_done_repeated_adds_its_paths_rather_than_keeping_the_last(self):
+        # Issue #762: a store action kept only the last --done, and the run's own
+        # earlier writes read as another writer's.
+        a = write(self.root, "projects/a/actions.md", "# a\n")
+        b = write(self.root, "projects/b/actions.md", "# b\n")
+        scan_file = self.write_json("scan.json", snapshot([a, b]))
+        a.write_text("# a, ours\n", encoding="utf-8")
+        b.write_text("# b, ours\n", encoding="utf-8")
+        self.assertEqual(self.run_main(["changed", str(scan_file),
+                                        "--done", str(a), "--done", str(b)]), 0)
+
     def test_a_file_arriving_in_a_subfolder_or_outside_is_not_an_arrival(self):
         scan_file = self.arrival_scan()
         write(self.root, "triage/inbox/late.md", "# late\n")
