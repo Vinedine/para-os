@@ -48,7 +48,7 @@ Beyond the list at the top:
 
 ## One vault on two machines
 
-A vault on a synced drive can be worked from a laptop and a desktop, or a home server. What syncs is everything in the vault, including each sync script's dedup ledger (`resources/scripts/<name>.synced.json`), so the second machine skips what the first imported.
+A vault on a synced drive can be worked from a laptop and a desktop, or a home server, or by a second person, who starts from [Working in a vault](working-in-a-vault.md). What syncs is everything in the vault, including each sync script's dedup ledger (`resources/scripts/<name>.synced.json`), so the second machine skips what the first imported.
 
 What lives per machine, under `~/.paraos/`, is set up on each: the sign-ins in `secrets/`, the para-os clone, the vault registry, and triage's mailbox ledger, so a mail one machine dismissed can be proposed again on the other. Claude Code asks each machine to trust the folder once.
 
