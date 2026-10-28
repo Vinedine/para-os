@@ -295,6 +295,15 @@ class StatesCase(CloneCase):
                          "edited")
         self.assertEqual(states[".claude/skills/para-shared/scripts/lib.py"], "edited")
 
+    def test_a_skill_both_homes_hold_is_compared_in_each(self):
+        user = self.tmp / "user-stale"
+        write(user, "para-notes/SKILL.md", "# Notes v1\n")
+        v = self.vault("vault-current", files={".claude/skills/para-notes/SKILL.md": "# Notes v2\n",
+                                              ".claude/skills/para-notes/references/new.md": "New.\n"})
+        states = self.states(self.scan(v, user=user)[0])
+        self.assertEqual(states[str((user / "para-notes" / "SKILL.md").resolve())], "untouched")
+        self.assertNotIn(".claude/skills/para-notes/SKILL.md", states)
+
     def test_a_copy_that_only_adds_lines_to_its_master_has_nothing_to_take(self):
         v = self.vault("adds", files={".claude/rules/filing.md": RULE.format("v2") + "Ours.\n"})
         self.assertNotIn(".claude/rules/filing.md", self.states(self.scan(v)[0]))

@@ -34,7 +34,7 @@ Aligns one vault to a para-os template revision: it changes the vault's rules, w
 python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> [--clone <path>] [--ref <ref>] > <scan output path>
 ```
 
-The script's docstring defines every field and exit code. On exit 3 with no `CLAUDE.md`, see Precondition 2; on 4, ask for a clone path or a ref that resolves; on 5, ask the operator to switch the clone to `stable`, then scan again; on 6, see Precondition 1.
+The script's docstring defines every field and exit code. On exit 3 with no `CLAUDE.md`, see Precondition 2; on 4 or 5, ask for a clone path or a ref that resolves; on 6, see Precondition 1.
 
 By `revision.verdict`:
 
