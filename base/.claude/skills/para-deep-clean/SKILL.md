@@ -35,10 +35,10 @@ Phases 1, 3 and 4 each open with the scan, per [para-shared/scripts.md](../para-
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] [--templates-dir <dir>]... [--generated-dir <dir>]... [--name-only-column <file>:<column>]... [--dated-pattern <regex>] [--next-steps-heading <heading>]... > <scan output path>
+python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] [--templates-dir <dir>]... [--generated-dir <dir>]... [--dated-pattern <regex>] [--next-steps-heading <heading>]... > <scan output path>
 ```
 
-Pass a flag for each value the vault declares: a folder holding templates or a script's output, a register column of names rather than links, a dated-name pattern for `archive/meetings/` other than an eight-digit prefix, next-steps headings other than `Next steps` and `Open items`.
+Pass a flag for each value the vault declares: a folder holding templates or a script's output, a dated-name pattern for `archive/meetings/` other than an eight-digit prefix, next-steps headings other than `Next steps` and `Open items`.
 
 ## Phases
 

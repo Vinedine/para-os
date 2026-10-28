@@ -42,6 +42,8 @@ from clean_scan import (
 from paraos_vault import STALE_FILE_DAYS, changed, scan_snapshot  # made importable by clean_scan's own guard
 
 TODAY = date(2026, 9, 22)
+LEAD_LIFECYCLE = ("# Vault\n\n## Deal lifecycle\n\n| Stage | PARA home |\n|---|---|\n"
+                  "| Lead | `areas/business/leads.md` (row) |\n| Qualified | resources/ideas/ |\n")
 SCRIPT = SCRIPTS / "clean_scan.py"
 SHARED_SCRIPT = SCRIPTS.parents[1] / "para-shared" / "scripts" / "paraos_vault.py"
 
@@ -485,8 +487,16 @@ class UncitedContacts(VaultCase):
         self.assertEqual(self.uncited_files(), ["resources/newsletter/issue-12.md"])
         self.assertEqual(self.uncited_files(generated_dirs=["resources/newsletter/"]), [])
 
-    def test_a_declared_name_only_register_column_is_not_a_mention(self):
+    def test_a_lifecycle_registers_contact_column_is_not_a_mention(self):
+        # Issue #763: the sales add-on declares the register's Contact a name, not a link,
+        # and the run that had to pass a flag for it did not.
         self.contact_vault()
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "| Company | Contact |", "|---|---|", "| Orchard | Jan Claes |", "",
+        ]))
+        self.assertEqual(self.uncited_files(), ["areas/business/leads.md"])
+        write(self.root, "CLAUDE.md", LEAD_LIFECYCLE)
+        self.assertEqual(self.uncited_files(), [])
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Open", "",
             "| Company | **Contact** | Next step |",
@@ -494,14 +504,7 @@ class UncitedContacts(VaultCase):
             "| Orchard | Jan Claes | Demo |",
             "| Harbour | Piet | Ask Jan Claes for an intro |", "",
         ]))
-        self.assertEqual(self.uncited_files(name_only_columns=["areas/business/leads.md:Contact"]),
-                         ["areas/business/leads.md"])
-        write(self.root, "areas/business/leads.md", "\n".join([
-            "# Leads", "", "| Company | Contact |", "|---|---|", "| Orchard | Jan Claes |", "",
-        ]))
         self.assertEqual(self.uncited_files(), ["areas/business/leads.md"])
-        self.assertEqual(self.uncited_files(name_only_columns=["areas/business/leads.md:Contact"]),
-                         [])
 
     def test_a_frozen_record_marker_exempts_a_client_facing_document(self):
         self.contact_vault()
@@ -1404,14 +1407,13 @@ class CommandLine(VaultCase):
             self.assertIn("snapshot", report[f"phase{phase}"])
 
     def test_uncited_contact_declarations_reach_the_scan(self):
-        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "CLAUDE.md", LEAD_LIFECYCLE)
         write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
         write(self.root, "resources/newsletter/issue.md", "# Issue\n\nJan Claes wrote.\n")
         write(self.root, "areas/business/leads.md",
               "# Leads\n\n| Company | Contact |\n|---|---|\n| Orchard | Jan Claes |\n")
         for phase in ("1", "4"):
-            report = self.run_json("--phase", phase, "--generated-dir", "resources/newsletter",
-                                   "--name-only-column", "areas/business/leads.md:Contact")
+            report = self.run_json("--phase", phase, "--generated-dir", "resources/newsletter")
             if phase == "1":
                 self.assertEqual(report["phase1"]["uncited_contacts"], [])
             else:
