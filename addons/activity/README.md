@@ -78,6 +78,8 @@ Optional `resources/scripts/activity.config.json`, beside the script:
 | `touched_slack_ms` | `2000` | How far before the tool's own start the window reaches, covering this hook's start-up. Raise it on a slow machine; every extra second widens the window for a false positive |
 | `record_summary` | `true` | The `SessionEnd` summary below. Set `false` to drop it |
 
+Each person can also keep their own words out of a shared ledger with `{"record_prompts": false}` in `~/.paraos/activity.json`, on their own machine and outside the vault. Only `record_prompts` is read from it, and the stricter of the two files wins.
+
 ## What it records, and what it refuses to
 
 One JSONL line per event: timestamp, event name, session id, prompt id, the prompt, the tool name, what the tool was pointed at, duration, permission mode, and how the session ended. For a skill or a subagent, "what it was pointed at" is the skill or agent **name** - the signal `/para-activity-review` builds adoption from, since `Skill` alone says a skill ran but never which.
@@ -111,7 +113,7 @@ No amount of care here makes that field vary, and inventing a livelier value wou
 
 `last_prompt_tools: 0` says the final request produced no tool call. That is a fact and not a verdict: a question answered in prose looks identical here to one abandoned, and the review is told to read it that way.
 
-A prompt is recorded as typed, so a credential pasted into one is recorded too. The Bash redaction below does not cover that, and nothing can: switch `record_prompts` off in a vault where that is a real risk.
+A prompt is recorded as typed, except that a path in it outside the vault becomes `<outside the vault>`. A credential pasted into one is recorded too: the Bash redaction below does not cover that, and nothing can, so switch `record_prompts` off in a vault where that is a real risk.
 
 Three refusals, each closing a way this could quietly become surveillance:
 

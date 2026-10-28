@@ -23,6 +23,11 @@ from unittest import mock
 HERE = Path(__file__).resolve().parent
 SCRIPT = HERE / "activity.py"
 
+# The per-person override lives in PARAOS_HOME, so no test, and no hook a test fires, reads the
+# real one.
+_HOME = tempfile.TemporaryDirectory()
+os.environ["PARAOS_HOME"] = _HOME.name
+
 spec = importlib.util.spec_from_file_location("activity", SCRIPT)
 ledger = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ledger)
@@ -147,6 +152,41 @@ class TestRecord(unittest.TestCase):
         record = ledger.build_record(event, ROOT, cfg, "2026-08-29T10:00:00")
         self.assertEqual(record["prompt"], "/para-triage")
 
+    def prompt_of(self, text, root=ROOT):
+        event = {"hook_event_name": "UserPromptSubmit", "prompt": text}
+        return ledger.build_record(event, root, self.cfg, "2026-08-29T10:00:00")["prompt"]
+
+    def test_a_path_outside_the_vault_in_a_prompt_is_recorded_as_outside(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = (Path(tmp) / "vault").resolve()
+            elsewhere = Path(tmp).resolve() / "Sam Doe" / "Documents" / "private letter.pdf"
+            for typed in (str(elsewhere), f'"{elsewhere}"', f"@{elsewhere}"):
+                with self.subTest(typed=typed):
+                    got = self.prompt_of(f"summarise {typed} for me", root)
+                    self.assertNotIn("Sam", got)
+                    self.assertIn("<outside the vault>", got)
+                    self.assertTrue(got.startswith("summarise "))
+
+    def test_a_path_inside_the_vault_in_a_prompt_is_kept(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            inside = root / "projects" / "acme" / "brief.md"
+            self.assertEqual(self.prompt_of(f"tidy {inside} please", root),
+                             f"tidy {inside} please")
+
+    def test_a_path_past_the_kept_length_is_never_resolved(self):
+        # Resolving a long pasted path costs the hook most of a second on Windows.
+        text = "x" * self.cfg["prompt_max_chars"] + " C:/Users/Sam Doe/private.pdf"
+        with mock.patch.object(ledger, "inside_vault", wraps=ledger.inside_vault) as resolved:
+            got = self.prompt_of(text)
+        resolved.assert_not_called()
+        self.assertEqual(got, "x" * self.cfg["prompt_max_chars"])
+
+    def test_a_slash_command_and_a_url_are_not_paths(self):
+        for text in ("/para-new projects/acme", "read https://example.com/a/b and/or c/d"):
+            with self.subTest(text=text):
+                self.assertEqual(self.prompt_of(text), text)
+
     def test_empty_fields_are_dropped_rather_than_written_as_null(self):
         event = {"hook_event_name": "SessionEnd", "session_id": "s1", "reason": "clear"}
         record = ledger.build_record(event, ROOT, self.cfg, "2026-08-29T10:00:00")
@@ -194,6 +234,46 @@ class TestConfig(unittest.TestCase):
             script.with_name("activity.config.json").write_text(
                 '[{"record_prompts": false}]', encoding="utf-8")
             self.assertEqual(ledger.load_config(script), ledger.DEFAULTS)
+
+
+class TestPersonalOverride(unittest.TestCase):
+    """`activity.json` in PARAOS_HOME is one person's, on one machine, outside the vault."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root, self.script = scaffold_vault(Path(tmp.name) / "vault")
+        self.mine, self.theirs = Path(tmp.name) / "mine", Path(tmp.name) / "theirs"
+        self.mine.mkdir()
+        self.theirs.mkdir()
+
+    def record_prompts(self, home, vault=None, person=None):
+        if vault is not None:
+            self.script.with_name("activity.config.json").write_text(
+                json.dumps({"record_prompts": vault}), encoding="utf-8")
+        if person is not None:
+            (home / "activity.json").write_text(
+                json.dumps({"record_prompts": person}), encoding="utf-8")
+        with mock.patch.dict(os.environ, {"PARAOS_HOME": str(home)}):
+            return ledger.load_config(self.script)["record_prompts"]
+
+    def test_a_personal_false_drops_prompts_on_that_machine_only(self):
+        self.assertFalse(self.record_prompts(self.mine, person=False))
+        self.assertTrue(self.record_prompts(self.theirs))
+
+    def test_the_stricter_of_the_two_wins(self):
+        self.assertFalse(self.record_prompts(self.mine, vault=False, person=True))
+
+    def test_the_hook_keeps_only_the_slash_command_for_that_person(self):
+        (self.mine / "activity.json").write_text('{"record_prompts": false}', encoding="utf-8")
+        with mock.patch.dict(os.environ, {"PARAOS_HOME": str(self.mine)}):
+            fire(self.script, {"hook_event_name": "UserPromptSubmit", "session_id": "s1",
+                               "prompt": "a private question"})
+            fire(self.script, {"hook_event_name": "UserPromptSubmit", "session_id": "s1",
+                               "prompt": "/para-triage apply"})
+        lines = session_lines(self.root)
+        self.assertNotIn("prompt", lines[0])
+        self.assertEqual(lines[1]["prompt"], "/para-triage")
 
 
 class TestPaths(unittest.TestCase):
