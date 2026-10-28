@@ -6,9 +6,9 @@
 
 Reads every resources/logs/sessions/*.jsonl whose file date falls in the window and prints
 one JSON document: the frame (sessions, people, days), adoption per skill, reach per PARA
-bucket, and the friction counts. It never writes to the vault. What each number may mean,
-and the contradictions against the vault's own rules, stay with the skill:
-references/signals.md says what each count may mean.
+bucket, and the friction counts. A session is one id, however many daily files it wrote. It
+never writes to the vault. What each number may mean, and the contradictions against the
+vault's own rules, stay with the skill: references/signals.md says what each count may mean.
 
 Exit 3: the vault has no ledger folder. The skill says so and stops.
 """
@@ -58,6 +58,14 @@ def bucket_of(target):
     return target.replace("\\", "/").lstrip("./").split("/", 1)[0]
 
 
+def entity_of(target):
+    """`projects/acme/brief.md` is in projects/acme; a Glob pattern names no entity."""
+    parts = (target or "").replace("\\", "/").lstrip("./").split("/")
+    if len(parts) > 2 and parts[0] in ("projects", "areas") and not set("*?[") & set(parts[1]):
+        return "/".join(parts[:2])
+    return None
+
+
 def read_events(path):
     events, skipped = [], 0
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -89,25 +97,25 @@ def scan(vault, today, days):
                    if file_day(p) and start <= file_day(p) <= today)
 
     skipped = 0
-    sessions = []
+    sessions = {}                          # session id -> what all its files hold
     invocations = {}                       # (session, prompt_id, skill) -> (person, day)
     bucket_sessions = defaultdict(set)
     writers = defaultdict(set)
     failures = Counter()
-    per_request = []
 
     for path in files:
         events, bad = read_events(path)
         skipped += bad
         person, day = person_of(path), file_day(path).isoformat()
         sid = next((e.get("session") for e in events if e.get("session")), path.stem)
-        prompts, prompt_text, tools, wrote = set(), {}, Counter(), False
+        s = sessions.setdefault(sid, {"person": person, "days": set(), "prompts": {},
+                                      "tools": Counter(), "wrote": False, "entities": set()})
+        s["days"].add(day)
 
         for e in events:
             kind, pid = e.get("event"), e.get("prompt_id")
             if kind in PROMPT_EVENTS and pid:
-                prompts.add(pid)
-                prompt_text.setdefault(pid, e.get("prompt", ""))
+                s["prompts"].setdefault(pid, e.get("prompt", ""))
                 skill = skill_from_prompt(e.get("prompt"))
                 if skill:
                     invocations.setdefault((sid, pid, skill), (person, day))
@@ -115,7 +123,7 @@ def scan(vault, today, days):
             if kind == "PostToolUse" and tool == "Skill" and target:
                 invocations.setdefault((sid, pid, bare(target)), (person, day))
             if kind in ("PostToolUse",) + FAILURE_EVENTS and tool:
-                tools[pid] += 1
+                s["tools"][pid] += 1
             if kind in FAILURE_EVENTS:
                 failures[(kind, tool or "", target or "")] += 1
                 continue
@@ -124,20 +132,20 @@ def scan(vault, today, days):
             paths = [target] if tool in PATH_TOOLS else []
             paths += e.get("touched") or []
             for p in paths:
-                b = bucket_of(p)
+                b, entity = bucket_of(p), entity_of(p)
                 if b:
                     bucket_sessions[b].add(sid)
+                if entity:
+                    s["entities"].add(entity)
             written = ([target] if tool in WRITE_TOOLS and target else []) + (e.get("touched") or [])
             for p in written:
                 writers[p.replace("\\", "/")].add(person)
-                wrote = True
+                s["wrote"] = True
 
-        for pid, count in tools.items():
-            if pid in prompt_text:
-                per_request.append({"session": sid, "person": person,
-                                    "prompt": prompt_text[pid], "tools": count})
-        sessions.append({"session": sid, "person": person, "day": day,
-                         "prompts": len(prompts), "wrote": wrote})
+    per_request = [{"session": sid, "person": s["person"], "prompt": s["prompts"][pid],
+                    "tools": count}
+                   for sid, s in sessions.items() for pid, count in s["tools"].items()
+                   if pid in s["prompts"]]
 
     adoption = {}
     for (_, _, skill), (person, day) in sorted(invocations.items(), key=lambda kv: kv[1][1]):
@@ -152,16 +160,17 @@ def scan(vault, today, days):
     declared = declared_skills(vault)
     buckets = sorted(p.name for p in vault.iterdir()
                      if p.is_dir() and not p.name.startswith("."))
-    typed = [s for s in sessions if s["prompts"]]
-    dates = sorted(s["day"] for s in sessions)
+    typed = [s for s in sessions.values() if s["prompts"]]
+    dates = sorted(d for s in sessions.values() for d in s["days"])
     rhythm = defaultdict(lambda: {"sessions": 0, "typed_sessions": 0})
-    for s in sessions:
+    for s in sessions.values():
+        s["first"], s["last"] = min(s["days"]), max(s["days"])
+        s["span"] = (date.fromisoformat(s["last"]) - date.fromisoformat(s["first"])).days + 1
         r = rhythm[s["person"]]
         r["sessions"] += 1
         r["typed_sessions"] += bool(s["prompts"])
-        r.setdefault("first", s["day"])
-        r["last"] = max(r.get("last", s["day"]), s["day"])
-        r["first"] = min(r["first"], s["day"])
+        r["first"] = min(r.get("first", s["first"]), s["first"])
+        r["last"] = max(r.get("last", s["last"]), s["last"])
 
     return {
         "vault": str(vault),
@@ -171,7 +180,7 @@ def scan(vault, today, days):
             "files": len(files),
             "sessions": len(sessions),
             "typed_sessions": len(typed),
-            "people": sorted({s["person"] for s in sessions}),
+            "people": sorted({s["person"] for s in sessions.values()}),
             "first": dates[0] if dates else None,
             "last": dates[-1] if dates else None,
             "days": ((date.fromisoformat(dates[-1]) - date.fromisoformat(dates[0])).days + 1
@@ -193,6 +202,10 @@ def scan(vault, today, days):
                                                     key=lambda kv: (-kv[1], kv[0]))],
             "tools_per_request": sorted(per_request, key=lambda r: -r["tools"])[:10],
             "typed_without_writes": sum(1 for s in typed if not s["wrote"]),
+            "multi_day_sessions": [
+                {"session": sid, "span_days": s["span"], "entities": len(s["entities"])}
+                for sid, s in sorted(sessions.items(), key=lambda kv: -kv[1]["span"])
+                if s["span"] > 1],
         },
         "rhythm": {p: rhythm[p] for p in sorted(rhythm)},
     }
