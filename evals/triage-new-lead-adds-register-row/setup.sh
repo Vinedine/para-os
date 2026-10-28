@@ -4,14 +4,19 @@
 # register (deals.sh). The mail settles every cell an open row carries: the company, who
 # wrote, how they found the studio, and the call they ask for. So the right disposition is
 # one new row in areas/business/leads.md, shown in full, with no placeholder in it; before
-# the action existed the only answer a run could give was Leave in triage.
+# the action existed the only answer a run could give was Leave in triage. The call has a
+# date, and the open row above it is dated in words, so a new row whose step carries a
+# `📅` date follows the register rule rather than the row it sits under.
 set -e
 . "$(dirname "$0")/../_fixture/vault.sh"
 . "$(dirname "$0")/../_fixture/deals.sh"
 
 rm -f triage/*.md
 touch triage/.gitkeep
+sed 's/questionnaire 📅 /questionnaire by /' areas/business/leads.md > leads.tmp
+mv leads.tmp areas/business/leads.md
 
+call_day=$(day 6)
 recv_day=$(day -1)
 recv_stamp=$(printf '%s' "$recv_day" | tr -d '-')
 received="${recv_day}T10:02:00+02:00"
@@ -34,7 +39,7 @@ I found your studio through your website. We run three dental clinics in town, L
 Dental, and our patients still book every appointment by phone. We would like an online
 booking page before the new year.
 
-Could we have a 30-minute intro call next week? Tuesday or Thursday morning works for me.
+Could we have a 30-minute intro call on ${call_day} at 10:00?
 
 Best,
 Sara Lindqvist
