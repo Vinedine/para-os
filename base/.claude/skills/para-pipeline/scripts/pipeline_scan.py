@@ -43,7 +43,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         DATE_RE, H1_RE, add_months, field_ci, first_link, header_fields, is_live, iso,
-        lifecycles, live_lines, locale, open_tasks, parse_date, read_lines,
+        lifecycles, link_spans, live_lines, locale, open_tasks, parse_date, read_lines,
         register_rows, stage_of, stage_parts, year_end_of, amount_of, vault_currency,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -128,6 +128,33 @@ def resolve_link(base_dir, link):
         return None
 
 
+def item_links(base_dir, lines, lineno):
+    """Every file an open item's line or the indented lines under it link, resolved."""
+    text = lines[lineno - 1]
+    for raw in lines[lineno:]:
+        if not raw.strip() or not raw.startswith((" ", "\t")):
+            break
+        text += " " + raw
+    return {resolve_link(base_dir, text[s:e].strip())
+            for s, e, bracket in link_spans(text) if bracket is not None} - {None}
+
+
+def live_documents(vault, declared):
+    """The document of every live folder entity in any declared lifecycle, resolved."""
+    docs = set()
+    for lc in declared:
+        live = {s["name"].lower() for s in lc["stages"] if not s["terminal"]}
+        for s in lc["stages"]:
+            if not s["home"] or s["row"]:
+                continue
+            for d in vault.glob(re.sub(r"<[^>]+>", "*", s["home"].rstrip("/"))):
+                doc = pick_doc(d) if d.is_dir() else None
+                info = stage_of(doc) if doc else None
+                if info and info["name"].strip().lower() in live:
+                    docs.add(doc.resolve())
+    return docs
+
+
 # --------------------------------------------------------------------------- the next step
 
 def effective_date(task):
@@ -149,12 +176,13 @@ def make_next_step(task, today):
             "file": task["file"], "line": task["line"]}
 
 
-def champion_step(vault, today, context_dir, fields):
+def champion_step(vault, today, context_dir, fields, own_doc, live_docs):
     """Rule 3: the champion's contact file, followed exactly as linked. No link, or a link
     resolving to nothing, is the no-next-step case here, never a name to search for. Only
     tasks under the file's own title or its Next actions heading are candidates - the ones
     open_tasks() gives the document's own H1 as their section - so a task filed under any
-    other heading (a History log, say) is never picked."""
+    other heading (a History log, say) is never picked. One whose line or indented lines
+    link `own_doc` comes first; one linking another of `live_docs` is never picked."""
     champion_raw = field_ci(fields, "Champion")
     if not champion_raw:
         return None
@@ -165,12 +193,21 @@ def champion_step(vault, today, context_dir, fields):
     if not resolved or not resolved.is_file():
         return None
     h1 = doc_h1(resolved)
-    candidates = [t for t in tag_tasks(vault, resolved) if t["section"] in (None, h1)]
-    picked = pick_next(candidates)
+    lines = read_lines(resolved)
+    mine, unclaimed = [], []
+    for t in tag_tasks(vault, resolved):
+        if t["section"] not in (None, h1):
+            continue
+        links = item_links(resolved.parent, lines, t["line"])
+        if own_doc in links:
+            mine.append(t)
+        elif not links & live_docs:
+            unclaimed.append(t)
+    picked = pick_next(mine) or pick_next(unclaimed)
     return make_next_step(picked, today) if picked else None
 
 
-def next_step_for_folder(vault, today, doc, fields, other_files):
+def next_step_for_folder(vault, today, doc, fields, other_files, live_docs):
     own = doc.parent / "actions.md"
     if own.is_file() and is_live(own.relative_to(vault)):
         picked = pick_next(tag_tasks(vault, own))
@@ -188,7 +225,7 @@ def next_step_for_folder(vault, today, doc, fields, other_files):
     if picked:
         return make_next_step(picked, today)
 
-    return champion_step(vault, today, doc.parent, fields)
+    return champion_step(vault, today, doc.parent, fields, target, live_docs)
 
 
 # A date the wording attaches to a register row's step, ranked: a 📅 marker, `by` before it,
@@ -208,9 +245,9 @@ def step_date(text):
     return None
 
 
-def next_step_for_row(vault, today, reg_path, row, header_cols):
+def next_step_for_row(vault, today, reg_path, row, header_cols, live_docs):
     fields = {k: row[k] for k in header_cols}
-    step = champion_step(vault, today, reg_path.parent, fields)
+    step = champion_step(vault, today, reg_path.parent, fields, None, live_docs)
     if step:
         return step
 
@@ -282,7 +319,7 @@ def apply_name_collision(entities):
 # --------------------------------------------------------------------- collecting entities
 
 def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files, today,
-                            loc):
+                            loc, live_docs):
     pattern = re.sub(r"<[^>]+>", "*", home.rstrip("/"))
     dirs = sorted(p for p in vault.glob(pattern) if p.is_dir())
     entities, no_stage, unknown_stage = [], [], []
@@ -330,7 +367,7 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
             "value": amount_of(field_ci(fields, "Value"), loc),
         }
         if entity["live"]:
-            step = next_step_for_folder(vault, today, doc, fields, other_files)
+            step = next_step_for_folder(vault, today, doc, fields, other_files, live_docs)
             entity["next_step"] = step
             entity["flags"] = build_flags(entity, info["dated_facts"], step, idx, today)
         else:
@@ -348,7 +385,7 @@ def name_label(cell):
     return re.sub(r"\s+\(.*\)$", "", text) or text
 
 
-def collect_row_entities(vault, home, stage_by_name, stage_index, today):
+def collect_row_entities(vault, home, stage_by_name, stage_index, today, live_docs):
     reg_path = vault / home
     if not reg_path.is_file():
         return [], True
@@ -405,7 +442,7 @@ def collect_row_entities(vault, home, stage_by_name, stage_index, today):
             "row_missing_columns": row["cells"] < len(header_cols),
         }
         if entity["live"]:
-            step = next_step_for_row(vault, today, reg_path, row, header_cols)
+            step = next_step_for_row(vault, today, reg_path, row, header_cols, live_docs)
             entity["next_step"] = step
             entity["flags"] = build_flags(entity, info["dated_facts"], step, idx, today)
         else:
@@ -415,7 +452,7 @@ def collect_row_entities(vault, home, stage_by_name, stage_index, today):
     return entities, False
 
 
-def collect_entities(vault, lc, today, loc=None):
+def collect_entities(vault, lc, today, live_docs, loc=None):
     stages = lc["stages"]
     stage_by_name = {s["name"].lower(): s for s in stages}
     stage_index = {s["name"].lower(): i for i, s in enumerate(stages)}
@@ -431,10 +468,11 @@ def collect_entities(vault, lc, today, loc=None):
     for h in homes:
         if h["row"]:
             found, empty = collect_row_entities(vault, h["home"], stage_by_name, stage_index,
-                                                today)
+                                                today, live_docs)
         else:
             found, missing, unknown, empty = collect_folder_entities(
-                vault, h["home"], stage_by_name, stage_index, other_files, today, loc or {})
+                vault, h["home"], stage_by_name, stage_index, other_files, today, loc or {},
+                live_docs)
             no_stage += missing
             unknown_stage += [u for u in unknown if u not in unknown_stage]
         entities += found
@@ -663,7 +701,7 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
     return metrics, terminal_this_quarter
 
 
-def revisits_due(vault, lc, entities, today):
+def revisits_due(vault, lc, entities, today, live_docs):
     """Won entities archived out of the promoting home whose Last touch (else Won date) is
     REVISIT_MONTHS old and that hold no dated next step: past clients nothing asks about
     again (issue #266). A `Revisit: none` line, or a live entity of the same name, clears
@@ -689,7 +727,8 @@ def revisits_due(vault, lc, entities, today):
     for w in latest.values():
         if add_months(w["since_date"], REVISIT_MONTHS) > today:
             continue
-        step = next_step_for_folder(vault, today, vault / w["path"], w["fields"], other_files)
+        step = next_step_for_folder(vault, today, vault / w["path"], w["fields"], other_files,
+                                    live_docs)
         if step and step["date"]:
             continue
         out.append({"name": w["name"], "path": w["path"],
@@ -738,9 +777,10 @@ def by_value(entities, currency):
 
 # ------------------------------------------------------------------------------- the report
 
-def scan_lifecycle(vault, lc, today, loc=None):
+def scan_lifecycle(vault, lc, today, live_docs, loc=None):
     loc = loc or {}
-    entities, no_stage, unknown_stage, empty_homes = collect_entities(vault, lc, today, loc)
+    entities, no_stage, unknown_stage, empty_homes = collect_entities(vault, lc, today,
+                                                                      live_docs, loc)
     metrics, terminal_this_quarter = compute_metrics(vault, today, lc, entities,
                                                      loc.get("year_end"))
     currency = vault_currency(loc)
@@ -752,7 +792,7 @@ def scan_lifecycle(vault, lc, today, loc=None):
         "by_value": by_value(entities, currency),
         "terminal_this_quarter": terminal_this_quarter,
         "metrics": metrics,
-        "revisits_due": revisits_due(vault, lc, entities, today),
+        "revisits_due": revisits_due(vault, lc, entities, today, live_docs),
     }
 
 
@@ -765,6 +805,7 @@ def scan(vault, today, lifecycle=None):
     vault = Path(vault).resolve()
     declared = lifecycles(vault)
     known = {s["name"].lower() for lc in declared for s in lc["stages"]}
+    live_docs = live_documents(vault, declared)
 
     report = {"vault": vault.as_posix(), "today": today.isoformat()}
     if lifecycle:
@@ -776,7 +817,7 @@ def scan(vault, today, lifecycle=None):
         declared = matched
 
     loc = locale(vault)
-    report["lifecycles"] = [scan_lifecycle(vault, lc, today, loc) for lc in declared]
+    report["lifecycles"] = [scan_lifecycle(vault, lc, today, live_docs, loc) for lc in declared]
     for lc in report["lifecycles"]:
         lc["unknown_stage"] = [u for u in lc["unknown_stage"] if u["stage"].lower() not in known]
     return report, 0

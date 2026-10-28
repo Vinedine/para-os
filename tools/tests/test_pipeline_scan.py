@@ -427,6 +427,36 @@ class NextStep(VaultCase):
               "**Champion:** [jan](jan%00.md)\n")
         self.assertIsNone(find(self.deal()["entities"], "acme")["next_step"])
 
+    HOME_ITEM = ("- [ ] Waiting on [Jan](jan.md): the floor plan (since 2026-09-10)",
+                 "  - For [the home setup](../../projects/jan-home/brief.md)")
+
+    def shared_champion(self, *card):
+        # Issue #750: two deals naming one champion both took the card's first open item.
+        for name in ("northwind", "jan-home"):
+            write(self.root, f"projects/{name}/brief.md",
+                  f"# {name}\n\n**Stage:** Goal (since 2026-09-01)\n**Opened:** 2026-08-01\n"
+                  "**Champion:** [Jan](../../areas/network/jan.md)\n")
+        write(self.root, "areas/network/jan.md",
+              "\n".join(["# Jan", "", "## Next actions", *card, ""]) + "\n")
+        return {e["name"]: e for e in self.deal()["entities"]}
+
+    def test_two_deals_sharing_a_champion_each_take_the_card_item_that_is_theirs(self):
+        deals = self.shared_champion(*self.HOME_ITEM, "- [ ] Waiting on [Jan](jan.md): "
+                                     "sign-off on the agency quote (since 2026-09-12)")
+        self.assertEqual((deals["jan-home"]["next_step"]["line"],
+                          deals["northwind"]["next_step"]["line"]), (4, 6))
+
+    def test_a_card_holding_only_another_deals_item_is_no_next_step(self):
+        deals = self.shared_champion(*self.HOME_ITEM)
+        self.assertIsNone(deals["northwind"]["next_step"])
+        self.assertTrue(deals["northwind"]["flags"]["no_next_step"])
+
+    def test_a_card_item_linking_the_deal_comes_before_an_earlier_unlinked_one(self):
+        deals = self.shared_champion("- [ ] Send Jan the agency quote 📅 2026-09-24",
+                                     *self.HOME_ITEM)
+        self.assertEqual((deals["jan-home"]["next_step"]["line"],
+                          deals["northwind"]["next_step"]["line"]), (5, 4))
+
     def test_a_row_champion_comes_before_the_rows_own_next_step_column(self):
         write(self.root, "areas/business/leads.md", "\n".join([
             "# Leads", "", "## Open", "",
@@ -984,6 +1014,13 @@ class RevisitsDue(VaultCase):
         write(self.root, "areas/network/jan.md",
               "# Jan\n\n## Next actions\n- [ ] Coffee 📅 2026-10-12\n")
         self.assertEqual(self.due(), [])
+
+    def test_a_dated_card_step_serving_a_live_deal_does_not_clear_it(self):
+        self.past("nova", extra="**Champion:** [jan](../../../areas/network/jan.md)\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\n**Stage:** Goal (since 2026-09-01)\n")
+        write(self.root, "areas/network/jan.md", "# Jan\n\n## Next actions\n"
+              "- [ ] Send the [Acme](../../projects/acme/brief.md) quote 📅 2026-10-12\n")
+        self.assertEqual(self.due(), ["nova"])
 
     def test_a_revisit_line_reading_none_clears_it(self):
         self.past("nova", extra="**Revisit:** none, the team was dissolved\n")
