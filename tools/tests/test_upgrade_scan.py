@@ -304,6 +304,26 @@ class StatesCase(CloneCase):
         self.assertEqual(states[str((user / "para-notes" / "SKILL.md").resolve())], "untouched")
         self.assertNotIn(".claude/skills/para-notes/SKILL.md", states)
 
+    def test_a_user_level_copy_never_hides_a_skill_missing_from_the_bundled_ones(self):
+        user = self.tmp / "user-prep"
+        write(user, "para-prep/SKILL.md", "# Prep, mine\n")
+        v = self.vault("vault-no-prep", files={".claude/skills/para-notes/SKILL.md": "# Notes v2\n",
+                                              ".claude/skills/para-notes/references/new.md": "New.\n"})
+        states = self.states(self.scan(v, user=user)[0])
+        self.assertEqual(states[".claude/skills/para-prep/SKILL.md"], "missing")
+        self.assertEqual(states[str((user / "para-prep" / "SKILL.md").resolve())], "edited")
+
+    def test_a_vault_bundling_no_kit_skill_takes_none_beside_the_user_level_ones(self):
+        user = self.tmp / "user-runs-all"
+        write(user, "para-notes/SKILL.md", "# Notes v2\n")
+        write(user, "para-audit/SKILL.md", "# Audit\n")
+        v = self.vault("vault-no-skill", files={".claude/skills/para-shared/scripts/lib.py": "LIB = 1\n",
+                                               ".claude/skills/para-audit/SKILL.md": "# Audit\n"})
+        paths = [r["path"] for r in self.scan(v, user=user)[0]["files"]]
+        self.assertIn(str((user / "para-prep" / "SKILL.md").resolve()), paths)
+        self.assertFalse(any(p.startswith(".claude/skills/para-") and "para-shared" not in p
+                             for p in paths), paths)
+
     def test_a_copy_that_only_adds_lines_to_its_master_has_nothing_to_take(self):
         v = self.vault("adds", files={".claude/rules/filing.md": RULE.format("v2") + "Ours.\n"})
         self.assertNotIn(".claude/rules/filing.md", self.states(self.scan(v)[0]))
