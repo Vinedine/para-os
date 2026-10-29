@@ -7,6 +7,7 @@ file, which holds the date arithmetic this builds on.
 
     py -3 paraos_mail.py key <messages.json>
     py -3 paraos_mail.py eml <message.eml> [--extract <dir>]
+    py -3 paraos_mail.py exclude <threads.json> [--paraos-home <dir>]
 
     import sys
     from pathlib import Path
@@ -19,7 +20,9 @@ naming their fields inconsistently between runs), recomputing a staged note's na
 thread id that produced it, deciding whether a ledger entry still covers a thread's newest
 message, and how many working days a sent message has waited. A vault without `/para-ingest`
 reads empty logs and an absent ledger here, which is the truth about it. It also reads a
-message saved as an `.eml`, for a mailbox that reaches a vault only that way.
+message saved as an `.eml`, for a mailbox that reaches a vault only that way, and applies the
+operator's exclusions (`triage-exclusions.json`, the format in connectors.md) to fetched
+threads, so no caller matches them by hand.
 """
 
 import argparse
@@ -373,6 +376,119 @@ BLOCK_TAGS = {"p", "div", "br", "li", "tr", "table", "ul", "ol", "blockquote", "
               "h1", "h2", "h3", "h4", "h5", "h6"}
 
 
+# --- exclusions ---------------------------------------------------------------------------
+
+EXCLUSION_KINDS = ("subject", "subject_contains", "from", "domain", "to", "list")
+
+
+def load_exclusions(paraos_home=None):
+    """The operator's exclusions, `{mailbox or "*": [entry, ...]}`, and None; or `{}` and why
+    the file applies nothing: it does not parse, or is not an object of lists. No file is no
+    error."""
+    path = paraos_home_dir(paraos_home) / "triage-exclusions.json"
+    if not path.is_file():
+        return {}, None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as err:
+        return {}, f"{path} applies nothing: {err}"
+    if not isinstance(data, dict) or not all(isinstance(v, list) for v in data.values()):
+        return {}, f"{path} applies nothing: not an object of lists keyed by mailbox"
+    return data, None
+
+
+def _addresses(value):
+    """Every address in a string, a list of strings, or a list of objects carrying one."""
+    out = []
+    for item in (value if isinstance(value, list) else [value]):
+        if isinstance(item, dict):
+            item = item.get("address") or (item.get("emailAddress") or {}).get("address") or ""
+        if not item:
+            continue
+        for piece in re.split(r"[;,]", str(item)):
+            address = parseaddr(piece)[1].lower()
+            if address:
+                out.append(address)
+    return out
+
+
+def _list_id(message):
+    value = message.get("list") or message.get("list_id") or ""
+    for header in message.get("headers") or []:
+        if isinstance(header, dict) and (header.get("name") or "").lower() == "list-id":
+            value = header.get("value") or value
+    found = re.search(r"<([^>]+)>", str(value))
+    return (found.group(1) if found else str(value)).strip().lower()
+
+
+def exclusion_label(entry):
+    """How an entry is named in a report: its group label, else `<kind> <value>`."""
+    if isinstance(entry, dict) and entry.get("group"):
+        return str(entry["group"])
+    kind = next((k for k in EXCLUSION_KINDS if isinstance(entry, dict) and k in entry), None)
+    return f"{kind} {entry[kind]}" if kind else "(unreadable entry)"
+
+
+def matcher_matches(matcher, message):
+    """One matcher against one message, by its kind; an unreadable matcher matches nothing."""
+    if not isinstance(matcher, dict):
+        return False
+    subject = " ".join(str(message.get("subject") or "").split()).lower()
+    if "subject" in matcher:
+        return subject == " ".join(str(matcher["subject"]).split()).lower()
+    if "subject_contains" in matcher:
+        needle = " ".join(str(matcher["subject_contains"]).split()).lower()
+        return bool(needle) and re.search(r"(?<!\w)" + re.escape(needle) + r"(?!\w)", subject) is not None
+    sender = _addresses(message.get("from"))
+    if "from" in matcher:
+        return str(matcher["from"]).lower() in sender
+    if "domain" in matcher:
+        domain = str(matcher["domain"]).lower().lstrip("@")
+        return any(a.endswith("@" + domain) or a.endswith("." + domain) for a in sender)
+    if "to" in matcher:
+        return str(matcher["to"]).lower() in _addresses(message.get("to")) + _addresses(message.get("cc"))
+    if "list" in matcher:
+        return str(matcher["list"]).lower().strip("<>") == _list_id(message)
+    return False
+
+
+def entry_matches(entry, message):
+    """A plain entry is one matcher; a group matches when any of its `any` matchers does."""
+    if isinstance(entry, dict) and "any" in entry:
+        return any(matcher_matches(m, message) for m in (entry.get("any") or []))
+    return matcher_matches(entry, message)
+
+
+def apply_exclusions(threads, exclusions):
+    """The threads that survive, the threads dropped (each carrying `excluded`, the label that
+    dropped it, `excluded_scope`, an empty `routed` and the reason `excluded: <label>`), and the
+    count per scope and entry, zero included. A thread drops only when no message in it
+    survives; a mailbox's own entries apply first, then the `*` entries, for every mailbox."""
+    counts = {scope: {exclusion_label(e): 0 for e in entries}
+              for scope, entries in exclusions.items() if isinstance(entries, list)}
+    kept, dropped = [], []
+    for thread in threads:
+        mailbox = str(thread.get("mailbox") or "")
+        scoped = [(mailbox, e) for e in exclusions.get(mailbox) or []] + \
+                 [("*", e) for e in exclusions.get("*") or []]
+        hit, survivor = None, False
+        for message in thread.get("messages") or []:
+            match = next(((scope, e) for scope, e in scoped if entry_matches(e, message)), None)
+            if match is None:
+                survivor = True
+                break
+            hit = match
+        if survivor or hit is None:
+            kept.append(thread)
+            continue
+        scope, entry = hit
+        label = exclusion_label(entry)
+        counts.setdefault(scope, {})[label] = counts.get(scope, {}).get(label, 0) + 1
+        dropped.append(dict(thread, excluded=label, excluded_scope=scope, routed=[],
+                            reason=f"excluded: {label}"))
+    return kept, dropped, counts
+
+
 class _HtmlText(HTMLParser):
     """An HTML part's words: script and style dropped, a line break at each block."""
 
@@ -493,6 +609,11 @@ def main(argv=None):
     saved = sub.add_parser("eml", help="a saved message's headers, text and attachments")
     saved.add_argument("file", help="the .eml file")
     saved.add_argument("--extract", metavar="DIR", help="also write the attachments into DIR")
+    exclude = sub.add_parser("exclude", help="the operator's exclusions applied to fetched threads")
+    exclude.add_argument("file", help="a JSON list of threads, each with mailbox, thread_id, "
+                                      "subject and messages (from, subject, to, cc, list)")
+    exclude.add_argument("--paraos-home", metavar="DIR", help="the para-os home holding "
+                                                              "triage-exclusions.json")
     args = ap.parse_args(argv)
 
     # A Windows console defaults to a codepage that cannot encode a subject.
@@ -500,6 +621,19 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding="utf-8")
     except (AttributeError, OSError):
         pass
+
+    if args.command == "exclude":
+        try:
+            threads = json.loads(Path(args.file).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as err:
+            ap.error(f"cannot read {args.file}: {err}")
+        exclusions, error = load_exclusions(args.paraos_home)
+        kept, dropped, counts = apply_exclusions(threads if isinstance(threads, list) else [], exclusions)
+        json.dump({"kept": kept, "counts": counts, "file": error or "applied",
+                   "dropped": [{k: t.get(k) for k in ("mailbox", "thread_id", "subject", "excluded", "excluded_scope")}
+                               for t in dropped]}, sys.stdout, ensure_ascii=False, indent=2, default=str)
+        sys.stdout.write("\n")
+        return 0
 
     if args.command == "eml":
         if not Path(args.file).is_file():

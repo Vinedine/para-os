@@ -74,7 +74,9 @@ if SHARED is None:
     sys.exit(2)
 sys.path.insert(0, str(SHARED))
 
-from paraos_mail import dedup_key, received_instant, thread_hash, watermark  # noqa: E402
+from paraos_mail import (  # noqa: E402
+    apply_exclusions, dedup_key, load_exclusions, received_instant, thread_hash, watermark,
+)
 from paraos_vault import paraos_home_dir, registry  # noqa: E402
 
 WRITE_WINDOW_DAYS = 2
@@ -217,6 +219,9 @@ def stage(run, paraos_home=None):
     if not vaults:
         raise ValueError(f"no registry at {home / 'vaults.json'}, or it does not parse")
     threads = checked(run, vaults)
+    exclusions, exclusions_error = load_exclusions(home)
+    kept, dropped, exclusion_counts = apply_exclusions(threads, exclusions)
+    threads = kept + dropped     # a dropped thread still reaches the ledger, as excluded
     ledger_path = home / "cache" / "ingest" / "ledger.json"
     ledger = load_ledger(ledger_path)
     started = received_instant(run.get("started_at")) or datetime.now().astimezone()
@@ -235,7 +240,7 @@ def stage(run, paraos_home=None):
     covered = [v for names in (declaring.values() if isinstance(declaring, dict) else [])
                if isinstance(names, list) for v in names]
     per_vault = {name: 0 for name in covered + [v for t in threads for v in t["routed"]]}
-    unrouted, signin_codes = {}, {}
+    unrouted, signin_codes, excluded = {}, {}, {}
     files_written, decisions, undelivered, suppressed, errors = [], [], [], [], []
 
     for thread in sorted(threads, key=lambda t: -len(t["messages"])):
@@ -303,6 +308,8 @@ def stage(run, paraos_home=None):
 
         if thread["signin"]:
             signin_codes[mailbox] = signin_codes.get(mailbox, 0) + 1
+        elif thread.get("excluded"):
+            excluded[mailbox] = excluded.get(mailbox, 0) + 1
         elif not thread["routed"]:
             unrouted[mailbox] = unrouted.get(mailbox, 0) + 1
         if decision["suppressed"]:
@@ -328,7 +335,9 @@ def stage(run, paraos_home=None):
     summary = {"mode": run["mode"], "started_at": started.isoformat(),
                "files_written": files_written,
                "counts": {"per_vault": per_vault, "unrouted": unrouted,
-                          "signin_codes": signin_codes},
+                          "signin_codes": signin_codes, "excluded": excluded},
+               "exclusions_applied": {"by_entry": exclusion_counts, "dropped": len(dropped),
+                                      "file": exclusions_error or "applied"},
                "undelivered": undelivered, "suppressed": suppressed}
     if not write:
         cutoff = started - timedelta(days=WRITE_WINDOW_DAYS)
