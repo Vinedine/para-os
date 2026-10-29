@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "multi-vault" / "para-global-brief" / "scripts"))
 
 from global_scan import build_report  # noqa: E402
-from render_global import JudgmentError, main, page_data, render  # noqa: E402
+from render_global import JudgmentError, kit_value, main, page_data, render  # noqa: E402
 from test_global_scan import TODAY, build_vault, write  # noqa: E402
 
 DATA_RE = re.compile(r'<script id="data" type="application/json">(.*?)</script>', re.S)
@@ -86,6 +86,12 @@ class RenderGlobal(unittest.TestCase):
         self.assertEqual((rows["kit"]["level"], rows["kit"]["value"]), ("watch", "3 findings, 2 the upgrade applies"))
         self.assertEqual(data["funnel_url"], "https://example.test/funnel")
         self.assertIn("https://example.test/funnel", render(scan, self.judgment()))
+
+    def test_the_kit_value_says_why_a_vault_is_not_judged_and_counts_otherwise(self):
+        self.assertEqual(kit_value({"verdict": "ahead", "findings": 1}), "not judged: ahead of the kit")
+        self.assertEqual(kit_value({"verdict": "unverified"}), "not judged: no marker")
+        self.assertEqual(kit_value({"verdict": "equal", "findings": 0}), "current")
+        self.assertEqual(kit_value({"verdict": "equal", "findings": 1, "upgrade": 0}), "1 finding")
 
     def test_a_next_action_naming_a_task_the_scan_lacks_is_an_error(self):
         scan = self.scan()
