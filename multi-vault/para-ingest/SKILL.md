@@ -1,7 +1,7 @@
 ---
 name: para-ingest
 description: Read every vault's declared triage sources once from outside the vaults, decide only which vault each item belongs to, and stage it as a note in that vault's triage/ folder. Runs from anywhere and never judges what an item means. Use when the operator runs several vaults that declare the same mailboxes and asks to "pull everything in", "check all my vaults for new mail", "run the ingest", "route what came in", or types /para-ingest.
-allowed-tools: Bash(python3 *), Bash(py *), Bash(node *), Glob, Grep, Read, Write, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
+allowed-tools: Bash(python3 *), Bash(py *), Bash(node *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
 argument-hint: '[preview|write] [--test]'
 ---
 
@@ -86,6 +86,15 @@ One run of `scripts/stage.py` writes them: in write mode a note per routed threa
 Report as a table of vault, staged count and unrouted count, then name every source that errored, every carry-over thread Step 3 left outstanding, and every thread that routed to a vault it could not be delivered to. A run that staged nothing says so, rather than reporting nothing.
 
 **An undelivered item belongs at the top of the report, beside the errors**, with the vault that is owed it. An earlier run's `undelivered` list is [re-checked, never carried](references/staging.md#undelivered-is-re-checked-never-carried).
+
+Then rebuild the funnel page, which shows every stage's rules and the window's counts from the state this run just wrote:
+
+```bash
+# Windows: py -3
+python3 "<this skill's base directory>/scripts/funnel_page.py"
+```
+
+Publish it per [para-shared/pages.md](../para-shared/pages.md), the printed `key` standing in for the vault root.
 
 ## Strict rules
 

@@ -10,9 +10,10 @@ A scheduled task that asks for a permission stalls until someone answers it, so 
 - `python3 <skills>/para-triage/scripts/auto_execute.py run *` and `auto_execute.py status *`
 - Write `${PARAOS_HOME:-~/.paraos}/cache/triage/*-decisions.json`, the file a run hands the executor
 - Read, Glob and Grep inside the registered vaults
+- `python3 <skills>/para-ingest/scripts/funnel_page.py *` (`py -3` on Windows) and the Artifact publish of the page it writes
 
 ## The prompt
 
-> For each vault in `${PARAOS_HOME:-~/.paraos}/vaults.json` that is not retired: run `auto_execute.py status --vault-name <name> --vault <path>`, and skip the vault where `on` is empty or `kill_switch` or `nothing_new` is true. For every other vault, start one reader, scoped to that vault, that loads its own `CLAUDE.md` and runs `/para-triage auto` there. Then print each vault's report, failures first.
+> For each vault in `${PARAOS_HOME:-~/.paraos}/vaults.json` that is not retired: run `auto_execute.py status --vault-name <name> --vault <path>`, and skip the vault where `on` is empty or `kill_switch` or `nothing_new` is true. For every other vault, start one reader, scoped to that vault, that loads its own `CLAUDE.md` and runs `/para-triage auto` there. Then print each vault's report, failures first, and rebuild and publish the funnel page as `/para-ingest`'s last step does.
 
 Nothing in a vault learns that another exists: each reader sees one vault.
