@@ -205,6 +205,21 @@ class ReachAndFriction(LedgerCase):
         worst = self.run_scan()["friction"]["tools_per_request"][0]
         self.assertEqual((worst["tools"], worst["prompt"]), (3, "tidy it"))
 
+    def test_a_session_that_touched_no_vault_file_and_invoked_no_skill_is_counted_only(self):
+        ask = {"event": "UserPromptSubmit", "prompt_id": "p1", "prompt": "a private question"}
+        self.session("sam", "aaaaaaaa-1", date(2026, 9, 20), ask,
+                     {"event": "PostToolUse", "prompt_id": "p1", "tool": "Read",
+                      "target": "/home/sam/Documents/letter.pdf"},
+                     {"event": "PostToolUse", "prompt_id": "p1", "tool": "WebSearch"})
+        self.session("sam", "bbbbbbbb-1", date(2026, 9, 20), ask,
+                     {"event": "PostToolUse", "prompt_id": "p1", "tool": "Read",
+                      "target": "projects/acme/brief.md"})
+        self.session("sam", "cccccccc-1", date(2026, 9, 20), *slash("p1", "/para-daily-brief"))
+        report = self.run_scan()
+        self.assertEqual(report["frame"]["unrelated_sessions"], 1)
+        self.assertEqual([r["session"] for r in report["friction"]["tools_per_request"]],
+                         ["bbbbbbbb-1"])
+
     def test_a_session_that_wrote_nothing_is_listed(self):
         self.session("sam", "aaaaaaaa-1", date(2026, 9, 20),
                      {"event": "UserPromptSubmit", "prompt_id": "p1", "prompt": "file this"})

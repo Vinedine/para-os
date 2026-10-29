@@ -66,6 +66,11 @@ def entity_of(target):
     return None
 
 
+def in_vault(target):
+    """The ledger records a vault file relative to the vault, and any other path as given."""
+    return bool(target) and target[:1] not in "/\\~" and target[1:2] != ":"
+
+
 def read_events(path):
     events, skipped = [], 0
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -109,7 +114,8 @@ def scan(vault, today, days):
         person, day = person_of(path), file_day(path).isoformat()
         sid = next((e.get("session") for e in events if e.get("session")), path.stem)
         s = sessions.setdefault(sid, {"person": person, "days": set(), "prompts": {},
-                                      "tools": Counter(), "wrote": False, "entities": set()})
+                                      "tools": Counter(), "wrote": False, "entities": set(),
+                                      "vault_work": False})
         s["days"].add(day)
 
         for e in events:
@@ -131,6 +137,7 @@ def scan(vault, today, days):
                 continue
             paths = [target] if tool in PATH_TOOLS else []
             paths += e.get("touched") or []
+            s["vault_work"] = s["vault_work"] or any(map(in_vault, paths))
             for p in paths:
                 b, entity = bucket_of(p), entity_of(p)
                 if b:
@@ -142,10 +149,13 @@ def scan(vault, today, days):
                 writers[p.replace("\\", "/")].add(person)
                 s["wrote"] = True
 
+    invoked = {key[0] for key in invocations}
+    for sid, s in sessions.items():
+        s["vault_work"] = s["vault_work"] or sid in invoked
     per_request = [{"session": sid, "person": s["person"], "prompt": s["prompts"][pid],
                     "tools": count}
                    for sid, s in sessions.items() for pid, count in s["tools"].items()
-                   if pid in s["prompts"]]
+                   if pid in s["prompts"] and s["vault_work"]]
 
     adoption = {}
     for (_, _, skill), (person, day) in sorted(invocations.items(), key=lambda kv: kv[1][1]):
@@ -180,6 +190,7 @@ def scan(vault, today, days):
             "files": len(files),
             "sessions": len(sessions),
             "typed_sessions": len(typed),
+            "unrelated_sessions": sum(1 for s in typed if not s["vault_work"]),
             "people": sorted({s["person"] for s in sessions.values()}),
             "first": dates[0] if dates else None,
             "last": dates[-1] if dates else None,

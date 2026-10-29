@@ -96,24 +96,31 @@ def vault_root(script_path):
     return Path(script_path).resolve().parents[2]
 
 
-def load_config(script_path):
-    """The defaults, overlaid with any setting that matches its default's type.
+def read_settings(path):
+    """The settings in one config file that match their default's type, or none.
 
     Type-checked rather than trusted, because a value reaches arithmetic before the line is
     written: `"touched_slack_ms": "2s"` would raise, the catch-all in __main__ would swallow
     it, and the whole ledger would stop being written with nothing to show why. A wrong type
     falls back to the default instead - this hook fails open, including on its own config.
     """
-    cfg = dict(DEFAULTS)
-    path = Path(script_path).resolve().with_name("activity.config.json")
     try:
-        if path.exists():
-            loaded = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                cfg.update({k: v for k, v in loaded.items()
-                            if k in DEFAULTS and type(v) is type(DEFAULTS[k])})
+        loaded = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     except Exception:
-        pass
+        return {}
+    if not isinstance(loaded, dict):
+        return {}
+    return {k: v for k, v in loaded.items() if k in DEFAULTS and type(v) is type(DEFAULTS[k])}
+
+
+def load_config(script_path):
+    """The defaults, then the vault's config beside the script, then the person's own
+    `activity.json` in PARAOS_HOME, which can only switch prompts off: the stricter wins."""
+    cfg = dict(DEFAULTS)
+    cfg.update(read_settings(Path(script_path).resolve().with_name("activity.config.json")))
+    home = Path(os.environ.get("PARAOS_HOME") or Path.home() / ".paraos")
+    if read_settings(home / "activity.json").get("record_prompts") is False:
+        cfg["record_prompts"] = False
     return cfg
 
 
@@ -335,7 +342,35 @@ def summarise_session(records, now_iso):
     return summary
 
 
-def keep_prompt(prompt, cfg):
+# An absolute path in a prompt: quoted whole, or unquoted until a space that no later word
+# with a separator follows, so a user folder named `Sam Doe` stays inside the path. A POSIX
+# root needs two segments, or `/para-new` would read as one.
+_ROOTED = r"""(?:[A-Za-z]:[\\/]|\\\\|~[\\/]|/[^\s/\\"']+/)"""
+_RUN = r"""(?:\\ |[^\s"'])*"""
+_PROMPT_PATH = re.compile(
+    rf"""(["']){_ROOTED}.*?\1"""
+    rf"""|(?<![\w.:/\\~-]){_ROOTED}{_RUN}(?:\s+(?!{_ROOTED})[^\s"'\\/]*[\\/]{_RUN})*""")
+
+
+def inside_vault(path, root):
+    """Whether a path typed in a prompt is in the vault. One this machine does not read as
+    absolute, such as a Windows path typed on a Mac, is not."""
+    p = Path(os.path.expanduser(path))
+    try:
+        return p.is_absolute() and p.resolve().is_relative_to(root)
+    except Exception:
+        return False
+
+
+def redact_paths(prompt, root):
+    """A path in the prompt outside the vault becomes `<outside the vault>`: that a file was
+    attached is the signal, and its path can carry a person's name."""
+    def keep_or_hide(m):
+        return m.group(0) if inside_vault(m.group(0).strip("\"'"), root) else "<outside the vault>"
+    return _PROMPT_PATH.sub(keep_or_hide, prompt)
+
+
+def keep_prompt(prompt, cfg, root):
     """The prompt truncated, or - when prompts are off - only the slash command in it.
 
     A leading `/para-triage` is a capability invocation, not something someone said. It is
@@ -346,14 +381,15 @@ def keep_prompt(prompt, cfg):
     if not isinstance(prompt, str):
         return None
     if cfg["record_prompts"]:
-        return prompt[: cfg["prompt_max_chars"]]
+        kept = cfg["prompt_max_chars"]
+        return redact_paths(prompt[:kept], root)[:kept]
     m = re.match(r"\s*(/[A-Za-z0-9:._-]+)", prompt)
     return m.group(1) if m else None
 
 
 def build_record(event, root, cfg, now_iso):
     tool_name = event.get("tool_name")
-    prompt = keep_prompt(event.get("prompt"), cfg)
+    prompt = keep_prompt(event.get("prompt"), cfg, root)
 
     record = {
         "at": now_iso,
