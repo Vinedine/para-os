@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """The page of /para-ingest: what every registered vault's inbound passes through, stage by
 stage, with the rules in force at each stage and the window's counts, rendered from the state
-the multi-vault layer already keeps. It reads everything and writes only the page.
+the multi-vault layer already keeps. It reads everything and writes only the page. Every table
+on it sorts by its headers and, from six rows, filters by its text and by a column's few values.
 
     py -3 funnel_page.py [--paraos-home DIR] [--days N] [--out <page.html>]
 
@@ -427,7 +428,129 @@ details summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px
 code{font-family:var(--mono);font-size:.82em;background:var(--chip);padding:.05rem .3rem;border-radius:3px}
 pre{font-family:var(--mono);font-size:.78rem;background:var(--chip);padding:.5rem .7rem;border-radius:6px;overflow-x:auto;margin:.3rem 0}
 .foot{margin-top:2.5rem;font-size:.8rem;color:var(--muted);border-top:1px solid var(--line);padding-top:.8rem}
+th .sort{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap}
+th .sort:hover,th[aria-sort=ascending],th[aria-sort=descending]{color:var(--ink)}
+th .sort:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+th .arrow::after{content:"\\2195";opacity:.35}
+th[aria-sort=ascending] .arrow::after{content:"\\2191";opacity:1}
+th[aria-sort=descending] .arrow::after{content:"\\2193";opacity:1}
+.tf{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:.6rem 0 .2rem;font-size:.84rem}
+.tf input,.tf select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.25rem .5rem;min-height:32px;box-sizing:border-box;max-width:100%}
+.tf input{flex:1 1 180px;max-width:280px}
+.tf input:focus-visible,.tf select:focus-visible,.tf button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.tf button{all:unset;cursor:pointer;color:var(--accent);padding:0 .3rem}
+.tf .count{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+"""
+
+# Every table sorts on a click of its header (a number column largest first, a third click back
+# to the page's order) and, past FILTER_FROM rows, filters by its rows' text and by any column
+# that holds only a few values, a cell of chips counting each chip as one value
+TABLES_JS = r"""
+(() => {
+  const FILTER_FROM = 6, MAX_CHOICES = 12;
+  const NUM = /^-?\d+(?:\.\d+)?(?:%|\/\d+)?$/;
+  const collator = new Intl.Collator(undefined, {numeric: true, sensitivity: "base"});
+  const text = el => {
+    const out = [], walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) out.push(walk.currentNode.data);
+    return out.join(" ").replace(/\s+/g, " ").trim();
+  };
+  const blank = s => s === "" || s === "-";
+  const values = td => {
+    const chips = td ? td.querySelectorAll(".chip") : [];
+    return chips.length ? [...chips].map(text) : [td ? text(td) : ""];
+  };
+  document.querySelectorAll(".tw > table").forEach(table => {
+    const head = table.rows[0];
+    if (!head || !head.cells.length || head.cells[0].tagName !== "TH") return;
+    const body = head.parentNode, rows = [...table.rows].slice(1), cols = [...head.cells];
+    const cell = (r, c) => r.cells[c] ? text(r.cells[c]) : "";
+    const numeric = cols.map((_, c) => {
+      const filled = rows.map(r => cell(r, c)).filter(s => !blank(s));
+      return filled.length > 0 && filled.every(s => NUM.test(s));
+    });
+    let col = -1, dir = 0;
+    const sort = () => {
+      const ordered = rows.slice().sort((a, b) => {
+        if (col < 0) return rows.indexOf(a) - rows.indexOf(b);
+        const x = cell(a, col), y = cell(b, col);
+        if (blank(x) !== blank(y)) return blank(x) ? 1 : -1;
+        const cmp = numeric[col] ? parseFloat(x) - parseFloat(y) : collator.compare(x, y);
+        return cmp * dir || rows.indexOf(a) - rows.indexOf(b);
+      });
+      ordered.forEach(r => body.appendChild(r));
+      cols.forEach((th, c) => th.setAttribute("aria-sort", c !== col ? "none" : dir > 0 ? "ascending" : "descending"));
+    };
+    cols.forEach((th, c) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "sort";
+      button.title = "Sort by this column";
+      button.append(...th.childNodes);
+      const arrow = document.createElement("span");
+      arrow.className = "arrow";
+      arrow.setAttribute("aria-hidden", "true");
+      button.append(arrow);
+      th.append(button);
+      th.setAttribute("aria-sort", "none");
+      button.addEventListener("click", () => {
+        const first = numeric[c] ? -1 : 1;
+        if (col !== c) { col = c; dir = first; }
+        else if (dir === first) dir = -first;
+        else { col = -1; dir = 0; }
+        sort();
+      });
+    });
+    if (rows.length < FILTER_FROM) return;
+    const bar = document.createElement("div");
+    bar.className = "tf";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.placeholder = "Filter rows";
+    search.setAttribute("aria-label", "Filter the rows of this table");
+    bar.append(search);
+    const selects = [];
+    cols.forEach((th, c) => {
+      if (numeric[c]) return;
+      const seen = new Set();
+      rows.forEach(r => values(r.cells[c]).forEach(v => { if (!blank(v)) seen.add(v); }));
+      if (seen.size < 2 || seen.size > MAX_CHOICES || seen.size >= rows.length) return;
+      const name = text(th), select = document.createElement("select");
+      select.setAttribute("aria-label", name);
+      select.append(new Option(name + ": all", ""));
+      [...seen].sort(collator.compare).forEach(v => select.append(new Option(v, v)));
+      selects.push([c, select]);
+      bar.append(select);
+    });
+    const count = document.createElement("span");
+    count.className = "count";
+    count.setAttribute("aria-live", "polite");
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.textContent = "Clear";
+    clear.hidden = true;
+    bar.append(clear, count);
+    const haystack = new Map(rows.map(r => [r, text(r).toLowerCase()]));
+    const filter = () => {
+      const terms = search.value.toLowerCase().split(/\s+/).filter(Boolean);
+      let shown = 0;
+      rows.forEach(r => {
+        const hit = terms.every(t => haystack.get(r).includes(t))
+          && selects.every(([c, s]) => !s.value || values(r.cells[c]).includes(s.value));
+        r.hidden = !hit;
+        shown += hit;
+      });
+      clear.hidden = !terms.length && selects.every(([, s]) => !s.value);
+      count.textContent = shown === rows.length ? rows.length + " rows" : shown + " of " + rows.length + " rows";
+    };
+    search.addEventListener("input", filter);
+    selects.forEach(([, s]) => s.addEventListener("change", filter));
+    clear.addEventListener("click", () => { search.value = ""; selects.forEach(([, s]) => { s.value = ""; }); filter(); search.focus(); });
+    table.parentNode.before(bar);
+    filter();
+  });
+})();
 """
 
 
@@ -601,6 +724,7 @@ def render(d):
     parts.append('</div>')
     data = json.dumps(d, ensure_ascii=False).replace("</", "<\\/")
     parts.append(f'<script id="data" type="application/json">{data}</script>')
+    parts.append("<script>" + TABLES_JS + "</script>")
     return "\n".join(parts)
 
 

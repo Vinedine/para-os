@@ -197,6 +197,14 @@ class FunnelPageTests(unittest.TestCase):
         page = render(gather(str(self.home), 7, today=TODAY))
         self.assertIn("Kill switch on", page)
 
+    def test_every_table_sits_where_the_sorter_finds_it(self):
+        page = render(gather(str(self.home), 7, today=TODAY))
+        self.assertGreater(page.count("<table>"), 3)
+        self.assertEqual(page.count("<table>"), page.count('<div class="tw"><table><tr><th'))
+        data_at, script_at = page.index('<script id="data"'), page.rindex("<script>")
+        self.assertLess(data_at, script_at)
+        self.assertIn('querySelectorAll(".tw > table")', page[script_at:])
+
     def test_main_prints_the_page_line(self):
         out = Path(self.tmp) / "page" / "funnel.html"
         buf = io.StringIO()
