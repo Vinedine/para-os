@@ -18,11 +18,14 @@ import tempfile
 import unittest
 from datetime import date
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "multi-vault" / "para-global-brief" / "scripts"))
 
+import global_scan  # noqa: E402
 from global_scan import build_report, main  # noqa: E402
+from test_audit_scan import build_clone, build_vault as build_kit_vault  # noqa: E402
 
 TODAY = date(2026, 3, 10)
 
@@ -65,6 +68,22 @@ class GlobalScan(unittest.TestCase):
 
     def report(self):
         return build_report(self.entries, TODAY, str(self.home))
+
+    def test_kit_is_unknown_without_a_clone_and_the_deep_clean_audit_record_is_read(self):
+        north = self.report()["vaults"][0]
+        self.assertEqual(north["kit"], {"level": "unknown", "verdict": None, "findings": None,
+                                        "upgrade": None, "behind": None})
+        self.assertIsNone(north["deep_clean_audit"])
+        self.assertIsNone(self.report()["funnel_url"])
+        write(self.home, "data/deep-clean/north.audit.json",
+              json.dumps({"date": "2026-03-08", "phase": "1", "findings": {"dangling": 5, "wikilinks": 2}, "total": 7}))
+        write(self.home, "data/deep-clean/south.audit.json", "{not json")
+        north, south = self.report()["vaults"]
+        self.assertEqual(north["deep_clean_audit"], {"date": "2026-03-08", "total": 7,
+                                                     "findings": {"dangling": 5, "wikilinks": 2}})
+        self.assertIsNone(south["deep_clean_audit"])
+        write(self.home, "data/deep-clean/south.audit.json", json.dumps({"total": 3}))
+        self.assertIsNone(self.report()["vaults"][1]["deep_clean_audit"])
 
     def test_each_vault_carries_its_own_counts(self):
         north, south = self.report()["vaults"]
@@ -183,6 +202,51 @@ class GlobalScan(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             self.assertEqual(main(["--paraos-home", str(self.home), "--today", "2026-03-10"]), 0)
         self.assertEqual(len(json.loads(out.getvalue())["vaults"]), 2)
+
+
+class KitSignal(unittest.TestCase):
+    """The Kit signal against a para-os clone in the default place, built by the audit
+    suite's own fixture: three released revisions and 2026.10.02 in development."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp())
+        cls.home = cls.tmp / "paraos"
+        (cls.home / "para-os").mkdir(parents=True)
+        build_clone(cls.home / "para-os")
+        cls.entries = []
+        for name, kw in (("current", {}), ("one-behind", {"marker": "2026.09.05"}),
+                         ("two-behind", {"marker": "2026.09.01"}),
+                         ("stale-skill", {"skill_version": 1}),
+                         ("ahead", {"marker": "2026.10.02"})):
+            build_kit_vault(cls.tmp / name, **kw)
+            cls.entries.append({"name": name, "path": str(cls.tmp / name)})
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def kits(self, home=None):
+        report = build_report(self.entries, TODAY, str(home or self.home))
+        return {v["name"]: v["kit"] for v in report["vaults"]}
+
+    def test_each_vault_carries_the_audits_findings_and_a_level(self):
+        kits = self.kits()
+        self.assertEqual(kits["current"], {"level": "ok", "verdict": "equal", "findings": 0,
+                                           "upgrade": 0, "behind": 0})
+        self.assertEqual(kits["one-behind"], {"level": "watch", "verdict": "behind",
+                                              "findings": 1, "upgrade": 1, "behind": 1})
+        self.assertEqual((kits["two-behind"]["level"], kits["two-behind"]["behind"]), ("care", 2))
+        self.assertEqual(kits["stale-skill"], {"level": "watch", "verdict": "equal",
+                                               "findings": 1, "upgrade": 1, "behind": 0})
+        self.assertEqual((kits["ahead"]["level"], kits["ahead"]["verdict"]), ("unknown", "ahead"))
+
+    def test_a_clone_the_audit_cannot_open_or_a_vault_it_cannot_check_is_unknown(self):
+        other = self.tmp / "other-home"
+        (other / "para-os").mkdir(parents=True)
+        self.assertEqual({k["level"] for k in self.kits(other).values()}, {"unknown"})
+        with mock.patch.object(global_scan.audit_scan, "audit_vault", side_effect=OSError):
+            self.assertEqual({k["level"] for k in self.kits().values()}, {"unknown"})
 
 
 if __name__ == "__main__":

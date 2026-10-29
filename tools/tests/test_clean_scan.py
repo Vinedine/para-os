@@ -135,6 +135,35 @@ class DeepCleanStamp(VaultCase):
         self.assertEqual(stamp.read_text(encoding="utf-8"), "2026-09-22\n")
 
 
+class AuditRecord(VaultCase):
+    """`--record` leaves the phase's findings count beside the stamp, for the brief; without
+    the flag nothing is written, and a phase-1 run never writes the stamp itself."""
+
+    def test_record_writes_the_counts_and_nothing_else(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/x/brief.md", "# X\n\nSee [gone](missing.md).\n")
+        record = self.home / "data" / "deep-clean" / f"{self.root.name}.audit.json"
+        stamp = self.home / "data" / "deep-clean" / f"{self.root.name}.txt"
+        with contextlib.redirect_stdout(io.StringIO()):
+            clean_scan.main(["--vault", str(self.root), "--phase", "1", "--today", "2026-09-22"])
+        self.assertFalse(record.exists())
+        with contextlib.redirect_stdout(io.StringIO()):
+            clean_scan.main(["--vault", str(self.root), "--phase", "1", "--today", "2026-09-22", "--record"])
+        data = json.loads(record.read_text(encoding="utf-8"))
+        self.assertEqual(set(data), {"date", "phase", "findings", "total"})
+        self.assertEqual((data["date"], data["phase"]), ("2026-09-22", "1"))
+        self.assertEqual(data["total"], sum(data["findings"].values()))
+        self.assertGreaterEqual(data["findings"].get("dangling", 0), 1)
+        self.assertFalse(stamp.exists())
+
+    def test_counts_lists_and_objects_of_lists_only(self):
+        from clean_scan import finding_counts
+        self.assertEqual(finding_counts({"dangling": [1, 2], "duplicates": {"groups": [1], "skipped": []},
+                                         "placeholders": [], "note": "x", "n": 3}),
+                         {"dangling": 2, "duplicates": 1})
+        self.assertEqual(finding_counts(None), {})
+
+
 class Preconditions(VaultCase):
 
     def test_triage_loose_excludes_readme_and_flags_it_separately(self):

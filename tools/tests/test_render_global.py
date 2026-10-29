@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "multi-vault" / "para-global-brief" / "scripts"))
 
 from global_scan import build_report  # noqa: E402
-from render_global import JudgmentError, main, page_data, render  # noqa: E402
+from render_global import JudgmentError, kit_value, main, page_data, render  # noqa: E402
 from test_global_scan import TODAY, build_vault, write  # noqa: E402
 
 DATA_RE = re.compile(r'<script id="data" type="application/json">(.*?)</script>', re.S)
@@ -67,8 +67,31 @@ class RenderGlobal(unittest.TestCase):
         self.assertEqual([(e["date"], e["title"], e["source"]) for e in data["events"]],
                          [("2026-03-10", "Demo", "work"), ("2026-03-11", "Kick-off", "north")])
         self.assertEqual([(h["vault"], h["treatment"], len(h["card"]["rows"]))
-                          for h in data["health"]], [("north", "full", 7), ("south", "summary", 7)])
-        self.assertEqual(len(data["signals"]), 7)
+                          for h in data["health"]], [("north", "full", 8), ("south", "summary", 8)])
+        labels = [s["label"] for s in data["signals"]]
+        self.assertEqual(len(labels), 8)
+        self.assertEqual(labels.index("Kit"), labels.index("Template") + 1)
+        kit = next(r for r in data["health"][0]["card"]["rows"] if r["key"] == "kit")
+        self.assertEqual((kit["level"], kit["value"]), ("unknown", "not judged: no para-os clone"))
+        self.assertIsNone(data["funnel_url"])
+
+    def test_the_deep_clean_row_carries_the_audit_count_and_the_page_links_the_funnel(self):
+        scan = self.scan()
+        scan["vaults"][0]["deep_clean_audit"] = {"date": "2026-03-08", "total": 7, "findings": {"dangling": 7}}
+        scan["vaults"][0]["kit"] = {"level": "watch", "verdict": "aligned", "findings": 3, "upgrade": 2, "behind": 0}
+        scan["funnel_url"] = "https://example.test/funnel"
+        data = page_data(scan, self.judgment(), local=False)
+        rows = {r["key"]: r for r in data["health"][0]["card"]["rows"]}
+        self.assertEqual(rows["deep_clean"]["value"], "no run recorded · audit 2d ago: 7 findings")
+        self.assertEqual((rows["kit"]["level"], rows["kit"]["value"]), ("watch", "3 findings, 2 the upgrade applies"))
+        self.assertEqual(data["funnel_url"], "https://example.test/funnel")
+        self.assertIn("https://example.test/funnel", render(scan, self.judgment()))
+
+    def test_the_kit_value_says_why_a_vault_is_not_judged_and_counts_otherwise(self):
+        self.assertEqual(kit_value({"verdict": "ahead", "findings": 1}), "not judged: ahead of the kit")
+        self.assertEqual(kit_value({"verdict": "unverified"}), "not judged: no marker")
+        self.assertEqual(kit_value({"verdict": "equal", "findings": 0}), "current")
+        self.assertEqual(kit_value({"verdict": "equal", "findings": 1, "upgrade": 0}), "1 finding")
 
     def test_a_next_action_naming_a_task_the_scan_lacks_is_an_error(self):
         scan = self.scan()
