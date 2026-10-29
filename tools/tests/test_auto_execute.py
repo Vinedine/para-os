@@ -242,6 +242,84 @@ class Executor(unittest.TestCase):
         self.assertEqual(call("status", "--vault-name", "north", "--paraos-home", self.home)
                          [1]["offers"], ["Dismiss (noise)"])
 
+    def note(self, name, sender):
+        write(self.vault, f"triage/{name}", f"# Club evening\n\n- **Source:** connector "
+              f"(Box@Example.org)\n- **From:** Club <{sender}>\n- **Link:** https://m.example/"
+              f"{name}\n\nCome along.\n")
+
+    def record(self, rows, *extra):
+        return call("record", "--vault-name", "north", "--decisions",
+                    self.decide(rows, "chosen.json"), *extra, "--paraos-home", self.home)[1]
+
+    def noise(self, item, sender, mailbox="box@example.org", chosen="Dismiss (noise)"):
+        return {"item": item, "recommended": chosen, "chosen": chosen, "from": sender,
+                "mailbox": mailbox}
+
+    def test_unattended_dismissals_of_one_domain_are_offered_as_a_domain_until_the_next_record(self):
+        self.note("a.md", "Campaigns@clubapp.example")
+        self.note("b.md", "noreply@clubapp.example")
+        self.switch_on("Dismiss (noise)")
+        _, out = self.run_all([{"item": "a.md", "action": "Dismiss (noise)"},
+                               {"item": "b.md", "action": "Dismiss (noise)"}])
+        manifest = json.loads((Path(out["quarantine"]) / "manifest.json").read_text())
+        self.assertEqual(manifest["items"][0]["from"], "campaigns@clubapp.example")
+        _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
+        [offer] = status["exclusion_offers"]
+        self.assertEqual((offer["mailbox"], offer["entry"], offer["items"]),
+                         ("box@example.org", {"domain": "clubapp.example"}, ["a.md", "b.md"]))
+        self.assertEqual(offer["senders"], ["campaigns@clubapp.example", "noreply@clubapp.example"])
+        self.record([{"item": "x", "recommended": "File it", "chosen": "File it"}])
+        self.assertEqual(call("status", "--vault-name", "north", "--paraos-home", self.home)
+                         [1]["exclusion_offers"], [])
+
+    def test_a_second_noise_dismissal_of_one_address_offers_it_until_the_file_holds_it(self):
+        self.assertEqual(self.record([self.noise("a", "x@club.example")])["exclusion_offers"], [])
+        self.assertEqual(self.record([self.noise("b", "x@club.example", chosen="Note to triage"),
+                                      self.noise("c", "x@club.example", "other@example.org")])
+                         ["exclusion_offers"], [])
+        [offer] = self.record([self.noise("d", "X@Club.example")])["exclusion_offers"]
+        self.assertEqual((offer["entry"], offer["items"]), ({"from": "x@club.example"}, ["a", "d"]))
+        code, added = call("add-exclusion", "--mailbox", "box@example.org", "--from",
+                           "x@club.example", "--reason", "Club mail. Accepted risk: none",
+                           "--paraos-home", self.home)
+        self.assertEqual((code, added["backup"]), (0, None))
+        self.assertEqual(self.record([self.noise("e", "x@club.example")])["exclusion_offers"], [])
+
+    def test_record_takes_a_staged_notes_sender_from_the_scan(self):
+        self.note("a.md", "news@club.example")
+        rows = [{"item": "a.md", "recommended": "Dismiss (noise)", "chosen": "Dismiss (noise)"}]
+        self.record(rows, "--scan", self.scan())
+        line = auto_execute.State(self.home, "north").decisions()[-1]
+        self.assertEqual((line["from"], line["mailbox"]), ("news@club.example", "box@example.org"))
+
+    def test_a_group_domain_on_every_mailbox_holds_its_subdomains(self):
+        write(self.home, "triage-exclusions.json", json.dumps(
+            {"*": [{"group": "Clubs", "any": [{"domain": "club.example"}], "reason": "r"}]}))
+        rows = [self.noise("a", "x@mail.club.example"), self.noise("b", "x@mail.club.example")]
+        self.assertEqual(self.record(rows)["exclusion_offers"], [])
+
+    def test_add_exclusion_backs_the_file_up_first_and_refuses_one_that_does_not_parse(self):
+        path = self.home / "triage-exclusions.json"
+        args = ("add-exclusion", "--mailbox", "Box@Example.org", "--reason", "r",
+                "--paraos-home", self.home)
+        call(*args, "--domain", "one.example")
+        before = path.read_bytes()
+        code, out = call(*args, "--domain", "two.example")
+        self.assertEqual(code, 0)
+        self.assertEqual(Path(out["backup"]).name, f"triage-exclusions.json.bak-"
+                         f"{auto_execute.now_stamp()[:8]}")
+        self.assertEqual(Path(out["backup"]).read_bytes(), before)
+        _, again = call(*args, "--domain", "three.example")
+        self.assertEqual(Path(out["backup"]).read_bytes(), before)
+        self.assertRegex(Path(again["backup"]).name, r"\.bak-\d{8}-\d{6}$")
+        entries = json.loads(path.read_text(encoding="utf-8"))["box@example.org"]
+        self.assertEqual([e["domain"] for e in entries], ["one.example", "two.example",
+                                                         "three.example"])
+        self.assertEqual(set(entries[0]), {"domain", "reason", "added"})
+        path.write_text("{ broken", encoding="utf-8")
+        self.assertEqual(call(*args, "--domain", "four.example")[0], 3)
+        self.assertEqual(path.read_text(encoding="utf-8"), "{ broken")
+
     def test_only_delete_and_dismiss_can_be_switched_on(self):
         code, out = call("switch", "--vault-name", "north", "--on", "File it",
                          "--paraos-home", self.home)

@@ -38,7 +38,7 @@ Read the vault's `CLAUDE.md` and its [rule files](../para-shared/operating-disci
 python3 "<this skill's base directory>/scripts/triage_scan.py" --vault <root>
 ```
 
-Run it per [para-shared/scripts.md](../para-shared/scripts.md), then `auto_execute.py status --vault-name <vault.name>`: any `runs`, `proposal` or `offers` follow [unattended.md](references/unattended.md#the-interactive-side).
+Run it per [para-shared/scripts.md](../para-shared/scripts.md), then `auto_execute.py status --vault-name <vault.name>`: any `runs`, `proposal`, `offers` or `exclusion_offers` follow [unattended.md](references/unattended.md#the-interactive-side).
 
 Each `sources.rows[].plan` decides whether that source runs, per [references/sources.md](references/sources.md). **Re-run the scan** after anything writes into `triage/`, and with `--threads <file>` once a local mailbox pull has its candidate threads: that folds each into a note already staged for it and counts a sent message's working days unanswered.
 
@@ -58,7 +58,7 @@ Print the manifest per [para-shared/asking.md](../para-shared/asking.md), its co
 
 ### Steps 7 and 8: Execute
 
-Per [references/execute.md](references/execute.md), then `auto_execute.py record --vault-name <name> --decisions <file>`, a row per decided item: `item`, `recommended`, `chosen`.
+Per [references/execute.md](references/execute.md), then `auto_execute.py record --vault-name <name> --scan <saved_to> --decisions <file>`, a row per decided item: `item`, `recommended`, `chosen`, and a fetched thread's sender as `from` with its `mailbox`. Its `exclusion_offers` follow [unattended.md](references/unattended.md#the-interactive-side).
 
 ### Step 9: Summarize
 
