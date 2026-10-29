@@ -621,5 +621,93 @@ class Unanswered(unittest.TestCase):
                                  {"since": None, "working_days": None, "waiting": None})
 
 
+class ExclusionTests(unittest.TestCase):
+    """The operator's exclusions, applied in code: each match kind, the `*` key, a group that
+    counts once, a thread that survives on one message, a file that does not parse, and the
+    `exclude` command."""
+
+    def setUp(self):
+        from paraos_mail import apply_exclusions, entry_matches, load_exclusions, matcher_matches
+        self.apply, self.entry, self.load, self.match = apply_exclusions, entry_matches, load_exclusions, matcher_matches
+
+    def thread(self, *messages, mailbox="ops@example.test", thread_id="t1"):
+        return {"mailbox": mailbox, "thread_id": thread_id, "subject": messages[0].get("subject", ""),
+                "messages": list(messages)}
+
+    def test_each_kind_matches_its_field(self):
+        msg = {"from": "Shop <NoReply@Shop.test>", "subject": "Your  weekly Newsletter is here",
+               "to": ["parents@class.test", "Me <me@example.test>"], "cc": "other@example.test",
+               "headers": [{"name": "List-Id", "value": "Class parents <parents.class.test>"}]}
+        self.assertTrue(self.match({"from": "noreply@shop.test"}, msg))
+        self.assertFalse(self.match({"from": "shop.test"}, msg))
+        self.assertTrue(self.match({"domain": "shop.test"}, msg))
+        self.assertTrue(self.match({"domain": "@SHOP.TEST"}, msg))
+        self.assertFalse(self.match({"domain": "op.test"}, msg))
+        self.assertTrue(self.match({"subject": "your weekly newsletter is here"}, msg))
+        self.assertTrue(self.match({"subject_contains": "newsletter"}, msg))
+        self.assertFalse(self.match({"subject_contains": "letter"}, msg))
+        self.assertTrue(self.match({"to": "parents@class.test"}, msg))
+        self.assertTrue(self.match({"to": "other@example.test"}, msg))
+        self.assertTrue(self.match({"list": "<parents.class.test>"}, msg))
+        self.assertFalse(self.match({"list": "parents.other.test"}, msg))
+        self.assertFalse(self.match({"colour": "red"}, msg))
+        self.assertFalse(self.match("from", msg))
+
+    def test_a_group_matches_on_any_of_its_matchers(self):
+        group = {"group": "Class list", "any": [{"domain": "school.test"}, {"from": "parent@mail.test"}], "reason": "r"}
+        self.assertTrue(self.entry(group, {"from": "parent@mail.test", "subject": "Trip"}))
+        self.assertTrue(self.entry(group, {"from": "teacher@school.test", "subject": "Trip"}))
+        self.assertFalse(self.entry(group, {"from": "boss@work.test", "subject": "Trip"}))
+
+    def test_threads_drop_only_when_no_message_survives_and_counts_are_per_entry(self):
+        exclusions = {"ops@example.test": [{"from": "noreply@shop.test", "reason": "r"}],
+                      "*": [{"group": "Class list", "any": [{"domain": "school.test"}], "reason": "r"},
+                            {"subject_contains": "lottery", "reason": "r"}]}
+        receipt = self.thread({"from": "noreply@shop.test", "subject": "Receipt"})
+        mixed = self.thread({"from": "noreply@shop.test", "subject": "Receipt"},
+                            {"from": "me@example.test", "subject": "Re: Receipt"}, thread_id="t2")
+        school = self.thread({"from": "a@school.test", "subject": "Trip"}, mailbox="other@example.test", thread_id="t3")
+        plain = self.thread({"from": "friend@example.test", "subject": "Lunch"}, thread_id="t4")
+        kept, dropped, counts = self.apply([receipt, mixed, school, plain], exclusions)
+        self.assertEqual([t["thread_id"] for t in kept], ["t2", "t4"])
+        self.assertEqual([(t["thread_id"], t["excluded"], t["excluded_scope"], t["routed"], t["reason"]) for t in dropped],
+                         [("t1", "from noreply@shop.test", "ops@example.test", [], "excluded: from noreply@shop.test"),
+                          ("t3", "Class list", "*", [], "excluded: Class list")])
+        self.assertEqual(counts, {"ops@example.test": {"from noreply@shop.test": 1},
+                                  "*": {"Class list": 1, "subject_contains lottery": 0}})
+        self.assertEqual(self.apply([plain], {}), ([plain], [], {}))
+
+    def test_a_file_that_does_not_parse_applies_nothing_and_says_so(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            self.assertEqual(self.load(home), ({}, None))
+            write(home, "triage-exclusions.json", "{not json")
+            data, error = self.load(home)
+            self.assertEqual(data, {})
+            self.assertIn("applies nothing", error)
+            write(home, "triage-exclusions.json", json.dumps({"ops@example.test": {"from": "x"}}))
+            self.assertIn("not an object of lists", self.load(home)[1])
+            write(home, "triage-exclusions.json", json.dumps({"ops@example.test": [{"from": "x", "reason": "r"}]}))
+            self.assertEqual(self.load(home), ({"ops@example.test": [{"from": "x", "reason": "r"}]}, None))
+
+    def test_exclude_command_prints_kept_dropped_and_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            write(home, "triage-exclusions.json", json.dumps({"*": [{"from": "noreply@shop.test", "reason": "r"}]}))
+            threads = [self.thread({"from": "noreply@shop.test", "subject": "Receipt"}),
+                       self.thread({"from": "friend@example.test", "subject": "Lunch"}, thread_id="t2")]
+            path = write(home, "threads.json", json.dumps(threads))
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = main(["exclude", str(path), "--paraos-home", str(home)])
+            self.assertEqual(code, 0)
+            out = json.loads(buf.getvalue())
+            self.assertEqual([t["thread_id"] for t in out["kept"]], ["t2"])
+            self.assertEqual(out["dropped"], [{"mailbox": "ops@example.test", "thread_id": "t1", "subject": "Receipt",
+                                               "excluded": "from noreply@shop.test", "excluded_scope": "*"}])
+            self.assertEqual(out["counts"], {"*": {"from noreply@shop.test": 1}})
+            self.assertEqual(out["file"], "applied")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

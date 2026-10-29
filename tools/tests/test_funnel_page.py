@@ -190,7 +190,7 @@ class FunnelPageTests(unittest.TestCase):
         page = render(gather(str(self.home), 7, today=TODAY))
         self.assertIn("<title>Triage funnel</title>", page)
         self.assertNotIn("not declared", page)
-        self.assertIn('<span class="who prose"', page)
+        self.assertIn('<h2>2. Exclude <span class="who code"', page)
         self.assertNotIn("Kill switch on", page)
         self.assertIn('class="chip on">Dismiss (noise)', page)
         write(self.home, "auto-triage.off", "")

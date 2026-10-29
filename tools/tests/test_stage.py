@@ -370,5 +370,76 @@ class CommandLine(StageCase):
         self.assertEqual(stop.exception.code, 2)
 
 
+class ExclusionsInStageTests(unittest.TestCase):
+    """stage.py applies triage-exclusions.json itself: a dropped thread writes no note, reaches
+    the ledger as excluded, is counted apart from the unrouted, and the run log carries the
+    counts per entry, zero included, with whether the file applied."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.home = Path(self.tmp.name) / "home"
+        self.vault = Path(self.tmp.name) / "alpha"
+        (self.vault / "triage").mkdir(parents=True)
+        (self.vault / "CLAUDE.md").write_text("# Alpha\n", encoding="utf-8")
+        (self.home).mkdir(parents=True)
+        (self.home / "vaults.json").write_text(json.dumps([
+            {"name": "alpha", "path": str(self.vault), "purpose": "Everything.", "active": True}]), encoding="utf-8")
+        (self.home / "triage-exclusions.json").write_text(json.dumps({
+            MAILBOX: [{"from": "noreply@shop.test", "reason": "receipts"}],
+            "*": [{"group": "Class list", "any": [{"domain": "school.test"}], "reason": "class mail"},
+                  {"subject_contains": "lottery", "reason": "noise"}]}), encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_with(self, *threads, mode="write"):
+        run = {"mode": mode, "started_at": "2026-10-23T12:00:00+00:00",
+               "source_plan": {"declaring_vaults": {MAILBOX: ["alpha"]}}, "threads": list(threads)}
+        return stage(copy.deepcopy(run), paraos_home=str(self.home))
+
+    def thread(self, thread_id, sender, subject):
+        t = copy.deepcopy(THREAD)
+        t["thread_id"] = thread_id
+        t["subject"] = subject
+        for m in t["messages"]:
+            m["from"] = sender
+            m["subject"] = subject
+        return t
+
+    def test_an_excluded_thread_writes_no_note_and_is_ledgered_as_excluded(self):
+        receipt = self.thread("aaaa1111", "Shop <noreply@shop.test>", "Receipt")
+        school = self.thread("bbbb2222", "teacher@school.test", "Trip")
+        kept = self.thread("cccc3333", "Anna Example <anna@example.org>", "Quarterly report")
+        result = self.run_with(receipt, school, kept)
+        names = sorted(p.name for p in (self.vault / "triage").iterdir())
+        self.assertEqual(len(names), 1)
+        self.assertIn("Quarterly report", names[0])
+        self.assertEqual(result["counts"]["excluded"], {MAILBOX: 2})
+        self.assertEqual(result["counts"]["unrouted"], {})
+        self.assertEqual(result["exclusions_applied"],
+                         {"by_entry": {MAILBOX: {"from noreply@shop.test": 1},
+                                       "*": {"Class list": 1, "subject_contains lottery": 0}},
+                          "dropped": 2, "file": "applied"})
+        ledger = json.loads((self.home / "cache" / "ingest" / "ledger.json").read_text(encoding="utf-8"))
+        held = ledger["mailboxes"][MAILBOX]
+        self.assertEqual(held["aaaa1111"]["routed"], [])
+        self.assertEqual(held["aaaa1111"]["reason"], "excluded: from noreply@shop.test")
+        self.assertEqual(held["bbbb2222"]["reason"], "excluded: Class list")
+        self.assertEqual(held["cccc3333"]["routed"], ["alpha"])
+        log = json.loads(Path(result["log"]).read_text(encoding="utf-8"))
+        self.assertEqual(log["exclusions_applied"]["dropped"], 2)
+        self.assertEqual([d["reason"] for d in log["decisions"] if d["thread_id"] == "aaaa1111"],
+                         ["excluded: from noreply@shop.test"])
+
+    def test_a_file_that_does_not_parse_applies_nothing_and_the_log_says_so(self):
+        (self.home / "triage-exclusions.json").write_text("{not json", encoding="utf-8")
+        result = self.run_with(self.thread("aaaa1111", "Shop <noreply@shop.test>", "Receipt"))
+        self.assertEqual(len(list((self.vault / "triage").iterdir())), 1)
+        self.assertEqual(result["counts"]["excluded"], {})
+        self.assertEqual(result["exclusions_applied"]["by_entry"], {})
+        self.assertEqual(result["exclusions_applied"]["dropped"], 0)
+        self.assertIn("applies nothing", result["exclusions_applied"]["file"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
