@@ -52,8 +52,8 @@ cat >> archive/projects/para-os-2026-09-03/brief.md <<'EOF'
 ```
 EOF
 
-# A third-party call transcript, already carrying the frozen-record marker phase1-structural.md
-# asks for, with the two open checkboxes the transcription tool extracted under "Next steps".
+# A third-party call transcript under archive/meetings/, where a checkbox is the record's own,
+# with the two open checkboxes the transcription tool extracted under "Next steps".
 # Correct behaviour is to leave both exactly as found.
 cat > "archive/meetings/20260105 Orchard call - Transcript.md" <<'EOF'
 Third-party verbatim record, kept as generated; its checkboxes are the call tool's own
