@@ -18,7 +18,7 @@ It is for the case where you run several vaults; [second-vault.md](second-vault.
 
 ## The funnel page
 
-`/para-ingest` ends by rebuilding one page from the state this layer keeps: every mailbox and sync script with the vaults that declare it, each exclusion and what it dropped, each vault's purpose line and routed count, every action type's decisions and acceptance, the hold rules and the proposals waiting, the switched-on types and the quarantine with its restore commands, as a funnel with the week's counts at each stage. Each stage is marked by who applies its rule, a script or the assistant, so a rule that is written but not enforced shows as such. It reads everything and writes only the page.
+`/para-ingest` ends by rebuilding one page from the state this layer keeps: every mailbox and sync script with the vaults that declare it, each exclusion and what it dropped, each vault's purpose line with its Relevant-when rule per mailbox and its routed count, every action type's decisions and acceptance, the hold rules and the proposals waiting, the switched-on types and the quarantine with its restore commands, as a funnel with the week's counts at each stage. Each stage is marked by who applies its rule, a script or the assistant, so a rule that is written but not enforced shows as such. It reads everything and writes only the page.
 
 ## /para-ingest
 
