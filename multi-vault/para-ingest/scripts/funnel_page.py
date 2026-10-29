@@ -78,7 +78,9 @@ def read_text(path):
 
 
 def parse_table(markdown, heading):
-    """Rows of the first pipe table under `## <heading>`, as dicts keyed by the lowercased header cells."""
+    """Rows of the first pipe table under `## <heading>`, as lists of cells. The header row is
+    skipped, not read: a vault may write it in its own language, and the template fixes the
+    column order."""
     lines = markdown.splitlines()
     start = None
     for i, ln in enumerate(lines):
@@ -98,17 +100,45 @@ def parse_table(markdown, heading):
             continue
         cells = [c.strip() for c in s.strip("|").split("|")]
         if header is None:
-            header = [c.lower() for c in cells]
+            header = cells
             continue
         if all(set(c) <= set("-: ") for c in cells):
             continue
-        rows.append(dict(zip(header, cells)))
+        rows.append(cells)
     return rows
 
 
+EMPHASIS = [
+    re.compile(r"\*\*(?=\S)(.+?)(?<=\S)\*\*"),
+    re.compile(r"(?<!\w)__(?=\S)(.+?)(?<=\S)__(?!\w)"),
+    re.compile(r"(?<![\w*/\\])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![\w*])"),
+    re.compile(r"(?<!\w)_(?=[^\s_])(.+?)(?<=[^\s_])_(?!\w)"),
+]
+
+
 def strip_md(s):
+    """Plain text of a Markdown cell: links to their text, emphasis markers and backticks
+    dropped. A code span keeps what is inside it, `*` and `_` included."""
     s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s or "")
-    return s.replace("`", "").strip()
+    parts = re.split(r"(`[^`]*`)", s)
+    for i, part in enumerate(parts):
+        if i % 2:
+            parts[i] = part[1:-1]
+            continue
+        for pattern in EMPHASIS:
+            part = pattern.sub(r"\1", part)
+        parts[i] = part.replace("`", "")
+    return "".join(parts).strip()
+
+
+def clip(s, n):
+    """`s` cut at the last word boundary within n characters and marked with "...", or whole
+    when it fits. For display text only: a rule the page exists to show is never clipped."""
+    s = "" if s is None else str(s)
+    if len(s) <= n:
+        return s
+    m = re.match(r"(.*\S)\s", s[:n + 1], re.S)
+    return (m.group(1) if m else s[:n]).rstrip(" ,;:.") + "..."
 
 
 def executor_path():
@@ -124,21 +154,21 @@ def gather(home, days, today=None):
     registry = [v for v in load_json(os.path.join(home, "vaults.json"), [])
                 if v.get("active", True) and not v.get("retired")]
 
-    # 1. Sources: each vault's Triage sources table
+    # 1. Sources: each vault's Triage sources table, its columns Source | Type | Endpoint | Relevant when
     sources = []
     mailbox_vaults = defaultdict(list)
+    vault_mailboxes = defaultdict(list)
     for v in registry:
         md = read_text(os.path.join(v["path"], "CLAUDE.md"))
         for row in parse_table(md, "Triage sources"):
-            kind = strip_md(row.get("type", ""))
-            endpoint = strip_md(row.get("endpoint", ""))
-            relevant = strip_md(row.get("relevant when", ""))
-            sources.append({"vault": v["name"], "source": strip_md(row.get("source", "")), "type": kind,
+            source, kind, endpoint, relevant = (strip_md(c) for c in (row + [""] * 4)[:4])
+            sources.append({"vault": v["name"], "source": source, "type": kind,
                             "endpoint": endpoint, "relevant": relevant})
             m = re.search(r"[\w.+-]+@[\w.-]+", endpoint)
             if m and (kind.startswith("connector") or kind.startswith("fetch-script")):
                 how = "script" if kind.startswith("fetch") else "connector"
                 mailbox_vaults[m.group(0).lower()].append((v["name"], relevant, how))
+                vault_mailboxes[v["name"]].append({"mailbox": m.group(0).lower(), "relevant": relevant, "how": how})
 
     # Run logs in the window
     runs = []
@@ -326,7 +356,8 @@ def gather(home, days, today=None):
 
     return {
         "generated": datetime.now().strftime("%Y-%m-%d %H:%M"), "days": days, "since": since_s, "today": today.isoformat(),
-        "home": home, "vaults": [{"name": v["name"], "purpose": v.get("purpose", "")} for v in registry],
+        "home": home, "vaults": [{"name": v["name"], "purpose": v.get("purpose", ""), "mailboxes": vault_mailboxes[v["name"]]}
+                                 for v in registry],
         "sources": sources, "mailbox_vaults": dict(mailbox_vaults),
         "runs": runs, "exclusions": exclusion_rows, "drops_unparsed_runs": unparsed,
         "ledger": {"seen": seen, "routed": routed, "unrouted": unrouted, "excluded": excluded, "suppressed": suppressed,
@@ -390,6 +421,9 @@ details summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:.7rem}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.7rem .9rem;min-width:0}
 .card h3{margin:0 0 .3rem}
+.rules{list-style:none;margin:.6rem 0 0;padding:0;font-size:.84rem}
+.rules li{margin:.45rem 0 0;padding-top:.45rem;border-top:1px solid var(--line)}
+.rules .m{display:block;font-family:var(--mono);font-size:.76rem;color:var(--muted);word-break:break-all}
 code{font-family:var(--mono);font-size:.82em;background:var(--chip);padding:.05rem .3rem;border-radius:3px}
 pre{font-family:var(--mono);font-size:.78rem;background:var(--chip);padding:.5rem .7rem;border-radius:6px;overflow-x:auto;margin:.3rem 0}
 .foot{margin-top:2.5rem;font-size:.8rem;color:var(--muted);border-top:1px solid var(--line);padding-top:.8rem}
@@ -442,15 +476,15 @@ def render(d):
 
     # 1. Fetch
     parts.append(f'<h2>1. Fetch {who("fetch")}</h2>')
-    parts.append('<p class="note">Each mailbox is read once per run, however many vaults declare it; a sync script writes straight into its vault\'s triage and is not routed.</p>')
-    parts.append('<div class="tw"><table><tr><th>Mailbox</th><th>Read by</th><th>Declared by</th><th>Relevant when</th><th class="n">Seen</th><th class="n">Routed</th><th class="n">Unrouted</th><th class="n">Excluded</th></tr>')
+    parts.append('<p class="note">Each mailbox is read once per run, however many vaults declare it; a sync script writes straight into its vault\'s triage and is not routed. '
+                 'What each vault wants from a mailbox is on that vault\'s card under 3. Route.</p>')
+    parts.append('<div class="tw"><table><tr><th>Mailbox</th><th>Read by</th><th>Declared by</th><th class="n">Seen</th><th class="n">Routed</th><th class="n">Unrouted</th><th class="n">Excluded</th></tr>')
     for mb in sorted(set(d["mailbox_vaults"]) | set(L["per_mailbox"])):
         c = L["per_mailbox"].get(mb, {})
         decl = d["mailbox_vaults"].get(mb, [])
         via = sorted({how for _, _, how in decl})
         parts.append(f'<tr><td class="m">{esc(mb)}</td><td>{"".join(f"<span class=chip>{esc(h)}</span>" for h in via) or "<span class=note>?</span>"}</td>'
                      f'<td>{"".join(f"<span class=chip>{esc(v)}</span>" for v, _, _ in decl) or "<span class=note>not declared</span>"}</td>'
-                     f'<td>{"<br>".join(f"<b>{esc(v)}:</b> {esc(r[:160])}" for v, r, _ in decl)}</td>'
                      f'<td class="n">{c.get("seen", 0)}</td><td class="n">{c.get("routed", 0)}</td><td class="n">{c.get("unrouted", 0)}</td><td class="n">{c.get("excluded", 0)}</td></tr>')
     parts.append('</table></div>')
     parts.append('<p class="note">"connector" is a mailbox the agent reads through a connector; "script" is one a vault script reads and prints candidates from, writing nothing. Both are fetched once per run and routed the same way.</p>')
@@ -463,7 +497,7 @@ def render(d):
         parts.append('<div class="tw"><table><tr><th>Sync script</th><th>Vault</th><th>Relevant when</th><th class="n">Written</th></tr>')
         for s in scripts:
             key = next((k for k in written if k[0] == s["vault"] and k[1] and k[1] in s["endpoint"]), None)
-            parts.append(f'<tr><td class="m">{esc(s["source"])}</td><td>{esc(s["vault"])}</td><td>{esc(s["relevant"][:200])}</td><td class="n">{written.get(key, 0) if key else "-"}</td></tr>')
+            parts.append(f'<tr><td class="m">{esc(s["source"])}</td><td>{esc(s["vault"])}</td><td>{esc(s["relevant"])}</td><td class="n">{written.get(key, 0) if key else "-"}</td></tr>')
         parts.append('</table></div>')
     parts.append('<details><summary>Runs in the window</summary><div class="tw"><table><tr><th>Run</th><th>Invocation</th><th class="n">Mailboxes read</th><th class="n">Staged</th><th class="n">Errors</th><th class="n">Warnings</th></tr>')
     for r in reversed(d["runs"]):
@@ -480,21 +514,25 @@ def render(d):
         scope = '<span class="chip on">every mailbox</span>' if e["mailbox"] == "*" else f'<span class="m">{esc(e["mailbox"])}</span>'
         value = ("<b>" + esc(e["label"]) + "</b><br>" + "".join(f'<span class="chip">{esc(m)}</span>' for m in e["matchers"])) if e["kind"] == "group" else f'<span class="m">{esc(e["value"])}</span>'
         parts.append(f'<tr><td>{scope}</td><td><span class="chip">{esc(e["kind"])}</span></td><td>{value}</td>'
-                     f'<td>{esc(e["reason"][:140])}{"..." if len(e["reason"]) > 140 else ""}</td><td>{esc(e["added"])}</td><td class="n">{e["dropped"]}</td></tr>')
+                     f'<td>{esc(clip(e["reason"], 140))}</td><td>{esc(e["added"])}</td><td class="n">{e["dropped"]}</td></tr>')
     parts.append('</table></div>')
 
     # 3. Route
     parts.append(f'<h2>3. Route {who("route")}</h2>')
-    parts.append('<p class="note">A thread goes to the vault whose purpose line and Relevant-when column fit it, or to none. Routing decides only which vault; what an item means is decided inside the vault.</p>')
+    parts.append('<p class="note">Each card shows a vault\'s purpose line and, under it, its Relevant-when rule for every mailbox it declares. A thread goes to the vault they fit, or to none. '
+                 'Routing decides only which vault; what an item means is decided inside the vault.</p>')
     parts.append('<div class="cards">')
     for v in d["vaults"]:
         n = L["routed_per_vault"].get(v["name"], 0)
-        parts.append(f'<div class="card"><h3>{esc(v["name"])} <span class="chip">{n} routed</span></h3><p class="note" style="margin:0">{esc(v["purpose"][:220])}</p></div>')
+        rules = "".join(f'<li><span class="m">{esc(r["mailbox"])}</span>{esc(r["relevant"]) or "<span class=note>no rule written</span>"}</li>'
+                        for r in v["mailboxes"])
+        parts.append(f'<div class="card"><h3>{esc(v["name"])} <span class="chip">{n} routed</span></h3><p class="note" style="margin:0">{esc(v["purpose"])}</p>'
+                     + (f'<ul class="rules">{rules}</ul>' if rules else '<p class="note">No mailbox declared.</p>') + '</div>')
     parts.append('</div>')
     if L["unrouted_samples"]:
         parts.append('<details><summary>Unrouted, by mailbox (latest three subjects each)</summary><div class="tw"><table><tr><th>Mailbox</th><th class="n">Unrouted</th><th>Examples</th></tr>')
         for mb, subs in L["unrouted_samples"].items():
-            parts.append(f'<tr><td class="m">{esc(mb)}</td><td class="n">{L["per_mailbox"][mb].get("unrouted", 0)}</td><td>{"<br>".join(esc(s[:90]) for s in subs)}</td></tr>')
+            parts.append(f'<tr><td class="m">{esc(mb)}</td><td class="n">{L["per_mailbox"][mb].get("unrouted", 0)}</td><td>{"<br>".join(esc(clip(s, 90)) for s in subs)}</td></tr>')
         parts.append('</table></div></details>')
 
     # 4. Classify
@@ -516,7 +554,7 @@ def render(d):
     if overrides:
         parts.append(f'<details><summary>The {len(overrides)} overrides in the windows</summary><div class="tw"><table><tr><th>Vault</th><th>Recommended</th><th>Chosen</th><th>Item</th><th>Date</th></tr>')
         for v, t, o in sorted(overrides, key=lambda x: x[2]["date"] or "", reverse=True):
-            parts.append(f'<tr><td>{esc(v)}</td><td>{esc(t["type"])}</td><td>{esc(o["chosen"])}</td><td>{esc((o["item"] or "")[:80])}</td><td>{esc(o["date"])}</td></tr>')
+            parts.append(f'<tr><td>{esc(v)}</td><td>{esc(t["type"])}</td><td>{esc(o["chosen"])}</td><td>{esc(clip(o["item"], 80))}</td><td>{esc(o["date"])}</td></tr>')
         parts.append('</table></div></details>')
 
     # 5. Hold
@@ -527,7 +565,7 @@ def render(d):
         for p in d["proposals"]:
             parts.append(f'<h3>{esc(p["vault"])} <span class="chip">{esc(p["run"])}</span></h3><div class="tw"><table><tr><th>Item</th><th>Recommended</th><th>Held because</th></tr>')
             for i in p["items"]:
-                parts.append(f'<tr><td>{esc(i["item"][:90])}</td><td>{esc(i["recommended"])}</td><td>{esc(i["held"])}</td></tr>')
+                parts.append(f'<tr><td>{esc(clip(i["item"], 90))}</td><td>{esc(i["recommended"])}</td><td>{esc(i["held"])}</td></tr>')
             parts.append('</table></div>')
     else:
         parts.append('<p class="note">Nothing is waiting.</p>')
@@ -549,7 +587,7 @@ def render(d):
             parts.append(f'<details><summary>{esc(q["vault"])} {esc(q["run"])}: {len(q["items"])} item(s){"" if q["in_window"] else " (older than the window)"}</summary>'
                          '<div class="tw"><table><tr><th>Item</th><th>Action</th><th>Why</th></tr>')
             for i in q["items"]:
-                parts.append(f'<tr><td>{esc((i["item"] or "")[:90])}</td><td>{esc(i["action"])}</td><td>{esc((i["reason"] or "")[:200])}</td></tr>')
+                parts.append(f'<tr><td>{esc(clip(i["item"], 90))}</td><td>{esc(i["action"])}</td><td>{esc(clip(i["reason"], 200))}</td></tr>')
             parts.append(f'</table></div><p class="note">Restore:</p><pre>{esc(q["restore"])}</pre></details>')
 
     # 7. Operator

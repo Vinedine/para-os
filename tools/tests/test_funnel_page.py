@@ -13,8 +13,10 @@ temporary folder.
 """
 
 import contextlib
+import html
 import io
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -25,7 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "multi-vault" / "para-ingest" / "scripts"))
 
-from funnel_page import gather, main, parse_table, render  # noqa: E402
+from funnel_page import clip, gather, main, parse_table, render, strip_md  # noqa: E402
 
 TODAY = date(2030, 6, 20)
 STAMP = TODAY.strftime("%Y%m%d")
@@ -112,10 +114,12 @@ class FunnelPageTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def test_table_rows_keyed_by_header(self):
+    def test_table_rows_read_by_position(self):
         rows = parse_table(SOURCES, "Triage sources")
-        self.assertEqual([r["source"] for r in rows], ["mail-ops", "mail-shared", "notes"])
+        self.assertEqual([r[0] for r in rows], ["mail-ops", "mail-shared", "notes"])
         self.assertEqual(parse_table(SOURCES, "Absent"), [])
+        translated = "## Triage sources\n\n| Bron | Soort | Eindpunt | Relevant wanneer |\n|---|---|---|---|\n| post | connector: x | `post@example.com` | Alleen facturen. |\n"
+        self.assertEqual(parse_table(translated, "Triage sources"), [["post", "connector: x", "`post@example.com`", "Alleen facturen."]])
 
     def test_connector_and_fetch_script_declare_a_mailbox(self):
         d = gather(str(self.home), 7, today=TODAY)
@@ -204,6 +208,129 @@ class FunnelPageTests(unittest.TestCase):
         self.assertEqual(line["key"], str(self.home))
         self.assertTrue(out.is_file())
         self.assertNotIn(chr(0x2014), out.read_text(encoding="utf-8"))
+
+
+NORTH_PURPOSE = ("Everything the north office runs day to day: supplier orders, the warehouse rota, deliveries "
+                 "and returns, the yearly stock count, and the paperwork each of them leaves behind, kept until "
+                 "the next audit closes and the auditors sign off on the file.")
+NORTH_RULE = ("Supplier orders and deliveries. Threads from a supplier on the order list, a carrier booking a "
+              "slot at the warehouse, or a customer asking where a return went; never newsletters, never the "
+              "shared calendar invitations, never anything already filed by hand.")
+NORTH_SYNC_RULE = ("Meeting notes whose title carries the office prefix, written by the notes script straight into "
+                   "triage, one file per meeting, with the attendees, the decisions and the follow-ups each one "
+                   "agreed to take on before the next meeting.")
+SOUTH_DESK_RULE = "Seulement les factures du fournisseur."
+SOUTH_SHARED_RULE = "Les fils de la boite commune."
+LONG_REASON = ("Automated receipts from the checkout that repeat what the order confirmation already said, sent "
+               "again whenever a parcel changes hands between two carriers.")
+LONG_SUBJECT = ("Question about the delivery window for the second warehouse and whether the loading bay can "
+                "take the larger trucks next month")
+LONG_QUARANTINE_REASON = ("A reminder the shop sends every week about a loyalty card nobody uses, with the same "
+                          "three offers as the week before and a link to unsubscribe that has never worked for "
+                          "this address, so it goes to quarantine like the others.")
+LONG_PROPOSAL_ITEM = ("Supplier - the signed framework agreement for the next three years with all of its annexes "
+                      "and the price list.pdf")
+
+
+class PageRulesTests(unittest.TestCase):
+    """The rules the page exists to show: read whatever the header language, shown in full and
+    once, beside the vault they belong to, with no Markdown markers left in them."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.home = Path(self.tmp) / "home"
+        north, south = Path(self.tmp) / "north", Path(self.tmp) / "south"
+        write(north, "CLAUDE.md",
+              "# North\n\n## Triage sources\n\n| Source | Type | Endpoint | Relevant when |\n|---|---|---|---|\n"
+              f"| desk | connector: `mail` | `desk@example.com` | **{NORTH_RULE[:30]}**{NORTH_RULE[30:]} |\n"
+              f"| notes | sync-script | `resources/scripts/notes.py` | {NORTH_SYNC_RULE} |\n")
+        write(south, "CLAUDE.md",
+              "# Sud\n\n## Triage sources\n\n| Source | Type | Point d'acces | Pertinent quand |\n|---|---|---|---|\n"
+              f"| bureau | connector: `mail` | `desk@example.com` | {SOUTH_DESK_RULE} |\n"
+              f"| commun | fetch-script | `shared@example.com` via `resources/scripts/fetch.py` | *{SOUTH_SHARED_RULE}* |\n")
+        write(self.home, "vaults.json", json.dumps([
+            {"name": "North", "path": str(north), "purpose": NORTH_PURPOSE},
+            {"name": "South", "path": str(south), "purpose": "Invoices of the south office."},
+        ]))
+        write(self.home, "triage-exclusions.json", json.dumps({
+            "desk@example.com": [{"from": "receipts@example.com", "reason": LONG_REASON, "added": RECENT}]}))
+        write(self.home, "cache/ingest/ledger.json", json.dumps({"mailboxes": {"desk@example.com": {
+            "a": {"date": RECENT, "subject": LONG_SUBJECT, "routed": [], "reason": "unrouted: no candidate vault matched"}}}}))
+        write(self.home, f"quarantine/North/{STAMP}-070000/manifest.json", json.dumps({
+            "vault": "North", "run": f"{STAMP}-070000",
+            "items": [{"item": "loyalty.md", "action": "Dismiss (noise)", "reason": LONG_QUARANTINE_REASON}]}))
+        write(self.home, f"cache/triage/proposals/North-{STAMP}-0616.md",
+              "| Item | Recommended | Why | Held because |\n|---|---|---|---|\n"
+              f"| {LONG_PROPOSAL_ITEM} | Move | a contract | a deadline |\n")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def page_text(self):
+        """The rendered page without its embedded data, entities decoded."""
+        page = render(gather(str(self.home), 7, today=TODAY))
+        return html.unescape(page.split('<script id="data"')[0])
+
+    def assert_clipped_at_a_word(self, text, full):
+        m = re.search(re.escape(full[:20]) + r"[^<]*?\.\.\.", text)
+        self.assertIsNotNone(m, f"no clipped form of {full[:20]!r}")
+        shown = m.group(0)[:-3]
+        self.assertNotEqual(shown, full)
+        self.assertTrue(full.startswith(shown))
+        self.assertIn(full[len(shown)], " ,;:.", f"cut mid-word: {shown[-15:]!r}")
+
+    def test_columns_read_by_position_whatever_the_header_language(self):
+        d = gather(str(self.home), 7, today=TODAY)
+        self.assertIn(("South", SOUTH_DESK_RULE, "connector"), d["mailbox_vaults"]["desk@example.com"])
+        self.assertEqual(d["mailbox_vaults"]["shared@example.com"], [("South", SOUTH_SHARED_RULE, "script")])
+        self.assertEqual([(s["source"], s["type"]) for s in d["sources"] if s["vault"] == "South"],
+                         [("bureau", "connector: mail"), ("commun", "fetch-script")])
+
+    def test_clip_cuts_at_a_word_boundary(self):
+        self.assertEqual(clip("alpha beta gamma", 12), "alpha beta...")
+        self.assertEqual(clip("alpha beta gamma", 10), "alpha beta...")
+        self.assertEqual(clip("alpha beta, gamma", 12), "alpha beta...")
+        self.assertEqual(clip("alphabetagamma", 5), "alpha...")
+        self.assertEqual(clip("short", 10), "short")
+        self.assertEqual(clip(None, 10), "")
+
+    def test_rules_shown_in_full_and_other_text_clipped_at_a_word(self):
+        text = self.page_text()
+        for rule in (NORTH_PURPOSE, NORTH_RULE, NORTH_SYNC_RULE):
+            self.assertGreater(len(rule), 220)
+            self.assertIn(rule, text)
+        for full in (LONG_REASON, LONG_SUBJECT, LONG_QUARANTINE_REASON, LONG_PROPOSAL_ITEM):
+            self.assertNotIn(full, text)
+            self.assert_clipped_at_a_word(text, full)
+
+    def test_emphasis_markers_stripped(self):
+        self.assertEqual(strip_md("**The company address of record.**"), "The company address of record.")
+        self.assertEqual(strip_md("*only* this, __that__ and _those_"), "only this, that and those")
+        self.assertEqual(strip_md("`first_last@example.com` reads `resources/*.py`"), "first_last@example.com reads resources/*.py")
+        self.assertEqual(strip_md("snake_case_name, 2 * 3 * 4 and docs/*.md"), "snake_case_name, 2 * 3 * 4 and docs/*.md")
+        self.assertNotIn("**", self.page_text())
+
+    def test_each_vault_card_shows_its_purpose_and_its_rule_per_mailbox(self):
+        d = gather(str(self.home), 7, today=TODAY)
+        south = next(v for v in d["vaults"] if v["name"] == "South")
+        self.assertEqual(south["mailboxes"], [
+            {"mailbox": "desk@example.com", "relevant": SOUTH_DESK_RULE, "how": "connector"},
+            {"mailbox": "shared@example.com", "relevant": SOUTH_SHARED_RULE, "how": "script"}])
+        text = self.page_text()
+        route = text.split("<h2>3. Route")[1].split("<h2>4. Classify")[0]
+        cards = {c.split("<h3>")[1].split(" ")[0]: c for c in route.split('<div class="card">')[1:]}
+        self.assertIn(NORTH_PURPOSE, cards["North"])
+        self.assertIn("desk@example.com", cards["North"])
+        self.assertIn(NORTH_RULE, cards["North"])
+        self.assertNotIn(SOUTH_DESK_RULE, cards["North"])
+        self.assertNotIn(NORTH_SYNC_RULE, cards["North"])
+        for part in ("Invoices of the south office.", "desk@example.com", SOUTH_DESK_RULE, "shared@example.com", SOUTH_SHARED_RULE):
+            self.assertIn(part, cards["South"])
+        fetch_header = re.search(r"<tr><th>Mailbox</th>.*?</tr>", text).group(0)
+        self.assertIn("Declared by", fetch_header)
+        self.assertNotIn("Relevant when", fetch_header)
+        for rule in (NORTH_RULE, NORTH_SYNC_RULE, SOUTH_DESK_RULE, SOUTH_SHARED_RULE):
+            self.assertEqual(text.count(rule), 1, rule[:30])
 
 
 if __name__ == "__main__":
