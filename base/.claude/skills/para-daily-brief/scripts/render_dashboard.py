@@ -281,7 +281,8 @@ HEALTH_SIGNALS = (
      "A wait nobody chases is a promise quietly dropped.", "Chase or drop each one."),
     ("skills", "Skills review", "Skills not reviewed against the model running now.",
      "A stronger model needs fewer instructions, so an older skill may carry text that can go.",
-     "Review the skill, then set its `<!-- reviewed with: <model id> -->` line."),
+     "Run /para-upgrade for a kit skill; review one of your own, then set its "
+     "`<!-- reviewed with: <model id> -->` line."),
 )
 
 
