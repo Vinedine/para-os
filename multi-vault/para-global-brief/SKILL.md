@@ -9,7 +9,7 @@ argument-hint: '[--test]'
 
 One view across every registered vault, so an operator with several does not run `/para-daily-brief` in each. **It writes nothing but its scan output, its judgment file and its page.**
 
-- **It needs `para-audit/`, `para-daily-brief/` and `para-shared/` beside it.** Its scripts run over theirs.
+- **It needs `para-audit/`, `para-daily-brief/` and `para-shared/` beside it.**
 - **Run it from anywhere.** The registry, `${PARAOS_HOME:-~/.paraos}/vaults.json`, is the only list of vaults. A para-os home the operator names in prose replaces it for the run.
 
 ## Arguments
@@ -41,7 +41,7 @@ Each of the scan's `calendars` once, per [para-shared/connectors.md](../para-sha
 Everything comes from the scan and the calendars. Read no vault's files.
 
 1. **Today**: the meetings, then the `urgent` items, at most five, each tagged with its vault; then one line per `summaries` vault with its overdue and due-today counts.
-2. **One table, one row per vault**, in registry order: `Vault`, `Shown` (the `treatment`, and the `role` where it is not keeper), `Open`, `Overdue`, `This week`, `Triage` (with a waiting proposal named), and `Health`: the card's level (healthy, watch, needs care) and each signal at watch or care.
+2. **One table, one row per vault**, in registry order: `Vault`, `Shown` (the `treatment`; for `health`, the `role`, or `no operator.json` where `operator` is null), `Open`, `Overdue`, `This week`, `Triage` (with a waiting proposal named), and `Health`: the card's level (healthy, watch, needs care) and each signal at watch or care.
 3. **Excluded**: every `excluded` entry with its `status` word and its reason, or one line saying none was.
 4. **One next action**, closing the brief: the single item to do first, its vault named; the close names no second item.
 
