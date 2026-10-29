@@ -19,13 +19,12 @@ revision  The vault's template marker (`vault`) against the master's (`master`):
           the marker's release tag, else the commit that added it; null where none.
 files     Every vault file the kit owns that is not `current`: `path` (vault-relative,
           absolute outside the vault), `kind`, `master` (its path in the clone), `state`.
-          kind   skill: a base or declared add-on skill where the vault runs it (its bundled
-                 copy, else the user-level one; a missing one beside its other kit skills;
-                 para-shared wherever one runs), a multi-vault skill where installed. rule,
-                 settings. integration: a file with a `para-os-integration:` marker, or one at
-                 resources/scripts/[<name>/]<file> where the ref ships a marked master of that
-                 name, under integrations/<name>/ or a declared add-on's pipeline/. Null on any
-                 other retired file.
+          kind   skill: a base or declared add-on skill in every home holding its SKILL.md
+                 (a missing one beside its other kit skills; para-shared wherever one runs), a
+                 multi-vault skill where installed. rule, settings. integration: a file with a
+                 `para-os-integration:` marker, or one at resources/scripts/[<name>/]<file> where
+                 the ref ships a marked master of that name, under integrations/<name>/ or a
+                 declared add-on's pipeline/. Null on any other retired file.
           state  current: nothing to take from the kit, the ref's bytes or those bytes with
                  lines of the vault's own added (a rule file the vault writes into), or for a
                  JSON file, keys and list entries of its own (settings with more deny rules).
@@ -241,7 +240,7 @@ def plan_files(vault, kit, decl, user_dir):
                 folders.setdefault(name, (prefix + name, optional))
     in_use = [d for d in homes if any((d / n).is_dir() for n in folders)]
     for name, (folder, optional) in folders.items():
-        at = [d / name for d in homes if (d / name).is_dir()][:1] or \
+        at = [d / name for d in homes if (d / name / "SKILL.md").is_file()] or \
             ([] if optional else [d / name for d in in_use[:1]])
         at = [d / name for d in in_use] if name == "para-shared" else at
         for master in kit.under(folder):
