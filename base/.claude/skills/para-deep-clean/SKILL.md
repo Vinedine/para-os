@@ -15,7 +15,7 @@ A phased cleanup of a PARA vault with per-entity `sources/`, against the vault's
 |---|---|
 | *(none)* | Every phase, from Phase 1 |
 | `phase1`, `phase2`, `phase3`, `phase4` | That phase only |
-| `audit` | Phase 1 and Phase 4, observe only: writes nothing |
+| `audit` | Phase 1 and Phase 4, observe only: writes nothing in the vault. The scan runs with `--record`, so the findings count lands under `$PARAOS_HOME` for the brief's health card |
 | `ref=<git-ref>` | The committed para-os ref precondition 3 compares against instead of `origin/stable`, with any of the above. A working-tree path is refused. |
 | `--test` | Test run, see [para-shared/test-run.md](../para-shared/test-run.md). |
 
@@ -35,7 +35,7 @@ Phases 1, 3 and 4 each open with the scan, per [para-shared/scripts.md](../para-
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] [--templates-dir <dir>]... [--generated-dir <dir>]... [--dated-pattern <regex>] [--next-steps-heading <heading>]... > <scan output path>
+python3 "<this skill's base directory>/scripts/clean_scan.py" --vault . --phase <1|3|4> [--record] [--today <date the operator named>] [--ref <git-ref>] [--clone <path>] [--templates-dir <dir>]... [--generated-dir <dir>]... [--dated-pattern <regex>] [--next-steps-heading <heading>]... > <scan output path>
 ```
 
 Pass a flag for each value the vault declares: a folder holding templates or a script's output, a dated-name pattern for `archive/meetings/` other than an eight-digit prefix, next-steps headings other than `Next steps` and `Open items`.

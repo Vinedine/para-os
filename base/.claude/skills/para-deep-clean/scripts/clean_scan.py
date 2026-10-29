@@ -1005,6 +1005,35 @@ def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, heading
     return report, 0
 
 
+def finding_counts(block):
+    """How many findings each key of a phase's report holds: a list counts its items, an
+    object its lists' items, and a number or a string counts nothing."""
+    counts = {}
+    for key, value in (block or {}).items():
+        if isinstance(value, list):
+            n = len(value)
+        elif isinstance(value, dict):
+            n = sum(len(v) for v in value.values() if isinstance(v, list))
+        else:
+            continue
+        if n:
+            counts[key] = n
+    return counts
+
+
+def record_findings(vault, today, phase, report):
+    """The phase's findings count beside the deep-clean stamp, `<vault>.audit.json`, for the
+    brief's health card; a write that fails is nothing the scan reports on."""
+    counts = finding_counts(report.get(f"phase{phase}"))
+    record = deep_clean_stamp(vault).with_suffix(".audit.json")
+    try:
+        record.parent.mkdir(parents=True, exist_ok=True)
+        record.write_text(json.dumps({"date": iso(today), "phase": phase, "findings": counts,
+                                      "total": sum(counts.values())}) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Scan a vault for /para-deep-clean's mechanical checks.")
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
@@ -1027,6 +1056,9 @@ def main(argv=None):
                     help="a heading whose bullets count as prose next steps for a vault with "
                          "no actions.md (repeatable, default: Next steps, Open items)")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
+    ap.add_argument("--record", action="store_true",
+                    help="also write the phase's findings count beside the deep-clean stamp "
+                         "under $PARAOS_HOME, for the brief's health card")
     args = ap.parse_args(argv)
 
     # A Windows console and a Windows pipe both default to a codepage that cannot encode a
@@ -1047,6 +1079,8 @@ def main(argv=None):
     report, code = scan(root, today, args.phase, args.ref, args.clone,
                         args.templates_dir, args.dated_pattern, headings,
                         args.generated_dir)
+    if args.record:
+        record_findings(root, today, args.phase, report)
 
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")

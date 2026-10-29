@@ -126,7 +126,7 @@ footer{margin-top:1.6rem;font-size:.72rem;color:var(--muted)}
 
   <section id="eng-box" hidden><h2>Summed vaults <span>· counted, not listed</span></h2><div class="eng" id="eng"></div></section>
 
-  <h2>Vault health <span>· every vault, the same signals</span></h2>
+  <h2>Vault health <span>· every vault, the same signals</span> <a id="funnel" class="chip v" hidden target="_blank" rel="noopener">Triage funnel ↗</a></h2>
   <div class="card"><div class="tablewrap"><table><thead id="health-head"></thead><tbody id="health"></tbody></table></div><p class="meta" id="excluded"></p></div>
 
   <h2>What the health signals mean</h2>
@@ -364,6 +364,7 @@ footer{margin-top:1.6rem;font-size:.72rem;color:var(--muted)}
     });
   });
   if (D.excluded.length) $("excluded").textContent = "Not read: " + D.excluded.map(function (e) { return (e.name || "an entry") + " (" + e.status + ": " + e.reason + ")"; }).join("; ") + ".";
+  if (D.funnel_url) { var fl = $("funnel"); fl.href = D.funnel_url; fl.hidden = false; }
 
   D.signals.forEach(function (s) {
     var dv = el("div");

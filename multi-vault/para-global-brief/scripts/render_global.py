@@ -56,8 +56,51 @@ DESCRIPTION = ("Every vault at once: today, this week and the next two weeks wit
                "meetings, your own vaults by area and person, and each vault's health.")
 
 
+KIT_SIGNAL = ("kit", "Kit", "Kit files that differ from the para-os clone at stable, as /para-audit counts them.",
+              "A current marker can sit on drifted files; the audit reads the files behind it.",
+              "Run /para-upgrade for what it applies; the rest is yours to decide.")
+
+
 class JudgmentError(ValueError):
     pass
+
+
+def kit_value(k):
+    """The Kit signal's figures in a few words, as the other signals are worded."""
+    if k.get("verdict") == "ahead":
+        return "not judged: ahead of the kit"
+    if k.get("verdict") == "unverified":
+        return "not judged: no marker"
+    if k.get("findings") is None:
+        return "not judged: no para-os clone"
+    if not k["findings"]:
+        return "current"
+    text = f"{k['findings']} finding{'s' * (k['findings'] > 1)}"
+    if k.get("upgrade"):
+        text += f", {k['upgrade']} the upgrade applies"
+    return text
+
+
+def health_rows(v):
+    """The vault's health card with the Kit row after Template and the deep-clean audit's
+    count on the Deep clean row, where the scan carries them."""
+    card = health_card(v)
+    if not card:
+        return None
+    k = v.get("kit") or {"level": "unknown"}
+    kit_row = {"key": "kit", "label": KIT_SIGNAL[1], "level": k["level"], "value": kit_value(k),
+               "what": KIT_SIGNAL[2], "why": KIT_SIGNAL[3], "fix": plain(KIT_SIGNAL[4])}
+    rows = []
+    for r in card["rows"]:
+        if r["key"] == "deep_clean" and v.get("deep_clean_audit"):
+            a = v["deep_clean_audit"]
+            days = (parse_date(v["today"]) - parse_date(a["date"])).days if v.get("today") else None
+            when = "today" if days == 0 else f"{days}d ago" if days is not None else a["date"]
+            r = dict(r, value=f"{r['value']} · audit {when}: {a['total']} finding{'s' * (a['total'] != 1)}")
+        rows.append(r)
+        if r["key"] == "template":
+            rows.append(kit_row)
+    return dict(card, rows=rows)
 
 
 def task(t):
@@ -114,10 +157,22 @@ def page_data(scan, judgment, local):
             "summaries": [dict(s, top=[task(t) for t in s["top"]]) for s in scan["summaries"]],
             "events": events(scan, judgment), "agenda_note": plain(judgment.get("agenda_note")),
             "health": [{"vault": name, "role": v["role"], "treatment": v["treatment"],
-                        "type": v["type"], "card": health_card(v)} for name, v in shown.items()],
+                        "type": v["type"], "card": health_rows(dict(v, today=scan["today"]))}
+                       for name, v in shown.items()],
             "signals": [{"label": label, "what": what, "why": why, "fix": plain(fix)}
-                        for _, label, what, why, fix in HEALTH_SIGNALS],
+                        for _, label, what, why, fix in with_kit(HEALTH_SIGNALS)],
+            "funnel_url": scan.get("funnel_url"),
             "excluded": scan["excluded"]}
+
+
+def with_kit(signals):
+    """HEALTH_SIGNALS with the Kit signal after Template, the order the rows take."""
+    out = []
+    for s in signals:
+        out.append(s)
+        if s[0] == "template":
+            out.append(KIT_SIGNAL)
+    return out
 
 
 def render(scan, judgment, local=False):

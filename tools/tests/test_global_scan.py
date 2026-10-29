@@ -66,6 +66,20 @@ class GlobalScan(unittest.TestCase):
     def report(self):
         return build_report(self.entries, TODAY, str(self.home))
 
+    def test_kit_is_unknown_without_a_clone_and_the_deep_clean_audit_record_is_read(self):
+        north = self.report()["vaults"][0]
+        self.assertEqual(north["kit"], {"level": "unknown", "verdict": None, "findings": None,
+                                        "upgrade": None, "behind": None})
+        self.assertIsNone(north["deep_clean_audit"])
+        self.assertIsNone(self.report()["funnel_url"])
+        write(self.home, "data/deep-clean/north.audit.json",
+              json.dumps({"date": "2026-03-08", "phase": "1", "findings": {"dangling": 5, "wikilinks": 2}, "total": 7}))
+        write(self.home, "data/deep-clean/south.audit.json", "{not json")
+        north, south = self.report()["vaults"]
+        self.assertEqual(north["deep_clean_audit"], {"date": "2026-03-08", "total": 7,
+                                                     "findings": {"dangling": 5, "wikilinks": 2}})
+        self.assertIsNone(south["deep_clean_audit"])
+
     def test_each_vault_carries_its_own_counts(self):
         north, south = self.report()["vaults"]
         self.assertEqual((north["name"], north["open"], north["overdue"], north["this_week"],

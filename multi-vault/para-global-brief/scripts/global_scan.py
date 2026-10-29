@@ -56,12 +56,14 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[1] / "para-audit" / "scripts"))
 
 try:
+    import audit_scan  # noqa: E402
     from audit_scan import SKILLS_ROOT, excluded_status  # noqa: E402
     sys.path.insert(0, str(SKILLS_ROOT / "para-daily-brief" / "scripts"))
     from brief_scan import scan  # noqa: E402
+    from paraos_pages import remembered_url  # noqa: E402
     from paraos_vault import (  # noqa: E402
-        cadence_days, declarations, iso, live_lines, norm, operator_card, paraos_home_dir,
-        parse_date, read_lines, register_rows, registry, weekday_index, writer)
+        cadence_days, declarations, deep_clean_stamp, iso, live_lines, norm, operator_card,
+        paraos_home_dir, parse_date, read_lines, register_rows, registry, weekday_index, writer)
     from render_dashboard import now_key  # noqa: E402
 except ImportError as missing:
     print(f"global_scan: {missing}. install para-audit, para-daily-brief and para-shared "
@@ -93,7 +95,67 @@ def treatment(entry, role):
     return "summary" if entry.get("brief") == "summary" else "full"
 
 
-def vault_row(entry, report, home, role, shown):
+def open_kit(paraos_home=None):
+    """The para-os clone the audit measures against, opened once for every vault: `(kit, ref,
+    in_development)`, or `(None, None, None)` with no clone, a clone that cannot be read, or
+    a ref that does not resolve; the Kit signal then reads unknown."""
+    try:
+        clone, _ = audit_scan.find_clone(None, paraos_home)
+        if clone is None:
+            return None, None, None
+        block, code, kit = audit_scan.open_clone(Path(clone).resolve(), None)
+        if code or kit is None:
+            return None, None, None
+        ref = block["ref"]
+        developing = audit_scan.master_template(kit.clone, ref, worktree=True)["marker"]
+        in_development = developing if developing and developing > kit.master else None
+        return kit, ref, in_development
+    except Exception:  # noqa: BLE001  a clone the audit cannot open is unknown, not a crash
+        return None, None, None
+
+
+def kit_signal(entry, kit, ref, in_development):
+    """The audit's per-vault check as one health signal: the findings count, how many of them
+    /para-upgrade applies, and the revision verdict. Unknown where the audit does not judge."""
+    if kit is None:
+        return {"level": "unknown", "verdict": None, "findings": None, "upgrade": None,
+                "behind": None}
+    try:
+        row, _ = audit_scan.audit_vault(entry, kit, ref, in_development)
+    except Exception:  # noqa: BLE001
+        return {"level": "unknown", "verdict": None, "findings": None, "upgrade": None,
+                "behind": None}
+    verdict = row["revision"].get("verdict")
+    findings = row["findings"]
+    upgrade = sum(1 for f in findings if f.get("route") == "upgrade")
+    behind = len(row["revision"].get("entries") or []) if verdict == "behind" else 0
+    if verdict in ("ahead", "unverified"):
+        level = "unknown"
+    elif behind >= 2:
+        level = "care"
+    elif findings or behind:
+        level = "watch"
+    else:
+        level = "ok"
+    return {"level": level, "verdict": verdict, "findings": len(findings), "upgrade": upgrade,
+            "behind": behind}
+
+
+def deep_clean_audit(vault, paraos_home=None):
+    """The last `/para-deep-clean audit` record for the vault, written by `clean_scan.py
+    --record` beside the deep-clean stamp, or None."""
+    path = deep_clean_stamp(vault, paraos_home).with_suffix(".audit.json")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or not parse_date(data.get("date")):
+        return None
+    return {"date": data["date"], "total": int(data.get("total") or 0),
+            "findings": data.get("findings") if isinstance(data.get("findings"), dict) else {}}
+
+
+def vault_row(entry, report, home, role, shown, kit=None):
     t, lanes = report["totals"], report["lanes"]
     name = entry["name"]
     return {"name": name, "role": role, "treatment": shown,
@@ -101,7 +163,9 @@ def vault_row(entry, report, home, role, shown):
             "overdue": t["overdue"], "this_week": len(lanes.get("this_week", [])),
             "undated": t["undated"], "triage": len(report["triage"]),
             "flags": sorted(k for k, v in report["flags"].items() if fired(v)),
-            "proposal": proposal(home, name), "health": report["health"]}
+            "proposal": proposal(home, name), "health": report["health"],
+            "kit": kit_signal(entry, *(kit or (None, None, None))),
+            "deep_clean_audit": deep_clean_audit(entry["path"], home)}
 
 
 def in_lanes(report, lanes):
@@ -193,8 +257,10 @@ def build_report(entries, today, paraos_home=None, model=None):
     until = today + timedelta(days=HORIZON_DAYS)
     out = {"today": today.isoformat(), "horizon": iso(until), "operator": me, "vaults": [],
            "tasks": [], "entities": [], "undated": 0, "people": [], "summaries": [],
-           "urgent": [], "calendars": [], "meetings": [], "excluded": []}
+           "urgent": [], "calendars": [], "meetings": [], "excluded": [],
+           "funnel_url": remembered_url(str(home), "funnel", paraos_home)}
     people, calendars = {}, {}
+    kit = open_kit(paraos_home)
     for entry in entries:
         status = excluded_status(entry)
         name = entry.get("name") if isinstance(entry, dict) else None
@@ -209,7 +275,7 @@ def build_report(entries, today, paraos_home=None, model=None):
         place = writer(entry["path"], me)
         role = place["role"] if place else None
         shown = treatment(entry, role)
-        out["vaults"].append(vault_row(entry, report, home, role, shown))
+        out["vaults"].append(vault_row(entry, report, home, role, shown, kit))
         if shown == "full":
             out["tasks"] += [dict(t, vault=name) for t in report["tasks"]
                              if t["lane"] not in NOT_DATED and t["effective_date"]]
