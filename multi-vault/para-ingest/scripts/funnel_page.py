@@ -165,33 +165,62 @@ def gather(home, days, today=None):
             "exclusions_applied": r.get("exclusions_applied"),
         })
 
-    # 2. Exclusions, with the drops the run logs' prose lines name
+    # 2. Exclusions, with the drops each run log reports: per entry where the script wrote
+    # them (`by_entry`, keyed by scope and label), else read from an older run's prose line
     exclusions = load_json(os.path.join(home, "triage-exclusions.json"), {})
+    kinds = ("from", "domain", "subject", "subject_contains", "to", "list")
     # the address or domain right before "dropped N", an aside in parentheses allowed between them
     drop_re = re.compile(r"([\w.+-]+@[\w.-]+|\b[\w-]+(?:\.[\w-]+)+\b)(?:\s*\([^)]*\))?\s+dropped\s+(\d+)", re.I)
-    drops = Counter()
+    by_label, by_value = defaultdict(Counter), Counter()
     unparsed = 0
     for r in runs:
-        text = r.get("exclusions_applied")
-        if not isinstance(text, str) or not text.strip():
+        applied = r.get("exclusions_applied")
+        if isinstance(applied, dict):
+            for scope, labels in (applied.get("by_entry") or {}).items():
+                for label, n in (labels or {}).items():
+                    by_label[scope][label] += int(n or 0)
+            continue
+        if not isinstance(applied, str) or not applied.strip():
             continue
         found = False
-        for m in drop_re.finditer(text):
+        for m in drop_re.finditer(applied):
             found = True
-            drops[m.group(1).lower()] += int(m.group(2))
-        if not found and "dropped 0" not in text and "0 this run" not in text:
+            by_value[m.group(1).lower()] += int(m.group(2))
+        if not found and "dropped 0" not in applied and "0 this run" not in applied:
             unparsed += 1
+
+    def label_of(e):
+        if e.get("group"):
+            return str(e["group"])
+        kind = next((k for k in kinds if k in e), None)
+        return f"{kind} {e[kind]}" if kind else "(unreadable entry)"
+
+    def matcher_text(m):
+        kind = next((k for k in kinds if isinstance(m, dict) and k in m), None)
+        return f"{kind} {m[kind]}" if kind else "?"
+
     exclusion_rows = []
-    for mailbox, entries in (exclusions.items() if isinstance(exclusions, dict) else []):
-        for e in entries:
-            kind = next((k for k in ("from", "domain", "subject", "subject_contains") if k in e), "?")
-            value = str(e.get(kind, ""))
-            dropped = drops.get(value.lower(), 0)
-            if kind == "domain":
-                dropped += sum(n for k, n in drops.items()
-                               if k.endswith("@" + value.lower()) or k.endswith("." + value.lower()))
-            exclusion_rows.append({"mailbox": mailbox, "kind": kind, "value": value, "reason": e.get("reason", ""),
-                                   "added": e.get("added", ""), "dropped": dropped})
+    for scope, entries in (exclusions.items() if isinstance(exclusions, dict) else []):
+        for e in (entries if isinstance(entries, list) else []):
+            if not isinstance(e, dict):
+                continue
+            label = label_of(e)
+            if e.get("group") or "any" in e:
+                kind, value = "group", "; ".join(matcher_text(m) for m in (e.get("any") or []))
+                matchers = [matcher_text(m) for m in (e.get("any") or [])]
+            else:
+                kind = next((k for k in kinds if k in e), "?")
+                value, matchers = str(e.get(kind, "")), []
+            # counts the script wrote, plus what older runs' prose lines named for the same value
+            dropped = by_label[scope].get(label, 0)
+            if kind != "group":
+                dropped += by_value.get(value.lower(), 0)
+                if kind == "domain":
+                    dropped += sum(n for k, n in by_value.items()
+                                   if k.endswith("@" + value.lower()) or k.endswith("." + value.lower()))
+            exclusion_rows.append({"mailbox": scope, "kind": kind, "value": value, "matchers": matchers,
+                                   "label": label, "reason": e.get("reason", ""), "added": e.get("added", ""),
+                                   "dropped": dropped})
 
     # 3. Routing, from the central ledger
     ledger = load_json(os.path.join(home, "cache", "ingest", "ledger.json"), {})
@@ -443,11 +472,13 @@ def render(d):
 
     # 2. Exclude
     parts.append(f'<h2>2. Exclude {who("exclude")}</h2>')
-    parts.append(f'<p class="note">{len(d["exclusions"])} entries in <code>triage-exclusions.json</code>, matched after the fetch, never as a query. "Dropped" is read from each run\'s own report line, so it is as exact as that report; '
-                 f'{d["drops_unparsed_runs"]} run(s) in the window had a line this page could not read.</p>')
+    parts.append(f'<p class="note">{len(d["exclusions"])} entries in <code>triage-exclusions.json</code>, matched after the fetch, never as a query. An entry under "every mailbox" applies to all of them; a group drops a thread when any of its matchers fits. '
+                 f'"Dropped" is what each run\'s log reports per entry; {d["drops_unparsed_runs"]} run(s) in the window had only a prose line this page could not read.</p>')
     parts.append('<div class="tw"><table><tr><th>Mailbox</th><th>Match</th><th>Value</th><th>Why</th><th>Added</th><th class="n">Dropped</th></tr>')
-    for e in sorted(d["exclusions"], key=lambda e: (e["mailbox"], e["kind"], e["value"])):
-        parts.append(f'<tr><td class="m">{esc(e["mailbox"])}</td><td><span class="chip">{esc(e["kind"])}</span></td><td class="m">{esc(e["value"])}</td>'
+    for e in sorted(d["exclusions"], key=lambda e: (e["mailbox"] != "*", e["mailbox"], e["kind"] != "group", e["kind"], e["value"])):
+        scope = '<span class="chip on">every mailbox</span>' if e["mailbox"] == "*" else f'<span class="m">{esc(e["mailbox"])}</span>'
+        value = ("<b>" + esc(e["label"]) + "</b><br>" + "".join(f'<span class="chip">{esc(m)}</span>' for m in e["matchers"])) if e["kind"] == "group" else f'<span class="m">{esc(e["value"])}</span>'
+        parts.append(f'<tr><td>{scope}</td><td><span class="chip">{esc(e["kind"])}</span></td><td>{value}</td>'
                      f'<td>{esc(e["reason"][:140])}{"..." if len(e["reason"]) > 140 else ""}</td><td>{esc(e["added"])}</td><td class="n">{e["dropped"]}</td></tr>')
     parts.append('</table></div>')
 

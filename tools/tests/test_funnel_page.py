@@ -139,6 +139,26 @@ class FunnelPageTests(unittest.TestCase):
         self.assertEqual(d["staged"], 3)
         self.assertEqual([r["run"] for r in d["runs"]], [f"{STAMP}-061500"])
 
+    def test_drops_from_the_log_per_entry_with_groups_and_the_every_mailbox_key(self):
+        write(self.home, "triage-exclusions.json", json.dumps({
+            "*": [{"group": "Class list", "any": [{"domain": "school.test"}, {"from": "parent@mail.test"}], "reason": "class mail", "added": RECENT},
+                  {"to": "members@club.test", "reason": "club list", "added": RECENT}],
+            "ops@example.test": [{"from": "noreply@shop.test", "reason": "receipts", "added": RECENT}]}))
+        write(self.home, f"cache/ingest/runs/{STAMP}-161500.json", json.dumps({
+            "mode": "write", "files_written": [],
+            "exclusions_applied": {"by_entry": {"*": {"Class list": 2, "to members@club.test": 0},
+                                                "ops@example.test": {"from noreply@shop.test": 1}},
+                                   "dropped": 3, "file": "applied"}}))
+        d = gather(str(self.home), 7, today=TODAY)
+        rows = {(e["mailbox"], e["label"]): e for e in d["exclusions"]}
+        self.assertEqual(rows[("*", "Class list")]["dropped"], 2)
+        self.assertEqual(rows[("*", "Class list")]["matchers"], ["domain school.test", "from parent@mail.test"])
+        self.assertEqual(rows[("*", "to members@club.test")]["dropped"], 0)
+        self.assertEqual(rows[("ops@example.test", "from noreply@shop.test")]["dropped"], 4)
+        page = render(d)
+        self.assertIn("every mailbox", page)
+        self.assertIn("<b>Class list</b>", page)
+
     def test_decisions_window_share_and_switches(self):
         d = gather(str(self.home), 7, today=TODAY)
         alpha = d["decisions"]["Alpha"]
