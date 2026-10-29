@@ -3,8 +3,8 @@ type: llm
 ---
 
 The triage folder holds one staged mail: Sara Lindqvist, practice manager of Lindqvist
-Dental, found the studio through its website and asks for a 30-minute intro call next week,
-Tuesday or Thursday morning. No row, deal folder or contact file holds the company yet, and
+Dental, found the studio through its website and asks for a 30-minute intro call on a date
+six days out. No row, deal folder or contact file holds the company yet, and
 the vault's lead register is `areas/business/leads.md`, with the columns Company, Contact,
 Source, Opened, Stage, Next step, Last touch, Outcome.
 
