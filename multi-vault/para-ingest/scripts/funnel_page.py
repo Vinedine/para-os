@@ -8,7 +8,7 @@ the multi-vault layer already keeps. It reads everything and writes only the pag
 The stages, and who applies each one's rule:
 
     1. Fetch      each mailbox once, each sync script per vault             code
-    2. Exclude    triage-exclusions.json, per mailbox                       the model, from prose
+    2. Exclude    triage-exclusions.json, per mailbox and for every one     code
     3. Route      the registry's purpose lines and each vault's sources     the model
     4. Classify   /para-triage in the vault, recorded with its recommendation   the model
     5. Hold       what a scheduled run never acts on                        the model
@@ -17,8 +17,8 @@ The stages, and who applies each one's rule:
 
 A connector row and a fetch-script row of a vault's `## Triage sources` table both declare a
 mailbox; a sync-script row does not. Counts come from the ingest ledger (fetched, excluded,
-routed, unrouted, suppressed), the run logs (staged, and the drops each run's prose
-`exclusions_applied` line names), the quarantine manifests (acted on), the proposals waiting
+routed, unrouted, suppressed), the run logs (staged, and the drops each run's
+`exclusions_applied` counts), the quarantine manifests (acted on), the proposals waiting
 (held) and the vaults' decision ledgers (decided). Prints one JSON line, `out`, `page`
 (`funnel`), `title`, `description` and `key` (the para-os home, standing in for a vault since
 the page belongs to none), as paraos_pages.py expects.
@@ -47,7 +47,7 @@ HOLD_RULES = [
 ]
 STAGE_WHO = {
     "fetch": ("code", "connectors and the vault's sync scripts fetch; the model only reads the plan"),
-    "exclude": ("prose", "the model applies the exclusions file after the fetch (connectors.md step 3); the drops shown are its own count"),
+    "exclude": ("code", "stage.py applies the exclusions file after the fetch, paraos_mail.py exclude for /para-triage's own pull (connectors.md step 3); the drops shown are the scripts' counts"),
     "route": ("model", "one judgment per thread against the registry's purpose lines and each vault's Relevant-when column"),
     "classify": ("model", "/para-triage proposes one action per item; every interactive decision is recorded with its recommendation"),
     "hold": ("model", "a scheduled run marks these as held and acts on nothing it holds"),
@@ -392,7 +392,7 @@ h3{font-size:.95rem;margin:1.2rem 0 .4rem}
 .sub{color:var(--muted);margin:0 0 1.4rem}
 .legend{display:flex;gap:1rem;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:.4rem 0 1rem}
 .who{display:inline-block;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;padding:.1rem .5rem;border-radius:999px;border:1px solid}
-.who.code{color:var(--code);border-color:var(--code)}.who.model{color:var(--model);border-color:var(--model)}.who.prose{color:var(--model);border-color:var(--model);border-style:dashed}.who.you{color:var(--you);border-color:var(--you)}
+.who.code{color:var(--code);border-color:var(--code)}.who.model{color:var(--model);border-color:var(--model)}.who.you{color:var(--you);border-color:var(--you)}
 .funnel{display:grid;gap:.45rem;margin:1rem 0 .5rem}
 .stage{display:grid;grid-template-columns:1fr;gap:.2rem}
 .bar{height:38px;margin:0 auto;border-radius:6px;background:var(--accent-soft);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;gap:.6rem;font-variant-numeric:tabular-nums;min-width:min(100%,170px);padding:0 .8rem;box-sizing:border-box}
@@ -433,7 +433,7 @@ pre{font-family:var(--mono);font-size:.78rem;background:var(--chip);padding:.5re
 
 def who(stage):
     kind, text = STAGE_WHO[stage]
-    label = {"code": "code", "model": "model", "prose": "model, from prose", "you": "you"}[kind]
+    label = {"code": "code", "model": "model", "you": "you"}[kind]
     return f'<span class="who {kind}" title="{esc(text)}">{label}</span>'
 
 
@@ -456,7 +456,6 @@ def render(d):
              f'Counts are the last {d["days"]} days ({d["since"]} to {d["today"]}); the rules are what applies right now. Generated {d["generated"]} from the state under <code>{esc(d["home"])}</code>.</p>',
              '<div class="legend"><span><span class="who code">code</span> a script applies the rule</span>'
              '<span><span class="who model">model</span> the agent judges</span>'
-             '<span><span class="who prose">model, from prose</span> the agent follows a written rule, not enforced</span>'
              '<span><span class="who you">you</span> waits for the operator</span></div>']
     if d["kill_switch"]:
         parts.append('<div class="kill">Kill switch on: auto-triage.off exists, every unattended run acts on nothing.</div>')
