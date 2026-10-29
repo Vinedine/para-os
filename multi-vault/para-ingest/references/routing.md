@@ -6,9 +6,7 @@ The candidate set for a thread is **the vaults that declared the mailbox it came
 
 ## Rules, in order
 
-1. **A contact hit decides, on a counterparty and never on the mailbox owner.** If any participant's address appears in a candidate vault, route there.
-
-   **Skip the owner's own addresses before anything else.** The owner is the mailbox's own address plus any other addresses the source declares for them (a `fetch-script` marks these per record; for a connector it is the endpoint address).
+1. **A contact hit decides, on a counterparty only.** Of a thread's participants, skip before anything else those who are no counterparty: the mailbox owner (the mailbox's address, plus any a `fetch-script` marks as theirs) and, for each candidate vault, the people its own `## Who writes this vault` roster names, by the addresses on their cards.
 
    Grep each candidate vault for each remaining address. **A hit in one vault decides. Hits in several narrow the choice without deciding it:** a participant known to just one of those vaults settles it for that vault; otherwise apply rule 2 among those vaults only, and route to all of them only when subject and snippet cannot separate them. **Where to grep:**
 
