@@ -34,6 +34,7 @@ Also worth one line each: files `writers_by_file` shows written by exactly one p
 
 - **Failures and denials** (`failures`, by tool and target). A repeated failure on the same target is a defect with an address.
 - **Sessions that produced nothing** (`typed_without_writes`): prompts submitted, nothing written all session. One is noise; a pattern is people asking for something the vault cannot do.
+- **Sessions left open for days** (`multi_day_sessions`): stale context, and entities mixed up where it touched several (`entities`). **Change:** close sessions at the end of the day, one session per job.
 - **Turns per request** (`tools_per_request`, the ten largest). A request that expands into many turns is either real work or a badly-shaped task; read it against what was written at the end.
 - **Rephrasing.** Consecutive prompts in one session that are near-repeats (compare lowercased, punctuation stripped, on token overlap). This is the strongest available signal that the vault did not understand a request.
 - **How sessions ended.** `reason` belongs to the harness, not to the ledger, and a client may report `other` for every ending. Check whether it varies at all before building anything on it, and say plainly in the report when it does not. The usable answer is the `summary` object on the `SessionEnd` line (when present): `prompts`, `tools`, `writes`, `failures`, `denials`, `duration_s`, `last_prompt_tools`. Read `last_prompt_tools: 0` as "the final request produced no tool call", never as "abandoned" - a question answered in prose looks the same.

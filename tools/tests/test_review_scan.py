@@ -128,6 +128,30 @@ class Frame(LedgerCase):
         self.assertEqual(report["frame"]["skipped_lines"], 1)
         self.assertEqual(report["adoption"]["para-daily-brief"]["invocations"], 1)
 
+    def test_a_session_left_open_for_three_days_is_one_session_and_flagged(self):
+        for n, day in enumerate((18, 19, 20)):
+            self.session("sam", "aaaaaaaa-1", date(2026, 9, day),
+                         {"event": "UserPromptSubmit", "prompt_id": f"p{n}", "prompt": "next"},
+                         {"event": "PostToolUse", "prompt_id": f"p{n}", "tool": "Read",
+                          "target": ("projects/acme/brief.md", "areas/finance/actions.md",
+                                     "projects/acme/actions.md")[n]},
+                         {"event": "PostToolUse", "prompt_id": f"p{n}", "tool": "Glob",
+                          "target": "projects/*/brief.md"})
+        report = self.run_scan()
+        frame = report["frame"]
+        self.assertEqual((frame["files"], frame["sessions"], frame["typed_sessions"]), (3, 1, 1))
+        self.assertEqual(report["rhythm"]["sam"]["sessions"], 1)
+        self.assertEqual(report["friction"]["multi_day_sessions"],
+                         [{"session": "aaaaaaaa-1", "span_days": 3, "entities": 2}])
+
+    def test_one_session_per_day_scans_unchanged(self):
+        for sid, day in (("aaaaaaaa-1", 18), ("bbbbbbbb-1", 19), ("cccccccc-1", 20)):
+            self.session("sam", sid, date(2026, 9, day), *slash("p1", "/para-daily-brief"))
+        report = self.run_scan()
+        self.assertEqual((report["frame"]["files"], report["frame"]["sessions"]), (3, 3))
+        self.assertEqual(report["rhythm"]["sam"]["sessions"], 3)
+        self.assertEqual(report["friction"]["multi_day_sessions"], [])
+
     def test_people_and_days(self):
         self.session("sam", "aaaaaaaa-1", date(2026, 9, 10), *slash("p1", "/para-daily-brief"))
         self.session("robin", "bbbbbbbb-1", date(2026, 9, 20), *slash("p1", "/para-daily-brief"))
