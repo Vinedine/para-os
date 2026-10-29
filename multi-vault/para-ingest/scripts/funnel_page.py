@@ -235,7 +235,8 @@ def gather(home, days, today=None):
             reason = (e.get("reason") or "").lower()
             seen += 1
             per_mailbox[mailbox]["seen"] += 1
-            if reason.startswith("excluded"):
+            # older runs wrote "unrouted: excluded by triage-exclusions (...)" for the same drop
+            if reason.startswith("excluded") or "excluded by triage-exclusions" in reason:
                 excluded += 1
                 per_mailbox[mailbox]["excluded"] += 1
             elif reason.startswith("skipped"):
