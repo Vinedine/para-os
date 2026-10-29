@@ -599,7 +599,8 @@ def render(d):
     parts.append('<div class="foot">Read from <code>vaults.json</code>, each vault\'s <code>## Triage sources</code>, <code>triage-exclusions.json</code>, <code>cache/ingest/ledger.json</code> and <code>cache/ingest/runs/</code>, '
                  '<code>cache/triage/decisions/</code>, <code>cache/triage/proposals/</code>, <code>auto-triage.json</code>, <code>auto-triage.off</code> and <code>quarantine/</code>. Nothing on this page was written by hand.</div>')
     parts.append('</div>')
-    parts.append(f'<script id="data" type="application/json">{json.dumps(d, ensure_ascii=False).replace("</", "<\\/")}</script>')
+    data = json.dumps(d, ensure_ascii=False).replace("</", "<\\/")
+    parts.append(f'<script id="data" type="application/json">{data}</script>')
     return "\n".join(parts)
 
 
