@@ -60,6 +60,8 @@ holds is in [changelog.d/README.md](../../../changelog.d/README.md).
 - For each integration whose script changed since its last stamp: the
   `para-os-integration: <name> <label>` marker in every script in its folder, and its row in
   the Available table in `integrations/README.md`. An unchanged integration keeps its label.
+- `<!-- reviewed with: <your own model id> -->` on the line after the frontmatter of every
+  shipped `SKILL.md` the step 7 prompt audit reads, replacing the one there.
 
 ## 5. Verify
 
@@ -87,8 +89,9 @@ fold it first (steps 2-6). Start the evals with `gh workflow run evals.yml --ref
 that dropped since the last weekly run is a finding only if the drop holds over
 [three runs on both commits](../../../evals/README.md#checking-a-skill-change). Run the
 `claude-api` skill's `prompt-audit` at `<sha>` on the shipped files the revision changed
-(`git diff --name-only origin/stable...<sha> -- base addons multi-vault`), or on every shipped
-skill when a Claude model has shipped since the last revision. Its proposed edits are findings.
+(`git diff --name-only origin/stable...<sha> -- base addons multi-vault`) and each shipped
+`SKILL.md` with no `reviewed with` line, or on every shipped skill when a Claude model has
+shipped since the last revision. Its proposed edits are findings.
 On a new model, a case whose delta fell to about zero or below since the previous model's last
 run proposes removing its rule; a removal is checked like a drop, and takes its case with it.
 The maintainer syncs installed skills from `<sha>`, then upgrades two vaults of different shapes
