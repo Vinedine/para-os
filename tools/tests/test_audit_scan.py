@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for audit_scan.py. Each pins a rule the script's docstring states: which registry entries are audited, the four revision outcomes, the declaration and
-add-on checks, shipped rule files, integration and skill copies read at a committed ref, the
-size target, the drive, and the vault named first.
+add-on checks, shipped rule files and the rule-file contract, integration and skill copies
+read at a committed ref, the size target, the drive, and the vault named first.
 
     python3 test_audit_scan.py
     py -3 test_audit_scan.py
@@ -502,6 +502,102 @@ class TopicFileCase(CloneCase):
         build_vault(self.work / "b", rules=("filing.md",))
         report, _ = self.run_audit([self.entry("a"), self.entry("b")])
         self.assertEqual(self.vault_row(report, "a")["observations"], [])
+
+
+SHAPE = ("---\npaths:\n  - \"**/brief.md\"\n---\n\n# Brief structure\n\n**Order:** fixed.\n\n"
+         "## The shape\n\nTitle, then status.\n")
+CLOSED_SHAPE = SHAPE + "\n## Placeholders\n\n`-` where a section does not apply.\n"
+UNSCOPED = "# House\n\nA rule.\n"
+
+
+class ContractCase(CloneCase):
+    """para-shared/rule-files.md, read against every rule file on disk."""
+
+    def row(self, files, name="v", newline="\n", **vault):
+        root = build_vault(self.work / name, **vault)
+        for file, text in files.items():
+            write(root, f".claude/rules/{file}", text, newline)
+        report, _ = self.run_audit([self.entry(name)])
+        return self.vault_row(report, name)
+
+    def test_a_rule_file_with_no_frontmatter_loads_in_every_session(self):
+        row = self.row({"house.md": UNSCOPED})
+        found = self.findings(row, "rules")
+        self.assertEqual(len(found), 1)
+        self.assertIn("`.claude/rules/house.md` has no frontmatter", found[0]["detail"])
+        self.assertIn("every session", found[0]["detail"])
+        self.assertIn("`paths:`", found[0]["fix"])
+        self.assertIn("rule-files.md", found[0]["fix"])
+        self.assertEqual(found[0]["route"], "operator")
+        self.assertEqual(row["cells"]["rules"], "1 off contract")
+
+    def test_frontmatter_with_no_paths_list_is_the_same_finding(self):
+        for n, head in enumerate(("description: A rule.", "paths:", "paths: []",
+                                  "paths:\nname: house")):
+            with self.subTest(head=head):
+                row = self.row({"house.md": f"---\n{head}\n---\n\n# House\n"}, name=f"v{n}")
+                found = self.findings(row, "rules")
+                self.assertEqual(len(found), 1)
+                self.assertIn("no `paths:` list in its frontmatter", found[0]["detail"])
+
+    def test_an_inline_paths_list_scopes_the_file(self):
+        row = self.row({"house.md": "---\npaths: [\"projects/**\"]\n---\n\n# House\n"})
+        self.assertEqual(self.findings(row, "rules"), [])
+
+    def test_a_voice_profile_is_held_to_it_too(self):
+        row = self.row({"voice-ada-peeters.md": "# Ada's voice\n"})
+        self.assertIn("voice-ada-peeters.md", self.findings(row, "rules")[0]["detail"])
+
+    def test_a_shape_file_with_no_placeholders(self):
+        row = self.row({"brief-structure.md": SHAPE})
+        found = self.findings(row, "rules")
+        self.assertEqual([f["detail"] for f in found],
+                         ["`.claude/rules/brief-structure.md` is a shape file with no "
+                          "`## Placeholders`"])
+        self.assertEqual(found[0]["route"], "operator")
+        self.assertIn("rule-files.md", found[0]["fix"])
+
+    def test_a_shape_file_closing_on_placeholders_is_clean(self):
+        row = self.row({"brief-structure.md": CLOSED_SHAPE})
+        self.assertEqual(self.findings(row, "rules"), [])
+        self.assertEqual(row["cells"]["rules"], "ok")
+
+    def test_either_opening_marks_a_shape_file(self):
+        for n, text in enumerate((SHAPE.replace("**Order:** fixed.\n\n", ""),
+                                  SHAPE.replace("## The shape\n", ""))):
+            with self.subTest(n=n):
+                row = self.row({"brief-structure.md": text}, name=f"v{n}")
+                self.assertEqual(len(self.findings(row, "rules")), 1)
+
+    def test_a_convention_file_naming_the_shape_in_prose_is_not_one(self):
+        text = RULE + "\nA shape file opens on an `**Order:**` line and `## The shape`.\n"
+        self.assertEqual(self.findings(self.row({"house.md": text}), "rules"), [])
+
+    def test_a_shape_quoted_in_a_fence_is_not_read(self):
+        text = RULE + "\n```markdown\n**Order:** fixed.\n\n## The shape\n```\n"
+        self.assertEqual(self.findings(self.row({"house.md": text}), "rules"), [])
+
+    def test_a_file_saved_on_windows_reads_the_same(self):
+        row = self.row({"brief-structure.md": "﻿" + CLOSED_SHAPE, "house.md": RULE},
+                       newline="\r\n")
+        self.assertEqual(self.findings(row, "rules"), [])
+
+    def test_both_breaks_in_one_file_are_two_findings(self):
+        row = self.row({"brief-structure.md": SHAPE.split("---\n", 2)[2]})
+        self.assertEqual(len(self.findings(row, "rules")), 2)
+        self.assertEqual(row["cells"]["rules"], "2 off contract")
+
+    def test_counted_beside_the_shipped_files_states(self):
+        row = self.row({"house.md": UNSCOPED}, rules=())
+        self.assertEqual(row["cells"]["rules"], "1 missing, 1 off contract")
+        self.assertEqual([f["route"] for f in self.findings(row, "rules")],
+                         ["upgrade", "operator"])
+
+    def test_a_vault_the_audit_does_not_judge_gets_none(self):
+        row = self.row({"house.md": UNSCOPED, "brief-structure.md": SHAPE},
+                       marker="2026.10.02")
+        self.assertEqual(row["cells"]["rules"], "not judged")
+        self.assertEqual(self.findings(row, "rules"), [])
 
 
 # ======================================================================= the registry

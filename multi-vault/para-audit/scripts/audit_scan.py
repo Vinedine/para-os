@@ -41,6 +41,10 @@ The seven columns, one cell each in `cells`, every defect a `finding` with its `
                  has one.
 4. rules         Each `.claude/rules/` file base or a declared add-on ships, from the table:
                  missing, behind (`untouched`) or retired. An edited copy is the vault's own.
+                 Every rule file on disk, against para-shared/rule-files.md: one with no
+                 `paths:` list in its frontmatter, which Claude Code loads in every session,
+                 and a shape file (an `**Order:**` line or `## The shape`) with no
+                 `## Placeholders`, each `off contract` and the operator's to fix.
                  A rule file no master ships that no other audited vault of the same `**Type:**`
                  carries is an `observation`, never a finding, and only where such a sibling
                  exists. A `voice-*.md` profile is one person's, never a topic file.
@@ -104,6 +108,8 @@ DECLARED = ("type", "flavor", "modules")
 SHAPE_RE = re.compile(r"^\*\*(Type|Flavor|Modules):\*\* \S")
 PLACEHOLDER = "{{"
 MARKER_LINE_RE = re.compile(r"^\s*<!--.*para-os-template")
+PATHS_RE = re.compile(r"^paths:[ \t]*(?:\n[ \t]*-[ \t]*\S|(?!\[[ \t]*\])\S)", re.M)
+CONTRACT = "per para-shared/rule-files.md"
 UPGRADE = "run /para-upgrade in this vault"
 NOT_JUDGED = "not judged"
 
@@ -118,7 +124,7 @@ def counted(found, word):
 
 
 STATES = {"untouched": "behind", "edited": "edited", "missing": "missing", "retired": "retired",
-          "no-master": "no master"}
+          "no-master": "no master", "off-contract": "off contract"}
 
 
 def state_cell(rows):
@@ -290,13 +296,37 @@ def rule_files(vault):
     return {p.name for p in folder.glob("*.md")} if folder.is_dir() else set()
 
 
+def contract_check(vault):
+    """One finding per break of para-shared/rule-files.md in each rule file on disk: no
+    `paths:` list in its frontmatter, or a shape file with no `## Placeholders`."""
+    found = []
+    for name in sorted(rule_files(vault)):
+        lines = read_lines(vault / ".claude" / "rules" / name)
+        rel = f"`.claude/rules/{name}`"
+        end = lines.index("---", 1) if lines[:1] == ["---"] and "---" in lines[1:] else None
+        if end is None or not PATHS_RE.search("\n".join(lines[1:end])):
+            found.append(finding("rules", f"{rel} has " + (
+                "no frontmatter" if end is None else "no `paths:` list in its frontmatter")
+                + ", so Claude Code loads it in every session",
+                f"give it a `paths:` frontmatter list of the globs it governs, {CONTRACT}"))
+        body = [text.strip() for _, text in live_lines(lines[(end or -1) + 1:])]
+        if any(t.startswith("**Order:**") or t == "## The shape" for t in body) and \
+                "## Placeholders" not in body:
+            found.append(finding("rules", f"{rel} is a shape file with no `## Placeholders`",
+                                 f"close it on `## Placeholders` stating this vault's "
+                                 f"convention, {CONTRACT}"))
+    return found
+
+
 def rules_check(vault, rows):
     found = [r for r in rows if r["kind"] == "rule" and r["state"] not in ("current", "edited")]
     shipped = {Path(r["path"]).name for r in rows if r["kind"] == "rule" and r["master"]}
     topics = sorted(n for n in rule_files(vault) - shipped if not n.startswith("voice-"))
-    return state_cell(found), [finding("rules", f"`{r['path']}` is {STATES[r['state']]}"
-                                       + (f"; the master ships it as `{r['master']}`"
-                                          if r["master"] else "")) for r in found], topics
+    broken = contract_check(vault)
+    return state_cell(found + [{"state": "off-contract"}] * len(broken)), [
+        finding("rules", f"`{r['path']}` is {STATES[r['state']]}"
+                + (f"; the master ships it as `{r['master']}`" if r["master"] else ""))
+        for r in found] + broken, topics
 
 
 def integration_check(rows, ref):
