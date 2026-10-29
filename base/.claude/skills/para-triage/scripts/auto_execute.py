@@ -4,8 +4,11 @@
     py -3 auto_execute.py run --scan <saved scan> --decisions <file.json> [--cap 25]
     py -3 auto_execute.py restore --vault-name <name> --run <run> [--item <name>]
     py -3 auto_execute.py status --vault-name <name> [--vault <root>]
-    py -3 auto_execute.py record --vault-name <name> --decisions <file.json> [--proposal <path>]
+    py -3 auto_execute.py record --vault-name <name> --decisions <file.json> [--scan <saved scan>]
+                                 [--proposal <path>]
     py -3 auto_execute.py switch --vault-name <name> (--on | --off) <action>
+    py -3 auto_execute.py add-exclusion --mailbox <mailbox> (--from <address> | --domain <domain>)
+                                        --reason <text>
     py -3 auto_execute.py purge [--days 30]
 
 Every command takes `--paraos-home DIR`, and prints one JSON document. State lives under the
@@ -13,9 +16,11 @@ para-os home, never in a vault:
 
     auto-triage.json                    {vault name: {"on": [action], "demoted": [...]}}
     auto-triage.off                     the kill switch: while it exists, `run` acts on nothing
-    cache/triage/decisions/<vault>.jsonl  one line per decided item, from either path
+    cache/triage/decisions/<vault>.jsonl  one line per decided item, from either path, with the
+                                        sender's address (`from`) and `mailbox` where known
     cache/triage/proposals/<vault>-<YYYYMMDD-HHMM>.md  what a run left for the operator
     quarantine/<vault>/<run>/           the items a run took out, with manifest.json
+    triage-exclusions.json              read by the fetch; `add-exclusion` is this script's write
 
 `run` reads the triage scan's saved copy (`saved_to`) and a decisions file, a JSON list of
 `{"item", "action", "reason", "survivor", "hold"}`, and removes the decisions file once the
@@ -36,9 +41,19 @@ proposal waiting since the last interactive decision, each proposed item as `unc
 unchanged: a scheduled run skips the vault), and `offers`: each action whose last 50
 interactive decisions in the vault were at least 95% the recommendation unchanged, not yet
 switched on. `record` appends the interactive path's decisions, `{"item", "recommended",
-"chosen"}`, and moves a decided proposal into `proposals/decided/`. `switch` is the
-operator's standing approval, or its withdrawal. `purge` moves each quarantined run older
-than `--days` to the system trash, keeping one where no trash is reachable.
+"chosen"}` plus a fetched thread's `from` and `mailbox`, which `--scan` fills for a staged
+note from its `From` line, and moves a decided proposal into `proposals/decided/`.
+
+Both return `exclusion_offers`, `status` for the unattended decisions since the last
+interactive one, `record` for the rows it appended: each sender such a `Dismiss (noise)` names
+whose address or domain the ledger shows dismissed as noise at least twice in that mailbox,
+and that the exclusions file does not hold for the mailbox or `*`. Its `entry` is a `domain`
+where those dismissals span several addresses of it, else a `from`. `add-exclusion` copies the
+file to `triage-exclusions.json.bak-<YYYYMMDD>` (`-<HHMMSS>` added where that exists), then
+appends the entry with its `reason` and today as `added`; a file that does not parse is
+refused. `switch` is the operator's standing approval, or its withdrawal. `purge` moves each
+quarantined run older than `--days` to the system trash, keeping one where no trash is
+reachable.
 
 Exit codes: 0 answered; 2 the library is missing; 3 refused, `refused` saying why; 4 a
 restored md5 differs.
@@ -52,6 +67,7 @@ import shutil
 import sys
 import time
 from datetime import datetime
+from email.utils import parseaddr
 from pathlib import Path
 
 SHARED_DIR = Path(__file__).resolve().parents[2] / "para-shared" / "scripts"
@@ -67,6 +83,7 @@ except ImportError as missing:
 QUARANTINE_RE = re.compile(r"^(Delete|Dismiss) \(")
 ROSTER_RE = re.compile(r"^## Who writes this vault\s*$", re.MULTILINE)
 OFFER_WINDOW, OFFER_SHARE = 50, 0.95
+NOISE, SENDER = "Dismiss (noise)", ("from", "mailbox")
 
 
 class Refused(Exception):
@@ -141,6 +158,69 @@ def now_stamp():
     return datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
 
 
+def sender(row, entry=None):
+    """`from` and `mailbox`, lowercased: a staged note's own `From` line and mailbox from the
+    scan's loose `entry`, else what the row carries; empty where either is missing."""
+    note = (entry or {}).get("note") or {}
+    found = {"from": parseaddr((note.get("fields") or {}).get("From") or "")[1],
+             "mailbox": note.get("mailbox")}
+    if not all(found.values()):
+        found = {k: row.get(k) for k in SENDER}
+    found = {k: str(v or "").strip().lower() for k, v in found.items()}
+    return found if "@" in found["from"] and found["mailbox"] else {}
+
+
+def exclusions_file(home):
+    return home / "triage-exclusions.json"
+
+
+def held(exclusions, mailbox, value):
+    """Whether the exclusions file already drops `value`, an address or a domain, for the
+    mailbox or every mailbox: a `from` equal to it, or a `domain` it equals or sits under."""
+    domain = value.rpartition("@")[2]
+    for key in (mailbox, "*"):
+        entries = exclusions.get(key)
+        for entry in entries if isinstance(entries, list) else []:
+            matchers = entry.get("any", [entry]) if isinstance(entry, dict) else []
+            for m in matchers if isinstance(matchers, list) else []:
+                if not isinstance(m, dict):
+                    continue
+                d = str(m.get("domain") or "").lower()
+                if str(m.get("from") or "").lower() == value or \
+                        d and (domain == d or domain.endswith("." + d)):
+                    return True
+    return False
+
+
+def exclusion_offers(home, lines, triggers):
+    try:
+        exclusions = json.loads(exclusions_file(home).read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        exclusions = {}
+    except (OSError, ValueError):
+        return []
+    if not isinstance(exclusions, dict):
+        return []
+    noise = [ln for ln in lines if ln.get("chosen") == NOISE and ln.get("from")]
+    offers, made = [], set()
+    for t in triggers:
+        if t.get("chosen") != NOISE or not t.get("from"):
+            continue
+        mailbox, domain = t["mailbox"], t["from"].rpartition("@")[2]
+        same = [ln for ln in noise if ln.get("mailbox") == mailbox and
+                ln["from"].rpartition("@")[2] == domain]
+        senders = sorted({ln["from"] for ln in same})
+        kind, value = ("domain", domain) if len(senders) > 1 else ("from", t["from"])
+        if len(same) < 2 or (mailbox, value) in made or held(exclusions, mailbox, value):
+            continue
+        made.add((mailbox, value))
+        offers.append({"mailbox": mailbox, "entry": {kind: value}, "senders": senders,
+                       "items": [ln["item"] for ln in same],
+                       "first": min(ln["date"] for ln in same),
+                       "last": max(ln["date"] for ln in same)})
+    return offers
+
+
 def item_record(path):
     st = path.stat()
     return {"size": st.st_size, "mtime": int(st.st_mtime), "md5": md5(path)}
@@ -212,7 +292,8 @@ def run(args):
             why = "changed since the scan"
         elif len(acted) >= args.cap:
             why = f"over the run's cap of {args.cap}"
-        row = dict(d, file=item_record(path) if path.is_file() else None)
+        row = dict(d, file=item_record(path) if path.is_file() else None,
+                   **sender(d, loose.get(name)))
         if why:
             held.append(dict(row, refused=why))
             continue
@@ -228,7 +309,8 @@ def run(args):
         write_json(folder / "manifest.json", {"vault": state.vault, "root": str(vault_root),
                                               "run": run_id, "items": acted})
         state.append({"date": today, "item": a["item"], "recommended": a["action"],
-                      "chosen": a["action"], "path": "unattended"} for a in acted)
+                      "chosen": a["action"], "path": "unattended",
+                      **{k: a[k] for k in SENDER if k in a}} for a in acted)
         report["quarantine"] = str(folder)
     if held:
         report["proposal"] = str(write_proposal(state, run_id, vault_root, held))
@@ -304,8 +386,11 @@ def status(args):
         loose = {p.name for p in (Path(args.vault) / "triage").glob("*")
                  if p.is_file() and p.name != ".gitkeep"}
         nothing_new = loose <= waiting
+    since = max((n for n, ln in enumerate(lines) if ln.get("path") == "interactive"),
+                default=-1)
     return {"vault": state.vault, "on": on,
             "kill_switch": (state.home / "auto-triage.off").exists(), "offers": offers,
+            "exclusion_offers": exclusion_offers(state.home, lines, lines[since + 1:]),
             "runs": runs, "proposal": proposal, "nothing_new": nothing_new}
 
 
@@ -313,15 +398,40 @@ def record(args):
     state = State(args.paraos_home, args.vault_name)
     today = datetime.now().date().isoformat()
     rows = load_json(args.decisions)
-    state.append({"date": today, "item": r["item"], "recommended": r["recommended"],
-                  "chosen": r["chosen"], "path": "interactive"} for r in rows)
+    loose = {e["name"]: e for e in load_json(args.scan)["items"]["loose"]} if args.scan else {}
+    added = [{"date": today, "item": r["item"], "recommended": r["recommended"],
+              "chosen": r["chosen"], "path": "interactive", **sender(r, loose.get(r["item"]))}
+             for r in rows]
+    state.append(added)
     moved = None
     if args.proposal:
         src = Path(args.proposal)
         moved = state.proposals / "decided" / src.name
         moved.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(src), str(moved))
-    return {"recorded": len(rows), "proposal": str(moved) if moved else None}
+    return {"recorded": len(rows), "proposal": str(moved) if moved else None,
+            "exclusion_offers": exclusion_offers(state.home, state.decisions(), added)}
+
+
+def add_exclusion(args):
+    path = exclusions_file(paraos_home_dir(args.paraos_home))
+    data = load_json(path, {})
+    kind, value = ("from", args.sender) if args.sender else ("domain", args.domain)
+    mailbox = args.mailbox.strip().lower()
+    if not isinstance(data, dict) or not isinstance(data.setdefault(mailbox, []), list):
+        raise Refused(f"{path} is not an object of entry lists keyed by mailbox")
+    backup = None
+    if path.is_file():
+        backup = path.with_name(f"{path.name}.bak-{now_stamp()[:8]}")
+        if backup.exists():
+            backup = path.with_name(f"{path.name}.bak-{now_stamp()}")
+        shutil.copy2(path, backup)
+    entry = {kind: value.strip().lower(), "reason": args.reason,
+             "added": datetime.now().date().isoformat()}
+    data[mailbox].append(entry)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {"mailbox": mailbox, "added": entry, "backup": str(backup) if backup else None}
 
 
 def switch(args):
@@ -347,11 +457,11 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Unattended triage's executor and ledger.")
     sub = ap.add_subparsers(dest="command", required=True)
     commands = {"run": run, "restore": restore, "status": status, "record": record,
-                "switch": switch, "purge": purge}
+                "switch": switch, "add-exclusion": add_exclusion, "purge": purge}
     parsers = {name: sub.add_parser(name) for name in commands}
     for name, p in parsers.items():
         p.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
-        if name not in ("run", "purge"):
+        if name not in ("run", "add-exclusion", "purge"):
             p.add_argument("--vault-name", required=True)
     parsers["run"].add_argument("--scan", required=True)
     parsers["run"].add_argument("--decisions", required=True)
@@ -360,7 +470,13 @@ def main(argv=None):
     parsers["restore"].add_argument("--item")
     parsers["status"].add_argument("--vault", help="the vault root, for `nothing_new`")
     parsers["record"].add_argument("--decisions", required=True)
+    parsers["record"].add_argument("--scan")
     parsers["record"].add_argument("--proposal")
+    parsers["add-exclusion"].add_argument("--mailbox", required=True)
+    parsers["add-exclusion"].add_argument("--reason", required=True)
+    matcher = parsers["add-exclusion"].add_mutually_exclusive_group(required=True)
+    matcher.add_argument("--from", dest="sender")
+    matcher.add_argument("--domain")
     way = parsers["switch"].add_mutually_exclusive_group(required=True)
     way.add_argument("--on", action="store_true")
     way.add_argument("--off", action="store_true")
