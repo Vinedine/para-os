@@ -45,13 +45,13 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        DATE_RE, H1_RE, H2_RE, HEADING_RE, LINK_ROOTS, NOT_VAULT_CONTENT,
+        DATE_RE, H1_RE, H2_RE, HEADING_RE, LINK_ROOTS,
         abspath, blank_spans,
         contact_card_level, extract_links, field_ci, git_untracked, header_fields,
         inbound_references, is_under, lifecycles, link_files, link_spans, live_lines,
         open_tasks, parse_date, read_lines, read_text,
         registered_vault, registry, registry_holding, rel_posix, resolve_entity, resolve_link,
-        snapshot, stage_line, stage_of, strip_code, vault_root,
+        snapshot, stage_line, stage_of, strip_code, vault_paths, vault_root,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"archive_scan: {missing}. The shared vault library belongs at "
@@ -535,10 +535,8 @@ def plan(vault, entity_name, destination_arg, today, paraos_home, route_files=()
 def stale_links(vault, moved_from):
     old_dir = abspath(vault / moved_from)
     out = []
-    for path in sorted(vault.rglob("*.md")):
+    for path in vault_paths(vault, "*.md"):
         rel = rel_posix(vault, path)
-        if any(rel == e or rel.startswith(e + "/") for e in NOT_VAULT_CONTENT):
-            continue
         for line, href, raw in extract_links(strip_code(read_text(path))):
             target = resolve_link(path, href)
             if is_under(target, old_dir):
@@ -568,10 +566,8 @@ def stale_mentions(vault, moved_from, moved_to):
     mention of "projects/x", and "archive/projects/x-v1" is not either, since both contain it
     as a substring."""
     out, exempt = [], []
-    for path in sorted(vault.rglob("*.md")):
+    for path in vault_paths(vault, "*.md"):
         rel = rel_posix(vault, path)
-        if any(rel == e or rel.startswith(e + "/") for e in NOT_VAULT_CONTENT):
-            continue
         in_sources = "sources" in Path(rel).parts[:-1]
         for lineno, text in live_lines(read_lines(path)):
             decoded = unquote(text)
@@ -599,10 +595,8 @@ def stale_mentions(vault, moved_from, moved_to):
 def inbound_resolved(vault, moved_to):
     new_dir = abspath(vault / moved_to)
     resolved, unresolved = 0, []
-    for path in sorted(vault.rglob("*.md")):
+    for path in vault_paths(vault, "*.md"):
         rel = rel_posix(vault, path)
-        if any(rel == e or rel.startswith(e + "/") for e in NOT_VAULT_CONTENT):
-            continue
         if is_under(path, new_dir):
             continue
         for line, href, raw in extract_links(strip_code(read_text(path))):

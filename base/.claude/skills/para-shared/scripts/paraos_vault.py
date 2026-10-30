@@ -603,7 +603,7 @@ def action_files(vault):
     """Every file a checkbox may live in, per the vault's own rule: action files and
     contact files, never archive/, resources/ or a record."""
     vault = Path(vault)
-    found = list(sorted(vault.rglob("actions.md")))
+    found = vault_paths(vault, "actions.md")
     for pattern in ("areas/network/*.md", "contacts/*.md", "people/*.md"):
         found += [p for p in sorted(vault.glob(pattern)) if p.name != "actions.md"]
     return [p for p in found if is_live(p.relative_to(vault))
@@ -1702,7 +1702,7 @@ def triage_items(vault):
 LINK_OPEN_RE = re.compile(r"\]\(")
 SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 LINK_ROOTS = ("projects", "areas", "resources", "triage")
-NOT_VAULT_CONTENT = (".git", ".claude/skills")
+NOT_VAULT_CONTENT = (".git", ".claude/skills", ".claude/worktrees")
 
 
 def abspath(path):
@@ -1726,6 +1726,16 @@ def rel_posix(vault, path):
         return abspath(path).relative_to(abspath(vault)).as_posix()
     except ValueError:
         return abspath(path).as_posix()
+
+
+def under_any(rel, folders):
+    return any(rel == f or rel.startswith(f + "/") for f in (d.strip("/") for d in folders))
+
+
+def vault_paths(vault, pattern="*"):
+    """`rglob(pattern)` over the vault, sorted, less NOT_VAULT_CONTENT: copies of something else."""
+    return [p for p in sorted(Path(vault).rglob(pattern))
+            if not under_any(p.relative_to(vault).as_posix(), NOT_VAULT_CONTENT)]
 
 
 def is_under(path, base):
@@ -1872,7 +1882,7 @@ def first_mention(text, name, parent=None):
     return -1
 
 
-def inbound_references(vault, name, exclude=NOT_VAULT_CONTENT, parent=None):
+def inbound_references(vault, name, parent=None):
     """Every live line in the vault naming `name`, with the shape it is written in.
 
     A reference is anywhere the path is written, not only a `](...)` target: a link's display
@@ -1890,10 +1900,8 @@ def inbound_references(vault, name, exclude=NOT_VAULT_CONTENT, parent=None):
     """
     vault = Path(vault)
     out = []
-    for path in sorted(vault.rglob("*.md")):
+    for path in vault_paths(vault, "*.md"):
         rel = rel_posix(vault, path)
-        if any(rel == e or rel.startswith(e + "/") for e in exclude):
-            continue
         in_sources = "sources" in Path(rel).parts[:-1]
         for lineno, text in live_lines(read_lines(path)):
             decoded = unquote(text)
@@ -2228,7 +2236,7 @@ def template_marker(text, raw=False):
     return m.group(1) if raw else LEGACY_REVISIONS.get(m.group(1), m.group(1))
 
 
-def integration_markers(vault, exclude=NOT_VAULT_CONTENT):
+def integration_markers(vault):
     """Every installed integration script in the vault, as {file, name, revision}.
 
     The whole vault, never one folder: a script installed outside `resources/scripts/`
@@ -2236,12 +2244,10 @@ def integration_markers(vault, exclude=NOT_VAULT_CONTENT):
     """
     vault = Path(vault)
     out = []
-    for path in sorted(vault.rglob("*")):
+    for path in vault_paths(vault):
         if not path.is_file() or path.suffix.lower() not in MARKED_SUFFIXES:
             continue
         rel = rel_posix(vault, path)
-        if any(rel == e or rel.startswith(e + "/") for e in exclude):
-            continue
         header = "\n".join(read_lines(path)[:MARKER_HEADER_LINES])
         m = INTEGRATION_MARKER_RE.search(header)
         if m:
