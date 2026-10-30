@@ -63,7 +63,8 @@ try:
     from paraos_pages import remembered_url  # noqa: E402
     from paraos_vault import (  # noqa: E402
         cadence_days, declarations, deep_clean_stamp, iso, live_lines, norm, operator_card,
-        paraos_home_dir, parse_date, read_lines, register_rows, registry, weekday_index, writer)
+        paraos_home_dir, parse_date, read_lines, register_rows, registry, vault_paths,
+        weekday_index, writer)
     from render_dashboard import now_key  # noqa: E402
 except ImportError as missing:
     print(f"global_scan: {missing}. install para-audit, para-daily-brief and para-shared "
@@ -226,7 +227,7 @@ def step_days(cadence):
 
 def meetings(vault, name, today, until):
     out = []
-    for path in sorted(Path(vault).rglob("meetings.md")):
+    for path in vault_paths(vault, "meetings.md"):
         if "archive" in path.relative_to(vault).parts:
             continue
         for _, text in live_lines(read_lines(path)):

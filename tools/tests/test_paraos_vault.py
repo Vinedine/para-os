@@ -508,8 +508,9 @@ class GitUntracked(VaultCase):
 
 class WhereThingsLive(VaultCase):
 
-    def test_action_files_skip_archive_and_resources(self):
+    def test_action_files_skip_archive_resources_and_worktrees(self):
         write(self.root, "projects/live/actions.md", "# live\n\n- [ ] One\n")
+        write(self.root, ".claude/worktrees/w/projects/live/actions.md", "# live\n\n- [ ] One\n")
         write(self.root, "areas/network/jan-janssen.md", "# Jan\n\n- [ ] Two\n")
         write(self.root, "archive/projects/old/actions.md", "# old\n\n- [ ] Three\n")
         write(self.root, "resources/playbook/actions.md", "# p\n\n- [ ] Four\n")
@@ -1502,9 +1503,10 @@ class Inbound(VaultCase):
         got = inbound_references(self.root, "orchard-lane")
         self.assertTrue(got[0]["in_sources"])
 
-    def test_git_internals_and_installed_skills_are_not_vault_content(self):
+    def test_git_internals_installed_skills_and_worktrees_are_not_vault_content(self):
         write(self.root, ".claude/skills/para-archive/SKILL.md", "Sample: projects/orchard-lane\n")
         write(self.root, ".git/notes.md", "orchard-lane\n")
+        write(self.root, ".claude/worktrees/w/areas/business/actions.md", "- [ ] Call orchard-lane\n")
         write(self.root, "areas/business/actions.md", "- [ ] Call orchard-lane\n")
         got = inbound_references(self.root, "orchard-lane")
         self.assertEqual([h["file"] for h in got], ["areas/business/actions.md"])

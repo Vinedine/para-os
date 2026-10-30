@@ -182,6 +182,7 @@ class GlobalScan(unittest.TestCase):
             "- 🗓 2026-03-02 09:00 · Weekly sync 🔁 every week · Teams",
             "- 🗓 2026-03-03 09:30 · Stand-up · Teams 🔁 every Tuesday", ""]))
         write(self.tmp / "north", "archive/meetings.md", "- 🗓 2026-03-12 · Archived one\n")
+        write(self.tmp / "north", ".claude/worktrees/w/meetings.md", "- 🗓 2026-03-12 · A copy\n")
         meetings = self.report()["meetings"]
         self.assertEqual(next(m["end"] for m in meetings if m["title"] == "Kick-off"), "11:00")
         got = [(m["date"], m["start"], m["title"], m["recurring"]) for m in meetings]

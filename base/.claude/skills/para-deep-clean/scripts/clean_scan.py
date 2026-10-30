@@ -47,7 +47,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        FROZEN_MARKER_RE, NOT_CARDS, NOT_VAULT_CONTENT, STALE_UNDATED_DAYS, TASK_RE,
+        FROZEN_MARKER_RE, NOT_CARDS, STALE_UNDATED_DAYS, TASK_RE,
         LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
         MARKED_SUFFIXES, dangling_links, deep_clean_stamp, duplicates, find_clone,
         integration_markers,
@@ -56,7 +56,7 @@ try:
         open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
         reference_shape,
         rel_posix, resolve_link, snapshot, stage_of, strip_code, table_cells,
-        template_marker, triage_items,
+        template_marker, triage_items, under_any, vault_paths,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -137,10 +137,6 @@ def is_ledger_exempt(rel):
     or "transcript" as a whole word, case-insensitively: `technologies` and `reviewer`
     carry none of them."""
     return any(LEDGER_EXEMPT_RE.search(part) for part in Path(rel).parts)
-
-
-def under_any(rel, folders):
-    return any(rel == f or rel.startswith(f + "/") for f in (d.strip("/") for d in folders))
 
 
 def is_frozen_record(path):
@@ -235,8 +231,8 @@ def preconditions(vault, clone, ref):
 
 def empty_leaf_dirs(vault):
     out = []
-    for d in sorted(vault.rglob("*")):
-        if not d.is_dir() or ".git" in d.parts:
+    for d in vault_paths(vault):
+        if not d.is_dir():
             continue
         try:
             if not any(d.iterdir()):
@@ -280,7 +276,7 @@ def build_md_index(vault):
     written as the note's display title ([[Jan Claes]]) resolves against a kebab-case
     filename (jan-claes.md) the way the vault's own naming convention expects."""
     index = {}
-    for p in vault.rglob("*.md"):
+    for p in vault_paths(vault, "*.md"):
         index.setdefault(norm(p.stem), []).append(p)
     return index
 
@@ -441,7 +437,7 @@ def inline_contact_details(vault):
             patterns[name] = whole_word(name)
 
     out = []
-    for path in sorted(vault.rglob("*.md")):
+    for path in vault_paths(vault, "*.md"):
         rel = path.relative_to(vault).as_posix()
         if "sources" in Path(rel).parts[:-1] or not in_live_scope(rel):
             continue
@@ -512,7 +508,7 @@ def rollup_files(vault):
         p = vault / bucket / "README.md"
         if p.is_file():
             files.append(p)
-    for path in vault.rglob("*.md"):
+    for path in vault_paths(vault, "*.md"):
         if path.stem.lower() in ("dashboard", "overview"):
             files.append(path)
     return sorted({f for f in files if f.is_file()})
@@ -609,7 +605,7 @@ def resources_loose(vault):
 
 def stale_drafts(vault):
     out = []
-    for path in sorted(vault.rglob("*")):
+    for path in vault_paths(vault):
         if path.is_file() and path.suffix.lower() in (".doc", ".docx"):
             pdf = path.with_suffix(".pdf")
             if pdf.is_file():
@@ -647,10 +643,8 @@ def conflict_copies(vault):
     under such a folder whose path, less the pattern, is a non-empty file. `survivor` is
     that path where it exists, else None."""
     out = []
-    for path in sorted(vault.rglob("*")):
+    for path in vault_paths(vault):
         rel = path.relative_to(vault)
-        if under_any(rel.as_posix(), NOT_VAULT_CONTENT):
-            continue
         clean = []
         for part in rel.parts:
             clean.append(unconflicted(vault.joinpath(*clean), part) or part)
@@ -848,7 +842,7 @@ def bullets_under_headings(path, headings, vault):
 def prose_next_steps(vault, headings):
     """For a vault with no actions.md at all, the bullets under the vault's declared
     next-steps headings in every live brief: such a vault keeps its next steps there."""
-    if any(True for _ in vault.rglob("actions.md")):
+    if vault_paths(vault, "actions.md"):
         return {"applicable": False, "items": []}
     items = []
     for f in live_briefs(vault):
