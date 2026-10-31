@@ -47,6 +47,7 @@ import sys
 import unicodedata
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from difflib import SequenceMatcher
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -646,6 +647,18 @@ def entity_candidates(vault, buckets=("projects", "areas")):
     return out
 
 
+def closeness(a, b):
+    """How alike two folded names are, from 0 to 1: the better of the names compared whole
+    and word by word, each word against its closest in the other name, from either side. The
+    whole name carries a typo, the words another word order or a name given with more or
+    fewer words than its folder."""
+    def words(xs, ys):
+        return sum(max(SequenceMatcher(None, x, y).ratio() for y in ys) for x in xs) / len(xs)
+
+    xs, ys = a.split("-"), b.split("-")
+    return max(SequenceMatcher(None, a, b).ratio(), words(xs, ys), words(ys, xs))
+
+
 def resolve_entity(vault, query, buckets=("projects", "areas")):
     """Exactly one project, area (or idea, once `buckets` includes `resources/ideas`), or an
     answer about where the thing actually is.
@@ -655,7 +668,8 @@ def resolve_entity(vault, query, buckets=("projects", "areas")):
     matches nothing is looked for in resources/ideas/ and archive/ before it is called
     missing: where the thing lives is a better answer than that it does not exist. Where
     `resources/ideas` is already one of `buckets`, an idea is resolved as a candidate like
-    any other and is not reported a second time under `elsewhere`.
+    any other and is not reported a second time under `elsewhere`. `nearest` is the three
+    closest candidates at 0.6 or more (difflib's own default cutoff), closest first.
     """
     vault = Path(vault)
     key = norm(query)
@@ -686,8 +700,9 @@ def resolve_entity(vault, query, buckets=("projects", "areas")):
     if archive.is_dir():
         elsewhere += [{"kind": "archived", "path": d.relative_to(vault).as_posix()}
                       for d in sorted(archive.rglob("*")) if d.is_dir() and norm(d.name) == key]
-    near = sorted(c["path"] for c in candidates
-                  if key and (key[:6] in c["key"] or c["key"][:6] in key))[:3]
+    scored = [(closeness(key, c["key"]), c["path"]) for c in candidates] if key else []
+    near = [path for score, path in sorted(scored, key=lambda s: (-s[0], s[1]))
+            if score >= 0.6][:3]
     return {"status": "elsewhere" if elsewhere else "unresolved",
             "match": None, "elsewhere": elsewhere, "nearest": near}
 

@@ -130,6 +130,23 @@ class Names(VaultCase):
         self.assertEqual(got["status"], "unresolved")
         self.assertEqual(got["nearest"], ["projects/acme-website"])
 
+    def test_a_typo_in_the_first_letters_still_offers_the_nearest(self):
+        # A six-letter prefix test offered nothing for a letter dropped near the start.
+        write(self.root, "projects/bassett-hollow/actions.md", "# a\n")
+        write(self.root, "areas/network/actions.md", "# b\n")
+        for query in ("baset hollow", "hollow baset", "baset"):
+            with self.subTest(query=query):
+                got = resolve_entity(self.root, query)
+                self.assertEqual(got["status"], "unresolved")
+                self.assertEqual(got["nearest"], ["projects/bassett-hollow"])
+
+    def test_nearest_is_closest_first_and_at_most_three(self):
+        for name in ("abbott-hollow", "bassett-hall", "bassett-hollow", "bassett-hollow-v2"):
+            write(self.root, f"projects/{name}/actions.md", "# a\n")
+        self.assertEqual(resolve_entity(self.root, "bassett holow")["nearest"],
+                         ["projects/bassett-hollow", "projects/bassett-hollow-v2",
+                          "projects/bassett-hall"])
+
     def test_a_stray_file_in_a_bucket_is_never_an_entity(self):
         write(self.root, "projects/acme.md", "# a loose note, not a project\n")
         write(self.root, "projects/acme-website/actions.md", "# a\n")
