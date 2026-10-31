@@ -6,10 +6,4 @@ For GDPR or data-sovereignty needs there's a ladder: a provider plan whose comme
 
 ## Keep the secrets folder out of the agent's reach
 
-Integration scripts read their own tokens from `~/.paraos/secrets/`; the agent never needs to open that folder. Where an agent can read its own credentials, a prompt injection only has to ask it to. So deny it the folder in your harness's user settings. In Claude Code, a `Read` deny rule also covers Grep and Glob; on Windows give both spellings of the path:
-
-```json
-{ "permissions": { "deny": ["Read(~/.paraos/secrets/**)", "Read(//c/Users/<you>/.paraos/secrets/**)"] } }
-```
-
-A shell command such as `cat` is not covered by that rule; guarding the shell is your own harness setting, since it names your environment. The scripts keep working, because a permission rule binds only the agent's tools. To check it, ask the agent to read a file under `secrets/`: the read is refused.
+Integration scripts read their own tokens from `~/.paraos/secrets/`; the agent never needs to open that folder. Where an agent can read its own credentials, a prompt injection only has to ask it to. The vault's `.claude/settings.json` denies the folder to Claude Code's file tools: a `Read` deny rule also covers Grep and Glob. A shell command such as `cat` is not covered; guarding the shell is your own harness setting, since it names your environment. The scripts keep working, because a permission rule binds only the agent's tools. To check it, ask the agent to read a file under `secrets/`: the read is refused.
