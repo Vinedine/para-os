@@ -111,14 +111,14 @@ class Executor(unittest.TestCase):
         write(self.vault, "triage/noise.md", "Edited after the scan.\n")
         rows = [{"item": "../CLAUDE.md", "action": "Delete (duplicate)"},
                 {"item": "noise.md", "action": "Dismiss (noise)"},
-                {"item": "dup.pdf", "action": "File it"},
+                {"item": "dup.pdf", "action": "Add action"},
                 {"item": "invoice.md", "action": "Dismiss (noise)"},
                 {"item": "dup.pdf", "action": "Delete (duplicate)"}]
         code, out = call("run", "--scan", saved, "--decisions", self.decide(rows),
                          "--cap", 1, "--paraos-home", self.home)
         reasons = [r["reason"] for r in out["refused"]]
         self.assertEqual(reasons, ["not a loose file of the scan's triage/",
-                                   "changed since the scan", "File it is never unattended",
+                                   "changed since the scan", "Add action is never unattended",
                                    "over the run's cap of 1"])
         self.assertEqual([a["item"] for a in out["acted"]], ["invoice.md"])
 
@@ -320,26 +320,122 @@ class Executor(unittest.TestCase):
         self.assertEqual(call(*args, "--domain", "four.example")[0], 3)
         self.assertEqual(path.read_text(encoding="utf-8"), "{ broken")
 
-    def test_only_delete_and_dismiss_can_be_switched_on(self):
-        code, out = call("switch", "--vault-name", "north", "--on", "File it",
+    def test_only_delete_dismiss_and_file_it_can_be_switched_on(self):
+        code, out = call("switch", "--vault-name", "north", "--on", "Add action",
                          "--paraos-home", self.home)
         self.assertEqual(code, 3)
+        self.switch_on("File it")
+
+    def git(self, *a):
+        return subprocess.run(["git", *a], cwd=self.vault, check=True, capture_output=True,
+                              text=True).stdout
+
+    def init_git(self):
+        self.git("init", "-q")
+        self.git("config", "user.name", "t")
+        self.git("config", "user.email", "t@example.invalid")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "start")
 
     def test_a_git_vault_is_left_for_the_operator_to_commit(self):
-        def git(*a):
-            return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid",
-                                   *a], cwd=self.vault, check=True, capture_output=True,
-                                  text=True).stdout
-        git("init", "-q")
-        git("add", "-A")
-        git("commit", "-qm", "start")
+        self.init_git()
         self.switch_on("Delete (duplicate)")
         _, out = self.run_all(self.ROWS[:1])
         self.assertNotIn("commit", out)
-        self.assertEqual(git("log", "-1", "--format=%s").strip(), "start")
-        self.assertEqual(git("status", "--porcelain").strip(), "D triage/dup.pdf")
+        self.assertEqual(self.git("log", "-1", "--format=%s").strip(), "start")
+        self.assertEqual(self.git("status", "--porcelain").strip(), "D triage/dup.pdf")
         call("restore", "--vault-name", "north", "--run", out["run"], "--paraos-home", self.home)
-        self.assertEqual(git("status", "--porcelain"), "")
+        self.assertEqual(self.git("status", "--porcelain"), "")
+
+    FILE = {"item": "linked.md", "action": "File it", "entity": "projects/site",
+            "name": "brief.md"}
+
+    def test_file_it_files_into_an_entitys_sources_repoints_its_link_and_commits_those_paths(self):
+        self.init_git()
+        write(self.vault, "triage/invoice.md", "Paid, the operator notes.\n")
+        self.switch_on("File it")
+        code, out = self.run_all([self.FILE])
+        self.assertEqual((code, out["acted"]), (0, [{"item": "linked.md", "action": "File it"}]))
+        self.assertTrue((self.vault / "projects/site/sources/brief.md").is_file())
+        self.assertFalse((self.vault / "triage/linked.md").exists())
+        self.assertEqual((self.vault / "projects/site/README.md").read_text(),
+                         "See [it](sources/brief.md).\n")
+        self.assertEqual(self.git("log", "-1", "--format=%h").strip(), out["commit"])
+        self.assertEqual(sorted(self.git("show", "--name-only", "--no-renames", "--format=",
+                                         "HEAD").split()),
+                         ["projects/site/README.md", "projects/site/sources/brief.md",
+                          "triage/linked.md"])
+        self.assertEqual(self.git("status", "--porcelain").strip(), "M triage/invoice.md")
+
+    def test_file_it_refuses_a_missing_entity_a_bad_name_a_taken_target_and_a_changed_item(self):
+        self.init_git()
+        for n in "abcdefg":
+            write(self.vault, f"triage/{n}.md", f"Item {n}.\n")
+        write(self.vault, "projects/site/sources/f.md", "Already filed.\n")
+        self.switch_on("File it")
+        saved = self.scan()
+        write(self.vault, "triage/g.md", "Edited after the scan.\n")
+        names = {"a": "a.md", "b": "sub/b.md", "c": "../c.md", "d": ".d.md", "e": "e.txt",
+                 "f": "f.md", "g": "g.md"}
+        rows = [dict(self.FILE, item=f"{n}.md", name=name) for n, name in names.items()]
+        rows[0]["entity"] = "projects/nope"
+        code, out = call("run", "--scan", saved, "--decisions", self.decide(rows),
+                         "--paraos-home", self.home)
+        bad_name = "is not a bare file name with the item's extension"
+        self.assertEqual([r["reason"] for r in out["refused"]],
+                         ["projects/nope is no project, area or idea of this vault",
+                          f"sub/b.md {bad_name}", f"../c.md {bad_name}", f".d.md {bad_name}",
+                          f"e.txt {bad_name}", "projects/site/sources/f.md exists",
+                          "changed since the scan"])
+        self.assertEqual((out["acted"], "commit" in out), ([], False))
+        self.assertEqual(self.git("log", "-1", "--format=%s").strip(), "start")
+        self.assertTrue(all((self.vault / f"triage/{n}.md").is_file() for n in names))
+
+    def test_file_it_not_switched_on_or_outside_git_is_refused(self):
+        self.switch_on("Dismiss (noise)")
+        self.assertEqual(self.run_all([self.FILE])[1]["refused"][0]["reason"],
+                         "File it is not switched on for this vault")
+        self.switch_on("File it")
+        self.assertEqual(self.run_all([self.FILE])[1]["refused"][0]["reason"],
+                         "File it runs only in a vault whose root is a git working tree")
+        self.assertTrue((self.vault / "triage/linked.md").is_file())
+
+    def test_restoring_a_filed_item_moves_it_back_demotes_file_it_and_commits(self):
+        self.init_git()
+        self.switch_on("File it", "Dismiss (noise)")
+        _, out = self.run_all([self.FILE])
+        code, back = call("restore", "--vault-name", "north", "--run", out["run"],
+                          "--paraos-home", self.home)
+        self.assertEqual((code, back["failed"]), (0, []))
+        self.assertEqual((self.vault / "triage/linked.md").read_text(), "Linked from a project.\n")
+        self.assertEqual((self.vault / "projects/site/README.md").read_text(),
+                         "See [it](../../triage/linked.md).\n")
+        self.assertEqual(self.git("log", "-1", "--format=%h %s").strip(),
+                         f"{back['commit']} Restore unattended triage {out['run']}")
+        self.assertEqual(self.git("status", "--porcelain"), "")
+        _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
+        self.assertEqual(status["on"], ["Dismiss (noise)"])
+
+    def test_a_filed_item_gone_from_its_entity_is_not_restored(self):
+        self.init_git()
+        self.switch_on("File it")
+        _, out = self.run_all([self.FILE])
+        os.remove(self.vault / "projects/site/sources/brief.md")
+        code, back = call("restore", "--vault-name", "north", "--run", out["run"],
+                          "--paraos-home", self.home)
+        self.assertEqual(code, 4)
+        self.assertIn("nothing to move", back["failed"][0]["reason"])
+        self.assertNotIn("commit", back)
+
+    def test_a_commit_git_refuses_leaves_the_filed_item_moved_and_says_so(self):
+        self.init_git()
+        self.switch_on("File it")
+        real = auto_execute.git
+        with mock.patch.object(auto_execute, "git",
+                               lambda root, a: None if a[0] == "commit" else real(root, a)):
+            code, out = self.run_all([self.FILE])
+        self.assertEqual((code, out["commit"]), (0, None))
+        self.assertTrue((self.vault / "projects/site/sources/brief.md").is_file())
 
     def test_purge_trashes_only_expired_runs(self):
         self.switch_on("Delete (duplicate)")

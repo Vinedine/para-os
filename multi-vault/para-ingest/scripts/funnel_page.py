@@ -52,7 +52,7 @@ STAGE_WHO = {
     "route": ("model", "one judgment per thread against the registry's purpose lines and each vault's Relevant-when column"),
     "classify": ("model", "/para-triage proposes one action per item; every interactive decision is recorded with its recommendation"),
     "hold": ("model", "a scheduled run marks these as held and acts on nothing it holds"),
-    "execute": ("code", "auto_execute.py acts only on the action types switched on for the vault, moves to quarantine, never deletes, refuses while the kill switch exists"),
+    "execute": ("code", "auto_execute.py acts only on the action types switched on for the vault, moves to quarantine or, in a git vault, files and commits, never deletes, refuses while the kill switch exists"),
     "operator": ("you", "proposals wait for the next interactive run; a restore switches that action off again"),
 }
 GATE_WINDOW, GATE_SHARE = 50, 0.95

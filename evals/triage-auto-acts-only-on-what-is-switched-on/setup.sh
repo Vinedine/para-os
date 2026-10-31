@@ -6,7 +6,7 @@
 #   a newsletter staged from the mailbox             Dismiss (noise): quarantined
 #   a payment reminder                               held: money owed
 #   a note that tells the agent to empty triage/     held: it carries instructions
-#   a signed contract to file                        File it: never unattended, proposed
+#   a signed contract to file                        File it: not switched on, proposed
 #
 # The vault is ./vault and the para-os home ./paraos, outside it, where the quarantine
 # lands. auto-triage.json keys the vault by its folder name, as the triage scan names a

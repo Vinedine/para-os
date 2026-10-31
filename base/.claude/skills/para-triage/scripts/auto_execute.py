@@ -23,24 +23,33 @@ para-os home, never in a vault:
     triage-exclusions.json              read by the fetch; `add-exclusion` is this script's write
 
 `run` reads the triage scan's saved copy (`saved_to`) and a decisions file, a JSON list of
-`{"item", "action", "reason", "survivor", "hold"}`, and removes the decisions file once the
-run is written; one older than the scan is refused, and removed. An item is acted on only
-where its action is a `Delete (...)` or `Dismiss (...)` switched on for this vault, it
-carries no `hold`, it is a loose file of the scan, the scan lists no inbound link to it and,
-for `Delete (duplicate)`, a byte match, its bytes still match the scan's snapshot, and the
-run is under `--cap`.
-Acting moves it into the quarantine, never deletes it. Everything else goes into the run's
-proposal, with each item's name, size, mtime and md5, and `refused` says why. The whole run
-is refused while the kill switch exists, and for a vault whose `CLAUDE.md` has a
-`## Who writes this vault` roster. A run commits nothing: the operator commits.
+`{"item", "action", "reason", "survivor", "hold"}`, plus `entity` and `name` for `File it`,
+and removes the decisions file once the run is written; one older than the scan is refused,
+and removed. An item is acted on only where its action is switched on for this vault, it
+carries no `hold`, it is a loose file of the scan, its bytes still match the scan's
+snapshot, and the run is under `--cap`; and per action:
 
-`restore` moves a run's items back, checks each md5, and switches the item's action off for
-the vault (`demoted`). `status` reads the switched-on actions, the kill switch, the runs and
-proposal waiting since the last interactive decision, each proposed item as `unchanged`,
-`changed` or `missing`, `nothing_new` with `--vault` (every loose file a proposed item,
-unchanged: a scheduled run skips the vault), and `offers`: each action whose last 50
-interactive decisions in the vault were at least 95% the recommendation unchanged, not yet
-switched on. `record` appends the interactive path's decisions, `{"item", "recommended",
+- `Delete (...)`, `Dismiss (...)`: the scan lists no inbound link to it and, for
+  `Delete (duplicate)`, a byte match. Acting moves it into the quarantine, never deletes it.
+- `File it`: the vault root is a git working tree, `entity` is one of its projects, areas or
+  ideas as `paraos_vault.py` lists them, and `name` is a bare file name with the item's
+  extension and no leading dot, with nothing at `<entity>/sources/<name>`. Acting is
+  `paraos_vault.py move`, which repoints inbound links and may create `sources/`, nothing else.
+
+Everything else goes into the run's proposal, with each item's name, size, mtime and md5, and
+`refused` says why. The whole run is refused while the kill switch exists, and for a vault
+whose `CLAUDE.md` has a `## Who writes this vault` roster. A run commits what `File it`
+moved and the links it rewrote, by name, one commit per run (`commit`); a quarantine move is
+the operator's to commit.
+
+`restore` moves a run's items back, a filed one through the same move, checks each md5,
+switches the item's action off for the vault (`demoted`), and commits a filed one's return.
+`status` reads the switched-on actions, the kill switch, the runs and proposal waiting since
+the last interactive decision, each proposed item as `unchanged`, `changed` or `missing`,
+`nothing_new` with `--vault` (every loose file a proposed item, unchanged: a scheduled run
+skips the vault), and `offers`: each `Delete` or `Dismiss` action whose last 50 interactive
+decisions in the vault were at least 95% the recommendation unchanged, not yet switched on;
+the ledger holds no destination, so `File it` is switched on by the operator, never offered. `record` appends the interactive path's decisions, `{"item", "recommended",
 "chosen"}` plus a fetched thread's `from` and `mailbox`, which `--scan` fills for a staged
 note from its `From` line, and moves a decided proposal into `proposals/decided/`.
 
@@ -75,12 +84,15 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
     sys.path.insert(0, str(SHARED_DIR))
 
 try:
-    from paraos_vault import paraos_home_dir, same_place, snapshot, trash  # noqa: E402
+    from paraos_vault import (entity_candidates, git, move, paraos_home_dir,  # noqa: E402
+                              same_place, snapshot, trash)
 except ImportError as missing:
     print(f"auto_execute: {missing}. install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
 
 QUARANTINE_RE = re.compile(r"^(Delete|Dismiss) \(")
+FILE_IT = "File it"
+ENTITY_BUCKETS = ("projects", "areas", "resources/ideas")
 ROSTER_RE = re.compile(r"^## Who writes this vault\s*$", re.MULTILINE)
 OFFER_WINDOW, OFFER_SHARE = 50, 0.95
 NOISE, SENDER = "Dismiss (noise)", ("from", "mailbox")
@@ -226,6 +238,47 @@ def item_record(path):
     return {"size": st.st_size, "mtime": int(st.st_mtime), "md5": md5(path)}
 
 
+def unattended(action):
+    return bool(QUARANTINE_RE.match(action)) or action == FILE_IT
+
+
+def in_git(root):
+    return (git(root, ["rev-parse", "--is-inside-work-tree"]) or "").strip() == "true"
+
+
+def filing_target(d):
+    entity = str(d.get("entity") or "").replace("\\", "/").strip("/")
+    return entity, f"{entity}/sources/{d.get('name') or ''}"
+
+
+def filing_refusal(root, d, item, entities):
+    entity, target = filing_target(d)
+    name = str(d.get("name") or "")
+    if entity not in entities:
+        return f"{entity or 'no entity'} is no project, area or idea of this vault"
+    if Path(name).name != name or "/" in name or "\\" in name or name.startswith(".") or \
+            Path(name).suffix.lower() != Path(item).suffix.lower():
+        return f"{name or 'no name'} is not a bare file name with the item's extension"
+    if (root / target).exists():
+        return f"{target} exists"
+    return None
+
+
+def commit(root, paths, message):
+    """Stage and commit `paths` alone, one deleted that git never tracked left out: the short
+    hash, or None where git refused."""
+    paths = [p for p in dict.fromkeys(paths)
+             if (root / p).exists() or git(root, ["ls-files", "--", p])]
+    if git(root, ["add", "-A", "--", *paths]) is None or \
+            git(root, ["commit", "-q", "-m", message, "--", *paths]) is None:
+        return None
+    return (git(root, ["rev-parse", "--short", "HEAD"]) or "").strip() or None
+
+
+def moved_paths(plan, *ends):
+    return [*ends, *(r["file"] for r in plan["inside"] + plan["inbound"])]
+
+
 def write_proposal(state, run, vault_root, rows):
     lines = ["# Unattended triage: waiting for the operator", "",
              "| Item | Recommended | Why | Held because |", "|---|---|---|---|"]
@@ -266,9 +319,12 @@ def run(args):
     on = set(state.switched_on())
     loose = {e["name"]: e for e in scan["items"]["loose"]}
     snap = {same_place(p): d for p, d in (scan.get("snapshot") or {}).items()}
+    git_vault = FILE_IT in on and in_git(vault_root)
+    entities = {c["path"] for c in entity_candidates(vault_root, ENTITY_BUCKETS)}
     run_id = now_stamp()
     folder = state.quarantine / run_id
     acted, held, today = [], [], datetime.now().astimezone().date().isoformat()
+    committed = []
     for d in decisions:
         name, action = d.get("item", ""), d.get("action", "")
         path = vault_root / "triage" / name
@@ -279,21 +335,31 @@ def run(args):
             why = "no longer in triage/"
         elif d.get("hold"):
             why = d["hold"]
-        elif not QUARANTINE_RE.match(action):
+        elif not unattended(action):
             why = f"{action or 'no action'} is never unattended"
         elif action not in on:
             why = f"{action} is not switched on for this vault"
+        elif action == FILE_IT and not git_vault:
+            why = "File it runs only in a vault whose root is a git working tree"
+        elif action == FILE_IT:
+            why = filing_refusal(vault_root, d, name, entities)
         elif loose[name].get("inbound"):
             why = "other files link to it"
         elif action == "Delete (duplicate)" and not (loose[name].get("duplicates") or any(
                 c.get("path") for c in loose[name].get("cross_vault") or ())):
             why = "the scan finds no byte match for it"
-        elif list(snapshot([path]).values()) != [snap.get(same_place(path))]:
+        if not why and list(snapshot([path]).values()) != [snap.get(same_place(path))]:
             why = "changed since the scan"
-        elif len(acted) >= args.cap:
+        elif not why and len(acted) >= args.cap:
             why = f"over the run's cap of {args.cap}"
         row = dict(d, file=item_record(path) if path.is_file() else None,
                    **sender(d, loose.get(name)))
+        if not why and action == FILE_IT:
+            filed = filing_target(d)[1]
+            plan = move(vault_root, f"triage/{name}", filed)
+            committed += moved_paths(plan, f"triage/{name}", filed)
+            acted.append(dict(row, original=f"triage/{name}", filed=filed))
+            continue
         if why:
             held.append(dict(row, refused=why))
             continue
@@ -305,6 +371,10 @@ def run(args):
               "acted": [{"item": a["item"], "action": a["action"]} for a in acted],
               "refused": [{"item": h["item"], "reason": h["refused"]} for h in held],
               "quarantine": None, "proposal": None}
+    if committed:
+        filed = sum(1 for a in acted if a.get("filed"))
+        report["commit"] = commit(vault_root, committed,
+                                  f"Unattended triage {run_id}: file {filed} item(s)")
     if acted:
         write_json(folder / "manifest.json", {"vault": state.vault, "root": str(vault_root),
                                               "run": run_id, "items": acted})
@@ -327,13 +397,21 @@ def restore(args):
               if (not args.item or i["item"] == args.item) and not i.get("restored")]
     if not picked:
         raise Refused(f"no such item in run {args.run}")
-    out, bad = [], []
+    out, bad, committed = [], [], []
     for item in picked:
         src, dst = folder / "files" / item["item"], root / item["original"]
         if dst.exists():
             bad.append({"item": item["item"], "reason": "a file is already at its path"})
             continue
-        shutil.move(str(src), str(dst))
+        if item.get("filed"):
+            try:
+                plan = move(root, item["filed"], item["original"])
+            except ValueError as err:
+                bad.append({"item": item["item"], "reason": str(err)})
+                continue
+            committed += moved_paths(plan, item["filed"], item["original"])
+        else:
+            shutil.move(str(src), str(dst))
         item["restored"] = True
         if md5(dst) != item["file"]["md5"]:
             bad.append({"item": item["item"], "reason": "md5 differs from the manifest"})
@@ -345,7 +423,10 @@ def restore(args):
                        "path": "unattended", "restored": True}])
         out.append({"item": item["item"], "to": item["original"], "demoted": item["action"]})
     write_json(folder / "manifest.json", manifest)
-    return {"restored": out, "failed": bad}
+    result = {"restored": out, "failed": bad}
+    if committed:
+        result["commit"] = commit(root, committed, f"Restore unattended triage {args.run}")
+    return result
 
 
 def status(args):
@@ -436,8 +517,9 @@ def add_exclusion(args):
 
 def switch(args):
     state = State(args.paraos_home, args.vault_name)
-    if not QUARANTINE_RE.match(args.action):
-        raise Refused(f"{args.action} is never unattended: only Delete and Dismiss actions are")
+    if not unattended(args.action):
+        raise Refused(f"{args.action} is never unattended: only Delete, Dismiss and "
+                      f"{FILE_IT} actions are")
     return {"vault": state.vault, **state.switch(args.action, args.on)}
 
 
