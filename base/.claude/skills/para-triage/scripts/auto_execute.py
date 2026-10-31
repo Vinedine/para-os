@@ -31,7 +31,7 @@ snapshot, and the run is under `--cap`; and per action:
 
 - `Delete (...)`, `Dismiss (...)`: the scan lists no inbound link to it and, for
   `Delete (duplicate)`, a byte match. Acting moves it into the quarantine, never deletes it.
-- `File it`: the vault root is a git working tree, `entity` is one of its projects, areas or
+- `File it`: the vault root is the top of a git working tree, `entity` is one of its projects, areas or
   ideas as `paraos_vault.py` lists them, and `name` is a bare file name with the item's
   extension and no leading dot, with nothing at `<entity>/sources/<name>`. Acting is
   `paraos_vault.py move`, which repoints inbound links and may create `sources/`, nothing else.
@@ -243,7 +243,8 @@ def unattended(action):
 
 
 def in_git(root):
-    return (git(root, ["rev-parse", "--is-inside-work-tree"]) or "").strip() == "true"
+    top = (git(root, ["rev-parse", "--show-toplevel"]) or "").strip()
+    return bool(top) and same_place(top) == same_place(root)
 
 
 def filing_target(d):
@@ -267,10 +268,11 @@ def filing_refusal(root, d, item, entities):
 def commit(root, paths, message):
     """Stage and commit `paths` alone, one deleted that git never tracked left out: the short
     hash, or None where git refused."""
+    literal = ["--literal-pathspecs"]
     paths = [p for p in dict.fromkeys(paths)
-             if (root / p).exists() or git(root, ["ls-files", "--", p])]
-    if git(root, ["add", "-A", "--", *paths]) is None or \
-            git(root, ["commit", "-q", "-m", message, "--", *paths]) is None:
+             if (root / p).exists() or git(root, [*literal, "ls-files", "--", p])]
+    if git(root, [*literal, "add", "-A", "--", *paths]) is None or \
+            git(root, [*literal, "commit", "-q", "-m", message, "--", *paths]) is None:
         return None
     return (git(root, ["rev-parse", "--short", "HEAD"]) or "").strip() or None
 

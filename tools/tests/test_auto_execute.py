@@ -391,14 +391,26 @@ class Executor(unittest.TestCase):
         self.assertEqual(self.git("log", "-1", "--format=%s").strip(), "start")
         self.assertTrue(all((self.vault / f"triage/{n}.md").is_file() for n in names))
 
-    def test_file_it_not_switched_on_or_outside_git_is_refused(self):
+    def test_file_it_not_switched_on_outside_git_or_in_a_repo_above_the_vault_is_refused(self):
         self.switch_on("Dismiss (noise)")
         self.assertEqual(self.run_all([self.FILE])[1]["refused"][0]["reason"],
                          "File it is not switched on for this vault")
         self.switch_on("File it")
-        self.assertEqual(self.run_all([self.FILE])[1]["refused"][0]["reason"],
-                         "File it runs only in a vault whose root is a git working tree")
+        outside = "File it runs only in a vault whose root is a git working tree"
+        self.assertEqual(self.run_all([self.FILE])[1]["refused"][0]["reason"], outside)
+        subprocess.run(["git", "init", "-q"], cwd=self.tmp, check=True)
+        self.assertEqual(self.run_all([self.FILE])[1]["refused"][0]["reason"], outside)
         self.assertTrue((self.vault / "triage/linked.md").is_file())
+
+    def test_a_name_git_would_read_as_a_pattern_commits_that_file_alone(self):
+        write(self.vault, "projects/site/sources/note 1.md", "Filed earlier.\n")
+        self.init_git()
+        write(self.vault, "projects/site/sources/note 1.md", "The operator's edit.\n")
+        self.switch_on("File it")
+        _, out = self.run_all([dict(self.FILE, item="noise.md", name="note [1].md")])
+        self.assertIsNotNone(out["commit"])
+        self.assertEqual(self.git("-c", "core.quotePath=false", "status", "--porcelain").strip(),
+                         'M "projects/site/sources/note 1.md"')
 
     def test_restoring_a_filed_item_moves_it_back_demotes_file_it_and_commits(self):
         self.init_git()
@@ -432,7 +444,7 @@ class Executor(unittest.TestCase):
         self.switch_on("File it")
         real = auto_execute.git
         with mock.patch.object(auto_execute, "git",
-                               lambda root, a: None if a[0] == "commit" else real(root, a)):
+                               lambda root, a: None if "commit" in a else real(root, a)):
             code, out = self.run_all([self.FILE])
         self.assertEqual((code, out["commit"]), (0, None))
         self.assertTrue((self.vault / "projects/site/sources/brief.md").is_file())
