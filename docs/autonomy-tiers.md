@@ -4,7 +4,7 @@ What the agent may do on its own depends on where the change lands. Three tiers,
 
 | Tier | The agent may | Undo, or enforcement, in a typical setup |
 |---|---|---|
-| **The vault's own files** | Edit, move and create, after the operator approves the proposal, item by item or by switching an action type on for unattended triage. Deletes are recoverable | Version history: a git repo, or a synced drive's file history. Unattended triage: its executor, which quarantines and keeps a kill switch, and the harness allowlist of a scheduled task |
+| **The vault's own files** | Edit, move and create, after the operator approves the proposal, item by item or by switching an action type on for unattended triage. Deletes are recoverable | Version history: a git repo, or a synced drive's file history. Unattended triage: its executor, which quarantines or, in a git vault, commits what it files, and keeps a kill switch, and the harness allowlist of a scheduled task |
 | **A code repository** | Read and change files. Commit only where the operator's instructions allow it. Never push | A git `pre-push` hook that refuses, a permission rule in the agent harness that asks before `git push`, or [auto mode](#auto-mode), which blocks a force-push |
 | **External systems** (mail, calendars, trackers, cloud accounts) | Read only | The connector's read-only mode, deny rules in the harness on every write tool the connector offers, or [auto mode](#auto-mode), which blocks sending data out |
 
