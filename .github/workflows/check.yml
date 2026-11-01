@@ -22,7 +22,8 @@ jobs:
   check:
     name: check (${{ matrix.os }}, Python ${{ matrix.python }})
     # All three: the README promises Windows or macOS, and CI is the only place a change made
-    # on one of them is run on the others. Python 3.9 is the oldest the scripts support.
+    # on one of them is run on the others. Python 3.9 is the oldest the scripts support, 3.14 the
+    # newest release.
     strategy:
       fail-fast: false
       matrix:
@@ -31,17 +32,19 @@ jobs:
         include:
           - os: ubuntu-latest
             python: "3.9"
+          - os: ubuntu-latest
+            python: "3.14"
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # /para-upgrade's tests read git history
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
       # `python`, not `python3`: setup-python provides that name on every runner, Windows too.
       - name: Install requests (outlook's CLI tests run the script itself)
         run: python -m pip install requests
@@ -67,15 +70,15 @@ jobs:
     # One platform is enough to measure: the suites are the same everywhere.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "24"
       - name: Install coverage.py and requests
         run: python -m pip install "coverage>=7.10" requests
       # The floors sit just under what the suites reach today, so a drop fails the job.
@@ -87,7 +90,7 @@ jobs:
     # A workflow file GitHub cannot parse fails silently: the workflow just stops running.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Download actionlint
         run: bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash) 1.7.12
       - name: Lint .github/workflows/
