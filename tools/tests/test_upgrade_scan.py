@@ -234,7 +234,8 @@ class BehindCase(CloneCase):
         self.assertNotIn("diff", next(r for r in self.report["files"] if r["state"] != "edited"))
 
     def test_the_contract_is_the_template_s_change_section_by_section(self):
-        rows = {(r["file"], r["heading"]): r["diff"] for r in self.report["contract"]}
+        rows = {(r["file"], r["heading"]): r["diff"] for r in self.report["contract"]
+                if r["state"] == "changed"}
         self.assertEqual(sorted(rows), [("addons/sales/CLAUDE.md.sections", "Deals"),
                                         ("base/CLAUDE.md.template", "Actions"),
                                         ("base/CLAUDE.md.template", "Language")])
@@ -398,12 +399,13 @@ class StatesCase(CloneCase):
 
 
 class RevisionCase(CloneCase):
-    def test_equal_has_no_entries_and_no_contract(self):
+    def test_equal_has_no_entries_and_no_change(self):
         report, _ = self.scan(self.vault("equal", marker="2026.10.01",
                                          header="**Modules:** nonesuch\n"))
         self.assertEqual(report["revision"]["verdict"], "equal")
         self.assertEqual(report["revision"]["baseline"], self.rev_b)
-        self.assertEqual((report["revision"]["entries"], report["contract"]), ([], []))
+        self.assertEqual(report["revision"]["entries"], [])
+        self.assertEqual({r["state"] for r in report["contract"]}, {"drift", "missing"})
 
     def test_ahead_has_no_baseline(self):
         report, _ = self.scan(self.vault("ahead", marker="2026.11.01"))
@@ -450,7 +452,8 @@ class BetweenBumpsCase(CloneCase):
 
     def contract(self, name, marker, ref, clone):
         report, _ = self.scan(self.vault(name, marker=marker), ref=ref, clone=clone)
-        return report["revision"], {r["heading"]: r["diff"] for r in report["contract"]}
+        return report["revision"], {r["heading"]: r["diff"] for r in report["contract"]
+                                    if r["state"] == "changed"}
 
     def test_a_change_merged_before_the_bump_is_in_the_contract(self):
         rev, rows = self.contract("between", "2026.10.01", "main", self.later)
@@ -466,6 +469,216 @@ class BetweenBumpsCase(CloneCase):
     def test_a_tag_the_ref_never_carried_is_no_baseline(self):
         rev, _ = self.contract("ahead-tagged", "2026.11.01", "main~1", self.tagged)
         self.assertEqual((rev["verdict"], rev["baseline"]), ("ahead", None))
+
+
+def kit_template(rev):
+    hygiene, retiring = ("No loose files.", "\n## Retiring\n\nThe old rule.\n") \
+        if rev == "2026.10.01" else ("No loose files at the root.", "")
+    return f"""# {{{{Vault Name}}}} Vault Conventions
+
+<!-- para-os-template: {rev} -->
+**Type:** {{{{vault-type}}}}
+
+{{{{One-line description of what this vault covers.}}}}
+
+The lines above are machine-read.
+
+## Layout
+
+- **projects/** - {{{{what a project means here.}}}} One folder each, with a `brief.md`.
+- **archive/** - inactive artifacts.{{{{ Add `ideas/` if this vault archives ideas.}}}}
+
+### Hygiene
+
+- No live work.
+- {hygiene}
+
+## Checkboxes
+
+| Bucket | `actions.md` | State |
+|---|---|---|
+| `projects/` | yes | open + closed |
+| `areas/network/` | yes | any action about the person |
+
+## Sources
+
+Name the owning file before answering.
+
+{{{{OPTIONAL: a short `Question | Source` table; delete this line otherwise.}}}}
+
+- **Capital** is stated on {{{{the page holding it, or delete this line}}}}.
+{retiring}
+## Do not add
+
+- **Templates** before a second instance.
+- {{{{What belongs in another vault.}}}}
+"""
+
+
+DEALS = "<!-- sales MODULE: merge it in. -->\n\n## Deals\n\nA deal is won on a paid phase.\n"
+
+ALIGNED = """# Shop Vault Conventions
+
+<!-- para-os-template: 2026.10.02 -->
+**Type:** vault
+**Modules:** sales
+
+A bike shop.
+
+The lines above are machine-read.
+
+## Who writes this vault
+
+Only me.
+
+## Layout
+
+- **projects/** - a refit with a date. One folder each, with a `brief.md`.
+- **archive/** - inactive artifacts. `ideas/` = shelved ideas.
+
+### Hygiene
+
+- No live work.
+- No loose files at the root.
+- Our own rule.
+
+## checkboxes
+
+| Bucket | `actions.md` | State |
+| --- | --- | --- |
+| `projects/` | yes | open + closed |
+| **areas/network/** | never | contact files carry none |
+| `suppliers/` | never | tracked in their portal |
+
+## Sources
+
+```text
+## Not a heading
+```
+
+Name the owning file before answering.
+
+| Question | Source |
+|---|---|
+| Prices | the supplier list |
+
+## Deals
+
+A deal is won on a paid phase.
+
+## Do not add
+
+- **Templates** before a second instance.
+- Accounting: another vault.
+- Payroll: another system.
+"""
+
+DRIFTED = """# Shop Vault Conventions
+
+<!-- para-os-template: 2026.10.02 -->
+**Type:** vault
+
+A bike shop.
+
+## Layout
+
+- **projects/** - a refit with a date. One folder each, holding a brief.
+- **archive/** - inactive artifacts.
+
+### Hygiene
+
+- No live work, ever.
+- No loose files at the root.
+
+## Checkboxes
+
+| Bucket | `actions.md` | State |
+|---|---|---|
+| `areas/network/` | never | none |
+
+## Sources
+
+Name the owning file before answering.
+
+## Never add (ours)
+
+- **Templates** before a second instance.
+- Accounting: another vault.
+"""
+
+
+class DriftCase(CloneCase):
+    """A kit whose template fills, declares and drops lines, at two revisions; the second
+    rewords one `###` section and drops a `##` one."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.kit = cls.tmp / "drift-kit"
+        cls.kit.mkdir()
+        git_in(cls.kit, "init", "-q", "-b", "main")
+        for rev in ("2026.10.01", "2026.10.02"):
+            write(cls.kit, "CHANGELOG.md", f"# Changelog\n\n## {rev}\n")
+            write(cls.kit, "base/CLAUDE.md.template", kit_template(rev))
+            write(cls.kit, "addons/sales/CLAUDE.md.sections", DEALS)
+            git_in(cls.kit, "add", "-A")
+            git_in(cls.kit, "commit", "-q", "-m", rev)
+        git_in(cls.kit, "update-ref", "refs/remotes/origin/stable", "HEAD")
+
+    def rows(self, name, text):
+        report, code = self.scan(self.vault(name, files={"CLAUDE.md": text}), clone=self.kit)
+        self.assertEqual(code, 0)
+        return {r["heading"]: r for r in report["contract"] if r["state"] != "changed"}
+
+    def test_a_vault_holding_every_kit_line_has_no_drift(self):
+        # Fills, own lines and sections, a declared row, dropped optional lines, a heading's
+        # case, a fenced heading, and the add-on's lead comment left out.
+        self.assertEqual(self.rows("aligned", ALIGNED), {})
+
+    def test_a_line_that_is_only_a_placeholder_may_be_dropped(self):
+        text = ALIGNED.replace("- Accounting: another vault.\n- Payroll: another system.\n", "")
+        self.assertEqual(self.rows("dropped", text), {})
+
+    def test_the_template_itself_holds_at_each_revision(self):
+        for rev in ("2026.10.01", "2026.10.02"):
+            self.assertEqual(self.rows(f"bare-{rev}", kit_template(rev)), {})
+
+    def test_each_section_missing_a_kit_line_is_a_row_down_to_level_3(self):
+        rows = self.rows("drifted", DRIFTED)
+        self.assertEqual({h: r["state"] for h, r in rows.items()}, {
+            "": "drift", "Layout": "drift", "Hygiene": "drift", "Checkboxes": "drift",
+            "Do not add": "missing"})
+        self.assertEqual({r["file"] for r in rows.values()}, {"base/CLAUDE.md.template"})
+
+    def test_a_drift_diff_shows_what_the_vault_lacks_its_fills_as_written(self):
+        rows = self.rows("drifted", DRIFTED)
+        self.assertIn("-- No live work.\n+- No live work, ever.\n", rows["Hygiene"]["diff"])
+        self.assertIn(" ### Hygiene\n", rows["Hygiene"]["diff"])
+        layout = rows["Layout"]["diff"]
+        self.assertIn("-- **projects/** - {{what a project means here.}} One folder each", layout)
+        self.assertIn(" - **archive/** - inactive artifacts.\n", layout)
+        self.assertIn("-| `projects/` | yes | open + closed |", rows["Checkboxes"]["diff"])
+        self.assertIn(" | `areas/network/` | never | none |", rows["Checkboxes"]["diff"])
+        self.assertIn("-The lines above are machine-read.", rows[""]["diff"])
+
+    def test_a_missing_heading_diffs_to_the_vault_s_closest_own_section(self):
+        diff = self.rows("drifted", DRIFTED)["Do not add"]["diff"]
+        self.assertIn("-## Do not add\n", diff)
+        self.assertIn("+## Never add (ours)\n", diff)
+        alone = self.rows("alone", DRIFTED.replace("Templates** before a second instance",
+                                                   "Nothing alike here at all"))
+        self.assertNotIn("\n+", alone["Do not add"]["diff"])
+
+    def test_a_behind_vault_holding_the_ref_s_wording_or_its_own_has_no_drift(self):
+        old = kit_template("2026.10.01")
+        ahead = old.replace("No loose files.", "No loose files at the root.") \
+                   .replace("\n## Retiring\n\nThe old rule.\n", "")
+        for name, text in (("behind", old), ("behind-ahead", ahead)):
+            self.assertEqual(self.rows(name, text), {}, name)
+
+    def test_no_marker_has_no_drift(self):
+        self.assertEqual(self.rows("unmarked", DRIFTED.replace(
+            "<!-- para-os-template: 2026.10.02 -->\n", "")), {})
 
 
 class ExitCase(CloneCase):

@@ -37,10 +37,22 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
                  file a changelog `Retired:` line names that the kit no longer ships, `master`
                  null.
           Bytes are compared as git blob ids, line endings and a byte-order mark normalised.
-contract  The change to base/CLAUDE.md.template, and each declared add-on's CLAUDE.md.sections,
-          from `baseline` to the ref: one row per `## ` section that changed (`file`,
-          `heading`, "" above the first, and the section's unified `diff`), the marker line left
-          out. With no baseline every section is new.
+contract  What CLAUDE.md takes from base/CLAUDE.md.template and each declared add-on's
+          CLAUDE.md.sections: one row per section (`file`, `heading`, "" above the first,
+          `state`, and a unified `diff`), the marker line left out.
+          state  changed: a `## ` section that changed from `baseline` to the ref, `diff` the
+                 change. With no baseline every section is new.
+                 drift: a `##` or `###` section of the kit at `baseline`, still in the ref, that
+                 the vault's section of that heading holds neither as at `baseline` nor as at
+                 the ref; `diff` from the kit at `baseline`, each line the vault holds shown as
+                 it wrote it, to the vault's. missing: one whose heading the vault lacks; `diff`
+                 to the vault's own section closest to it, else to nothing. None with no
+                 baseline.
+          A vault line holds a kit line it equals, with each `{{...}}` matching any text, and a
+          table row holds one with the same first cell. The vault's own added lines, a kit line
+          that is only a placeholder or says "delete this line", and a heading no kit file
+          holds are the vault's, never drift; blank lines, trailing spaces and a heading's case
+          are ignored.
 snapshot  {path: digest} of CLAUDE.md and every row, for `paraos_vault.py changed`.
 
 `Retired:` opens a line of a changelog entry and lists backticked vault-relative paths or
@@ -68,9 +80,10 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        H2_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, declarations, find_clone, git, git_bytes,
-        integration_markers, normalised, paraos_home_dir, read_text,
-        snapshot, template_marker, vault_root,
+        CELL_MARKS_RE, H2_RE, HEADING_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, declarations,
+        fence_step, find_clone, git, git_bytes, integration_markers, is_separator_row, normalised,
+        paraos_home_dir, read_text, snapshot, split_lines, table_cells, template_marker,
+        vault_root,
     )
     from paraos_clone import (  # noqa: E402
         BASE_TEMPLATE, addon_root, changelog_entries, clone_read, clone_ref, clone_session,
@@ -87,6 +100,9 @@ DIFF_CAP = 200
 REACTION_RE = re.compile(r"^- (.+?)[ \t]*$", re.M)
 RETIRED_RE = re.compile(r"^Retired:(.*)$", re.M)
 BACKTICK_RE = re.compile(r"`([^`]+)`")
+PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}")
+LONE_PLACEHOLDER_RE = re.compile(r"^(?:[-*+]|\d+\.)?\s*\{\{.*\}\}\W*$")
+NEAR_RATIO = 0.5   # a vault section this close in words to a missing kit one is its likely home
 
 
 class Kit:
@@ -201,9 +217,134 @@ def contract_block(kit, base, decl):
         for heading in list(new) + [h for h in old if h not in new]:
             a, b = old.get(heading, []), new.get(heading, [])
             if a != b:
-                rows.append({"file": new_path, "heading": heading,
-                             "diff": "".join(list(difflib.unified_diff(a, b))[2:])})
+                rows.append(contract_row(new_path, heading, "changed", a, b))
     return rows
+
+
+def contract_row(path, heading, state, a, b):
+    return {"file": path, "heading": heading, "state": state,
+            "diff": "".join(list(difflib.unified_diff(a, b))[2:])}
+
+
+def blocks(text, preamble=True):
+    """[(heading, heading line, [line, ...])] for each `##` or `###` section in order, "" for
+    the lines above the first (left out without `preamble`), a heading inside a fence not one;
+    blank lines and the marker line dropped, trailing whitespace stripped."""
+    out, fence = [("", None, [])], None
+    for line in split_lines(text or ""):
+        line = line.rstrip()
+        fence, marker = fence_step(fence, line)
+        m = None if fence or marker else HEADING_RE.match(line)
+        if m and len(m.group(1)) in (2, 3):
+            out.append((m.group(2), line, []))
+        elif line and not TEMPLATE_MARKER_RE.search(line):
+            out[-1][2].append(line)
+    return out if preamble else out[1:]
+
+
+def heading_key(heading):
+    return " ".join(heading.split()).casefold()
+
+
+def fill_pattern(text):
+    return re.compile(".*?".join(re.escape(p) for p in PLACEHOLDER_RE.split(text)), re.S)
+
+
+def first_cell(line):
+    return CELL_MARKS_RE.sub("", table_cells(line)[0]).strip().casefold()
+
+
+def matcher(line):
+    """(required, test) for one kit line: what a vault line must be to hold it. None for a
+    line that is only a placeholder, which is the vault's to write or drop."""
+    if line.lstrip().startswith("|"):
+        if is_separator_row(table_cells(line)):
+            return True, lambda v: v.lstrip().startswith("|") and is_separator_row(table_cells(v))
+        key = fill_pattern(first_cell(line))
+        return True, lambda v: v.lstrip().startswith("|") and \
+            not is_separator_row(table_cells(v)) and bool(key.fullmatch(first_cell(v)))
+    if LONE_PLACEHOLDER_RE.match(line.strip()):
+        return None
+    if PLACEHOLDER_RE.search(line):
+        fill = fill_pattern(line)
+        return "delete this line" not in line.lower(), lambda v: bool(fill.fullmatch(v))
+    return True, lambda v: v == line
+
+
+def held(kit, vault):
+    """{kit index: vault index} for the most kit lines the vault holds in order, and the
+    required kit lines it does not hold."""
+    tests = [matcher(line) for line in kit]
+    hit = [[bool(t) and t[1](v) for v in vault] for t in tests]
+    best = [[0] * (len(vault) + 1) for _ in range(len(kit) + 1)]
+    for i in range(len(kit) - 1, -1, -1):
+        for j in range(len(vault) - 1, -1, -1):
+            best[i][j] = best[i + 1][j + 1] + 1 if hit[i][j] else max(best[i + 1][j], best[i][j + 1])
+    pairs, i, j = {}, 0, 0
+    while i < len(kit) and j < len(vault):
+        if hit[i][j]:
+            pairs[i], i, j = j, i + 1, j + 1
+        elif best[i + 1][j] >= best[i][j + 1]:
+            i += 1
+        else:
+            j += 1
+    return pairs, [i for i, t in enumerate(tests) if t and t[0] and i not in pairs]
+
+
+def closest(lines, candidates):
+    words = " ".join(lines).split()
+    ratio, i = max(((difflib.SequenceMatcher(None, words, " ".join(c[2]).split(),
+                                             autojunk=False).ratio(), -i)
+                    for i, c in enumerate(candidates)), default=(0, 0))
+    return candidates[-i] if ratio >= NEAR_RATIO else None
+
+
+def kit_blocks(kit, commit, decl):
+    """[(file, add-on name or None, block)] for base's template and each declared add-on's
+    sections at `commit`, an add-on's lead comment left out."""
+    out = []
+    for name in [None] + addon_names(decl):
+        path = sections_path(kit, commit, name)
+        text = kit.text(path, commit) if path else None
+        if text is not None:
+            out += [(path, name, b) for b in blocks(text, preamble=name is None)]
+    return out
+
+
+def drift_block(kit, base, decl, vault_text):
+    if base is None:
+        return []
+    then = kit_blocks(kit, base, decl)
+    now = {(name, heading_key(b[0])): b[2] for _, name, b in kit_blocks(kit, kit.commit, decl)}
+    mine = {}
+    for heading, line, lines in blocks(vault_text):
+        mine.setdefault(heading_key(heading), (heading, line, []))[2].extend(lines)
+    known = {heading_key(b[0]) for _, _, b in then}
+    own = [b for k, b in mine.items() if k not in known]
+    rows = []
+    for path, name, (heading, line, lines) in then:
+        key = heading_key(heading)
+        if (name, key) not in now:
+            continue
+        head = [line] if line else []
+        if key not in mine:
+            near = closest(lines, own)
+            rows.append(contract_row(path, heading, "missing", text_lines(head + lines),
+                                     text_lines(([near[1]] + near[2]) if near else [])))
+            continue
+        _, their_line, theirs = mine[key]
+        pairs, lacking = held(lines, theirs)
+        if lacking and held(now[name, key], theirs)[1]:
+            shown_kit = [theirs[pairs[i]] if i in pairs else ln for i, ln in enumerate(lines)
+                         if i in pairs or i in lacking]
+            top = [their_line] if their_line else []
+            rows.append(contract_row(path, heading, "drift", text_lines(top + shown_kit),
+                                     text_lines(top + theirs)))
+    return rows
+
+
+def text_lines(lines):
+    return [line + "\n" for line in lines]
 
 
 def sections_path(kit, commit, name):
@@ -420,7 +561,9 @@ def build_report(vault, clone, ref, user_dir, default_clone=None):
     decl = declarations(vault)
     report["revision"] = revision_block(vault, kit)
     report["files"] = [r for r in files_block(vault, kit, decl, user_dir) if r["state"] != "current"]
-    report["contract"] = contract_block(kit, report["revision"]["baseline"], decl)
+    base = report["revision"]["baseline"]
+    report["contract"] = contract_block(kit, base, decl) + \
+        drift_block(kit, base, decl, read_text(vault / "CLAUDE.md"))
     report["snapshot"] = snapshot([str(vault / "CLAUDE.md")] +
                                   [str(vault / r["path"]) for r in report["files"]])
     return report, 0
