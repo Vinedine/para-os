@@ -18,16 +18,16 @@ BelFoot internal data (financials, employee records, contracts) is confidential 
 The sorting test: **committed and dated → project. Maintained, no end date → area. Only thinking about it → idea. Over → archive.**
 
 - **triage/** - the inbox `/para-triage` empties; nothing lives here, not even a `README.md` (a `.gitkeep` holds the folder).
-- **projects/** - time-bound IT workstreams with a committed deliverable and deadline. One folder each, holding a `brief.md`, an `actions.md` and, where needed, `sources/` (RFP PDFs, vendor decks, scanned contracts). A rolling backlog on a system the club already runs is an area.
-- **areas/** - ongoing responsibilities. `stadium/` = the stadium modernisation programme as a standing responsibility: cross-cutting strategic actions not tied to a single workstream. `network/` = one file per BelFoot stakeholder. Systems that gate each other (the wallet, the ticketing platform it integrates with, the stadium network both depend on) form **one** area.
-- **resources/** - reusable reference (procurement templates, vendor evaluations, regulatory notes). `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
+- **projects/** - time-bound IT workstreams with a committed deliverable and deadline. One folder each, holding a `brief.md`, an `actions.md` and, where needed, `sources/`. A rolling backlog with no deadline is an area.
+- **areas/** - ongoing responsibilities. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset, with its own `brief.md` + `actions.md`; assets that gate each other form **one** area. Here `business/` is the stadium modernisation programme, its vendor register included, and the wallet, the ticketing platform and the stadium network they share would form one area.
+- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
 - **archive/** - inactive artifacts, always in a subfolder. `meetings/` = records spanning several entities. `projects/` = completed workstreams and `ideas/` = shelved concepts (`/para-archive` fills both).
 
 Root `README.md` is the single source of truth for identity, operating model and track record. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in English, and Vision is never a stub. It holds no work state (a checkbox, a `📅`, a status list, a "to confirm"); a status fact about the subject (`| Status | Active |`) is not work state.
 
 ### Lifecycle
 
-- `/para-new` creates every workstream, area, idea and contact.
+- `/para-new` creates every project, area, idea and contact.
 - An idea **promotes** to a project when someone waits on a dated deliverable, money or a formal engagement is committed, or a go/no-go is on the calendar; it gets its `actions.md` then. Retiring one is the operator's call: never started goes to `archive/ideas/`, started and stopped to `archive/projects/`.
 - A big dated push on a maintained asset is a **project alongside its area**; surviving work returns to the area when it archives. A project with no dated commitment for six months is proposed for **demotion** to an area.
 - An entity **archives whole** via `/para-archive`, its open items routed first to the owning area, a successor project or a contact file. Where this file names an archive destination for a kind of entity, that kind goes there.
@@ -54,7 +54,7 @@ A folder whose work is tracked elsewhere (an external tracker, a generated file)
 | `resources/` | **never** | a checkbox here is a filing error |
 | `archive/` | yes | **all closed** - one open `- [ ]` means it was archived too early |
 
-An action goes in the `actions.md` of the workstream or area it belongs to; one about a stakeholder in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; strategic work tied to no single entity in `areas/stadium/actions.md`, and a dated go/no-go on an idea there too, linking the idea. Never a root `actions.md`.
+An action goes in the `actions.md` of the project or area it belongs to; one about a person in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; strategic work tied to no single entity in `areas/business/actions.md`, and a dated go/no-go on an idea there too, linking the idea. Never a root `actions.md`.
 
 ### The actionable frontier
 
@@ -73,10 +73,10 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 ## Filing and naming
 
-- **Contacts**: one file per stakeholder at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics): relationship context, an optional `## History`, then `## Next actions` (`_None currently._` when empty or at `never`), then any `## Backlog`. A shared workstream lives in the primary stakeholder's file; the others point to it.
-- **Dated conversation records**: in the owning workstream's or area's `sources/`; in `archive/meetings/YYYYMMDD Description.md` only when they span several entities.
+- **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics): relationship context, an optional `## History`, then `## Next actions` (`_None currently._` when empty or at `never`), then any `## Backlog`. A shared workstream lives in the primary contact's file; the others point to it.
+- **Dated conversation records**: in the owning project's or area's `sources/`; in `archive/meetings/YYYYMMDD Description.ext` only when they span several entities.
 - **Source documents**: `sources/YYYYMMDD <Who> <Description>.<ext>`, dated by the document itself (signing, issue, inspection). The rest of the convention is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on its own when a triage item or a source document is read; read it explicitly before filing one.
-- **A contact file and a workstream brief cross-link** both ways.
+- **A contact file and a project brief cross-link** both ways.
 
 ## Entity structures
 
@@ -84,21 +84,23 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 ## Vendor lifecycle
 
-A vendor in selection is one row in [areas/stadium/vendors.md](areas/stadium/vendors.md), from RFP invitation to signed contract, whatever the workstream. It never earns a folder: once signed, the contract is a source document of its workstream.
+A vendor in selection is one row in [areas/business/vendors.md](areas/business/vendors.md), from RFP invitation to signed contract, whatever the workstream. It never earns a folder: once signed, the contract is a source document of its workstream.
 
 | Stage | Exit criterion | PARA home |
 |---|---|---|
-| Invited | Response received by the RFP deadline | `areas/stadium/vendors.md` (row) |
-| Responded | Scored against the workstream's evaluation matrix, and shortlisted | `areas/stadium/vendors.md` (row) |
-| Shortlisted | Demo held, two reference calls made, best-and-final price in | `areas/stadium/vendors.md` (row) |
-| Contracted | Contract signed | `areas/stadium/vendors.md` (row) |
+| Invited | Response received by the RFP deadline | `areas/business/vendors.md` (row) |
+| Responded | Scored against the workstream's evaluation matrix, and shortlisted | `areas/business/vendors.md` (row) |
+| Shortlisted | Demo held, two reference calls made, best-and-final price in | `areas/business/vendors.md` (row) |
+| Contracted | Contract signed | `areas/business/vendors.md` (row) |
 
 - **Columns**, in order: Vendor, Workstream, Source, Opened, Stage, Next step, Last touch, Outcome. `Stage` carries `(since <date>)`, then any dated fact that expires (a price validity) after a semicolon; `Last touch` reads `<date>, <what happened>`.
 - **A vendor leaves the board** for the register's `## Closed` table with its Outcome filled in: contracted, or not shortlisted and why. Nothing is archived for it.
 
 ## Authoritative sources
 
-Name the owning file before answering, and check `triage/` before searching by date. Source documents beat hand-kept summaries: vendor pricing and scope come from the RFP responses and the signed SOW in `sources/`, not from a comparison table in a brief, and when they disagree, correct the brief. Answer from the engagement's documents by quoting the clause with its file and page; say when a document is not on file, and label a general-knowledge answer as one. Where two documents disagree, give both, the cautious reading first.
+Name the owning file before answering, and check `triage/` before searching by date. System-of-record data beats a hand-kept table; when they disagree, correct the table. Answer from the operator's own documents by quoting the clause with its file and page; say when a document is not on file, and label a general-knowledge answer as one. Where two documents disagree, give both, the cautious reading first.
+
+Here the RFP responses and the signed SOW in `sources/` are the record for vendor pricing and scope, never a brief's comparison table.
 
 | Question | Authoritative source |
 |---|---|
@@ -108,7 +110,7 @@ Name the owning file before answering, and check `triage/` before searching by d
 
 ## Language
 
-Folders and structural files in English; notes, meeting records and source documents in their source's language (Dutch, French or English), untranslated unless asked. The operator's language is English, the default; answer a request in its own language, whatever the source's language, quoting the original only where its exact wording matters.
+Folders and structural files in English; content in its source's language, untranslated unless asked. The operator's language is English, the default; answer a request in the language it is written in, whatever the source's language, quoting the original only where the exact wording matters.
 
 **Locale:** country Belgium · currency EUR (€) · financial year ends 31 December · numbers 1,234.56 · dates day-month-year · time zone Europe/Brussels. This line is the one home of these six. A time follows `para-shared/timestamps.md`, installed beside the `/para-*` skills.
 
@@ -151,7 +153,7 @@ A script the agent writes lives in `resources/scripts/` (its `README.md` names t
 
 - **Cross-client material**: never reference another engagement here; it violates the engagement letter. BelFoot-confidential data (financials, contracts, employee records) stays in this vault, and outputs are reviewed before they leave it.
 - **Templates** before a second instance proves the shape.
-- **Derived outputs as standalone files**: decks, reports and one-pagers regenerate from `README.md`.
+- **Derived outputs as standalone files**: web copy, decks and one-pagers regenerate from `README.md`.
 - **Content rewrites during a reorganization**: structure changes keep copy verbatim.
 - **Procedure or rationale in this file**: it belongs in the owning script's README or the skill. 200 lines, additions included, is the target; past it, extract procedure.
 - **A `.claude/rules/<topic>.md` file** other than as `para-shared/rule-files.md` describes; read it before creating or editing one. This file keeps only each one's pointer.
