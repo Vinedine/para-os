@@ -23,7 +23,7 @@ How Bram writes, for any draft that goes out from the account above. Built and c
 ## Tone by recipient
 
 - **A club stakeholder** (a card in `areas/network/`): first names, `je` and never `u` in Dutch, the decision needed in the opening line, a technical term only with a one-clause gloss. _inferred (8/8 samples)_
-- **A vendor at Invited or Responded** (`areas/stadium/vendors.md`): neutral and exact, the question that decides its next stage first and any others numbered below it, nothing about another vendor's position. _inferred (5/5 samples)_
+- **A vendor at Invited or Responded** (`areas/business/vendors.md`): neutral and exact, the question that decides its next stage first and any others numbered below it, nothing about another vendor's position. _inferred (5/5 samples)_
 - **A vendor at Contracted**: first names and direct, the SOW clause cited by number when it settles the point. _inferred (3/3 samples)_
 
 ## Never uses

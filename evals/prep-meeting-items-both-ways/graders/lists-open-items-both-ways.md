@@ -7,7 +7,7 @@ The meeting's attendees are Jan Claes and Lotte Maes. Jan's contact card,
 cost-recovery options, and sending him the AML reporting hooks design. Open items naming him
 also sit in other files: `projects/cashless-stadium-rollout/actions.md` (the refund and
 dispute walk-through with Jan's finance team, the weekly status with Jan Claes) and
-`areas/stadium/actions.md` (confirming the Q3 budget envelope once Jan picks an option, a
+`areas/business/actions.md` (confirming the Q3 budget envelope once Jan picks an option, a
 programme-level risk review with Sofie, Jan and Thomas).
 
 PASS if the reply lists at least one item from Jan's card and at least one item from an

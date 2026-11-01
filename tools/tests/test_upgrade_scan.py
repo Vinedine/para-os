@@ -6,7 +6,8 @@ baseline, the file table and its states, the contract diff, the retired list, ex
     py -3 test_upgrade_scan.py
 
 Standard library only. Every vault and clone is synthetic: one throwaway git clone per class,
-two revisions deep, `origin/stable` set by `update-ref`, a feature branch beside it.
+two revisions deep, `origin/stable` set by `update-ref`, a feature branch beside it. The one
+exception, ExampleCase, scans the real example vault against a clone of this checkout's template.
 """
 
 import contextlib
@@ -679,6 +680,47 @@ class DriftCase(CloneCase):
     def test_no_marker_has_no_drift(self):
         self.assertEqual(self.rows("unmarked", DRIFTED.replace(
             "<!-- para-os-template: 2026.10.02 -->\n", "")), {})
+
+
+class ExampleCase(unittest.TestCase):
+    """examples/belfoot-vault against a clone of this checkout's template and add-on sections:
+    everything base ships has a working instance there, its fixed wording included."""
+
+    EXAMPLE = ROOT / "examples" / "belfoot-vault"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = Path(tempfile.mkdtemp(prefix="upgrade-scan-example-")).resolve()
+        cls.kit = cls.tmp / "para-os"
+        for rel in ["CHANGELOG.md", "base/CLAUDE.md.template"] + sorted(
+                p.relative_to(ROOT).as_posix() for p in ROOT.glob("addons/*/CLAUDE.md.sections")):
+            write(cls.kit, rel, (ROOT / rel).read_text(encoding="utf-8"))
+        git_in(cls.kit, "init", "-q", "-b", "main")
+        git_in(cls.kit, "add", "-A")
+        git_in(cls.kit, "commit", "-q", "-m", "kit")
+        git_in(cls.kit, "update-ref", "refs/remotes/origin/stable", "HEAD")
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def drift(self, vault):
+        report, code = build_report(vault, self.kit, None, self.tmp / "no-user",
+                                    self.tmp / "no-home" / "para-os")
+        self.assertEqual(code, 0)
+        self.assertIsNotNone(report["revision"]["baseline"])
+        return {r["heading"]: r["state"] for r in report["contract"] if r["state"] != "changed"}
+
+    def test_the_example_vault_holds_every_kit_line(self):
+        self.assertEqual(self.drift(self.EXAMPLE), {})
+
+    def test_a_kit_line_the_example_rewords_is_drift(self):
+        vault = self.tmp / "belfoot"
+        shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
+        md = vault / "CLAUDE.md"
+        md.write_text(md.read_text(encoding="utf-8").replace(
+            "creates every project,", "creates every workstream,"), encoding="utf-8")
+        self.assertEqual(self.drift(vault), {"Lifecycle": "drift"})
 
 
 class ExitCase(CloneCase):
