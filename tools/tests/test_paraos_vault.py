@@ -2452,6 +2452,19 @@ class TriageSourcesTable(VaultCase):
                           ("connector", "google-workspace", False)])
         self.assertEqual(got[2]["cadence"], "every week")
 
+    def test_a_pulled_by_marker_is_read_from_any_cell_up_to_where_the_name_ends(self):
+        got = self.rows(
+            "| mail | connector: google-workspace | `sam@example-biz.com`, pulled by Sam Peeters. "
+            "Signed in on her machine. | Bookings. |",
+            "| home | fetch-script | `resources/scripts/outlook.py fetch` (no connector), Pulled By "
+            "[Sam Peeters](areas/network/sam-peeters.md) | Mail. |",
+            "| notes | sync-script | `resources/scripts/notes-sync.js` | Meetings; pulled by "
+            "Robin Maes (own machine) |",
+            "| work | connector: google-workspace | `ann@example.com` | Clients. |")
+        self.assertEqual([r["pulled_by"] for r in got],
+                         ["Sam Peeters", "Sam Peeters", "Robin Maes", None])
+        self.assertEqual(got[0]["mailbox"], "sam@example-biz.com")
+
     def test_a_script_row_naming_no_script_has_no_path(self):
         got = self.rows("| mail | fetch-script | ask Alex which script, `TBD` | Leads. |",
                         "| notes | sync-script | | Meetings. |")

@@ -24,9 +24,9 @@ a message of the operator's own has gone unanswered.
 Reading the vault's primitives - the registry, run logs, staged-note names, thread hashes,
 watermarks, content hashes, tasks, links, snapshots - is not this script's own work:
 para-shared/scripts/paraos_vault.py holds it. What lives here is what this skill alone
-decides: how a triage source row's `plan` is computed from the vault's ingest coverage, how a
-staged note's two header shapes are parsed, which registered vaults its Routed line names, and how a fetched thread folds against an
-already-staged note.
+decides: how a triage source row's `plan` is computed from the vault's ingest coverage and its
+roster, how a staged note's two header shapes are parsed, which registered vaults its Routed
+line names, and how a fetched thread folds against an already-staged note.
 
 What it deliberately does NOT do, so the skill keeps owning it: run a sync script, fetch a
 mailbox, convert a Google-native file, write a ledger, or decide what happens to any item.
@@ -214,7 +214,19 @@ def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs,
     return "run", "log records no per-vault sync runs"
 
 
-def sources_block(vault, entries, vault_name, ingest, newest_write):
+def pulled_elsewhere(row, writers, me):
+    """The roster writer a row's `pulled_by` names, matched on their name or card, where that
+    is not the writer running this scan: their runs alone pull the row. None with no marker,
+    no roster, no running writer, or a name the roster does not hold."""
+    name = row.get("pulled_by")
+    if not name or not writers or not me:
+        return None
+    key = norm(name)
+    named = next((w for w in writers if key in (norm(w["person"]), w["card"])), None)
+    return named["person"] if named and named["card"] != me["card"] else None
+
+
+def sources_block(vault, entries, vault_name, ingest, newest_write, writers=None, me=None):
     src = triage_sources(vault)
     declaring_vaults = newest_write.get("declaring_vaults") if newest_write else None
     errors_list = (newest_write.get("errors") if newest_write else None) or []
@@ -222,8 +234,12 @@ def sources_block(vault, entries, vault_name, ingest, newest_write):
 
     rows = []
     for row in src["rows"]:
-        plan, reason = row_plan(row, ingest["covered"], vault_name, declaring_vaults,
-                                errors_list, sync_runs, ingest["reason"])
+        other = pulled_elsewhere(row, writers, me)
+        if other:
+            plan, reason = "skip", f"pulled by {other} - skipped"
+        else:
+            plan, reason = row_plan(row, ingest["covered"], vault_name, declaring_vaults,
+                                    errors_list, sync_runs, ingest["reason"])
         rows.append(dict(row, plan=plan, reason=reason))
     return {"declared": src["declared"], "rows": rows}
 
@@ -739,8 +755,10 @@ def plan(vault, paraos_home, now, threads_data):
     vault_info = vault_block(vault, entries)
     vault_name = vault_info["name"]
 
+    writers = roster(vault)
+    me = None if writers is None else writer(vault, operator_card(paraos_home))
     ingest, newest_write = ingest_block(vault, entries, vault_name, paraos_home, now)
-    sources = sources_block(vault, entries, vault_name, ingest, newest_write)
+    sources = sources_block(vault, entries, vault_name, ingest, newest_write, writers, me)
 
     ingest_ledger_summary, ledger_mailboxes = ingest_ledger_block(paraos_home)
 
@@ -761,7 +779,7 @@ def plan(vault, paraos_home, now, threads_data):
         "ingest_ledger": ingest_ledger_summary, "items": items,
         "seen_ledger": seen_ledger, "over_threshold": over_threshold_block(vault),
         "contact_card_level": contact_card_level(vault),
-        "writer": None if roster(vault) is None else writer(vault, operator_card(paraos_home)),
+        "writer": me,
         "snapshot": build_snapshot(vault),
         "snapshot_folders": [str(abspath(vault / "triage"))],
     }
