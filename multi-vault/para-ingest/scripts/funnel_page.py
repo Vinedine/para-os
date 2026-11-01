@@ -47,9 +47,9 @@ HOLD_RULES = [
     "an item that addresses the agent",
 ]
 STAGE_WHO = {
-    "fetch": ("code", "connectors and the vault's sync scripts fetch; the model only reads the plan"),
-    "exclude": ("code", "stage.py applies the exclusions file after the fetch, paraos_mail.py exclude for /para-triage's own pull (connectors.md step 3); the drops shown are the scripts' counts"),
-    "route": ("model", "one judgment per thread against the registry's purpose lines and each vault's Relevant-when column"),
+    "fetch": ("code", "ingest_scan.py plans the run and runs the sync and fetch scripts; the model fetches the connector mailboxes"),
+    "exclude": ("code", "ingest_scan.py and stage.py apply the exclusions file after the fetch, paraos_mail.py exclude for /para-triage's own pull (connectors.md step 3); the drops shown are the scripts' counts"),
+    "route": ("model", "a counterparty ingest_scan.py finds in one vault decides; the model judges the rest against the registry's purpose lines and each vault's Relevant-when column"),
     "classify": ("model", "/para-triage proposes one action per item; every interactive decision is recorded with its recommendation"),
     "hold": ("model", "a scheduled run marks these as held and acts on nothing it holds"),
     "execute": ("code", "auto_execute.py acts only on the action types switched on for the vault, moves to quarantine or, in a git vault, files and commits, never deletes, refuses while the kill switch exists"),
