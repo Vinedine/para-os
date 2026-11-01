@@ -2,9 +2,9 @@
 """Step 5 of /para-ingest: the staged notes, the central ledger and the run log, written from
 one run's fetched and routed threads.
 
-    py -3 stage.py <run.json> [--paraos-home DIR]
+    py -3 stage.py <run.json> [--decisions <decisions.json>] [--paraos-home DIR]
 
-`<run.json>` is the run so far, as one JSON object:
+`<run.json>` is the run so far, as ingest_scan.py's `route` writes it, one JSON object:
 
     {"mode": "preview" | "write", "started_at": "<ISO-8601 with offset, default now>",
      "source_plan": {"declaring_vaults": {<mailbox>: [<vault>, ...]}, ...},
@@ -26,9 +26,17 @@ its `mailbox`, `thread_id`, and each message's `received` and `message_id`, else
 `provider_id`. Every other key (`sync_runs`, `errors`, `carry_over`, `resolved`, ...) is
 copied into the log as given.
 
-Refused with exit 2 before anything is written: a route to a vault the registry does not
-list as active, a routed thread missing what its note needs, a message no dedup key or
-received instant fits, an unparseable ledger or registry, or a run whose log already exists.
+A thread `route` could not decide holds `"routed": null` and its `candidates`. `--decisions`
+is a JSON list filling them in, `{"mailbox", "thread_id", "routed": [...], "reason"}` each,
+or `{"mailbox", "thread_id", "signin": true}` for a sign-in or security code on any thread.
+Staged from an ingest_scan.py work folder, it then deletes the run file, `connectors.json` and
+the `fetch-*.json` beside it, so no message text outlives the run.
+
+Refused with exit 2 before anything is written: a thread left with no routing decision, a
+decision for no thread in the run, on a thread already decided, or naming a vault outside its
+candidates, a route to a vault the registry does not list as active, a routed thread missing
+what its note needs, a message no dedup key or received instant fits, an unparseable ledger
+or registry, or a run whose log already exists.
 
 What it does, threads with the most messages first so the best-grouped copy of a
 conversation stages and `by_message_id` suppresses the others:
@@ -112,6 +120,8 @@ def checked(run, vaults):
         if not isinstance(thread, dict):
             raise ValueError(f"{where}: not an object")
         signin = thread.get("signin") is True
+        if not signin and "routed" in thread and thread["routed"] is None:
+            raise ValueError(f"{where}: no routing decision")
         routed = [] if signin else list(thread.get("routed") or [])
         for name in routed:
             if (vaults.get(name) or {}).get("active") is not True:
@@ -146,6 +156,37 @@ def checked(run, vaults):
             raise ValueError(f"{where}: no read for its newest message")
         threads.append(dict(thread, signin=signin, routed=routed, messages=messages))
     return threads
+
+
+def decided(run, decisions):
+    """The run with the model's decisions filled in: a route, within the thread's
+    `candidates`, for a thread left `routed: null`, or a sign-in flag for any thread."""
+    run = json.loads(json.dumps(run))
+    threads = {(t.get("mailbox"), t.get("thread_id")): t for t in run.get("threads") or []
+               if isinstance(t, dict)}
+    for n, decision in enumerate(decisions, 1):
+        where = f"decision {n}"
+        if not isinstance(decision, dict):
+            raise ValueError(f"{where}: not an object")
+        thread = threads.get((decision.get("mailbox"), decision.get("thread_id")))
+        if thread is None:
+            raise ValueError(f"{where}: no thread {decision.get('thread_id')} in "
+                             f"{decision.get('mailbox')}")
+        if decision.get("signin") is True:
+            thread["signin"] = True
+            continue
+        if thread.get("routed") is not None:
+            raise ValueError(f"{where}: thread {thread['thread_id']} is already decided "
+                             f"({thread.get('reason')})")
+        routed, candidates = decision.get("routed"), thread.get("candidates") or []
+        if not isinstance(routed, list) or not decision.get("reason"):
+            raise ValueError(f"{where}: needs a routed list and a reason")
+        for name in routed:
+            if name not in candidates:
+                raise ValueError(f"{where}: {name} is not among its candidates "
+                                 f"({', '.join(candidates) or 'none'})")
+        thread.update(routed=routed, reason=decision["reason"])
+    return run
 
 
 def load_ledger(path):
@@ -213,11 +254,13 @@ def note_path(triage, stem, read):
     return triage / (f"{stem}.md" if n == 1 else f"{stem} {n}.md"), False
 
 
-def stage(run, paraos_home=None):
+def stage(run, paraos_home=None, decisions=None):
     home = paraos_home_dir(paraos_home)
     vaults = {e.get("name"): e for e in registry(home) if isinstance(e, dict)}
     if not vaults:
         raise ValueError(f"no registry at {home / 'vaults.json'}, or it does not parse")
+    if decisions is not None:
+        run = decided(run, decisions)
     threads = checked(run, vaults)
     exclusions, exclusions_error = load_exclusions(home)
     kept, dropped, exclusion_counts = apply_exclusions(threads, exclusions)
@@ -355,6 +398,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Stage one /para-ingest run: its notes, the "
                                              "ledger and the run log.")
     ap.add_argument("run", help="the run's routed threads, as JSON (this script's docstring)")
+    ap.add_argument("--decisions", help="the model's decisions for the undecided threads")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     args = ap.parse_args(argv)
 
@@ -364,16 +408,30 @@ def main(argv=None):
     except (AttributeError, OSError):
         pass
 
+    loaded = []
+    for path, shape in ((args.run, dict), (args.decisions, list)):
+        if path is None:
+            loaded.append(None)
+            continue
+        try:
+            data = json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as err:
+            ap.error(f"cannot read {path}: {err}")
+        if not isinstance(data, shape):
+            ap.error(f"{path} holds no JSON {'object' if shape is dict else 'list'}")
+        loaded.append(data)
+    run, decisions = loaded
     try:
-        run = json.loads(Path(args.run).read_text(encoding="utf-8"))
-    except (OSError, ValueError) as err:
-        ap.error(f"cannot read {args.run}: {err}")
-    if not isinstance(run, dict):
-        ap.error(f"{args.run} holds no JSON object")
-    try:
-        summary = stage(run, args.paraos_home)
+        summary = stage(run, args.paraos_home, decisions)
     except ValueError as err:
         ap.error(str(err))
+    work = Path(args.run).parent
+    if args.decisions and (work / "plan.json").is_file():
+        for raw in [Path(args.run), work / "connectors.json", *work.glob("fetch-*.json")]:
+            try:
+                raw.unlink()
+            except OSError:
+                pass
     json.dump(summary, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")
     return 0

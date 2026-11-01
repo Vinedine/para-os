@@ -334,6 +334,83 @@ class Refusals(StageCase):
         (self.home / "vaults.json").unlink()
         self.assert_refused(self.run_input(), "registry")
 
+    def test_a_thread_with_no_routing_decision_is_refused(self):
+        self.assert_refused(self.run_input(threads=[self.thread(routed=None, reason=None)]),
+                            "thread 1: no routing decision")
+
+
+class Decisions(StageCase):
+    """ingest_scan.py's run file leaves the threads it could not decide `routed: null`, with
+    their `candidates`; the model's decisions fill them in."""
+
+    def undecided(self, **changes):
+        return self.thread(**dict({"routed": None, "reason": None,
+                                   "candidates": ["alpha", "beta"]}, **changes))
+
+    def decide(self, threads, decisions):
+        return stage(self.run_input(threads=threads), self.home, decisions=decisions)
+
+    def decision(self, **changes):
+        return dict({"mailbox": MAILBOX, "thread_id": THREAD["thread_id"], "routed": ["beta"],
+                     "reason": "rule: beta Relevant when"}, **changes)
+
+    def test_a_decision_routes_an_undecided_thread(self):
+        summary = self.decide([self.undecided()], [self.decision()])
+        self.assertEqual(summary["counts"]["per_vault"], {"alpha": 0, "beta": 1})
+        self.assertEqual(self.log(summary)["decisions"][0]["reason"], "rule: beta Relevant when")
+
+    def test_a_sign_in_code_is_flagged_on_any_thread(self):
+        summary = self.decide([self.thread()], [{"mailbox": MAILBOX,
+                                                 "thread_id": THREAD["thread_id"],
+                                                 "signin": True}])
+        self.assertEqual(summary["counts"]["signin_codes"], {MAILBOX: 1})
+        self.assertEqual(self.notes(), [])
+
+    def test_a_route_outside_the_candidates_is_refused(self):
+        with self.assertRaises(ValueError) as refused:
+            self.decide([self.undecided(candidates=["alpha"])], [self.decision()])
+        self.assertIn("beta is not among its candidates", str(refused.exception))
+
+    def test_a_decision_on_a_decided_thread_is_refused(self):
+        with self.assertRaises(ValueError) as refused:
+            self.decide([self.thread()], [self.decision()])
+        self.assertIn("already decided", str(refused.exception))
+
+    def test_a_decision_for_no_thread_in_the_run_is_refused(self):
+        with self.assertRaises(ValueError) as refused:
+            self.decide([self.undecided()], [self.decision(), self.decision(thread_id="x")])
+        self.assertIn("no thread x", str(refused.exception))
+
+    def test_a_decision_that_is_no_object_or_has_no_reason_is_refused(self):
+        for decision, words in (("beta", "not an object"),
+                                (self.decision(reason=""), "a routed list and a reason")):
+            with self.subTest(words=words), self.assertRaises(ValueError) as refused:
+                self.decide([self.undecided()], [decision])
+            self.assertIn(words, str(refused.exception))
+
+    def test_the_command_refuses_a_decisions_file_that_is_no_list(self):
+        run, decisions = self.root / "run.json", self.root / "decisions.json"
+        run.write_text(json.dumps(self.run_input(threads=[self.undecided()])), encoding="utf-8")
+        decisions.write_text("{}", encoding="utf-8")
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as stop:
+            main([str(run), "--decisions", str(decisions), "--paraos-home", str(self.home)])
+        self.assertEqual(stop.exception.code, 2)
+
+    def test_an_undecided_thread_left_without_a_decision_is_refused(self):
+        with self.assertRaises(ValueError) as refused:
+            self.decide([self.undecided()], [])
+        self.assertIn("no routing decision", str(refused.exception))
+
+    def test_the_command_reads_the_decisions_file(self):
+        run, decisions = self.root / "run.json", self.root / "decisions.json"
+        run.write_text(json.dumps(self.run_input(threads=[self.undecided()])), encoding="utf-8")
+        decisions.write_text(json.dumps([self.decision()]), encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main([str(run), "--decisions", str(decisions),
+                         "--paraos-home", str(self.home)])
+        self.assertEqual((code, json.loads(out.getvalue())["counts"]["per_vault"]["beta"]), (0, 1))
+
 
 class SafeSubject(unittest.TestCase):
 
