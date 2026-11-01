@@ -61,7 +61,7 @@ Exit 2 names a connector thread to fix: fix it and run again. It prints `to_judg
 
 ### Step 4: Judge what is left
 
-For each `to_judge` thread, decide which of its `candidates` it belongs to: [references/routing.md](references/routing.md). Then flag every sign-in or security code left in `to_judge` or `decided`, which a fetch script's mail can hold.
+For each `to_judge` thread, decide which of its `candidates` it belongs to: [references/routing.md](references/routing.md). Then flag every sign-in or security code left in `to_judge` or `decided`: it is counted, and never named in anything the run writes or shows, the report included ([connectors.md](../para-shared/connectors.md#sign-in-and-security-codes)).
 
 Write `<work>/decisions.json`, one entry per `to_judge` thread and per code: `{"mailbox", "thread_id", "routed": [...], "reason"}`, or `{"mailbox", "thread_id", "signin": true}`.
 
