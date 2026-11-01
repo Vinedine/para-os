@@ -1119,6 +1119,56 @@ class Writer(VaultCase):
         self.assertIsNone(self.plan()["writer"])
 
 
+class PulledBy(VaultCase):
+    """A row a `pulled by <name>` reserves for one roster writer is pulled on their runs only."""
+
+    ROWS = [
+        "| sam-mail | connector: google-workspace | `sam@example-biz.com`, pulled by Sam Peeters "
+        "| Bookings. |",
+        "| sam-home | fetch-script | `resources/scripts/outlook.py fetch`, pulled by sam peeters "
+        "| Bookings. |",
+        "| sam-notes | sync-script | `resources/scripts/notes-sync.js` (pulled by Sam Peeters) "
+        "| Meetings. |",
+        "| shared | connector: google-workspace | `info@example-biz.com` | Everything. |",
+        "| stranger | connector: google-workspace | `x@example-biz.com`, pulled by Lee Wong "
+        "| Other. |",
+    ]
+
+    def plans(self, card=None, roster=True):
+        head = ["# Vault", "", "**Type:** vault", "", "## Who writes this vault", "",
+                "| Person | Role | Lane |", "|---|---|---|",
+                "| [Sam Peeters](areas/network/sam-peeters.md) | keeper | Bookings |",
+                "| [Robin Maes](areas/network/robin-maes.md) | steward | Scripts |", ""]
+        sources = ["## Triage sources", "", "| Source | Type | Endpoint | Relevant when |",
+                   "|---|---|---|---|"]
+        write(self.root, "CLAUDE.md",
+              "\n".join((head if roster else ["# Vault", ""]) + sources + self.ROWS) + "\n")
+        if card:
+            (self.home / "operator.json").write_text(json.dumps({"card": card}), encoding="utf-8")
+        return {r["source"]: (r["plan"], r["reason"]) for r in self.plan()["sources"]["rows"]}
+
+    def test_another_writers_run_skips_every_row_reserved_for_them(self):
+        got = self.plans("robin-maes")
+        self.assertEqual({got[s] for s in ("sam-mail", "sam-home", "sam-notes")},
+                         {("skip", "pulled by Sam Peeters - skipped")})
+        self.assertEqual(got["shared"][0], "pull")
+
+    def test_the_named_writers_own_run_plans_as_without_the_marker(self):
+        got = self.plans("sam-peeters")
+        self.assertEqual([got[s][0] for s in ("sam-mail", "sam-home", "sam-notes", "shared")],
+                         ["pull", "pull", "run", "pull"])
+
+    def test_a_name_the_roster_does_not_hold_skips_nothing(self):
+        self.assertEqual(self.plans("robin-maes")["stranger"][0], "pull")
+
+    def test_with_no_running_writer_nothing_is_skipped(self):
+        self.assertNotIn("skip", {plan for plan, _ in self.plans().values()})
+
+    def test_a_vault_with_no_roster_ignores_the_marker(self):
+        got = self.plans("robin-maes", roster=False)
+        self.assertNotIn("skip", {plan for plan, _ in got.values()})
+
+
 # -------------------------------------------------------------------------------- snapshot
 
 class Snapshot(VaultCase):

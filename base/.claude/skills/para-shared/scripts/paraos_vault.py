@@ -1309,6 +1309,19 @@ EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 BACKTICK_SPAN_RE = re.compile(r"`([^`]+)`")
 CADENCE_HINT_RE = re.compile(r"🔁️?\s*(every(?:\s+\d+)?\s+[A-Za-z]+)")
 SENT_HINT_RE = re.compile(r"📤️?\s*sent\b", re.IGNORECASE)
+PULLED_BY_RE = re.compile(r"\bpulled by\s+([^,;:()|]+)", re.IGNORECASE)
+
+
+def _pulled_by(cells):
+    """The name after `pulled by` in the first cell carrying one, a link read as its text,
+    running to a comma, semicolon, colon, parenthesis or sentence end, trailing punctuation
+    trimmed. None where no cell does."""
+    for raw in cells:
+        m = PULLED_BY_RE.search(_md_cell(re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", raw)))
+        name = re.split(r"[.!?]\s", m.group(1))[0].strip().rstrip(".!?").strip() if m else ""
+        if name:
+            return name
+    return None
 
 
 def _md_cell(text):
@@ -1408,7 +1421,7 @@ def _triage_row(header, cells, lineno):
         "mailbox": _first_email(endpoint_text),
         "drive_id": _triage_drive_id(endpoint_raw) if kind == "drive" else None,
         "relevant_when": cell("relevant").strip(), "cadence": cadence,
-        "sent": bool(SENT_HINT_RE.search(type_text)),
+        "sent": bool(SENT_HINT_RE.search(type_text)), "pulled_by": _pulled_by(cells),
     }
 
 
@@ -1421,7 +1434,8 @@ def triage_sources(vault):
     declaration, and is skipped the way `live_lines` skips it everywhere else. `cadence` is
     a row's `🔁 every <period>` hint, in any cell: how often the source should deliver.
     `sent` is whether its Type cell carries `📤 sent`, asking for the sent-mail pass of
-    connectors.md; neither hint changes the row's `kind` or `connector`.
+    connectors.md; neither hint changes the row's `kind` or `connector`. `pulled_by` is the
+    writer a `pulled by <name>` in any cell reserves the row for, else None.
     """
     path = Path(vault) / "CLAUDE.md"
     if not path.is_file():
