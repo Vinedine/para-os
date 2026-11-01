@@ -144,8 +144,12 @@ def _close_batch(proc):
             pipe.close()
         except OSError:
             pass
-    proc.kill()
-    proc.wait()
+    # Not kill() first: on Windows `git` is often a launcher, and the real git outlives it.
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
 
 
 def _session_key(clone, value):

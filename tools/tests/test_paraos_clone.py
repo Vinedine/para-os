@@ -287,6 +287,16 @@ class CloneSession(CloneCase):
         self.assertTrue(started)
         self.assertTrue(all(proc.poll() is not None for proc in started))
 
+    def test_a_clone_moves_the_moment_its_session_closes(self):
+        # Windows will not move a folder a process runs in; the race is rare, hence 30 tries.
+        with tempfile.TemporaryDirectory() as tmp:
+            here = Path(tmp) / "a"
+            shutil.copytree(self.clone, here)
+            for _ in range(30):
+                with clone_session():
+                    self.assertIsNotNone(clone_read(here, "HEAD", "CHANGELOG.md"))
+                here = here.rename(here.with_name("b" if here.name == "a" else "a"))
+
     def test_a_nested_session_leaves_the_outer_one_open(self):
         started, spy = self.spawned()
         with spy, clone_session():
