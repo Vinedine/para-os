@@ -22,9 +22,8 @@ import os
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -1041,7 +1040,7 @@ class Health(VaultCase):
         return scan(self.vault, self.today, paraos_home=self.home, model=model)["health"]
 
     def age(self, rel, days):
-        stamp = time.time() - days * 86400
+        stamp = datetime.combine(self.today - timedelta(days=days), time(12)).timestamp()
         os.utime(self.vault / rel, (stamp, stamp))
 
     def test_an_old_triage_item_needs_care_and_a_new_one_is_ok(self):
