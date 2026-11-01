@@ -1,6 +1,6 @@
 ---
 name: para-upgrade
-description: Bring a vault in line with a newer para-os template revision - compares every file the kit owns with a para-os clone at an explicit ref and re-copies on approval, takes the operator through the template's change to CLAUDE.md hunk by hunk, proposes deleting the files the kit retired, applies the content changes the changelog asks for, restamps the marker, and adopts a named add-on. Use when the user wants the vault on a newer para-os revision or an add-on added ("upgrade the vault", "is this vault on the latest structure", "add the sales module"), or types /para-upgrade.
+description: Bring a vault in line with a newer para-os template revision - compares every file the kit owns with a para-os clone at an explicit ref and re-copies on approval, takes the operator through the template's change to CLAUDE.md and its drift, hunk by hunk, proposes deleting the files the kit retired, applies the content changes the changelog asks for, restamps the marker, and adopts a named add-on. Use when the user wants the vault on a newer para-os revision or an add-on added ("upgrade the vault", "is this vault on the latest structure", "add the sales module"), or types /para-upgrade.
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git -C * fetch *), Bash(git rm *), Glob, Grep, Read, Edit, Write
 argument-hint: '[--ref <git-ref>] [--clone <path>] [--add <name>] [audit] [--test]'
 ---
@@ -39,7 +39,7 @@ The script's docstring defines every field and exit code. On exit 3 with no `CLA
 By `revision.verdict`:
 
 - **behind** or **no-marker**: Steps 2 to 5.
-- **equal**: a kit file drifts on its own, so `files` still counts. With nothing in it, say the vault is on revision X with nothing to do.
+- **equal**: a kit file or a `CLAUDE.md` section drifts on its own, so `files` and `contract` still count. With nothing in either, say the vault is on revision X with nothing to do.
 - **ahead**: stop and ask; the ref is stale or the marker was edited by hand. Never downgrade a vault.
 
 **Present the plan before touching anything**: the `files` rows by state, the `contract` rows, and the Reactions in `revision.entries`. With `audit`, report the plan and stop.
@@ -58,10 +58,12 @@ A `path` outside the vault is a user-level install, shared by every vault on the
 
 ## Step 3 - The contract
 
-For each `contract` hunk, find where the vault states that rule and propose the edit in the vault's own wording and language; the operator rules on each hunk. With `revision.baseline` null, each section comes whole, to compare with the vault's.
+Every `contract` row, by `state`:
 
-- **The template is a floor.** Never remove the vault's own sections, rules or declaration lines; where the template moves a section the vault extended, the vault's content moves with it.
-- **A hunk the vault already states is skipped**, said in one line. A rule the vault deliberately departs from is the operator's call.
+- **changed**: find where the vault states that rule and propose the edit in the vault's own wording and language; the operator rules on each hunk. With `revision.baseline` null, each section comes whole, to compare with the vault's. A hunk the vault already states is skipped, said in one line.
+- **drift** or **missing**: kit wording the vault's section lacks, or the whole section. As for an **edited** file, show the row's `diff` and say what it shows; the operator decides each section, or all on one answer: re-copy the kit's lines, keep, or carry the kit's wording into the vault's own. A **changed** row on the same heading goes with it, and the ref's wording is the one copied.
+
+**The template is a floor.** Never remove the vault's own sections, rules, declaration lines or filled values; a re-copied `{{...}}` takes the vault's value, and where the template moves a section the vault extended, the vault's content moves with it. A rule the vault deliberately departs from is the operator's call.
 
 ## Step 4 - Content changes
 
@@ -69,8 +71,8 @@ Each Reaction in `revision.entries` is its own item with its own approval; one w
 
 ## Step 5 - Stamp and verify
 
-1. **Re-run the scan.** A row the operator approved is gone from `files`; one still there names what did not land.
-2. **Write the master's marker** into the vault's `CLAUDE.md` once everything the operator approved has landed; a `files` row left for the operator never holds it back.
+1. **Re-run the scan.** A row the operator approved is gone from `files`, or from `contract` as drift; one still there names what did not land.
+2. **Write the master's marker** into the vault's `CLAUDE.md` once everything the operator approved has landed; a `files` or drift row left for the operator never holds it back.
 3. **Check the result**: `paraos_vault.py links dangling --vault <root>`, in `para-shared/scripts/`, finds no dangling link the run made, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
 4. **Report** what changed per step, what was proposed and declined, and what you did not verify.
 
