@@ -22,7 +22,7 @@ whose path is not a folder, or holds no `CLAUDE.md`, is `UNREACHABLE`. Each land
 drive is unreachable, and the drive holds two or more of them or its root is not there,
 `drives` names the drive.
 
-The seven columns, one cell each in `cells`, every defect a `finding` with its `fix` and a
+The eight columns, one cell each in `cells`, every defect a `finding` with its `fix` and a
 `route` (`upgrade` where /para-upgrade applies it, `operator` where a person decides):
 
 1. revision      The vault's template marker against the master's: `aligned`, `behind N`
@@ -30,7 +30,7 @@ The seven columns, one cell each in `cells`, every defect a `finding` with its `
                  order /para-upgrade applies them), `ahead <rev>`,
                  or `UNSTAMPED`, which counts as behind by every revision. A vault ahead is
                  judged on nothing a master older than it would answer: no add-on names,
-                 rules, integrations or skills (`not judged`).
+                 rules, integrations, skills or sections (`not judged`).
 2. type          The `**Type:**` line as written: the operator's own label, never judged.
 3. declarations  The marker, `**Type:**`, `**Flavor:**` and `**Modules:**` lines: a marker
                  comment that does not parse, a line away from the title (read by nothing),
@@ -52,7 +52,11 @@ The seven columns, one cell each in `cells`, every defect a `finding` with its `
                  carries none.
 6. skills        Each bundled skill the table lists, one finding per skill folder, and a
                  bundled `para-*` folder no master ships. A vault's own skill is not a copy.
-7. size          `CLAUDE.md` lines (`wc -l`) against the 200-line adherence target set in
+7. sections      Each `CLAUDE.md` section upgrade_scan's drift check reports against base's
+                 template and the declared add-ons at the vault's own revision, `drift` or
+                 `missing`: one finding per kit file, naming its sections. `not judged` where
+                 that revision has no commit.
+8. size          `CLAUDE.md` lines (`wc -l`) against the 200-line adherence target set in
                  base/CLAUDE.md.template; the fix is the template's lever.
 
 `upgrade_first` is the vault with an `upgrade` finding that is furthest behind, then has the
@@ -61,8 +65,8 @@ most findings, registry order breaking a tie; null where no vault has one.
 Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one
 listing no entry; 4 the clone or the ref cannot be read, or its template carries no marker;
 5 no `--ref` and the clone has no `origin/stable`. With no clone found the audit still
-answers: `clone.error` says so, and each vault's revision, rules, integrations and skills
-read `not judged`.
+answers: `clone.error` says so, and each vault's revision, rules, integrations, skills and
+sections read `not judged`.
 """
 
 import argparse
@@ -93,16 +97,17 @@ sys.path[:0] = [str(SKILLS_ROOT / lib / "scripts") for lib in ("para-shared", "p
 try:
     from paraos_vault import (  # noqa: E402
         HEADER_FIELD_RE, TEMPLATE_MARKER_RE, declarations, find_clone, header_fields,
-        live_lines, norm, paraos_home_dir, read_lines, registry, roster,
+        live_lines, norm, paraos_home_dir, read_lines, read_text, registry, roster,
     )
     from paraos_clone import addon_root, clone_session, master_template  # noqa: E402
-    from upgrade_scan import files_block, open_clone, revision_block  # noqa: E402
+    from upgrade_scan import drift_block, files_block, open_clone, revision_block  # noqa: E402
 except ImportError as missing:
     print(f"audit_scan: {missing}. install para-shared and para-upgrade beside this skill",
           file=sys.stderr)
     sys.exit(2)
 
-COLUMNS = ("revision", "type", "declarations", "rules", "integrations", "skills", "size")
+COLUMNS = ("revision", "type", "declarations", "rules", "integrations", "skills", "sections",
+           "size")
 TARGET_LINES = 200
 DECLARED = ("type", "flavor", "modules")
 SHAPE_RE = re.compile(r"^\*\*(Type|Flavor|Modules):\*\* \S")
@@ -124,7 +129,7 @@ def counted(found, word):
 
 
 STATES = {"untouched": "behind", "edited": "edited", "missing": "missing", "retired": "retired",
-          "no-master": "no master", "off-contract": "off contract"}
+          "no-master": "no master", "off-contract": "off contract", "drift": "drifted"}
 
 
 def state_cell(rows):
@@ -192,26 +197,27 @@ def revision_check(vault, kit, in_development):
         text = (vault / "CLAUDE.md").read_text(encoding="utf-8", errors="replace")             if (vault / "CLAUDE.md").is_file() else ""
         mark = TEMPLATE_MARKER_RE.search(text)
         return {"verdict": "unverified", "vault": mark.group(1) if mark else None,
-                "master": None, "entries": [], "behind": 0}, NOT_JUDGED, []
+                "master": None, "entries": [], "behind": 0}, NOT_JUDGED, [], None
     rev = revision_block(vault, kit)
     verdict, mine, master = rev["verdict"], rev["vault"], rev["master"]
     entries = sorted(e["revision"] for e in rev["entries"])
     out = {"verdict": verdict, "vault": mine, "master": master, "entries": entries,
            "behind": len(entries)}
+    base = rev["baseline"]
     if verdict == "equal":
-        return out, "aligned", []
+        return out, "aligned", [], base
     if verdict == "behind":
         return out, f"behind {len(entries)}", [finding(
-            "revision", f"stamped {mine}, the master {master}: missing {', '.join(entries)}")]
+            "revision", f"stamped {mine}, the master {master}: missing {', '.join(entries)}")], base
     if verdict == "no-marker":
         return out, "UNSTAMPED", [finding(
-            "revision", f"no template marker, so every revision up to {master} is unapplied")]
+            "revision", f"no template marker, so every revision up to {master} is unapplied")], base
     draft = ", the revision in development in the clone's working tree" \
         if mine == in_development else ""
     return out, f"ahead {mine}", [finding(
         "revision", f"stamped {mine}, newer than the master's {master}{draft}: rules, "
-        f"integrations, skills and add-on names are not judged against an older master",
-        "fetch the clone, or audit again with ref= naming the revision the vault is on")]
+        f"integrations, skills, sections and add-on names are not judged against an older master",
+        "fetch the clone, or audit again with ref= naming the revision the vault is on")], base
 
 
 def roster_check(vault):
@@ -357,6 +363,32 @@ def skill_check(vault, rows, ref):
     return found, len(by_skill) + len(unknown)
 
 
+def sections_check(vault, kit, base, decl, mine):
+    """upgrade_scan's drift rows for the vault's `CLAUDE.md` at its own revision, `mine`,
+    whose commit is `base`: the cell counts sections, one finding per kit file names them."""
+    if base is None:
+        return NOT_JUDGED, []
+    rows = drift_block(kit, base, decl, read_text(vault / "CLAUDE.md"))
+    by_file = {}
+    for r in rows:
+        by_file.setdefault(r["file"], {"drift": [], "missing": []})[r["state"]].append(r["heading"])
+    return state_cell(rows), [section_finding(path, mine, **states)
+                              for path, states in by_file.items()]
+
+
+def section_names(headings):
+    return ", ".join(f"`{h}`" if h else "the lines above its first heading" for h in headings)
+
+
+def section_finding(path, mine, drift, missing):
+    held = f"`{path}` holds at {mine}"
+    said = [f"lacks wording {held} in {section_names(drift)}"] if drift else []
+    if missing:
+        whole = f"has no {section_names(missing)} section{'s' if len(missing) > 1 else ''}"
+        said.append(whole if drift else f"{whole}, which {held}")
+    return finding("sections", "`CLAUDE.md` " + "; it ".join(said))
+
+
 def size_check(vault):
     try:
         lines = (vault / "CLAUDE.md").read_bytes().count(b"\n")
@@ -373,7 +405,7 @@ def size_check(vault):
 def audit_vault(entry, kit, ref, in_development):
     vault = Path(entry["path"]).resolve()
     decl = declarations(vault)
-    revision, cell, found = revision_check(vault, kit, in_development)
+    revision, cell, found, base = revision_check(vault, kit, in_development)
     cells = {"revision": cell,
              "type": decl["type"] if decl["type"] and PLACEHOLDER not in decl["type"] else "-"}
     declared, resolvable = declaration_check(vault, decl)
@@ -398,8 +430,10 @@ def audit_vault(entry, kit, ref, in_development):
         cells["skills"] = "none" if not count else \
             "ok" if not more else f"{len(more)} of {count} differ"
         found += more
+        cells["sections"], more = sections_check(vault, kit, base, resolvable, revision["vault"])
+        found += more
     else:
-        cells.update({c: NOT_JUDGED for c in ("rules", "integrations", "skills")})
+        cells.update({c: NOT_JUDGED for c in ("rules", "integrations", "skills", "sections")})
     cells["size"], more = size_check(vault)
     found += more
 

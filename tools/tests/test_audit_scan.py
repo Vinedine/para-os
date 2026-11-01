@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Tests for audit_scan.py. Each pins a rule the script's docstring states: which registry entries are audited, the four revision outcomes, the declaration and
 add-on checks, shipped rule files and the rule-file contract, integration and skill copies
-read at a committed ref, the size target, the drive, and the vault named first.
+read at a committed ref, CLAUDE.md sections, the size target, the drive, and the vault named
+first.
 
     python3 test_audit_scan.py
     py -3 test_audit_scan.py
@@ -20,6 +21,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "multi-vault" / "para-audit" / "scripts"
@@ -51,7 +53,7 @@ def fixture_git(root, *args):
 def template(rev):
     return ("# {{Vault Name}} Vault Conventions\n\n"
             f"<!-- para-os-template: {rev} -->\n"
-            "**Type:** {{vault-type}}\n\nGuidance.\n")
+            "**Type:** {{vault-type}}\n\nGuidance.\n\n## Actions\n\nA rule.\n")
 
 
 def changelog(*revs):
@@ -110,7 +112,7 @@ def claude_md(marker="2026.10.01", type_line="**Type:** client-vault", extra_hea
     if type_line:
         head += type_line + "\n"
     head += extra_header
-    body = "\nA fixture vault.\n\n## Actions\n\nA rule.\n"
+    body = "\nGuidance.\n\n## Actions\n\nA rule.\n"
     body += "".join(f"Line {i}.\n" for i in range(body_lines))
     return head + body
 
@@ -271,7 +273,7 @@ class RevisionCase(CloneCase):
                        extra_header="**Modules:** nonesuch\n")
         self.assertEqual(row["revision"]["verdict"], "ahead")
         self.assertEqual(row["cells"]["revision"], "ahead 2026.10.02")
-        for check in ("rules", "integrations", "skills"):
+        for check in ("rules", "integrations", "skills", "sections"):
             self.assertEqual(row["cells"][check], "not judged", check)
             self.assertEqual(self.findings(row, check), [], check)
         self.assertFalse(any("nonesuch" in f["detail"] for f in row["findings"]))
@@ -455,6 +457,72 @@ class CopiesCase(CloneCase):
         report, _ = self.run_audit([self.entry("v")])
         row = self.vault_row(report, "v")
         self.assertEqual(self.findings(row, "size"), [])
+
+
+class SectionsCase(CloneCase):
+    """upgrade_scan's suite pins which sections drift; these pin what the audit makes of its
+    rows: the cell, one finding per kit file, the revision named, and the route."""
+
+    def row(self, text=None, **vault):
+        root = build_vault(self.work / "v", **vault)
+        if text is not None:
+            write(root, "CLAUDE.md", text)
+        report, _ = self.run_audit([self.entry("v")])
+        return report, self.vault_row(report, "v")
+
+    def test_a_claude_md_in_line_with_the_template_reads_ok(self):
+        _, row = self.row(claude_md(body_lines=3) + "\n## House\n\nOur own rule.\n")
+        self.assertEqual(row["cells"]["sections"], "ok")
+        self.assertEqual(self.findings(row, "sections"), [])
+
+    def test_older_wording_on_the_current_revision_is_drift(self):
+        report, row = self.row(claude_md().replace("A rule.", "An older rule."))
+        self.assertEqual(row["cells"]["revision"], "aligned")
+        self.assertEqual(row["cells"]["sections"], "1 drifted")
+        found = self.findings(row, "sections")
+        self.assertEqual([f["detail"] for f in found],
+                         ["`CLAUDE.md` lacks wording `base/CLAUDE.md.template` holds at "
+                          "2026.10.01 in `Actions`"])
+        self.assertEqual(found[0]["route"], "upgrade")
+        self.assertIn("/para-upgrade", found[0]["fix"])
+        self.assertEqual(report["upgrade_first"]["name"], "v")
+
+    def test_a_missing_add_on_section_is_its_own_kit_file_s_finding(self):
+        text = claude_md(extra_header="**Modules:** sales\n").replace("A rule.", "An older rule.")
+        _, row = self.row(text, rules=("filing.md", "pipeline.md"))
+        self.assertEqual(row["cells"]["sections"], "1 drifted, 1 missing")
+        self.assertEqual([f["detail"] for f in self.findings(row, "sections")][1:],
+                         ["`CLAUDE.md` has no `Sales` section, which "
+                          "`addons/sales/CLAUDE.md.sections` holds at 2026.10.01"])
+
+    def test_the_lines_above_the_first_heading_are_compared_too(self):
+        _, row = self.row(claude_md().replace("Guidance.", "Other guidance."))
+        self.assertEqual([f["detail"] for f in self.findings(row, "sections")],
+                         ["`CLAUDE.md` lacks wording `base/CLAUDE.md.template` holds at "
+                          "2026.10.01 in the lines above its first heading"])
+
+    def test_a_behind_vault_is_compared_at_its_own_revision(self):
+        _, row = self.row(claude_md(marker="2026.09.05").replace("A rule.", "An older rule."),
+                          marker="2026.09.05")
+        self.assertIn("at 2026.09.05", self.findings(row, "sections")[0]["detail"])
+
+    def test_an_unstamped_vault_has_no_revision_to_compare_with(self):
+        _, row = self.row(marker=None)
+        self.assertEqual(row["cells"]["sections"], "not judged")
+        self.assertEqual(self.findings(row, "sections"), [])
+
+    def test_the_cell_counts_the_drift_check_s_own_rows_and_one_finding_names_them(self):
+        rows = [{"file": "base/CLAUDE.md.template", "heading": h, "state": s, "diff": ""}
+                for h, s in (("A", "drift"), ("B", "drift"), ("C", "missing"), ("D", "missing"))]
+        build_vault(self.work / "v")
+        with mock.patch.object(audit_scan, "drift_block", return_value=rows) as drift:
+            report, _ = self.run_audit([self.entry("v")])
+        row = self.vault_row(report, "v")
+        self.assertEqual(row["cells"]["sections"], "2 drifted, 2 missing")
+        self.assertEqual([f["detail"] for f in self.findings(row, "sections")],
+                         ["`CLAUDE.md` lacks wording `base/CLAUDE.md.template` holds at "
+                          "2026.10.01 in `A`, `B`; it has no `C`, `D` sections"])
+        drift.assert_called_once()
 
 
 class StateWordingCase(unittest.TestCase):
@@ -680,7 +748,7 @@ class CloneErrorCase(CloneCase):
         row = self.vault_row(report, "v")
         self.assertEqual(row["revision"]["verdict"], "unverified")
         self.assertEqual(row["revision"]["vault"], "2026.09.05")
-        for column in ("revision", "rules", "integrations", "skills"):
+        for column in ("revision", "rules", "integrations", "skills", "sections"):
             self.assertEqual(row["cells"][column], "not judged")
         self.assertNotEqual(row["cells"]["size"], "not judged")
         self.assertIsNone(report["upgrade_first"])
