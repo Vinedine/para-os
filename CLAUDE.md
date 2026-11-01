@@ -52,9 +52,9 @@ python3 tools/check.py               # before a release: also runs `claude plugi
 ```
 
 Both must pass. CI runs the first on Ubuntu, macOS and Windows under Python 3.12, and on Ubuntu
-under 3.9, on every push to `main`, `stable` or a `feat/` branch and on every pull request. A
-second job fails when coverage drops below its floor, and a third runs `actionlint` over
-`.github/workflows/`. `main` merges nothing until all six pass.
+under 3.9 and 3.14, on every push to `main`, `stable` or a `feat/` branch and on every pull
+request. A second job fails when coverage drops below its floor, and a third runs `actionlint`
+over `.github/workflows/`. `main` merges nothing until all seven pass.
 
 What the checks enforce, and why each is machinery rather than prose, is the docstring of
 `tools/check.py`: dashes, dates, never-ship terms, word caps, the skill and rule-file contracts,

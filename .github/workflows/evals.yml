@@ -30,17 +30,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
+      # Unpinned, so the evals measure the CLI users run; the summary names it, so a score that
+      # moved with a CLI release reads apart from one that moved with the repo.
       - name: Install Claude Code
         run: |
           npm install -g @anthropic-ai/claude-code
-          claude --version
+          version=$(claude --version)
+          echo "Claude Code $version" | tee -a "$GITHUB_STEP_SUMMARY"
       # A granted shell runs inside bubblewrap. Ubuntu 24.04's AppArmor stops bwrap creating user
       # namespaces; the profile below, from Claude Code's sandboxing docs, covers bwrap alone.
       - name: Install the sandbox
@@ -79,7 +82,7 @@ jobs:
           vendor=(--runs 1 --threshold 0 --concurrency 4 --max-cost-usd 40 --keep-temp)
           if [ -n "$MODEL" ]; then vendor+=(--model "$MODEL"); fi
           python tools/eval.py "${args[@]}" -- "${vendor[@]}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: eval-results
