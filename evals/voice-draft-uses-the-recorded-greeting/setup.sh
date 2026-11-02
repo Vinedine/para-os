@@ -5,7 +5,7 @@ set -e
 
 # The host's whole message is staged and the vault holds the go-live window it asks for, so a
 # reply is owed and every fact it needs is on file. The account it came to has a voice
-# profile, pointed at from CLAUDE.md: "Hey <first name>," and "Cheers," then the first name,
+# profile: "Hey <first name>," and "Cheers," then the first name,
 # and a never-uses list of the closings and fillers a generic reply reaches for. Asked for
 # that reply, the run drafts it in that voice.
 cat > "triage/${recv_stamp} Re Redirect map for the launch 7e3b91.md" <<EOF
@@ -42,9 +42,7 @@ cat >> CLAUDE.md <<'EOF'
 
 ## Memory
 
-A draft the operator will send also follows `para-shared/drafting.md`, installed beside the `/para-*` skills. How someone sending from this vault writes is kept apart too, once they ask: a voice profile per person in `.claude/rules/`, built per `para-shared/voice-profile.md` and pointed at in its own paragraph below.
-
-Drafts from Noor's account are written in her voice. The full convention (Noor Visser's voice) is in [.claude/rules/voice-noor-visser.md](.claude/rules/voice-noor-visser.md), which loads only when read; read it explicitly before drafting anything in Noor's name.
+A draft to send follows `para-shared/drafting.md`; a voice profile is built per `para-shared/voice-profile.md`.
 EOF
 
 mkdir -p .claude/rules
