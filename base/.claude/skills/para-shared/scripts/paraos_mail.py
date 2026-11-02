@@ -327,7 +327,7 @@ def watermark(entry, newest_date=None, newest_key=None):
     settles it outright - the key wins over dates either way. Otherwise the cut is by date:
     an entry with no `seen_through`, a bare `YYYY-MM-DD` `seen_date`, or no `seen_date` at
     all is legacy, its watermark the start of that day in UTC, and growing past it reads as
-    `grown` rather than `carry` (connectors.md: let anything later resurface). A watermark or
+    `grown` rather than `carry`, so anything later resurfaces. A watermark or
     a `newest_date` that fails to parse never reads as `seen` - it carries forward instead,
     since failing toward dropping a thread is the false quiet this protocol exists to
     prevent.
