@@ -3,7 +3,8 @@
 
     py -3 ingest_scan.py prepare --mode preview|write [--days N] [--now <ISO-8601>]
                                  [--paraos-home DIR]
-    py -3 ingest_scan.py route --work <dir> [--connectors <threads.json>] [--paraos-home DIR]
+    py -3 ingest_scan.py route --work <dir> [--connectors <threads.json>]
+                               [--unread <mailbox> ...] [--paraos-home DIR]
 
 `prepare` reads the registry and each active vault's `## Triage sources`, skips a row a
 `pulled by` marker reserves for another roster writer, and groups the connector and
@@ -36,13 +37,17 @@ thread shape without `routed` and `reason`), then, per thread:
   narrow the candidates, for the model to judge.
 
 It writes `run.json` beside the plan, ready for stage.py: every thread kept, `routed` null and
-`candidates` set where undecided. stdout holds the counts, each undecided thread's subject,
+`candidates` set where undecided, with the run's `invocation`, `window_days` and a
+`source_plan` counting the mailboxes planned, read and errored. A fetch script that failed is
+errored, and so is each connector mailbox passed as `--unread`, one the model could not read,
+which also lands in `errors`. stdout holds the counts, each undecided thread's subject,
 sender, snippet, candidates, `contacts` and `boards` (a domain a candidate's lifecycle homes
 hold an address at: evidence, never a decision), each candidate's purpose and `Relevant when`
 once, and the decided threads by subject and sender.
 
 Refused with exit 2: no registry, a work folder with no plan, a ledger that does not parse,
-or a connector thread for a mailbox the plan does not hold or missing what stage.py needs.
+a connector thread for a mailbox the plan does not hold or missing what stage.py needs, or an
+`--unread` mailbox that is not a connector mailbox in the plan.
 """
 
 import argparse
@@ -207,6 +212,7 @@ def prepare(mode, paraos_home=None, now=None, days=None):
     if not entries:
         raise ValueError(f"no registry at {home / 'vaults.json'}, or it does not parse")
     now = parse_now(now) if isinstance(now, str) or now is None else now
+    invocation = f"/para-ingest {mode}" + (f" --days {days}" if days else "")
     days = days or WINDOW_DAYS[mode]
     card = operator_card(home)
     vaults, mailboxes, syncs, skipped, errors = [], {}, [], [], []
@@ -274,7 +280,8 @@ def prepare(mode, paraos_home=None, now=None, days=None):
     errors += [f"{r['mailbox']}: {r['error']}" for r in fetch_runs if r["error"]]
 
     window = {"days": days, "since": (now - timedelta(days=days)).isoformat()}
-    plan = {"mode": mode, "started_at": now.isoformat(), "window": window,
+    plan = {"mode": mode, "invocation": invocation, "started_at": now.isoformat(),
+            "window": window,
             "mailboxes": {mb: {k: held[k] for k in ("kind", "connector", "vaults",
                                                      "relevant_when")}
                           for mb, held in mailboxes.items()},
@@ -436,12 +443,16 @@ def rule_one(thread, candidates, index):
     return None, None, hits
 
 
-def route(work, connectors=None, paraos_home=None):
+def route(work, connectors=None, paraos_home=None, unread=()):
     work = Path(work)
     try:
         plan = json.loads((work / "plan.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as err:
         raise ValueError(f"no plan in {work}: {err}") from None
+    unread = sorted({mb.strip().lower() for mb in unread or ()})
+    for mailbox in unread:
+        if (plan["mailboxes"].get(mailbox) or {}).get("kind") != "connector":
+            raise ValueError(f"--unread {mailbox}: not a connector mailbox in the plan")
     home = paraos_home_dir(paraos_home)
     entries = {e.get("name"): e for e in registry(home) if isinstance(e, dict)}
     if not entries:
@@ -520,12 +531,17 @@ def route(work, connectors=None, paraos_home=None):
                                   if v in held["relevant_when"]}})
     counts.update(signin=len(signins), decided=len(decided), to_judge=len(to_judge))
 
-    run = {"mode": plan["mode"], "started_at": plan["started_at"],
+    errored = sum(1 for r in plan["fetch_runs"] if r["error"]) + len(unread)
+    run = {"mode": plan["mode"], "invocation": plan.get("invocation"),
+           "window_days": plan["window"]["days"], "started_at": plan["started_at"],
            "source_plan": {"declaring_vaults": {mb: held["vaults"]
-                                                for mb, held in plan["mailboxes"].items()}},
+                                                for mb, held in plan["mailboxes"].items()},
+                           "mailboxes": len(plan["mailboxes"]),
+                           "mailboxes_read": len(plan["mailboxes"]) - errored,
+                           "mailboxes_errored": errored},
            "sync_runs": [{k: r[k] for k in ("vault", "script", "written", "error")}
                          for r in plan["sync_runs"]],
-           "errors": plan["errors"],
+           "errors": plan["errors"] + [f"{mb}: connector could not be read" for mb in unread],
            "threads": [{k: v for k, v in t.items() if k not in ("newest", "resurfaced")}
                        for t in survivors + dropped] + signins}
     path = work / "run.json"
@@ -545,6 +561,8 @@ def main(argv=None):
     r = sub.add_parser("route", help="check fetched threads, apply rule 1, write run.json")
     r.add_argument("--work", required=True, help="the folder prepare printed")
     r.add_argument("--connectors", help="the connector threads the model fetched, as JSON")
+    r.add_argument("--unread", action="append", default=[], metavar="MAILBOX",
+                   help="a connector mailbox the model could not read (repeatable)")
     for parser in (p, r):
         parser.add_argument("--paraos-home", help="override for $PARAOS_HOME")
     args = ap.parse_args(argv)
@@ -558,7 +576,7 @@ def main(argv=None):
         if args.command == "prepare":
             out = prepare(args.mode, args.paraos_home, parse_now(args.now), args.days)
         else:
-            out = route(args.work, args.connectors, args.paraos_home)
+            out = route(args.work, args.connectors, args.paraos_home, args.unread)
     except ValueError as err:
         ap.error(str(err))
     json.dump(out, sys.stdout, ensure_ascii=False, indent=2)
