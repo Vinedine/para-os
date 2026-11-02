@@ -105,6 +105,13 @@ def declared_skills(vault):
     return sorted((installed | named) - {"para-shared"})
 
 
+def worded(prompt):
+    """A request in words: not a slash command, which adoption counts, nor a message the
+    harness injects as a tag, such as `<agent-message>`."""
+    text = (prompt or "").lstrip()
+    return bool(text) and text[0] not in "/<"
+
+
 def near_repeat(a, b):
     a, b = set(WORD_RE.findall(a.lower())), set(WORD_RE.findall(b.lower()))
     if min(len(a), len(b)) < REPHRASE_MIN_WORDS:
@@ -200,10 +207,10 @@ def scan(vault, today, days):
                     "tools": count}
                    for sid, s in sessions.items() for pid, count in s["tools"].items()
                    if pid in s["prompts"] and s["vault_work"]]
+    asked = {sid: [p for p in s["prompts"].values() if worded(p)] for sid, s in sessions.items()}
     rephrased = [{"session": sid, "prompts": [a, b]}
                  for sid, s in sessions.items() if s["vault_work"]
-                 for a, b in zip(list(s["prompts"].values()), list(s["prompts"].values())[1:])
-                 if near_repeat(a or "", b or "")]
+                 for a, b in zip(asked[sid], asked[sid][1:]) if near_repeat(a, b)]
 
     adoption = {}
     for (_, _, skill), (person, day) in sorted(invocations.items(), key=lambda kv: kv[1][1]):
