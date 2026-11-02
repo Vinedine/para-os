@@ -91,8 +91,8 @@ from paraos_mail import (  # noqa: E402
     note_name_parts, received_instant, thread_hash, watermark,
 )
 from paraos_vault import (  # noqa: E402
-    EMAIL_RE, TEXT_SUFFIXES, down_drives, lifecycles, norm, operator_card, paraos_home_dir,
-    registry, roster, triage_sources, writer,
+    EMAIL_RE, TEXT_SUFFIXES, down_drives, lifecycles, operator_card, paraos_home_dir,
+    registry, reserved_for, roster, triage_sources, writer,
 )
 
 WINDOW_DAYS = {"write": 2, "preview": 30}
@@ -115,16 +115,6 @@ def parse_now(text):
     if instant is None:
         raise ValueError(f"--now {text!r} is not an ISO-8601 instant with its offset")
     return instant
-
-
-def reserved_for(row, writers, me):
-    """The roster writer a row's `pulled by` names, where that is not the operator."""
-    name = row.get("pulled_by")
-    if not name or not writers or not me:
-        return None
-    key = norm(name)
-    named = next((w for w in writers if key in (norm(w["person"]), w["card"])), None)
-    return named["person"] if named and named["card"] != me["card"] else None
 
 
 def resolve(root, declared):
