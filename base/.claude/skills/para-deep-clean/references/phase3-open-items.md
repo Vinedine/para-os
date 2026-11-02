@@ -22,9 +22,9 @@ Every live contract, lease or policy with a renewal term in a `sources/` under `
 
 Against the vault's actionable-frontier rule, over every `actions.md` under `projects/` and `areas/`, every contact card's `## Next actions`, and every other file there with open checkboxes (`other_checkbox_files`). One of those last whose header declares its own contract (its entries *propose* actions, and something prunes them) is not a filing error: report its count and check that something retires what is never promoted. Without one, its items belong in the entity's `actions.md`.
 
-- **Over the cap** (`over_threshold`, more than 8 open): keep as checkboxes only the steps actionable now or on their date; demote those gated on an unfinished predecessor to plain bullets under `## Backlog` in the same file, text verbatim, only the `- [ ]` and its markers dropped. A file over with nothing demotable is reported as deliberately over, with any closes the evidence supports.
-- **Stale undated** (`stale_undated`: open, undated, its own line untouched 30+ days): one batched question per file offers to demote them all, the operator free to keep any; closing or dating one is a question per item. An item marked `unmeasurable` is reported as such, never given a date.
-- **Aspirational dates** (`aspirational`, overdue by more than 30 days): strip the `📅`, leaving the item undated or demoted, or keep it because the deadline was real. Overdue by 30 or less: done, re-dated, or left.
+- **Over the cap** (`over_threshold`): keep as checkboxes only the steps actionable now or on their date; demote those gated on an unfinished predecessor to plain bullets under `## Backlog` in the same file, text verbatim, only the `- [ ]` and its markers dropped. A file over with nothing demotable is reported as deliberately over, with any closes the evidence supports.
+- **Stale undated** (`stale_undated`): one batched question per file offers to demote them all, the operator free to keep any; closing or dating one is a question per item. An item marked `unmeasurable` is reported as such, never given a date.
+- **Aspirational dates** (`aspirational`): strip the `📅`, leaving the item undated or demoted, or keep it because the deadline was real. Any other overdue item: done, re-dated, or left.
 - **Projects that lost their deadline** (`demotion_candidates`): propose demotion to an area in the phase summary, one line each naming the date.
 
 **Whether an item was quietly finished or abandoned, and whether a blown date was real, are questions of fact**, asked with no `(Recommended)` per [asking.md](../../para-shared/asking.md#the-question): options ordered by the file's evidence, each naming its effect ("Finished untracked: close it"). Every close or removal is its own question; demotions batch. Order the questions by file.
@@ -37,10 +37,10 @@ Grooming never touches `resources/` or `archive/`: checkboxes there are Phase 1 
 
 ## Step 3.5 - Content grooming
 
-Against the content-frontier rule. Read the root `README.md`, every contact card and area README, and the `brief.md` of each entity in `briefs_to_read`, grown by more than half since the last deep clean where git can tell, or holding more development-log entries than open actions. Name the thresholds used and what was not read. `triage/`, `sources/` and `archive/` are out of scope.
+Against the content-frontier rule. Read the root `README.md`, every contact card and area README, and each brief in `briefs_to_read`. Name `briefs_skipped`, and why where `growth` is not `measured`. `triage/`, `sources/` and `archive/` are out of scope.
 
 - **Duplicated facts**: name the owning file and propose links for the copies. No file is deleted as a duplicate without a diff against the survivor.
 - **Superseded content** in live buckets: propose moving it to the owning `archive/` entity, or cutting it where git holds it, saying which per item.
 - **Activity-log entries** recording that work happened: collapse a run into one entry naming the decision, its text drawn verbatim from the originals.
 - **Contradictions** between live files: never trust the more recent edit. Check the owning file against a source document and propose the correction in the copies; one no source settles is an open item for the owning entity.
-- **Orphans** in `projects/`, `areas/` or `resources/` that nothing links to (percent-decoded) and no `CLAUDE.md` rule accounts for: report only, as a question; where a move lost the link, propose restoring it.
+- **Orphans** (`orphans`) no `CLAUDE.md` rule accounts for: report only, as a question; where a move lost the link, propose restoring it.

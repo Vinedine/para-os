@@ -64,7 +64,7 @@ try:
     from paraos_clone import (  # noqa: E402
         changelog_entries, clone_read, clone_session, entries_between, master_template)
     from paraos_mail import ingest_ledger  # noqa: E402
-    from paraos_vault import HEADING_RE, closed_tasks, table_cells  # noqa: E402
+    from paraos_vault import closed_tasks, log_entries  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"brief_scan: {missing}. The shared vault library belongs at "
           f"{SHARED_DIR}/paraos_vault.py: install para-shared beside this skill", file=sys.stderr)
@@ -661,11 +661,6 @@ def nothing_open(vault, tasks, per_file_dates):
 # reads: the lanes and flags above are the brief's, and the review adds its own report key.
 
 REVIEW_DAYS = {"week": 7, "month": 30}
-# A development log's heading or file name, separators read as spaces and a trailing
-# parenthetical dropped: `## Development log (newest first)`, `decision-log.md`, `## Log`.
-LOG_NAME_RE = re.compile(r"^(?:(?:development|dev|decisions?) )?log$|^decisions$", re.IGNORECASE)
-LOG_ENTRY_RE = re.compile(r"^(?:[-*+]\s+|#{2,6}\s+)?[*_]{0,2}(\d{4}-\d{2}-\d{2})[*_]{0,2}"
-                          r"(?![\d-])[\s:,.)\u2013\u2014-]*(.*)$")
 NAME_LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 DATE_IN_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
@@ -774,52 +769,6 @@ def moved_in_window(vault, start, end, own=None):
                  and (own is None or e["path"].startswith(own))]
         moved.sort(key=lambda e: (e["since"], e["name"].lower()))
         out.append({"heading": lc["heading"], "count": len(moved), "entities": moved})
-    return out
-
-
-def log_name(text):
-    name = re.sub(r"\s*\([^)]*\)$", "", re.sub(r"[*_`]", "", text))
-    return bool(LOG_NAME_RE.match(re.sub(r"[-_\s]+", " ", name).strip()))
-
-
-def log_entries(path):
-    """(line, date, text) for each dated entry in a development log: the section under a
-    heading `LOG_NAME_RE` reads as one, down to the next heading of its level or above, or
-    the whole of a file named as one. An entry is a line, list item or heading opening on
-    its date, or a table row whose first cell is one; a date alone on its line takes the
-    next line as its text."""
-    whole = log_name(path.stem)
-    level, pending, out = None, None, []
-    for lineno, text in live_lines(read_lines(path)):
-        line = text.strip()
-        if not line:
-            continue
-        entry = LOG_ENTRY_RE.match(line)
-        heading = HEADING_RE.match(line)
-        if heading and not entry:
-            pending = None
-            if not whole:
-                depth = len(heading.group(1))
-                if level is not None and depth <= level:
-                    level = None
-                if level is None and depth > 1 and log_name(heading.group(2)):
-                    level = depth
-            continue
-        if level is None and not whole:
-            continue
-        if line.startswith("|"):
-            cells = table_cells(line)
-            day = re.sub(r"[*_]", "", cells[0]) if cells else ""
-            if parse_date(day):
-                out.append((lineno, day, " - ".join(c for c in cells[1:] if c)))
-        elif entry and parse_date(entry.group(1)):
-            body = entry.group(2).strip()
-            pending = None if body else (lineno, entry.group(1))
-            if body:
-                out.append((lineno, entry.group(1), body))
-        elif pending:
-            out.append((pending[0], pending[1], line))
-            pending = None
     return out
 
 
