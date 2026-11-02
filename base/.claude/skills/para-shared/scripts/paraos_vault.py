@@ -1127,6 +1127,18 @@ def writer(vault, card):
     return next((r for r in rows if card and r["card"] == card), None)
 
 
+def reserved_for(row, writers, me):
+    """The roster writer a source row's `pulled_by` names, matched on their name or card,
+    unless the running writer `me` is known to be them: their runs alone pull the row. None
+    with no marker, no roster, or a name the roster does not hold."""
+    name = row.get("pulled_by")
+    if not name or not writers:
+        return None
+    key = norm(name)
+    named = next((w for w in writers if key in (norm(w["person"]), w["card"])), None)
+    return named["person"] if named and not (me and named["card"] == me["card"]) else None
+
+
 # --- what the vault declares ---------------------------------------------------------------
 
 def _declared(value):

@@ -1192,8 +1192,11 @@ class PulledBy(VaultCase):
     def test_a_name_the_roster_does_not_hold_skips_nothing(self):
         self.assertEqual(self.plans("robin-maes")["stranger"][0], "pull")
 
-    def test_with_no_running_writer_nothing_is_skipped(self):
-        self.assertNotIn("skip", {plan for plan, _ in self.plans().values()})
+    def test_with_no_running_writer_every_reserved_row_is_skipped(self):
+        got = self.plans()
+        self.assertEqual({s: got[s][0] for s in got},
+                         {"sam-mail": "skip", "sam-home": "skip", "sam-notes": "skip",
+                          "shared": "pull", "stranger": "pull"})
 
     def test_a_vault_with_no_roster_ignores_the_marker(self):
         got = self.plans("robin-maes", roster=False)

@@ -218,6 +218,9 @@ class Plan(Case):
         got = self.prepare()
         self.assertEqual([c["mailbox"] for c in got["connectors"]], [WORK])
         self.assertEqual(got["skipped"][0]["reason"], "pulled by Sam")
+        (self.home / "operator.json").unlink()
+        got = self.prepare()
+        self.assertEqual([c["mailbox"] for c in got["connectors"]], [WORK])
 
     def test_the_plan_is_kept_in_the_work_folder(self):
         self.vault("alpha", [connector_row(WORK, "Client threads.")])

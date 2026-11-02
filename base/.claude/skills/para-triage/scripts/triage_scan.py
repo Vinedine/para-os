@@ -51,8 +51,8 @@ try:
         MIN_HASH_BYTES, OPEN_ITEM_CAP, TEXT_SUFFIXES, abspath, cap_count, action_files, contact_card_level,
         hashes, inbound_references, lifecycles, live_lines, norm, open_tasks, operator_card,
         read_lines,
-        registered_vault, registry, rel_posix, roster, same_place, snapshot, triage_items,
-        triage_sources, vault_root, writer,
+        registered_vault, registry, rel_posix, reserved_for, roster, same_place, snapshot,
+        triage_items, triage_sources, vault_root, writer,
     )
     from paraos_mail import (  # noqa: E402
         ingest_ledger, ingest_logs, log_instant, note_name_parts, thread_hash, unanswered,
@@ -216,18 +216,6 @@ def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs,
     return "run", "log records no per-vault sync runs"
 
 
-def pulled_elsewhere(row, writers, me):
-    """The roster writer a row's `pulled_by` names, matched on their name or card, where that
-    is not the writer running this scan: their runs alone pull the row. None with no marker,
-    no roster, no running writer, or a name the roster does not hold."""
-    name = row.get("pulled_by")
-    if not name or not writers or not me:
-        return None
-    key = norm(name)
-    named = next((w for w in writers if key in (norm(w["person"]), w["card"])), None)
-    return named["person"] if named and named["card"] != me["card"] else None
-
-
 def sources_block(vault, entries, vault_name, ingest, newest_write, writers=None, me=None):
     src = triage_sources(vault)
     declaring_vaults = newest_write.get("declaring_vaults") if newest_write else None
@@ -236,7 +224,7 @@ def sources_block(vault, entries, vault_name, ingest, newest_write, writers=None
 
     rows = []
     for row in src["rows"]:
-        other = pulled_elsewhere(row, writers, me)
+        other = reserved_for(row, writers, me)
         if other:
             plan, reason = "skip", f"pulled by {other} - skipped"
         else:
