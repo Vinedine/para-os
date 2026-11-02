@@ -1,19 +1,16 @@
 # Signals
 
-What to compute from the ledger, and what each number is allowed to mean. Loaded by Steps 2 and 3 of [SKILL.md](../SKILL.md).
+What each number in the scan is allowed to mean. Loaded by Steps 2 and 3 of [SKILL.md](../SKILL.md).
 
 ## Parsing
 
-`scripts/review_scan.py` makes the counts its output holds; the rest is read from the window's `resources/logs/sessions/*.jsonl`.
-
-- **Malformed lines are skipped** (`frame.skipped_lines`): mention them only if they are more than a rounding error.
-- **Sessions nobody typed into are the denominator trap.** A client can open a session per window or per tile, so a ledger folder counts openings, not work. Report both `sessions` and `typed_sessions`, because "90 sessions" and "25 sessions anyone worked in" support very different sentences. `unrelated_sessions` are typed sessions that touched no vault file and invoked no skill: report them as unrelated to the vault, by count only, and never quote one.
-
-**Files changed come from two fields, not one.** `target` names the file for a `Write` or `Edit`. `touched` - a list, with `touched_total` alongside it when the list was capped - names the files a tool changed *without* naming them itself, and it is the only way work done by a script run through Bash is visible at all. Two caveats to carry into the report. Ledgers lacking a `touched` field have no indirect write tracking, so an older window must be described as blind here rather than as quiet. And `touched` is **inferred**: its window is the tool's own duration, so on a synced library a file another person's sync client landed inside that window is indistinguishable from one this call wrote. It is evidence of what changed, never proof of who changed it.
+- Mention `frame.skipped_lines` only beyond a rounding error.
+- **Sessions nobody typed into are the denominator trap.** A client can open a session per window or per tile, so a ledger folder counts openings, not work. Report both `sessions` and `typed_sessions`, because "90 sessions" and "25 sessions anyone worked in" support very different sentences. Report `unrelated_sessions` as unrelated to the vault, by count only, and never quote one.
+- **A script's writes are visible only through `touched`**, which older ledgers lack: describe such a window as blind to them, not quiet.
 
 ## A. Adoption - what gets used
 
-**Enumerate first, then subtract.** The scan's `never_invoked` covers the skills in the vault's `.claude/skills/`; add the ones its CLAUDE.md names and the integrations in `resources/scripts/`, then mark which the ledger never shows. `adoption` counts one invocation per request and skill, per person, with the `first` and `last` day.
+**Enumerate first, then subtract.** `never_invoked` holds every skill the vault installs or its CLAUDE.md names that the window never shows; add the integrations in `resources/scripts/` it never shows.
 
 The four shapes this produces, in descending order of how much they should change:
 
@@ -26,29 +23,29 @@ The four shapes this produces, in descending order of how much they should chang
 
 ## B. Reach - what gets touched
 
-`sessions_by_bucket` counts sessions per top-level folder, from `target` and `touched` alike, and `untouched_buckets` names the ones that exist but never appear: a vault with an `archive/` nobody has opened in a month is either well-run or carrying dead weight, and which one it is depends on what else the ledger says.
+A bucket in `untouched_buckets`, such as an `archive/` nobody has opened in a month, is either well-run or dead weight, and which one depends on what else the ledger says.
 
-Also worth one line each: files `writers_by_file` shows written by exactly one person (single points of knowledge), and files read repeatedly across sessions without ever being written (reference that is doing its job, or a question the structure never answers).
+Also worth one line each: a file `writers_by_file` gives one writer (a single point of knowledge), and `read_never_written` (reference doing its job, or a question the structure never answers).
 
 ## C. Friction - where it fights back
 
 - **Failures and denials** (`failures`, by tool and target). A repeated failure on the same target is a defect with an address.
-- **Sessions that produced nothing** (`typed_without_writes`): prompts submitted, nothing written all session. One is noise; a pattern is people asking for something the vault cannot do.
+- **Sessions that produced nothing** (`typed_without_writes`). One is noise; a pattern is people asking for something the vault cannot do.
 - **Sessions left open for days** (`multi_day_sessions`): stale context, and entities mixed up where it touched several (`entities`).
-- **Turns per request** (`tools_per_request`, the ten largest). A request that expands into many turns is either real work or a badly-shaped task; read it against what was written at the end.
-- **Rephrasing.** Consecutive prompts in one session that are near-repeats (compare lowercased, punctuation stripped, on token overlap). This is the strongest available signal that the vault did not understand a request.
-- **How sessions ended.** `reason` belongs to the harness, not to the ledger, and a client may report `other` for every ending. Check whether it varies at all before building anything on it, and say plainly in the report when it does not. The usable answer is the `summary` object on the `SessionEnd` line (when present): `prompts`, `tools`, `writes`, `failures`, `denials`, `duration_s`, `last_prompt_tools`. Read `last_prompt_tools: 0` as "the final request produced no tool call", never as "abandoned" - a question answered in prose looks the same.
+- **Turns per request** (`tools_per_request`). A request that expands into many turns is either real work or a badly-shaped task; read it against what was written at the end.
+- **Rephrasing** (`rephrased`): the strongest available signal that the vault did not understand a request.
+- **How sessions ended** (`endings`). The `reasons` are the harness's, and a client may report `other` for every ending: where they never vary, say so and build nothing on them. `last_request_without_tools` means the final request produced no tool call, never "abandoned": a question answered in prose looks the same.
 
 ## D. Rhythm
 
-Sessions per person per week, median duration, and the gap between a person's first ever session and their most recent. A team whose usage stopped after week one has a different problem from one that never started, and only the dates distinguish them.
+`rhythm`, per person: `weeks`, `median_minutes`, and `first_ever` against `last`. A team whose usage stopped after week one has a different problem from one that never started, and only the dates distinguish them.
 
 ## E. Contradictions - usage against the vault's own rules
 
 Read the reviewed vault's CLAUDE.md, then check only what that vault actually declares. Each of these is a rule the structure invites people to break:
 
 - A checkbox in a bucket the vault forbids one in.
-- `triage/` holding files while the vault's triage skill was never invoked in the window.
+- `contradictions.triage_unrun`: notes waiting in `triage/` while `/para-triage` never ran.
 - An entity folder missing the files its conventions require (usually a brief).
 - Actions carrying invented or absent dates where the vault has a dating rule.
 - Entities created by hand - a write straight to `projects/<x>/brief.md` with no creation skill invoked - which says the skill is unknown, not that the person was wrong.
