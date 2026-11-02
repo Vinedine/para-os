@@ -24,7 +24,7 @@ A `recording` row is read per [connectors.md](../../para-shared/connectors.md#re
 
 ## Google-native files
 
-A `drive` row's `Endpoint` is the id of the Google Drive the vault syncs from; without one, `convert` and this conversion are skipped. A `google-native` stub has no content: **find it by name in the drive-scoped folder listing** (the row's drive id, `trashed = false`), **export it verbatim** to a `.md` sibling in `triage/` under the vault's naming, and **ledger it**. The `.md` flows on as a loose file; the stub gets its own Delete question. With no Drive connector, or the Drive API not enabled (its error quoted), the stub stays unfiled and the summary says why.
+A `drive` row with no `drive_id` skips `convert` and this conversion. A `google-native` stub has no content: **find it by name in the drive-scoped folder listing** (the row's `drive_id`, `trashed = false`), **export it verbatim** to a `.md` sibling in `triage/` under the vault's naming, and **ledger it**. The `.md` flows on as a loose file; the stub gets its own Delete question. With no Drive connector, or the Drive API not enabled (its error quoted), the stub stays unfiled and the summary says why.
 
 ## The conversion ledger
 

@@ -15,7 +15,8 @@ the run logs under `<paraos_home>/cache/ingest/runs/`; every loose file in `tria
 kind, its ingest-staged-note fields where it is one, its in-vault and cross-vault duplicates,
 and every inbound reference to it; the vault's subdirectories; which staged notes share a
 thread; the seen-ledger's shape; what the vault lets a contact card hold, where a meeting
-record's next step may go; which roster row is the operator's, in a vault with a roster
+record's next step may go; which lifecycles open at a register that exists
+(`row_registers`); which roster row is the operator's, in a vault with a roster
 (`writer`, null where the operator's identity file names no row); and, given `--threads`,
 whether a freshly fetched thread is
 already staged as a note, where its seen-ledger watermark stands, and how many working days
@@ -48,7 +49,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         MIN_HASH_BYTES, OPEN_ITEM_CAP, TEXT_SUFFIXES, abspath, cap_count, action_files, contact_card_level,
-        hashes, inbound_references, live_lines, norm, open_tasks, operator_card, read_lines,
+        hashes, inbound_references, lifecycles, live_lines, norm, open_tasks, operator_card,
+        read_lines,
         registered_vault, registry, rel_posix, roster, same_place, snapshot, triage_items,
         triage_sources, vault_root, writer,
     )
@@ -405,6 +407,9 @@ def _extract_thread_id(link_value, filename_hash):
     return candidate if thread_hash(candidate) == filename_hash else None
 
 
+OWN_NOT_FETCHED = "own messages not fetched"   # what stage.py adds to a note's Content line
+
+
 def note_block(path, entries, vault_name, ledger_mailboxes):
     """`shape`, `fields`, `mail_note` and everything a staged note's header settles, per the
     two shapes staging.md and execute.md's Note-to-triage write: the ingest bullet header, or
@@ -453,6 +458,8 @@ def note_block(path, entries, vault_name, ledger_mailboxes):
         "thread_id": _extract_thread_id(link_value, filename_hash),
         "message_id": fields.get("Message id") if shape == "ingest" else None,
         "conversation_id": fields.get("Conversation id") if shape == "ingest" else None,
+        "own_messages_fetched": None if shape != "ingest" or fields.get("Content") is None
+        else OWN_NOT_FETCHED not in fields["Content"],
         "ingest_seen": _ingest_seen(ledger_mailboxes, mailbox, filename_hash),
     }
 
@@ -726,6 +733,17 @@ def threads_block(threads_data, seen_ledger_path, loose_items, now):
 
 # ---------------------------------------------------------------------------- over-threshold
 
+def row_registers(vault):
+    """Each lifecycle whose first stage is a row home, with that register's path, where the
+    register exists: where a counterparty new to the lifecycle gets a row."""
+    out = []
+    for lc in lifecycles(vault):
+        first = lc["stages"][0]
+        if first["row"] and (vault / first["home"]).is_file():
+            out.append({"lifecycle": lc["heading"], "register": first["home"]})
+    return out
+
+
 def over_threshold_block(vault):
     out = []
     for path in action_files(vault):
@@ -778,6 +796,7 @@ def plan(vault, paraos_home, now, threads_data):
         "vault": vault_info, "sources": sources, "ingest": ingest,
         "ingest_ledger": ingest_ledger_summary, "items": items,
         "seen_ledger": seen_ledger, "over_threshold": over_threshold_block(vault),
+        "row_registers": row_registers(vault),
         "contact_card_level": contact_card_level(vault),
         "writer": me,
         "snapshot": build_snapshot(vault),

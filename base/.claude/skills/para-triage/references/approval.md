@@ -18,7 +18,7 @@ How to ask is [asking.md](../../para-shared/asking.md); an option comes from thi
 
 - **Update existing**: annotate the tracked `actions.md` line or note, or rewrite a register row's last touch and next step. A reply bringing what a `Waiting on` line waits for closes it, dated today.
 - **Add action**: one step only the operator can take, or a wait, that nothing else tracks, on a contact card only as far as `contact_card_level` allows. A destination in `over_threshold` is named in the option, offering to close or demote one first. Not offered where no `actions.md` can receive it.
-- **Add register row**: a counterparty new to a lifecycle whose first stage is [a row home](../../para-shared/lifecycles.md#folder-homes-and-row-homes), where that register exists. Every cell as its rule file shapes it (the first stage, the message's date for opening and last touch, one next step), a placeholder only where the mail leaves one open. Shown in full.
+- **Add register row**: a counterparty new to a lifecycle in `row_registers`. Every cell as its rule file shapes it (the first stage, the message's date for opening and last touch, one next step), a placeholder only where the mail leaves one open. Shown in full.
 - **Note to triage**: worth keeping, filed on a later pass.
 - **Dismiss (noise)**: never action-worthy anywhere; ledgered. A sign-in or security code is always this ([connectors.md](../../para-shared/connectors.md#sign-in-and-security-codes)).
 - **Dismiss (other vault)**: real correspondence for another vault.
