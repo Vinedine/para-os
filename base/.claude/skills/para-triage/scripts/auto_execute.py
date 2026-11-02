@@ -356,19 +356,24 @@ def run(args):
             why = f"over the run's cap of {args.cap}"
         row = dict(d, file=item_record(path) if path.is_file() else None,
                    **sender(d, loose.get(name)))
-        if not why and action == FILE_IT:
-            filed = filing_target(d)[1]
-            plan = move(vault_root, f"triage/{name}", filed)
-            committed += moved_paths(plan, f"triage/{name}", filed)
-            acted.append(dict(row, original=f"triage/{name}", filed=filed))
-            continue
         if why:
             held.append(dict(row, refused=why))
             continue
-        target = folder / "files" / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(path), str(target))
-        acted.append(dict(row, original=f"triage/{name}"))
+        filed = filing_target(d)[1] if action == FILE_IT else None
+        try:
+            if filed:
+                plan = move(vault_root, f"triage/{name}", filed)
+            else:
+                (folder / "files").mkdir(parents=True, exist_ok=True)
+                shutil.move(str(path), str(folder / "files" / name))
+        except (OSError, ValueError) as err:
+            held.append(dict(row, refused=f"could not move it: {err}"))
+            continue
+        if filed:
+            committed += moved_paths(plan, f"triage/{name}", filed)
+            acted.append(dict(row, original=f"triage/{name}", filed=filed))
+        else:
+            acted.append(dict(row, original=f"triage/{name}"))
     report = {"vault": state.vault, "run": run_id, "kill_switch": False,
               "acted": [{"item": a["item"], "action": a["action"]} for a in acted],
               "refused": [{"item": h["item"], "reason": h["refused"]} for h in held],
@@ -405,15 +410,15 @@ def restore(args):
         if dst.exists():
             bad.append({"item": item["item"], "reason": "a file is already at its path"})
             continue
-        if item.get("filed"):
-            try:
+        try:
+            if item.get("filed"):
                 plan = move(root, item["filed"], item["original"])
-            except ValueError as err:
-                bad.append({"item": item["item"], "reason": str(err)})
-                continue
-            committed += moved_paths(plan, item["filed"], item["original"])
-        else:
-            shutil.move(str(src), str(dst))
+                committed += moved_paths(plan, item["filed"], item["original"])
+            else:
+                shutil.move(str(src), str(dst))
+        except (OSError, ValueError) as err:
+            bad.append({"item": item["item"], "reason": str(err)})
+            continue
         item["restored"] = True
         if md5(dst) != item["file"]["md5"]:
             bad.append({"item": item["item"], "reason": "md5 differs from the manifest"})
