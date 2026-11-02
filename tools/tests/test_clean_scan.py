@@ -1192,6 +1192,13 @@ class Orphans(VaultCase):
         write(self.root, "projects/acme/sources/contract.md", "# Contract\n")
         self.assertEqual(self.run_scan("3")["phase3"]["orphans"], ["resources/old-notes.md"])
 
+    def test_a_ledger_and_a_scripts_bytecode_are_no_orphans(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/logs/sessions/2026-09-20-sam-aaaaaaaa.jsonl", "{}\n")
+        write(self.root, "resources/scripts/__pycache__/sync.cpython-312.pyc", "\n")
+        write(self.root, "resources/old-notes.md", "# Old notes\n")
+        self.assertEqual(self.run_scan("3")["phase3"]["orphans"], ["resources/old-notes.md"])
+
 
 class StaleUndated(VaultCase):
 
