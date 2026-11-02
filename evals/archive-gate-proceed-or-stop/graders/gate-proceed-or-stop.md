@@ -1,5 +1,5 @@
 ---
 type: regex
-pattern: 'proceed(?:[^\n]{0,200}\n){0,2}?[^\n]{0,200}?stop|stop(?:[^\n]{0,200}\n){0,2}?[^\n]{0,200}?proceed'
+pattern: '(?:proceed|go ahead)[\s\S]{0,400}?stop|stop[\s\S]{0,400}?(?:proceed|go ahead)'
 flags: i
 ---
