@@ -118,8 +118,6 @@ Folders and structural files in English; content in its source's language, untra
 
 This vault is the memory: never the agent's built-in memory, a `memory/` folder or session logs. A durable fact goes in the file it describes before the session ends: what the conversation settled that no file holds (a date, a decision and its reason, an action done or promised) is written, or asked about in one question, not left as an offer for later. How the operator likes to work is kept apart: the full convention is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. A draft to send follows `para-shared/drafting.md`; a voice profile is built per `para-shared/voice-profile.md`.
 
-Drafts from Bram's account are written in his voice. The full convention (Bram Lemmens's voice) is in [.claude/rules/voice-bram-lemmens.md](.claude/rules/voice-bram-lemmens.md), which loads only when read; read it explicitly before drafting anything in Bram's name.
-
 ## File formats
 
 Markdown and plain text first; `.csv`, `.docx` and `.xlsx` for material received. A cloud-native stub (Google Docs or Sheets) is converted to a real file when it lands.

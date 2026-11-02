@@ -9,14 +9,14 @@ set -e
 # herself is "Cheers," in five and "Thanks," in one. Two carry the other side's quoted reply
 # (closing "Warm regards" and "Kind regards"), and one is a forward. Asked to build her voice
 # profile and show it unsaved, the run shows the file with her typed closing as the sign-off,
-# neither the signature's nor a correspondent's, and the CLAUDE.md paragraph pointing at it.
+# neither the signature's nor a correspondent's.
 # Unsaved because a run with no one present cannot write under .claude/: Claude Code asks
 # before every such write, and a non-interactive run takes the ask as a refusal.
 cat >> CLAUDE.md <<'EOF'
 
 ## Memory
 
-This vault on disk IS the memory. Do not use the agent's built-in memory feature, and do not create a `memory/` folder or session-log files. Durable facts belong in the file they describe: conventions here, identity and operating model in `README.md`, everything else in the relevant project, idea, or contact note. How the operator likes to work (tone, format, what to lead with or leave out) is kept apart from those files: it is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. It changes only with the operator's approval. A draft the operator will send also follows `para-shared/drafting.md`, installed beside the `/para-*` skills. How someone sending from this vault writes is kept apart too, once they ask: a voice profile per person in `.claude/rules/`, built per `para-shared/voice-profile.md` and pointed at in its own paragraph below.
+This vault is the memory: never the agent's built-in memory, a `memory/` folder or session logs. A durable fact goes in the file it describes before the session ends: what the conversation settled that no file holds (a date, a decision and its reason, an action done or promised) is written, or asked about in one question, not left as an offer for later. How the operator likes to work is kept apart: the full convention is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. A draft to send follows `para-shared/drafting.md`; a voice profile is built per `para-shared/voice-profile.md`.
 EOF
 
 mkdir -p .claude/rules sent-export

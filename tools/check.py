@@ -56,7 +56,7 @@ What it enforces, and why each one is machinery rather than prose:
                         or the line above: on Windows `python3` is often a Store stub.
 
   Rules contract        Every `.claude/rules/*.md` carries a non-empty `paths:` frontmatter list,
-                        and it and its CLAUDE.md point at each other, both ways.
+                        and its CLAUDE.md points at each but a `voice-*` profile, and at no other.
 
   Vendor validator      `claude plugin validate` over the skills folders: whatever the tool
                         currently requires of a SKILL.md, which moves release to release.
@@ -768,7 +768,7 @@ def check_rules_contract():
         on_disk = {p.name for p in rules_dir.glob("*.md")}
         linked = set(RULES_POINTER.findall(claude_text))
 
-        for orphan in sorted(on_disk - linked):
+        for orphan in sorted(n for n in on_disk - linked if not n.startswith("voice-")):
             bad(f"{rel(rules_dir / orphan)}: on disk but not pointed at from {rel(claude_md)}, "
                 f"so a skill that reads CLAUDE.md alone will never find it")
         for dangling in sorted(linked - on_disk):

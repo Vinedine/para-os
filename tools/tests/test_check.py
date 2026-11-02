@@ -200,21 +200,22 @@ class TemplateRevisions(unittest.TestCase):
 
 
 class RulesContract(unittest.TestCase):
-    def failures_for(self, pointer, rule):
+    def failures_for(self, pointer, rule, name="a.md"):
         """check_rules_contract()'s failures over a vault whose CLAUDE.md holds `pointer` and
-        whose one rule file holds `rule`."""
+        whose one rule file, `name`, holds `rule`."""
         root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, root)
         (root / ".claude" / "rules").mkdir(parents=True)
         (root / "CLAUDE.md").write_text(pointer, encoding="utf-8")
-        (root / ".claude" / "rules" / "a.md").write_text(rule, encoding="utf-8")
+        (root / ".claude" / "rules" / name).write_text(rule, encoding="utf-8")
         with mock.patch.object(check, "ROOT", root), mock.patch.object(check, "failures", []):
             check.check_rules_contract()
             return check.failures
 
-    def test_a_pointed_at_rule_with_paths_passes(self):
-        self.assertEqual(self.failures_for(
-            "See .claude/rules/a.md.", "---\npaths:\n  - x/**\n---\nBody.\n"), [])
+    def test_a_pointed_at_rule_and_an_unpointed_voice_profile_pass(self):
+        rule = "---\npaths:\n  - x/**\n---\nBody.\n"
+        self.assertEqual(self.failures_for("See .claude/rules/a.md.", rule), [])
+        self.assertEqual(self.failures_for("", rule, "voice-ada-peeters.md"), [])
 
     def test_an_orphan_a_dangling_pointer_and_a_pathless_rule_fail(self):
         failures = self.failures_for("See .claude/rules/b.md.", "---\ndescription: x\n---\n")

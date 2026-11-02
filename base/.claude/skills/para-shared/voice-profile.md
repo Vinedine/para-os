@@ -13,7 +13,7 @@ paths:
 ---
 ```
 
-A draft uses the profile whose `**Accounts:**` line names the account it goes out from, never the profile of whoever asked; no match, no profile. `CLAUDE.md` points at each in its own paragraph under `## Memory`: "Drafts from <Name>'s account are written in their voice. The full convention (<Name>'s voice) is in [.claude/rules/voice-<firstname-lastname>.md](.claude/rules/voice-<firstname-lastname>.md), which loads only when read; read it explicitly before drafting anything in <Name>'s name."
+A draft uses the profile whose `**Accounts:**` line names the account it goes out from, never the profile of whoever asked; no match, no profile.
 
 ## What it holds
 
@@ -22,8 +22,8 @@ A `# <Name>'s voice` title, the `**Accounts:**` line, one line saying it is buil
 ## Building it
 
 1. **Samples**: the sending account's sent mail over the last 12 months, or mails the person hands over; with neither, ask for three they were happy with and stop. Fewer than three, or what the vault says about them, builds nothing.
-2. **Keep only their words**: cut each mail at its quoted history and drop forwarded content, the auto-signature and legal footers. The sign-off is the closing they typed above the signature, never a name block inside it; a correspondent's phrasing in a quote is never a trait, and a mail that is mostly someone else's text is not a sample.
-3. **Count, then write**, each trait with its count per language, and report the file, the pointer, N and the dates, and each trait left out for want of three samples.
+2. **Keep only their words**: drop the auto-signature, legal footers and quoted or forwarded text.
+3. **Count, then write**, each trait with its count per language, and report the file, N and the dates, and each trait left out for want of three samples.
 
 A rebuild replaces inferred lines only; an `operator` line stays, and an inferred line contradicting it is dropped.
 
