@@ -9,8 +9,8 @@ The agenda is `/para-daily-brief`'s, read by [its Step 5c](../../para-daily-brie
 
 ## What the scan returns
 
-**Null is not empty**: a null `mentions`, `records`, `unfiled` or `rows` was never searched (an `ambiguous` person, or a one-word name with no card).
+**Null is not empty**: a null `mentions`, `records`, `unfiled` or `rows` was never searched.
 
 ## How much a match is worth
 
-`matched_by` and `by` name how the person was found. Name the address a weak `email_name` match rests on, and weigh a `short name` (one word of the card's names that no other card carries) before quoting it.
+`matched_by` and `by` name how the person was found. Name the address a weak `email_name` match rests on, and weigh a `short name` before quoting it.
