@@ -74,7 +74,7 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 ## Authoritative sources
 
-Name the owning file before answering, and check `triage/` before searching by date. System-of-record data beats a hand-kept table; when they disagree, correct the table. Answer from the operator's own documents by quoting the clause with its file and page; say when a document is not on file, and label a general-knowledge answer as one. Where two documents disagree, give both, the cautious reading first.
+Name the owning file before answering, and check `triage/` before searching by date. System-of-record data beats a hand-kept table; when they disagree, correct the table. Answer from the operator's own documents by quoting the clause with its file and page.
 
 {{OPTIONAL: a short `Question | Authoritative source` table for a vault with competing sources; delete this line otherwise.}}
 
