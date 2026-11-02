@@ -85,7 +85,8 @@ Steps 7 and 8 run once every pull request in the revision's milestone has merged
 
 Record the commit under test, `<sha>`, that `git fetch origin && git rev-parse origin/main`
 prints. If `git ls-tree --name-only <sha> changelog.d/` lists more than its `README.md`,
-fold it first (steps 2-6). Start the evals with `gh workflow run evals.yml --ref main`; a case
+fold it first (steps 2-6). Run `tools/field_test.py --head <sha>` and read its report: a crash
+on `<sha>` is a finding, and so is a change no merged pull request explains. Start the evals with `gh workflow run evals.yml --ref main`; a case
 that dropped since the last weekly run is a finding only if the drop holds over
 [three runs on both commits](../../../evals/README.md#checking-a-skill-change). Run the
 `claude-api` skill's `prompt-audit` at `<sha>` on the shipped files the revision changed

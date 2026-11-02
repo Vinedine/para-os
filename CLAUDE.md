@@ -40,6 +40,7 @@ para-os is a kit, not an app. What a vault receives is `base/`, copied whole at 
 | `docs/` | User guides and design notes; never copied into a vault |
 | `tools/check.py`, `tools/tests/` | Contract checks, and the unit suite of every skill script |
 | `tools/coverage_report.py` | The same suites under coverage, with a floor CI enforces |
+| `tools/field_test.py` | Every scan from `stable` and from a candidate, diffed on this machine's vaults |
 | `CHANGELOG.md` | One entry per template revision; `/para-upgrade` executes each entry's Reaction |
 | `RELEASES.md` | The same revisions for people: what changes, and whether to do anything |
 | `changelog.d/` | One fragment per pull request, folded into both by `/release` |
