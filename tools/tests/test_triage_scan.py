@@ -514,6 +514,21 @@ class NoteShapes(unittest.TestCase):
         self.assertIsNone(note["message_id"])
         self.assertIsNone(note["conversation_id"])
 
+    def test_the_content_line_says_whether_the_operators_own_messages_were_fetched(self):
+        def staged(content):
+            return self.note("20260920 Test subject 88604c.md", "\n".join([
+                "# Test subject", "", "- **Source:** gmail (me@example.org)",
+                f"- **Content:** {content}",
+                "- **Link:** https://mail.google.com/mail/u/0/#all/1a0c556d2559b07c", "",
+            ]))
+        got = [note_block(staged(c), [], "Alpha", {})["own_messages_fetched"] for c in (
+            "preview of 2 messages, not the full text; own messages not fetched",
+            "full text of 2 messages")]
+        self.assertEqual(got, [False, True])
+        frontmatter = self.note("20260920 Kept note.md",
+                                "---\nthread_id: 1a0c\nsource: gmail\n---\n\nKept.\n")
+        self.assertIsNone(note_block(frontmatter, [], "Alpha", {})["own_messages_fetched"])
+
     def test_the_message_and_conversation_id_lines_are_read(self):
         path = self.note("20260920 Test subject 88604c.md", "\n".join([
             "# Test subject", "",
@@ -1075,6 +1090,22 @@ class OverThreshold(VaultCase):
         self.assertEqual(over_threshold_block(self.root), [])
 
 
+class RowRegisters(VaultCase):
+
+    def test_a_lifecycle_opening_at_a_register_that_exists_is_listed(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "## Deal lifecycle", "", "| Stage | PARA home |", "|---|---|",
+            "| Lead | `areas/business/leads.md` (row) |", "| Won | `projects/<deal>/` |", "",
+            "## Supplier lifecycle", "", "| Stage | PARA home |", "|---|---|",
+            "| Candidate | `areas/ops/suppliers.md` (row) |", "",
+            "## Property lifecycle", "", "| Stage | PARA home |", "|---|---|",
+            "| Viewing | `resources/ideas/<property>/` |", "",
+        ]))
+        write(self.root, "areas/business/leads.md", "| Name | Stage |\n|---|---|\n")
+        self.assertEqual(self.plan()["row_registers"],
+                         [{"lifecycle": "Deal lifecycle", "register": "areas/business/leads.md"}])
+
+
 # ---------------------------------------------------------------------------- contact cards
 
 class ContactCards(VaultCase):
@@ -1361,8 +1392,9 @@ class CommandLine(VaultCase):
         self.assertEqual(code, 0)
         report = json.loads(out)
         self.assertEqual(set(report), {"vault", "sources", "ingest", "ingest_ledger", "items",
-                                       "seen_ledger", "over_threshold", "contact_card_level",
-                                       "writer", "snapshot", "snapshot_folders", "saved_to",
+                                       "seen_ledger", "over_threshold", "row_registers",
+                                       "contact_card_level", "writer", "snapshot",
+                                       "snapshot_folders", "saved_to",
                                        "save_error"})
         self.assertEqual([i["name"] for i in report["items"]["loose"]],
                          ["20260920 Subject 88604c.md"])

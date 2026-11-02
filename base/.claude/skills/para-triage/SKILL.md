@@ -72,6 +72,6 @@ One line per category: moved (each linked to its new path), deleted (with the re
 - **Never invent a top-level PARA folder** without asking.
 - **Mail is read-only** ([connectors.md](../para-shared/connectors.md)); a draft follows [para-shared/drafting.md](../para-shared/drafting.md) and is shown, never sent or saved.
 - **Connector items land in `triage/`, `actions.md` or a register row**, never straight into an entity folder or another vault.
-- **A staged note whose `Content` line says the operator's own messages were not fetched names no reply as owed** (no action to answer the sender, no draft) unless a re-read at its source shows they have not answered ([references/filing.md](references/filing.md)).
+- **A staged note with `note.own_messages_fetched` false names no reply as owed** (no action to answer the sender, no draft) unless a re-read at its source shows they have not answered ([references/filing.md](references/filing.md)).
 - **Match before creating**, against contacts, projects, ideas, register rows and open `actions.md` items: a thread bearing on tracked work is **Update existing**.
 - **One next step per thread**: at most one new checkbox.
