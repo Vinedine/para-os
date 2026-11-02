@@ -115,7 +115,7 @@ def ingest_logs(paraos_home=None):
                 "file": path.name, "mode": None, "started_at": started_at,
                 "started_from": started_from, "files_written": None, "per_vault": None,
                 "declaring_vaults": None, "sync_runs": None, "errors": [],
-                "load_error": str(err),
+                "undelivered": None, "decisions": None, "load_error": str(err),
             })
             continue
         started_at, started_from = _ingest_started(data, stem)
@@ -137,6 +137,8 @@ def ingest_logs(paraos_home=None):
             "declaring_vaults": declaring if isinstance(declaring, dict) else None,
             "sync_runs": data.get("sync_runs") if isinstance(data.get("sync_runs"), list) else None,
             "errors": errors if isinstance(errors, list) else [],
+            "undelivered": data.get("undelivered") if isinstance(data.get("undelivered"), list) else None,
+            "decisions": data.get("decisions") if isinstance(data.get("decisions"), list) else None,
             "load_error": None,
         })
 

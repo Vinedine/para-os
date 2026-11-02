@@ -3,20 +3,33 @@
 
     py -3 ingest_scan.py prepare --mode preview|write [--days N] [--now <ISO-8601>]
                                  [--paraos-home DIR]
-    py -3 ingest_scan.py route --work <dir> [--connectors <threads.json>] [--paraos-home DIR]
+    py -3 ingest_scan.py route --work <dir> [--connectors <threads.json>]
+                               [--unread <mailbox> ...] [--paraos-home DIR]
 
 `prepare` reads the registry and each active vault's `## Triage sources`, skips a row a
 `pulled by` marker reserves for another roster writer, and groups the connector and
 fetch-script rows by mailbox. A vault with no readable `CLAUDE.md` is an error row that stays
-a candidate for the mailboxes the newest run log listed it under. It runs every sync script dry and, in write mode, again with
-`--write` where the dry run's last `would write: N` is 20 or fewer; a count it cannot read is
-an error and is never written. It runs each fetch-script mailbox once, from the first vault
-declaring it whose copy exists (as given, else under `resources/scripts/`), as
-`<script> fetch --account <mailbox> --days <window>`, and keeps the JSON list it prints. The
-window is 2 days in write mode and 30 in preview, or `--days`. Everything lands in a new work
-folder under `<paraos home>/cache/ingest/work/` (folders older than 7 days are removed), and
-stdout names it with the totals, the sync and fetch runs, the skipped rows, the errors, and
-the connector mailboxes left for the model to fetch.
+a candidate for the mailboxes the newest run log listed it under.
+
+It re-checks the newest earlier write log's `undelivered`: a record is `resolved` where the
+ingest ledger's watermark reaches its `received`, or where every owed vault holds the thread,
+by all its `keys` in `by_message_id` or a note named for `thread_hash` in its `triage/`;
+otherwise it stays `undelivered`, owing only the vaults left. Each mailbox's window then
+starts, in write mode, a day before the newest earlier write run that read it (its log lists
+the mailbox and no error names it), else 2 days back, or a day before a thread it still owes
+where that is earlier; in preview 30 days back; `--days` sets every one. In write mode, a
+mailbox no write run has read gets its `carry_over`: each thread a preview since the last
+write run routed (the newest decision on it wins), absent from the ledger and older than the
+window, with the `days` that reach it with a day to spare.
+
+It runs every sync script dry and, in write mode, again with `--write` where the dry run's
+last `would write: N` is 20 or fewer; a count it cannot read is an error and is never written.
+It runs each fetch-script mailbox once, from the first vault declaring it whose copy exists
+(as given, else under `resources/scripts/`), as `<script> fetch --account <mailbox> --days N`,
+N the whole days that reach its window, and keeps the JSON list it prints. Everything lands in
+a new work folder under `<paraos home>/cache/ingest/work/` (folders older than 7 days are
+removed), and stdout names it with the totals, the sync and fetch runs, the skipped rows, the
+errors, and the connector mailboxes left for the model to fetch, each with its `since`.
 
 `route` reads the fetch scripts' threads and the model's connector threads (stage.py's
 thread shape without `routed` and `reason`), then, per thread:
@@ -36,17 +49,20 @@ thread shape without `routed` and `reason`), then, per thread:
   narrow the candidates, for the model to judge.
 
 It writes `run.json` beside the plan, ready for stage.py: every thread kept, `routed` null and
-`candidates` set where undecided. stdout holds the counts, each undecided thread's subject,
-sender, snippet, candidates, `contacts` and `boards` (a domain a candidate's lifecycle homes
-hold an address at: evidence, never a decision), each candidate's purpose and `Relevant when`
-once, and the decided threads by subject and sender.
+`candidates` set where undecided, the plan's `undelivered`, `resolved` and `carry_over`, and
+its errors plus `<mailbox>: not read` for each `--unread`. stdout holds the counts, each
+undecided thread's subject, sender, snippet, candidates, `contacts` and `boards` (a domain a
+candidate's lifecycle homes hold an address at: evidence, never a decision), each candidate's
+purpose and `Relevant when` once, and the decided threads by subject and sender.
 
-Refused with exit 2: no registry, a work folder with no plan, a ledger that does not parse,
-or a connector thread for a mailbox the plan does not hold or missing what stage.py needs.
+Refused with exit 2: no registry, a ledger that does not parse, a work folder with no plan,
+or an `--unread` or connector thread for a mailbox the plan does not hold, or a thread missing
+what stage.py needs.
 """
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -67,8 +83,8 @@ if SHARED is None:
 sys.path.insert(0, str(SHARED))
 
 from paraos_mail import (  # noqa: E402
-    apply_exclusions, dedup_key, ingest_ledger, ingest_logs, load_exclusions, received_instant,
-    watermark,
+    apply_exclusions, dedup_key, ingest_ledger, ingest_logs, load_exclusions, log_instant,
+    note_name_parts, received_instant, thread_hash, watermark,
 )
 from paraos_vault import (  # noqa: E402
     EMAIL_RE, TEXT_SUFFIXES, lifecycles, norm, operator_card, paraos_home_dir, registry,
@@ -76,6 +92,8 @@ from paraos_vault import (  # noqa: E402
 )
 
 WINDOW_DAYS = {"write": 2, "preview": 30}
+DAY = timedelta(days=1)
+OVERLAP = DAY
 GATE = 20
 SCRIPT_TIMEOUT = 300
 KEEP_WORK_DAYS = 7
@@ -183,6 +201,112 @@ def fetch_run(mailbox, source, days, work, n):
     return record
 
 
+def read_ledger(home):
+    ledger = ingest_ledger(home)
+    if ledger["load_error"]:
+        raise ValueError(f"the ingest ledger does not parse: {ledger['load_error']}")
+    return ledger
+
+
+def before(log, now):
+    instant = log_instant(log)
+    return instant if instant and instant < now else None
+
+
+def last_read(logs, mailbox, now):
+    """The start of the newest write run before `now` that read `mailbox`: its log lists the
+    mailbox and no error names it, the coverage /para-triage reads."""
+    return next((before(log, now) for log in logs
+                 if log["mode"] == "write" and before(log, now)
+                 and mailbox in (log["declaring_vaults"] or {})
+                 and not any(mailbox in str(e) for e in log["errors"])), None)
+
+
+def delivered_to(record, vault, by_message_id, entries):
+    """Every key of an undelivered record recorded against `vault`, or a note named for its
+    thread in the vault's `triage/`. A missing note proves nothing: triage may have filed it."""
+    keys = record.get("keys") or []
+    if keys and all(vault in (by_message_id.get(k) if isinstance(by_message_id.get(k), list)
+                              else []) for k in keys):
+        return True
+    path = (entries.get(vault) or {}).get("path")
+    triage = Path(str(path)) / "triage" if path else None
+    if triage is None or not triage.is_dir():
+        return False
+    mark = thread_hash(record["thread_id"])
+    return any((note_name_parts(p.name) or {}).get("hash") == mark for p in triage.iterdir())
+
+
+def recheck(logs, ledger, entries, now):
+    """(still owed, resolved): the newest write log's `undelivered`, each record settled by a
+    ledger entry whose watermark reaches its newest message, else vault by vault."""
+    newest = next((log for log in logs if log["mode"] == "write" and before(log, now)), None)
+    still, resolved = [], []
+    for record in (newest or {}).get("undelivered") or []:
+        if not isinstance(record, dict) or not record.get("mailbox") or not record.get("thread_id"):
+            continue
+        held = ledger["mailboxes"].get(record["mailbox"])
+        entry = held.get(record["thread_id"]) if isinstance(held, dict) else None
+        if isinstance(entry, dict) and (not record.get("received") or watermark(
+                entry, record["received"])["verdict"] == "seen"):
+            resolved.append(record)
+            continue
+        owed = record.get("owed") if isinstance(record.get("owed"), list) else []
+        settled = [v for v in owed if isinstance(v, str)
+                   and delivered_to(record, v, ledger["by_message_id"], entries)]
+        if settled == owed:
+            resolved.append(record)
+        elif settled:
+            still.append(dict(record, owed=[v for v in owed if v not in settled],
+                              delivered=list(record.get("delivered") or []) + settled))
+        else:
+            still.append(record)
+    return still, resolved
+
+
+def window(mailbox, mode, days, logs, still, now):
+    """(start, first): where this run reads `mailbox` from, and whether no write run has."""
+    if mode == "preview":
+        return now - timedelta(days=days or WINDOW_DAYS["preview"]), False
+    read = last_read(logs, mailbox, now)
+    if days:
+        return now - timedelta(days=days), read is None
+    start = read - OVERLAP if read else now - timedelta(days=WINDOW_DAYS["write"])
+    for record in still:
+        received = received_instant(record.get("received"))
+        if record["mailbox"] == mailbox and received:
+            start = min(start, received - OVERLAP)
+    return start, read is None
+
+
+def carry_over(logs, ledger, since, now):
+    """Threads a preview since the last write routed in one of `since`'s mailboxes, absent
+    from the ledger and older than the mailbox's start, with the `--days` that reaches them."""
+    last_write = max((before(log, now) for log in logs
+                      if log["mode"] == "write" and before(log, now)), default=None)
+    seen, found = set(), []
+    for log in logs:
+        instant = before(log, now)
+        if log["mode"] != "preview" or not instant or (last_write and instant <= last_write):
+            continue
+        for decision in log["decisions"] or []:
+            if not isinstance(decision, dict):
+                continue
+            mailbox, thread_id = decision.get("mailbox"), decision.get("thread_id")
+            if mailbox not in since or not thread_id or (mailbox, thread_id) in seen:
+                continue
+            seen.add((mailbox, thread_id))
+            received = received_instant(decision.get("received"))
+            held = ledger["mailboxes"].get(mailbox)
+            if (decision.get("routed") and received and received < since[mailbox]
+                    and not (isinstance(held, dict) and thread_id in held)):
+                found.append({"mailbox": mailbox, "thread_id": thread_id,
+                              "subject": decision.get("subject"), "routed": decision["routed"],
+                              "received": decision["received"],
+                              "days": math.ceil((now - received + OVERLAP) / DAY)})
+    return found
+
+
 def new_work_folder(home, now):
     base = home / "cache" / "ingest" / "work"
     base.mkdir(parents=True, exist_ok=True)
@@ -207,7 +331,7 @@ def prepare(mode, paraos_home=None, now=None, days=None):
     if not entries:
         raise ValueError(f"no registry at {home / 'vaults.json'}, or it does not parse")
     now = parse_now(now) if isinstance(now, str) or now is None else now
-    days = days or WINDOW_DAYS[mode]
+    logs, ledger = ingest_logs(home), read_ledger(home)
     card = operator_card(home)
     vaults, mailboxes, syncs, skipped, errors = [], {}, [], [], []
 
@@ -251,13 +375,21 @@ def prepare(mode, paraos_home=None, now=None, days=None):
     # An unmounted vault stays a candidate for what it last declared: stage.py then holds
     # its threads as undelivered instead of ledgering them as routed nowhere.
     for unread in (v["name"] for v in vaults if v["error"]):
-        declared = next((log["declaring_vaults"] for log in ingest_logs(home)
+        declared = next((log["declaring_vaults"] for log in logs
                          if any(unread in names for names in
                                 (log["declaring_vaults"] or {}).values())), {})
         for mailbox, names in declared.items():
             if unread in names and mailbox in mailboxes:
                 mailboxes[mailbox]["vaults"].append(unread)
                 mailboxes[mailbox]["relevant_when"][unread] = ""
+
+    still, resolved = recheck(logs, ledger, {e.get("name"): e for e in entries}, now)
+    starts, first = {}, {}
+    for mailbox, held in mailboxes.items():
+        starts[mailbox], unwritten = window(mailbox, mode, days, logs, still, now)
+        held["since"] = starts[mailbox].isoformat()
+        if unwritten:
+            first[mailbox] = starts[mailbox]
 
     work = new_work_folder(home, now)
     sync_runs = [sync_run(v, root, declared, mode == "write") for v, root, declared in syncs]
@@ -269,27 +401,28 @@ def prepare(mode, paraos_home=None, now=None, days=None):
             fetch_runs.append({"mailbox": mailbox, "vault": None, "source": None, "file": None,
                                "threads": 0, "error": "no declaring vault holds its script"})
         else:
-            fetch_runs.append(fetch_run(mailbox, held["source"], days, work, len(fetch_runs) + 1))
+            reach = math.ceil((now - starts[mailbox]) / DAY)
+            fetch_runs.append(fetch_run(mailbox, held["source"], reach, work, len(fetch_runs) + 1))
     errors += [f"{r['vault']}: {r['script']}: {r['error']}" for r in sync_runs if r["error"]]
     errors += [f"{r['mailbox']}: {r['error']}" for r in fetch_runs if r["error"]]
 
-    window = {"days": days, "since": (now - timedelta(days=days)).isoformat()}
-    plan = {"mode": mode, "started_at": now.isoformat(), "window": window,
+    plan = {"mode": mode, "started_at": now.isoformat(),
             "mailboxes": {mb: {k: held[k] for k in ("kind", "connector", "vaults",
-                                                     "relevant_when")}
+                                                     "relevant_when", "since")}
                           for mb, held in mailboxes.items()},
             "purposes": {e.get("name"): e.get("purpose") for e in entries},
             "sync_runs": sync_runs, "fetch_runs": fetch_runs, "skipped": skipped,
-            "errors": errors}
+            "errors": errors, "undelivered": still, "resolved": resolved,
+            "carry_over": carry_over(logs, ledger, first, now)}
     (work / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n",
                                     encoding="utf-8")
     return {"work": work.as_posix(), "mode": mode, "started_at": plan["started_at"],
-            "window": window,
             "totals": {"vaults": sum(1 for v in vaults if not v["error"]),
                        "mailboxes": len(mailboxes), "script_runs": len(syncs)},
             "vaults": vaults,
             "connectors": [{"mailbox": mb, "connector": held["connector"],
-                            "vaults": held["vaults"], "relevant_when": held["relevant_when"]}
+                            "vaults": held["vaults"], "relevant_when": held["relevant_when"],
+                            "since": held["since"]}
                            for mb, held in mailboxes.items() if held["kind"] == "connector"],
             "fetch_scripts": fetch_runs, "sync_runs": sync_runs, "skipped": skipped,
             "errors": errors}
@@ -436,7 +569,7 @@ def rule_one(thread, candidates, index):
     return None, None, hits
 
 
-def route(work, connectors=None, paraos_home=None):
+def route(work, connectors=None, paraos_home=None, unread=None):
     work = Path(work)
     try:
         plan = json.loads((work / "plan.json").read_text(encoding="utf-8"))
@@ -446,9 +579,10 @@ def route(work, connectors=None, paraos_home=None):
     entries = {e.get("name"): e for e in registry(home) if isinstance(e, dict)}
     if not entries:
         raise ValueError(f"no registry at {home / 'vaults.json'}, or it does not parse")
-    ledger = ingest_ledger(home)
-    if ledger["load_error"]:
-        raise ValueError(f"the ingest ledger does not parse: {ledger['load_error']}")
+    ledger = read_ledger(home)
+    for mailbox in unread or []:
+        if mailbox not in plan["mailboxes"]:
+            raise ValueError(f"--unread {mailbox}: the plan holds no such mailbox")
 
     threads = []
     for run in plan["fetch_runs"]:
@@ -525,7 +659,9 @@ def route(work, connectors=None, paraos_home=None):
                                                 for mb, held in plan["mailboxes"].items()}},
            "sync_runs": [{k: r[k] for k in ("vault", "script", "written", "error")}
                          for r in plan["sync_runs"]],
-           "errors": plan["errors"],
+           "errors": plan["errors"] + [f"{mailbox}: not read" for mailbox in unread or []],
+           "undelivered": plan["undelivered"], "resolved": plan["resolved"],
+           "carry_over": plan["carry_over"],
            "threads": [{k: v for k, v in t.items() if k not in ("newest", "resurfaced")}
                        for t in survivors + dropped] + signins}
     path = work / "run.json"
@@ -545,6 +681,8 @@ def main(argv=None):
     r = sub.add_parser("route", help="check fetched threads, apply rule 1, write run.json")
     r.add_argument("--work", required=True, help="the folder prepare printed")
     r.add_argument("--connectors", help="the connector threads the model fetched, as JSON")
+    r.add_argument("--unread", action="append", metavar="MAILBOX",
+                   help="a mailbox not read to the end of its window; repeatable")
     for parser in (p, r):
         parser.add_argument("--paraos-home", help="override for $PARAOS_HOME")
     args = ap.parse_args(argv)
@@ -558,7 +696,7 @@ def main(argv=None):
         if args.command == "prepare":
             out = prepare(args.mode, args.paraos_home, parse_now(args.now), args.days)
         else:
-            out = route(args.work, args.connectors, args.paraos_home)
+            out = route(args.work, args.connectors, args.paraos_home, args.unread)
     except ValueError as err:
         ap.error(str(err))
     json.dump(out, sys.stdout, ensure_ascii=False, indent=2)

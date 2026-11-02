@@ -14,7 +14,7 @@ A source is only read, through its MCP server's read tools: no send, reply, forw
 
 ## Mail
 
-The window is the caller's: 30 days for `/para-triage`, per mode for `/para-ingest`, and for a fetch-script the `--days` its row's Endpoint passes, else 7. A connector reads the inbox alone; `outlook.py` reads the archive too.
+The window is the caller's: 30 days for `/para-triage`, per mailbox for `/para-ingest`, and for a fetch-script the `--days` its row's Endpoint passes, else 7. A connector reads the inbox alone; `outlook.py` reads the archive too.
 
 **The sent pass** (`📤 sent` in a row's `Type`, `/para-triage` alone): sent mail of the last 14 days, or `fetch --sent`, its threads joined to the inbox pass's on the same ledger and watermark, every message read. What triage makes of them: [its sources.md](../para-triage/references/sources.md#connector-sources).
 

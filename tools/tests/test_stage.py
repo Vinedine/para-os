@@ -116,16 +116,6 @@ class Preview(StageCase):
         self.assertEqual(log["counts"]["per_vault"], {"alpha": 1, "beta": 0})
         self.assertEqual([d["routed"] for d in log["decisions"]], [["alpha"]])
 
-    def test_preview_names_what_falls_outside_the_write_window(self):
-        old = self.thread(thread_id="18c2f0a1b2c3d4ee", messages=[
-            dict(THREAD["messages"][1], message_id="<old@example.org>",
-                 received="2026-10-19T09:00:00+00:00")])
-        log = self.log(self.stage("preview", [THREAD, old]))
-        self.assertEqual(log["outside_write_window"],
-                         [{"mailbox": MAILBOX, "thread_id": "18c2f0a1b2c3d4ee",
-                           "subject": "Re: Quarterly report", "routed": ["alpha"],
-                           "received": "2026-10-19T09:00:00+00:00"}])
-
 
 class Write(StageCase):
 
@@ -227,7 +217,8 @@ class Write(StageCase):
             "mailbox": MAILBOX, "thread_id": "18c2f0a1b2c3d4e5",
             "subject": "Re: Quarterly report", "routed": ["alpha", "delta"],
             "delivered": ["alpha"], "owed": ["delta"],
-            "keys": ["<m1@example.org>", "<m2@example.org>"]}])
+            "keys": ["<m1@example.org>", "<m2@example.org>"],
+            "received": "2026-10-23T11:30:00+00:00"}])
 
     def test_the_best_grouped_copy_stages_and_the_other_is_suppressed(self):
         other = self.thread(mailbox="other@example.org", thread_id="AAMkAGI2THREAD",
@@ -285,6 +276,43 @@ class Write(StageCase):
         text = (self.root / "alpha" / "triage" / NOTE_NAME).read_text(encoding="utf-8")
         self.assertIn("- **Message id:** 18c2f0a1b2c3d4f0\n- **Conversation id:** AAQkAGI2\n\n",
                       text)
+
+
+class Carried(StageCase):
+    """What ingest_scan.py's re-check carries in: the threads earlier runs still owe."""
+
+    OTHER = {"mailbox": MAILBOX, "thread_id": "18c2f0a1b2c3d4aa", "subject": "Lease",
+             "routed": ["alpha", "delta"], "delivered": ["alpha"], "owed": ["delta"],
+             "keys": ["<lease@example.org>"], "received": "2026-10-20T09:00:00+00:00"}
+    SAME = dict(OTHER, thread_id=THREAD["thread_id"], subject="Re: Quarterly report",
+                keys=["<m1@example.org>"], received="2026-10-23T09:00:00+00:00")
+
+    def test_a_thread_this_run_did_not_fetch_stays_owed(self):
+        summary = self.stage(undelivered=[self.OTHER])
+        self.assertEqual((summary["undelivered"], summary["resolved"]), ([self.OTHER], []))
+        self.assertEqual(self.log(summary)["undelivered"], [self.OTHER])
+
+    def test_a_thread_this_run_delivered_is_resolved(self):
+        summary = self.stage(undelivered=[self.SAME], resolved=[self.OTHER])
+        self.assertEqual((summary["undelivered"], summary["resolved"]),
+                         ([], [self.OTHER, self.SAME]))
+
+    def test_a_thread_owed_again_keeps_only_this_runs_record(self):
+        summary = self.stage(threads=[self.thread(routed=["alpha", "delta"])],
+                             undelivered=[self.SAME])
+        self.assertEqual([(u["thread_id"], u["keys"]) for u in summary["undelivered"]],
+                         [(THREAD["thread_id"], ["<m1@example.org>", "<m2@example.org>"])])
+
+    def test_a_preview_resolves_nothing(self):
+        summary = self.stage("preview", undelivered=[self.SAME])
+        self.assertEqual((summary["undelivered"], summary["resolved"]), ([self.SAME], []))
+
+    def test_carry_over_reaches_the_output_and_the_log(self):
+        carry = [{"mailbox": MAILBOX, "thread_id": "x", "subject": "Old", "routed": ["alpha"],
+                  "received": "2026-10-01T09:00:00+00:00", "days": 25}]
+        summary = self.stage(carry_over=carry)
+        self.assertEqual((summary["carry_over"], self.log(summary)["carry_over"]),
+                         (carry, carry))
 
 
 class Refusals(StageCase):

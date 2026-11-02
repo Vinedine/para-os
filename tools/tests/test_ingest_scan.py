@@ -110,14 +110,24 @@ class Case(unittest.TestCase):
     def prepare(self, mode="write", **kw):
         return prepare(mode, paraos_home=self.home, now=NOW, **kw)
 
-    def route(self, prepared, connectors=None):
+    def route(self, prepared, connectors=None, unread=None):
         path = None
         if connectors is not None:
             path = write(self.root, "connectors.json", json.dumps(connectors))
-        return route(prepared["work"], connectors=path, paraos_home=self.home)
+        return route(prepared["work"], connectors=path, paraos_home=self.home, unread=unread)
 
     def run_file(self, routed):
         return json.loads(Path(routed["run"]).read_text(encoding="utf-8"))
+
+    def plan(self, prepared):
+        return json.loads((Path(prepared["work"]) / "plan.json").read_text(encoding="utf-8"))
+
+    def log(self, started_at, mode="write", mailboxes=(WORK,), **extra):
+        stamp = started_at[:10].replace("-", "") + "-" + started_at[11:19].replace(":", "")
+        write(self.home, f"cache/ingest/runs/{stamp}.json", json.dumps(dict(
+            {"mode": mode, "started_at": started_at,
+             "source_plan": {"declaring_vaults": {mb: ["alpha"] for mb in mailboxes}}},
+            **extra)))
 
     def ledger(self, mailboxes):
         write(self.home, "cache/ingest/ledger.json",
@@ -126,6 +136,13 @@ class Case(unittest.TestCase):
 
 def connector_row(mailbox, relevant="Client mail.", server="google-workspace"):
     return f"| work | connector: {server} | `{mailbox}` | {relevant} |"
+
+
+# A thread an earlier write run staged in alpha and still owed beta, as stage.py logs it.
+OWED = {"mailbox": WORK, "thread_id": "t9", "subject": "Lease renewal",
+        "routed": ["alpha", "beta"], "delivered": ["alpha"], "owed": ["beta"],
+        "keys": ["<t8@client.example>", "<t9@client.example>"],
+        "received": "2026-10-18T09:00:00+00:00"}
 
 
 class Plan(Case):
@@ -139,13 +156,6 @@ class Plan(Case):
         self.assertEqual((entry["mailbox"], entry["connector"], entry["vaults"]),
                          (WORK, "google-workspace", ["alpha", "beta"]))
         self.assertEqual(got["totals"], {"vaults": 2, "mailboxes": 1, "script_runs": 0})
-
-    def test_the_window_turns_on_the_mode_and_days_overrides_it(self):
-        self.vault("alpha", [connector_row(WORK)])
-        self.assertEqual(self.prepare("write")["window"],
-                         {"days": 2, "since": "2026-10-22T12:00:00+00:00"})
-        self.assertEqual(self.prepare("preview")["window"]["days"], 30)
-        self.assertEqual(self.prepare("write", days=5)["window"]["days"], 5)
 
     def test_a_vault_without_the_block_or_inactive_pulls_nothing(self):
         self.vault("alpha", [connector_row(WORK)])
@@ -207,6 +217,156 @@ class Plan(Case):
         self.assertEqual(plan["started_at"], NOW)
         self.assertEqual(plan["mailboxes"][WORK]["relevant_when"],
                          {"alpha": "Client threads."})
+
+
+class Windows(Case):
+
+    def setUp(self):
+        super().setUp()
+        self.vault("alpha", [connector_row(WORK), connector_row(SHARED)])
+
+    def since(self, prepared):
+        return {c["mailbox"]: c["since"] for c in prepared["connectors"]}
+
+    def test_a_write_run_starts_a_day_before_the_last_write_that_read_the_mailbox(self):
+        self.log("2026-10-23T06:00:00+00:00")
+        self.assertEqual(self.since(self.prepare()), {WORK: "2026-10-22T06:00:00+00:00",
+                                                      SHARED: "2026-10-22T12:00:00+00:00"})
+
+    def test_a_run_whose_errors_name_the_mailbox_did_not_read_it(self):
+        self.log("2026-10-20T06:00:00+00:00")
+        self.log("2026-10-23T06:00:00+00:00", errors=[f"{WORK}: not read"])
+        self.assertEqual(self.since(self.prepare())[WORK], "2026-10-19T06:00:00+00:00")
+
+    def test_a_preview_or_a_run_after_now_moves_no_cursor(self):
+        self.log("2026-10-23T06:00:00+00:00", mode="preview")
+        self.log("2026-10-25T06:00:00+00:00")
+        self.assertEqual(self.since(self.prepare())[WORK], "2026-10-22T12:00:00+00:00")
+
+    def test_preview_reads_30_days_and_days_sets_every_mailbox(self):
+        self.log("2026-10-23T06:00:00+00:00")
+        self.assertEqual(set(self.since(self.prepare("preview")).values()),
+                         {"2026-09-24T12:00:00+00:00"})
+        self.assertEqual(set(self.since(self.prepare("write", days=5)).values()),
+                         {"2026-10-19T12:00:00+00:00"})
+
+    def test_a_fetch_script_is_asked_for_the_whole_days_that_reach_its_since(self):
+        vault = self.vault("orders", [f"| mail | fetch-script | `{OUTLOOK}` via "
+                                      "`resources/scripts/outlook.py fetch` | Orders. |"])
+        write(vault, "resources/scripts/outlook.py", FETCH)
+        self.log("2026-10-20T18:00:00+00:00", mailboxes=(OUTLOOK,))
+        self.prepare()
+        self.assertEqual((vault / "resources/scripts/calls.txt").read_text().split()[-2:],
+                         ["--days", "5"])
+
+    def test_the_window_reaches_back_to_a_thread_still_undelivered(self):
+        self.log("2026-10-24T06:00:00+00:00", undelivered=[dict(OWED, owed=["gone"])])
+        self.assertEqual(self.since(self.prepare())[WORK], "2026-10-17T09:00:00+00:00")
+
+
+class Undelivered(Case):
+
+    def setUp(self):
+        super().setUp()
+        self.vault("alpha", [connector_row(WORK)])
+        self.beta = self.vault("beta", [connector_row(WORK)])
+
+    def recheck(self, record=OWED, entry=None, by_message_id=None):
+        self.log("2026-10-24T06:00:00+00:00", undelivered=[record])
+        write(self.home, "cache/ingest/ledger.json", json.dumps(
+            {"mailboxes": {WORK: {"t9": entry}} if entry else {},
+             "by_message_id": by_message_id or {}}))
+        plan = self.plan(self.prepare())
+        return plan["undelivered"], plan["resolved"]
+
+    def test_a_thread_no_check_settles_stays_undelivered(self):
+        self.assertEqual(self.recheck(), ([OWED], []))
+
+    def test_a_ledger_watermark_at_its_newest_message_resolves_it(self):
+        entry = {"routed": ["alpha", "beta"], "seen_through": "<t9@client.example>",
+                 "seen_date": "2026-10-18T09:00:00+00:00"}
+        self.assertEqual(self.recheck(entry=entry), ([], [OWED]))
+
+    def test_a_ledger_watermark_from_before_it_resurfaced_does_not(self):
+        entry = {"routed": ["alpha"], "seen_through": "<t7@client.example>",
+                 "seen_date": "2026-10-16T09:00:00+00:00"}
+        self.assertEqual(self.recheck(entry=entry), ([OWED], []))
+
+    def test_every_key_recorded_against_the_owed_vault_resolves_it(self):
+        both = {"<t8@client.example>": ["alpha", "beta"], "<t9@client.example>": ["alpha", "beta"]}
+        self.assertEqual(self.recheck(by_message_id=both), ([], [OWED]))
+        one = dict(both, **{"<t9@client.example>": ["alpha"]})
+        self.assertEqual(self.recheck(by_message_id=one)[0], [OWED])
+
+    def test_a_note_named_for_the_thread_in_the_owed_vault_resolves_it(self):
+        from paraos_mail import thread_hash
+        write(self.beta, f"triage/20261018 Lease renewal {thread_hash('t9')}.md", "x\n")
+        self.assertEqual(self.recheck(), ([], [OWED]))
+
+    def test_a_vault_settled_leaves_only_the_others_owed(self):
+        from paraos_mail import thread_hash
+        write(self.beta, f"triage/20261018 Lease renewal {thread_hash('t9')}.md", "x\n")
+        still, resolved = self.recheck(dict(OWED, owed=["beta", "gone"]))
+        self.assertEqual((still, resolved), ([dict(OWED, owed=["gone"],
+                                                   delivered=["alpha", "beta"])], []))
+
+    def test_only_the_newest_write_log_is_read(self):
+        self.log("2026-10-23T06:00:00+00:00", undelivered=[OWED])
+        self.log("2026-10-24T06:00:00+00:00", undelivered=[])
+        plan = self.plan(self.prepare())
+        self.assertEqual((plan["undelivered"], plan["resolved"]), ([], []))
+
+    def test_route_carries_both_into_the_run_file(self):
+        self.log("2026-10-24T06:00:00+00:00", undelivered=[OWED])
+        run = self.run_file(self.route(self.prepare(), []))
+        self.assertEqual((run["undelivered"], run["resolved"], run["carry_over"]),
+                         ([OWED], [], []))
+
+
+class CarryOver(Case):
+
+    def setUp(self):
+        super().setUp()
+        self.vault("alpha", [connector_row(WORK)])
+
+    def preview(self, started_at, *decisions):
+        self.log(started_at, mode="preview", decisions=list(decisions))
+
+    def decision(self, thread_id, received="2026-10-10T09:00:00+00:00", routed=("alpha",)):
+        return {"mailbox": WORK, "thread_id": thread_id, "subject": f"Subject {thread_id}",
+                "received": received, "routed": list(routed), "reason": "rule: alpha"}
+
+    def carry(self, mode="write"):
+        return self.plan(self.prepare(mode))["carry_over"]
+
+    def test_a_first_write_carries_what_a_preview_routed_past_its_window(self):
+        self.preview("2026-10-20T08:00:00+00:00", self.decision("old"),
+                     self.decision("fresh", "2026-10-23T09:00:00+00:00"),
+                     self.decision("nowhere", routed=()), self.decision("held"))
+        self.ledger({WORK: {"held": {"routed": ["alpha"], "seen_through": "<held@x.example>",
+                                     "seen_date": "2026-10-10T09:00:00+00:00"}}})
+        self.assertEqual(self.carry(), [{
+            "mailbox": WORK, "thread_id": "old", "subject": "Subject old", "routed": ["alpha"],
+            "received": "2026-10-10T09:00:00+00:00", "days": 16}])
+
+    def test_a_mailbox_a_write_run_read_carries_nothing(self):
+        self.preview("2026-10-20T08:00:00+00:00", self.decision("old"))
+        self.log("2026-10-21T08:00:00+00:00")
+        self.assertEqual(self.carry(), [])
+
+    def test_a_preview_older_than_the_last_write_is_not_read(self):
+        self.preview("2026-10-20T08:00:00+00:00", self.decision("old"))
+        self.log("2026-10-21T08:00:00+00:00", mailboxes=(SHARED,))
+        self.assertEqual(self.carry(), [])
+
+    def test_the_newest_preview_decides_a_thread_routed_twice(self):
+        self.preview("2026-10-19T08:00:00+00:00", self.decision("old"))
+        self.preview("2026-10-20T08:00:00+00:00", self.decision("old", routed=()))
+        self.assertEqual(self.carry(), [])
+
+    def test_a_preview_carries_nothing(self):
+        self.preview("2026-10-20T08:00:00+00:00", self.decision("old"))
+        self.assertEqual(self.carry("preview"), [])
 
 
 class SyncScripts(Case):
@@ -470,6 +630,15 @@ class Routing(Case):
             self.route(self.prepare(), [gmail_thread(mailbox="stranger@example.org")])
         self.assertIn("stranger@example.org", str(caught.exception))
 
+    def test_an_unread_mailbox_is_an_error_in_the_run_file(self):
+        run = self.run_file(self.route(self.prepare(), [], unread=[WORK]))
+        self.assertEqual(run["errors"], [f"{WORK}: not read"])
+
+    def test_an_unread_mailbox_the_plan_does_not_hold_is_refused(self):
+        with self.assertRaises(ValueError) as caught:
+            self.route(self.prepare(), [], unread=["stranger@example.org"])
+        self.assertIn("stranger@example.org", str(caught.exception))
+
 
 class Refusals(Case):
 
@@ -481,6 +650,11 @@ class Refusals(Case):
     def test_prepare_refuses_an_unknown_mode_or_no_registry(self):
         self.assert_refused(lambda: self.prepare("dry"), "mode")
         self.assert_refused(lambda: self.prepare(), "no registry")
+
+    def test_prepare_refuses_a_ledger_that_does_not_parse(self):
+        self.vault("alpha", [connector_row(WORK)])
+        write(self.home, "cache/ingest/ledger.json", "not json")
+        self.assert_refused(lambda: self.prepare(), "ledger")
 
     def test_prepare_refuses_a_now_with_no_offset(self):
         self.vault("alpha", [connector_row(WORK)])
@@ -562,6 +736,15 @@ class ThroughStage(Case):
                                    now="2026-10-24T18:00:00+00:00"), threads)
         self.assertEqual(again["counts"]["already_seen"], 2)
 
+    def test_a_staged_run_moves_the_cursor_of_every_mailbox_it_read(self):
+        from stage import stage
+        self.vault("alpha", [connector_row(WORK), connector_row(SHARED)])
+        routed = self.route(self.prepare(), [], unread=[SHARED])
+        stage(self.run_file(routed), self.home, decisions=[])
+        later = prepare("write", paraos_home=self.home, now="2026-10-25T00:00:00+00:00")
+        self.assertEqual({c["mailbox"]: c["since"] for c in later["connectors"]},
+                         {WORK: "2026-10-23T12:00:00+00:00", SHARED: "2026-10-23T00:00:00+00:00"})
+
     def test_staging_from_a_work_folder_removes_the_fetched_text(self):
         import stage
         self.vault("orders", [f"| mail | fetch-script | `{OUTLOOK}` via "
@@ -592,8 +775,10 @@ class Cli(Case):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             self.assertEqual(main(["route", "--work", work, "--connectors", str(connectors),
-                                   "--paraos-home", str(self.home)]), 0)
-        self.assertEqual(json.loads(out.getvalue())["counts"]["to_judge"], 1)
+                                   "--unread", WORK, "--paraos-home", str(self.home)]), 0)
+        routed = json.loads(out.getvalue())
+        self.assertEqual(routed["counts"]["to_judge"], 1)
+        self.assertEqual(self.run_file(routed)["errors"], [f"{WORK}: not read"])
 
     def test_a_refused_input_exits_2(self):
         self.vault("alpha", [connector_row(WORK)])
