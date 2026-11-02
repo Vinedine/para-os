@@ -509,6 +509,12 @@ def from_fetch_script(record, mailbox, source):
 THREAD_FIELDS = ("mailbox", "source", "thread_id", "link", "text", "own_messages")
 
 
+def as_planned(plan, mailbox):
+    """`mailbox` as the plan spells it, matched in any case, else as given."""
+    given = str(mailbox).strip()
+    return next((mb for mb in plan["mailboxes"] if mb.lower() == given.lower()), given)
+
+
 def connector_threads(path, plan):
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data, list):
@@ -522,6 +528,7 @@ def connector_threads(path, plan):
         for field in ("mailbox", "thread_id") if signin else THREAD_FIELDS:
             if thread.get(field) in (None, ""):
                 raise ValueError(f"{where}: no {field}")
+        thread["mailbox"] = as_planned(plan, thread["mailbox"])
         if thread["mailbox"] not in plan["mailboxes"]:
             raise ValueError(f"{where}: mailbox {thread['mailbox']} is not in the plan")
         if not thread.get("messages"):
@@ -573,7 +580,7 @@ def route(work, connectors=None, paraos_home=None, unread=()):
         plan = json.loads((work / "plan.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as err:
         raise ValueError(f"no plan in {work}: {err}") from None
-    unread = sorted({mb.strip().lower() for mb in unread or ()})
+    unread = sorted({as_planned(plan, mb) for mb in unread or ()})
     for mailbox in unread:
         if (plan["mailboxes"].get(mailbox) or {}).get("kind") != "connector":
             raise ValueError(f"--unread {mailbox}: not a connector mailbox in the plan")

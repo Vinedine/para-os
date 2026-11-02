@@ -465,13 +465,14 @@ def apply_exclusions(threads, exclusions):
     """The threads that survive, the threads dropped (each carrying `excluded`, the label that
     dropped it, `excluded_scope`, an empty `routed` and the reason `excluded: <label>`), and the
     count per scope and entry, zero included. A thread drops only when no message in it
-    survives; a mailbox's own entries apply first, then the `*` entries, for every mailbox."""
+    survives; a mailbox's own entries, keyed in any case, apply first, then the `*` entries."""
     counts = {scope: {exclusion_label(e): 0 for e in entries}
               for scope, entries in exclusions.items() if isinstance(entries, list)}
     kept, dropped = [], []
     for thread in threads:
-        mailbox = str(thread.get("mailbox") or "")
-        scoped = [(mailbox, e) for e in exclusions.get(mailbox) or []] + \
+        mailbox = str(thread.get("mailbox") or "").lower()
+        scoped = [(scope, e) for scope, entries in exclusions.items()
+                  if scope != "*" and scope.lower() == mailbox for e in entries or []] + \
                  [("*", e) for e in exclusions.get("*") or []]
         hit, survivor = None, False
         for message in thread.get("messages") or []:

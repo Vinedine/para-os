@@ -696,6 +696,15 @@ class ExclusionTests(unittest.TestCase):
                                   "*": {"Class list": 1, "subject_contains lottery": 0}})
         self.assertEqual(self.apply([plain], {}), ([plain], [], {}))
 
+    def test_a_mailbox_key_matches_the_threads_mailbox_in_any_case(self):
+        news = {"from": "news@shop.test", "subject": "Sale"}
+        for key, mailbox in (("sam.lee@example.test", "Sam.Lee@Example.test"),
+                             ("Sam.Lee@Example.test", "sam.lee@example.test")):
+            _, dropped, counts = self.apply([self.thread(news, mailbox=mailbox)],
+                                            {key: [{"from": "news@shop.test", "reason": "r"}]})
+            self.assertEqual([t["excluded_scope"] for t in dropped], [key])
+            self.assertEqual(counts, {key: {"from news@shop.test": 1}})
+
     def test_a_file_that_does_not_parse_applies_nothing_and_says_so(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

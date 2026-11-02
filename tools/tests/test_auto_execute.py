@@ -285,6 +285,12 @@ class Executor(unittest.TestCase):
         self.assertEqual((code, added["backup"]), (0, None))
         self.assertEqual(self.record([self.noise("e", "x@club.example")])["exclusion_offers"], [])
 
+    def test_a_sender_held_under_the_mailbox_in_other_case_is_not_offered(self):
+        write(self.home, "triage-exclusions.json", json.dumps(
+            {"Box@Example.org": [{"from": "x@club.example", "reason": "r"}]}))
+        rows = [self.noise("a", "x@club.example"), self.noise("b", "x@club.example")]
+        self.assertEqual(self.record(rows)["exclusion_offers"], [])
+
     def test_record_takes_a_staged_notes_sender_from_the_scan(self):
         self.note("a.md", "news@club.example")
         rows = [{"item": "a.md", "recommended": "Dismiss (noise)", "chosen": "Dismiss (noise)"}]

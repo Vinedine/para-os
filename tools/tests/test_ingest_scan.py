@@ -25,6 +25,7 @@ NOW = "2026-10-24T12:00:00+00:00"
 WORK = "owner@example.org"
 SHARED = "shared@example.org"
 OUTLOOK = "outbox@example.net"
+MIXED = "Sam.Lee@Example.org"
 
 SOURCES = """
 ## Triage sources
@@ -638,6 +639,19 @@ class Routing(Case):
         plan = run["source_plan"]
         self.assertEqual((plan["mailboxes_read"], plan["mailboxes_errored"]), (0, 1))
         self.assertIn(f"{WORK}: connector could not be read", run["errors"])
+
+    def test_an_unread_mailbox_declared_with_capitals_matches_in_any_case(self):
+        self.vault("gamma", [connector_row(MIXED)])
+        run = self.run_file(self.route(self.prepare(), [], unread=[MIXED.lower()]))
+        self.assertIn(f"{MIXED}: connector could not be read", run["errors"])
+
+    def test_a_connector_thread_and_an_exclusion_match_a_capitalised_mailbox_in_any_case(self):
+        self.vault("gamma", [connector_row(MIXED)])
+        write(self.home, "triage-exclusions.json", json.dumps(
+            {MIXED.lower(): [{"from": "anna@client.example", "reason": "noise"}]}))
+        got = self.route(self.prepare(), [gmail_thread(mailbox=MIXED.lower())])
+        self.assertEqual(got["counts"]["excluded"], 1)
+        self.assertEqual(self.run_file(got)["threads"][0]["mailbox"], MIXED)
 
     def test_an_unread_mailbox_the_plan_holds_no_connector_for_is_refused(self):
         with self.assertRaisesRegex(ValueError, "--unread"):
