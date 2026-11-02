@@ -245,6 +245,20 @@ class Write(StageCase):
         entry = self.ledger()["mailboxes"][MAILBOX]["18c2f0a1b2c3d4e5"]
         self.assertEqual((entry["routed"], entry["seen_through"]), (["alpha"], "<m2@example.org>"))
 
+    def test_a_thread_routed_elsewhere_than_on_the_last_run_is_rerouted_in_preview_too(self):
+        self.stage("preview")
+        again = self.stage("preview", threads=[self.thread(routed=["beta"])],
+                           started_at="2026-10-24T13:00:00+00:00")
+        self.assertEqual(again["rerouted"], [{"mailbox": MAILBOX, "thread_id": "18c2f0a1b2c3d4e5",
+                                              "subject": "Re: Quarterly report",
+                                              "before": ["alpha"], "now": ["beta"]}])
+
+    def test_a_thread_routed_for_the_first_time_is_not_rerouted(self):
+        first = self.thread(routed=[], reason="no vault's rules",
+                            messages=[copy.deepcopy(THREAD["messages"][1])])
+        self.stage(threads=[first])
+        self.assertEqual(self.stage(started_at="2026-10-24T13:00:00+00:00")["rerouted"], [])
+
     def test_the_watermark_never_moves_back(self):
         self.stage()
         older = self.thread(routed=[], reason="no vault's rules",

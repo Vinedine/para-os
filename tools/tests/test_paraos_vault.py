@@ -28,7 +28,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 from paraos_vault import (
     abspath, action_files, add_months, amount_of, arrived, cadence_days, cap_count, changed, closed_tasks,
-    contact_card_level, contact_names, dangling_links, declarations, duplicates, extract_links,
+    contact_card_level, contact_names, dangling_links, declarations, drive_of, duplicates, extract_links,
     field_ci, file_dates, find_clone, first_link, git, git_blame_line_date, git_bytes,
     git_last_commit_date, git_modified, git_untracked, hashes, header_fields, headline,
     inbound_references, integration_markers, lifecycles, live_lines, locale, main,
@@ -616,6 +616,16 @@ class Registry(VaultCase):
         with mock.patch.dict(os.environ, {"PARAOS_HOME": ""}), \
              mock.patch("paraos_vault.Path.home", return_value=self.root):
             self.assertEqual(registry()[0]["name"], "BF")
+
+    def test_drive_of(self):
+        self.assertEqual(drive_of("K:/Team vaults/a"), "K:")
+        self.assertEqual(drive_of("k:\\Team vaults\\a"), "K:")
+        self.assertEqual(drive_of("//server/share/a"), "\\\\server\\share")
+        self.assertEqual(drive_of("/Volumes/Shared/a"), "/Volumes/Shared")
+        self.assertEqual(drive_of("/mnt/share/a"), "/mnt/share")
+        self.assertEqual(drive_of("/media/me/disk/a"), "/media/me/disk")
+        self.assertEqual(drive_of("/run/media/me/disk/a"), "/run/media/me/disk")
+        self.assertEqual(drive_of("/home/me/a"), "/")
 
 
 class FindClone(VaultCase):

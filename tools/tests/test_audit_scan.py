@@ -28,7 +28,7 @@ SCRIPTS = ROOT / "multi-vault" / "para-audit" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import audit_scan  # noqa: E402
-from audit_scan import build_report, drive_of, main  # noqa: E402
+from audit_scan import build_report, main  # noqa: E402
 
 SCRIPT = SCRIPTS / "audit_scan.py"
 
@@ -720,16 +720,6 @@ class RegistryCase(CloneCase):
 
 
 class DriveCase(CloneCase):
-    def test_drive_of(self):
-        self.assertEqual(drive_of("K:/Team vaults/a"), "K:")
-        self.assertEqual(drive_of("k:\\Team vaults\\a"), "K:")
-        self.assertEqual(drive_of("//server/share/a"), "\\\\server\\share")
-        self.assertEqual(drive_of("/Volumes/Shared/a"), "/Volumes/Shared")
-        self.assertEqual(drive_of("/mnt/share/a"), "/mnt/share")
-        self.assertEqual(drive_of("/media/me/disk/a"), "/media/me/disk")
-        self.assertEqual(drive_of("/run/media/me/disk/a"), "/run/media/me/disk")
-        self.assertEqual(drive_of("/home/me/a"), "/")
-
     def test_every_vault_on_one_drive_unreachable_is_the_drive(self):
         build_vault(self.work / "here")
         entries = [self.entry("here"),
