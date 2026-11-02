@@ -49,15 +49,18 @@ thread shape without `routed` and `reason`), then, per thread:
   narrow the candidates, for the model to judge.
 
 It writes `run.json` beside the plan, ready for stage.py: every thread kept, `routed` null and
-`candidates` set where undecided, the plan's `undelivered`, `resolved` and `carry_over`, and
-its errors plus `<mailbox>: not read` for each `--unread`. stdout holds the counts, each
-undecided thread's subject, sender, snippet, candidates, `contacts` and `boards` (a domain a
-candidate's lifecycle homes hold an address at: evidence, never a decision), each candidate's
-purpose and `Relevant when` once, and the decided threads by subject and sender.
+`candidates` set where undecided, with the run's `invocation`, `window_days` (its widest
+window), the plan's `undelivered`, `resolved` and `carry_over`, and a `source_plan` counting
+the mailboxes planned, read and errored. A fetch script that failed is errored, and so is each
+connector mailbox passed as `--unread`, one the model could not read, which also lands in
+`errors`. stdout holds the counts, each undecided thread's subject, sender, snippet,
+candidates, `contacts` and `boards` (a domain a candidate's lifecycle homes hold an address
+at: evidence, never a decision), each candidate's purpose and `Relevant when` once, and the
+decided threads by subject and sender.
 
-Refused with exit 2: no registry, a ledger that does not parse, a work folder with no plan,
-or an `--unread` or connector thread for a mailbox the plan does not hold, or a thread missing
-what stage.py needs.
+Refused with exit 2: no registry, a ledger that does not parse (by either command), a work
+folder with no plan, a connector thread for a mailbox the plan does not hold or missing what
+stage.py needs, or an `--unread` mailbox that is not a connector mailbox in the plan.
 """
 
 import argparse
@@ -331,6 +334,7 @@ def prepare(mode, paraos_home=None, now=None, days=None):
     if not entries:
         raise ValueError(f"no registry at {home / 'vaults.json'}, or it does not parse")
     now = parse_now(now) if isinstance(now, str) or now is None else now
+    invocation = f"/para-ingest {mode}" + (f" --days {days}" if days else "")
     logs, ledger = ingest_logs(home), read_ledger(home)
     card = operator_card(home)
     vaults, mailboxes, syncs, skipped, errors = [], {}, [], [], []
@@ -390,6 +394,7 @@ def prepare(mode, paraos_home=None, now=None, days=None):
         held["since"] = starts[mailbox].isoformat()
         if unwritten:
             first[mailbox] = starts[mailbox]
+    reach = {mb: math.ceil((now - start) / DAY) for mb, start in starts.items()}
 
     work = new_work_folder(home, now)
     sync_runs = [sync_run(v, root, declared, mode == "write") for v, root, declared in syncs]
@@ -401,12 +406,13 @@ def prepare(mode, paraos_home=None, now=None, days=None):
             fetch_runs.append({"mailbox": mailbox, "vault": None, "source": None, "file": None,
                                "threads": 0, "error": "no declaring vault holds its script"})
         else:
-            reach = math.ceil((now - starts[mailbox]) / DAY)
-            fetch_runs.append(fetch_run(mailbox, held["source"], reach, work, len(fetch_runs) + 1))
+            fetch_runs.append(fetch_run(mailbox, held["source"], reach[mailbox], work,
+                                        len(fetch_runs) + 1))
     errors += [f"{r['vault']}: {r['script']}: {r['error']}" for r in sync_runs if r["error"]]
     errors += [f"{r['mailbox']}: {r['error']}" for r in fetch_runs if r["error"]]
 
-    plan = {"mode": mode, "started_at": now.isoformat(),
+    plan = {"mode": mode, "invocation": invocation, "started_at": now.isoformat(),
+            "window_days": max(reach.values(), default=days or WINDOW_DAYS[mode]),
             "mailboxes": {mb: {k: held[k] for k in ("kind", "connector", "vaults",
                                                      "relevant_when", "since")}
                           for mb, held in mailboxes.items()},
@@ -569,20 +575,21 @@ def rule_one(thread, candidates, index):
     return None, None, hits
 
 
-def route(work, connectors=None, paraos_home=None, unread=None):
+def route(work, connectors=None, paraos_home=None, unread=()):
     work = Path(work)
     try:
         plan = json.loads((work / "plan.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as err:
         raise ValueError(f"no plan in {work}: {err}") from None
+    unread = sorted({mb.strip().lower() for mb in unread or ()})
+    for mailbox in unread:
+        if (plan["mailboxes"].get(mailbox) or {}).get("kind") != "connector":
+            raise ValueError(f"--unread {mailbox}: not a connector mailbox in the plan")
     home = paraos_home_dir(paraos_home)
     entries = {e.get("name"): e for e in registry(home) if isinstance(e, dict)}
     if not entries:
         raise ValueError(f"no registry at {home / 'vaults.json'}, or it does not parse")
     ledger = read_ledger(home)
-    for mailbox in unread or []:
-        if mailbox not in plan["mailboxes"]:
-            raise ValueError(f"--unread {mailbox}: the plan holds no such mailbox")
 
     threads = []
     for run in plan["fetch_runs"]:
@@ -654,12 +661,17 @@ def route(work, connectors=None, paraos_home=None, unread=None):
                                   if v in held["relevant_when"]}})
     counts.update(signin=len(signins), decided=len(decided), to_judge=len(to_judge))
 
-    run = {"mode": plan["mode"], "started_at": plan["started_at"],
+    errored = sum(1 for r in plan["fetch_runs"] if r["error"]) + len(unread)
+    run = {"mode": plan["mode"], "invocation": plan.get("invocation"),
+           "window_days": plan["window_days"], "started_at": plan["started_at"],
            "source_plan": {"declaring_vaults": {mb: held["vaults"]
-                                                for mb, held in plan["mailboxes"].items()}},
+                                                for mb, held in plan["mailboxes"].items()},
+                           "mailboxes": len(plan["mailboxes"]),
+                           "mailboxes_read": len(plan["mailboxes"]) - errored,
+                           "mailboxes_errored": errored},
            "sync_runs": [{k: r[k] for k in ("vault", "script", "written", "error")}
                          for r in plan["sync_runs"]],
-           "errors": plan["errors"] + [f"{mailbox}: not read" for mailbox in unread or []],
+           "errors": plan["errors"] + [f"{mb}: connector could not be read" for mb in unread],
            "undelivered": plan["undelivered"], "resolved": plan["resolved"],
            "carry_over": plan["carry_over"],
            "threads": [{k: v for k, v in t.items() if k not in ("newest", "resurfaced")}
@@ -681,8 +693,8 @@ def main(argv=None):
     r = sub.add_parser("route", help="check fetched threads, apply rule 1, write run.json")
     r.add_argument("--work", required=True, help="the folder prepare printed")
     r.add_argument("--connectors", help="the connector threads the model fetched, as JSON")
-    r.add_argument("--unread", action="append", metavar="MAILBOX",
-                   help="a mailbox not read to the end of its window; repeatable")
+    r.add_argument("--unread", action="append", default=[], metavar="MAILBOX",
+                   help="a connector mailbox the model could not read (repeatable)")
     for parser in (p, r):
         parser.add_argument("--paraos-home", help="override for $PARAOS_HOME")
     args = ap.parse_args(argv)

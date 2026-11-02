@@ -46,7 +46,7 @@ For each entry under `connectors`, fetch per [para-shared/connectors.md](../para
 - **The window starts at the entry's `since`**, and the query frame is the union of the entry's `relevant_when` texts: fetch once, route after.
 - **Read headers and snippets, never bodies.** Routing reads the snippet; `/para-triage` re-reads at source.
 - **Steps 3 and 5 are `route`'s**: no exclusions and no ledger check by hand.
-- **A mailbox not read to the end of its window**, its connector absent, refused or signed in as another account, goes to `route` as `--unread <mailbox>`, so the next run reaches back over it. Never edit this file to widen your own permissions.
+- **Find the connector by its tool suffix** ([connectors.md](../para-shared/connectors.md)), whatever its server is named: one wired under another name than `allowed-tools` lists is read the same and asks per call. **A mailbox you could not read to its `since` is unread, not empty**: a server absent, a call refused or failing. Pass it to `route` as `--unread <mailbox>` and go on: the next run reaches back over it. Never edit this file to widen your own permissions.
 
 Write every thread fetched to `<work>/connectors.json`: a JSON list in `stage.py`'s thread shape without `routed` and `reason`, with `text` `preview` and `own_messages` false. A sign-in or security code ([connectors.md](../para-shared/connectors.md#sign-in-and-security-codes)) goes in as `"signin": true` with its mailbox, thread id and each message's `received` and `message_id` alone, so nothing written carries it.
 
@@ -54,10 +54,10 @@ Write every thread fetched to `<work>/connectors.json`: a JSON list in `stage.py
 
 ```bash
 # Windows: py -3
-python3 "<scripts>/ingest_scan.py" route --work "<work>" --connectors "<work>/connectors.json"
+python3 "<scripts>/ingest_scan.py" route --work "<work>" --connectors "<work>/connectors.json" [--unread <mailbox> ...]
 ```
 
-Exit 2 names a connector thread to fix: fix it and run again. It prints `to_judge`, every thread no contact settled with its `candidates`, and `decided`.
+Exit 2 names a connector thread or an `--unread` mailbox to fix: fix it and run again. Each `--unread` mailbox goes into the run log's errors and its count of mailboxes errored. It prints `to_judge`, every thread no contact settled with its `candidates`, and `decided`.
 
 ### Step 4: Judge what is left
 

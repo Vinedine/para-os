@@ -201,9 +201,13 @@ class FunnelPageTests(unittest.TestCase):
         page = render(gather(str(self.home), 7, today=TODAY))
         self.assertGreater(page.count("<table>"), 3)
         self.assertEqual(page.count("<table>"), page.count('<div class="tw"><table><tr><th'))
-        data_at, script_at = page.index('<script id="data"'), page.rindex("<script>")
-        self.assertLess(data_at, script_at)
+        script_at = page.rindex("<script>")
         self.assertIn('querySelectorAll(".tw > table")', page[script_at:])
+
+    def test_the_page_carries_no_copy_of_its_data(self):
+        page = render(gather(str(self.home), 7, today=TODAY))
+        self.assertNotIn('<script id="data"', page)
+        self.assertEqual(page.count("<script"), 1)
 
     def test_main_prints_the_page_line(self):
         out = Path(self.tmp) / "page" / "funnel.html"
@@ -275,9 +279,9 @@ class PageRulesTests(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def page_text(self):
-        """The rendered page without its embedded data, entities decoded."""
+        """The rendered page without its script, entities decoded."""
         page = render(gather(str(self.home), 7, today=TODAY))
-        return html.unescape(page.split('<script id="data"')[0])
+        return html.unescape(page.split("<script>")[0])
 
     def assert_clipped_at_a_word(self, text, full):
         m = re.search(re.escape(full[:20]) + r"[^<]*?\.\.\.", text)
