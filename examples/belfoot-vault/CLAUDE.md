@@ -98,7 +98,7 @@ A vendor in selection is one row in [areas/business/vendors.md](areas/business/v
 
 ## Authoritative sources
 
-Name the owning file before answering, and check `triage/` before searching by date. System-of-record data beats a hand-kept table; when they disagree, correct the table. Answer from the operator's own documents by quoting the clause with its file and page; say when a document is not on file, and label a general-knowledge answer as one. Where two documents disagree, give both, the cautious reading first.
+Name the owning file before answering, and check `triage/` before searching by date. System-of-record data beats a hand-kept table; when they disagree, correct the table. Answer from the operator's own documents by quoting the clause with its file and page.
 
 Here the RFP responses and the signed SOW in `sources/` are the record for vendor pricing and scope, never a brief's comparison table.
 

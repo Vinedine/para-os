@@ -21,7 +21,7 @@ cat > CLAUDE.md <<'EOF'
 
 ## Authoritative sources
 
-Name the owning surface *before* answering. Check `triage/` before searching by date: an item waiting to be filed is usually the current one. Machine-readable exports and system-of-record data beat hand-maintained tables in briefs; when they disagree, the system wins and the brief gets corrected. Answer a question about the operator's own documents by quoting the clause with its file name and page. If the document is not on file, say so and label any general-knowledge answer as such; if two source documents disagree, give both, the cautious reading first.
+Name the owning file before answering, and check `triage/` before searching by date. System-of-record data beats a hand-kept table; when they disagree, correct the table. Answer from the operator's own documents by quoting the clause with its file and page.
 EOF
 
 cat > README.md <<'EOF'
