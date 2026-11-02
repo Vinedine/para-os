@@ -445,6 +445,43 @@ class Executor(unittest.TestCase):
         self.assertIn("nothing to move", back["failed"][0]["reason"])
         self.assertNotIn("commit", back)
 
+    def test_a_move_that_fails_holds_its_item_and_the_run_still_writes_its_manifest(self):
+        self.init_git()
+        self.switch_on("File it", "Dismiss (noise)")
+        saved = self.scan()
+        decisions = self.decide([{"item": "noise.md", "action": "Dismiss (noise)"}, self.FILE])
+        locked = OSError("the file is in use")
+        with mock.patch.object(auto_execute, "move", side_effect=locked):
+            code, out = call("run", "--scan", saved, "--decisions", decisions,
+                             "--paraos-home", self.home)
+        self.assertEqual((code, out["acted"]), (0, [{"item": "noise.md",
+                                                     "action": "Dismiss (noise)"}]))
+        self.assertEqual(out["refused"], [{"item": "linked.md",
+                                           "reason": "could not move it: the file is in use"}])
+        self.assertTrue(Path(out["quarantine"], "manifest.json").is_file())
+        self.assertIn("could not move it", Path(out["proposal"]).read_text())
+        self.assertFalse(decisions.exists())
+
+    def test_a_restore_whose_move_fails_reports_it_and_marks_the_rest(self):
+        self.switch_on("Delete (duplicate)", "Dismiss (noise)")
+        _, out = self.run_all(self.ROWS[:2])
+        real = shutil.move
+
+        def locked_unless_noise(src, dst):
+            if "noise" not in src:
+                raise OSError("the file is in use")
+            return real(src, dst)
+
+        with mock.patch.object(auto_execute.shutil, "move", locked_unless_noise):
+            code, back = call("restore", "--vault-name", "north", "--run", out["run"],
+                              "--paraos-home", self.home)
+        self.assertEqual(back["failed"], [{"item": "dup.pdf", "reason": "the file is in use"}])
+        self.assertEqual([r["item"] for r in back["restored"]], ["noise.md"])
+        code, again = call("restore", "--vault-name", "north", "--run", out["run"],
+                           "--paraos-home", self.home)
+        self.assertEqual(([r["item"] for r in again["restored"]], again["failed"]),
+                         (["dup.pdf"], []))
+
     def test_a_commit_git_refuses_leaves_the_filed_item_moved_and_says_so(self):
         self.init_git()
         self.switch_on("File it")
