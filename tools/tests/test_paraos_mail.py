@@ -374,6 +374,13 @@ class Watermark(VaultCase):
         got = watermark(entry, newest_date="2026-09-11T00:00:00+00:00")
         self.assertEqual(got["verdict"], "carry")
 
+    def test_dates_compare_as_instants_never_as_strings(self):
+        # 23:30 UTC on the 9th is half an hour after 01:00 on the 10th at +02:00, though
+        # its text sorts first.
+        entry = {"seen_through": "<msg-1>", "seen_date": "2026-09-10T01:00:00+02:00"}
+        got = watermark(entry, newest_date="2026-09-09T23:30:00+00:00")
+        self.assertEqual(got["verdict"], "carry")
+
     def test_a_legacy_entry_is_seen_only_before_its_day_starts(self):
         entry = {"seen_date": "2026-09-10"}
         got = watermark(entry, newest_date="2026-09-09T23:59:00+00:00")
@@ -382,8 +389,8 @@ class Watermark(VaultCase):
         self.assertEqual(got["watermark"], "2026-09-10T00:00:00+00:00")
 
     def test_a_legacy_entry_grows_for_anything_later_that_same_day(self):
-        # connectors.md: a legacy watermark reads as the start of its day, and anything
-        # later - even the same afternoon - resurfaces rather than being dropped.
+        # A legacy watermark reads as the start of its day, and anything later - even the
+        # same afternoon - resurfaces rather than being dropped.
         entry = {"seen_date": "2026-09-10"}
         got = watermark(entry, newest_date="2026-09-10T08:00:00+00:00")
         self.assertEqual(got["verdict"], "grown")
