@@ -9,7 +9,7 @@
 - **Stale file:** an action file with open items, with the date it was last touched.
 - **Falsely-overdue candidates:** the count and the worst offender.
 - **Stale recurrence:** the count and the worst: `<scope>:<line> - 🔁 every <cadence>, 📅 <date>, N periods behind`.
-- **Undated majority:** one line, `N of M open items are undated - the backlog is bigger than the brief can date. /para-deep-clean grooms.`
+- **Undated majority:** how many of the open items are undated, pointing to `/para-deep-clean`.
 - **Misplaced checkboxes:** one line per bucket the scan lists, naming the worst file: `N open checkboxes under <bucket>/ (worst: <file>, N)`.
 - **Nothing open:** one line each for the first three the scan lists: `<entity>: nothing open`
 - **Over-grown brief:** one line per offender, `<file>: N lines - content grooming via /para-deep-clean`.
