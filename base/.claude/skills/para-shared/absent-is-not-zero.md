@@ -10,4 +10,4 @@ An empty, zero, truncated or failed answer reads as good news unless a skill is 
 
 ## Reading a document
 
-Read every page: past 10 pages in batches of up to 20 through the Read tool's `pages` parameter, or with `pypdf` where Read cannot open it and it is installed. A page with no usable text is named as a scan gap. A value the document does not hold is `not found in N pages read`, naming the pages, never "not on file".
+Read every page; where Read cannot open the file, use `pypdf` if it is installed. A page with no usable text is named as a scan gap. A value the document does not hold is `not found in N pages read`, naming the pages, never "not on file".
