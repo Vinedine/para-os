@@ -21,6 +21,10 @@ read the stamp it writes.
 Left out: ingest's prepare, which runs each vault's sync and fetch scripts against live
 services, archive, which needs an entity, and prep, which needs a person.
 
+Test a stamped candidate (/release steps 2 to 6): where head still carries base's template
+marker over a changed template, upgrade and audit read head's template as each vault's own
+revision, and the report says so.
+
 Each output has the scratch paths replaced, then the two are diffed, a list as a multiset of
 its items, so a reordering is no change. The report goes to `<paraos home>/data/test-runs/
 <YYYYMMDD-HHMM> field-test <base>..<head>.md`, never into the repo, and stdout is one JSON
@@ -33,6 +37,7 @@ import argparse
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -90,15 +95,24 @@ REGISTRY = "(registry)"
 MISSING = object()
 IDENTITY = ("name", "file", "path", "check", "source", "skill", "item", "thread_id", "mailbox",
             "vault", "label", "id")
+MARKER_RE = re.compile(r"<!-- para-os-template: (\S+) -->")
 
 
 def git(*args):
-    return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
+    return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, encoding="utf-8",
+                          errors="replace")
 
 
 def resolve(ref):
     done = git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
     return done.stdout.strip() if done.returncode == 0 else None
+
+
+def unstamped(base_template, head_template):
+    """The marker both templates carry where their text differs: head is not stamped yet."""
+    marks = [MARKER_RE.search(t or "") for t in (base_template, head_template)]
+    same = all(marks) and marks[0].group(1) == marks[1].group(1)
+    return marks[0].group(1) if same and base_template != head_template else None
 
 
 def export(sha, folder):
@@ -229,8 +243,12 @@ def change_line(path, before, after):
 def report(meta, results, columns):
     lines = [f"# Field test {meta['base']} -> {meta['head']}", "",
              f"Run {meta['run']} on `--today {meta['today']}`: base `{meta['base_sha']}`, head "
-             f"`{meta['head_sha']}`. Skipped: {', '.join(meta['skipped']) or 'none'}.", "",
-             "| Vault | " + " | ".join(columns) + " |", "|---|" + "---|" * len(columns)]
+             f"`{meta['head_sha']}`. Not scanned: {', '.join(meta['skipped']) or 'none'}.", ""]
+    if meta["unstamped"]:
+        lines += [f"Head still carries base's marker `{meta['unstamped']}` over a changed template, "
+                  "so upgrade and audit take head's own template as each vault's baseline and "
+                  "report this cycle's template changes as drift. Test a stamped candidate.", ""]
+    lines += ["| Vault | " + " | ".join(columns) + " |", "|---|" + "---|" * len(columns)]
     for vault, scans in results.items():
         lines.append(f"| {vault} | " + " | ".join(scans.get(c, ("-", []))[0].split(":")[0]
                                                     for c in columns) + " |")
@@ -315,9 +333,10 @@ def field_test(args):
 
     columns = [*VAULT_SCANS, *LAST_SCANS, *REGISTRY_SCANS]
     run_at = datetime.now()
+    templates = [git("show", f"{shas[side]}:base/CLAUDE.md.template").stdout for side in shas]
     meta = {"base": args.base, "head": args.head, "base_sha": shas["base"][:7],
             "head_sha": shas["head"][:7], "today": today, "skipped": skipped,
-            "run": run_at.strftime("%Y-%m-%d %H:%M")}
+            "run": run_at.strftime("%Y-%m-%d %H:%M"), "unstamped": unstamped(*templates)}
     label = f"{args.base}..{args.head}".replace("/", "-")
     path = home / "data" / "test-runs" / f"{run_at:%Y%m%d-%H%M} field-test {label}.md"
     path.parent.mkdir(parents=True, exist_ok=True)

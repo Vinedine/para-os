@@ -20,7 +20,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from field_test import MISSING, compare, differences, main, normalise, scratch_home, swaps  # noqa: E402
+from field_test import (MISSING, compare, differences, main, normalise, scratch_home,  # noqa: E402
+                        swaps, unstamped)
 
 
 def write(base, rel, text):
@@ -67,6 +68,16 @@ class Diffing(unittest.TestCase):
         self.assertEqual(out, {str(Path("<kit>") / "a.py"): ["<kit>/b", "<ref>"]})
 
 
+class Stamp(unittest.TestCase):
+
+    def test_a_changed_template_under_the_same_marker_is_unstamped(self):
+        mark = "<!-- para-os-template: 2026.10.04 -->\n"
+        self.assertEqual(unstamped(mark + "a\n", mark + "b\n"), "2026.10.04")
+        self.assertIsNone(unstamped(mark + "a\n", mark + "a\n"))
+        self.assertIsNone(unstamped(mark + "a\n", mark.replace("10.04", "11.01") + "b\n"))
+        self.assertIsNone(unstamped("", mark))
+
+
 class ScratchHome(unittest.TestCase):
 
     def test_the_copy_holds_what_the_scans_read_and_only_the_scanned_vaults(self):
@@ -110,7 +121,7 @@ class EndToEnd(unittest.TestCase):
 
     def test_one_commit_on_both_sides_reports_every_scan_the_same(self):
         code, out = self.field_test("--base", "HEAD", "--head", "HEAD")
-        self.assertEqual((code, out["regressions"]), (0, 0))
+        self.assertEqual((code, out["regressions"], out["unstamped"]), (0, 0, None))
         self.assertEqual(set(out["statuses"]), {"north", "gone", "(registry)"})
         self.assertEqual(set(out["statuses"]["north"].values()), {"same"})
         self.assertEqual(set(out["statuses"]["gone"].values()), {"not mounted"})
