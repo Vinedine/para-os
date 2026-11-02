@@ -211,7 +211,7 @@ def lifecycle_block(vault, doc, dest, folder_name):
     """None unless the entity's own Stage line names a stage of a lifecycle the vault
     declares. Otherwise: every terminal stage of that lifecycle with its home made concrete
     for this entity, which terminal stage (if any) the destination matches, whether the
-    Stage line already names it, the reason-gate's raw material for that stage, and `won`:
+    Stage line already names it, the reason gate for that stage with its verdict, and `won`:
     the Stage line names the promoting stage (the first in table order whose home sits
     under `projects/`, /para-pipeline's rule) or the record carries a dated `Won` line."""
     info = stage_of(doc) if doc else None
@@ -251,8 +251,11 @@ def lifecycle_block(vault, doc, dest, folder_name):
         field_name = f"{destination_matches} reason"
         raw = field_ci(header_fields(doc), field_name)
         key = raw.split(",", 1)[0].strip() if raw else None
-        reason = {"field": field_name, "raw": raw, "key": key,
-                   "allowed": reason_allowed(vault, destination_matches)}
+        allowed = reason_allowed(vault, destination_matches)
+        # ok: null where no list was found, so the rule file has to be read by hand.
+        ok = None if allowed is None else bool(key) and key.casefold() in {
+            a.casefold() for a in allowed}
+        reason = {"field": field_name, "raw": raw, "key": key, "allowed": allowed, "ok": ok}
 
     promoting = next((s for s in matched_lc["stages"] if s["home"].startswith("projects/")),
                      None)
@@ -345,7 +348,7 @@ def other_checkbox_files(vault, entity_dir, actions_path):
             and open_tasks(path)]
 
 
-def actions_block(vault, entity_dir, kind, doc):
+def actions_block(vault, entity_dir, doc):
     actions_path = entity_dir / "actions.md"
     has_file = actions_path.is_file()
     rel_actions = rel_posix(vault, actions_path) if has_file else None
@@ -359,7 +362,6 @@ def actions_block(vault, entity_dir, kind, doc):
         "file": rel_actions, "open": open_, "backlog": backlog,
         "other_checkbox_files": other_checkbox_files(vault, entity_dir,
                                                       actions_path if has_file else None),
-        "idea_holds_actions": bool(kind == "idea" and has_file),
         "route_options": route_options(vault),
     }
 
@@ -518,7 +520,7 @@ def plan(vault, entity_name, destination_arg, today, paraos_home, route_files=()
     doc = pick_doc(entity_dir)
     report["lifecycle"] = lifecycle_block(vault, doc, dest, folder_name)
 
-    actions = actions_block(vault, entity_dir, kind, doc)
+    actions = actions_block(vault, entity_dir, doc)
     report["actions"] = actions
 
     report["gate"] = gate_block(doc, actions["open"], today)

@@ -4,7 +4,7 @@
 
 **Open is every `actions.open` checkbox and every `actions.backlog` item not `settled`.** `actions.other_checkbox_files` names the entity's other files still holding open checkboxes, reconciled the same way.
 
-An idea skips this step unless `actions.idea_holds_actions` flags a checkbox. Where `actions.file` is null the vault tracks no actions: settle the next steps its brief states in prose the same way, record survivors as prose, and create no `actions.md`.
+An idea skips this step unless `actions.file` is set. Where `actions.file` is null the vault tracks no actions: settle the next steps its brief states in prose the same way, record survivors as prose, and create no `actions.md`.
 
 One question per open item:
 
@@ -22,7 +22,7 @@ A recurring item survives into the recurring section of the area taking the work
 **A staged entity is gated.** Where `lifecycle.destination_matches` names a terminal stage ([lifecycles.md](../../para-shared/lifecycles.md)), nothing moves until the operator has written:
 
 - **A Stage line naming that stage** (`lifecycle.stage_line_names_destination`). Show the line as it stands and as it would become.
-- **Any reason line the rule file requires for that stage**, non-empty and, where the file gives a list, from it. `lifecycle.reason` carries the field name, its `raw` value, its `key` (the text before its first comma) and the `allowed` list; `allowed: null` means read the rule file yourself.
+- **Any reason line the rule file requires for that stage** (`lifecycle.reason`): `ok` false is one missing or off the `allowed` list; `ok` null means read the rule file yourself.
 
 Name everything missing in one stop, with the exact lines and where they go.
 
