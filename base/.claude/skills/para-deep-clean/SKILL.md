@@ -58,7 +58,7 @@ Close items from documents on file, surface what is time-sensitive, groom action
 
 ### Phase 4 - Final audit
 
-Read-only, and the second half of `audit`. A scan row with `pass: false` is a residual issue unless Phase 1's exclusions or an operator decision this run accounts for it. A `pass: None` row's verdict is the agent's, `over_threshold_files` included where no file over is an `actions.md` (each may declare its own contract, Step 3.4). Then check what no row covers:
+Read-only, and the second half of `audit`. A scan row with `pass: false` is a residual issue unless Phase 1's exclusions or an operator decision this run accounts for it. A `pass: None` row's verdict is the agent's. Then check what no row covers:
 
 - The root README passes the Step 1.1 shape check, every README follows the structure `CLAUDE.md` documents, and active entities' Open items hold only real work.
 - Every contradiction between live files is corrected in the copies or carried as an open item on the owning entity.

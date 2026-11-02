@@ -24,7 +24,9 @@ resolution, content hashing, the checkbox and staleness thresholds - is not this
 own work: para-shared/scripts/paraos_vault.py holds it. What lives here is what this
 skill alone decides: which files are in scope for a placeholder or figure scan, how a
 contact's citations are counted, what an "entity folder" is under archive/, how a
-stale item's date is measured, and which project has had no dated commitment for six months.
+stale item's date is measured, which project has had no dated commitment for six months,
+which meeting record has one owner, which briefs Phase 3 reads, and which files nothing
+links to.
 
 What it deliberately does NOT do, so the skill keeps owning it: decide whether a finding
 is a real defect or an exempt third-party file, propose a fix, ask a question, or write
@@ -51,12 +53,13 @@ try:
         LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
         MARKED_SUFFIXES, dangling_links, deep_clean_stamp, duplicates, find_clone,
         integration_markers,
-        extract_links, git, git_blame_line_date, hashes, inbound_references, is_separator_row,
-        iso, lifecycles, link_files, link_spans, live_lines, misplaced_checkboxes, norm,
-        open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
-        reference_shape,
-        rel_posix, resolve_link, snapshot, stage_of, strip_code, table_cells,
-        template_marker, triage_items, under_any, vault_paths,
+        extract_links, field_ci, git, git_blame_line_date, hashes, header_fields,
+        inbound_references, is_separator_row,
+        iso, lifecycles, link_files, link_spans, live_lines, log_entries, misplaced_checkboxes,
+        norm, open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines,
+        read_text, reference_shape,
+        rel_posix, resolve_entity, resolve_link, snapshot, split_lines, stage_of, strip_code,
+        table_cells, template_marker, triage_items, under_any, vault_paths,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -68,6 +71,8 @@ except ImportError as missing:  # para-shared/scripts.md: the skill stops
 DEFAULT_DATED_PATTERN = r"^\d{8} "
 DEFAULT_NEXT_STEPS_HEADINGS = ("Next steps", "Open items")
 ENTITY_BASES = ("projects", "areas", "resources/ideas")
+GROWN = 1.5     # a brief past this many times its length at the last deep clean is read again
+STRUCTURE_FILES = ("README.md", "brief.md", "actions.md")
 LIVE_ROOTS = ("projects", "areas", "resources", "triage")  # archive/ is history, not live
 # A link target inside archive/ is still a path that must resolve; only prose there is history.
 # A rule file links into the vault too, from two folders down.
@@ -566,9 +571,25 @@ def figure_pairs(vault):
 
 # -------------------------------------------------------------------------------- archive
 
+def owning_entity(vault, path):
+    """The one live entity a meeting record belongs to: its `**Project:**` line, else every
+    link into an entity folder naming the same one. None for several or none."""
+    project = field_ci(header_fields(path), "project")
+    if project and not extract_links(project):
+        found = resolve_entity(vault, project)
+        return found["match"]["path"] if found["status"] == "resolved" else None
+    owners = set()
+    for _, href, _ in extract_links(project or read_text(path)):
+        entity = entity_of_path(rel_posix(vault, resolve_link(path, href)))
+        if entity.startswith(("projects/", "areas/", "resources/ideas/")) \
+                and (vault / entity).is_dir():
+            owners.add(entity)
+    return owners.pop() if len(owners) == 1 else None
+
+
 def archive_findings(vault, dated_pattern):
     archive = vault / "archive"
-    loose_root_files, meetings_naming, missing_record = [], [], []
+    loose_root_files, meetings_naming, missing_record, single_owner = [], [], [], []
     if archive.is_dir():
         loose_root_files = sorted(p.relative_to(vault).as_posix()
                                   for p in archive.iterdir() if p.is_file())
@@ -578,12 +599,17 @@ def archive_findings(vault, dated_pattern):
             meetings_naming = sorted(p.relative_to(vault).as_posix()
                                      for p in meetings.iterdir()
                                      if p.is_file() and p.name != "README.md" and not pattern.match(p.name))
+            for p in sorted(meetings.glob("*.md")):
+                owner = p.name != "README.md" and owning_entity(vault, p)
+                if owner:
+                    single_owner.append({"file": p.relative_to(vault).as_posix(),
+                                         "entity": owner})
         for bucket_dir in sorted(d for d in archive.iterdir() if d.is_dir() and d.name != "meetings"):
             for entity_dir in sorted(d for d in bucket_dir.iterdir() if d.is_dir()):
                 if not (entity_dir / "brief.md").is_file() and not (entity_dir / "README.md").is_file():
                     missing_record.append(entity_dir.relative_to(vault).as_posix())
     return {"loose_root_files": loose_root_files, "meetings_naming": meetings_naming,
-            "missing_record": missing_record,
+            "missing_record": missing_record, "single_owner": single_owner,
             "misplaced_checkboxes": misplaced_checkboxes(vault, with_closed=True)}
 
 
@@ -818,6 +844,58 @@ def live_briefs(vault):
     return sorted({f for f in files if f.is_file()})
 
 
+def lines_at(vault, rel, day):
+    """A file's line count in the last commit on or before `day`, else None."""
+    sha = (git(vault, ["log", "-1", "--format=%H", f"--before={iso(day)}T23:59:59", "--", rel])
+           or "").strip()
+    text = git(vault, ["show", f"{sha}:{rel}"]) if sha else None
+    return None if text is None else len(split_lines(text))
+
+
+def briefs(vault):
+    """(briefs to read, each with its reasons; live briefs skipped; whether growth since the
+    last deep clean could be measured). A brief is read when it is over the line cap, has
+    grown by more than half since the last deep clean's stamp, or holds more development-log
+    entries than its entity has open actions. An area README is read whatever it holds, so
+    one is never listed as skipped."""
+    stamp = deep_clean_stamp(vault)
+    last = parse_date(read_text(stamp).strip()) if stamp.is_file() else None
+    growth = "no deep clean on record" if last is None else \
+        "measured" if git(vault, ["rev-parse", "--git-dir"]) is not None else "no git history"
+    over = {b["file"] for b in over_grown_briefs(vault, limit=None)}
+    read, skipped = [], []
+    for path in live_briefs(vault):
+        rel = path.relative_to(vault).as_posix()
+        lines = len(read_lines(path))
+        reasons = ["over_grown"] if rel in over else []
+        if growth == "measured" and lines > GROWN * (lines_at(vault, rel, last) or lines):
+            reasons.append("grown")
+        actions = path.parent / "actions.md"
+        if len(log_entries(path)) > len(open_tasks(actions) if actions.is_file() else []):
+            reasons.append("log_heavy")
+        if reasons:
+            read.append({"file": rel, "lines": lines, "reasons": reasons})
+        elif not (rel.startswith("areas/") and path.name == "README.md"):
+            skipped.append(rel)
+    return sorted(read, key=lambda r: -r["lines"]), skipped, growth
+
+
+def orphans(vault):
+    """Files under projects/, areas/ or resources/ that no link anywhere in the vault reaches,
+    percent-decoded. A README, brief or actions file is reached by its folder, and a
+    `sources/` file is a record, so neither is listed."""
+    reached = {abspath(resolve_link(f, href)) for f in link_files(vault, DANGLING_ROOTS)
+               for _, href, _ in extract_links(read_text(f))}
+    out = []
+    for bucket in ("projects", "areas", "resources"):
+        for path in (vault / bucket).rglob("*"):
+            parts = path.relative_to(vault).parts
+            if path.is_file() and path.name not in STRUCTURE_FILES and "sources" not in parts \
+                    and not any(p.startswith(".") for p in parts) and abspath(path) not in reached:
+                out.append(path.relative_to(vault).as_posix())
+    return sorted(out)
+
+
 def bullets_under_headings(path, headings, vault):
     """Every bullet in a section under one of `headings`, sub-headings included: a deeper
     heading groups the section's bullets, and only one at the section's level or above
@@ -895,7 +973,7 @@ def phase3(vault, today, headings):
     stale_undated = stale_undated_from(vault, files + other_paths, today)
     aspirational = aspirational_from(files + other_paths, vault, today)
     prose = prose_next_steps(vault, headings)
-    briefs_to_read = over_grown_briefs(vault, limit=None)
+    briefs_to_read, briefs_skipped, growth = briefs(vault)
 
     touched = set(files) | set(other_paths)
     touched |= {vault / b["file"] for b in briefs_to_read}
@@ -905,6 +983,7 @@ def phase3(vault, today, headings):
     return {"over_threshold": over_threshold, "other_checkbox_files": other_files,
             "stale_undated": stale_undated, "aspirational": aspirational,
             "prose_next_steps": prose, "briefs_to_read": briefs_to_read,
+            "briefs_skipped": briefs_skipped, "growth": growth, "orphans": orphans(vault),
             "demotion_candidates": demotion_candidates(vault, today)
             if (vault / "projects").is_dir() else [],
             "snapshot": snapshot(sorted(touched, key=str))}

@@ -1,6 +1,6 @@
 # Phase 1 - Structural and housekeeping audit
 
-Every finding below is a field of the `--phase 1` scan except five the agent judges itself: naming outside `archive/meetings/`, archive-versus-active, single-owner records in `archive/meetings/`, figures with no as-of date, and the root `README.md` shape.
+Every finding below is a field of the `--phase 1` scan except four the agent judges itself: naming outside `archive/meetings/`, archive-versus-active, figures with no as-of date, and the root `README.md` shape.
 
 ## Step 1.1 - Map the vault
 
@@ -31,7 +31,7 @@ Against the vault's **Archive hygiene** rule and its checkbox table:
 
 - **Loose files at the archive root** (`archive.loose_root_files`): move, or delete if thin and superseded.
 - **Undated names in `archive/meetings/`** (`archive.meetings_naming`).
-- **Single-owner records in `archive/meetings/`**: a record naming exactly one owning entity (a `**Project:**` line, or every entity link resolving to one folder) moves to that entity's `sources/`, renamed to the source-document convention, or to the entity folder where its bucket allows no `sources/`. Several entities or none: it stays.
+- **Single-owner records in `archive/meetings/`** (`archive.single_owner`): each moves to its `entity`'s `sources/`, renamed to the source-document convention, or to the entity folder where its bucket allows no `sources/`.
 - **Open checkboxes where the vault forbids them** (`archive.misplaced_checkboxes`, one list per bucket). In third-party verbatim content filed outside `sources/` and `archive/meetings/`, propose the **frozen-record marker**, never the tick: a blockquote before the first checkbox, or a line in the first fifteen naming it "frozen record", as an HTML comment where it must not render. Route surviving work to the owning `actions.md`.
 - **Checkboxes on a contact card under `never`** (the `areas/network` list, and `closed` for ticked ones), one item at a time: a ticked item becomes a plain bullet under `## History` (before `## Next actions`, created if missing), checkbox and `✅` stripped, `_(closed YYYY-MM-DD)_` appended; an open one goes to the entity it serves, or is dropped. `## Next actions` keeps its empty sentinel.
 - **Archived entities missing their minimum record** (`archive.missing_record`) or a status marker.

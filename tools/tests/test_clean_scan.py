@@ -941,6 +941,26 @@ class Archive(VaultCase):
                          [{"file": "areas/network/ann-smet.md", "closed": 1}])
 
 
+    def test_a_meeting_record_naming_one_entity_is_a_single_owner(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "areas/finance/README.md", "# Finance\n")
+        write(self.root, "archive/meetings/20260901 Kickoff.md",
+              "# Kickoff\n\n**Project:** [acme](../../projects/acme/brief.md)\n")
+        write(self.root, "archive/meetings/20260902 Sync.md", "# Sync\n\n**Project:** Acme\n")
+        write(self.root, "archive/meetings/20260903 Board.md",
+              "# Board\n\nSee [acme](../../projects/acme/brief.md) and "
+              "[finance](../../areas/finance/README.md).\n")
+        write(self.root, "archive/meetings/20260904 Call.md",
+              "# Call\n\nOnly [acme](../../projects/acme/brief.md), twice: "
+              "[again](../../projects/acme/brief.md).\n")
+        write(self.root, "archive/meetings/20260905 Notes.md", "# Notes\n\nNo links.\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["archive"]["single_owner"], [
+            {"file": "archive/meetings/20260901 Kickoff.md", "entity": "projects/acme"},
+            {"file": "archive/meetings/20260902 Sync.md", "entity": "projects/acme"},
+            {"file": "archive/meetings/20260904 Call.md", "entity": "projects/acme"},
+        ])
+
     def test_a_checkbox_in_a_meeting_record_or_under_sources_is_the_records(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "archive/meetings/20260101 Kickoff.md", "# Kickoff\n\n- [ ] Next step\n")
@@ -1098,6 +1118,55 @@ class BriefsToRead(VaultCase):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "projects/acme/brief.md", "# Acme\n\nShort.\n")
         self.assertEqual(self.run_scan("3")["phase3"]["briefs_to_read"], [])
+
+    def test_a_brief_grown_by_more_than_half_since_the_last_deep_clean_is_read(self):
+        git_init(self.root)
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n" + "line\n" * 9)
+        write(self.root, "projects/calm/brief.md", "# Calm\n" + "line\n" * 9)
+        git_commit_at(self.root, "2026-09-01")
+        write(self.home, f"data/deep-clean/{self.root.name}.txt", "2026-09-05\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n" + "line\n" * 15)
+        write(self.root, "projects/calm/brief.md", "# Calm\n" + "line\n" * 12)
+        git_commit_at(self.root, "2026-09-10")
+        got = self.run_scan("3")["phase3"]
+        self.assertEqual(got["briefs_to_read"],
+                         [{"file": "projects/acme/brief.md", "lines": 16, "reasons": ["grown"]}])
+        self.assertEqual((got["briefs_skipped"], got["growth"]),
+                         (["projects/calm/brief.md"], "measured"))
+
+    def test_a_brief_holding_more_log_entries_than_open_actions_is_read(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\n## Development log\n\n"
+              "- 2026-09-01 Chose the host.\n- 2026-09-02 Moved the site.\n")
+        write(self.root, "projects/acme/actions.md", "# Actions\n\n- [ ] Launch\n")
+        got = self.run_scan("3")["phase3"]
+        self.assertEqual([(b["file"], b["reasons"]) for b in got["briefs_to_read"]],
+                         [("projects/acme/brief.md", ["log_heavy"])])
+
+    def test_growth_says_why_it_was_not_measured(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nShort.\n")
+        got = self.run_scan("3")["phase3"]
+        self.assertEqual((got["briefs_skipped"], got["growth"]),
+                         (["projects/acme/brief.md"], "no deep clean on record"))
+        write(self.home, f"data/deep-clean/{self.root.name}.txt", "2026-09-05\n")
+        self.assertEqual(self.run_scan("3")["phase3"]["growth"], "no git history")
+
+
+class Orphans(VaultCase):
+
+    def test_a_file_nothing_links_to_is_an_orphan(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "README.md", "# Vault\n\nSee [the guide](resources/guide.md).\n")
+        write(self.root, "resources/guide.md", "# Guide\n")
+        write(self.root, "resources/old-notes.md", "# Old notes\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\n[The plan](site%20plan.md)\n")
+        write(self.root, "projects/acme/site plan.md", "# Plan\n")
+        write(self.root, "projects/acme/actions.md", "# Actions\n")
+        write(self.root, "projects/acme/README.md", "# Acme\n")
+        write(self.root, "projects/acme/sources/contract.md", "# Contract\n")
+        self.assertEqual(self.run_scan("3")["phase3"]["orphans"], ["resources/old-notes.md"])
 
 
 class StaleUndated(VaultCase):

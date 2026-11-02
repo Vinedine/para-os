@@ -25,8 +25,8 @@ resolves to, which names a contact card answers to, who writes the vault and in 
 which of them the operator is, when a file was really last touched, what
 a link points at and what a move has to rewrite, whether two files hold the same bytes,
 what a vault declares it is built from and the locale it declares, the numbers a vault's own
-rules state, the last day to give notice on a renewing agreement, and the date a promised
-weekday points at. A second implementation of any of those is a vault getting two answers to
+rules state, which lines a development log dates, the last day to give notice on a renewing
+agreement, and the date a promised weekday points at. A second implementation of any of those is a vault getting two answers to
 one question, which is the failure this repo exists to prevent. Three siblings hold what is not
 about the vault itself: `paraos_clone.py` reads the para-os clone a vault is measured against,
 `paraos_mail.py` reads mail threads, the notes they become and the ledgers that track them, and
@@ -1734,6 +1734,59 @@ def next_occurrence(line, today):
     successor = DUE_RE.sub(f"📅 {iso(following)}", body) if due else f"{body} 📅 {iso(following)}"
     return {"closed": f"- [x] {body} ✅ {iso(today)}", "next": f"- [ ] {successor}",
             "due": iso(following)}
+
+
+# A development log's heading or file name, separators read as spaces and a trailing
+# parenthetical dropped: `## Development log (newest first)`, `decision-log.md`, `## Log`.
+LOG_NAME_RE = re.compile(r"^(?:(?:development|dev|decisions?) )?log$|^decisions$", re.IGNORECASE)
+LOG_ENTRY_RE = re.compile(r"^(?:[-*+]\s+|#{2,6}\s+)?[*_]{0,2}(\d{4}-\d{2}-\d{2})[*_]{0,2}"
+                          r"(?![\d-])[\s:,.)\u2013\u2014-]*(.*)$")
+
+
+def log_name(text):
+    name = re.sub(r"\s*\([^)]*\)$", "", re.sub(r"[*_`]", "", text))
+    return bool(LOG_NAME_RE.match(re.sub(r"[-_\s]+", " ", name).strip()))
+
+
+def log_entries(path):
+    """(line, date, text) for each dated entry in a development log: the section under a
+    heading `LOG_NAME_RE` reads as one, down to the next heading of its level or above, or
+    the whole of a file named as one. An entry is a line, list item or heading opening on
+    its date, or a table row whose first cell is one; a date alone on its line takes the
+    next line as its text."""
+    whole = log_name(path.stem)
+    level, pending, out = None, None, []
+    for lineno, text in live_lines(read_lines(path)):
+        line = text.strip()
+        if not line:
+            continue
+        entry = LOG_ENTRY_RE.match(line)
+        heading = HEADING_RE.match(line)
+        if heading and not entry:
+            pending = None
+            if not whole:
+                depth = len(heading.group(1))
+                if level is not None and depth <= level:
+                    level = None
+                if level is None and depth > 1 and log_name(heading.group(2)):
+                    level = depth
+            continue
+        if level is None and not whole:
+            continue
+        if line.startswith("|"):
+            cells = table_cells(line)
+            day = re.sub(r"[*_]", "", cells[0]) if cells else ""
+            if parse_date(day):
+                out.append((lineno, day, " - ".join(c for c in cells[1:] if c)))
+        elif entry and parse_date(entry.group(1)):
+            body = entry.group(2).strip()
+            pending = None if body else (lineno, entry.group(1))
+            if body:
+                out.append((lineno, entry.group(1), body))
+        elif pending:
+            out.append((pending[0], pending[1], line))
+            pending = None
+    return out
 
 
 def over_grown_briefs(vault, cap=BRIEF_LINE_CAP, limit=3):
