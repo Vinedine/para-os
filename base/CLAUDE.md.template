@@ -60,7 +60,7 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 ### The content frontier
 
-- **Say it once.** Every fact has one owning file; elsewhere it is a link. The full convention is in [.claude/rules/figures.md](.claude/rules/figures.md), which loads on its own when a brief or an entity README is read; read it explicitly before writing a figure into one.
+- **Say it once.** Every fact has one owning file; elsewhere it is a link. The full convention is in [.claude/rules/figures.md](.claude/rules/figures.md), which loads on its own when {{a brief or an entity README}} is read; read it explicitly before writing a figure into one.
 - **A development log records decisions** and their reasons, never activity.
 - **Superseded content leaves the live buckets.**
 - **Never delete to satisfy this.** Pruning is proposed item by item, *move* or *demote* by default, deletion only for a duplicate whose contents were compared; never a source document or `triage/`.
@@ -69,7 +69,7 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 - **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics): relationship context, an optional `## History`, then `## Next actions` (`_None currently._` when empty or at `never`), then any `## Backlog`. A shared workstream lives in the primary contact's file; the others point to it.
 - **Dated conversation records**: in the owning project's or area's `sources/`; in `archive/meetings/YYYYMMDD Description.ext` only when they span several entities.
-- **Source documents**: {{the naming convention for filed documents and any folder on a variant, e.g. `YYYYMMDD <Who> <Description>.<ext>`.}} The rest of the convention is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on its own when a triage item or a source document is read; read it explicitly before filing one.
+- **Source documents**: {{the naming convention for filed documents and any folder on a variant, e.g. `YYYYMMDD <Who> <Description>.<ext>`.}} The rest of the convention is in [.claude/rules/filing.md](.claude/rules/filing.md), which loads on its own when {{a triage item or a source document}} is read; read it explicitly before filing one.
 - **A contact file and a project brief cross-link** both ways.
 
 ## Authoritative sources
@@ -86,7 +86,7 @@ Folders and structural files in English; content in its source's language, untra
 
 ## Memory
 
-This vault is the memory: never the agent's built-in memory, a `memory/` folder or session logs. A durable fact goes in the file it describes before the session ends: what the conversation settled that no file holds (a date, a decision and its reason, an action done or promised) is written, or asked about in one question, not left as an offer for later. How the operator likes to work is kept apart: the full convention is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when any vault file is read; read it explicitly before drafting anything for the operator. A draft to send follows `para-shared/drafting.md`; a voice profile is built per `para-shared/voice-profile.md`.
+This vault is the memory: never the agent's built-in memory, a `memory/` folder or session logs. A durable fact goes in the file it describes before the session ends: what the conversation settled that no file holds (a date, a decision and its reason, an action done or promised) is written, or asked about in one question, not left as an offer for later. How the operator likes to work is kept apart: the full convention is in [.claude/rules/working-preferences.md](.claude/rules/working-preferences.md), which loads on its own when {{any vault file}} is read; read it explicitly before drafting anything for the operator. A draft to send follows `para-shared/drafting.md`; a voice profile is built per `para-shared/voice-profile.md`.
 
 ## File formats
 

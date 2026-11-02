@@ -13,6 +13,7 @@ exception, ExampleCase, scans the real example vault against a clone of this che
 import contextlib
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -721,6 +722,20 @@ class ExampleCase(unittest.TestCase):
         md.write_text(md.read_text(encoding="utf-8").replace(
             "creates every project,", "creates every workstream,"), encoding="utf-8")
         self.assertEqual(self.drift(vault), {"Lifecycle": "drift"})
+
+    def test_a_rule_file_pointer_names_the_paths_its_rule_file_covers_in_the_vault(self):
+        vault = self.tmp / "own-paths"
+        shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
+        md = vault / "CLAUDE.md"
+        text, pointers = re.subn(r"(loads on its own when ).+?( is read)",
+                                 r"\1a brief or an area's `overview.md`\2",
+                                 md.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(pointers, 3)
+        md.write_text(text, encoding="utf-8")
+        self.assertEqual(self.drift(vault), {})
+        md.write_text(text.replace("elsewhere it is a link.", "elsewhere it is a link, never a copy."),
+                      encoding="utf-8")
+        self.assertEqual(self.drift(vault), {"The content frontier": "drift"})
 
 
 class ExitCase(CloneCase):
