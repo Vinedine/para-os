@@ -430,7 +430,7 @@ class Lifecycle(VaultCase):
         self.assertTrue(lc["stage_line_names_destination"])
         # No rule file under .claude/rules/: the skill reads the rule itself.
         self.assertEqual(lc["reason"], {"field": "Lost reason", "raw": "timing, later",
-                                        "key": "timing", "allowed": None})
+                                        "key": "timing", "allowed": None, "ok": None})
 
     def test_no_rules_dir_at_all_gives_allowed_null(self):
         self.assertIsNone(reason_allowed(self.root, "Lost"))
@@ -453,6 +453,7 @@ class Lifecycle(VaultCase):
         self.assertTrue(lc["stage_line_names_destination"])
         self.assertEqual(lc["reason"]["key"], "relationship only")
         self.assertIn("relationship only", lc["reason"]["allowed"])
+        self.assertTrue(lc["reason"]["ok"])
 
     def test_reason_present_but_not_in_the_allowed_list(self):
         self.declare_deal_lifecycle()
@@ -462,6 +463,7 @@ class Lifecycle(VaultCase):
         lc = self.plan("acme")["lifecycle"]
         self.assertEqual(lc["reason"]["key"], "ghosted us")
         self.assertNotIn(lc["reason"]["key"], lc["reason"]["allowed"])
+        self.assertFalse(lc["reason"]["ok"])
 
     def test_both_stage_and_reason_missing_at_once(self):
         self.declare_deal_lifecycle()
@@ -470,6 +472,7 @@ class Lifecycle(VaultCase):
         lc = self.plan("acme")["lifecycle"]
         self.assertFalse(lc["stage_line_names_destination"])
         self.assertIsNone(lc["reason"]["raw"])
+        self.assertFalse(lc["reason"]["ok"])
 
     def test_terminal_stages_are_made_concrete_for_this_entity(self):
         self.declare_deal_lifecycle()
@@ -670,15 +673,14 @@ class Actions(VaultCase):
         self.assertEqual(self.plan("acme")["actions"]["other_checkbox_files"],
                          ["projects/acme/plan.md", "projects/acme/sources/notes.md"])
 
-    def test_idea_holds_actions_flags_a_filing_error(self):
+    def test_an_idea_reports_an_actions_file_only_where_it_holds_one(self):
         write(self.root, "resources/ideas/acme/brief.md", "# Acme\n")
+        self.assertIsNone(self.plan("acme")["actions"]["file"])
         write(self.root, "resources/ideas/acme/actions.md",
               "# Acme - Actions\n\n- [ ] Should not be here\n")
-        self.assertTrue(self.plan("acme")["actions"]["idea_holds_actions"])
-
-    def test_idea_with_no_actions_file_does_not_flag(self):
-        write(self.root, "resources/ideas/acme/brief.md", "# Acme\n")
-        self.assertFalse(self.plan("acme")["actions"]["idea_holds_actions"])
+        actions = self.plan("acme")["actions"]
+        self.assertEqual(actions["file"], "resources/ideas/acme/actions.md")
+        self.assertNotIn("idea_holds_actions", actions)
 
     def test_surviving_items_route_to_a_contact_file_only_where_the_network_row_allows(self):
         write(self.root, "projects/acme/brief.md", "# Acme\n")
