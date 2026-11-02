@@ -59,7 +59,8 @@ snapshot  {path: digest} of CLAUDE.md and every row, for `paraos_vault.py change
 globs; a folder retires every file under it, and a `.claude/skills/` path also matches under
 --user-skills. Every entry up to the master's counts, whatever the vault's marker.
 
-Exit codes: 0 answered; 2 the shared library is missing; 3 --vault is not a vault root; 4 the
+Exit codes: 0 answered; 2 the shared library is missing; 3 --vault is not a vault root,
+`vault.missing` naming what it lacks; 4 the
 clone or the ref cannot be read, or the ref holds no CHANGELOG.md or marked template; 5 no
 --ref and no origin/stable; 6 no clone found.
 """
@@ -554,7 +555,9 @@ def build_report(vault, clone, ref, user_dir, default_clone=None):
         code, kit = 6, None
     else:
         report["clone"], code, kit = open_clone(Path(clone).resolve(), ref)
-    if not vault_root(vault)["root"]:
+    root = vault_root(vault)
+    if not root["root"]:
+        report["vault"] = root
         return report, 3
     if code:
         return report, code
