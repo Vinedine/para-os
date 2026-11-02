@@ -24,8 +24,7 @@ Aligns one vault to a para-os template revision: it changes the vault's rules, w
 ## Preconditions
 
 1. **A local para-os clone**, per [para-shared/scripts.md](../para-shared/scripts.md); with none (the scan's exit 6), ask for its path. Run `git -C <clone> fetch origin` first.
-2. **A `CLAUDE.md` in the vault.** Without one this is a bootstrap, not an upgrade: point at `bootstrap-prompt.md` and stop.
-3. **An undo path, named before the first write**: git, the drive's version history, or none, which needs the operator's explicit go-ahead. Name any uncommitted change already in the vault, so the upgrade's diff stays its own.
+2. **An undo path, named before the first write**: git, the drive's version history, or none, which needs the operator's explicit go-ahead. Name any uncommitted change already in the vault, so the upgrade's diff stays its own.
 
 ## Step 1 - Scan and plan
 
@@ -34,7 +33,7 @@ Aligns one vault to a para-os template revision: it changes the vault's rules, w
 python3 "<this skill's base directory>/scripts/upgrade_scan.py" --vault <root> [--clone <path>] [--ref <ref>] > <scan output path>
 ```
 
-The script's docstring defines every field and exit code. On exit 3 with no `CLAUDE.md`, see Precondition 2; on 4 or 5, ask for a clone path or a ref that resolves; on 6, see Precondition 1.
+The script's docstring defines every field and exit code. On exit 3 with `CLAUDE.md` in `vault.missing`, this is a bootstrap: point at `bootstrap-prompt.md` and stop; on 4 or 5, ask for a clone path or a ref that resolves; on 6, see Precondition 1.
 
 By `revision.verdict`:
 
@@ -52,7 +51,7 @@ Every `files` row, by `state`:
 - **missing**: copy in on one approval. A rule file copied in takes over what the vault already states of its rule, each line moved on its own yes.
 - **edited**: bytes the kit never shipped: local work, a hand edit, or a copy taken from ahead of the ref. Show the row's `diff` and say what it shows; the operator decides each file: re-copy, keep, or carry the kit's change into the vault's wording.
 - **retired**: each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
-- **no-master**: report it and leave it, unless a collected Reaction retires it; then treat it as **retired**.
+- **no-master**: report it and leave it.
 
 A `path` outside the vault is a user-level install, shared by every vault on the machine: say so when proposing it. Copy each with `upgrade_scan.py copy --vault <root> --clone <clone> --commit <clone.commit> <master> <path>`; exit 4 changed nothing.
 
@@ -83,4 +82,4 @@ Each Reaction in `revision.entries` is its own item with its own approval; one w
 - **The plan is the scope.** Drift it does not name belongs to `/para-deep-clean`.
 - **Never overwrite an edited file, or a user-level install, without the operator's yes for that file.**
 - **Never write the marker before the work it claims**, and hold the vault's existing marker until Step 5.
-- **A write that fails mid-pass** (a sync client holding the file) stops the run: list what landed, have the operator pause syncing, and resume from the failed step. There is no automatic rollback beyond Precondition 3's undo path.
+- **A write that fails mid-pass** (a sync client holding the file) stops the run: list what landed, have the operator pause syncing, and resume from the failed step. There is no automatic rollback beyond Precondition 2's undo path.

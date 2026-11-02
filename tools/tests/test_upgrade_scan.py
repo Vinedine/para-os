@@ -386,6 +386,17 @@ class StatesCase(CloneCase):
         self.assertTrue(row["diff"].endswith("more lines\n"))
         self.assertEqual(row["diff"].count("\n"), upgrade_scan.DIFF_CAP + 1)
 
+    def test_a_no_master_file_a_retired_line_names_is_retired(self):
+        clone = self.tmp / "retire-integration-clone"
+        shutil.copytree(self.clone, clone)
+        write(clone, "CHANGELOG.md", REV_B["CHANGELOG.md"].replace(
+            "`triage/README.md`", "`resources/scripts/other.py`"))
+        git_in(clone, "commit", "-q", "-am", "retire an integration")
+        v = self.vault("retire-int", files={
+            "resources/scripts/other.py": "# para-os-integration: nonesuch 2026.09.01\n"})
+        states = self.states(self.scan(v, ref="main", clone=clone)[0])
+        self.assertEqual(states["resources/scripts/other.py"], "retired")
+
     def test_a_folder_named_by_a_retired_line_retires_every_file_under_it(self):
         clone = self.tmp / "retire-clone"
         shutil.copytree(self.clone, clone)
@@ -739,9 +750,11 @@ class ExampleCase(unittest.TestCase):
 
 
 class ExitCase(CloneCase):
-    def test_not_a_vault_root_is_exit_3(self):
-        (self.tmp / "loose").mkdir()
-        self.assertEqual(self.scan(self.tmp / "loose")[1], 3)
+    def test_not_a_vault_root_is_exit_3_naming_what_it_lacks(self):
+        (self.tmp / "loose" / "projects").mkdir(parents=True)
+        (self.tmp / "loose" / "areas").mkdir()
+        report, code = self.scan(self.tmp / "loose")
+        self.assertEqual((code, report["vault"]), (3, {"root": False, "missing": ["CLAUDE.md"]}))
 
     def test_no_clone_is_exit_6(self):
         report, code = self.scan(self.vault("v6"), clone=None)
