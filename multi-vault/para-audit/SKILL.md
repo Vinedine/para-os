@@ -1,6 +1,6 @@
 ---
 name: para-audit
-description: Read every vault the registry lists and report in one table how each stands against the para-os template - revision, declared type, machine-read lines and roster roles, rule files, integration scripts, bundled skill copies and CLAUDE.md size - every finding with its fix, closing on the vault to upgrade first. Never writes to a vault. Use when the operator runs several vaults and asks to "audit all my vaults", "which of my vaults are behind", "are my vaults up to date", "which vault should I upgrade first", or types /para-audit.
+description: Read every vault the registry lists and report in one table how each stands against the para-os template - revision, declared type, machine-read lines and roster roles, rule files, integration scripts, bundled skill copies, CLAUDE.md sections and size - every finding with its fix, closing on the vault to upgrade first. Never writes to a vault. Use when the operator runs several vaults and asks to "audit all my vaults", "which of my vaults are behind", "are my vaults up to date", "which vault should I upgrade first", or types /para-audit.
 allowed-tools: Bash(python3 *), Bash(py *), Glob, Grep, Read
 argument-hint: '[ref=<git-ref>] [--clone <path>] [--test]'
 ---
@@ -40,7 +40,7 @@ Per [para-shared/scripts.md](../para-shared/scripts.md):
 python3 "<this skill's base directory>/scripts/audit_scan.py" [--clone <path>] [--ref <git-ref>] [--paraos-home <folder holding vaults.json>] > <scan output path>
 ```
 
-**Exit codes**: 0 answered; 3 Step 0's stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: ask the operator to switch the clone to `stable`, then scan again. With no clone found (`clone.error`), every vault is still audited and its revision, rules, integrations and skills read `not judged`: say so, and ask for the clone's path to judge them.
+**Exit codes**: 0 answered; 3 Step 0's stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: ask the operator to switch the clone to `stable`, then scan again. With no clone found (`clone.error`), every vault is still audited and its revision, rules, integrations, skills and sections read `not judged`: say so, and ask for the clone's path to judge them.
 
 The output holds `master` (the ref, its revision, `in_development`), `vaults` (one row per audited vault: a `cells` value per column, `revision`, `findings` each with `detail`, `fix` and `route`, and `observations`), `excluded`, `drives` and `upgrade_first`. Every field and rule is in the script's docstring.
 
@@ -49,7 +49,7 @@ The output holds `master` (the ref, its revision, `in_development`), `vaults` (o
 In this order, and nothing else:
 
 1. **The master, in one line**: the ref and its revision. Where `in_development` is set, one more line: a newer revision is in development in the clone's working tree, and it is not the bar.
-2. **One table, one row per audited vault**, in registry order: `Vault`, then `Revision`, `Type`, `Declarations`, `Rules`, `Integrations`, `Skills`, `Size`, each cell as the scan gives it. An inactive vault is a row like any other.
+2. **One table, one row per audited vault**, in registry order: `Vault`, then `Revision`, `Type`, `Declarations`, `Rules`, `Integrations`, `Skills`, `Sections`, `Size`, each cell as the scan gives it. An inactive vault is a row like any other.
 3. **Excluded**: every `excluded` entry with its status (`RETIRED (excluded)`, `UNREACHABLE`, `INVALID`) and its reason. A `drives` row is one line naming the drive as the cause, above the vaults it took with it, never its vaults as separate failures. With nothing excluded, say so in one line.
 4. **Fixes**, per vault with findings: each finding's `detail` and `fix`. A vault's `observations` follow under their own label, never as defects.
 5. **One closing line** naming `upgrade_first` and why: revisions behind, then findings. Where it is null, say no vault needs `/para-upgrade`; where no revision could be judged, say which vault goes first cannot be told.
