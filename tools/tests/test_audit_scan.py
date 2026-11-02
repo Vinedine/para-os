@@ -709,6 +709,15 @@ class RegistryCase(CloneCase):
         self.assertTrue(self.vault_row(report, "v")["findings"])
         self.assertIsNone(report["upgrade_first"])
 
+    def test_a_vault_ahead_is_never_sent_to_upgrade(self):
+        build_vault(self.work / "ahead", marker="2026.10.02",
+                    extra_header="**Delivery:** readonly-ipad\n")
+        report, _ = self.run_audit([self.entry("ahead")])
+        row = self.vault_row(report, "ahead")
+        self.assertTrue(any("**Delivery:**" in f["detail"] for f in row["findings"]))
+        self.assertEqual({f["route"] for f in row["findings"]}, {"operator"})
+        self.assertIsNone(report["upgrade_first"])
+
 
 class DriveCase(CloneCase):
     def test_drive_of(self):
