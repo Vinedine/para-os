@@ -25,12 +25,6 @@ Reads every vault the registry lists and reports, in one table, how far each has
 
 A leftover argument follows [para-shared/operating-discipline.md](../para-shared/operating-discipline.md#arguments). A para-os home the operator names in prose, the folder holding `vaults.json`, replaces `${PARAOS_HOME:-~/.paraos}` for the run.
 
-## Step 0: Read the registry
-
-`${PARAOS_HOME:-~/.paraos}/vaults.json` is the only list of vaults. **A folder is audited because the registry names it, never because a listing found a `CLAUDE.md`,** and this skill keeps no list of its own. No registry, or one listing nothing: say so, point at `vaults.json.template` in the multi-vault README, and stop.
-
-Which entries are audited, and what a retired, inactive, unmounted or malformed one becomes: [references/checks.md](references/checks.md#which-vaults).
-
 ## Step 1: Run the scan
 
 Per [para-shared/scripts.md](../para-shared/scripts.md):
@@ -40,7 +34,7 @@ Per [para-shared/scripts.md](../para-shared/scripts.md):
 python3 "<this skill's base directory>/scripts/audit_scan.py" [--clone <path>] [--ref <git-ref>] [--paraos-home <folder holding vaults.json>] > <scan output path>
 ```
 
-**Exit codes**: 0 answered; 3 Step 0's stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: ask the operator to switch the clone to `stable`, then scan again. With no clone found (`clone.error`), every vault is still audited and its revision, rules, integrations, skills and sections read `not judged`: say so, and ask for the clone's path to judge them.
+**Exit codes**: 0 answered; 3 no registry, or one listing nothing: say so, point at `vaults.json.template` in the multi-vault README, and stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: ask the operator to switch the clone to `stable`, then scan again. With no clone found (`clone.error`), every vault is still audited and its revision, rules, integrations, skills and sections read `not judged`: say so, and ask for the clone's path to judge them.
 
 The output holds `master` (the ref, its revision, `in_development`), `vaults` (one row per audited vault: a `cells` value per column, `revision`, `findings` each with `detail`, `fix` and `route`, and `observations`), `excluded`, `drives` and `upgrade_first`. Every field and rule is in the script's docstring.
 
@@ -60,15 +54,7 @@ What a finding means for the operator, beyond its cell: [references/checks.md](r
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** The rules specific to *this* skill:
 
-- **Never drop a vault silently.** Every retired, unreachable or malformed entry is stated: a vault left out reads exactly like one never found.
-- **Read every master at a committed ref, never from the clone's working tree.** Where git cannot run, say the comparison was not made and why.
-- **A vault ahead of the master is judged on nothing that master answers,** and never sent to `/para-upgrade`, which refuses to downgrade.
 - **Size is an adherence finding.** Never present extraction as a token saving.
-- **Exact patterns are literal matches**, by the scan: markers, headings and declaration lines, never a reading of prose by a sub-agent.
-
-## Edge cases
-
-- **A vault on the revision in development:** it reads `ahead`. Say it is on the draft the clone is building, and audit it again with `ref=` naming that branch once it is committed.
 
 ## Related skills
 

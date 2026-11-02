@@ -30,7 +30,8 @@ The eight columns, one cell each in `cells`, every defect a `finding` with its `
                  order /para-upgrade applies them), `ahead <rev>`,
                  or `UNSTAMPED`, which counts as behind by every revision. A vault ahead is
                  judged on nothing a master older than it would answer: no add-on names,
-                 rules, integrations, skills or sections (`not judged`).
+                 rules, integrations, skills or sections (`not judged`), and none of its
+                 findings routes to /para-upgrade, which never downgrades.
 2. type          The `**Type:**` line as written: the operator's own label, never judged.
 3. declarations  The marker, `**Type:**`, `**Flavor:**` and `**Modules:**` lines: a marker
                  comment that does not parse, a line away from the title (read by nothing),
@@ -116,6 +117,7 @@ MARKER_LINE_RE = re.compile(r"^\s*<!--.*para-os-template")
 PATHS_RE = re.compile(r"^paths:[ \t]*(?:\n[ \t]*-[ \t]*\S|(?!\[[ \t]*\])\S)", re.M)
 CONTRACT = "per para-shared/rule-files.md"
 UPGRADE = "run /para-upgrade in this vault"
+AHEAD = "fetch the clone, or audit again with ref= naming the revision the vault is on"
 NOT_JUDGED = "not judged"
 
 
@@ -217,7 +219,7 @@ def revision_check(vault, kit, in_development):
     return out, f"ahead {mine}", [finding(
         "revision", f"stamped {mine}, newer than the master's {master}{draft}: rules, "
         f"integrations, skills, sections and add-on names are not judged against an older master",
-        "fetch the clone, or audit again with ref= naming the revision the vault is on")], base
+        AHEAD)], base
 
 
 def roster_check(vault):
@@ -436,6 +438,10 @@ def audit_vault(entry, kit, ref, in_development):
         cells.update({c: NOT_JUDGED for c in ("rules", "integrations", "skills", "sections")})
     cells["size"], more = size_check(vault)
     found += more
+    if revision["verdict"] == "ahead":
+        for f in found:
+            if f["route"] == "upgrade":
+                f.update(fix=AHEAD, route="operator")
 
     row = {"name": entry["name"], "path": entry["path"],
            "active": entry.get("active"), "type": decl["type"], "revision": revision,
