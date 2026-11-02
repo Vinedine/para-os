@@ -42,15 +42,15 @@ class LedgerCase(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.root)
 
-    def session(self, person, sid, day, *events, raw=()):
-        """One ledger file: SessionStart, the events given, SessionEnd. `raw` lines are
-        appended verbatim, for malformed input."""
+    def session(self, person, sid, day, *events, raw=(), end=None):
+        """One ledger file: SessionStart, the events given, SessionEnd (with `end` merged
+        into it). `raw` lines are appended verbatim, for malformed input."""
         stamp = day.isoformat()
         lines = [{"at": f"{stamp}T09:00:00", "event": "SessionStart", "session": sid}]
         for i, ev in enumerate(events):
             lines.append({"at": f"{stamp}T09:{i + 1:02d}:00", "session": sid, **ev})
         lines.append({"at": f"{stamp}T09:59:00", "event": "SessionEnd", "session": sid,
-                      "reason": "other"})
+                      "reason": "other", **(end or {})})
         name = f"{stamp.replace('-', '')}-{person}-{sid[:8]}.jsonl"
         text = "".join(json.dumps(line) + "\n" for line in lines) + "".join(r + "\n" for r in raw)
         (self.logs / name).write_text(text, encoding="utf-8")
@@ -105,6 +105,16 @@ class Adoption(LedgerCase):
         report = self.run_scan()
         self.assertEqual(report["declared_skills"], ["para-daily-brief", "para-new", "para-triage"])
         self.assertEqual(report["never_invoked"], ["para-new", "para-triage"])
+
+    def test_a_skill_the_claude_md_names_is_declared_like_an_installed_one(self):
+        (self.root / "CLAUDE.md").write_text(
+            "# Vault\n\nA finished project goes through `/para-archive`. The kit is at "
+            "https://example.org/para-os, and side work sits in areas/side-work/.\n",
+            encoding="utf-8")
+        report = self.run_scan()
+        self.assertEqual(report["declared_skills"],
+                         ["para-archive", "para-daily-brief", "para-new", "para-triage"])
+        self.assertIn("para-archive", report["never_invoked"])
 
 
 class Frame(LedgerCase):
@@ -224,6 +234,68 @@ class ReachAndFriction(LedgerCase):
         self.session("sam", "aaaaaaaa-1", date(2026, 9, 20),
                      {"event": "UserPromptSubmit", "prompt_id": "p1", "prompt": "file this"})
         self.assertEqual(self.run_scan()["friction"]["typed_without_writes"], 1)
+
+    def test_a_file_read_in_two_sessions_and_never_written_is_listed(self):
+        guide = {"event": "PostToolUse", "prompt_id": "p1", "tool": "Read",
+                 "target": "resources/guide.md"}
+        actions = {"event": "PostToolUse", "prompt_id": "p1", "tool": "Read",
+                   "target": "projects/acme/actions.md"}
+        self.session("sam", "aaaaaaaa-1", date(2026, 9, 19), guide, actions)
+        self.session("robin", "bbbbbbbb-1", date(2026, 9, 20), guide, actions,
+                     {"event": "PostToolUse", "prompt_id": "p1", "tool": "Edit",
+                      "target": "projects/acme/actions.md"})
+        self.assertEqual(self.run_scan()["reach"]["read_never_written"],
+                         {"resources/guide.md": 2})
+
+    def test_consecutive_near_repeat_prompts_are_rephrasing(self):
+        def ask(pid, text):
+            return {"event": "UserPromptSubmit", "prompt_id": pid, "prompt": text}
+        first, again = "file the bank statement under finance", "file the bank statement in finance please"
+        read = {"event": "PostToolUse", "prompt_id": "p1", "tool": "Read", "target": "areas/x.md"}
+        self.session("sam", "aaaaaaaa-1", date(2026, 9, 20),
+                     ask("p1", first), read, ask("p2", again), ask("p3", "what is overdue this week?"))
+        self.session("sam", "bbbbbbbb-1", date(2026, 9, 20), ask("p1", first), ask("p2", again))
+        self.assertEqual(self.run_scan()["friction"]["rephrased"],
+                         [{"session": "aaaaaaaa-1", "prompts": [first, again]}])
+
+    def test_endings_count_reasons_and_a_final_request_with_no_tool_call(self):
+        self.session("sam", "aaaaaaaa-1", date(2026, 9, 20),
+                     end={"summary": {"prompts": 2, "last_prompt_tools": 0}})
+        self.session("sam", "bbbbbbbb-1", date(2026, 9, 20),
+                     end={"summary": {"prompts": 0, "last_prompt_tools": 0}})
+        self.session("sam", "cccccccc-1", date(2026, 9, 20),
+                     end={"reason": "clear", "summary": {"prompts": 1, "last_prompt_tools": 3}})
+        self.assertEqual(self.run_scan()["friction"]["endings"],
+                         {"reasons": {"clear": 1, "other": 2}, "last_request_without_tools": 1})
+
+
+class Rhythm(LedgerCase):
+    def test_sessions_per_week_median_minutes_and_the_first_ever_session(self):
+        ask = {"event": "UserPromptSubmit", "prompt_id": "p1", "prompt": "next"}
+        self.session("sam", "aaaaaaaa-1", date(2026, 7, 1), ask)
+        self.session("sam", "bbbbbbbb-1", date(2026, 9, 8), ask)
+        self.session("sam", "cccccccc-1", date(2026, 9, 9), ask)
+        self.session("sam", "dddddddd-1", date(2026, 9, 9))
+        sam = self.run_scan(days=14)["rhythm"]["sam"]
+        self.assertEqual(sam["weeks"], {"2026-09-07": 3, "2026-09-14": 0, "2026-09-21": 0})
+        self.assertEqual(sam["median_minutes"], 59)
+        self.assertEqual((sam["first_ever"], sam["first"]), ("2026-07-01", "2026-09-08"))
+
+    def test_a_session_with_an_unreadable_time_has_no_duration(self):
+        self.session("sam", "aaaaaaaa-1", date(2026, 9, 20),
+                     {"event": "UserPromptSubmit", "prompt_id": "p1", "prompt": "next",
+                      "at": None}, end={"at": "not a time"})
+        self.assertIsNone(self.run_scan()["rhythm"]["sam"]["median_minutes"])
+
+
+class Contradictions(LedgerCase):
+    def test_notes_waiting_in_triage_while_para_triage_never_ran(self):
+        for name in (".gitkeep", "20260918 Bank - Statement.md", "20260919 Acme - Quote.md"):
+            (self.root / "triage" / name).write_text("x", encoding="utf-8")
+        self.session("sam", "aaaaaaaa-1", date(2026, 9, 20), *slash("p1", "/para-daily-brief"))
+        self.assertEqual(self.run_scan()["contradictions"]["triage_unrun"], 2)
+        self.session("sam", "bbbbbbbb-1", date(2026, 9, 20), *slash("p1", "/para-triage"))
+        self.assertEqual(self.run_scan()["contradictions"]["triage_unrun"], 0)
 
 
 class Cli(LedgerCase):

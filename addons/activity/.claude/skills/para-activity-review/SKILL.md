@@ -29,11 +29,11 @@ Resolve the vault and run the scan, per [para-shared/scripts.md](../para-shared/
 python3 "<this skill's base directory>/scripts/review_scan.py" --vault <vault> [--days N] > <scan output path>
 ```
 
-Exit 3 is no `resources/logs/sessions/`: the "No ledger installed" edge case. Otherwise report its `frame` first: how many sessions, how many anyone typed into, how many people, over how many days.
+Exit 3 is no `resources/logs/sessions/`: the "No ledger installed" edge case. Otherwise report its `frame` first.
 
 ### Step 2 - Compute the signals
 
-The scan's `adoption`, `reach`, `friction` and `rhythm` hold the counts. **What each may mean: [references/signals.md](references/signals.md).**
+The scan's `adoption`, `reach`, `friction`, `rhythm` and `contradictions` hold the counts. **What each may mean: [references/signals.md](references/signals.md).**
 
 ### Step 3 - Check usage against the vault's own rules
 
@@ -53,7 +53,7 @@ Reported lines have done their work. This step deletes, so it is **one question 
 
 - **The report never goes in a vault that belongs to someone else**: write it where the review was invoked, and ask where that is ambiguous.
 - **Findings name defects, never people**, in the report and the reply alike. Per-person counts tell "nobody uses this" from "one person uses this" and never appear as a ranking.
-- **Absence is the primary signal.** Enumerate the vault's declared capabilities and folders **first**, then mark which the ledger never touched.
+- **Absence is the primary signal.**
 - **Every finding carries the change it implies**; an observation without one is cut.
 - **Never infer intent from a prompt.** Quote it, without its author, as evidence of what was asked, never of what someone meant or felt.
 - **Say what the ledger cannot see.** It records Claude Code sessions only: a file edited directly, a document read in a browser, and a question someone gave up on before typing are all invisible.

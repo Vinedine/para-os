@@ -6,18 +6,21 @@
 
 Reads every resources/logs/sessions/*.jsonl whose file date falls in the window and prints
 one JSON document: the frame (sessions, people, days), adoption per skill, reach per PARA
-bucket, and the friction counts. A session is one id, however many daily files it wrote. It
-never writes to the vault. What each number may mean, and the contradictions against the
-vault's own rules, stay with the skill: references/signals.md says what each count may mean.
+bucket, the friction counts, each person's rhythm, and the contradictions a file listing can
+settle. A session is one id, however many daily files it wrote. A skill is declared by its
+folder in .claude/skills/ or by a `/skill-name` the vault's CLAUDE.md names. It never writes
+to the vault. What each number may mean stays with the skill: references/signals.md.
 
 Exit 3: the vault has no ledger folder. The skill says so and stops.
 """
 
 import argparse
 import json
+import re
+import statistics
 import sys
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 LEDGER = Path("resources") / "logs" / "sessions"
@@ -25,6 +28,12 @@ PATH_TOOLS = {"Read", "Write", "Edit", "MultiEdit", "NotebookEdit", "Glob", "Gre
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 PROMPT_EVENTS = {"UserPromptSubmit", "UserPromptExpansion"}
 FAILURE_EVENTS = ("PostToolUseFailure", "PermissionDenied")
+# A hyphenated name after a slash that no word, path or URL runs into: `/para-new`, never
+# the `/para-os` of a URL or the `/side-work/` of a path.
+SKILL_NAME_RE = re.compile(r"(?<![\w/.~-])/([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?![\w/-])")
+WORD_RE = re.compile(r"\w+")
+REPHRASE_OVERLAP = 0.6     # words two consecutive prompts share, over all their words
+REPHRASE_MIN_WORDS = 3
 
 
 def file_day(path):
@@ -89,24 +98,50 @@ def read_events(path):
 
 
 def declared_skills(vault):
-    folder = vault / ".claude" / "skills"
-    if not folder.is_dir():
-        return []
-    return sorted(p.name for p in folder.iterdir() if p.is_dir() and p.name != "para-shared")
+    folder, claude_md = vault / ".claude" / "skills", vault / "CLAUDE.md"
+    installed = {p.name for p in folder.iterdir() if p.is_dir()} if folder.is_dir() else set()
+    named = set(SKILL_NAME_RE.findall(claude_md.read_text(encoding="utf-8", errors="replace"))
+                ) if claude_md.is_file() else set()
+    return sorted((installed | named) - {"para-shared"})
+
+
+def near_repeat(a, b):
+    a, b = set(WORD_RE.findall(a.lower())), set(WORD_RE.findall(b.lower()))
+    if min(len(a), len(b)) < REPHRASE_MIN_WORDS:
+        return False
+    return len(a & b) / len(a | b) >= REPHRASE_OVERLAP
+
+
+def minutes(start, end):
+    try:
+        return int((datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds()
+                   // 60)
+    except (TypeError, ValueError):
+        return None
+
+
+def monday(day):
+    return day - timedelta(days=day.weekday())
 
 
 def scan(vault, today, days):
     vault = Path(vault)
     start = today - timedelta(days=days - 1)
-    files = sorted(p for p in (vault / LEDGER).glob("*.jsonl")
-                   if file_day(p) and start <= file_day(p) <= today)
+    dated = [p for p in (vault / LEDGER).glob("*.jsonl") if file_day(p)]
+    files = sorted(p for p in dated if start <= file_day(p) <= today)
+    first_ever = {}
+    for p in dated:
+        first_ever[person_of(p)] = min(first_ever.get(person_of(p), file_day(p)), file_day(p))
 
     skipped = 0
     sessions = {}                          # session id -> what all its files hold
     invocations = {}                       # (session, prompt_id, skill) -> (person, day)
     bucket_sessions = defaultdict(set)
     writers = defaultdict(set)
+    readers = defaultdict(set)
     failures = Counter()
+    reasons = Counter()
+    silent_endings = 0
 
     for path in files:
         events, bad = read_events(path)
@@ -115,16 +150,23 @@ def scan(vault, today, days):
         sid = next((e.get("session") for e in events if e.get("session")), path.stem)
         s = sessions.setdefault(sid, {"person": person, "days": set(), "prompts": {},
                                       "tools": Counter(), "wrote": False, "entities": set(),
-                                      "vault_work": False})
+                                      "vault_work": False, "at": []})
         s["days"].add(day)
 
         for e in events:
             kind, pid = e.get("event"), e.get("prompt_id")
+            if isinstance(e.get("at"), str):
+                s["at"].append(e["at"])
             if kind in PROMPT_EVENTS and pid:
                 s["prompts"].setdefault(pid, e.get("prompt", ""))
                 skill = skill_from_prompt(e.get("prompt"))
                 if skill:
                     invocations.setdefault((sid, pid, skill), (person, day))
+            if kind == "SessionEnd":
+                reasons[e.get("reason") or "none"] += 1
+                summary = e.get("summary") if isinstance(e.get("summary"), dict) else {}
+                silent_endings += bool(summary.get("prompts")) and summary.get(
+                    "last_prompt_tools") == 0
             tool, target = e.get("tool"), e.get("target")
             if kind == "PostToolUse" and tool == "Skill" and target:
                 invocations.setdefault((sid, pid, bare(target)), (person, day))
@@ -135,6 +177,8 @@ def scan(vault, today, days):
                 continue
             if kind != "PostToolUse":
                 continue
+            if tool == "Read" and in_vault(target):
+                readers[target.replace("\\", "/")].add(sid)
             paths = [target] if tool in PATH_TOOLS else []
             paths += e.get("touched") or []
             s["vault_work"] = s["vault_work"] or any(map(in_vault, paths))
@@ -156,6 +200,10 @@ def scan(vault, today, days):
                     "tools": count}
                    for sid, s in sessions.items() for pid, count in s["tools"].items()
                    if pid in s["prompts"] and s["vault_work"]]
+    rephrased = [{"session": sid, "prompts": [a, b]}
+                 for sid, s in sessions.items() if s["vault_work"]
+                 for a, b in zip(list(s["prompts"].values()), list(s["prompts"].values())[1:])
+                 if near_repeat(a or "", b or "")]
 
     adoption = {}
     for (_, _, skill), (person, day) in sorted(invocations.items(), key=lambda kv: kv[1][1]):
@@ -181,6 +229,19 @@ def scan(vault, today, days):
         r["typed_sessions"] += bool(s["prompts"])
         r["first"] = min(r.get("first", s["first"]), s["first"])
         r["last"] = max(r.get("last", s["last"]), s["last"])
+    weeks = [monday(start) + timedelta(weeks=n)
+             for n in range((monday(today) - monday(start)).days // 7 + 1)]
+    for person, r in rhythm.items():
+        mine = [s for s in sessions.values() if s["person"] == person]
+        r["weeks"] = {w.isoformat(): sum(monday(date.fromisoformat(s["first"])) == w
+                                         for s in mine) for w in weeks}
+        lengths = [m for m in (minutes(min(s["at"]), max(s["at"]))
+                               for s in mine if s["prompts"] and s["at"]) if m is not None]
+        r["median_minutes"] = round(statistics.median(lengths)) if lengths else None
+        r["first_ever"] = first_ever[person].isoformat()
+    triage = vault / "triage"
+    waiting = [p for p in triage.rglob("*") if p.is_file() and not p.name.startswith(".")
+               ] if triage.is_dir() else []
 
     return {
         "vault": str(vault),
@@ -206,6 +267,8 @@ def scan(vault, today, days):
             "untouched_buckets": [b for b in buckets
                                   if b not in bucket_sessions and b != "resources"],
             "writers_by_file": {f: sorted(p) for f, p in sorted(writers.items())},
+            "read_never_written": {f: len(s) for f, s in sorted(readers.items())
+                                   if len(s) > 1 and f not in writers},
         },
         "friction": {
             "failures": [{"event": k, "tool": t, "target": g, "count": n}
@@ -217,8 +280,12 @@ def scan(vault, today, days):
                 {"session": sid, "span_days": s["span"], "entities": len(s["entities"])}
                 for sid, s in sorted(sessions.items(), key=lambda kv: -kv[1]["span"])
                 if s["span"] > 1],
+            "rephrased": rephrased,
+            "endings": {"reasons": dict(sorted(reasons.items())),
+                        "last_request_without_tools": silent_endings},
         },
         "rhythm": {p: rhythm[p] for p in sorted(rhythm)},
+        "contradictions": {"triage_unrun": 0 if "para-triage" in adoption else len(waiting)},
     }
 
 
