@@ -856,6 +856,10 @@ class Review(VaultCase):
         self.assertEqual(len(got["overdue"]), len(overdue))
         self.assertEqual(got["no_next_step"], ["business", "garden"])
 
+    def test_stuck_names_the_oldest_overdue_item(self):
+        self.assertEqual(self.review()["stuck"]["oldest"],
+                         {"file": "projects/acme-website/actions.md", "line": 5})
+
     def test_one_entity_is_reviewed_on_its_own_files_alone(self):
         got = self.review(entity="acme-website")
         self.assertEqual(self.done_texts(got), {"Closed this week", "Closed on the first day"})

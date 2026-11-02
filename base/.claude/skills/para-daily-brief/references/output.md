@@ -51,7 +51,7 @@ The terminal layout, filtered to the argument's sections.
 
 📊 Vault state shows the top 10 entities by open count, the rest on the `(+N more)` line, in a fenced block: bars 10 wide, the row's `bar` in `█`, padded with `░`. In `all`, append one full section per bucket, each a complete list in the Now line format, after Health flags.
 
-**Line rules:** one line per task; link text `<scope>:<line>`, or `<person>:<line>` from the scan's `person` field for a contact item. **A long task text is cut, never wrapped:** link syntax and emphasis reduced to their text, then to its bold lead where it has one, else to its first clause (up to the first `;`, ` - ` or [sentence end](signals.md#step-4d-ideas-lane) outside parentheses), and to 100 characters at a word boundary with `…` if still longer. **A heading's `(N)` counts the items rendered under it**: a recurring item overdue or due today counts under both its date bucket and `🔁 Recurring`, while `Totals:` counts it once, under Recurring.
+**Line rules:** one line per task; link text `<scope>:<line>`, or `<person>:<line>` from the scan's `person` field for a contact item. **A long task text is cut, never wrapped:** link syntax and emphasis reduced to their text, then to its bold lead where it has one, else to its first clause (up to the first `;`, ` - ` or [sentence end](signals.md#step-4d-ideas-lane) outside parentheses), and to 100 characters at a word boundary with `…` if still longer. **A heading's `(N)` counts the items rendered under it.**
 
 **Percent-encode every link target** (spaces, commas, `#`, `&`, brackets), never the link text.
 
@@ -123,10 +123,10 @@ A look back over the window, every number from the scan's `review` block. The en
 **Next action:** <exactly one concrete step>
 ````
 
-- **Done groups by entity**, most closes first, each item in date order; an archived entity's row adds `(archived)`, and a contact's close is linked by `<person>:<line>` as in Now.
-- **An undated close is never dated into the window.** The italic count line renders whenever `undated` is above zero, whatever the window holds.
+- **Done groups by entity**; an archived entity's row adds `(archived)`, and a contact's close is linked by `<person>:<line>` as in Now.
+- **The italic count line renders whenever `undated` is above zero**, whatever the window holds.
 - **Moved leads with its count**, one line per declared lifecycle and a quiet one included (`**<Lifecycle>:** nothing moved`); a terminal or closed move says so. The board stays `/para-pipeline`'s.
-- **Stuck names the oldest overdue item only**, since Slipped already lists the recent ones, and at most three entities with no next step, plus a count.
+- **Stuck names `oldest`** and at most three entities with no next step, plus a count.
 - **Moved stays when empty**; with nothing in the window at all, the count line alone says so.
 - **The Next action** is the first step on the oldest slipped item, else on Stuck, by the rule above.
 

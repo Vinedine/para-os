@@ -844,15 +844,19 @@ def decisions_in_window(vault, start, end, own=None):
 
 
 def stuck(report, tasks, match):
-    """What is not moving, from what the brief already computed: the overdue lane, and each
-    entity with nothing open, which has no next step. The `waiting` lane is a start gate
-    still ahead, not a wait on someone, so it is not stuck."""
+    """What is not moving, from what the brief already computed: the overdue lane and the
+    longest overdue item in it, and each entity with nothing open, which has no next step.
+    The `waiting` lane is a start gate still ahead, not a wait on someone, so it is not
+    stuck."""
     # A wait on someone else, once the vault writes one in a form of its own, is a third list.
     if match:
         none = [] if tasks else [match]
     else:
         none = report["flags"].get("nothing_open") or []
-    return {"overdue": report["lanes"].get("overdue", []),
+    overdue = report["lanes"].get("overdue", [])
+    days = {(t["file"], t["line"]): t["days"] for t in tasks}
+    return {"overdue": overdue,
+            "oldest": min(overdue, key=lambda r: days[(r["file"], r["line"])], default=None),
             "no_next_step": [e["label"] for e in none]}
 
 

@@ -70,7 +70,6 @@ Default and `all` scopes only. Render the page with `scripts/render_dashboard.py
 
 ## Strict rules
 
-- **Completed items (`- [x]`) are read only under `review`**, by their `✅` date alone: a close without one is counted as undated, never given a date.
 - **Rewrite no vault file**: no fixing markers, inventing dates, ticking or grooming. The health flags point at `/para-deep-clean`; a review and its status update go to chat.
 - **Follow no links** into other files for context; the section heading is enough. The exceptions are the root README's `## Vision`, and under `review` the contact cards a status update is addressed to. An entity scope narrows which action files are read and relaxes neither.
 - **No commentary or recommendations** beyond the Health flags, the single Next action and, closing one entity's review, the status update offer.
