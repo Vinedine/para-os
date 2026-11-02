@@ -77,9 +77,9 @@ The second is **a vault whose routed count looks too good**. A router that match
 
 Then run `write` by hand once, immediately run it again to confirm it stages zero the second time, and only then consider scheduling it.
 
-**The switch itself drops things, and this is the moment to decide about them.** Preview reaches back thirty days; write reaches back two. Everything a preview routed that is older than two days therefore never gets staged and never gets ledgered either, because no write run will fetch it again - the preview log is the only record it existed.
+**The switch itself drops things, and this is the moment to decide about them.** Preview reaches back thirty days; the first write run on a mailbox reaches back two, and each later one from where the last left off. Everything a preview routed that is older than two days therefore never gets staged and never gets ledgered either, because no write run will fetch it again - the preview log is the only record it existed.
 
-So a preview run tells you how many of its routed threads are about to fall off that cliff, and a write run reports what it finds still outstanding as **carry-over**, with the `--days N` command that would recover it. Neither ever stages the backfill for you: reaching past the write window stays a thing a person types, because that is the only limit on how much history can land in a `triage/` folder at once. Run it, or decide the mail is already dealt with - but decide, rather than finding out later.
+So the first write run on each mailbox reports what the previews routed past its reach as **carry-over**, with the `--days N` command that would recover it. It never stages the backfill for you: reaching past the write window stays a thing a person types, because that is the only limit on how much history can land in a `triage/` folder at once. Run it, or decide the mail is already dealt with - but decide, rather than finding out later.
 
 ## What it writes
 
@@ -95,4 +95,4 @@ Nothing else, in any mode. It never edits an existing file anywhere, and it neve
 
 - **A script that writes still runs per vault copy.** A mailbox does not: both connector and `fetch-script` sources are read once however many vaults declare them, which is the saving this layer exists for. Consolidating the writers is a change to those scripts, not to this layer.
 - **It runs while your client is open.** Reading a mailbox is one thing, judging what is in it is another, and the second needs a model. So this is a routine you run, not a daemon.
-- **A mailbox with no server-side categories is noisier**: what each source drops before the judgment is step 1 of `para-shared/connectors.md`. This is why the window turns on the mode: preview reaches back thirty days because breadth is how you judge a router and nothing is written, while write mode reaches back two whatever the state of the ledger, because a wide first *write* would reach back furthest exactly where it can filter least.
+- **A mailbox with no server-side categories is noisier**: what each source drops before the judgment is step 1 of `para-shared/connectors.md`. This is why the window turns on the mode: preview reaches back thirty days because breadth is how you judge a router and nothing is written, while a mailbox's first write reaches back two, because a wide first *write* would reach back furthest exactly where it can filter least.

@@ -157,6 +157,18 @@ class IngestLogsReading(VaultCase):
                        {"mode": "write", "started_at": "2026-09-06T22:53:01+02:00"})
         self.assertEqual(ingest_logs(self.root)[0]["errors"], [])
 
+    def test_undelivered_and_decisions_are_read_through_and_none_when_absent(self):
+        owed = [{"mailbox": "a@example.org", "thread_id": "t1", "owed": ["Alpha"]}]
+        decisions = [{"mailbox": "a@example.org", "thread_id": "t2", "routed": []}]
+        self.write_run("20260906-225301.json",
+                       {"mode": "write", "started_at": "2026-09-06T22:53:01+02:00",
+                        "undelivered": owed, "decisions": decisions})
+        self.write_run("20260905-225301.json",
+                       {"mode": "write", "started_at": "2026-09-05T22:53:01+02:00"})
+        newer, older = ingest_logs(self.root)
+        self.assertEqual((newer["undelivered"], newer["decisions"]), (owed, decisions))
+        self.assertEqual((older["undelivered"], older["decisions"]), (None, None))
+
     def test_newest_first_by_instant_not_by_filename(self):
         self.write_run("20260906-211458.json",
                        {"mode": "write", "started_at": "2026-09-06T21:14:58+02:00"})

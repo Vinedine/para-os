@@ -23,8 +23,8 @@ one run's fetched and routed threads.
 A fetch script's thread record passes as it is, with the routing fields added. Every fetched
 thread is passed, routed or not. A sign-in or security code is `"signin": true` with only
 its `mailbox`, `thread_id`, and each message's `received` and `message_id`, else
-`provider_id`. Every other key (`sync_runs`, `errors`, `carry_over`, `resolved`, ...) is
-copied into the log as given.
+`provider_id`. Every other key (`sync_runs`, `errors`, ...) is copied into the log as given,
+but ingest_scan.py's `undelivered`, `resolved` and `carry_over` (below).
 
 A thread `route` could not decide holds `"routed": null` and its `candidates`. `--decisions`
 is a JSON list filling them in, `{"mailbox", "thread_id", "routed": [...], "reason"}` each,
@@ -58,10 +58,11 @@ conversation stages and `by_message_id` suppresses the others:
 The log, `runs/YYYYMMDD-HHMMSS.json` by `started_at` in local time, holds `mode`,
 `started_at`, `files_written` (every note written), `counts` (`per_vault` with 0 for every
 vault the source plan or a route names, `unrouted` and `signin_codes` per mailbox),
-`decisions` (one per thread), `undelivered` (owed vaults, with the keys of the messages
-owed), `suppressed`, and in preview
-`outside_write_window` (routed threads whose newest message is older than the write window).
-stdout is the same minus the decisions and what was copied, plus the log's path.
+`decisions` (one per thread), `undelivered` (owed vaults, with the keys of the messages owed
+and the newest one's `received`), `resolved`, `carry_over` and `suppressed`. The run file's
+`undelivered` joins this run's, but for a thread this run decided: owed again, its new record
+stands alone; delivered, in write mode, its record moves to `resolved`. stdout is the same
+minus the decisions and what was copied, plus the log's path.
 """
 
 import argparse
@@ -69,7 +70,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from email.utils import parseaddr
 from pathlib import Path
 
@@ -87,7 +88,6 @@ from paraos_mail import (  # noqa: E402
 )
 from paraos_vault import paraos_home_dir, registry  # noqa: E402
 
-WRITE_WINDOW_DAYS = 2
 SIGNIN = "sign-in or security code"
 SUBJECT_CAP = 80
 HOSTILE_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -363,7 +363,8 @@ def stage(run, paraos_home=None, decisions=None):
                                 "routed": thread["routed"],
                                 "delivered": [v for v in thread["routed"]
                                               if v not in decision["owed"]],
-                                "owed": decision["owed"], "keys": [m["key"] for m in fresh]})
+                                "owed": decision["owed"], "keys": [m["key"] for m in fresh],
+                                "received": decision["received"]})
         elif fresh:
             held[thread_id] = {
                 "routed": earlier + [v for v in thread["routed"] if v not in earlier],
@@ -373,6 +374,14 @@ def stage(run, paraos_home=None, decisions=None):
             ledger["mailboxes"][mailbox] = held
         decisions.append(decision)
 
+    resolved = list(run.get("resolved") or [])
+    by_thread = {(d["mailbox"], d["thread_id"]): d for d in decisions}
+    for record in run.get("undelivered") or []:
+        decision = by_thread.get((record.get("mailbox"), record.get("thread_id")))
+        if decision and decision["owed"]:
+            continue
+        (resolved if decision and write else undelivered).append(record)
+
     if write:
         write_json(ledger_path, ledger)
     summary = {"mode": run["mode"], "started_at": started.isoformat(),
@@ -381,12 +390,8 @@ def stage(run, paraos_home=None, decisions=None):
                           "signin_codes": signin_codes, "excluded": excluded},
                "exclusions_applied": {"by_entry": exclusion_counts, "dropped": len(dropped),
                                       "file": exclusions_error or "applied"},
-               "undelivered": undelivered, "suppressed": suppressed}
-    if not write:
-        cutoff = started - timedelta(days=WRITE_WINDOW_DAYS)
-        summary["outside_write_window"] = [
-            {k: d[k] for k in ("mailbox", "thread_id", "subject", "routed", "received")}
-            for d in decisions if d["routed"] and received_instant(d["received"]) < cutoff]
+               "undelivered": undelivered, "resolved": resolved,
+               "carry_over": list(run.get("carry_over") or []), "suppressed": suppressed}
     given = {k: v for k, v in run.items() if k != "threads"}
     log = dict(given, **summary, decisions=decisions,
                errors=list(run.get("errors") or []) + errors)
