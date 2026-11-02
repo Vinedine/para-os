@@ -1078,20 +1078,27 @@ def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, heading
     return report, 0
 
 
+INVENTORY = ("map/top_level", "uncited_exempt", "duplicates/skipped", "scripts/marked")
+
+
+def item_count(value, path=""):
+    if path in INVENTORY:
+        return 0
+    if isinstance(value, list):
+        return len(value)
+    if isinstance(value, dict):
+        return sum(item_count(v, f"{path}/{k}") for k, v in value.items())
+    return 0
+
+
 def finding_counts(block):
-    """How many findings each key of a phase's report holds: a list counts its items, an
-    object its lists' items, and a number or a string counts nothing."""
-    counts = {}
-    for key, value in (block or {}).items():
-        if isinstance(value, list):
-            n = len(value)
-        elif isinstance(value, dict):
-            n = sum(len(v) for v in value.values() if isinstance(v, list))
-        else:
-            continue
-        if n:
-            counts[key] = n
-    return counts
+    """How many findings each key of a phase's report holds: each Phase 4 check that failed,
+    else the items of its lists at any depth, less the INVENTORY Phase 1 reports beside them."""
+    rows = (block or {}).get("rows")
+    if isinstance(rows, list):
+        return {r["check"]: max(1, item_count(r["detail"])) for r in rows if r["pass"] is False}
+    counts = {key: item_count(value, key) for key, value in (block or {}).items()}
+    return {key: n for key, n in counts.items() if n}
 
 
 def record_findings(vault, today, phase, report):
