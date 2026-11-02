@@ -71,7 +71,7 @@ On a machine with no registry, or for a vault not in it, `/para-triage` pulls it
 
 **Run in preview for a week before switching to write mode.** A mis-routed email costs a dismissal; a router quietly wrong for a month costs your trust in every vault it writes to.
 
-Two things to look for in the run logs. The first is the same thread routing to **different vaults on different runs**, which means an ambiguous `Relevant when` rule to tighten before anything writes. A thread reappearing every run is expected, since preview ledgers nothing.
+Two things to look for. The first is a thread the report lists as **rerouted**, routed to different vaults on different runs, which means an ambiguous `Relevant when` rule to tighten before anything writes. A thread reappearing every run is expected, since preview ledgers nothing.
 
 The second is **a vault whose routed count looks too good**. A router that matches most of a mailbox at once is matching the mailbox owner's own address, which sits in the contact files of every vault its owner works in. `/para-ingest` excludes the owner; a suspiciously strong result deserves the same look as an empty one.
 

@@ -59,7 +59,9 @@ The log, `runs/YYYYMMDD-HHMMSS.json` by `started_at` in local time, holds `mode`
 `started_at`, `files_written` (every note written), `counts` (`per_vault` with 0 for every
 vault the source plan or a route names, `unrouted` and `signin_codes` per mailbox),
 `decisions` (one per thread), `undelivered` (owed vaults, with the keys of the messages owed
-and the newest one's `received`), `resolved`, `carry_over` and `suppressed`. The run file's
+and the newest one's `received`), `resolved`, `carry_over`, `suppressed`, and `rerouted` (a
+thread routed to other vaults than the newest earlier log routed it to, in either mode, both
+sides non-empty). The run file's
 `undelivered` joins this run's, but for a thread this run decided: owed again, its new record
 stands alone; delivered, in write mode, its record moves to `resolved`. stdout is the same
 minus the decisions and what was copied, plus the log's path.
@@ -84,7 +86,8 @@ if SHARED is None:
 sys.path.insert(0, str(SHARED))
 
 from paraos_mail import (  # noqa: E402
-    apply_exclusions, dedup_key, load_exclusions, received_instant, thread_hash, watermark,
+    apply_exclusions, dedup_key, ingest_logs, load_exclusions, received_instant, thread_hash,
+    watermark,
 )
 from paraos_vault import paraos_home_dir, registry  # noqa: E402
 
@@ -284,7 +287,12 @@ def stage(run, paraos_home=None, decisions=None):
                if isinstance(names, list) for v in names]
     per_vault = {name: 0 for name in covered + [v for t in threads for v in t["routed"]]}
     unrouted, signin_codes, excluded = {}, {}, {}
-    files_written, decisions, undelivered, suppressed, errors = [], [], [], [], []
+    files_written, decisions, undelivered, suppressed, rerouted, errors = [], [], [], [], [], []
+    last_routed = {}
+    for log in ingest_logs(home):
+        for d in log["decisions"] or []:
+            if isinstance(d, dict) and isinstance(d.get("routed"), list):
+                last_routed.setdefault((d.get("mailbox"), d.get("thread_id")), d["routed"])
 
     for thread in sorted(threads, key=lambda t: -len(t["messages"])):
         mailbox, thread_id, messages = thread["mailbox"], thread["thread_id"], thread["messages"]
@@ -358,6 +366,10 @@ def stage(run, paraos_home=None, decisions=None):
         if decision["suppressed"]:
             suppressed.append({"mailbox": mailbox, "thread_id": thread_id, "subject": subject,
                                "vaults": decision["suppressed"]})
+        last = last_routed.get((mailbox, thread_id))
+        if last and thread["routed"] and set(last) != set(thread["routed"]):
+            rerouted.append({"mailbox": mailbox, "thread_id": thread_id, "subject": subject,
+                             "before": last, "now": thread["routed"]})
         if decision["owed"]:
             undelivered.append({"mailbox": mailbox, "thread_id": thread_id, "subject": subject,
                                 "routed": thread["routed"],
@@ -391,7 +403,8 @@ def stage(run, paraos_home=None, decisions=None):
                "exclusions_applied": {"by_entry": exclusion_counts, "dropped": len(dropped),
                                       "file": exclusions_error or "applied"},
                "undelivered": undelivered, "resolved": resolved,
-               "carry_over": list(run.get("carry_over") or []), "suppressed": suppressed}
+               "carry_over": list(run.get("carry_over") or []), "suppressed": suppressed,
+               "rerouted": rerouted}
     given = {k: v for k, v in run.items() if k != "threads"}
     log = dict(given, **summary, decisions=decisions,
                errors=list(run.get("errors") or []) + errors)

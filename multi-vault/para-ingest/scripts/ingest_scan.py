@@ -29,7 +29,8 @@ It runs each fetch-script mailbox once, from the first vault declaring it whose 
 N the whole days that reach its window, and keeps the JSON list it prints. Everything lands in
 a new work folder under `<paraos home>/cache/ingest/work/` (folders older than 7 days are
 removed), and stdout names it with the totals, the sync and fetch runs, the skipped rows, the
-errors, and the connector mailboxes left for the model to fetch, each with its `since`.
+errors, each drive whose every active vault is unmounted (`drives`), and the connector
+mailboxes left for the model to fetch, each with its `since`.
 
 `route` reads the fetch scripts' threads and the model's connector threads (stage.py's
 thread shape without `routed` and `reason`), then, per thread:
@@ -90,8 +91,8 @@ from paraos_mail import (  # noqa: E402
     note_name_parts, received_instant, thread_hash, watermark,
 )
 from paraos_vault import (  # noqa: E402
-    EMAIL_RE, TEXT_SUFFIXES, lifecycles, norm, operator_card, paraos_home_dir, registry,
-    roster, triage_sources, writer,
+    EMAIL_RE, TEXT_SUFFIXES, down_drives, lifecycles, norm, operator_card, paraos_home_dir,
+    registry, roster, triage_sources, writer,
 )
 
 WINDOW_DAYS = {"write": 2, "preview": 30}
@@ -431,7 +432,8 @@ def prepare(mode, paraos_home=None, now=None, days=None):
                             "since": held["since"]}
                            for mb, held in mailboxes.items() if held["kind"] == "connector"],
             "fetch_scripts": fetch_runs, "sync_runs": sync_runs, "skipped": skipped,
-            "errors": errors}
+            "errors": errors,
+            "drives": down_drives([(v["name"], v["path"], bool(v["error"])) for v in vaults])}
 
 
 # --- route ----------------------------------------------------------------------------------

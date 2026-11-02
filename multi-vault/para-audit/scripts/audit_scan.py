@@ -74,7 +74,7 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path, PurePosixPath, PureWindowsPath
+from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 CANDIDATE_ROOTS = (HERE.parents[1], HERE.parents[2] / "base" / ".claude" / "skills")
@@ -97,8 +97,9 @@ sys.path[:0] = [str(SKILLS_ROOT / lib / "scripts") for lib in ("para-shared", "p
 
 try:
     from paraos_vault import (  # noqa: E402
-        HEADER_FIELD_RE, TEMPLATE_MARKER_RE, declarations, find_clone, header_fields,
-        live_lines, norm, paraos_home_dir, read_lines, read_text, registry, roster,
+        HEADER_FIELD_RE, TEMPLATE_MARKER_RE, declarations, down_drives, find_clone,
+        header_fields, live_lines, norm, paraos_home_dir, read_lines, read_text, registry,
+        roster,
     )
     from paraos_clone import addon_root, clone_session, master_template  # noqa: E402
     from upgrade_scan import drift_block, files_block, open_clone, revision_block  # noqa: E402
@@ -157,39 +158,6 @@ def excluded_status(entry):
     if not (path / "CLAUDE.md").is_file():
         return "UNREACHABLE", "the path holds no CLAUDE.md"
     return None
-
-
-MOUNT_DEPTH = {("Volumes",): 3, ("mnt",): 3, ("media",): 4, ("run", "media"): 5}
-
-
-def drive_of(path):
-    """The drive a registered path lives on: a Windows drive letter or share, else a POSIX
-    removable mount (`/Volumes/<x>`, `/mnt/<x>`, `/media/<user>/<x>`,
-    `/run/media/<user>/<x>`), else `/`."""
-    drive = PureWindowsPath(str(path)).drive
-    if drive:
-        return drive.upper() if len(drive) == 2 else drive
-    parts = PurePosixPath(str(path).replace("\\", "/")).parts
-    for lead, depth in MOUNT_DEPTH.items():
-        if tuple(parts[1:1 + len(lead)]) == lead and len(parts) >= depth:
-            return "/" + "/".join(parts[1:depth])
-    return "/"
-
-
-def _drive_root(drive):
-    return Path(drive + "\\") if PureWindowsPath(drive).drive else Path(drive)
-
-
-def down_drives(placed):
-    """Each drive whose every registered vault is unreachable: two or more of them, or one
-    whose drive root is not there. `placed` is [(name, path, unreachable)] in registry
-    order."""
-    groups = {}
-    for name, path, unreachable in placed:
-        groups.setdefault(drive_of(path), []).append((name, unreachable))
-    return [{"drive": d, "vaults": [n for n, _ in members]} for d, members in groups.items()
-            if all(u for _, u in members)
-            and (len(members) > 1 or not _drive_root(d).exists())]
 
 
 # ========================================================================= the checks

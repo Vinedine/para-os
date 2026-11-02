@@ -19,6 +19,7 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
 
 What lives here is what two skills would otherwise each answer their own way about a vault:
 whether a folder is a vault root, what the machine's registry says about it and its neighbours,
+which registered vaults one unmounted drive took with it,
 where a checkbox may live, what counts as one, what a task marker means, which folder a name
 resolves to, which names a contact card answers to, who writes the vault and in which role,
 which of them the operator is, when a file was really last touched, what
@@ -48,7 +49,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from difflib import SequenceMatcher
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from urllib.parse import unquote
 
 # --- what a vault's own rules state -------------------------------------------------------
@@ -191,6 +192,39 @@ def registered_vault(entries, path):
         if target == root or target.startswith(root if root.endswith(os.sep) else root + os.sep):
             return entry
     return None
+
+
+MOUNT_DEPTH = {("Volumes",): 3, ("mnt",): 3, ("media",): 4, ("run", "media"): 5}
+
+
+def drive_of(path):
+    """The drive a registered path lives on: a Windows drive letter or share, else a POSIX
+    removable mount (`/Volumes/<x>`, `/mnt/<x>`, `/media/<user>/<x>`,
+    `/run/media/<user>/<x>`), else `/`."""
+    drive = PureWindowsPath(str(path)).drive
+    if drive:
+        return drive.upper() if len(drive) == 2 else drive
+    parts = PurePosixPath(str(path).replace("\\", "/")).parts
+    for lead, depth in MOUNT_DEPTH.items():
+        if tuple(parts[1:1 + len(lead)]) == lead and len(parts) >= depth:
+            return "/" + "/".join(parts[1:depth])
+    return "/"
+
+
+def _drive_root(drive):
+    return Path(drive + "\\") if PureWindowsPath(drive).drive else Path(drive)
+
+
+def down_drives(placed):
+    """Each drive whose every registered vault is unreachable: two or more of them, or one
+    whose drive root is not there. `placed` is [(name, path, unreachable)] in registry
+    order."""
+    groups = {}
+    for name, path, unreachable in placed:
+        groups.setdefault(drive_of(path), []).append((name, unreachable))
+    return [{"drive": d, "vaults": [n for n, _ in members]} for d, members in groups.items()
+            if all(u for _, u in members)
+            and (len(members) > 1 or not _drive_root(d).exists())]
 
 
 def vault_name(vault, paraos_home=None):

@@ -176,6 +176,16 @@ class Plan(Case):
         self.assertIn("not mounted", gone["error"])
         self.assertTrue(any("gone" in e for e in got["errors"]))
 
+    def test_vaults_on_one_unmounted_drive_are_one_failure(self):
+        self.vault("alpha", [connector_row(WORK)])
+        for name in ("x", "y"):
+            self.entries.append({"name": name, "path": f"Q:/Team vaults/{name}", "active": True,
+                                 "purpose": "On a drive that is not there."})
+        self.save_registry()
+        got = self.prepare()
+        self.assertEqual(got["drives"], [{"drive": "Q:", "vaults": ["x", "y"]}])
+        self.assertEqual(len([e for e in got["errors"] if "not mounted" in e]), 2)
+
     def test_an_unmounted_vault_keeps_the_mailboxes_the_newest_log_gave_it(self):
         self.vault("alpha", [connector_row(WORK)])
         self.entries.append({"name": "gone", "path": (self.root / "nowhere").as_posix(),
