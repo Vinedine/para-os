@@ -97,6 +97,17 @@ class GlobalScan(unittest.TestCase):
         write(self.tmp / "south", "resources/notes.md", "- [ ] A checkbox out of place\n")
         self.assertEqual(self.report()["vaults"][1]["flags"], ["misplaced"])
 
+    def test_each_vault_carries_its_table_cells(self):
+        write(self.home, "cache/triage/proposals/north-20260310-0700.md", "x\n")
+        north, south = self.report()["vaults"]
+        cells = north["cells"]
+        self.assertEqual([cells[k] for k in ("shown", "open", "overdue", "this_week", "triage")],
+                         ["full", 4, 1, 1, "1, proposal waiting: north-20260310-0700.md"])
+        self.assertEqual(south["cells"]["triage"], "0")
+        word = {"ok": "healthy", "watch": "watch", "care": "needs care"}[north["health"]["level"]]
+        self.assertTrue(cells["health"].startswith(word))
+        self.assertIn("deep clean", cells["health"])   # no deep clean on record: watch
+
     def test_urgent_spans_the_vaults_in_the_brief_sort(self):
         urgent = [(t["vault"], t["text"].split(" ")[0]) for t in self.report()["urgent"]]
         self.assertEqual(urgent, [("north", "Send"), ("south", "Pay"), ("north", "Renew")])
@@ -153,6 +164,14 @@ class GlobalScan(unittest.TestCase):
         self.roster()
         north = self.report()["vaults"][0]
         self.assertEqual((north["role"], north["treatment"]), (None, "health"))
+
+    def test_a_health_only_vault_shows_why_in_its_cell(self):
+        self.roster()
+        self.assertEqual(self.report()["vaults"][0]["cells"]["shown"], "health (no operator.json)")
+        self.roster(me="cy-lambert")
+        self.assertEqual(self.report()["vaults"][0]["cells"]["shown"], "health (not on the roster)")
+        self.roster(me="bo-peeters")
+        self.assertEqual(self.report()["vaults"][0]["cells"]["shown"], "health (steward)")
 
     def test_a_card_in_two_vaults_is_one_person(self):
         for vault in ("north", "south"):

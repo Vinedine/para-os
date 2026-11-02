@@ -41,7 +41,7 @@ Each of the scan's `calendars` once, per [para-shared/connectors.md](../para-sha
 Everything comes from the scan and the calendars. Read no vault's files.
 
 1. **Today**: the meetings, then the `urgent` items, at most five, each tagged with its vault; then one line per `summaries` vault with its overdue and due-today counts.
-2. **One table, one row per vault**, in registry order: `Vault`, `Shown` (the `treatment`; for `health`, the `role`, or `no operator.json` where `operator` is null), `Open`, `Overdue`, `This week`, `Triage` (with a waiting proposal named), and `Health`: the card's level (healthy, watch, needs care) and each signal at watch or care.
+2. **One table, one row per vault**, in registry order: `Vault`, then `Shown`, `Open`, `Overdue`, `This week`, `Triage` and `Health`, each as the vault's `cells` gives it.
 3. **Excluded**: every `excluded` entry with its `status` word and its reason, or one line saying none was.
 4. **One next action**, closing the brief: the single item to do first, its vault named; the close names no second item.
 

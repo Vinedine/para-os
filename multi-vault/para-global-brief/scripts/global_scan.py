@@ -18,8 +18,9 @@ them is `health` only, since action lines carry no assignee yet.
 operator), `treatment`, `type` (the vault's `**Type:**` label), `open`, `overdue`,
 `this_week` (due in the next seven days), `undated`, `triage` (loose files in `triage/`),
 `flags` (the name of every health flag the scan fired), `proposal` (the newest
-`<paraos home>/cache/triage/proposals/<name>-<YYYYMMDD-HHMM>.md` by name, else null) and
-`health`, the vault's health card as brief_scan.py's `health()` gives it.
+`<paraos home>/cache/triage/proposals/<name>-<YYYYMMDD-HHMM>.md` by name, else null),
+`health`, the vault's health card as brief_scan.py's `health()` gives it, and `cells`, the
+chat table's `shown`, `open`, `overdue`, `this_week`, `triage` and `health` as it prints them.
 
 `tasks`: every dated open task of a `full` vault, with its `vault`; `entities`: their
 projects and areas; `undated`: their undated count; `people`: their contact cards with
@@ -156,6 +157,24 @@ def deep_clean_audit(vault, paraos_home=None):
             "findings": data.get("findings") if isinstance(data.get("findings"), dict) else {}}
 
 
+LEVEL_WORDS = {"ok": "healthy", "watch": "watch", "care": "needs care", "unknown": "unknown"}
+
+
+def cells(row, operator):
+    """The chat table's cells: the treatment, with why for a health-only vault; the counts;
+    triage with the waiting proposal named; the card's level with each signal at watch or
+    care."""
+    shown = row["treatment"] if row["treatment"] != "health" else "health ({})".format(
+        row["role"] or ("no operator.json" if operator is None else "not on the roster"))
+    triage = str(row["triage"]) + (f", proposal waiting: {Path(row['proposal']).name}"
+                                   if row["proposal"] else "")
+    flagged = [k.replace("_", " ") for k, s in row["health"]["signals"].items()
+               if s["level"] in ("watch", "care")]
+    health = LEVEL_WORDS[row["health"]["level"]] + (": " + ", ".join(flagged) if flagged else "")
+    return {"shown": shown, "open": row["open"], "overdue": row["overdue"],
+            "this_week": row["this_week"], "triage": triage, "health": health}
+
+
 def vault_row(entry, report, home, role, shown, kit=None):
     t, lanes = report["totals"], report["lanes"]
     name = entry["name"]
@@ -276,7 +295,8 @@ def build_report(entries, today, paraos_home=None, model=None):
         place = writer(entry["path"], me)
         role = place["role"] if place else None
         shown = treatment(entry, role)
-        out["vaults"].append(vault_row(entry, report, home, role, shown, kit))
+        row = vault_row(entry, report, home, role, shown, kit)
+        out["vaults"].append(dict(row, cells=cells(row, me)))
         if shown == "full":
             out["tasks"] += [dict(t, vault=name) for t in report["tasks"]
                              if t["lane"] not in NOT_DATED and t["effective_date"]]
