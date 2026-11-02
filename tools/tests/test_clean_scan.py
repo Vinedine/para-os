@@ -163,6 +163,30 @@ class AuditRecord(VaultCase):
                          {"dangling": 2, "duplicates": 1})
         self.assertEqual(finding_counts(None), {})
 
+    def test_phase_one_leaves_its_inventory_out(self):
+        from clean_scan import finding_counts
+        self.assertEqual(finding_counts({
+            "map": {"top_level": ["areas", "projects"], "entity_counts": {"projects": 2},
+                    "empty_leaf_dirs": ["areas/x"]},
+            "uncited_exempt": ["a.md"], "duplicates": {"groups": [], "skipped": ["big.pdf"]},
+            "scripts": {"marked": ["s.py"], "unmarked": ["t.py"]},
+            "archive": {"misplaced_checkboxes": {"projects": [1], "closed": {"areas": [1, 2]}}}}),
+            {"map": 1, "scripts": 1, "archive": 3})
+
+    def test_phase_four_counts_its_failed_checks_only(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/x/brief.md", "# X\n\nSee [gone](missing.md).\n")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            clean_scan.main(["--vault", str(self.root), "--phase", "4", "--today", "2026-09-22",
+                             "--record"])
+        failed = {r["check"] for r in json.loads(out.getvalue())["phase4"]["rows"]
+                  if r["pass"] is False}
+        record = self.home / "data" / "deep-clean" / f"{self.root.name}.audit.json"
+        data = json.loads(record.read_text(encoding="utf-8"))
+        self.assertEqual(set(data["findings"]), failed)
+        self.assertEqual(data["findings"]["dangling_links"], 1)
+
 
 class Preconditions(VaultCase):
 
