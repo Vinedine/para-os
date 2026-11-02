@@ -882,17 +882,19 @@ def briefs(vault):
 
 def orphans(vault):
     """Files under projects/, areas/ or resources/ that no link anywhere in the vault reaches,
-    percent-decoded. A README, brief or actions file is reached by its folder, and a
-    `sources/` file is a record, so neither is listed."""
+    percent-decoded. A README, brief or actions file is reached by its folder, a `sources/`
+    file or a ledger is a record, and `__pycache__` is a script's own, so none is listed."""
     reached = {abspath(resolve_link(f, href)) for f in link_files(vault, DANGLING_ROOTS)
                for _, href, _ in extract_links(read_text(f))}
     out = []
     for bucket in ("projects", "areas", "resources"):
         for path in (vault / bucket).rglob("*"):
-            parts = path.relative_to(vault).parts
-            if path.is_file() and path.name not in STRUCTURE_FILES and "sources" not in parts \
-                    and not any(p.startswith(".") for p in parts) and abspath(path) not in reached:
-                out.append(path.relative_to(vault).as_posix())
+            rel = path.relative_to(vault)
+            if path.is_file() and path.name not in STRUCTURE_FILES \
+                    and not {"sources", "__pycache__"} & set(rel.parts) \
+                    and not any(p.startswith(".") for p in rel.parts) \
+                    and not is_ledger_exempt(rel) and abspath(path) not in reached:
+                out.append(rel.as_posix())
     return sorted(out)
 
 
