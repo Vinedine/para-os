@@ -362,12 +362,18 @@ def inside_vault(path, root):
         return False
 
 
-def redact_paths(prompt, root):
-    """A path in the prompt outside the vault becomes `<outside the vault>`: that a file was
-    attached is the signal, and its path can carry a person's name."""
-    def keep_or_hide(m):
-        return m.group(0) if inside_vault(m.group(0).strip("\"'"), root) else "<outside the vault>"
-    return _PROMPT_PATH.sub(keep_or_hide, prompt)
+def redact_paths(prompt, root, limit):
+    """The prompt's first `limit` characters, a path outside the vault made `<outside the
+    vault>`: that a file was attached is the signal, and its path can carry a person's name.
+    A path the limit cuts is matched whole; one starting past it is never resolved."""
+    out, at = [], 0
+    for m in _PROMPT_PATH.finditer(prompt):
+        if m.start() >= limit:
+            break
+        inside = inside_vault(m.group(0).strip("\"'"), root)
+        out += [prompt[at:m.start()], m.group(0) if inside else "<outside the vault>"]
+        at = m.end()
+    return ("".join(out) + prompt[at:max(at, limit)])[:limit]
 
 
 def keep_prompt(prompt, cfg, root):
@@ -381,8 +387,7 @@ def keep_prompt(prompt, cfg, root):
     if not isinstance(prompt, str):
         return None
     if cfg["record_prompts"]:
-        kept = cfg["prompt_max_chars"]
-        return redact_paths(prompt[:kept], root)[:kept]
+        return redact_paths(prompt, root, cfg["prompt_max_chars"])
     m = re.match(r"\s*(/[A-Za-z0-9:._-]+)", prompt)
     return m.group(1) if m else None
 
