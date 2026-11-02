@@ -182,6 +182,16 @@ class TestRecord(unittest.TestCase):
         resolved.assert_not_called()
         self.assertEqual(got, "x" * self.cfg["prompt_max_chars"])
 
+    def test_a_path_the_kept_length_cuts_is_redacted_whole(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = (Path(tmp) / "vault").resolve()
+            elsewhere = Path(tmp).resolve() / "Client Files" / "Jane Smith" / "cv.pdf"
+            text = f"see {elsewhere} please"
+            cfg = dict(self.cfg, prompt_max_chars=text.index("Smith") + len("Smith"))
+            event = {"hook_event_name": "UserPromptSubmit", "prompt": text}
+            got = ledger.build_record(event, root, cfg, "2026-08-29T10:00:00")["prompt"]
+            self.assertEqual(got, "see <outside the vault>")
+
     def test_a_slash_command_and_a_url_are_not_paths(self):
         for text in ("/para-new projects/acme", "read https://example.com/a/b and/or c/d"):
             with self.subTest(text=text):
