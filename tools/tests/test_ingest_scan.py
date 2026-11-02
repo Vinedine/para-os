@@ -110,11 +110,11 @@ class Case(unittest.TestCase):
     def prepare(self, mode="write", **kw):
         return prepare(mode, paraos_home=self.home, now=NOW, **kw)
 
-    def route(self, prepared, connectors=None):
+    def route(self, prepared, connectors=None, unread=()):
         path = None
         if connectors is not None:
             path = write(self.root, "connectors.json", json.dumps(connectors))
-        return route(prepared["work"], connectors=path, paraos_home=self.home)
+        return route(prepared["work"], connectors=path, paraos_home=self.home, unread=unread)
 
     def run_file(self, routed):
         return json.loads(Path(routed["run"]).read_text(encoding="utf-8"))
@@ -449,6 +449,26 @@ class Routing(Case):
         self.assertEqual((run["mode"], run["started_at"]), ("write", NOW))
         self.assertEqual(run["source_plan"]["declaring_vaults"], {WORK: ["alpha", "beta"]})
         self.assertEqual(run["threads"][0]["candidates"], ["alpha", "beta"])
+
+    def test_the_run_file_carries_the_invocation_and_the_mailbox_counts(self):
+        run = self.run_file(self.route(self.prepare(), [gmail_thread()]))
+        self.assertEqual((run["invocation"], run["window_days"]), ("/para-ingest write", 2))
+        plan = run["source_plan"]
+        self.assertEqual((plan["mailboxes"], plan["mailboxes_read"], plan["mailboxes_errored"]),
+                         (1, 1, 0))
+        run = self.run_file(self.route(self.prepare("preview", days=5)))
+        self.assertEqual((run["invocation"], run["window_days"]),
+                         ("/para-ingest preview --days 5", 5))
+
+    def test_an_unread_connector_is_an_error_and_counted(self):
+        run = self.run_file(self.route(self.prepare(), [], unread=[WORK.upper()]))
+        plan = run["source_plan"]
+        self.assertEqual((plan["mailboxes_read"], plan["mailboxes_errored"]), (0, 1))
+        self.assertIn(f"{WORK}: connector could not be read", run["errors"])
+
+    def test_an_unread_mailbox_the_plan_holds_no_connector_for_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "--unread"):
+            self.route(self.prepare(), [], unread=["nobody@example.org"])
 
     def test_a_sign_in_code_passes_as_its_keys_alone(self):
         code = {"mailbox": WORK, "thread_id": "c1", "signin": True,
