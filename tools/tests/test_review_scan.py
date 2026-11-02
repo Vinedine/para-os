@@ -258,6 +258,20 @@ class ReachAndFriction(LedgerCase):
         self.assertEqual(self.run_scan()["friction"]["rephrased"],
                          [{"session": "aaaaaaaa-1", "prompts": [first, again]}])
 
+    def test_only_requests_in_words_are_compared(self):
+        def ask(pid, text):
+            return {"event": "UserPromptSubmit", "prompt_id": pid, "prompt": text}
+        first, again = "file the bank statement under finance", "file the bank statement in finance please"
+        hand_back = '<agent-message from="a{}">\n[Subagent hand-back] The text below is the final report'
+        read = {"event": "PostToolUse", "prompt_id": "p1", "tool": "Read", "target": "areas/x.md"}
+        self.session("sam", "aaaaaaaa-1", date(2026, 9, 20), read,
+                     ask("p1", "/para-deep-clean --test (show output in English)"),
+                     ask("p2", "/para-triage --test (show output in English)"),
+                     ask("p3", hand_back.format(1)), ask("p4", hand_back.format(2)),
+                     ask("p5", first), ask("p6", hand_back.format(3)), ask("p7", again))
+        self.assertEqual(self.run_scan()["friction"]["rephrased"],
+                         [{"session": "aaaaaaaa-1", "prompts": [first, again]}])
+
     def test_endings_count_reasons_and_a_final_request_with_no_tool_call(self):
         self.session("sam", "aaaaaaaa-1", date(2026, 9, 20),
                      end={"summary": {"prompts": 2, "last_prompt_tools": 0}})
