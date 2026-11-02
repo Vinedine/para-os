@@ -190,8 +190,9 @@ def held(exclusions, mailbox, value):
     """Whether the exclusions file already drops `value`, an address or a domain, for the
     mailbox or every mailbox: a `from` equal to it, or a `domain` it equals or sits under."""
     domain = value.rpartition("@")[2]
-    for key in (mailbox, "*"):
-        entries = exclusions.get(key)
+    for key, entries in exclusions.items():
+        if key != "*" and str(key).lower() != mailbox:
+            continue
         for entry in entries if isinstance(entries, list) else []:
             matchers = entry.get("any", [entry]) if isinstance(entry, dict) else []
             for m in matchers if isinstance(matchers, list) else []:
