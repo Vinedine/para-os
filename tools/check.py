@@ -62,6 +62,11 @@ What it enforces, and why each one is machinery rather than prose:
                         currently requires of a SKILL.md, which moves release to release.
                         `--no-vendor` skips it and says so.
 
+  Mod suites            A mod (a skills-folder entry with `.claude-plugin/plugin.json`) has its
+                        suite at `tools/tests/<mod>.test.tsx`, out of base/ so a vault receives
+                        only the mod, and `claude plugin test` runs it from a copy holding both.
+                        `--no-vendor` skips the run, not the check that the suite exists.
+
   Test suites           Every skill script has its suite at `tools/tests/test_<script>.py`; an
                         integration's suite and an add-on pipeline's sit beside the script. All
                         run from here. A suite whose runtime is missing FAILS rather than skips.
@@ -76,6 +81,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import tokenize
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -848,6 +854,42 @@ def validate_skills_dir(claude, skills_dir):
             f"clean - the vendor CLI's wording may have changed.\n{out_tail}")
 
 
+def check_mod_tests():
+    mods = [d for parent in [SKILLS_DIR] + addon_skill_dirs() for d in sorted(parent.iterdir())
+            if (d / ".claude-plugin" / "plugin.json").is_file()]
+    suites = [(d, TESTS_DIR / f"{d.name}.test.tsx") for d in mods]
+    for d, suite in suites:
+        if not suite.is_file():
+            bad(f"{rel(d)} is a mod with no suite at {rel(suite)}")
+    suites = [(d, suite) for d, suite in suites if suite.is_file()]
+    if not suites:
+        return
+    if "--no-vendor" in sys.argv:
+        skip("mod suites: --no-vendor given, `claude plugin test` not run.")
+        return
+    claude = shutil.which("claude")
+    if not claude:
+        bad("`claude` is not on PATH, so the mod suites could not run.")
+        return
+    for d, suite in suites:
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = Path(tmp) / d.name
+            shutil.copytree(d, copy)
+            shutil.copy2(suite, copy / suite.name)
+            try:
+                returncode, out = run_captured([claude, "plugin", "test", str(copy)], timeout=300)
+            except subprocess.TimeoutExpired:
+                bad(f"{rel(suite)}: timed out after 300s")
+                continue
+        count = re.search(r"^\s*(\d+) pass$", out, re.M)
+        if returncode != 0:
+            bad(f"{rel(suite)}: suite failed (exit {returncode})\n{tail(out, transform=console_safe)}")
+        elif not count or count.group(1) == "0":
+            bad(f"{rel(suite)}: ran 0 tests - discovery found nothing to run")
+        else:
+            ok(f"{rel(suite)}: {count.group(1)} test(s) passed")
+
+
 # --- test suites ------------------------------------------------------------------------
 
 # sys.executable, not "python": the interpreter running this file is known to exist, which
@@ -927,6 +969,7 @@ def main():
     check_launchers()
     check_rules_contract()
     check_skill_validator()
+    check_mod_tests()
     check_tests()
 
     if verbose:

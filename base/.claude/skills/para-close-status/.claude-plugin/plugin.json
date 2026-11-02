@@ -1,0 +1,6 @@
+{
+  "name": "para-close-status",
+  "version": "1.0.0",
+  "description": "A band above the prompt saying whether this session can be closed, from the reply's Close line and the files it left uncommitted, beside the open time, triage count and vault health",
+  "types": "./types/index.d.ts"
+}

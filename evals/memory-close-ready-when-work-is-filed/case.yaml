@@ -1,0 +1,5 @@
+schema_version: "1.1"
+name: memory-close-ready-when-work-is-filed
+tags: [memory, native]
+context:
+  scaffold_script: setup.sh
