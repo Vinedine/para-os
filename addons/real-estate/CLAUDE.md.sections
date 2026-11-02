@@ -18,14 +18,14 @@ A property's PARA home follows its stage, and a property is **bought** on the de
 - **A buy-and-hold purchase enters Held on the deed**, by hand, since no skill runs the move: `projects/<property>/` moves to `areas/properties/<property>/` under the move rules of `para-shared/operating-discipline.md`, its `brief.md` becomes `README.md`, and every inbound link is repointed.
 - **A property already bought when it enters the vault** is created with `/para-new area`, its proposed path corrected to `areas/properties/<property>/README.md` before approval.
 - **Works, a refinancing or a sale on a held property** is its own project, `projects/<property>-works/` or similarly suffixed, with an ordinary brief linking the dossier, which stays in the area at stage Held.
-- **A property's `sources/` is named one way at every stage.** The full convention (the `Who` ladder, unit scopes) is in [.claude/rules/property-sources.md](.claude/rules/property-sources.md), which loads on its own when a property source document is read; read it explicitly before filing one.
+- **A property's `sources/` is named one way at every stage.** The full convention (the `Who` ladder, unit scopes) is in [.claude/rules/property-sources.md](.claude/rules/property-sources.md), which loads on its own when {{a property source document}} is read; read it explicitly before filing one.
 - {{Which stages this vault uses. A flip business normally skips Held; a buy-and-hold one uses every stage.}}
 
 ## Entity structures
 
-- **Briefs** - a property's brief follows the property dossier; any other is shaped by its work. The full shape is in [.claude/rules/brief-structure.md](.claude/rules/brief-structure.md), which loads on its own when a brief is read; read it explicitly before creating one.
-- **Entity READMEs** - a property's README follows the property dossier; any other shares three conventions. The full shape is in [.claude/rules/readme-structure.md](.claude/rules/readme-structure.md), which loads on its own when an entity README is read; read it explicitly before creating one.
-- **Property dossier** - one document per property: sixteen sections from Acquiring on, a lighter shape while Prospecting and once Dropped. The full shape is in [.claude/rules/property-dossier.md](.claude/rules/property-dossier.md), which loads on its own when a property document is read; read it explicitly before creating one.
+- **Briefs** - a property's brief follows the property dossier; any other is shaped by its work. The full shape is in [.claude/rules/brief-structure.md](.claude/rules/brief-structure.md), which loads on its own when {{a brief}} is read; read it explicitly before creating one.
+- **Entity READMEs** - a property's README follows the property dossier; any other shares three conventions. The full shape is in [.claude/rules/readme-structure.md](.claude/rules/readme-structure.md), which loads on its own when {{an entity README}} is read; read it explicitly before creating one.
+- **Property dossier** - one document per property: sixteen sections from Acquiring on, a lighter shape while Prospecting and once Dropped. The full shape is in [.claude/rules/property-dossier.md](.claude/rules/property-dossier.md), which loads on its own when {{a property document}} is read; read it explicitly before creating one.
 
 ## Deal sheets
 

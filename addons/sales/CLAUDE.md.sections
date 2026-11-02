@@ -25,4 +25,4 @@ A deal's PARA home follows its stage, and the stages are the phases the prospect
 
 ## Entity structures
 
-- **Deal brief** - eight header lines in a fixed order; the lead register has [its own columns](.claude/rules/deal-brief.md#the-register-row). The full shape is in [.claude/rules/deal-brief.md](.claude/rules/deal-brief.md), which loads on its own when a deal brief or the lead register is read; read it explicitly before creating one.
+- **Deal brief** - eight header lines in a fixed order; the lead register has [its own columns](.claude/rules/deal-brief.md#the-register-row). The full shape is in [.claude/rules/deal-brief.md](.claude/rules/deal-brief.md), which loads on its own when {{a deal brief or the lead register}} is read; read it explicitly before creating one.
