@@ -21,34 +21,24 @@ A leftover argument follows [operating-discipline.md](../para-shared/operating-d
 
 ## Procedure
 
-### Step 1: Read the declarations
+### Step 1: Scan
 
-Resolve and verify the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault).
-
-Read every `CLAUDE.md` section whose heading ends in `lifecycle` ([para-shared/lifecycles.md](../para-shared/lifecycles.md)), and the rule file their documents load.
-
-**A vault that declares none has nothing to render.** Say so in one line, name the two places a lifecycle comes from (a flavor, a module), and stop. Never infer stages from folder names.
-
-**A lifecycle argument is matched here**, against the declared headings and nouns. On no match, ask which declared lifecycle was meant, naming them, and stop: no board renders in the same reply.
-
-### Steps 2 and 3: Scan the homes, resolve each entity
-
-One call, per [para-shared/scripts.md](../para-shared/scripts.md):
+Resolve and verify the vault root per [operating-discipline.md](../para-shared/operating-discipline.md#defer-to-the-vault), then one call, per [para-shared/scripts.md](../para-shared/scripts.md):
 
 ```bash
 # Windows: py -3
 python3 "<this skill's base directory>/scripts/pipeline_scan.py" --vault <root> [--lifecycle <name>] [--today YYYY-MM-DD] > <scan output path>
 ```
 
-Pass `--lifecycle` only under a lifecycle scope. Exit 3 (`no such lifecycle`, with the `declared` list) is asked about as in Step 1.
+Pass `--lifecycle` only under a lifecycle scope. **Exit 3** (`no such lifecycle`, with the `declared` list): ask which declared lifecycle was meant, naming them, and stop: no board renders in the same reply. **An empty `lifecycles` has nothing to render**: say so in one line, name the two places a lifecycle comes from (a flavor, a module), and stop.
 
-### Step 4: Render
+### Step 2: Render
 
 Word what the scan computed into the board, the flags, the counts, the metrics and the one Next action, reading nothing past it. **Layout and rules: [references/render.md](references/render.md).**
 
-### Step 5: The page
+### Step 3: The page
 
-Without a lifecycle argument, and only where the vault declares a page for `para-pipeline`: build it from the Steps 2 and 3 scan output and publish it, per [para-shared/pages.md](../para-shared/pages.md#a-page-the-vault-declares).
+Without a lifecycle argument, and only where the vault declares a page for `para-pipeline`: build it from the scan output and publish it, per [para-shared/pages.md](../para-shared/pages.md#a-page-the-vault-declares).
 
 ## Strict rules
 

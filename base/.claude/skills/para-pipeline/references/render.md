@@ -1,6 +1,6 @@
-# Render the board (Step 4)
+# Render the board (Step 2)
 
-One block per lifecycle, in the order `CLAUDE.md` declares them, then the close. A section with nothing to show is left out, except the counts line and the metrics, which state a zero.
+One block per lifecycle, then the close. A section with nothing to show is left out, except the counts line and the metrics, which state a zero.
 
 ````
 # Pipeline - <YYYY-MM-DD> - <vault name>
@@ -60,7 +60,7 @@ From `metrics`, for the `quarter` named in the heading. Where `year_end_unread` 
 
 - **Opened**, **reached `promoting_stage`**, and each terminal stage's `this_quarter`, followed by its `reasons_this_quarter`; where the quarter holds none, its `all_time_reasons` on one line marked as all-time. A `missing_reason` entity is named, not counted.
 - **The referrers table** from `referrers`, its `unrecorded` row included.
-- **The median** from `median_days_opened_to_promoting`, with its `n`; a null `median` (fewer than three) prints `n` alone.
+- **The median** from `median_days_opened_to_promoting`, with its `n`; a null `median` prints `n` alone.
 - **No `promoting_stage`**: say so once, and drop that count and the median.
 
 ## The close

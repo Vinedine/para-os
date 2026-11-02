@@ -1278,6 +1278,13 @@ class Scope(VaultCase):
         self.assertEqual(report["error"], "no such lifecycle")
         self.assertEqual(report["declared"], ["Deal lifecycle"])
 
+    def test_a_vault_declaring_no_lifecycle_has_none_whatever_its_folders_hold(self):
+        write(self.root, "CLAUDE.md", "# Vault\n\n## Projects\n\nOne folder each.\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n**Stage:** Lead (since 2026-09-01)\n**Opened:** 2026-08-01\n")
+        report, code = scan(self.root, TODAY)
+        self.assertEqual((code, report["lifecycles"]), (0, []))
+
     def test_two_lifecycles_are_scanned_independently(self):
         write(self.root, "CLAUDE.md", LIFECYCLE + "\n".join([
             "## Property lifecycle", "",
