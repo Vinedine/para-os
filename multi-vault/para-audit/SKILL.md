@@ -31,12 +31,14 @@ Per [para-shared/scripts.md](../para-shared/scripts.md):
 
 ```bash
 # Windows: py -3
-python3 "<this skill's base directory>/scripts/audit_scan.py" [--clone <path>] [--ref <git-ref>] [--paraos-home <folder holding vaults.json>] > <scan output path>
+python3 "<this skill's base directory>/scripts/audit_scan.py" [--clone <path>] [--ref <git-ref>] [--paraos-home <folder holding vaults.json>] [--app-tasks <file>] > <scan output path>
 ```
+
+Where this session has the scheduled-tasks tool, save its task list as JSON beside the scan output and pass it as `--app-tasks`.
 
 **Exit codes**: 0 answered; 3 no registry, or one listing nothing: say so, point at `vaults.json.template` in the multi-vault README, and stop; 4 the clone or the ref cannot be read (ask for a clone path or a ref that resolves, never guess one); 5 no ref named and the clone has no `origin/stable`: ask the operator to switch the clone to `stable`, then scan again. With no clone found (`clone.error`), every vault is still audited and its revision, rules, integrations, skills and sections read `not judged`: say so, and ask for the clone's path to judge them.
 
-The output holds `master` (the ref, its revision, `in_development`), `vaults` (one row per audited vault: a `cells` value per column, `revision`, `findings` each with `detail`, `fix` and `route`, and `observations`), `excluded`, `drives` and `upgrade_first`. Every field and rule is in the script's docstring.
+The output holds `master` (the ref, its revision, `in_development`), `tasks`, `vaults` (one row per audited vault: a `cells` value per column, `revision`, `findings` each with `detail`, `fix` and `route`, and `observations`), `excluded`, `drives` and `upgrade_first`. Every field and rule is in the script's docstring.
 
 ## Step 2: Report
 
@@ -46,7 +48,8 @@ In this order, and nothing else:
 2. **One table, one row per audited vault**, in registry order: `Vault`, then `Revision`, `Type`, `Declarations`, `Rules`, `Integrations`, `Skills`, `Sections`, `Size`, each cell as the scan gives it. An inactive vault is a row like any other.
 3. **Excluded**: every `excluded` entry with its status (`UNREACHABLE`, `INVALID`) and its reason. A `drives` row is one line naming the drive as the cause, above the vaults it took with it, never its vaults as separate failures. With nothing excluded, say so in one line.
 4. **Fixes**, per vault with findings: each finding's `detail` and `fix`. A vault's `observations` follow under their own label, never as defects.
-5. **One closing line** naming `upgrade_first` and why: revisions behind, then findings. Where it is null, say no vault needs `/para-upgrade`; where no revision could be judged, say which vault goes first cannot be told.
+5. **Scheduled runs**: each `tasks.findings` entry's `detail` and `fix`, or one line saying the task registry matches. Where `app_compared` is false, say the app's own list was not read.
+6. **One closing line** naming `upgrade_first` and why: revisions behind, then findings. Where it is null, say no vault needs `/para-upgrade`; where no revision could be judged, say which vault goes first cannot be told.
 
 What a finding means for the operator, beyond its cell: [references/checks.md](references/checks.md#reading-the-findings).
 

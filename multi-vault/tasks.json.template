@@ -1,0 +1,20 @@
+[
+  {
+    "id": "ingest-and-auto-triage",
+    "title": "Ingest and auto-triage",
+    "cron": "0 6,16 * * *",
+    "skill": "para-ingest",
+    "vaults": "*",
+    "sources": []
+  },
+  {
+    "id": "hotel-price-watch",
+    "title": "Hotel price watch",
+    "cron": "30 6 * * *",
+    "skill": null,
+    "vaults": ["household"],
+    "sources": [
+      {"name": "Hotel booking site", "via": ["browser", "mcp:<booking connector>"]}
+    ]
+  }
+]
