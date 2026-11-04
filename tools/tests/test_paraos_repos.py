@@ -16,13 +16,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from paraos_repos import (  # noqa: E402
-    COLUMNS, convert, home_candidates, list_repos, main, parse, role_of, site_hints,
+    COLUMNS, convert, home_candidates, list_repos, main, parse, role_of, site_hints, write,
 )
 
 FRONT = '---\npaths:\n  - "projects/**"\n  - "areas/**"\n---\n\n# Code repos\n\nThe repos this vault steers.\n\n'
@@ -228,6 +229,64 @@ class Converting(Vault, unittest.TestCase):
     def test_older_table_extra_columns_join_what(self):
         out = self.converted(FRONT + "| Repo | Stack | Purpose |\n|---|---|---|\n| `x` | Python | Scraper |\n")
         self.assertEqual(out["repos"][0]["what"], "Scraper; Python")
+
+
+class Edges(Vault, unittest.TestCase):
+    def test_link_in_a_repo_cell(self):
+        self.put(FRONT + HEADER + "| [shop-site](https://example.org/shop) | owned | x |  |  |  |\n")
+        self.assertEqual(self.names(list_repos(self.vault, self.home)), ["shop-site"])
+
+    def test_unclosed_frontmatter_is_body(self):
+        repos, _, layout = parse("---\nnot closed\n- `a` - x\n")
+        self.assertEqual([r["repo"] for r in repos], ["a"])
+        self.assertEqual(layout[0], ("keep", "---"))
+
+    def test_other_tables_and_empty_rows_are_kept(self):
+        text = FRONT + ("| Host | Port |\n|---|---|\n| db | 5432 |\n\n"
+                        "| Repo | What | Description | Notes |\n|---|---|---|---|\n"
+                        "|  | orphan row |  |  |\n"
+                        "| `a` | First | Second |  |\n")
+        self.put(text)
+        out = convert(self.vault)
+        self.assertEqual(self.names(out), ["a"])
+        self.assertEqual(out["repos"][0]["what"], "First")
+        self.assertIn("| db | 5432 |", out["text"])
+        self.assertIn("|  | orphan row |  |  |", out["text"])
+
+    def test_list_keeps_an_older_tables_home(self):
+        self.put(TABLE_STYLE)
+        out = list_repos(self.vault, self.home)
+        self.assertEqual(out["shape"], "legacy")
+        self.assertEqual([r["home_path"] for r in out["repos"]],
+                         ["areas/billing/", "areas/ledger/", "archive/projects/bus-exit/"])
+
+    def test_empty_role_in_a_half_converted_file_becomes_owned(self):
+        self.put(FRONT + HEADER + "| `a` |  | x |  |  |  |\n- `b` - y\n")
+        self.assertEqual([r["role"] for r in convert(self.vault)["repos"]], ["owned", "owned"])
+
+    def test_home_prefers_the_better_rank(self):
+        self.put(FRONT + "- `a` - See `areas/hub/`, then `resources/ideas/scraper-relaunch/` and `docs/x/`.\n")
+        self.assertEqual(convert(self.vault)["repos"][0]["home_path"], "areas/hub/")
+
+    def test_site_hints_once_each_and_only_site_endings(self):
+        self.assertEqual(site_hints("a.example.com, again a.example.com, and notes.md"),
+                         ["a.example.com"])
+
+    def test_no_blank_lines_around_the_table(self):
+        self.put(FRONT + "Repos:\n- `a` - x\nAfter the list.\n")
+        text = convert(self.vault)["text"]
+        self.assertIn("Repos:\n\n| Repo |", text)
+        self.assertIn("|\n\nAfter the list.\n", text)
+
+    def test_write_keeps_lf_and_cleans_up_on_failure(self):
+        f = self.put(BULLET_STYLE)
+        out = convert(self.vault)
+        with mock.patch("paraos_repos.os.replace", side_effect=OSError("held by sync")):
+            with self.assertRaises(OSError):
+                write(f, out["text"])
+        self.assertEqual([p.name for p in f.parent.iterdir()], ["code-repos.md"])
+        write(f, out["text"])
+        self.assertNotIn(b"\r\n", f.read_bytes())
 
 
 class Cli(Vault, unittest.TestCase):
