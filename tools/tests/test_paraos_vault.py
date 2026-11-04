@@ -2534,6 +2534,15 @@ class HashesNarrowing(VaultCase):
         got = hashes(self.root, within=("sources",))
         self.assertEqual(got["skipped"], ["projects/a/sources/photos/front.txt"])
 
+    def test_shared_opens_only_a_size_two_files_share_and_still_names_skipped(self):
+        write(self.root, "projects/a/one.md", self.body("one"))
+        write(self.root, "projects/b/one.md", self.body("one"))
+        write(self.root, "projects/a/lone.md", self.body("lone", 90))
+        write(self.root, "projects/a/photos/front.txt", self.body("image", 70))
+        got = hashes(self.root, shared=True)
+        self.assertEqual(list(got["files"]), ["projects/a/one.md", "projects/b/one.md"])
+        self.assertEqual(got["skipped"], ["projects/a/photos/front.txt"])
+
 
 class QuestionsCLI(VaultCase):
     """The one-off questions the module docstring lists, each answered as one JSON document

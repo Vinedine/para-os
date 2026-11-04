@@ -463,12 +463,29 @@ def inline_contact_details(vault):
 
 # ------------------------------------------------------------------------------ duplicates
 
-def entity_of_path(rel):
+def archive_entities(vault):
+    """Every archived entity folder. One straight under `archive/` is an entity archived
+    whole when it holds a `brief.md` or a `README.md` with a `**Status:**` line; any other is
+    a bucket whose subfolders are the entities. `meetings/` holds records, not entities."""
+    archive, out = vault / "archive", []
+    tops = sorted(d for d in archive.iterdir() if d.is_dir()) if archive.is_dir() else []
+    for top in (d for d in tops if d.name != "meetings"):
+        readme = top / "README.md"
+        if (top / "brief.md").is_file() or (readme.is_file()
+                                            and field_ci(header_fields(readme), "status")):
+            out.append(top)
+        else:
+            out.extend(sorted(d for d in top.iterdir() if d.is_dir()))
+    return out
+
+
+def entity_of_path(rel, whole=()):
+    """`whole` names the folders straight under `archive/` that are one entity each."""
     parts = Path(rel).parts
     if not parts:
         return rel
     if parts[0] == "archive" and len(parts) >= 3:
-        return "/".join(parts[:3])
+        return "/".join(parts[:2 if parts[1] in whole else 3])
     if parts[0] == "resources" and len(parts) >= 3 and parts[1] == "ideas":
         return "/".join(parts[:3])
     if parts[0] in ("projects", "areas") and len(parts) >= 2:
@@ -477,9 +494,11 @@ def entity_of_path(rel):
 
 
 def duplicate_report(vault):
-    digests = hashes(vault)
+    digests = hashes(vault, shared=True)
+    whole = {d.name for d in archive_entities(vault) if d.parent == vault / "archive"}
     groups = duplicates(digests)
-    out = [{"files": g, "cross_entity": len({entity_of_path(p) for p in g}) > 1} for g in groups]
+    out = [{"files": g, "cross_entity": len({entity_of_path(p, whole) for p in g}) > 1}
+           for g in groups]
     return {"groups": out, "skipped": digests["skipped"]}
 
 
@@ -604,10 +623,8 @@ def archive_findings(vault, dated_pattern):
                 if owner:
                     single_owner.append({"file": p.relative_to(vault).as_posix(),
                                          "entity": owner})
-        for bucket_dir in sorted(d for d in archive.iterdir() if d.is_dir() and d.name != "meetings"):
-            for entity_dir in sorted(d for d in bucket_dir.iterdir() if d.is_dir()):
-                if not (entity_dir / "brief.md").is_file() and not (entity_dir / "README.md").is_file():
-                    missing_record.append(entity_dir.relative_to(vault).as_posix())
+        missing_record = [d.relative_to(vault).as_posix() for d in archive_entities(vault)
+                          if not (d / "brief.md").is_file() and not (d / "README.md").is_file()]
     return {"loose_root_files": loose_root_files, "meetings_naming": meetings_naming,
             "missing_record": missing_record, "single_owner": single_owner,
             "misplaced_checkboxes": misplaced_checkboxes(vault, with_closed=True)}
