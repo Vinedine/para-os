@@ -1,0 +1,60 @@
+{
+  "connections": [
+    {
+      "id": "granola",
+      "kind": "script",
+      "provider": "Granola",
+      "vaults": ["work"],
+      "machine": null,
+      "secret": null,
+      "writes": "meeting notes into triage/",
+      "read_only": true,
+      "path": "resources/scripts/granola.js"
+    },
+    {
+      "id": "outlook",
+      "kind": "script",
+      "provider": "Outlook",
+      "vaults": ["work", "home"],
+      "machine": null,
+      "secret": "outlook.json",
+      "writes": "a token cache under cache/outlook/",
+      "read_only": true,
+      "path": "resources/scripts/outlook.py"
+    },
+    {
+      "id": "claude.ai Gmail",
+      "kind": "connector",
+      "provider": "Gmail",
+      "vaults": ["home"],
+      "machine": null,
+      "secret": null,
+      "writes": null,
+      "read_only": true
+    },
+    {
+      "id": "browser",
+      "kind": "browser",
+      "provider": "Websites a task reads",
+      "vaults": "*",
+      "machine": null,
+      "secret": null,
+      "writes": null,
+      "read_only": true
+    },
+    {
+      "id": "gh",
+      "kind": "cli",
+      "provider": "GitHub",
+      "vaults": ["work"],
+      "machine": null,
+      "secret": null,
+      "writes": null,
+      "read_only": false
+    }
+  ],
+  "mailboxes": [
+    {"address": "me@example.com", "owner": "Me", "label": "Personal"},
+    {"address": "me@work.example", "owner": "Me", "label": "Work"}
+  ]
+}
