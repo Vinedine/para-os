@@ -505,5 +505,57 @@ class Executor(unittest.TestCase):
             trash.assert_called_once()
 
 
+class RegistryPolicy(Executor):
+    """#913: the policy lives in the registry entry, the demotions in the cache."""
+
+    def register(self, **extra):
+        write(self.home, "vaults.json", json.dumps([dict({"name": "north", "path": str(self.vault)}, **extra)]))
+
+    def registry(self):
+        return json.loads((self.home / "vaults.json").read_text(encoding="utf-8"))
+
+    def test_switch_writes_the_registry_entry_and_a_backup(self):
+        self.register()
+        self.switch_on("Dismiss (noise)")
+        self.assertEqual(self.registry()[0]["auto_triage"], ["Dismiss (noise)"])
+        self.assertTrue(list(self.home.glob("vaults.json.bak-*")))
+        self.assertFalse((self.home / "auto-triage.json").exists())
+
+    def test_a_restore_writes_only_the_cache(self):
+        self.register(auto_triage=["Delete (duplicate)", "Dismiss (noise)"])
+        _, out = self.run_all(self.ROWS[:2])
+        before = (self.home / "vaults.json").read_bytes()
+        code, _ = call("restore", "--vault-name", "north", "--run", out["run"],
+                       "--item", "dup.pdf", "--paraos-home", self.home)
+        self.assertEqual(code, 0)
+        self.assertEqual((self.home / "vaults.json").read_bytes(), before)
+        demoted = json.loads((self.home / "cache" / "auto-triage" / "demoted.json").read_text(encoding="utf-8"))
+        self.assertEqual([d["action"] for d in demoted["north"]], ["Delete (duplicate)"])
+        _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
+        self.assertEqual(status["on"], ["Dismiss (noise)"])
+        self.switch_on("Delete (duplicate)")
+        _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
+        self.assertEqual(sorted(status["on"]), ["Delete (duplicate)", "Dismiss (noise)"])
+
+    def test_migrate_moves_the_older_file_without_losing_anything(self):
+        self.register()
+        write(self.home, "auto-triage.json", json.dumps({
+            "north": {"on": ["Dismiss (noise)"], "demoted": [{"action": "Delete (duplicate)", "run": "r1"}]},
+            "gone": {"on": ["Dismiss (noise)"], "demoted": []}}))
+        code, out = call("migrate", "--paraos-home", self.home)
+        self.assertEqual((code, out["migrated"], out["kept"]), (0, ["north"], ["gone"]))
+        self.assertEqual(self.registry()[0]["auto_triage"], ["Dismiss (noise)"])
+        demoted = json.loads((self.home / "cache" / "auto-triage" / "demoted.json").read_text(encoding="utf-8"))
+        self.assertEqual(demoted["north"][0]["run"], "r1")
+        self.assertTrue((self.home / "auto-triage.json.migrated").exists())
+        self.assertEqual(list(json.loads((self.home / "auto-triage.json").read_text(encoding="utf-8"))), ["gone"])
+
+    def test_a_vault_without_the_key_still_reads_the_older_file(self):
+        self.register()
+        write(self.home, "auto-triage.json", json.dumps({"north": {"on": ["Dismiss (noise)"], "demoted": []}}))
+        _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
+        self.assertEqual(status["on"], ["Dismiss (noise)"])
+
+
 if __name__ == "__main__":
     unittest.main()

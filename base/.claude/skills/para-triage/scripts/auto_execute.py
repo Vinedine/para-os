@@ -10,11 +10,19 @@
     py -3 auto_execute.py add-exclusion --mailbox <mailbox> (--from <address> | --domain <domain>)
                                         --reason <text>
     py -3 auto_execute.py purge [--days 30]
+    py -3 auto_execute.py migrate
 
 Every command takes `--paraos-home DIR`, and prints one JSON document. State lives under the
 para-os home, never in a vault:
 
-    auto-triage.json                    {vault name: {"on": [action], "demoted": [...]}}
+    vaults.json                         a vault entry's `auto_triage`: the actions switched on,
+                                        the operator's policy; only `switch` writes it
+    cache/auto-triage/demoted.json      {vault name: [{"action", "run", "at"}]}: what a restore
+                                        switched off; an action runs while it is in the policy
+                                        and not demoted
+    auto-triage.json                    the older file, {vault name: {"on", "demoted"}}: read
+                                        for a vault whose registry entry has no `auto_triage`,
+                                        until `migrate` moves it
     auto-triage.off                     the kill switch: while it exists, `run` acts on nothing
     cache/triage/decisions/<vault>.jsonl  one line per decided item, from either path, with the
                                         sender's address (`from`) and `mailbox` where known
@@ -60,7 +68,12 @@ and that the exclusions file does not hold for the mailbox or `*`. Its `entry` i
 where those dismissals span several addresses of it, else a `from`. `add-exclusion` copies the
 file to `triage-exclusions.json.bak-<YYYYMMDD>` (`-<HHMMSS>` added where that exists), then
 appends the entry with its `reason` and today as `added`; a file that does not parse is
-refused. `switch` is the operator's standing approval, or its withdrawal. `purge` moves each
+refused. `switch` is the operator's standing approval, or its withdrawal: it edits the
+vault's `auto_triage` in the registry, after a copy to `vaults.json.bak-<YYYYMMDD-HHMMSS>`,
+and an `--on` also clears that action's demotions. `migrate` moves an older
+`auto-triage.json` into the registry and the cache, then renames it
+`auto-triage.json.migrated`; a vault it names that the registry does not list stays in it.
+`purge` moves each
 quarantined run older than `--days` to the system trash, keeping one where no trash is
 reachable.
 
@@ -127,6 +140,8 @@ class State:
         self.home = paraos_home_dir(paraos_home)
         self.vault = vault
         self.config_path = self.home / "auto-triage.json"
+        self.registry_path = self.home / "vaults.json"
+        self.demoted_path = self.home / "cache" / "auto-triage" / "demoted.json"
         self.ledger = self.home / "cache" / "triage" / "decisions" / f"{vault}.jsonl"
         self.proposals = self.home / "cache" / "triage" / "proposals"
         self.quarantine = self.home / "quarantine" / vault
@@ -134,18 +149,63 @@ class State:
     def config(self):
         return load_json(self.config_path, {})
 
-    def switched_on(self):
+    def registry(self):
+        data = load_json(self.registry_path, [])
+        return data if isinstance(data, list) else []
+
+    def entry(self, entries=None):
+        return next((e for e in (entries if entries is not None else self.registry())
+                     if isinstance(e, dict) and e.get("name") == self.vault), None)
+
+    def policy(self):
+        """The actions switched on: the registry entry's `auto_triage`, else the older file's."""
+        entry = self.entry()
+        if entry is not None and "auto_triage" in entry:
+            return list(entry.get("auto_triage") or [])
         return list(self.config().get(self.vault, {}).get("on", []))
 
+    def demotions(self):
+        rows = list(load_json(self.demoted_path, {}).get(self.vault, []))
+        entry = self.entry()
+        if entry is None or "auto_triage" not in entry:
+            rows += list(self.config().get(self.vault, {}).get("demoted", []))
+        return rows
+
+    def switched_on(self):
+        off = {d.get("action") if isinstance(d, dict) else d for d in
+               load_json(self.demoted_path, {}).get(self.vault, [])}
+        return [a for a in self.policy() if a not in off]
+
+    def demote(self, demotion):
+        data = load_json(self.demoted_path, {})
+        data.setdefault(self.vault, []).append(demotion)
+        write_json(self.demoted_path, data)
+
     def switch(self, action, on, demotion=None):
-        config = self.config()
-        row = config.setdefault(self.vault, {"on": [], "demoted": []})
-        row["on"] = sorted(set(row.get("on", [])) | {action}) if on else \
-            [a for a in row.get("on", []) if a != action]
         if demotion:
-            row.setdefault("demoted", []).append(demotion)
-        write_json(self.config_path, config)
-        return row
+            self.demote(demotion)
+            return {"on": self.switched_on(), "demoted": self.demotions()}
+        entries = self.registry()
+        entry = self.entry(entries)
+        if entry is None:
+            config = self.config()
+            row = config.setdefault(self.vault, {"on": [], "demoted": []})
+            row["on"] = sorted(set(row.get("on", [])) | {action}) if on else \
+                [a for a in row.get("on", []) if a != action]
+            write_json(self.config_path, config)
+        else:
+            current = self.policy()
+            entry["auto_triage"] = sorted(set(current) | {action}) if on else \
+                [a for a in current if a != action]
+            backup_registry(self.registry_path)
+            write_json(self.registry_path, entries)
+        if on:
+            data = load_json(self.demoted_path, {})
+            if data.get(self.vault):
+                data[self.vault] = [d for d in data[self.vault]
+                                    if (d.get("action") if isinstance(d, dict) else d) != action]
+                write_json(self.demoted_path, data)
+        return {"on": self.switched_on(), "demoted": self.demotions()}
 
     def append(self, lines):
         self.ledger.parent.mkdir(parents=True, exist_ok=True)
@@ -164,6 +224,11 @@ class State:
         if not self.quarantine.is_dir():
             return []
         return sorted(d.name for d in self.quarantine.iterdir() if (d / "manifest.json").is_file())
+
+
+def backup_registry(path):
+    if path.is_file():
+        shutil.copy2(path, path.with_name(f"{path.name}.bak-{now_stamp()}"))
 
 
 def now_stamp():
@@ -531,6 +596,39 @@ def switch(args):
     return {"vault": state.vault, **state.switch(args.action, args.on)}
 
 
+def migrate(args):
+    home = paraos_home_dir(args.paraos_home)
+    old = home / "auto-triage.json"
+    if not old.is_file():
+        return {"migrated": [], "kept": [], "note": "no auto-triage.json to migrate"}
+    config = load_json(old)
+    reg_path = home / "vaults.json"
+    entries = load_json(reg_path, [])
+    if not isinstance(entries, list):
+        raise Refused(f"{reg_path} is not a JSON list")
+    by_name = {e.get("name"): e for e in entries if isinstance(e, dict)}
+    demoted_path = home / "cache" / "auto-triage" / "demoted.json"
+    demoted = load_json(demoted_path, {})
+    moved, kept = [], {}
+    for name, row in config.items():
+        if name not in by_name:
+            kept[name] = row
+            continue
+        by_name[name]["auto_triage"] = sorted(set(by_name[name].get("auto_triage") or []) |
+                                              set(row.get("on") or []))
+        if row.get("demoted"):
+            demoted.setdefault(name, []).extend(row["demoted"])
+        moved.append(name)
+    if moved:
+        backup_registry(reg_path)
+        write_json(reg_path, entries)
+        write_json(demoted_path, demoted)
+    old.rename(old.with_name("auto-triage.json.migrated"))
+    if kept:
+        write_json(old, kept)
+    return {"migrated": moved, "kept": sorted(kept)}
+
+
 def purge(args):
     root = paraos_home_dir(args.paraos_home) / "quarantine"
     cutoff = time.time() - args.days * 86400
@@ -547,11 +645,12 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Unattended triage's executor and ledger.")
     sub = ap.add_subparsers(dest="command", required=True)
     commands = {"run": run, "restore": restore, "status": status, "record": record,
-                "switch": switch, "add-exclusion": add_exclusion, "purge": purge}
+                "switch": switch, "add-exclusion": add_exclusion, "purge": purge,
+                "migrate": migrate}
     parsers = {name: sub.add_parser(name) for name in commands}
     for name, p in parsers.items():
         p.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
-        if name not in ("run", "add-exclusion", "purge"):
+        if name not in ("run", "add-exclusion", "purge", "migrate"):
             p.add_argument("--vault-name", required=True)
     parsers["run"].add_argument("--scan", required=True)
     parsers["run"].add_argument("--decisions", required=True)

@@ -444,6 +444,19 @@ def upgrade_first(rows):
 # =========================================================================== the report
 
 @clone_session()
+def auto_triage_check(home, entries):
+    """Vault names in `cache/auto-triage/demoted.json` the registry does not list: a demotion
+    keyed by a name that no longer matches switches nothing off. `legacy` is true while an
+    older `auto-triage.json` is still waiting for `auto_execute.py migrate`."""
+    names = {e.get("name") for e in entries if isinstance(e, dict)}
+    try:
+        demoted = json.loads((home / "cache" / "auto-triage" / "demoted.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        demoted = {}
+    return {"unregistered_demotions": sorted(n for n in demoted if n not in names),
+            "legacy": (home / "auto-triage.json").is_file()}
+
+
 def build_report(registry_path, entries, clone, ref_arg, clone_source, default_clone):
     report = {"registry": {"path": str(registry_path),
                            "entries": len(entries) if isinstance(entries, list) else None}}
@@ -451,6 +464,7 @@ def build_report(registry_path, entries, clone, ref_arg, clone_source, default_c
         report["error"] = f"no registry at {registry_path}" if entries is None else \
             f"{registry_path} lists no vault, or does not parse as a JSON list"
         return report, 3
+    report["auto_triage"] = auto_triage_check(Path(registry_path).parent, entries)
     kit = ref = in_development = None
     if clone is None:
         report["clone"] = {"path": None, "source": None, "error": (
