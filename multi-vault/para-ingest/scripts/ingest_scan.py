@@ -7,10 +7,10 @@
                                [--unread <mailbox> ...] [--paraos-home DIR]
 
 `prepare` reads the registry and the `## Triage sources` of each vault this machine ingests
-(`active: true`, no `retired`, no `machine`), skips a row a `pulled by` marker reserves for
-another roster writer, and groups the connector and fetch-script rows by mailbox. A vault
-with no readable `CLAUDE.md` is an error row that stays a candidate for the mailboxes the
-newest run log listed it under.
+(`active: true`, no `machine`), skips a row a `pulled by` marker reserves for another roster
+writer, and groups the connector and fetch-script rows by mailbox. A vault with no readable
+`CLAUDE.md` is an error row that stays a candidate for the mailboxes the newest run log
+listed it under.
 
 It re-checks the newest earlier write log's `undelivered`: a record is `resolved` where the
 ingest ledger's watermark reaches its `received`, or where every owed vault holds the thread,

@@ -265,7 +265,7 @@ def report(meta, results, columns):
 
 def selected(entries, names, skip, example):
     active = [e for e in entries if isinstance(e, dict) and e.get("active") is True
-              and not e.get("retired") and e.get("name") and e.get("path")]
+              and e.get("name") and e.get("path")]
     chosen = [e for e in active if (not names or e["name"] in names) and e["name"] not in skip]
     if example and "example" not in skip:
         chosen.append({"name": "example", "path": EXAMPLE.as_posix(),

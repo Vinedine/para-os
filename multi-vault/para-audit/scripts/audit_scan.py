@@ -15,11 +15,10 @@ kit files come from para-upgrade/scripts/upgrade_scan.py, whose docstring states
 Both are found beside this skill, or under base/.claude/skills/ in a para-os checkout. What
 this script decides is the audit's own:
 
-Which entries are audited. The registry is the only list, in its own order. An entry with
-a `retired` date (or `true`) is `RETIRED (excluded)`, whether or not its path is there; one
-without a `name` and a `path` is `INVALID`; one whose path is not a folder, or holds no
-`CLAUDE.md`, is `UNREACHABLE`, a missing folder's reason naming the entry's `machine` where it
-has one. Each lands in `excluded`, never dropped. `active` and `machine` change nothing else
+Which entries are audited. The registry is the only list, in its own order. An entry without
+a `name` and a `path` is `INVALID`; one whose path is not a folder, or holds no `CLAUDE.md`, is
+`UNREACHABLE`, a missing folder's reason naming the entry's `machine` where it has one. Each
+lands in `excluded`, never dropped. `active` and `machine` change nothing else
 here: a vault another machine pulls is audited like any other. When every vault on one
 drive is unreachable, and the drive holds two or more of them or its root is not there,
 `drives` names the drive.
@@ -149,10 +148,6 @@ def state_cell(rows):
 
 def excluded_status(entry):
     """(status, reason) for an entry the audit does not read, else None."""
-    if isinstance(entry, dict) and entry.get("retired"):
-        when = entry["retired"]
-        return "RETIRED (excluded)", f"retired {when} in the registry" \
-            if isinstance(when, str) else "`retired: true` in the registry"
     if not isinstance(entry, dict) or not all(
             isinstance(entry.get(k), str) and entry[k].strip() for k in ("name", "path")):
         return "INVALID", "a registry entry needs a `name` and a `path`"

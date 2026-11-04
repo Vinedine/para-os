@@ -179,26 +179,24 @@ class CloneCase(unittest.TestCase):
 # ======================================================== which entries are excluded
 
 class ExcludedStatus(unittest.TestCase):
-    NOWHERE = {"name": "old", "path": "Q:/no such vault"}
-
-    def test_a_retired_entry_is_retired_before_it_is_unreachable(self):
-        self.assertEqual(audit_scan.excluded_status(dict(self.NOWHERE, retired="2026-06-30")),
-                         ("RETIRED (excluded)", "retired 2026-06-30 in the registry"))
-        self.assertEqual(audit_scan.excluded_status(dict(self.NOWHERE, retired=True))[0],
-                         "RETIRED (excluded)")
-        self.assertEqual(audit_scan.excluded_status(self.NOWHERE)[0], "UNREACHABLE")
+    THEIRS = {"name": "theirs", "machine": "the studio laptop"}
 
     def test_an_unreachable_vault_another_machine_pulls_names_that_machine(self):
-        status, reason = audit_scan.excluded_status(dict(self.NOWHERE, machine="the studio laptop"))
+        status, reason = audit_scan.excluded_status(dict(self.THEIRS, path="Q:/no such vault"))
         self.assertEqual(status, "UNREACHABLE")
         self.assertIn("pulled on the studio laptop", reason)
+
+    def test_a_reachable_vault_another_machine_pulls_is_audited(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "CLAUDE.md").write_text("# Theirs\n", encoding="utf-8")
+            self.assertIsNone(audit_scan.excluded_status(dict(self.THEIRS, path=tmp)))
 
 
 # ======================================================== the fixture fleet (Done when)
 
 class FleetCase(CloneCase):
-    """Three registered vaults and one retired entry: aligned, behind with a stale
-    integration copy, unreachable, retired. Audited once for the class."""
+    """Three registered vaults: aligned, behind with a stale integration copy, unreachable.
+    Audited once for the class."""
 
     @classmethod
     def setUpClass(cls):
@@ -207,10 +205,9 @@ class FleetCase(CloneCase):
         build_vault(work / "aligned")
         build_vault(work / "behind", marker="2026.09.01", skill_version=1,
                     logbook_rev="2026.09.01", logbook_body="v1")
-        build_vault(work / "old")
         entries = [cls.entry_at(work, "aligned"), cls.entry_at(work, "behind"),
-                   cls.entry_at(work, "unreachable"), cls.entry_at(work, "old", retired="2026-06-30")]
-        cls.before = {n: tree_bytes(work / n) for n in ("aligned", "behind", "old")}
+                   cls.entry_at(work, "unreachable")]
+        cls.before = {n: tree_bytes(work / n) for n in ("aligned", "behind")}
         cls.report, cls.code = cls.audit_at(work, entries)
 
     def test_answers(self):
@@ -247,11 +244,9 @@ class FleetCase(CloneCase):
         self.assertEqual(len(found), 1)
         self.assertIn("para-notes", found[0]["detail"])
 
-    def test_unreachable_and_retired_are_both_stated(self):
+    def test_unreachable_is_stated(self):
         excluded = {e["name"]: e for e in self.report["excluded"]}
         self.assertEqual(excluded["unreachable"]["status"], "UNREACHABLE")
-        self.assertEqual(excluded["old"]["status"], "RETIRED (excluded)")
-        self.assertEqual(excluded["old"]["reason"], "retired 2026-06-30 in the registry")
 
     def test_the_vault_furthest_behind_goes_first(self):
         self.assertEqual(self.report["upgrade_first"]["name"], "behind")

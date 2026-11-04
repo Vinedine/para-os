@@ -44,7 +44,7 @@ In this order, and nothing else:
 
 1. **The master, in one line**: the ref and its revision. Where `in_development` is set, one more line: a newer revision is in development in the clone's working tree, and it is not the bar.
 2. **One table, one row per audited vault**, in registry order: `Vault`, then `Revision`, `Type`, `Declarations`, `Rules`, `Integrations`, `Skills`, `Sections`, `Size`, each cell as the scan gives it. An inactive vault is a row like any other.
-3. **Excluded**: every `excluded` entry with its status (`RETIRED (excluded)`, `UNREACHABLE`, `INVALID`) and its reason. A `drives` row is one line naming the drive as the cause, above the vaults it took with it, never its vaults as separate failures. With nothing excluded, say so in one line.
+3. **Excluded**: every `excluded` entry with its status (`UNREACHABLE`, `INVALID`) and its reason. A `drives` row is one line naming the drive as the cause, above the vaults it took with it, never its vaults as separate failures. With nothing excluded, say so in one line.
 4. **Fixes**, per vault with findings: each finding's `detail` and `fix`. A vault's `observations` follow under their own label, never as defects.
 5. **One closing line** naming `upgrade_first` and why: revisions behind, then findings. Where it is null, say no vault needs `/para-upgrade`; where no revision could be judged, say which vault goes first cannot be told.
 

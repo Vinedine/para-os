@@ -163,7 +163,7 @@ def find_clone(explicit=None, paraos_home=None):
 
 def registry(paraos_home=None):
     """The machine's vault registry, `<paraos_home>/vaults.json`: every vault this machine
-    knows about, as written (`name`, `path`, `purpose`, `active`, `machine`, `retired`).
+    knows about, as written (`name`, `path`, `purpose`, `active`, `machine`).
     `paraos_home` defaults to `$PARAOS_HOME`, else `~/.paraos`. `[]` where the file is missing
     or unparseable, never an exception: a registry read is background context for a stop
     line, not something a run needs to fail on.
@@ -178,9 +178,8 @@ def registry(paraos_home=None):
 
 def ingested_here(entry):
     """Whether this machine's /para-ingest reads and stages for a registry entry: `active:
-    true`, no `retired` date, and no `machine` naming another machine that pulls it."""
-    return isinstance(entry, dict) and entry.get("active") is True \
-        and not entry.get("retired") and not entry.get("machine")
+    true`, and no `machine` naming another machine that pulls it."""
+    return isinstance(entry, dict) and entry.get("active") is True and not entry.get("machine")
 
 
 def registered_vault(entries, path):

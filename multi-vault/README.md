@@ -6,11 +6,11 @@ It is for the case where you run several vaults; [second-vault.md](second-vault.
 
 ## /para-audit
 
-`/para-audit` reads every vault the registry lists and reports, in one table, each vault's template revision, its declared type, its machine-read lines and roster roles, the rule files base and its add-ons ship, its integration scripts, its bundled skill copies, the `CLAUDE.md` sections that depart from the template and its `CLAUDE.md` size, then names the vault to upgrade first. Every finding names its fix, nearly always `/para-upgrade` in that vault. **It never writes to a vault.** A vault the registry gives a `retired` date is listed as retired, and one it cannot reach is listed as unreachable, never left out.
+`/para-audit` reads every vault the registry lists and reports, in one table, each vault's template revision, its declared type, its machine-read lines and roster roles, the rule files base and its add-ons ship, its integration scripts, its bundled skill copies, the `CLAUDE.md` sections that depart from the template and its `CLAUDE.md` size, then names the vault to upgrade first. Every finding names its fix, nearly always `/para-upgrade` in that vault. **It never writes to a vault.** A vault it cannot reach is listed as unreachable, never left out.
 
 ## /para-global-brief
 
-`/para-global-brief` runs each vault's own daily-brief scan and shows them together, in chat and on one page: today, the rest of the week and the next two weeks with every calendar's meetings, your own vaults by area and person, and every vault's health card. A vault you keep is shown in full, or summed where its registry entry says `"brief": "summary"`; one you steward, or whose roster does not name you, shows its health only. It writes nothing in a vault, and lists retired and unreachable vaults as `/para-audit` does.
+`/para-global-brief` runs each vault's own daily-brief scan and shows them together, in chat and on one page: today, the rest of the week and the next two weeks with every calendar's meetings, your own vaults by area and person, and every vault's health card. A vault you keep is shown in full, or summed where its registry entry says `"brief": "summary"`; one you steward, or whose roster does not name you, shows its health only. It writes nothing in a vault, and lists unreachable vaults as `/para-audit` does.
 
 ## Unattended triage
 

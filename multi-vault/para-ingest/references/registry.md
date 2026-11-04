@@ -20,9 +20,8 @@ A JSON array of entries:
 | `name` | The vault's name, which ledger keys and run logs are keyed on. |
 | `path` | Absolute path to the vault root, the folder holding `CLAUDE.md` and `triage/`. |
 | `purpose` | **The routing input.** One line saying what this vault is for, written for the router rather than for a human index. |
-| `active` | `false` keeps the entry and takes the vault out of the run: no sources pulled, nothing routed to it. A vault someone else writes is `false` unless its writers agreed to receive routed items. |
+| `active` | `false` keeps the entry and takes the vault out of the run: no sources pulled, nothing routed to it. A vault someone else writes is `false` unless its writers agreed to receive routed items. A vault whose work is over is deleted from the registry instead: `/para-audit` and `/para-global-brief` read every entry. |
 | `machine` | Optional. Who pulls the vault, where that is another machine; absent means this one. It takes the vault out of this skill's run whatever `active` says, and `/para-global-brief` shows its health with no triage count. |
-| `retired` | Optional. The date the vault's work ended, `YYYY-MM-DD`; absent while it is live. It takes the vault out of this skill's run, and `/para-audit` and `/para-global-brief` list it as retired and read nothing in it. |
 | `brief` | Optional. `"summary"` has `/para-global-brief` sum a vault you keep (counts by area and its top items) instead of listing every item, for one whose volume would bury the rest. |
 
 ## `purpose` is the field that does the work

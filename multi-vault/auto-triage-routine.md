@@ -14,6 +14,6 @@ A scheduled task that asks for a permission stalls until someone answers it, so 
 
 ## The prompt
 
-> For each vault in `${PARAOS_HOME:-~/.paraos}/vaults.json` that is not retired: run `auto_execute.py status --vault-name <name> --vault <path>`, and skip the vault where `on` is empty or `kill_switch` or `nothing_new` is true. For every other vault, start one reader, scoped to that vault, that loads its own `CLAUDE.md` and runs `/para-triage auto` there. Then print each vault's report, failures first, and rebuild and publish the funnel page as `/para-ingest`'s last step does.
+> For each vault in `${PARAOS_HOME:-~/.paraos}/vaults.json` with no `machine`: run `auto_execute.py status --vault-name <name> --vault <path>`, and skip the vault where `on` is empty or `kill_switch` or `nothing_new` is true. For every other vault, start one reader, scoped to that vault, that loads its own `CLAUDE.md` and runs `/para-triage auto` there. Then print each vault's report, failures first, and rebuild and publish the funnel page as `/para-ingest`'s last step does.
 
 Nothing in a vault learns that another exists: each reader sees one vault.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for global_scan.py. Each pins a rule the script's docstring states: per-vault counts
 from brief_scan, the urgent list across vaults with its vault named, the newest proposal, and
-the retired, invalid and unreachable entries listed, never dropped.
+the invalid and unreachable entries listed, never dropped.
 
     python3 test_global_scan.py
     py -3 test_global_scan.py
@@ -54,12 +54,10 @@ class GlobalScan(unittest.TestCase):
                                         "- [ ] Write the case study\n")
         write(self.tmp / "north", "triage/note.md", "A loose note.\n")
         build_vault(self.tmp / "south", "- [ ] Pay the host invoice 🔼 📅 2026-03-09\n")
-        build_vault(self.tmp / "west", "- [ ] Never read 📅 2026-03-01\n")
         self.entries = [
             {"name": "north", "path": str(self.tmp / "north")},
             {"name": "south", "path": str(self.tmp / "south")},
             {"name": "east", "path": str(self.tmp / "east")},
-            {"name": "west", "path": str(self.tmp / "west"), "retired": "2026-03-01"},
             {"path": str(self.tmp / "north")},
         ]
 
@@ -112,12 +110,9 @@ class GlobalScan(unittest.TestCase):
         urgent = [(t["vault"], t["text"].split(" ")[0]) for t in self.report()["urgent"]]
         self.assertEqual(urgent, [("north", "Send"), ("south", "Pay"), ("north", "Renew")])
 
-    def test_retired_invalid_and_unreachable_are_listed(self):
+    def test_invalid_and_unreachable_are_listed(self):
         excluded = {(e["name"], e["status"]) for e in self.report()["excluded"]}
-        self.assertEqual(excluded, {("east", "UNREACHABLE"), ("west", "RETIRED (excluded)"),
-                                    (None, "INVALID")})
-        west = next(e for e in self.report()["excluded"] if e["name"] == "west")
-        self.assertIn("2026-03-01", west["reason"])
+        self.assertEqual(excluded, {("east", "UNREACHABLE"), (None, "INVALID")})
 
     def test_a_vault_another_machine_pulls_keeps_its_health_but_no_inbound_counts(self):
         self.entries[0]["machine"] = "the studio laptop"

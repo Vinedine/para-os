@@ -6,7 +6,7 @@ own /para-daily-brief scans it, as one JSON document on stdout.
 
 Read-only: never writes a file. Each vault's numbers come from para-daily-brief's
 `brief_scan.scan()`, so they cannot disagree with that vault's own brief; which entries are
-read, and what a retired, malformed or missing one becomes, is para-audit's
+read, and what a malformed or missing one becomes, is para-audit's
 `excluded_status()`. Both are found beside this skill, or in a para-os checkout.
 
 How a vault is shown follows the operator's role in it: `paraos_vault.writer()` against the
@@ -43,8 +43,7 @@ every `meetings.md` line of those vaults (outside `archive/`) from today to `hor
 `🔁 every <cadence>` line repeated from its date, rolled forward past today where it was
 never moved.
 
-`excluded`: every entry not read, with `status` (`RETIRED (excluded)`, `INVALID`,
-`UNREACHABLE`) and `reason`; a vault whose scan fails is `UNREACHABLE` too, never dropped.
+`excluded`: every entry not read, with `status` (`INVALID`, `UNREACHABLE`) and `reason`; a vault whose scan fails is `UNREACHABLE` too, never dropped.
 
 Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one listing no entry.
 """

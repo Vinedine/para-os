@@ -129,8 +129,8 @@ def checked(run, vaults):
         for name in routed:
             if not ingested_here(vaults.get(name)):
                 raise ValueError(f"{where}: routed to {name}, which this machine does not "
-                                 "ingest: the registry lists it inactive, retired or pulled "
-                                 "on another machine")
+                                 "ingest: the registry lists it inactive or pulled on "
+                                 "another machine")
         needed = ["mailbox", "thread_id"] + ([] if signin else ["reason"])
         if routed:
             needed += ["source", "link", "text", "own_messages"]

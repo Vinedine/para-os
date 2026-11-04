@@ -70,7 +70,7 @@ class StageCase(unittest.TestCase):
         self.home.mkdir()
         registry = []
         for name, active, extra in (("alpha", True, {}), ("beta", True, {}),
-                                    ("gamma", False, {}), ("done", True, {"retired": "2026-06-30"}),
+                                    ("gamma", False, {}),
                                     ("theirs", True, {"machine": "the studio laptop"})):
             vault = self.root / name
             (vault / "triage").mkdir(parents=True)
@@ -341,7 +341,7 @@ class Refusals(StageCase):
         self.assertFalse((self.home / "cache" / "ingest" / "runs").exists())
 
     def test_a_route_to_a_vault_this_machine_does_not_ingest_is_refused(self):
-        for vault in ("gamma", "nowhere", "done", "theirs"):
+        for vault in ("gamma", "nowhere", "theirs"):
             with self.subTest(vault=vault):
                 self.assert_refused(self.run_input(threads=[self.thread(routed=[vault])]),
                                     f"thread 1: routed to {vault}")
