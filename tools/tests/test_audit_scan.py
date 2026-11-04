@@ -163,8 +163,9 @@ class CloneCase(unittest.TestCase):
 
     @classmethod
     def audit_at(cls, work, entries, ref=None):
-        return build_report(work / "vaults.json", entries, cls.clone, ref, "explicit",
-                            cls.tmp / "no-home" / "para-os")
+        with mock.patch.dict("os.environ", {"CLAUDE_CONFIG_DIR": str(cls.tmp / "claude")}):
+            return build_report(work / "vaults.json", entries, cls.clone, ref, "explicit",
+                                cls.tmp / "no-home" / "para-os")
 
     def run_audit(self, entries, ref=None):
         return self.audit_at(self.work, entries, ref)
@@ -213,6 +214,7 @@ class FleetCase(CloneCase):
     def test_answers(self):
         self.assertEqual(self.code, 0)
         self.assertEqual(self.report["master"]["revision"], "2026.10.01")
+        self.assertEqual(self.report["tasks"]["findings"], [])
         self.assertEqual([v["name"] for v in self.report["vaults"]], ["aligned", "behind"])
 
     def test_the_aligned_vault_has_no_finding(self):
@@ -859,6 +861,44 @@ class CliCase(CloneCase):
                                "--paraos-home", str(self.work / "empty"),
                                "--clone", str(self.clone)], capture_output=True, text=True)
         self.assertEqual(done.returncode, 3, done.stderr)
+
+
+# ======================================================== scheduled runs
+
+class TasksCase(unittest.TestCase):
+    """The task registry's drift, from paraos_runs.check, with an unreadable app list
+    reported rather than fatal."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.home = Path(self.tmp.name)
+        write(self.home, "tasks.json", json.dumps([{"id": "ingest", "cron": "0 6 * * *"}]))
+        write(self.home, "claude/scheduled-tasks/ingest/SKILL.md", "---\nname: ingest\n---\n")
+        write(self.home, "claude/scheduled-tasks/watch/SKILL.md", "---\nname: watch\n---\n")
+        env = mock.patch.dict("os.environ", {"CLAUDE_CONFIG_DIR": str(self.home / "claude")})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_the_folders_are_compared_when_no_app_list_is_given(self):
+        block = audit_scan.tasks_block(self.home)
+        self.assertFalse(block["app_compared"])
+        self.assertEqual([(f["task"], f["kind"]) for f in block["findings"]],
+                         [("watch", "unregistered")])
+
+    def test_the_app_list_is_compared_when_given(self):
+        write(self.home, "app.json", json.dumps([{"taskId": "ingest", "cron": "0 7 * * *"}]))
+        block = audit_scan.tasks_block(self.home, self.home / "app.json")
+        self.assertTrue(block["app_compared"])
+        self.assertEqual([(f["task"], f["kind"]) for f in block["findings"]],
+                         [("ingest", "schedule_differs"), ("watch", "stale_folder")])
+
+    def test_an_unreadable_app_list_is_reported_and_the_folders_compared(self):
+        block = audit_scan.tasks_block(self.home, self.home / "missing.json")
+        self.assertIn("missing.json", block["app_error"])
+        self.assertFalse(block["app_compared"])
 
 
 if __name__ == "__main__":

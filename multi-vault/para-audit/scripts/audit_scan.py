@@ -2,10 +2,10 @@
 """The mechanics of /para-audit: every vault the registry lists, measured against a para-os
 clone at a committed ref, as one JSON document on stdout.
 
-    py -3 audit_scan.py [--clone <path>] [--ref origin/stable] [--paraos-home DIR] [--indent N]
+    py -3 audit_scan.py [--clone <path>] [--ref origin/stable] [--paraos-home DIR] [--app-tasks FILE] [--indent N]
 
 Read-only: never writes a file, never fetches, never asks, and reads no user-level skill or
-settings file. Every master is read at a committed ref (`origin/stable` unless `--ref` names
+settings file (the scheduled-tasks folder is listed, never read). Every master is read at a committed ref (`origin/stable` unless `--ref` names
 another), never from the clone's working tree; a newer template revision there is reported
 once as `master.in_development` and is never the bar.
 
@@ -64,6 +64,10 @@ The eight columns, one cell each in `cells`, every defect a `finding` with its `
 `upgrade_first` is the vault with an `upgrade` finding that is furthest behind, then has the
 most findings, registry order breaking a tie; null where no vault has one.
 
+`tasks` is para-shared/scripts/paraos_runs.py's `check`: the task registry against the task
+folders and, given `--app-tasks` (the app's own task list, saved as JSON), against what the
+app runs. A list that cannot be read is `tasks.app_error`, and the folders are compared alone.
+
 Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one
 listing no entry; 4 the clone or the ref cannot be read, or its template carries no marker;
 5 no `--ref` and the clone has no `origin/stable`. With no clone found the audit still
@@ -103,6 +107,7 @@ try:
         roster,
     )
     from paraos_clone import addon_root, clone_session, master_template  # noqa: E402
+    from paraos_runs import app_list, check as tasks_check  # noqa: E402
     from upgrade_scan import drift_block, files_block, open_clone, revision_block  # noqa: E402
 except ImportError as missing:
     print(f"audit_scan: {missing}. install para-shared and para-upgrade beside this skill",
@@ -457,7 +462,21 @@ def auto_triage_check(home, entries):
             "legacy": (home / "auto-triage.json").is_file()}
 
 
-def build_report(registry_path, entries, clone, ref_arg, clone_source, default_clone):
+def tasks_block(home, app_tasks=None):
+    app, error = None, None
+    if app_tasks:
+        try:
+            app = app_list(app_tasks)
+        except (OSError, ValueError) as err:
+            error = f"{app_tasks}: {err}"
+    block = tasks_check(home, app)
+    if error:
+        block["app_error"] = error
+    return block
+
+
+def build_report(registry_path, entries, clone, ref_arg, clone_source, default_clone,
+                 app_tasks=None):
     report = {"registry": {"path": str(registry_path),
                            "entries": len(entries) if isinstance(entries, list) else None}}
     if not entries:
@@ -465,6 +484,7 @@ def build_report(registry_path, entries, clone, ref_arg, clone_source, default_c
             f"{registry_path} lists no vault, or does not parse as a JSON list"
         return report, 3
     report["auto_triage"] = auto_triage_check(Path(registry_path).parent, entries)
+    report["tasks"] = tasks_block(Path(registry_path).parent, app_tasks)
     kit = ref = in_development = None
     if clone is None:
         report["clone"] = {"path": None, "source": None, "error": (
@@ -509,6 +529,7 @@ def main(argv=None):
     ap.add_argument("--clone", help="a local para-os clone (default: $PARAOS_HOME/para-os)")
     ap.add_argument("--ref", default=None, help="default: origin/stable")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
+    ap.add_argument("--app-tasks", help="the app's scheduled-task list, saved as JSON")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
     try:
@@ -521,7 +542,7 @@ def main(argv=None):
     entries = registry(args.paraos_home) if registry_path.is_file() else None
     clone, source = find_clone(args.clone, args.paraos_home)
     report, code = build_report(registry_path, entries, clone, args.ref, source,
-                                home / "para-os")
+                                home / "para-os", args.app_tasks)
     json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
     sys.stdout.write("\n")
     error = report.get("error") or (report.get("clone") or {}).get("error")
