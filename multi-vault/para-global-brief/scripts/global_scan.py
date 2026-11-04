@@ -6,7 +6,7 @@ own /para-daily-brief scans it, as one JSON document on stdout.
 
 Read-only: never writes a file. Each vault's numbers come from para-daily-brief's
 `brief_scan.scan()`, so they cannot disagree with that vault's own brief; which entries are
-read, and what a retired, malformed or missing one becomes, is para-audit's
+read, and what a malformed or missing one becomes, is para-audit's
 `excluded_status()`. Both are found beside this skill, or in a para-os checkout.
 
 How a vault is shown follows the operator's role in it: `paraos_vault.writer()` against the
@@ -15,12 +15,15 @@ says `"brief": "summary"`; one they steward, are a member of, or whose roster do
 them is `health` only, since action lines carry no assignee yet.
 
 `vaults`, in registry order: `name`, `role` (null where the roster does not name the
-operator), `treatment`, `type` (the vault's `**Type:**` label), `open`, `overdue`,
-`this_week` (due in the next seven days), `undated`, `triage` (loose files in `triage/`),
-`flags` (the name of every health flag the scan fired), `proposal` (the newest
+operator), `treatment`, `type` (the vault's `**Type:**` label), `machine` (the registry's,
+naming the machine that pulls the vault, else null), `open`, `overdue`, `this_week` (due in
+the next seven days), `undated`, `triage` (loose files in `triage/`), `flags` (the name of
+every health flag the scan fired), `proposal` (the newest
 `<paraos home>/cache/triage/proposals/<name>-<YYYYMMDD-HHMM>.md` by name, else null),
 `health`, the vault's health card as brief_scan.py's `health()` gives it, and `cells`, the
 chat table's `shown`, `open`, `overdue`, `this_week`, `triage` and `health` as it prints them.
+A vault with a `machine` keeps its health card and carries no inbound counts: `triage` and
+`proposal` are null, and its triage cell reads `pulled on <machine>`.
 
 `tasks`: every dated open task of a `full` vault, with its `vault`; `entities`: their
 projects and areas; `undated`: their undated count; `people`: their contact cards with
@@ -40,8 +43,7 @@ every `meetings.md` line of those vaults (outside `archive/`) from today to `hor
 `🔁 every <cadence>` line repeated from its date, rolled forward past today where it was
 never moved.
 
-`excluded`: every entry not read, with `status` (`RETIRED (excluded)`, `INVALID`,
-`UNREACHABLE`) and `reason`; a vault whose scan fails is `UNREACHABLE` too, never dropped.
+`excluded`: every entry not read, with `status` (`INVALID`, `UNREACHABLE`) and `reason`; a vault whose scan fails is `UNREACHABLE` too, never dropped.
 
 Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one listing no entry.
 """
@@ -166,8 +168,8 @@ def cells(row, operator):
     care."""
     shown = row["treatment"] if row["treatment"] != "health" else "health ({})".format(
         row["role"] or ("no operator.json" if operator is None else "not on the roster"))
-    triage = str(row["triage"]) + (f", proposal waiting: {Path(row['proposal']).name}"
-                                   if row["proposal"] else "")
+    triage = f"pulled on {row['machine']}" if row["machine"] else str(row["triage"]) + (
+        f", proposal waiting: {Path(row['proposal']).name}" if row["proposal"] else "")
     flagged = [k.replace("_", " ") for k, s in row["health"]["signals"].items()
                if s["level"] in ("watch", "care")]
     health = LEVEL_WORDS[row["health"]["level"]] + (": " + ", ".join(flagged) if flagged else "")
@@ -177,13 +179,13 @@ def cells(row, operator):
 
 def vault_row(entry, report, home, role, shown, kit=None):
     t, lanes = report["totals"], report["lanes"]
-    name = entry["name"]
+    name, machine = entry["name"], entry.get("machine") or None
     return {"name": name, "role": role, "treatment": shown,
-            "type": declarations(entry["path"])["type"], "open": t["open"],
+            "type": declarations(entry["path"])["type"], "machine": machine, "open": t["open"],
             "overdue": t["overdue"], "this_week": len(lanes.get("this_week", [])),
-            "undated": t["undated"], "triage": len(report["triage"]),
+            "undated": t["undated"], "triage": None if machine else len(report["triage"]),
             "flags": sorted(k for k, v in report["flags"].items() if fired(v)),
-            "proposal": proposal(home, name), "health": report["health"],
+            "proposal": None if machine else proposal(home, name), "health": report["health"],
             "kit": kit_signal(entry, *(kit or (None, None, None))),
             "deep_clean_audit": deep_clean_audit(entry["path"], home)}
 

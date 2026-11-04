@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for global_scan.py. Each pins a rule the script's docstring states: per-vault counts
 from brief_scan, the urgent list across vaults with its vault named, the newest proposal, and
-the retired, invalid and unreachable entries listed, never dropped.
+the invalid and unreachable entries listed, never dropped.
 
     python3 test_global_scan.py
     py -3 test_global_scan.py
@@ -54,12 +54,10 @@ class GlobalScan(unittest.TestCase):
                                         "- [ ] Write the case study\n")
         write(self.tmp / "north", "triage/note.md", "A loose note.\n")
         build_vault(self.tmp / "south", "- [ ] Pay the host invoice 🔼 📅 2026-03-09\n")
-        build_vault(self.tmp / "west", "- [ ] Never read 📅 2026-03-01\n")
         self.entries = [
             {"name": "north", "path": str(self.tmp / "north")},
             {"name": "south", "path": str(self.tmp / "south")},
             {"name": "east", "path": str(self.tmp / "east")},
-            {"name": "west", "path": str(self.tmp / "west"), "retired": True},
             {"path": str(self.tmp / "north")},
         ]
 
@@ -112,10 +110,20 @@ class GlobalScan(unittest.TestCase):
         urgent = [(t["vault"], t["text"].split(" ")[0]) for t in self.report()["urgent"]]
         self.assertEqual(urgent, [("north", "Send"), ("south", "Pay"), ("north", "Renew")])
 
-    def test_retired_invalid_and_unreachable_are_listed(self):
+    def test_invalid_and_unreachable_are_listed(self):
         excluded = {(e["name"], e["status"]) for e in self.report()["excluded"]}
-        self.assertEqual(excluded, {("east", "UNREACHABLE"), ("west", "RETIRED (excluded)"),
-                                    (None, "INVALID")})
+        self.assertEqual(excluded, {("east", "UNREACHABLE"), (None, "INVALID")})
+
+    def test_a_vault_another_machine_pulls_keeps_its_health_but_no_inbound_counts(self):
+        self.entries[0]["machine"] = "the studio laptop"
+        write(self.home, "cache/triage/proposals/north-20260310-0700.md", "x\n")
+        north, south = self.report()["vaults"]
+        self.assertEqual((north["machine"], north["triage"], north["proposal"]),
+                         ("the studio laptop", None, None))
+        self.assertEqual(north["cells"]["triage"], "pulled on the studio laptop")
+        self.assertEqual((north["open"], north["overdue"]), (4, 1))
+        self.assertEqual(north["health"]["signals"]["triage"]["items"], 1)
+        self.assertEqual((south["machine"], south["triage"]), (None, 0))
 
     def test_the_newest_proposal_is_named(self):
         for stamp in ("20260309-0800", "20260310-0700"):

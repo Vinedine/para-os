@@ -153,7 +153,7 @@ def gather(home, days, today=None):
     since = today - timedelta(days=days)
     since_s = since.isoformat()
     registry = [v for v in load_json(os.path.join(home, "vaults.json"), [])
-                if v.get("active", True) and not v.get("retired")]
+                if v.get("active", True) and not v.get("machine")]
 
     # 1. Sources: each vault's Triage sources table, its columns Source | Type | Endpoint | Relevant when
     sources = []

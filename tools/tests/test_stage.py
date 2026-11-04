@@ -69,12 +69,14 @@ class StageCase(unittest.TestCase):
         self.home = self.root / "paraos"
         self.home.mkdir()
         registry = []
-        for name, active in (("alpha", True), ("beta", True), ("gamma", False)):
+        for name, active, extra in (("alpha", True, {}), ("beta", True, {}),
+                                    ("gamma", False, {}),
+                                    ("theirs", True, {"machine": "the studio laptop"})):
             vault = self.root / name
             (vault / "triage").mkdir(parents=True)
             (vault / "CLAUDE.md").write_text("# Vault\n", encoding="utf-8")
-            registry.append({"name": name, "path": vault.as_posix(), "kind": "test",
-                             "purpose": f"The {name} vault.", "active": active})
+            registry.append(dict({"name": name, "path": vault.as_posix(), "kind": "test",
+                                  "purpose": f"The {name} vault.", "active": active}, **extra))
         registry.append({"name": "delta", "path": (self.root / "unmounted").as_posix(),
                          "kind": "test", "purpose": "A drive that is not there.",
                          "active": True})
@@ -338,8 +340,8 @@ class Refusals(StageCase):
         self.assertEqual(self.notes(), [])
         self.assertFalse((self.home / "cache" / "ingest" / "runs").exists())
 
-    def test_a_route_to_a_vault_not_active_in_the_registry_is_refused(self):
-        for vault in ("gamma", "nowhere"):
+    def test_a_route_to_a_vault_this_machine_does_not_ingest_is_refused(self):
+        for vault in ("gamma", "nowhere", "theirs"):
             with self.subTest(vault=vault):
                 self.assert_refused(self.run_input(threads=[self.thread(routed=[vault])]),
                                     f"thread 1: routed to {vault}")

@@ -18,9 +18,10 @@
     "active": true
   },
   {
-    "name": "old-engagement",
-    "path": "C:/Users/<you>/Documents/old-engagement",
-    "purpose": "A finished engagement, kept for reference. Nothing new should route here, which is what active:false says.",
-    "active": false
+    "name": "team-studio",
+    "path": "C:/Users/<you>/Documents/team-studio",
+    "purpose": "The studio the team shares. Its operator pulls its mail on their own machine, so this one shows its health and routes nothing to it.",
+    "active": false,
+    "machine": "<who pulls it>"
   }
 ]

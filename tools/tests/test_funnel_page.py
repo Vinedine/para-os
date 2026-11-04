@@ -67,6 +67,7 @@ class FunnelPageTests(unittest.TestCase):
             {"name": "Alpha", "path": str(self.alpha), "purpose": "Orders and operations.", "active": True},
             {"name": "Beta", "path": str(self.beta), "purpose": "Invoices.", "active": True},
             {"name": "Gone", "path": str(Path(self.tmp) / "gone"), "purpose": "Retired.", "active": False},
+            {"name": "Theirs", "path": str(self.beta), "purpose": "Pulled elsewhere.", "active": True, "machine": "the studio laptop"},
         ]))
         write(self.home, "triage-exclusions.json", json.dumps({
             "ops@example.test": [
