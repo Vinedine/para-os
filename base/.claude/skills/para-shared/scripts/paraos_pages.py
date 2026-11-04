@@ -2,18 +2,28 @@
 """Where a skill's page goes, for every skill that ends on one (para-shared/pages.md).
 
     py -3 paraos_pages.py publish claude|local --page <name> --vault <path>
-    py -3 paraos_pages.py remember <url> --page <name> --title <title> --vault <path>
+    py -3 paraos_pages.py remember <url> --page <name> --title <title> [--producer <name>] --vault <path>
+    py -3 paraos_pages.py retire --page <name> --replaced-by <name>
     py -3 paraos_pages.py run --skill <skill> --scan <scan.json> --out-dir <folder> --vault <path>
     py -3 paraos_pages.py refresh --page <name> [--out-dir <folder>] --vault <path>
     py -3 paraos_pages.py match <title> [<listed title> ...]
 
 A page has a name: a skill's own page is named for the skill (`daily-brief`), a page the vault
-declares for its script's stem (`vendor-board`). Per vault and page,
-`$PARAOS_HOME/cache/<page>/dashboards.json`, keyed by vault path, keeps where the page goes,
-`claude` (the default, a claude.ai artifact) or `local` (the file
-`$PARAOS_HOME/cache/<page>/<vault folder>.html`, which never leaves the machine), and the
-artifact URL and title it was last published under. Deleting the cache only sends the next
-publish back to the title match in pages.md, and to the default.
+declares for its script's stem (`vendor-board`). One index, `$PARAOS_HOME/cache/pages.json`,
+lists each page once per vault: `key` (the vault's path, lowercased; a page of no vault passes
+the para-os home as its vault), `page`, `url` and `title` (the artifact it was last published
+under, null before), `producer`, and once recorded `publish` and `replaced_by`. `publish` is
+where the page goes, `claude` (the default, a claude.ai artifact) or `local` (the file
+`$PARAOS_HOME/cache/<page>/<vault folder>.html`, which never leaves the machine). `producer` is
+the skill a kit page belongs to (`KIT_PAGES`), the vault's key for a page its `## Pages` table
+declares, else the `--producer` a `remember` names, else null. `retire` sets `replaced_by`, the
+page that supersedes it, on every entry of `--page`, prints them, and exits 1 when there is
+none; nothing clears it. Deleting the index only sends the next publish back to the title match
+in pages.md, and to the default.
+
+Where the index is missing, it is read from every `$PARAOS_HOME/cache/<page>/dashboards.json`,
+the per-page store, keyed by vault path, that older copies of this script keep, and the first
+write saves it. Reading never writes, and those files are left as they are.
 
 `run` reads the `## Pages` table of the vault's CLAUDE.md, one row per page: the skill it
 belongs to (`para-pipeline`, `/para-pipeline`) and its script, a path from the vault root, in
@@ -52,34 +62,86 @@ from paraos_vault import (  # noqa: E402
 
 SKILLS_DIR = Path(__file__).resolve().parents[2]
 PUBLISH = ("claude", "local")
+KIT_PAGES = {"daily-brief": "para-daily-brief", "global-brief": "para-global-brief",
+             "funnel": "para-ingest"}
 PAGES_HEADING = "pages"
 RUN_TIMEOUT = 300
 
 
 # ------------------------------------------------------- where a page goes, remembered
 
-def cache_file(page, paraos_home=None):
-    return paraos_home_dir(paraos_home) / "cache" / page / "dashboards.json"
+def index_file(paraos_home=None):
+    return paraos_home_dir(paraos_home) / "cache" / "pages.json"
+
+
+def page_dir(page, paraos_home=None):
+    return paraos_home_dir(paraos_home) / "cache" / page
 
 
 def local_page(vault, page, paraos_home=None):
-    return paraos_home_dir(paraos_home) / "cache" / page / f"{Path(vault).name}.html"
+    return page_dir(page, paraos_home) / f"{Path(vault).name}.html"
 
 
 def vault_key(vault):
     return Path(vault).resolve().as_posix().lower()
 
 
-def load_cache(page, paraos_home=None):
+def producer_of(vault, page):
+    if page in KIT_PAGES:
+        return KIT_PAGES[page]
+    if any(Path(row["script"]).stem == page for row in declared_pages(vault)):
+        return vault_key(vault)
+    return None
+
+
+def _entry(key, page, producer, old):
+    entry = {"key": key, "page": page, "url": old.get("url"), "title": old.get("title"),
+             "producer": producer}
+    if old.get("publish") in PUBLISH:
+        entry["publish"] = old["publish"]
+    return entry
+
+
+def _write(entries, paraos_home=None):
+    path = index_file(paraos_home)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    entries = sorted(entries, key=lambda e: (e["key"], e["page"]))
+    path.write_text(json.dumps(entries, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    return path
+
+
+def _migrate(paraos_home=None):
+    entries = []
+    for old_file in sorted((paraos_home_dir(paraos_home) / "cache").glob("*/dashboards.json")):
+        page = old_file.parent.name
+        try:
+            old = json.loads(old_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        for key, fields in (old.items() if isinstance(old, dict) else ()):
+            if isinstance(fields, dict):
+                entries.append(_entry(key, page, producer_of(key, page), fields))
+    return entries
+
+
+def load_index(paraos_home=None):
+    path = index_file(paraos_home)
+    if not path.exists():
+        return _migrate(paraos_home)
     try:
-        return json.loads(cache_file(page, paraos_home).read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return {}
+        return []
+    return [e for e in data if isinstance(e, dict) and e.get("key") and e.get("page")
+            ] if isinstance(data, list) else []
+
+
+def _find(entries, key, page):
+    return next((e for e in entries if e["key"] == key and e["page"] == page), None)
 
 
 def cached(vault, page, paraos_home=None):
-    entry = load_cache(page, paraos_home).get(vault_key(vault))
-    return entry if isinstance(entry, dict) else {}
+    return _find(load_index(paraos_home), vault_key(vault), page) or {}
 
 
 def remembered_url(vault, page, paraos_home=None):
@@ -91,19 +153,30 @@ def publish_choice(vault, page, paraos_home=None):
     return "local" if cached(vault, page, paraos_home).get("publish") == "local" else "claude"
 
 
-def store(vault, page, paraos_home=None, **fields):
-    path = cache_file(page, paraos_home)
-    data = load_cache(page, paraos_home)
-    entry = data.get(vault_key(vault)) if isinstance(data.get(vault_key(vault)), dict) else {}
+def store(vault, page, paraos_home=None, producer=None, **fields):
+    key = vault_key(vault)
+    entries = load_index(paraos_home)
+    entry = _find(entries, key, page)
+    if entry is None:
+        entry = _entry(key, page, None, {})
+        entries.append(entry)
     entry.update(fields)
-    data[vault_key(vault)] = entry
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    return path
+    entry["producer"] = producer or entry.get("producer") or producer_of(vault, page)
+    return _write(entries, paraos_home)
 
 
-def remember(vault, page, url, title, paraos_home=None):
-    return store(vault, page, paraos_home, url=url, title=title)
+def remember(vault, page, url, title, paraos_home=None, producer=None):
+    return store(vault, page, paraos_home, producer, url=url, title=title)
+
+
+def retire(page, replaced_by, paraos_home=None):
+    entries = load_index(paraos_home)
+    retired = [e for e in entries if e["page"] == page]
+    for entry in retired:
+        entry["replaced_by"] = replaced_by
+    if retired:
+        _write(entries, paraos_home)
+    return retired
 
 
 # ------------------------------------------------------------ an existing page, by title
@@ -223,7 +296,7 @@ def refresh(vault, page, out_dir=None, paraos_home=None, skills_dir=SKILLS_DIR):
     if done.returncode != 0:
         tail = (done.stderr or "").strip().splitlines()[-1:] or [f"exit {done.returncode}"]
         return {"page": page, "error": f"the scan failed: {tail[0]}"}
-    out_dir = Path(out_dir) if out_dir else cache_file(page, paraos_home).parent
+    out_dir = Path(out_dir) if out_dir else page_dir(page, paraos_home)
     out_dir.mkdir(parents=True, exist_ok=True)
     scan = out_dir / f"{page}.scan.json"
     scan.write_text(done.stdout, encoding="utf-8")
@@ -241,7 +314,11 @@ def main(argv=None):
     r.add_argument("url")
     r.add_argument("--page", required=True)
     r.add_argument("--title", required=True)
+    r.add_argument("--producer", help="default: the kit skill or the declaring vault")
     r.add_argument("--vault", required=True)
+    t = sub.add_parser("retire", help="mark a page superseded by another")
+    t.add_argument("--page", required=True)
+    t.add_argument("--replaced-by", required=True)
     g = sub.add_parser("run", help="build the pages a vault declares for a skill")
     g.add_argument("--skill", required=True)
     g.add_argument("--scan", required=True, help="the skill's own scan output")
@@ -264,8 +341,14 @@ def main(argv=None):
         path = store(args.vault, args.page, publish=args.choice)
         print(json.dumps({"publish": args.choice, "cache": path.as_posix()}))
     elif args.cmd == "remember":
-        path = remember(args.vault, args.page, args.url, args.title)
+        path = remember(args.vault, args.page, args.url, args.title, producer=args.producer)
         print(json.dumps({"remembered": args.url, "cache": path.as_posix()}))
+    elif args.cmd == "retire":
+        retired = retire(args.page, args.replaced_by)
+        print(json.dumps({"retired": retired, "cache": index_file().as_posix(),
+                          "error": None if retired else f"no page {args.page} in the index"},
+                         ensure_ascii=False))
+        return 0 if retired else 1
     elif args.cmd == "match":
         print(json.dumps({"match": match(args.title, args.listed)}, ensure_ascii=False))
     elif args.cmd == "refresh":

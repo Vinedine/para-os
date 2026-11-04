@@ -407,11 +407,11 @@ class Cut(unittest.TestCase):
 
 class Cache(DashboardCase):
 
-    def test_the_daily_brief_keeps_its_cache_file(self):
+    def test_the_daily_brief_keeps_its_choice_in_the_pages_index(self):
         with contextlib.redirect_stdout(io.StringIO()) as printed:
             self.assertEqual(main(["--publish", "local", "--vault", str(self.root)]), 0)
         self.assertEqual(Path(json.loads(printed.getvalue())["cache"]),
-                         self.home / "cache" / "daily-brief" / "dashboards.json")
+                         self.home / "cache" / "pages.json")
         remember(self.root, PAGE, "https://example.invalid/b", "BelFoot Dashboard")
         self.assertEqual(publish_choice(self.root, PAGE), "local")
         self.assertEqual(remembered_url(self.root, PAGE), "https://example.invalid/b")

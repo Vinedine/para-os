@@ -10,6 +10,7 @@ For a skill's own page and one the vault declares for it. [scripts/paraos_pages.
 - **Otherwise publish `out`** to the printed `url`, with the printed `description`; icon `chart` on the first publish, none on a republish. A conversation that did not publish that artifact reads it with the Artifact tool first, or the publish is refused; the page is rebuilt whole, so nothing of the live version is merged. Then record it: `paraos_pages.py remember <url> --page <page> --title <title> --vault <vault root>`, `page` and `title` as printed.
 - **No `url`, or the publish refuses it:** list existing artifacts and pass their titles to `paraos_pages.py match <title> <listed title>...`. Read the artifact whose title it prints, then republish to its `url`; create a new artifact only when it prints null, and never rename one: a matched page keeps its title.
 - **Without an Artifact tool, or when the publish fails,** say so in one line and move on. Otherwise give the page's link on one line.
+- **A page another replaces** is retired before the operator deletes its artifact: `paraos_pages.py retire --page <page> --replaced-by <page>`.
 
 ## A page the vault declares
 
