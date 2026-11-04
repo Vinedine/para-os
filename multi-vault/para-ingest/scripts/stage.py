@@ -34,7 +34,7 @@ the `fetch-*.json` beside it, so no message text outlives the run.
 
 Refused with exit 2 before anything is written: a thread left with no routing decision, a
 decision for no thread in the run, on a thread already decided, or naming a vault outside its
-candidates, a route to a vault the registry does not list as active, a routed thread missing
+candidates, a route to a vault this machine does not ingest, a routed thread missing
 what its note needs, a message no dedup key or received instant fits, an unparseable ledger
 or registry, or a run whose log already exists.
 
@@ -89,7 +89,7 @@ from paraos_mail import (  # noqa: E402
     apply_exclusions, dedup_key, ingest_logs, load_exclusions, received_instant, thread_hash,
     watermark,
 )
-from paraos_vault import paraos_home_dir, registry  # noqa: E402
+from paraos_vault import ingested_here, paraos_home_dir, registry  # noqa: E402
 
 SIGNIN = "sign-in or security code"
 SUBJECT_CAP = 80
@@ -127,9 +127,10 @@ def checked(run, vaults):
             raise ValueError(f"{where}: no routing decision")
         routed = [] if signin else list(thread.get("routed") or [])
         for name in routed:
-            if (vaults.get(name) or {}).get("active") is not True:
-                raise ValueError(f"{where}: routed to {name}, which the registry does not "
-                                 "list as active")
+            if not ingested_here(vaults.get(name)):
+                raise ValueError(f"{where}: routed to {name}, which this machine does not "
+                                 "ingest: the registry lists it inactive, retired or pulled "
+                                 "on another machine")
         needed = ["mailbox", "thread_id"] + ([] if signin else ["reason"])
         if routed:
             needed += ["source", "link", "text", "own_messages"]

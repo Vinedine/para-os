@@ -16,9 +16,11 @@ Both are found beside this skill, or under base/.claude/skills/ in a para-os che
 this script decides is the audit's own:
 
 Which entries are audited. The registry is the only list, in its own order. An entry with
-`retired: true` is `RETIRED (excluded)`; one without a `name` and a `path` is `INVALID`; one
-whose path is not a folder, or holds no `CLAUDE.md`, is `UNREACHABLE`. Each lands in
-`excluded`, never dropped. `active: false` changes nothing here. When every vault on one
+a `retired` date (or `true`) is `RETIRED (excluded)`, whether or not its path is there; one
+without a `name` and a `path` is `INVALID`; one whose path is not a folder, or holds no
+`CLAUDE.md`, is `UNREACHABLE`, a missing folder's reason naming the entry's `machine` where it
+has one. Each lands in `excluded`, never dropped. `active` and `machine` change nothing else
+here: a vault another machine pulls is audited like any other. When every vault on one
 drive is unreachable, and the drive holds two or more of them or its root is not there,
 `drives` names the drive.
 
@@ -147,14 +149,17 @@ def state_cell(rows):
 
 def excluded_status(entry):
     """(status, reason) for an entry the audit does not read, else None."""
-    if isinstance(entry, dict) and entry.get("retired") is True:
-        return "RETIRED (excluded)", "`retired: true` in the registry"
+    if isinstance(entry, dict) and entry.get("retired"):
+        when = entry["retired"]
+        return "RETIRED (excluded)", f"retired {when} in the registry" \
+            if isinstance(when, str) else "`retired: true` in the registry"
     if not isinstance(entry, dict) or not all(
             isinstance(entry.get(k), str) and entry[k].strip() for k in ("name", "path")):
         return "INVALID", "a registry entry needs a `name` and a `path`"
     path = Path(entry["path"])
     if not path.is_dir():
-        return "UNREACHABLE", "the path is not there: not mounted, or moved"
+        return "UNREACHABLE", f"the path is not there: pulled on {entry['machine']}" \
+            if entry.get("machine") else "the path is not there: not mounted, or moved"
     if not (path / "CLAUDE.md").is_file():
         return "UNREACHABLE", "the path holds no CLAUDE.md"
     return None

@@ -167,6 +167,17 @@ class Plan(Case):
         self.assertEqual([v["name"] for v in got["vaults"]], ["alpha", "quiet"])
         self.assertFalse(next(v for v in got["vaults"] if v["name"] == "quiet")["declared"])
 
+    def test_a_retired_vault_and_one_another_machine_pulls_are_left_out_though_active(self):
+        self.vault("alpha", [connector_row(WORK)])
+        self.vault("done", [connector_row(SHARED)])
+        self.vault("theirs", [connector_row(SHARED)])
+        self.entries[1]["retired"] = "2026-06-30"
+        self.entries[2]["machine"] = "the studio laptop"
+        self.save_registry()
+        got = self.prepare()
+        self.assertEqual([c["mailbox"] for c in got["connectors"]], [WORK])
+        self.assertEqual([v["name"] for v in got["vaults"]], ["alpha"])
+
     def test_an_unmounted_vault_is_an_error_not_an_absence(self):
         self.vault("alpha", [connector_row(WORK)])
         self.entries.append({"name": "gone", "path": (self.root / "nowhere").as_posix(),

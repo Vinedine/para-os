@@ -6,7 +6,7 @@
 #   south  `active: false`, still audited; a roster on which Bram has no role; a CLAUDE.md of
 #          240 lines, over the 200-line target
 #   east   registered at a path that does not exist: UNREACHABLE
-#   west   `retired: true`, on disk all the same: RETIRED (excluded)
+#   west   a `retired` date, on disk all the same: RETIRED (excluded)
 #
 # The registry holds absolute paths: `pwd -W` is Git Bash's Windows form, `pwd` elsewhere.
 set -e
@@ -37,6 +37,6 @@ cat > paraos/vaults.json <<EOF
   {"name": "east", "path": "$here/vaults/east",
    "purpose": "The eastern client engagement, on a shared drive.", "active": true},
   {"name": "west", "path": "$here/vaults/west",
-   "purpose": "A finished engagement, kept for reference.", "active": false, "retired": true}
+   "purpose": "A finished engagement, kept for reference.", "active": false, "retired": "2026-06-30"}
 ]
 EOF

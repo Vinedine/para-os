@@ -59,7 +59,7 @@ class GlobalScan(unittest.TestCase):
             {"name": "north", "path": str(self.tmp / "north")},
             {"name": "south", "path": str(self.tmp / "south")},
             {"name": "east", "path": str(self.tmp / "east")},
-            {"name": "west", "path": str(self.tmp / "west"), "retired": True},
+            {"name": "west", "path": str(self.tmp / "west"), "retired": "2026-03-01"},
             {"path": str(self.tmp / "north")},
         ]
 
@@ -116,6 +116,19 @@ class GlobalScan(unittest.TestCase):
         excluded = {(e["name"], e["status"]) for e in self.report()["excluded"]}
         self.assertEqual(excluded, {("east", "UNREACHABLE"), ("west", "RETIRED (excluded)"),
                                     (None, "INVALID")})
+        west = next(e for e in self.report()["excluded"] if e["name"] == "west")
+        self.assertIn("2026-03-01", west["reason"])
+
+    def test_a_vault_another_machine_pulls_keeps_its_health_but_no_inbound_counts(self):
+        self.entries[0]["machine"] = "the studio laptop"
+        write(self.home, "cache/triage/proposals/north-20260310-0700.md", "x\n")
+        north, south = self.report()["vaults"]
+        self.assertEqual((north["machine"], north["triage"], north["proposal"]),
+                         ("the studio laptop", None, None))
+        self.assertEqual(north["cells"]["triage"], "pulled on the studio laptop")
+        self.assertEqual((north["open"], north["overdue"]), (4, 1))
+        self.assertEqual(north["health"]["signals"]["triage"]["items"], 1)
+        self.assertEqual((south["machine"], south["triage"]), (None, 0))
 
     def test_the_newest_proposal_is_named(self):
         for stamp in ("20260309-0800", "20260310-0700"):

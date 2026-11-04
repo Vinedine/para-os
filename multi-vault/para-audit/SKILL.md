@@ -59,4 +59,4 @@ What a finding means for the operator, beyond its cell: [references/checks.md](r
 ## Related skills
 
 - `/para-upgrade` - applies every finding routed to it, one vault at a time. Run it in the vault this skill names first.
-- `/para-ingest` - the registry's other reader. `active: false` takes a vault out of it, never out of this audit.
+- `/para-ingest` - the registry's other reader. `active: false` or a `machine` takes a vault out of it, never out of this audit.

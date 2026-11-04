@@ -176,6 +176,24 @@ class CloneCase(unittest.TestCase):
         return [f for f in row["findings"] if f["check"] == check]
 
 
+# ======================================================== which entries are excluded
+
+class ExcludedStatus(unittest.TestCase):
+    NOWHERE = {"name": "old", "path": "Q:/no such vault"}
+
+    def test_a_retired_entry_is_retired_before_it_is_unreachable(self):
+        self.assertEqual(audit_scan.excluded_status(dict(self.NOWHERE, retired="2026-06-30")),
+                         ("RETIRED (excluded)", "retired 2026-06-30 in the registry"))
+        self.assertEqual(audit_scan.excluded_status(dict(self.NOWHERE, retired=True))[0],
+                         "RETIRED (excluded)")
+        self.assertEqual(audit_scan.excluded_status(self.NOWHERE)[0], "UNREACHABLE")
+
+    def test_an_unreachable_vault_another_machine_pulls_names_that_machine(self):
+        status, reason = audit_scan.excluded_status(dict(self.NOWHERE, machine="the studio laptop"))
+        self.assertEqual(status, "UNREACHABLE")
+        self.assertIn("pulled on the studio laptop", reason)
+
+
 # ======================================================== the fixture fleet (Done when)
 
 class FleetCase(CloneCase):
@@ -191,7 +209,7 @@ class FleetCase(CloneCase):
                     logbook_rev="2026.09.01", logbook_body="v1")
         build_vault(work / "old")
         entries = [cls.entry_at(work, "aligned"), cls.entry_at(work, "behind"),
-                   cls.entry_at(work, "unreachable"), cls.entry_at(work, "old", retired=True)]
+                   cls.entry_at(work, "unreachable"), cls.entry_at(work, "old", retired="2026-06-30")]
         cls.before = {n: tree_bytes(work / n) for n in ("aligned", "behind", "old")}
         cls.report, cls.code = cls.audit_at(work, entries)
 
@@ -233,6 +251,7 @@ class FleetCase(CloneCase):
         excluded = {e["name"]: e for e in self.report["excluded"]}
         self.assertEqual(excluded["unreachable"]["status"], "UNREACHABLE")
         self.assertEqual(excluded["old"]["status"], "RETIRED (excluded)")
+        self.assertEqual(excluded["old"]["reason"], "retired 2026-06-30 in the registry")
 
     def test_the_vault_furthest_behind_goes_first(self):
         self.assertEqual(self.report["upgrade_first"]["name"], "behind")

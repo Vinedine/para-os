@@ -6,10 +6,11 @@
     py -3 ingest_scan.py route --work <dir> [--connectors <threads.json>]
                                [--unread <mailbox> ...] [--paraos-home DIR]
 
-`prepare` reads the registry and each active vault's `## Triage sources`, skips a row a
-`pulled by` marker reserves for another roster writer, and groups the connector and
-fetch-script rows by mailbox. A vault with no readable `CLAUDE.md` is an error row that stays
-a candidate for the mailboxes the newest run log listed it under.
+`prepare` reads the registry and the `## Triage sources` of each vault this machine ingests
+(`active: true`, no `retired`, no `machine`), skips a row a `pulled by` marker reserves for
+another roster writer, and groups the connector and fetch-script rows by mailbox. A vault
+with no readable `CLAUDE.md` is an error row that stays a candidate for the mailboxes the
+newest run log listed it under.
 
 It re-checks the newest earlier write log's `undelivered`: a record is `resolved` where the
 ingest ledger's watermark reaches its `received`, or where every owed vault holds the thread,
@@ -91,8 +92,8 @@ from paraos_mail import (  # noqa: E402
     note_name_parts, received_instant, thread_hash, watermark,
 )
 from paraos_vault import (  # noqa: E402
-    EMAIL_RE, TEXT_SUFFIXES, down_drives, lifecycles, operator_card, paraos_home_dir,
-    registry, reserved_for, roster, triage_sources, writer,
+    EMAIL_RE, TEXT_SUFFIXES, down_drives, ingested_here, lifecycles, operator_card,
+    paraos_home_dir, registry, reserved_for, roster, triage_sources, writer,
 )
 
 WINDOW_DAYS = {"write": 2, "preview": 30}
@@ -331,7 +332,7 @@ def prepare(mode, paraos_home=None, now=None, days=None):
     vaults, mailboxes, syncs, skipped, errors = [], {}, [], [], []
 
     for entry in entries:
-        if entry.get("active") is not True:
+        if not ingested_here(entry):
             continue
         name, root = entry.get("name"), Path(str(entry.get("path") or ""))
         if not (root / "CLAUDE.md").is_file():
