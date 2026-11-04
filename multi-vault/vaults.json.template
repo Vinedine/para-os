@@ -9,7 +9,11 @@
     "name": "household",
     "path": "C:/Users/<you>/Documents/household",
     "purpose": "Home and family logistics: the house, the car, insurers, utilities, schools, and the paperwork any of them generate.",
-    "active": true
+    "active": true,
+    "auto_triage": [
+      "Delete (duplicate)",
+      "Dismiss (noise)"
+    ]
   },
   {
     "name": "side-business",

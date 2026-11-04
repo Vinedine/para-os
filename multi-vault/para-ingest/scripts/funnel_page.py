@@ -148,6 +148,28 @@ def executor_path():
     return str(beside) if beside.is_file() else "auto_execute.py"
 
 
+def auto_triage_switches(home):
+    """Per vault, `{"on", "demoted"}`: the registry entry's `auto_triage` minus the demotions in
+    `cache/auto-triage/demoted.json`, else the older `auto-triage.json` for a vault whose entry
+    has no `auto_triage`. The same rule `auto_execute.py` acts on."""
+    legacy = load_json(os.path.join(home, "auto-triage.json"), {})
+    demoted = load_json(os.path.join(home, "cache", "auto-triage", "demoted.json"), {})
+    registry = load_json(os.path.join(home, "vaults.json"), [])
+    action = lambda d: d.get("action") if isinstance(d, dict) else d
+    out = {}
+    for e in registry if isinstance(registry, list) else []:
+        if isinstance(e, dict) and "auto_triage" in e:
+            off = demoted.get(e.get("name"), [])
+            names = {action(d) for d in off}
+            out[e["name"]] = {"on": [a for a in e.get("auto_triage") or [] if a not in names], "demoted": off}
+    for name, row in (legacy.items() if isinstance(legacy, dict) else []):
+        if name not in out:
+            names = {action(d) for d in demoted.get(name, [])}
+            out[name] = {"on": [a for a in row.get("on") or [] if a not in names],
+                         "demoted": list(row.get("demoted") or []) + list(demoted.get(name, []))}
+    return out
+
+
 def gather(home, days, today=None):
     today = today or date.today()
     since = today - timedelta(days=days)
@@ -340,7 +362,7 @@ def gather(home, days, today=None):
     decided = len(glob.glob(os.path.join(home, "cache", "triage", "proposals", "decided", "*.md")))
 
     # 6. Execution: switches, kill switch, quarantine
-    switches = load_json(os.path.join(home, "auto-triage.json"), {})
+    switches = auto_triage_switches(home)
     kill = os.path.exists(os.path.join(home, "auto-triage.off"))
     exe = executor_path()
     quarantine = []
@@ -719,7 +741,7 @@ def render(d):
                  f'{sum(x["window_accepted"] for x in d["decisions"].values())} of them the recommendation unchanged; {d["waiting_items"]} item(s) wait in proposals; {d["acted"]} were taken unattended'
                  + (": " + acted_text if acted_text else "") + '.</p>')
     parts.append('<div class="foot">Read from <code>vaults.json</code>, each vault\'s <code>## Triage sources</code>, <code>triage-exclusions.json</code>, <code>cache/ingest/ledger.json</code> and <code>cache/ingest/runs/</code>, '
-                 '<code>cache/triage/decisions/</code>, <code>cache/triage/proposals/</code>, <code>auto-triage.json</code>, <code>auto-triage.off</code> and <code>quarantine/</code>. Nothing on this page was written by hand.</div>')
+                 '<code>cache/triage/decisions/</code>, <code>cache/triage/proposals/</code>, <code>vaults.json</code> (<code>auto_triage</code>), <code>cache/auto-triage/demoted.json</code>, <code>auto-triage.off</code> and <code>quarantine/</code>. Nothing on this page was written by hand.</div>')
     parts.append('</div>')
     parts.append("<script>" + TABLES_JS + "</script>")
     return "\n".join(parts)
