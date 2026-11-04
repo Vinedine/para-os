@@ -39,7 +39,9 @@ import clean_scan
 from clean_scan import (
     DEFAULT_DATED_PATTERN, DEFAULT_NEXT_STEPS_HEADINGS, main, scan,
 )
-from paraos_vault import STALE_FILE_DAYS, changed, scan_snapshot  # made importable by clean_scan's own guard
+from paraos_vault import (  # made importable by clean_scan's own guard
+    STALE_FILE_DAYS, changed, duplicates, hashes, scan_snapshot,
+)
 
 TODAY = date(2026, 9, 22)
 LEAD_LIFECYCLE = ("# Vault\n\n## Deal lifecycle\n\n| Stage | PARA home |\n|---|---|\n"
@@ -792,6 +794,23 @@ class Duplicates(VaultCase):
         skipped = self.run_scan("1")["phase1"]["duplicates"]["skipped"]
         self.assertIn("projects/acme/sources/photos/a.jpg", skipped)
 
+    def test_only_a_shared_size_is_read_and_the_report_matches_a_full_read(self):
+        # On a vault a streaming client syncs, reading a file downloads it.
+        write(self.root, "projects/a/plan.md", "a" * 250)
+        write(self.root, "projects/b/plan.md", "a" * 250)
+        write(self.root, "projects/a/same-size.md", "b" * 250)
+        write(self.root, "projects/a/unique.md", "c" * 300)
+        write(self.root, "projects/a/photos/unique.jpg", "d" * 400)
+        write(self.root, "projects/a/photos/same-size.jpg", "a" * 250)
+        full = hashes(self.root)
+        real, read = Path.read_bytes, []
+        with mock.patch.object(Path, "read_bytes", autospec=True,
+                               side_effect=lambda p: read.append(p.name) or real(p)):
+            report = clean_scan.duplicate_report(self.root)
+        self.assertEqual([g["files"] for g in report["groups"]], duplicates(full))
+        self.assertEqual(report["skipped"], full["skipped"])
+        self.assertEqual(sorted(read), ["plan.md", "plan.md", "same-size.md"])
+
 
 class FigurePairs(VaultCase):
 
@@ -952,6 +971,17 @@ class Archive(VaultCase):
         write(self.root, "archive/ideas/old/README.md", "# Old\n")
         write(self.root, "archive/meetings/nested/20260101 Call.md", "x\n")
         self.assertEqual(self.run_scan("1")["phase1"]["archive"]["missing_record"], [])
+
+    def test_an_area_archived_whole_is_one_entity_and_an_index_readme_is_not(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/old-area/README.md", "# Old area\n\n**Status:** Archived\n")
+        write(self.root, "archive/old-area/sources/a.md", "a" * 250)
+        write(self.root, "archive/old-area/b.md", "a" * 250)
+        write(self.root, "archive/projects/README.md", "# archive / projects\n")
+        write(self.root, "archive/projects/acme/sources/note.md", "x\n")
+        phase1 = self.run_scan("1")["phase1"]
+        self.assertEqual(phase1["archive"]["missing_record"], ["archive/projects/acme"])
+        self.assertEqual([g["cross_entity"] for g in phase1["duplicates"]["groups"]], [False])
 
     def test_a_card_checkbox_is_misplaced_where_the_network_row_says_never(self):
         write(self.root, "CLAUDE.md", "# Vault\n\n### Where a checkbox may live\n\n"

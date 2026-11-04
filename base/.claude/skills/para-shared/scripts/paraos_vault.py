@@ -46,6 +46,7 @@ import re
 import subprocess
 import sys
 import unicodedata
+from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from difflib import SequenceMatcher
@@ -2198,7 +2199,7 @@ TEXT_SUFFIXES = (".md", ".txt")
 
 
 def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, within=None,
-           eol=False):
+           eol=False, shared=False):
     """Every file in the vault at or above `min_bytes` by content digest, as {path: md5},
     with what a skipped folder holds named under `skipped` rather than dropped: a scan that
     passed over a folder in silence reports a vault it never read as clean. A dot-folder is
@@ -2208,11 +2209,13 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
     files are even opened, for a vault synced by a streaming cloud client where reading a
     file's bytes downloads it: a file `stat` alone rules out is not listed at all, not even
     under `skipped`. Both default to `None`, which keeps today's answer exactly.
+    `shared` opens only a byte size two of the remaining files share, since a size no other
+    file has holds no copy; `skipped` is unchanged. It compares raw sizes, so not with `eol`.
     `eol` digests a text file (`TEXT_SUFFIXES`) with its CRLF line endings read as LF.
     """
     vault = Path(vault)
     lowered = {s.lower() for s in skip}
-    digests, skipped = {}, []
+    found, digests, skipped = {}, {}, []
     for path in sorted(vault.rglob("*")):
         if not path.is_file():
             continue
@@ -2224,19 +2227,25 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
             continue
         try:
             size = path.stat().st_size
-            if size < min_bytes:
-                continue
-            if sizes is not None and size not in sizes:
-                continue
-            if any(p.lower() in lowered for p in parts[:-1]):
-                skipped.append(rel)
-                continue
-            data = path.read_bytes()
-            if eol and path.suffix.lower() in TEXT_SUFFIXES:
-                data = data.replace(b"\r\n", b"\n")
-            digests[rel] = hashlib.md5(data).hexdigest()
         except OSError:
             continue
+        if size < min_bytes or (sizes is not None and size not in sizes):
+            continue
+        if any(p.lower() in lowered for p in parts[:-1]):
+            skipped.append(rel)
+            continue
+        found[rel] = (path, size)
+    counts = Counter(size for _, size in found.values())
+    for rel, (path, size) in found.items():
+        if shared and counts[size] < 2:
+            continue
+        try:
+            data = path.read_bytes()
+        except OSError:
+            continue
+        if eol and path.suffix.lower() in TEXT_SUFFIXES:
+            data = data.replace(b"\r\n", b"\n")
+        digests[rel] = hashlib.md5(data).hexdigest()
     return {"files": digests, "skipped": skipped}
 
 
