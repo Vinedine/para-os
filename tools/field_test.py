@@ -54,7 +54,7 @@ EXAMPLE = ROOT / "examples" / "belfoot-vault"
 # What the scans read from the para-os home: no message text, no quarantined file, no secret.
 COPIED = ("*.json", "auto-triage.off", "cache/ingest/ledger.json", "cache/ingest/runs/*.json",
           "cache/triage/**/*", "cache/triage-email/*.json", "cache/*/synced.json",
-          "data/*/synced.json", "cache/*/dashboards.json", "data/deep-clean/*",
+          "data/*/synced.json", "cache/pages.json", "cache/*/dashboards.json", "data/deep-clean/*",
           "quarantine/*/*/manifest.json")
 TIMEOUT = 600
 CHANGES_SHOWN = 40

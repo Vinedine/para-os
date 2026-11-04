@@ -25,8 +25,8 @@ SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-shared" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 from paraos_pages import (  # noqa: E402
-    declared_pages, local_page, main, match, publish_choice, refresh, remember, remembered_url,
-    run, store,
+    KIT_PAGES, declared_pages, index_file, load_index, local_page, main, match, publish_choice,
+    refresh, remember, remembered_url, retire, run, store, vault_key,
 )
 
 PAGES = """# Example Vault Conventions
@@ -89,8 +89,8 @@ class Cache(PagesCase):
         self.assertIsNone(remembered_url(self.root, "daily-brief"))
         self.assertIsNone(remembered_url(Path(self.tmp.name) / "other", "board"))
 
-    def test_a_corrupt_cache_reads_as_empty_and_claude_is_the_default(self):
-        write(self.home, "cache/board/dashboards.json", "{not json")
+    def test_a_corrupt_index_reads_as_empty_and_claude_is_the_default(self):
+        write(self.home, "cache/pages.json", "{not json")
         self.assertIsNone(remembered_url(self.root, "board"))
         self.assertEqual(publish_choice(self.root, "board"), "claude")
 
@@ -99,6 +99,78 @@ class Cache(PagesCase):
         remember(self.root, "board", "https://example.invalid/b", "Example Board")
         self.assertEqual(publish_choice(self.root, "board"), "local")
         self.assertEqual(local_page(self.root, "board"), self.home / "cache" / "board" / "vault.html")
+
+
+class Index(PagesCase):
+
+    def entry(self, page, key=None):
+        key = key or vault_key(self.root)
+        return next(e for e in load_index() if e["key"] == key and e["page"] == page)
+
+    def test_remember_keeps_one_entry_per_vault_and_page_with_its_producer(self):
+        remember(self.root, "daily-brief", "https://example.invalid/a", "Example Dashboard")
+        remember(self.root, "daily-brief", "https://example.invalid/b", "Example Dashboard")
+        self.assertEqual(json.loads(index_file().read_text(encoding="utf-8")),
+                         [{"key": vault_key(self.root), "page": "daily-brief",
+                           "url": "https://example.invalid/b", "title": "Example Dashboard",
+                           "producer": "para-daily-brief"}])
+
+    def test_the_producer_is_the_kit_skill_the_declaring_vault_or_the_one_named(self):
+        for page, skill in KIT_PAGES.items():
+            store(self.home, page, publish="claude")
+            self.assertEqual(self.entry(page, vault_key(self.home))["producer"], skill)
+        remember(self.root, "board", "https://example.invalid/c", "Example Board")
+        self.assertEqual(self.entry("board")["producer"], vault_key(self.root))
+        remember(self.root, "by-hand", "https://example.invalid/d", "By Hand")
+        self.assertIsNone(self.entry("by-hand")["producer"])
+        remember(self.root, "by-hand", "https://example.invalid/d", "By Hand", producer="ops")
+        self.assertEqual(self.entry("by-hand")["producer"], "ops")
+
+    def test_every_kit_page_is_named_by_a_script_of_its_skill(self):
+        for page, skill in KIT_PAGES.items():
+            scripts = [p for p in ROOT.glob(f"**/{skill}/scripts/*.py")
+                       if "examples" not in p.parts]
+            self.assertTrue(any(f'"{page}"' in p.read_text(encoding="utf-8") for p in scripts),
+                            f"{skill} publishes no page named {page}")
+
+    def test_the_old_cache_files_are_read_until_a_write_saves_them_into_the_index(self):
+        old = {vault_key(self.root): {"publish": "local", "title": "Example Dashboard",
+                                      "url": "https://example.invalid/e"},
+               "c:/other": {"publish": "local"}}
+        daily = write(self.home, "cache/daily-brief/dashboards.json", json.dumps(old))
+        write(self.home, "cache/board/dashboards.json", json.dumps(
+            {vault_key(self.root): {"title": "Example Board", "url": "https://example.invalid/f"}}))
+        write(self.home, "cache/broken/dashboards.json", "{not json")
+        self.assertEqual(publish_choice(self.root, "daily-brief"), "local")
+        self.assertEqual(remembered_url(self.root, "board"), "https://example.invalid/f")
+        self.assertEqual(self.entry("daily-brief"),
+                         {"key": vault_key(self.root), "page": "daily-brief",
+                          "url": "https://example.invalid/e", "title": "Example Dashboard",
+                          "producer": "para-daily-brief", "publish": "local"})
+        self.assertEqual(self.entry("board")["producer"], vault_key(self.root))
+        self.assertIsNone(self.entry("daily-brief", "c:/other")["url"])
+        self.assertFalse(index_file().exists())
+        retire("board", "example-board-2")
+        self.assertTrue(index_file().is_file())
+        self.assertEqual(json.loads(daily.read_text(encoding="utf-8")), old)
+        write(self.home, "cache/daily-brief/dashboards.json", json.dumps(
+            {vault_key(self.root): {"url": "https://example.invalid/old"}}))
+        self.assertEqual(remembered_url(self.root, "daily-brief"), "https://example.invalid/e")
+
+    def test_retire_marks_every_entry_of_the_page_and_keeps_its_url(self):
+        remember(self.home, "global-brief", "https://example.invalid/g", "Global Brief")
+        remember(self.home, "funnel", "https://example.invalid/h", "Triage funnel")
+        self.assertNotIn("replaced_by", self.entry("global-brief", vault_key(self.home)))
+        [retired] = retire("global-brief", "command-center")
+        self.assertEqual(retired["replaced_by"], "command-center")
+        self.assertEqual(self.entry("global-brief", vault_key(self.home))["replaced_by"],
+                         "command-center")
+        self.assertNotIn("replaced_by", self.entry("funnel", vault_key(self.home)))
+        self.assertEqual(remembered_url(self.home, "global-brief"), "https://example.invalid/g")
+        remember(self.home, "global-brief", "https://example.invalid/g", "Global Brief")
+        self.assertEqual(self.entry("global-brief", vault_key(self.home))["replaced_by"],
+                         "command-center")
+        self.assertEqual(retire("nothing", "command-center"), [])
 
 
 class Match(unittest.TestCase):
@@ -220,6 +292,17 @@ class Cli(PagesCase):
                          (0, ["https://example.invalid/d"]))
         self.assertEqual(self.call(["match", "Example Board", "Other", "example-board"])[1],
                          {"match": "example-board"})
+
+    def test_retire_names_what_it_retired_and_fails_on_an_unknown_page(self):
+        self.call(["remember", "https://example.invalid/i", "--page", "funnel", "--title",
+                   "Triage funnel", "--vault", str(self.home)])
+        code, printed = self.call(["retire", "--page", "funnel", "--replaced-by",
+                                   "command-center"])
+        self.assertEqual((code, [e["replaced_by"] for e in printed["retired"]]),
+                         (0, ["command-center"]))
+        code, printed = self.call(["retire", "--page", "nothing", "--replaced-by", "x"])
+        self.assertEqual((code, printed["retired"]), (1, []))
+        self.assertIn("nothing", printed["error"])
 
 
 if __name__ == "__main__":
