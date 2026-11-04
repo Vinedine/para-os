@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Tests for render_global.py. Each pins a rule the script's docstring states: the page holds
 the scan's dated items, summed vaults and health cards, the calendars' events merged with the
-`meetings.md` ones, and a next action naming a task the scan does not hold is an error.
+`meetings.md` ones, and a next action naming a task the scan does not hold is an error; every
+render replaces the cached page data, whose next action a reader replaces after 26 hours.
 
     python3 test_render_global.py
     py -3 test_render_global.py
@@ -18,6 +19,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -25,7 +27,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "multi-vault" / "para-global-brief" / "scripts"))
 
 from global_scan import build_report  # noqa: E402
-from render_global import JudgmentError, kit_value, main, page_data, render  # noqa: E402
+from render_global import (  # noqa: E402
+    JudgmentError, kit_value, main, page_data, read_brief, render, write_brief,
+)
 from test_global_scan import TODAY, build_vault, write  # noqa: E402
 
 DATA_RE = re.compile(r'<script id="data" type="application/json">(.*?)</script>', re.S)
@@ -132,6 +136,40 @@ class RenderGlobal(unittest.TestCase):
             self.assertEqual(main(["--publish", "local"]), 0)
             main(["--scan", str(scan_path), "--judgment", str(judgment_path)])
         self.assertTrue((self.home / "cache" / "global-brief" / "paraos.html").is_file())
+
+    def test_every_render_replaces_the_cached_page_data(self):
+        scan_path = write(self.tmp, "scan.json", json.dumps(self.scan()))
+        brief = self.home / "cache" / "global-brief" / "brief.json"
+        for text in ("Send the launch note", "Brief the copywriter"):
+            judgment_path = write(self.tmp, "judgment.json", json.dumps(
+                self.judgment(next_action={"text": text, "vault": "north"})))
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["--scan", str(scan_path), "--judgment", str(judgment_path),
+                      "--out", str(self.tmp / "page.html"), "--paraos-home", str(self.home)])
+            cached = json.loads(brief.read_text(encoding="utf-8"))
+            self.assertEqual(cached["next_action"], {"text": text, "vault": "north"})
+        self.assertEqual(sorted(p.name for p in brief.parent.iterdir()), ["brief.json"])
+        self.assertEqual([e["title"] for e in cached["events"]], ["Demo", "Kick-off"])
+        self.assertEqual(datetime.fromisoformat(cached["generated_at"]).date(), date.today())
+
+    def test_a_brief_older_than_26_hours_falls_back_to_the_oldest_top_priority_late_item(self):
+        data = page_data(self.scan(), self.judgment(next_action={"text": "Judged", "vault": "north"}),
+                         False)
+        data["tasks"].append(dict(data["tasks"][0], text="Older but plain", date="2026-03-01",
+                                  priority=""))
+        made = datetime(2026, 3, 10, 7, 0, tzinfo=timezone.utc)
+        with mock.patch("render_global.datetime") as clock:
+            clock.now.return_value, clock.fromisoformat = made, datetime.fromisoformat
+            write_brief(data, self.home)
+            fresh = read_brief(self.home, now=made + timedelta(hours=26))
+            stale = read_brief(self.home, now=made + timedelta(hours=27))
+            write_brief(dict(data, tasks=[], summaries=[]), self.home)
+            empty = read_brief(self.home, now=made + timedelta(hours=27))
+        self.assertEqual((fresh["stale"], fresh["next_action"]["text"]), (False, "Judged"))
+        self.assertEqual((stale["stale"], stale["next_action"]),
+                         (True, {"text": "Pay the host invoice", "vault": "south"}))
+        self.assertEqual((empty["stale"], empty["next_action"]), (True, None))
+        self.assertIsNone(read_brief(self.tmp / "nowhere"))
 
     def test_a_bad_judgment_exits_2(self):
         scan_path = write(self.tmp, "scan.json", json.dumps(self.scan()))

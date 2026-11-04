@@ -26,13 +26,25 @@ in `meetings.md`. The judgment file holds only what the model decides or fetched
 exits 2. `events` are the calendars' meetings from today to the scan's `horizon`, each
 `source` the calendar's Source name; an event matching a `meetings.md` line on date, start
 and title, case and spacing ignored, shows once.
+
+Every render also writes the data the page embeds, plus `generated_at` (the render's local
+time with its offset), to `<para-os home>/cache/global-brief/brief.json` through a temporary
+file, so a script can show today's next action and meetings without a model. Among its
+fields: `today`, `next_action` (`text`, `vault`), `events` (`date`, `start`, `end`, `title`,
+`source`, `recurring`), `tasks` and each of `summaries`' `top` (`vault`, `text`, `date`,
+`priority`, `file`, `line`), `entities`, `health` and `people`. `read_brief()` reads it back
+with `stale` set: older than 26 hours, the next action is stale, and the reader names instead
+the oldest item dated before its own today among those with the highest priority marker, or
+null.
 """
 
 import argparse
 import html
 import json
+import os
 import re
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -41,7 +53,7 @@ sys.path.insert(0, str(HERE.parents[1] / "para-audit" / "scripts"))
 try:
     from audit_scan import SKILLS_ROOT  # noqa: E402
     sys.path.insert(0, str(SKILLS_ROOT / "para-daily-brief" / "scripts"))
-    from paraos_vault import WAITING_FLAG_DAYS, paraos_home_dir, parse_date  # noqa: E402
+    from paraos_vault import PRIORITY_RANK, WAITING_FLAG_DAYS, paraos_home_dir, parse_date  # noqa: E402
     from paraos_pages import PUBLISH, local_page, publish_choice, remembered_url, store  # noqa: E402
     from render_dashboard import HEALTH_SIGNALS, cut, health_card, plain  # noqa: E402
 except ImportError as missing:
@@ -51,6 +63,7 @@ except ImportError as missing:
 
 TEMPLATE = HERE / "global.html"
 PAGE = "global-brief"
+STALE_AFTER = timedelta(hours=26)
 TITLE = "All Vaults"
 DESCRIPTION = ("Every vault at once: today, this week and the next two weeks with their "
                "meetings, your own vaults by area and person, and each vault's health.")
@@ -176,10 +189,46 @@ def with_kit(signals):
 
 
 def render(scan, judgment, local=False):
-    data = page_data(scan, judgment, local)
+    return page(page_data(scan, judgment, local))
+
+
+def page(data):
     blob = json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
-    page = TEMPLATE.read_text(encoding="utf-8")
-    return page.replace("__PARAOS_TITLE__", html.escape(TITLE)).replace("__PARAOS_DATA__", blob)
+    template = TEMPLATE.read_text(encoding="utf-8")
+    return template.replace("__PARAOS_TITLE__", html.escape(TITLE)).replace("__PARAOS_DATA__", blob)
+
+
+def brief_file(paraos_home=None):
+    return paraos_home_dir(paraos_home) / "cache" / PAGE / "brief.json"
+
+
+def write_brief(data, paraos_home=None):
+    path = brief_file(paraos_home)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    stamped = dict(data, generated_at=datetime.now().astimezone().isoformat(timespec="seconds"))
+    tmp.write_text(json.dumps(stamped, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, path)
+    return path
+
+
+def read_brief(paraos_home=None, now=None):
+    """brief.json with `stale` set and, when stale, the fallback next action; None without one."""
+    try:
+        data = json.loads(brief_file(paraos_home).read_text(encoding="utf-8"))
+        made = datetime.fromisoformat(data["generated_at"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    now = now or datetime.now().astimezone()
+    data["stale"] = now - made > STALE_AFTER
+    if data["stale"]:
+        today = now.date().isoformat()
+        late = [t for t in data["tasks"] + [t for s in data["summaries"] for t in s["top"]]
+                if t["date"] < today]
+        pick = min(late, default=None,
+                   key=lambda t: (-PRIORITY_RANK.get(t["priority"] or "", 0), t["date"]))
+        data["next_action"] = pick and {"text": pick["text"], "vault": pick["vault"]}
+    return data
 
 
 def main(argv=None):
@@ -212,12 +261,13 @@ def main(argv=None):
     else:
         ap.error("this page publishes to claude.ai: name it with --out")
     try:
-        page = render(scan, judgment, local=publish == "local")
+        data = page_data(scan, judgment, local=publish == "local")
     except JudgmentError as wrong:
         print(f"render_global: {wrong}", file=sys.stderr)
         return 2
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(page, encoding="utf-8")
+    out.write_text(page(data), encoding="utf-8")
+    write_brief(data, args.paraos_home)
     print(json.dumps({"out": out.as_posix(), "page": PAGE, "publish": publish, "title": TITLE,
                       "description": DESCRIPTION, "key": key.as_posix(),
                       "url": remembered_url(key, PAGE, args.paraos_home)}, ensure_ascii=False))
