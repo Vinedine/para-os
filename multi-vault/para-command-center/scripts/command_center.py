@@ -496,6 +496,15 @@ def cron_field(field, low, high):
     return sorted(v for v in values if low <= v <= high) or None
 
 
+def cron_days(field):
+    """The days a cron day field lists, named or numbered. A range closing on Sunday closes on
+    7, since 0 comes before the day it starts on."""
+    text = field.lower().replace("-sun", "-7")
+    for number, name in enumerate(DAY_NAMES):
+        text = text.replace(name[:3].lower(), str(number))
+    return cron_field(text, 0, 7)
+
+
 def day_words(days):
     if days is None:
         return "every day"
@@ -513,7 +522,7 @@ def schedule(cron):
         return [], str(cron or "")
     minutes, hours = cron_field(parts[0], 0, 59), cron_field(parts[1], 0, 23)
     times = [f"{h:02d}:{m:02d}" for h in hours for m in minutes] if minutes and hours else []
-    return times, f"{' and '.join(times) or ' '.join(parts[:2])} {day_words(cron_field(parts[4], 0, 7))}"
+    return times, f"{' and '.join(times) or ' '.join(parts[:2])} {day_words(cron_days(parts[4]))}"
 
 
 def last_due(cron, now):
@@ -523,7 +532,7 @@ def last_due(cron, now):
     if len(parts) != 5 or parts[2] != "*" or parts[3] != "*":
         return None
     minutes, hours = cron_field(parts[0], 0, 59), cron_field(parts[1], 0, 23)
-    days = cron_field(parts[4], 0, 7)
+    days = cron_days(parts[4])
     if not (minutes and hours):
         return None
     week = ((now - timedelta(days=back)).date() for back in range(8))

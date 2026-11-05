@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """mirror.py - copy a vault on a synced drive into a git repository outside it, and commit.
-para-os-integration: vault-mirror 2026.10.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+para-os-integration: vault-mirror 2026.11.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 A vault in a folder a cloud drive syncs keeps no `.git`: git does not run reliably on every
 drive's filesystem, and a sync client uploading git's internal files one by one can corrupt
@@ -45,6 +45,10 @@ UNREADABLE = [
     # An Office lock file, held open as long as its document is.
     re.compile(r"^~\$"),
 ]
+
+# A file in the mirror's .git, from the start of a copy until its commit. Found by the next run,
+# it says the uncommitted changes are that run's own, not an edit.
+COPYING = "mirror-copying"
 
 MAX_BODY_LINES = 40
 
@@ -214,13 +218,17 @@ def main(argv=None):
     if not (mirror / GIT_DIR).is_dir():
         sys.exit(f"Not a git repository: {mirror}. The integration's README covers the setup.")
 
-    # A run leaves the mirror committed, so uncommitted changes mean someone edited the mirror,
-    # and copying now would discard that work. A dry run writes nothing, so it reports them
-    # and carries on: it is how to see what a --force would overwrite.
+    # A finished run leaves the mirror committed, so uncommitted changes with no COPYING mark
+    # mean someone edited the mirror, and copying now would discard that work. A dry run writes
+    # nothing, so it reports them and carries on: it is how to see what a --force would overwrite.
+    copying = mirror / GIT_DIR / COPYING
     dirty = git(mirror, "--no-optional-locks", "status", "--porcelain").rstrip()
     if dirty:
         print(f"The mirror has uncommitted changes:\n{dirty}", file=sys.stderr)
-        if args.force:
+        if copying.exists():
+            print("The last run stopped before its commit, so they are its own copy, not an "
+                  "edit, and a run finishes it without --force.\n", file=sys.stderr)
+        elif args.force:
             print("--force: they are about to be overwritten.\n", file=sys.stderr)
         elif args.dry_run:
             print("A run without --force would refuse rather than overwrite them.\n", file=sys.stderr)
@@ -228,6 +236,8 @@ def main(argv=None):
             sys.exit("\nThe mirror is a copy, not a place to edit, and this run would overwrite "
                      "them. Commit or discard them there, or re-run with --force.")
 
+    if not args.dry_run:
+        copying.touch()
     added, modified, deleted = sync(long_path(vault), long_path(mirror), args.dry_run)
     copied = counts(added, modified, deleted)
     if args.dry_run:
@@ -243,9 +253,11 @@ def main(argv=None):
     changes = staged(mirror)
     print(f"copied: {copied}")
     if not any(changes):
+        copying.unlink()
         print("Nothing to commit: the mirror's history is up to date.")
         return
     git(mirror, "commit", "-q", "-F", "-", stdin=build_message(*changes, custom=args.message))
+    copying.unlink()
     head = git(mirror, "rev-parse", "--short", "HEAD").strip()
     print(f"committed {head}: {counts(*changes)} in {mirror}")
 

@@ -427,6 +427,22 @@ class SyncScripts(Case):
         self.assertEqual(run["written"], 0)
         self.assertIn("would write", run["error"])
 
+    def test_a_write_that_failed_counts_only_what_it_says_it_wrote(self):
+        vault = self.sync_vault("alpha", 3)
+        for printed, written in (("", 0), ("print('wrote: 2'); ", 2)):
+            write(vault, "resources/scripts/sync.py",
+                  f"import sys\nif '--write' in sys.argv:\n    {printed}sys.exit('disk full')\n"
+                  "print('would write: 3')\n")
+            run = self.prepare()["sync_runs"][0]
+            self.assertEqual((run["would_write"], run["written"]), (3, written))
+            self.assertIn("disk full", run["error"])
+
+    def test_a_clean_write_with_no_count_is_taken_at_the_dry_runs_word(self):
+        vault = self.sync_vault("alpha", 3)
+        write(vault, "resources/scripts/sync.py", "print('would write: 3')\n")
+        run = self.prepare()["sync_runs"][0]
+        self.assertEqual((run["written"], run["error"]), (3, None))
+
     def test_a_missing_script_is_an_error_and_the_run_goes_on(self):
         self.vault("alpha", ["| notes | sync-script | `resources/scripts/gone.py` | Meetings. |",
                              connector_row(WORK)])

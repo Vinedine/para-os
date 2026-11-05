@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "addons" / "activity" / ".claude" / "skills" / "para-activity-review" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-from review_scan import main, scan
+from review_scan import main, read_events, scan
 
 TODAY = date(2026, 9, 21)
 
@@ -310,6 +310,14 @@ class Contradictions(LedgerCase):
         self.assertEqual(self.run_scan()["contradictions"]["triage_unrun"], 2)
         self.session("sam", "bbbbbbbb-1", date(2026, 9, 20), *slash("p1", "/para-triage"))
         self.assertEqual(self.run_scan()["contradictions"]["triage_unrun"], 0)
+
+
+class Ledger(LedgerCase):
+    def test_only_a_newline_ends_a_ledger_line(self):
+        event = {"event": "UserPromptSubmit", "prompt": "one\u2028two\u2029three\x85four"}
+        path = self.logs / "ledger.jsonl"
+        path.write_text(json.dumps(event, ensure_ascii=False) + "\n", encoding="utf-8")
+        self.assertEqual(read_events(path), ([event], 0))
 
 
 class Cli(LedgerCase):
