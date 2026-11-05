@@ -21,7 +21,7 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "multi-vault" / "para-global-brief" / "scripts"))
+sys.path.insert(0, str(ROOT / "multi-vault" / "para-command-center" / "scripts"))
 
 import global_scan  # noqa: E402
 from global_scan import build_report, main  # noqa: E402
@@ -72,7 +72,6 @@ class GlobalScan(unittest.TestCase):
         self.assertEqual(north["kit"], {"level": "unknown", "verdict": None, "findings": None,
                                         "upgrade": None, "behind": None})
         self.assertIsNone(north["deep_clean_audit"])
-        self.assertIsNone(self.report()["funnel_url"])
         write(self.home, "data/deep-clean/north.audit.json",
               json.dumps({"date": "2026-03-08", "phase": "1", "findings": {"dangling": 5, "wikilinks": 2}, "total": 7}))
         write(self.home, "data/deep-clean/south.audit.json", "{not json")

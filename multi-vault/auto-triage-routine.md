@@ -12,11 +12,11 @@ A scheduled task that asks for a permission stalls until someone answers it, so 
 - `python3 <skills>/para-triage/scripts/auto_execute.py run *` and `auto_execute.py status *`
 - Write `${PARAOS_HOME:-~/.paraos}/cache/triage/*-decisions.json`, the file a run hands the executor
 - Read, Glob and Grep inside the registered vaults
-- `python3 <skills>/para-ingest/scripts/funnel_page.py *` (`py -3` on Windows) and the Artifact publish of the page it writes
+- `python3 <skills>/para-command-center/scripts/command_center.py *` (`py -3` on Windows) and the Artifact publish of the page it writes
 - `python3 <skills>/para-shared/scripts/paraos_runs.py record *`
 
 ## The prompt
 
-> For each vault in `${PARAOS_HOME:-~/.paraos}/vaults.json` with no `machine`: run `auto_execute.py status --vault-name <name> --vault <path>`, and skip the vault where `on` is empty or `kill_switch` or `nothing_new` is true. For every other vault, start one reader, scoped to that vault, that loads its own `CLAUDE.md` and runs `/para-triage auto` there. Then print each vault's report, failures first, and rebuild and publish the funnel page as `/para-ingest`'s last step does. Last, run `paraos_runs.py record --task <this task's id> --status ok|failed|partial --summary "<one line: what was staged and filed>"`.
+> For each vault in `${PARAOS_HOME:-~/.paraos}/vaults.json` with no `machine`: run `auto_execute.py status --vault-name <name> --vault <path>`, and skip the vault where `on` is empty or `kill_switch` or `nothing_new` is true. For every other vault, start one reader, scoped to that vault, that loads its own `CLAUDE.md` and runs `/para-triage auto` there. Then print each vault's report, failures first, and rebuild and publish the Command Center's page as `/para-ingest`'s last step does. Last, run `paraos_runs.py record --task <this task's id> --status ok|failed|partial --summary "<one line: what was staged and filed>"`.
 
 Nothing in a vault learns that another exists: each reader sees one vault.

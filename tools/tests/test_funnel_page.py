@@ -3,7 +3,7 @@
 a fetch-script row declare a mailbox and a sync-script row does not, the ledger's entries
 count by their reason inside the window only, the drops a run log's report line names are
 read per exclusion, the decision ledger gives each action type its window share, the kill
-switch and the quarantine show, and the printed line is what paraos_pages.py expects.
+switch and the quarantine show, and the script prints the model as one JSON document.
 
     python3 test_funnel_page.py
     py -3 test_funnel_page.py
@@ -13,21 +13,21 @@ temporary folder.
 """
 
 import contextlib
-import html
 import io
 import json
-import re
+import os
 import shutil
 import sys
 import tempfile
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "multi-vault" / "para-ingest" / "scripts"))
 
-from funnel_page import clip, gather, main, parse_table, render, strip_md  # noqa: E402
+from funnel_page import gather, main, parse_table, strip_md  # noqa: E402
 
 TODAY = date(2030, 6, 20)
 STAMP = TODAY.strftime("%Y%m%d")
@@ -55,7 +55,7 @@ def write(root, rel, text):
     return path
 
 
-class FunnelPageTests(unittest.TestCase):
+class FunnelModelTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.home = Path(self.tmp) / "home"
@@ -160,9 +160,8 @@ class FunnelPageTests(unittest.TestCase):
         self.assertEqual(rows[("*", "Class list")]["matchers"], ["domain school.test", "from parent@mail.test"])
         self.assertEqual(rows[("*", "to members@club.test")]["dropped"], 0)
         self.assertEqual(rows[("ops@example.test", "from noreply@shop.test")]["dropped"], 4)
-        page = render(d)
-        self.assertIn("every mailbox", page)
-        self.assertIn("<b>Class list</b>", page)
+        self.assertEqual((rows[("*", "Class list")]["kind"], rows[("*", "to members@club.test")]["kind"]),
+                         ("group", "to"))
 
     def test_decisions_window_share_and_switches(self):
         d = gather(str(self.home), 7, today=TODAY)
@@ -187,40 +186,49 @@ class FunnelPageTests(unittest.TestCase):
         self.assertEqual(d["proposals"][0]["items"][0]["held"], "money owed")
         self.assertEqual(d["decided"], 1)
 
-    def test_render_marks_each_stage_and_the_kill_switch(self):
-        page = render(gather(str(self.home), 7, today=TODAY))
-        self.assertIn("<title>Triage funnel</title>", page)
-        self.assertNotIn("not declared", page)
-        self.assertIn('<h2>2. Exclude <span class="who code"', page)
-        self.assertNotIn("Kill switch on", page)
-        self.assertIn('class="chip on">Dismiss (noise)', page)
+    def test_the_kill_switch_shows_once_its_file_exists(self):
         write(self.home, "auto-triage.off", "")
-        page = render(gather(str(self.home), 7, today=TODAY))
-        self.assertIn("Kill switch on", page)
+        self.assertTrue(gather(str(self.home), 7, today=TODAY)["kill_switch"])
 
-    def test_every_table_sits_where_the_sorter_finds_it(self):
-        page = render(gather(str(self.home), 7, today=TODAY))
-        self.assertGreater(page.count("<table>"), 3)
-        self.assertEqual(page.count("<table>"), page.count('<div class="tw"><table><tr><th'))
-        script_at = page.rindex("<script>")
-        self.assertIn('querySelectorAll(".tw > table")', page[script_at:])
+    def run_main(self, *argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main(list(argv))
+        return code, json.loads(out.getvalue())
 
-    def test_the_page_carries_no_copy_of_its_data(self):
-        page = render(gather(str(self.home), 7, today=TODAY))
-        self.assertNotIn('<script id="data"', page)
-        self.assertEqual(page.count("<script"), 1)
-
-    def test_main_prints_the_page_line(self):
-        out = Path(self.tmp) / "page" / "funnel.html"
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            code = main(["--paraos-home", str(self.home), "--days", "7", "--out", str(out)])
+    def test_main_prints_the_model_as_one_json_document(self):
+        code, model = self.run_main("--paraos-home", str(self.home), "--today", TODAY.isoformat())
         self.assertEqual(code, 0)
-        line = json.loads(buf.getvalue().strip().splitlines()[-1])
-        self.assertEqual((line["page"], line["title"], line["out"]), ("funnel", "Triage funnel", str(out)))
-        self.assertEqual(line["key"], str(self.home))
-        self.assertTrue(out.is_file())
-        self.assertNotIn(chr(0x2014), out.read_text(encoding="utf-8"))
+        self.assertEqual((model["days"], model["since"], model["today"], model["home"]),
+                         (7, (TODAY - timedelta(days=7)).isoformat(), TODAY.isoformat(), str(self.home)))
+        self.assertEqual(model["ledger"]["seen"], 6)
+        gathered = json.loads(json.dumps(gather(str(self.home), 7, today=TODAY)))
+        for moving in (model, gathered):
+            moving.pop("generated")
+        self.assertEqual(model, gathered)
+
+    def test_main_honours_the_window_and_the_home_in_the_environment(self):
+        with mock.patch.dict(os.environ, {"PARAOS_HOME": str(self.home)}):
+            code, model = self.run_main("--days", "40", "--today", TODAY.isoformat())
+        self.assertEqual((code, model["home"], model["days"], model["since"]),
+                         (0, str(self.home), 40, (TODAY - timedelta(days=40)).isoformat()))
+        self.assertEqual((model["ledger"]["seen"], model["ledger"]["routed"]), (7, 3))
+
+    def test_main_defaults_to_seven_days_up_to_the_system_date(self):
+        before = date.today()
+        code, model = self.run_main("--paraos-home", str(self.home))
+        today = date.fromisoformat(model["today"])
+        self.assertTrue(before <= today <= date.today())
+        self.assertEqual((code, model["days"], today - date.fromisoformat(model["since"])),
+                         (0, 7, timedelta(days=7)))
+
+    def test_a_today_that_is_no_date_stops_with_exit_two(self):
+        for bad in ("20300620", "tomorrow", "2030-02-30"):
+            out = io.StringIO()
+            with self.assertRaises(SystemExit) as stop, contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                main(["--paraos-home", str(self.home), "--today", bad])
+            self.assertEqual((stop.exception.code, out.getvalue()), (2, ""))
 
 
 NORTH_PURPOSE = ("Everything the north office runs day to day: supplier orders, the warehouse rota, deliveries "
@@ -245,9 +253,17 @@ LONG_PROPOSAL_ITEM = ("Supplier - the signed framework agreement for the next th
                       "and the price list.pdf")
 
 
-class PageRulesTests(unittest.TestCase):
-    """The rules the page exists to show: read whatever the header language, shown in full and
-    once, beside the vault they belong to, with no Markdown markers left in them."""
+class BrokenRegistryTests(unittest.TestCase):
+    def test_an_entry_with_no_name_or_no_path_is_not_a_vault_of_the_run(self):
+        home = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, home, ignore_errors=True)
+        write(home, "vaults.json", json.dumps([{"path": str(home / "nameless")}, {"name": "pathless"}, "junk"]))
+        self.assertEqual(gather(str(home), 7, today=TODAY)["vaults"], [])
+
+
+class RulesTests(unittest.TestCase):
+    """The rules the model carries: read whatever the header language, whole and once, beside
+    the vault they belong to, with no Markdown markers left in them."""
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
@@ -279,19 +295,6 @@ class PageRulesTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def page_text(self):
-        """The rendered page without its script, entities decoded."""
-        page = render(gather(str(self.home), 7, today=TODAY))
-        return html.unescape(page.split("<script>")[0])
-
-    def assert_clipped_at_a_word(self, text, full):
-        m = re.search(re.escape(full[:20]) + r"[^<]*?\.\.\.", text)
-        self.assertIsNotNone(m, f"no clipped form of {full[:20]!r}")
-        shown = m.group(0)[:-3]
-        self.assertNotEqual(shown, full)
-        self.assertTrue(full.startswith(shown))
-        self.assertIn(full[len(shown)], " ,;:.", f"cut mid-word: {shown[-15:]!r}")
-
     def test_columns_read_by_position_whatever_the_header_language(self):
         d = gather(str(self.home), 7, today=TODAY)
         self.assertIn(("South", SOUTH_DESK_RULE, "connector"), d["mailbox_vaults"]["desk@example.com"])
@@ -299,51 +302,37 @@ class PageRulesTests(unittest.TestCase):
         self.assertEqual([(s["source"], s["type"]) for s in d["sources"] if s["vault"] == "South"],
                          [("bureau", "connector: mail"), ("commun", "fetch-script")])
 
-    def test_clip_cuts_at_a_word_boundary(self):
-        self.assertEqual(clip("alpha beta gamma", 12), "alpha beta...")
-        self.assertEqual(clip("alpha beta gamma", 10), "alpha beta...")
-        self.assertEqual(clip("alpha beta, gamma", 12), "alpha beta...")
-        self.assertEqual(clip("alphabetagamma", 5), "alpha...")
-        self.assertEqual(clip("short", 10), "short")
-        self.assertEqual(clip(None, 10), "")
+    def test_every_rule_and_every_other_text_is_carried_whole(self):
+        d = gather(str(self.home), 7, today=TODAY)
+        self.assertEqual([s["relevant"] for s in d["sources"]],
+                         [NORTH_RULE, NORTH_SYNC_RULE, SOUTH_DESK_RULE, SOUTH_SHARED_RULE])
+        self.assertEqual(d["exclusions"][0]["reason"], LONG_REASON)
+        self.assertEqual(d["ledger"]["unrouted_samples"], {"desk@example.com": [LONG_SUBJECT]})
+        self.assertEqual(d["quarantine"][0]["items"][0]["reason"], LONG_QUARANTINE_REASON)
+        self.assertEqual(d["proposals"][0]["items"][0]["item"], LONG_PROPOSAL_ITEM)
 
-    def test_rules_shown_in_full_and_other_text_clipped_at_a_word(self):
-        text = self.page_text()
-        for rule in (NORTH_PURPOSE, NORTH_RULE, NORTH_SYNC_RULE):
-            self.assertGreater(len(rule), 220)
-            self.assertIn(rule, text)
-        for full in (LONG_REASON, LONG_SUBJECT, LONG_QUARANTINE_REASON, LONG_PROPOSAL_ITEM):
-            self.assertNotIn(full, text)
-            self.assert_clipped_at_a_word(text, full)
+    def test_a_proposal_with_no_metadata_block_takes_its_vault_from_its_file_name(self):
+        [proposal] = gather(str(self.home), 7, today=TODAY)["proposals"]
+        self.assertEqual((proposal["vault"], proposal["run"]), ("North", ""))
 
     def test_emphasis_markers_stripped(self):
         self.assertEqual(strip_md("**The company address of record.**"), "The company address of record.")
         self.assertEqual(strip_md("*only* this, __that__ and _those_"), "only this, that and those")
         self.assertEqual(strip_md("`first_last@example.com` reads `resources/*.py`"), "first_last@example.com reads resources/*.py")
         self.assertEqual(strip_md("snake_case_name, 2 * 3 * 4 and docs/*.md"), "snake_case_name, 2 * 3 * 4 and docs/*.md")
-        self.assertNotIn("**", self.page_text())
+        sources = gather(str(self.home), 7, today=TODAY)["sources"]
+        self.assertFalse([s for s in sources if "*" in s["relevant"] or "`" in s["type"] + s["endpoint"]])
 
-    def test_each_vault_card_shows_its_purpose_and_its_rule_per_mailbox(self):
+    def test_each_vault_carries_its_purpose_and_its_rule_per_mailbox(self):
         d = gather(str(self.home), 7, today=TODAY)
-        south = next(v for v in d["vaults"] if v["name"] == "South")
+        north, south = d["vaults"]
+        self.assertEqual((north["name"], north["purpose"]), ("North", NORTH_PURPOSE))
+        self.assertEqual(north["mailboxes"], [
+            {"mailbox": "desk@example.com", "relevant": NORTH_RULE, "how": "connector"}])
+        self.assertEqual((south["name"], south["purpose"]), ("South", "Invoices of the south office."))
         self.assertEqual(south["mailboxes"], [
             {"mailbox": "desk@example.com", "relevant": SOUTH_DESK_RULE, "how": "connector"},
             {"mailbox": "shared@example.com", "relevant": SOUTH_SHARED_RULE, "how": "script"}])
-        text = self.page_text()
-        route = text.split("<h2>3. Route")[1].split("<h2>4. Classify")[0]
-        cards = {c.split("<h3>")[1].split(" ")[0]: c for c in route.split('<div class="card">')[1:]}
-        self.assertIn(NORTH_PURPOSE, cards["North"])
-        self.assertIn("desk@example.com", cards["North"])
-        self.assertIn(NORTH_RULE, cards["North"])
-        self.assertNotIn(SOUTH_DESK_RULE, cards["North"])
-        self.assertNotIn(NORTH_SYNC_RULE, cards["North"])
-        for part in ("Invoices of the south office.", "desk@example.com", SOUTH_DESK_RULE, "shared@example.com", SOUTH_SHARED_RULE):
-            self.assertIn(part, cards["South"])
-        fetch_header = re.search(r"<tr><th>Mailbox</th>.*?</tr>", text).group(0)
-        self.assertIn("Declared by", fetch_header)
-        self.assertNotIn("Relevant when", fetch_header)
-        for rule in (NORTH_RULE, NORTH_SYNC_RULE, SOUTH_DESK_RULE, SOUTH_SHARED_RULE):
-            self.assertEqual(text.count(rule), 1, rule[:30])
 
 
 if __name__ == "__main__":

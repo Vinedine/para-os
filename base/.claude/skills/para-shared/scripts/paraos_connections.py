@@ -202,7 +202,7 @@ def discover(home):
         if not isinstance(entry, dict):
             continue
         root, name = _here(entry), entry.get("name")
-        if root is None:
+        if root is None or not isinstance(name, str) or not name:
             continue
         for row in triage_sources(root)["rows"]:
             if row["kind"] in ("connector", "recording") and row["connector"]:

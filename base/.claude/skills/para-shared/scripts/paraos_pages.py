@@ -62,8 +62,7 @@ from paraos_vault import (  # noqa: E402
 
 SKILLS_DIR = Path(__file__).resolve().parents[2]
 PUBLISH = ("claude", "local")
-KIT_PAGES = {"daily-brief": "para-daily-brief", "global-brief": "para-global-brief",
-             "funnel": "para-ingest"}
+KIT_PAGES = {"daily-brief": "para-daily-brief", "command-center": "para-command-center"}
 PAGES_HEADING = "pages"
 RUN_TIMEOUT = 300
 

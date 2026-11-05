@@ -2,23 +2,19 @@
 
 An **optional layer**, not part of the base skeleton. Most people run one vault and need none of this.
 
-It is for the case where you run several vaults; [second-vault.md](second-vault.md) sets up a second one on the same mailbox. It ships three skills over one registry of them: `/para-ingest` reads their shared inputs once, `/para-audit` reports how far each has drifted from the template, and `/para-global-brief` shows where they all stand.
+It is for the case where you run several vaults; [second-vault.md](second-vault.md) sets up a second one on the same mailbox. It ships three skills over one registry of them: `/para-ingest` reads their shared inputs once, `/para-audit` reports how far each has drifted from the template, and `/para-command-center` shows where they all stand, on one page.
 
 ## /para-audit
 
 `/para-audit` reads every vault the registry lists and reports, in one table, each vault's template revision, its declared type, its machine-read lines and roster roles, the rule files base and its add-ons ship, its integration scripts, its bundled skill copies, the `CLAUDE.md` sections that depart from the template and its `CLAUDE.md` size, then names the vault to upgrade first. Every finding names its fix, nearly always `/para-upgrade` in that vault. It also checks the scheduled tasks against the task registry, `tasks.json` ([the routine](auto-triage-routine.md) lists one). **It never writes to a vault.** A vault it cannot reach is listed as unreachable, never left out.
 
-## /para-global-brief
+## /para-command-center
 
-`/para-global-brief` runs each vault's own daily-brief scan and shows them together, in chat and on one page: today, the rest of the week and the next two weeks with every calendar's meetings, your own vaults by area and person, and every vault's health card. A vault you keep is shown in full, or summed where its registry entry says `"brief": "summary"`; one you steward, or whose roster does not name you, shows its health only. It writes nothing in a vault, and lists unreachable vaults as `/para-audit` does.
+`/para-command-center` builds one page across every vault and publishes it. A script builds the page from files on disk, with no judgment from the model, so the same files always give the same page: today's meetings and what is late or due; a map of every vault as a building, grouped into neighbourhoods and streets by the `neighbourhood` and `street` of its registry entry, with its health grade, what waits in its triage folder and what is held for a decision; what came in over the week, grouped by kind, and where the ingest sent it, the triage funnel one click behind the sorting centre; the scheduled runs, the systems reached on demand, the repos and the websites; and the weeks ahead. A second view draws the same parts as a wiring diagram. The skill itself only reads the calendars and publishes. A morning routine runs it, and `/para-ingest` rebuilds the page as its last step. It writes nothing in a vault, and names every vault it could not read.
 
 ## Unattended triage
 
 `/para-triage auto` acts on the action types an operator switched on in a vault and leaves the rest for the next interactive run ([its procedure](../base/.claude/skills/para-triage/references/unattended.md)). [auto-triage-routine.md](auto-triage-routine.md) is the scheduled task that runs it across vaults, with the commands it may run unasked.
-
-## The funnel page
-
-`/para-ingest` ends by rebuilding one page from the state this layer keeps: every mailbox and sync script with the vaults that declare it, each exclusion and what it dropped, each vault's purpose line with its Relevant-when rule per mailbox and its routed count, every action type's decisions and acceptance, the hold rules and the proposals waiting, the switched-on types and the quarantine with its restore commands, as a funnel with the week's counts at each stage. Each stage is marked by who applies its rule, a script or the assistant, so a rule that is written but not enforced shows as such. Every table sorts by a click on its header and, from six rows, filters by its text and by any column holding a few values, such as the vault or whether an action type is switched on. It reads everything and writes only the page.
 
 ## /para-ingest
 
@@ -42,7 +38,7 @@ That boundary is the whole design. It never classifies an item, drafts an action
 ## Installing
 
 1. **Create the registry.** Copy `vaults.json.template` to `${PARAOS_HOME:-~/.paraos}/vaults.json` and fill in one entry per vault. The `purpose` line is the field that does the work: it is what an item's subject is judged against when nothing else decides. `registry.md` in `para-ingest`'s references explains the rest of the schema.
-2. **Install the skills.** Copy `para-ingest/`, `para-audit/` and `para-global-brief/` next to your other `para-*` skills; `/para-upgrade` keeps those copies current. `para-ingest` reads `para-shared/connectors.md` from beside itself, `para-audit` runs over the scripts in `para-shared/` and `para-upgrade/`, and `para-global-brief` over `para-audit/`'s and `para-daily-brief/`'s, so those have to be installed too; if you run the bundled `para-*` skills they already are.
+2. **Install the skills.** Copy `para-ingest/`, `para-audit/` and `para-command-center/` next to your other `para-*` skills; `/para-upgrade` keeps those copies current. `para-ingest` reads `para-shared/connectors.md` from beside itself, `para-audit` runs over the scripts in `para-shared/` and `para-upgrade/`, and `para-command-center` over `para-audit/`'s, `para-ingest/`'s and `para-daily-brief/`'s, so those have to be installed too; if you run the bundled `para-*` skills they already are.
 3. **Run it by hand, in preview, and read the run log.** Do this before anything else.
 
 ## The three kinds of source

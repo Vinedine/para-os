@@ -8,13 +8,29 @@
     "sources": []
   },
   {
+    "id": "command-center",
+    "title": "Command Center",
+    "cron": "0 7 * * *",
+    "skill": "para-command-center",
+    "vaults": "*",
+    "sources": []
+  },
+  {
     "id": "hotel-price-watch",
     "title": "Hotel price watch",
     "cron": "30 6 * * *",
     "skill": null,
-    "vaults": ["household"],
+    "vaults": [
+      "household"
+    ],
     "sources": [
-      {"name": "Hotel booking site", "via": ["browser", "mcp:<booking connector>"]}
+      {
+        "name": "Hotel booking site",
+        "via": [
+          "browser",
+          "mcp:<booking connector>"
+        ]
+      }
     ]
   }
 ]

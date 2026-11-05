@@ -5,6 +5,7 @@ that move it and what it produces. Built from files on disk; no model judgment g
     py -3 command_center.py [--events <events.json>] [--today YYYY-MM-DD] [--days N]
                             [--code-root DIR] [--offline] [--model <id>] [--out <page.html>]
                             [--paraos-home DIR]
+    py -3 command_center.py --calendars [--today YYYY-MM-DD] [--paraos-home DIR]
     py -3 command_center.py --publish claude|local [--paraos-home DIR]
 
 The page is `command-center.html` beside this script with the data embedded; it loads nothing
@@ -23,9 +24,15 @@ the skill fetches through the vaults' agenda connectors:
                  "source": "workspace", "recurring": false}],
      "note": "optional: a calendar that could not be read, and why"}
 
+`--calendars` prints what to fetch, and builds nothing: `today`, `horizon` (the last day to
+read) and `calendars`, each `## Agenda sources` row of a vault the operator keeps, once per
+calendar account, with the `vaults` declaring it.
+
 An event with no date or no title is dropped and counted in `notes`; one matching a
-`meetings.md` line on date, start and title, case and spacing ignored, shows once. With no
-file the agenda holds the vaults' own `meetings.md` lines.
+`meetings.md` line on date, start and title, case and spacing ignored, shows once. The events
+given are kept in `<para-os home>/cache/command-center/events.json` and used again by a run
+given none, such as the rebuild after an ingest. With none ever given, the agenda holds the
+vaults' own `meetings.md` lines.
 
 What the data holds, and where each part comes from:
 
@@ -435,8 +442,8 @@ def checkout(name, roots):
 
 
 def here(entry):
-    """A registry entry's folder when this machine reads it and it is on disk, else None."""
-    if not isinstance(entry, dict) or entry.get("machine") or not entry.get("path"):
+    """A named registry entry's folder when this machine reads it and it is on disk, else None."""
+    if not isinstance(entry, dict) or not entry.get("name") or entry.get("machine") or not entry.get("path"):
         return None
     path = Path(entry["path"])
     return path if path.is_dir() else None
@@ -505,15 +512,11 @@ def last_due(cron, now):
     days = cron_field(parts[4], 0, 7)
     if not (minutes and hours):
         return None
-    for back in range(8):
-        day = (now - timedelta(days=back)).date()
-        if days is not None and day.isoweekday() % 7 not in {d % 7 for d in days}:
-            continue
-        for h, m in sorted(((h, m) for h in hours for m in minutes), reverse=True):
-            moment = datetime(day.year, day.month, day.day, h, m, tzinfo=now.tzinfo)
-            if moment <= now:
-                return moment
-    return None
+    week = ((now - timedelta(days=back)).date() for back in range(8))
+    moments = (datetime(day.year, day.month, day.day, h, m, tzinfo=now.tzinfo)
+               for day in week if days is None or day.isoweekday() % 7 in {d % 7 for d in days}
+               for h, m in sorted(((h, m) for h in hours for m in minutes), reverse=True))
+    return next((moment for moment in moments if moment <= now), None)
 
 
 def run_status(task, now):
@@ -782,6 +785,31 @@ def read_events(path):
     return None, f"The events file {path} could not be read: the agenda holds only the vaults' own meetings."
 
 
+def events_file(paraos_home=None):
+    return paraos_home_dir(paraos_home) / "cache" / PAGE / "events.json"
+
+
+def calendar_events(given, now, paraos_home=None):
+    """`(events, note)` for a build. A file the skill just wrote is used and kept as the last
+    read; with none given, the last read is used again, so a rebuild between two calendar
+    reads keeps the meetings, and the note says when they were read if that was another day."""
+    kept = events_file(paraos_home)
+    if given:
+        events, note = read_events(given)
+        if events is not None:
+            kept.parent.mkdir(parents=True, exist_ok=True)
+            kept.write_text(json.dumps({"events": events, "note": note, "read_at": now.isoformat(timespec="seconds")},
+                                       ensure_ascii=False), encoding="utf-8")
+        return events, note
+    if not kept.is_file():
+        return None, ""
+    events, note = read_events(kept)
+    read_at = parse_time(load_json(kept, {}).get("read_at")) if events is not None else None
+    if read_at and read_at.astimezone(now.tzinfo).date() != now.date():
+        note = (note + " " if note else "") + f"The calendars were last read on {read_at.astimezone(now.tzinfo).date().isoformat()}."
+    return events, note
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Build the Command Center page from files on disk.")
     ap.add_argument("--events", help="the calendars' events, as the skill fetched them")
@@ -792,6 +820,7 @@ def main(argv=None):
     ap.add_argument("--model", help="the running model's id, for each health card's skills review")
     ap.add_argument("--out", help="where to write the page when it publishes to claude.ai")
     ap.add_argument("--publish", choices=PUBLISH, help="record where the page goes, and stop")
+    ap.add_argument("--calendars", action="store_true", help="print the calendars to read, and stop")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     args = ap.parse_args(argv)
     try:
@@ -807,6 +836,14 @@ def main(argv=None):
     today = parse_date(args.today) if args.today else date.today()
     if not today:
         ap.error("--today wants YYYY-MM-DD")
+    entries = registry(args.paraos_home)
+    if not entries:
+        print("command_center: no registry, or one listing no vault", file=sys.stderr)
+        return 3
+    if args.calendars:
+        scan = build_report(entries, today, args.paraos_home, args.model)
+        print(json.dumps({k: scan[k] for k in ("today", "horizon", "calendars")}, ensure_ascii=False))
+        return 0
     publish = publish_choice(key, PAGE, args.paraos_home)
     if publish == "local":
         out = local_page(key, PAGE, args.paraos_home)
@@ -814,12 +851,9 @@ def main(argv=None):
         out = Path(args.out).resolve()
     else:
         ap.error("this page publishes to claude.ai: name it with --out")
-    entries = registry(args.paraos_home)
-    if not entries:
-        print("command_center: no registry, or one listing no vault", file=sys.stderr)
-        return 3
-    events, note = read_events(args.events) if args.events else (None, "")
-    data = build(entries, today, datetime.now().astimezone(), args.paraos_home, events, note,
+    now = datetime.now().astimezone()
+    events, note = calendar_events(args.events, now, args.paraos_home)
+    data = build(entries, today, now, args.paraos_home, events, note,
                  args.days, args.code_root or [str(Path.home() / "Code")], online=not args.offline,
                  model=args.model)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -180,7 +180,7 @@ class Discovery(Home, unittest.TestCase):
 
     def test_registry_entries_that_are_not_here(self):
         self.registry([{"name": "work", "path": str(self.work), "machine": "laptop"},
-                       {"name": "gone", "path": str(self.tmp / "nope")}, "junk"])
+                       {"name": "gone", "path": str(self.tmp / "nope")}, {"path": str(self.house)}, "junk"])
         self.assertEqual(discover(self.home), ([], []))
 
 
