@@ -57,7 +57,7 @@ body{padding:16px clamp(16px,3vw,40px)}
 .cc-map .dim{opacity:.15}
 .cc-map .edim{opacity:.05}
 .cc-panel{position:sticky;top:8px;border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-md);display:grid;gap:var(--gap-sm);font-size:var(--font-size-caption);max-height:80vh;overflow:auto;min-width:0}
-.cc-panel h3{margin:0;font-size:var(--font-size-heading);font-weight:var(--font-weight-medium);overflow-wrap:anywhere}
+.cc-panel h3{margin:0;font-size:var(--font-size-body);font-weight:var(--font-weight-medium);overflow-wrap:anywhere}
 .cc-panel h4{margin:var(--gap-xs) 0 0;font-size:var(--font-size-caption);font-weight:var(--font-weight-medium);color:var(--color-fg-muted)}
 .cc-panel p{margin:0;overflow-wrap:anywhere}
 .cc-panel .kv{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:2px var(--gap-sm)}
@@ -448,15 +448,16 @@ function buildPortfolio(el, made, data, under) {
   const A = adjacency(nodes, edges);
   const wrap = make('div', 'cc-mapwrap'), panel = make('div', 'cc-panel');
   el.append(wrap, panel);
-  const cw = wrap.clientWidth || 960, wide = cw >= 720;
-  let DW = wide ? 1040 : Math.max(300, Math.round(cw));
+  const cw = wrap.clientWidth || 960;
   const root = svgEl('svg', {class: 'cc-scene', role: 'img', 'aria-label': 'What came in this week by type, the sorting centre, and every vault as a building with its grade, triage items, held items and late actions'}, wrap);
-  root.setAttribute('viewBox', `0 0 ${DW} 100`);
+  root.setAttribute('viewBox', `0 0 ${Math.round(cw)} 100`);
   const gGround = svgEl('g', {}, root), gLane = svgEl('g', {}, root), gPipe = svgEl('g', {}, root), gP = svgEl('g', {}, root), gObj = svgEl('g', {}, root), gTag = svgEl('g', {}, root), gCard = svgEl('g', {}, root);
   const pipes = [], anchors = new Map();
   if (under) { root.classList.add('under'); gObj.setAttribute('opacity', 0.28); }
-  const T = (p, a, s) => svgText(p, Object.assign({class: 't', 'dominant-baseline': 'central'}, a), s);
-  const TM = (p, a, s) => { const f = a.fill; delete a.fill; const e = svgText(p, Object.assign({class: 'tm', 'dominant-baseline': 'central', 'font-size': 11}, a), s); if (f) e.style.fill = f; return e; };
+  // the drawing is one unit to the pixel, so these are real sizes: the page's small text, and one step down for a second line
+  const FS = 12, FS2 = 11;
+  const T = (p, a, s) => svgText(p, Object.assign({class: 't', 'dominant-baseline': 'central', 'font-size': FS}, a), s);
+  const TM = (p, a, s) => { const f = a.fill; delete a.fill; const e = svgText(p, Object.assign({class: 'tm', 'dominant-baseline': 'central', 'font-size': FS2}, a), s); if (f) e.style.fill = f; return e; };
   const ctx = {vaults, health, repos, sites, flows, edges, funnel: data.funnel, nb: A.nb, byId: A.byId, select: null};
   const tiles = new Map();
   let sel = [];
@@ -532,26 +533,39 @@ function buildPortfolio(el, made, data, under) {
     const times = parseDetail(n.detail).times || [];
     return {n, times, first: times[0] || '99'};
   }).sort((a, b) => a.first.localeCompare(b.first) || a.n.label.localeCompare(b.n.label));
+  const VIA = {mcp: 0, cli: 1, script: 2};
   const sysMap = new Map();
   for (const n of nodes) {
     if (n.kind !== 'source' || n.group !== 'system') continue;
-    const mid = A.byId.get((edges.find((e) => e.source === n.id) || {}).target) || {};
-    const via = mid.kind === 'mcp' || mid.kind === 'connector' ? 'mcp' : mid.kind === 'cli' ? 'cli' : 'script';
     const key = n.label;
-    if (!sysMap.has(key)) sysMap.set(key, {label: key, via, id: n.id, vs: new Set()});
-    for (const v of reach(n.id)) sysMap.get(key).vs.add(v);
+    if (!sysMap.has(key)) sysMap.set(key, {label: key, ways: new Set(), id: n.id, vs: new Set()});
+    const s = sysMap.get(key);
+    for (const e of edges) {
+      if (e.source !== n.id) continue;
+      const mid = A.byId.get(e.target) || {};
+      s.ways.add(mid.kind === 'mcp' || mid.kind === 'connector' ? 'mcp' : mid.kind === 'cli' ? 'cli' : 'script');
+    }
+    for (const v of reach(n.id)) s.vs.add(v);
   }
-  const VIA = {mcp: 0, cli: 1, script: 2};
   const viaFill = (v) => (v === 'mcp' ? dash.colors[4] : v === 'cli' ? dash.colors[3] : 'var(--chart-muted)');
-  const systems = [...sysMap.values()].sort((a, b) => VIA[a.via] - VIA[b.via] || a.label.localeCompare(b.label));
+  const systems = [...sysMap.values()].map((s) => ({...s, vias: [...(s.ways.size ? s.ways : ['script'])].sort((a, b) => VIA[a] - VIA[b])}))
+    .sort((a, b) => VIA[a.vias[0]] - VIA[b.vias[0]] || a.label.localeCompare(b.label));
+  const chip = (g, x, y, vias) => {
+    const w = 8 / vias.length;
+    vias.forEach((v, k) => {
+      const a = k ? 0 : 2, b = k === vias.length - 1 ? 2 : 0, x0 = x + k * w;
+      const d = `M${x0 + a},${y} H${x0 + w - b} q${b},0 ${b},${b} V${y + 8 - b} q0,${b} ${-b},${b} H${x0 + a} q${-a},0 ${-a},${-a} V${y + a} q0,${-a} ${a},${-a} Z`;
+      svgEl('path', {d, class: 'via-' + v}, g).style.fill = viaFill(v);
+    });
+  };
   const tot = (k) => sum(flows.filter((f) => f.kind === k), (f) => f.count);
   const ingest = A.byId.get(HUB_ID);
 
   const card = (x, y, w, h, title, right) => {
     const g = svgEl('g', {}, gCard);
     svgEl('rect', {class: 'cd', x, y, width: w, height: h, rx: 8}, g);
-    T(g, {x: x + 10, y: y + 15, 'font-size': 12.5, 'font-weight': 500}, title);
-    if (right) TM(g, {x: x + w - 10, y: y + 15, 'text-anchor': 'end', 'font-size': 10.5}, right);
+    T(g, {x: x + 10, y: y + 15, 'font-weight': 500}, title);
+    if (right) TM(g, {x: x + w - 10, y: y + 15, 'text-anchor': 'end'}, right);
     return g;
   };
   const row = (parent, x, y, w, id, hl) => {
@@ -564,7 +578,7 @@ function buildPortfolio(el, made, data, under) {
     let lx = x;
     for (const [lab, col] of items) {
       const sw = svgEl('rect', {x: lx, y: y - 4, width: 8, height: 8, rx: 2}, g); sw.style.fill = col;
-      const t = TM(g, {x: lx + 11, y, 'font-size': 10.5}, lab);
+      const t = TM(g, {x: lx + 11, y}, lab);
       lx += 11 + t.getComputedTextLength() + 9;
     }
   };
@@ -573,10 +587,10 @@ function buildPortfolio(el, made, data, under) {
     const h = 44 + live.length * 19 + (quiet ? 16 : 0) + 8;
     const g = card(x, y, w, h, 'Email', mailTotal + ' threads, 7 days');
     swatches(g, x + 10, y + 34, SPLIT);
-    const lw = Math.min(104, w * 0.48), bx = x + 10 + lw, bw = w - lw - 46;
+    const lw = Math.min(112, w * 0.48), bx = x + 10 + lw, bw = w - lw - 46;
     live.forEach((r, i) => {
       const ry = y + 54 + i * 19, rg = row(g, x, ry, w, r.n.id);
-      T(rg, {x: x + 10, y: ry, 'font-size': 11.5}, clip(r.n.label, 18));
+      T(rg, {x: x + 10, y: ry}, clip(r.n.label, 18));
       let px = bx;
       for (const [val, col] of [[r.v, SPLIT[0][1]], [r.x, SPLIT[1][1]], [r.u, SPLIT[2][1]]]) {
         const wv = bw * val / mailMax;
@@ -584,7 +598,7 @@ function buildPortfolio(el, made, data, under) {
       }
       TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end'}, String(r.c));
     });
-    if (quiet) TM(g, {x: x + 10, y: y + h - 14, 'font-size': 10.5}, quiet + ' more mailboxes, nothing this week');
+    if (quiet) TM(g, {x: x + 10, y: y + h - 14}, quiet + ' more mailboxes, nothing this week');
     return h;
   }
   function recCard(x, y, w) {
@@ -592,11 +606,11 @@ function buildPortfolio(el, made, data, under) {
     const g = card(x, y, w, h, 'Recordings', recTotal + ' meeting notes');
     recs.forEach((r, i) => {
       const ry = y + 38 + i * 19, rg = row(g, x, ry, w, r.n.id);
-      T(rg, {x: x + 10, y: ry, 'font-size': 11.5}, r.n.label.replace(' recorder', ''));
+      T(rg, {x: x + 10, y: ry}, r.n.label.replace(' recorder', ''));
       if (r.c) {
         const b = svgEl('rect', {x: x + 70, y: ry - 4, width: Math.max(2, (w - 110) * r.c / recMax), height: 8, rx: 2}, rg); b.style.fill = dash.colors[4];
         TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end'}, String(r.c));
-      } else TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end', 'font-size': 10.5}, clip(r.n.sub || 'nothing this week', 26));
+      } else TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end'}, clip(r.n.sub || 'nothing this week', 26));
     });
     return h;
   }
@@ -606,8 +620,8 @@ function buildPortfolio(el, made, data, under) {
     watchers.forEach((wt, i) => {
       const ry = y + 38 + i * 19, rg = row(g, x, ry, w, wt.src.id);
       svgEl('circle', {class: 'dot-' + (wt.task.status || 'ok'), cx: x + 14, cy: ry, r: 3.5}, rg);
-      T(rg, {x: x + 23, y: ry, 'font-size': 11.5}, clip(wt.src.label, 16));
-      TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end', 'font-size': 10.5}, 'for ' + wt.vault);
+      T(rg, {x: x + 23, y: ry}, clip(wt.src.label, 16));
+      TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end'}, 'for ' + wt.vault);
     });
     return h;
   }
@@ -617,8 +631,8 @@ function buildPortfolio(el, made, data, under) {
     runs.forEach((r, i) => {
       const ry = y + 38 + i * pitch, rg = row(g, x, ry, w, r.n.id), two = r.times.length > 1;
       svgEl('circle', {class: 'dot-' + (r.n.status || 'ok'), cx: x + 14, cy: ry, r: 3.5}, rg);
-      TM(rg, {x: x + 23, y: ry, 'font-size': 10.5}, r.times.join(' '));
-      T(rg, {x: x + (two ? 88 : 56), y: ry, 'font-size': 11.5}, clip(r.n.label, Math.floor((w - (two ? 98 : 66)) / 6.2)));
+      TM(rg, {x: x + 23, y: ry}, r.times.join(' '));
+      T(rg, {x: x + (two ? 88 : 56), y: ry, 'font-size': FS}, clip(r.n.label, Math.floor((w - (two ? 98 : 66)) / 6.2)));
     });
     return h;
   }
@@ -628,9 +642,9 @@ function buildPortfolio(el, made, data, under) {
     swatches(g, x + 10, y + 34, [['MCP', viaFill('mcp')], ['CLI', viaFill('cli')], ['script', viaFill('script')]]);
     systems.forEach((s, i) => {
       const ry = y + 54 + i * 18, rg = row(g, x, ry, w, s.id, s.vs);
-      const d = svgEl('rect', {x: x + 10, y: ry - 4, width: 8, height: 8, rx: 2}, rg); d.style.fill = viaFill(s.via);
-      T(rg, {x: x + 23, y: ry, 'font-size': 11.5}, clip(s.label, 19));
-      TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end', 'font-size': 10.5}, clip([...s.vs].join(', '), Math.floor((w - 150) / 5.2)));
+      chip(rg, x + 10, ry - 4, s.vias);
+      T(rg, {x: x + 23, y: ry}, clip(s.label, 19));
+      TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end'}, clip([...s.vs].join(', '), Math.floor((w - 150) / 5.2)));
     });
     return h;
   }
@@ -638,8 +652,8 @@ function buildPortfolio(el, made, data, under) {
     const h = 66, g = card(x, y, w, h, 'Sorting centre', 'ingest and routing');
     clickable([g], HUB_ID);
     if (ingest) svgEl('circle', {class: 'dot-' + (ingest.status || 'ok'), cx: x + w - 12, cy: y + 34, r: 3.5}, g);
-    T(g, {x: x + 10, y: y + 34, 'font-size': 11.5}, `${mailTotal + recTotal} in, ${tot('vault') + recTotal} delivered`);
-    TM(g, {x: x + 10, y: y + 51, 'font-size': 10.5}, `${tot('excluded')} excluded · ${tot('unrouted')} belong to no vault`);
+    T(g, {x: x + 10, y: y + 34}, `${mailTotal + recTotal} in, ${tot('vault') + recTotal} delivered`);
+    TM(g, {x: x + 10, y: y + 51}, `${tot('excluded')} excluded · ${tot('unrouted')} belong to no vault`);
     return h;
   }
 
@@ -667,15 +681,70 @@ function buildPortfolio(el, made, data, under) {
       return Array.from({length: n}, (_, i) => ({name: i ? '' : st.name, lots: st.lots.slice(i * per, (i + 1) * per)}));
     });
   }
-  if (wide) DW += Math.max(0, Math.max(0, ...hoods.slice(0, 2).map((h) => h.streets.length)) - 3) * 182;
-  const streetName = (box, name) => T(gTag, {x: box[0] + 1, y: box[1] - 9, 'font-size': 11, 'font-weight': 500}, name).classList.add('sn');
-  const L = 78;
+  const streetName = (box, name) => T(gTag, {x: box[0] + 1, y: box[1] - 9 * ts, 'font-size': FS2 * ts, 'font-weight': 500}, name).classList.add('sn');
+  // a vault's label: its grade, its name and what waits in it. Built once, at the page's text sizes, and placed when its building is drawn
+  const HT = 34, tags = new Map();
+  function tagOf(v) {
+    if (tags.has(v.vault)) return tags.get(v.vault);
+    const away = !!v.machine && !v.state, gone = !!v.state, e = epcOf(v.vault, health), parts = [];
+    if (away) parts.push(['pulled by ' + v.machine, null]);
+    if (Number(v.triage_items)) parts.push([v.triage_items + ' in triage', Number(v.triage_oldest_days) > 14 ? 'var(--color-bad)' : null]);
+    if (!away && Number(v.held)) parts.push([v.held + ' held', null]);
+    if (Number(v.overdue)) parts.push([v.overdue + ' late', 'var(--color-bad)']);
+    if (gone) parts.splice(0, parts.length, [v.state || 'handed over', null]);
+    if (!parts.length) parts.push(['all clear', null]);
+    const tg = svgEl('g', {class: 'tg'}, gTag), box = svgEl('g', {}, tg), tb = svgEl('rect', {class: 'tb', rx: 6, height: HT}, box);
+    if (!gone) {
+      svgEl('rect', {rx: 3, x: 8, y: 4, width: 18, height: 15}, box).style.fill = e.fill;
+      svgText(box, {x: 17, y: 11.5, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': FS2, 'font-weight': 500}, e.letter).style.fill = e.ink;
+    }
+    const name = T(box, {x: gone ? 8 : 32, y: 11.5, 'font-weight': 500}, v.vault);
+    const st = svgEl('text', {class: 'tm', x: 8, y: 24.5, 'font-size': FS2, 'dominant-baseline': 'central'}, box);
+    parts.forEach(([s, c], i) => { if (i) svgEl('tspan', {}, st).textContent = ' · '; const sp = svgEl('tspan', {}, st); sp.textContent = s; if (c) sp.style.fill = c; });
+    const w = Math.max(26 + name.getComputedTextLength(), st.getComputedTextLength()) + 16;
+    tb.setAttribute('width', w.toFixed(1));
+    tg.setAttribute('aria-label', `${v.vault}, grade ${e.letter}, ${parts.map((p) => p[0]).join(', ')}`);
+    tags.set(v.vault, {tg, box, w});
+    return tags.get(v.vault);
+  }
+  // the street plan at full size: the first two neighbourhoods are each a band along a main road, with a side street per theme;
+  // further ones are streets going up from the first main road
+  const L = 78, G = 20, STEP = L + 14, Y0 = 30, SX = 210, HA = 108, HB = 90, hx = -G - HA, hy = -G - HB, EA = 92, EB = 80, ex = 4, ey = -G - EB, colW = 224;
+  let yNext = 0;
+  const bands = hoods.slice(0, 2).map((h, k) => {
+    const depth = Y0 + Math.max(...h.streets.map((st) => st.lots.length)) * STEP + 10;
+    const band = {h, k, y0: yNext, x0: 40 + (k % 2) * 250, depth};
+    band.xEnd = band.x0 + (h.streets.length - 1) * SX + L + G;
+    yNext += depth + 26 + G;
+    return band;
+  });
+  const last = bands[bands.length - 1], ups = [], lots = [];
+  hoods.slice(2).forEach((h) => h.streets.forEach((st) => ups.push({h, st, X: bands[0].x0 + (1 + ups.length) * SX, top: -G - (16 + st.lots.length * STEP + 2)})));
+  for (const u of ups) {
+    for (let j = u.st.lots.length - 1; j >= 0; j--) {
+      lots.push({v: u.st.lots[j], lx: u.X, ly: -G - 16 - L - j * STEP, band: bands[0], sign: j < u.st.lots.length - 1 ? '' : u.h.streets.length > 1 && u.st.name ? u.st.name : u.h.label});
+    }
+  }
+  for (const band of bands) band.h.streets.forEach((st, i) => st.lots.forEach((v, j) => lots.push({v, lx: band.x0 + i * SX, ly: band.y0 + Y0 + j * STEP, band, sign: j ? '' : st.name})));
+  // only the plan is scaled, to the room the cards leave it; a label keeps its size until it would touch the next one, then shrinks a little
+  const flatX = (x, y) => (x - y) * 0.866, roofY = (p) => (p.lx + p.ly + 63) * 0.5 - 40;
+  const ends = [flatX(hx, hy + HB), ...bands.flatMap((b) => [flatX(b.x0 - 14, b.y0 + b.depth + 6), flatX(b.xEnd + 8, b.y0 + 6)]), ...ups.map((u) => flatX(u.X + L + G + 2, u.top + 2))];
+  const planL = Math.min(...ends), planR = Math.max(...ends);
+  const tagScale = (s) => Math.max(0.8, Math.min(1, s / 0.8)), tagEdge = (s) => Math.min(28, 37 * s - 8);
+  const startX = (s) => Math.max(colW + 30 - planL * s, ...lots.map((p) => colW + 12 - flatX(p.lx + 24, p.ly + 39) * s - tagEdge(s) + tagOf(p.v).w * tagScale(s)));
+  let gs = 1.25;
+  while (gs >= 0.6 && startX(gs) + planR * gs + 6 > cw) gs -= 0.02;
+  const wide = bands.length > 0 && gs >= 0.6;
+  if (!wide) gs = 1;
+  const ts = wide ? tagScale(gs) : 1;
+  const DW = wide ? Math.round(Math.min(cw, startX(gs) + planR * gs + 6)) : Math.max(300, Math.round(cw));
+  root.style.maxWidth = DW + 'px';
   function drawLot(pr, lx, ly, v, tagRight) {
     const away = !!v.machine && !v.state, gone = !!v.state;
     const col = gone ? 'var(--chart-muted)' : (fillOf.get(v.vault) || dash.colors[0]);
     const tile = svgEl('polygon', {class: 'gl', points: ptsOf([pr(lx, ly), pr(lx + L, ly), pr(lx + L, ly + L), pr(lx, ly + L)]), 'stroke-dasharray': away || gone ? '5 4' : null}, gGround);
     tiles.set(v.vault, tile);
-    const g = svgEl('g', {'aria-label': v.vault}, gObj), tg = svgEl('g', {class: 'tg'}, gTag);
+    const g = svgEl('g', {'aria-label': v.vault}, gObj), tag = tagOf(v), tg = tag.tg;
     clickable([tg, g, tile], 'vault:' + v.vault);
     const bx = lx + 5, by = ly + 9, ba = 38, bb = L - 18, bh = 40;
     const body = svgEl('g', {opacity: away ? 0.5 : gone ? 0.65 : null}, g);
@@ -705,34 +774,15 @@ function buildPortfolio(el, made, data, under) {
     }
     if (Number(v.overdue) > 0) {
       const [px, py] = pr(bx + ba, by, bh);
-      const pole = svgEl('line', {x1: px, y1: py, x2: px, y2: py - 20}, g); pole.style.stroke = 'var(--color-fg-muted)';
-      const fl = svgEl('polygon', {points: ptsOf([[px, py - 20], [px + 13, py - 15.5], [px, py - 11]])}, g); fl.style.fill = FLAG;
+      const pole = svgEl('line', {x1: px, y1: py, x2: px, y2: py - 20 * gs}, g); pole.style.stroke = 'var(--color-fg-muted)';
+      const fl = svgEl('polygon', {points: ptsOf([[px, py - 20 * gs], [px + 13 * gs, py - 15.5 * gs], [px, py - 11 * gs]])}, g); fl.style.fill = FLAG;
     }
-    const [cx, cy] = pr(bx + ba / 2, by + bb / 2, bh), e = epcOf(v.vault, health);
-    const parts = [];
-    if (away) parts.push(['pulled by ' + v.machine, null]);
-    if (Number(v.triage_items)) parts.push([v.triage_items + ' in triage', Number(v.triage_oldest_days) > 14 ? 'var(--color-bad)' : null]);
-    if (!away && Number(v.held)) parts.push([v.held + ' held', null]);
-    if (Number(v.overdue)) parts.push([v.overdue + ' late', 'var(--color-bad)']);
-    if (gone) parts.splice(0, parts.length, [v.state || 'handed over', null]);
-    if (!parts.length) parts.push(['all clear', null]);
-    const tb = svgEl('rect', {class: 'tb', rx: 6}, tg), badge = svgEl('rect', {rx: 3, width: 18, height: 15}, tg);
-    badge.style.fill = e.fill;
-    const letter = svgText(tg, {'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 11.5, 'font-weight': 500}, e.letter); letter.style.fill = e.ink;
-    const name = T(tg, {'font-size': 12.5, 'font-weight': 500}, v.vault);
-    const st = svgEl('text', {class: 'tm', 'font-size': 10.5, 'dominant-baseline': 'central'}, tg);
-    parts.forEach(([s, c], i) => { if (i) svgEl('tspan', {}, st).textContent = ' · '; const ts = svgEl('tspan', {}, st); ts.textContent = s; if (c) ts.style.fill = c; });
-    const wT = Math.max(26 + name.getComputedTextLength(), st.getComputedTextLength()) + 16, hT = 36;
-    const x0 = tagRight ? cx + 28 - wT : cx - wT / 2, y0 = cy - 13 - hT;
-    for (const [k, val] of [['x', x0], ['y', y0], ['width', wT], ['height', hT]]) tb.setAttribute(k, val.toFixed(1));
-    badge.setAttribute('x', x0 + 8); badge.setAttribute('y', y0 + 4.5);
-    letter.setAttribute('x', x0 + 17); letter.setAttribute('y', y0 + 12.5);
-    name.setAttribute('x', x0 + 32); name.setAttribute('y', y0 + 12.5);
-    st.setAttribute('x', x0 + 8); st.setAttribute('y', y0 + 26.5);
-    if (gone) { badge.style.display = 'none'; letter.style.display = 'none'; name.setAttribute('x', x0 + 8); }
-    const lead = svgEl('line', {x1: cx, y1: y0 + hT, x2: cx, y2: cy - 2}, tg); lead.style.stroke = 'var(--color-border-line)';
-    tg.setAttribute('aria-label', `${v.vault}, grade ${e.letter}, ${parts.map((p) => p[0]).join(', ')}`);
-    return [x0, y0];
+    // the label hangs over the roof, in its own units: on a street its right edge stops short of the building before it
+    const [cx, cy] = pr(bx + ba / 2, by + bb / 2, bh), x0 = tagRight ? tagEdge(gs) / ts - tag.w : -tag.w / 2, y0 = -13 - HT;
+    tg.setAttribute('transform', `translate(${cx.toFixed(1)} ${cy.toFixed(1)}) scale(${ts})`);
+    tag.box.setAttribute('transform', `translate(${x0.toFixed(1)} ${y0})`);
+    svgEl('line', {x1: 0, y1: -13, x2: 0, y2: -2}, tg).style.stroke = 'var(--color-border-line)';
+    return [cx + x0 * ts, cy + y0 * ts];
   }
   function drawHub(pr, hx, hy, HA, HB) {
     svgEl('polygon', {class: 'gl', points: ptsOf([pr(hx, hy), pr(hx + HA, hy), pr(hx + HA, hy + HB), pr(hx, hy + HB)])}, gGround);
@@ -760,15 +810,13 @@ function buildPortfolio(el, made, data, under) {
       const door = svgEl('polygon', {points: ptsOf([pr(x0, fy, 0), pr(x1, fy, 0), pr(x1, fy, 18), pr(x0, fy, 18)])}, g); door.style.fill = '#1c1c1a'; door.style.fillOpacity = 0.55;
     }
     const band = svgEl('polygon', {points: ptsOf([pr(bx + ba + 0.3, by, bh - 13), pr(bx + ba + 0.3, by + bb, bh - 13), pr(bx + ba + 0.3, by + bb, bh - 6), pr(bx + ba + 0.3, by, bh - 6)])}, g); band.style.fill = dash.colors[3];
-    const [cx, cy] = pr(bx + ba / 2, by + bb / 2, bh);
-    const tb = svgEl('rect', {class: 'tb', rx: 6}, tg);
-    const name = T(tg, {'font-size': 12.5, 'font-weight': 500}, 'API centre');
-    const sub = TM(tg, {'font-size': 10.5}, `${systems.length} systems` + (watchers.length ? ` · ${watchers.length} watched` : ''));
-    const wT = Math.max(name.getComputedTextLength(), sub.getComputedTextLength()) + 16, x0 = cx - 22, y0 = cy - 13 - 36;
-    for (const [k, val] of [['x', x0], ['y', y0], ['width', wT], ['height', 36]]) tb.setAttribute(k, val.toFixed(1));
-    name.setAttribute('x', x0 + 8); name.setAttribute('y', y0 + 12.5);
-    sub.setAttribute('x', x0 + 8); sub.setAttribute('y', y0 + 26.5);
-    const lead = svgEl('line', {x1: cx, y1: y0 + 36, x2: cx, y2: cy - 2}, tg); lead.style.stroke = 'var(--color-border-line)';
+    const [cx, cy] = pr(bx + ba / 2, by + bb / 2, bh), y0 = -13 - HT;
+    tg.setAttribute('transform', `translate(${cx.toFixed(1)} ${cy.toFixed(1)}) scale(${ts})`);
+    const tb = svgEl('rect', {class: 'tb', rx: 6, x: -22, y: y0, height: HT}, tg);
+    const name = T(tg, {x: -14, y: y0 + 11.5, 'font-weight': 500}, 'API centre');
+    const sub = TM(tg, {x: -14, y: y0 + 24.5}, `${systems.length} systems` + (watchers.length ? ` · ${watchers.length} watched` : ''));
+    tb.setAttribute('width', (Math.max(name.getComputedTextLength(), sub.getComputedTextLength()) + 16).toFixed(1));
+    svgEl('line', {x1: 0, y1: -13, x2: 0, y2: -2}, tg).style.stroke = 'var(--color-border-line)';
     const pick = (ev) => {
       ev.stopPropagation();
       for (const x of sel) x.classList.remove('sel');
@@ -783,7 +831,7 @@ function buildPortfolio(el, made, data, under) {
         const li = make('li'), b = make('button', 'lnk', sy.label);
         b.type = 'button';
         b.addEventListener('click', () => select(sy.id, null, sy.vs));
-        li.append(b, document.createTextNode(' · ' + how[sy.via] + ' · for ' + [...sy.vs].join(', ')));
+        li.append(b, document.createTextNode(' · ' + sy.vias.map((v) => how[v]).join(' and ') + ' · for ' + [...sy.vs].join(', ')));
         u.append(li);
       }
       for (const wt of watchers) {
@@ -804,21 +852,14 @@ function buildPortfolio(el, made, data, under) {
   const deck = [];
   let H = 0;
   if (wide) {
-    const G = 20, STEP = L + 14, Y0 = 30, SX = 210, HA = 108, HB = 90, hx = -G - HA, hy = -G - HB, colW = 216, OX = 536, OY = 196;
-    const pr = (x, y, z = 0) => [OX + (x - y) * 0.866, OY + (x + y) * 0.5 - z];
+    // the top row is the sorting centre's card and the scheduled runs; the lanes run under it, and the plan starts below them
+    const runsPitch = ups.length ? 17 : 19, runsH = 28 + runs.length * runsPitch + 8, yTop = 82, OX = startX(gs);
+    // a label that would sit under the scheduled runs pushes the plan down: each roof as [how far right its label reaches, how high it is]
+    const roofs = [...lots.map((p) => [flatX(p.lx + 24, p.ly + 39) * gs + 28, roofY(p)]), [flatX(ex + 39, ey + 33) * gs + 100 * ts, (ex + ey + 72) * 0.5 - 38]];
+    const OY = Math.max(yTop + 11 + 159 * gs, ...roofs.filter(([x]) => OX + x > DW - 220).map(([, ry]) => runsH + 22 + (13 + HT) * ts - ry * gs));
+    const pr = (x, y, z = 0) => [OX + (x - y) * 0.866 * gs, OY + ((x + y) * 0.5 - z) * gs];
     const road = (P) => svgEl('polygon', {class: 'rd', points: ptsOf(P)}, gGround);
     const dashes = (p, q) => { const c = svgEl('line', {x1: p[0], y1: p[1], x2: q[0], y2: q[1], 'stroke-dasharray': '7 6', 'stroke-width': 1.2}, gGround); c.style.stroke = 'var(--color-bg)'; };
-    // one band per neighbourhood: a main road, and one side street per theme with its vaults along it
-    let yNext = 0;
-    const bands = hoods.slice(0, 2).map((h, k) => {
-      const depth = Y0 + Math.max(...h.streets.map((st) => st.lots.length)) * STEP + 10;
-      const band = {h, k, y0: yNext, x0: 40 + (k % 2) * 250, depth};
-      band.xEnd = band.x0 + (h.streets.length - 1) * SX + L + G;
-      yNext += depth + 26 + G;
-      return band;
-    });
-    const last = bands[bands.length - 1], ups = [];
-    hoods.slice(2).forEach((h) => h.streets.forEach((st) => ups.push({h, st, X: bands[0].x0 + (1 + ups.length) * SX, top: -G - (16 + st.lots.length * STEP + 2)})));
     for (const u of ups) {
       const pl = svgEl('polygon', {class: 'nb', points: ptsOf([pr(u.X - 14, u.top + 2), pr(u.X + L + G + 2, u.top + 2), pr(u.X + L + G + 2, -G - 6), pr(u.X - 14, -G - 6)])}, gGround);
       pl.style.fill = u.h.fill;
@@ -842,27 +883,17 @@ function buildPortfolio(el, made, data, under) {
       });
       dashes(pr(xa + 6, band.y0 - G / 2), pr(band.xEnd - 6, band.y0 - G / 2));
       const F = pr(band.xEnd + 8, band.y0 + band.depth + 6);
-      TM(gGround, {x: F[0], y: F[1] + 14, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 500}, band.h.label);
+      TM(gGround, {x: F[0], y: F[1] + 14, 'text-anchor': 'middle', 'font-size': FS, 'font-weight': 500}, band.h.label);
     }
     if (bands.length > 1) dashes(pr(-G / 2, 2), pr(-G / 2, last.y0 - G - 4));
     const roof = drawHub(pr, hx, hy, HA, HB);
-    const EA = 92, EB = 80, ex = 40, ey = -G - EB;
     if (systems.length || watchers.length) drawExchange(pr, ex, ey, EA, EB);
     const spot = new Map();
-    for (const u of ups) {
-      let topBox = null;
-      for (let j = u.st.lots.length - 1; j >= 0; j--) {
-        const v = u.st.lots[j], ly = -G - 16 - L - j * STEP, box = drawLot(pr, u.X, ly, v, true);
-        spot.set(v.vault, {band: bands[0], X: u.X, ly});
-        if (!topBox) topBox = box;
-      }
-      if (topBox) streetName(topBox, u.h.streets.length > 1 && u.st.name ? u.st.name : u.h.label);
+    for (const p of lots) {
+      const box = drawLot(pr, p.lx, p.ly, p.v, true);
+      spot.set(p.v.vault, {band: p.band, X: p.lx, ly: p.ly});
+      if (p.sign) streetName(box, p.sign);
     }
-    for (const band of bands) band.h.streets.forEach((st, i) => st.lots.forEach((v, j) => {
-      const X = band.x0 + i * SX, ly = band.y0 + Y0 + j * STEP, box = drawLot(pr, X, ly, v, true);
-      spot.set(v.vault, {band, X, ly});
-      if (j === 0 && st.name) streetName(box, st.name);
-    }));
     let y = 0;
     const eH = emailCard(0, y, colW), eY = y + 15; y += eH + 10;
     const rH = recCard(0, y, colW), rY = y + 15; y += rH + 10;
@@ -870,13 +901,13 @@ function buildPortfolio(el, made, data, under) {
     y += watchCard(0, y, colW) + 10;
     const sY = y + 15;
     y += systemsCard(0, y, colW);
-    const hcx = Math.min(roof[0] + 72, DW - 216 - 214);
-    hubCard(hcx, 0, 204);
-    const lead = svgEl('line', {x1: hcx, y1: 36, x2: roof[0] + 26, y2: roof[1] + 4, 'stroke-dasharray': '2 3'}, gTag); lead.style.stroke = 'var(--color-fg-muted)';
-    runsCard(DW - 212, 0, 212, ups.length ? 17 : 19);
+    const hcx = Math.max(colW + 64, Math.min(roof[0] - 102, DW - 212 - 10 - 204));
+    const hubH = hubCard(hcx, 0, 204);
+    const lead = svgEl('line', {x1: Math.max(hcx + 10, Math.min(hcx + 194, roof[0])), y1: hubH, x2: roof[0], y2: roof[1] - 3, 'stroke-dasharray': '2 3'}, gTag); lead.style.stroke = 'var(--color-fg-muted)';
+    runsCard(DW - 212, 0, 212, runsPitch);
     H = Math.max(y, pr(last.xEnd + 8, last.y0 + last.depth + 6)[1] + 26) + 4;
     // lanes from the cards into the back of the sorting centre
-    const back = pr(hx, hy + HB * 0.55), yTop = 26;
+    const back = pr(hx, hy + HB * 0.55);
     const lane = (yFrom, yT, c, dx, to = back, layer = gLane) => {
       const x0 = colW, xa = x0 + 34 + dx, xb = to[0] - 74 - dx, end = [to[0] - dx * 0.4, to[1] + dx * 0.25];
       const segs = [[x0, yFrom, xa - 14, yFrom, xa - 14, yT, xa + 22, yT], lin([xa + 22, yT], [xb, yT]), [xb, yT, xb + 46, yT, end[0] - 22, end[1] - 34, end[0], end[1]]];
@@ -927,35 +958,39 @@ function buildPortfolio(el, made, data, under) {
         for (const name of names) {
           if (!spot.has(name)) continue;
           const got = kind === 'mail' ? flows.filter((fl) => fl.kind === 'vault' && fl.dest === name).reduce((sum, fl) => sum + Number(fl.count), 0) : 0;
-          pipe(route(spot.get(name), from), color, kind === 'mail' ? (1.8 + Math.min(2.4, got / 12)).toFixed(1) : 1.8, kind, name, lift, dashed);
+          pipe(route(spot.get(name), from), color, kind === 'mail' ? (1.8 + Math.min(2.4, got / 12)).toFixed(1) : 1.8, kind, name, lift * gs, dashed);
         }
       }
       if (lines[2][3].size) lane(sY, yTop + 18, dash.colors[3], 24, hallBack, gPipe);
       if (lines[3][3].size) lane(wY, yTop + 27, dash.colors[2], 36, hallBack, gPipe);
-      for (const t of spot.values()) { const [hx0, hy0] = hole(t); svgEl('ellipse', {class: 'hole', cx: hx0.toFixed(1), cy: (hy0 + 6).toFixed(1), rx: 7, ry: 3.4}, gPipe); }
+      for (const t of spot.values()) { const [hx0, hy0] = hole(t); svgEl('ellipse', {class: 'hole', cx: hx0.toFixed(1), cy: (hy0 + 6 * gs).toFixed(1), rx: (7 * gs).toFixed(1), ry: (3.4 * gs).toFixed(1)}, gPipe); }
     }
   } else {
-    const w = DW, cell = w / 2, rowH = under ? 172 : 158;
+    const w = DW, cols = Math.max(2, Math.floor(w / 210)), cell = w / cols, rowH = under ? 172 : 158, half = w >= 560 ? (w - 10) / 2 : 0;
     // underground on a narrow screen: under each vault, what feeds it
     const feeds = (v) => [Number(v.routed) ? 'mail' : '', ...recs.filter((r) => reach(r.n.id).has(v.vault)).map((r) => r.n.label),
       ...watchers.filter((wt) => wt.vault === v.vault).map((wt) => wt.src.label), ...systems.filter((sy) => sy.vs.has(v.vault)).map((sy) => sy.label)]
       .filter(Boolean).join(' · ') || 'nothing declared';
     let y = 0;
-    y += emailCard(0, y, w) + 10; y += recCard(0, y, w) + 10; y += watchCard(0, y, w) + 10; y += hubCard(0, y, w) + 14;
+    // cards side by side where two fit, one under the other on a phone
+    if (half) { const rH = recCard(half + 10, y, half); y += Math.max(emailCard(0, y, half), rH + 10 + watchCard(half + 10, y + rH + 10, half)) + 10; }
+    else { y += emailCard(0, y, w) + 10; y += recCard(0, y, w) + 10; y += watchCard(0, y, w) + 10; }
+    y += hubCard(0, y, w) + 14;
     for (const h of hoods) {
-      T(gCard, {x: 2, y: y + 9, 'font-size': 12.5, 'font-weight': 500}, h.label); y += 26;
+      T(gCard, {x: 2, y: y + 9, 'font-weight': 500}, h.label); y += 26;
       for (const st of h.streets) {
         if (st.name) { TM(gCard, {x: 2, y: y + 6, 'font-weight': 500}, st.name); y += 14; }
         st.lots.forEach((v, i) => {
-          const ox = (i % 2) * cell + cell / 2 + 12, oy = y + Math.floor(i / 2) * rowH + 104;
+          const ox = (i % cols) * cell + cell / 2 + 12, oy = y + Math.floor(i / cols) * rowH + 104;
           drawLot((p, q, z = 0) => [ox + (p - q) * 0.866, oy + (p + q) * 0.5 - z], -L / 2, -L / 2, v, false);
-          if (under) TM(gCard, {x: ox - 12, y: oy + 50, 'text-anchor': 'middle', 'font-size': 10.5}, clip(feeds(v), Math.floor(cell / 6.2)));
+          if (under) TM(gCard, {x: ox - 12, y: oy + 50, 'text-anchor': 'middle'}, clip(feeds(v), Math.floor(cell / 6.2)));
         });
-        y += Math.ceil(st.lots.length / 2) * rowH + 6;
+        y += Math.ceil(st.lots.length / cols) * rowH + 6;
       }
       y += 8;
     }
-    y += runsCard(0, y, w) + 10; y += systemsCard(0, y, w);
+    if (half) y += Math.max(runsCard(0, y, half), systemsCard(half + 10, y, half));
+    else { y += runsCard(0, y, w) + 10; y += systemsCard(0, y, w); }
     H = y + 4;
   }
   root.setAttribute('viewBox', `0 0 ${DW} ${Math.ceil(H)}`);
