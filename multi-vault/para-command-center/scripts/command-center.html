@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__PARAOS_TITLE__</title>
+<style>
+:root{--color-fg:#1f1e1d;--color-fg-muted:#6f6e68;--color-bg:#faf9f5;--color-panel:#ffffff;--color-border-line:#e0ded4;--color-ok:#2e7d32;--color-warn:#b26a00;--color-bad:#c62828;--chart-muted:#b9b7ad;
+--series-0:#2f6fd0;--series-1:#c8643a;--series-2:#2f9a74;--series-3:#b08a12;--series-4:#7d55c7;--series-5:#c44f8a;--series-6:#2f8fb5;--series-7:#7a7d74;
+--gap-xs:4px;--gap-sm:8px;--gap-md:16px;--gap-lg:24px;--pad-xs:4px;--pad-sm:8px;--pad-md:12px;--pad-lg:16px;--radius:8px;
+--font-size-caption:12px;--font-size-body:14px;--font-size-heading:16px;--font-size-title:28px;--font-weight-medium:500;--dur-slow:300ms;
+--font-sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-serif:Georgia,"Times New Roman",serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--color-fg:#f0eee6;--color-fg-muted:#a09e96;--color-bg:#1b1b19;--color-panel:#262624;--color-border-line:#3d3c38;--color-ok:#5fbf6a;--color-warn:#e0a030;--color-bad:#f0695e;--chart-muted:#5c5b56;
+--series-0:#5b9bf0;--series-1:#e08a5b;--series-2:#6cc5a0;--series-3:#d9b340;--series-4:#b48cf0;--series-5:#e57fb0;--series-6:#7fc8e8;--series-7:#a0a39a}}
+:root[data-theme="dark"]{--color-fg:#f0eee6;--color-fg-muted:#a09e96;--color-bg:#1b1b19;--color-panel:#262624;--color-border-line:#3d3c38;--color-ok:#5fbf6a;--color-warn:#e0a030;--color-bad:#f0695e;--chart-muted:#5c5b56;
+--series-0:#5b9bf0;--series-1:#e08a5b;--series-2:#6cc5a0;--series-3:#d9b340;--series-4:#b48cf0;--series-5:#e57fb0;--series-6:#7fc8e8;--series-7:#a0a39a}
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-sans);font-size:14px;line-height:1.45}
+body{padding:16px clamp(16px,3vw,40px)}
+.dash-skeleton{opacity:.5}
+</style>
+</head>
+<body>
+<style>
+.cc{display:grid;gap:var(--gap-lg);font-family:var(--font-sans);color:var(--color-fg)}
+.cc-head{display:grid;gap:var(--gap-xs)}
+.cc-title{font-family:var(--font-serif);font-weight:400;font-size:var(--font-size-title);margin:0;text-wrap:balance}
+.cc-take{margin:0;color:var(--color-fg-muted);font-size:var(--font-size-body)}
+.cc .cc-take b,.cc .cc-repo-sum b{color:var(--color-fg);font-weight:500;font-variant-numeric:tabular-nums}
+.cc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr));gap:var(--gap-md)}
+.cc-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-lg);min-width:0;display:grid;gap:var(--gap-sm);align-content:start}
+.cc-card h2{margin:0;font-size:var(--font-size-heading);font-weight:var(--font-weight-medium)}
+.cc-note{margin:0;color:var(--color-fg-muted);font-size:var(--font-size-caption)}
+.cc-chip{display:inline-block;font-size:var(--font-size-caption);color:var(--color-fg-muted);border:1px solid var(--color-border-line);border-radius:var(--radius);padding:0 var(--pad-xs);margin-left:var(--gap-xs);white-space:nowrap}
+.cc-list{list-style:none;margin:0;padding:0;display:grid;min-height:2rem}
+.cc-list li{display:grid;grid-template-columns:5rem minmax(0,1fr);gap:var(--gap-sm);padding:var(--pad-xs) 0;border-bottom:1px solid var(--color-border-line);font-size:var(--font-size-body)}
+.cc-list li:last-child{border-bottom:0}
+.cc-when{font-variant-numeric:tabular-nums;color:var(--color-fg-muted);font-size:var(--font-size-caption);padding-top:2px}
+.cc-when.cc-late{color:var(--color-bad)}
+.cc-maphead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:start;gap:var(--gap-sm)}
+.cc-maphead>div:first-child{display:grid;gap:var(--gap-xs);max-width:48rem}
+.cc-controls{display:flex;gap:var(--gap-xs);flex-wrap:wrap}
+.cc-btn{font:inherit;font-size:var(--font-size-caption);color:var(--color-fg);background:transparent;border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-xs) var(--pad-sm);cursor:pointer}
+.cc-btn:hover{border-color:var(--color-fg-muted)}
+.cc-btn:focus-visible,.cc-map .nd:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.cc-map{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:var(--gap-md);min-height:640px;align-items:start}
+.cc-mapwrap{overflow-x:auto;min-width:0}
+.cc-map svg{display:block;width:100%;min-width:1100px;height:auto}
+.cc-map text{font-family:var(--font-sans)}
+.cc-map .t{fill:var(--color-fg)}
+.cc-map .tm{fill:var(--color-fg-muted)}
+.cc-map .lane{fill:var(--color-fg-muted);font-size:12px;letter-spacing:.02em}
+.cc-map .nd{cursor:pointer}
+.cc-map .nd rect{fill:var(--color-bg);stroke:var(--color-border-line)}
+.cc-map .nd:hover rect{stroke:var(--color-fg-muted)}
+.cc-map .nd.sel rect{stroke:var(--color-fg);stroke-width:1.5}
+.cc-map .nd.vault rect{stroke-width:1.4}
+.cc-map .dot-ok{fill:var(--color-ok)}
+.cc-map .dot-watch,.cc-map .dot-warn{fill:var(--color-warn)}
+.cc-map .dot-care,.cc-map .dot-bad{fill:var(--color-bad)}
+.cc-map .dot-none{fill:var(--chart-muted)}
+.cc-map .dot-mute{fill:none;stroke:var(--chart-muted);stroke-dasharray:2 2}
+.cc-map .ed{fill:none;stroke-linecap:round;transition:opacity var(--dur-slow)}
+.cc-map .nd{transition:opacity var(--dur-slow)}
+.cc-map .dim{opacity:.15}
+.cc-map .edim{opacity:.05}
+.cc-panel{position:sticky;top:8px;border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-md);display:grid;gap:var(--gap-sm);font-size:var(--font-size-caption);max-height:80vh;overflow:auto;min-width:0}
+.cc-panel h3{margin:0;font-size:var(--font-size-heading);font-weight:var(--font-weight-medium);overflow-wrap:anywhere}
+.cc-panel h4{margin:var(--gap-xs) 0 0;font-size:var(--font-size-caption);font-weight:var(--font-weight-medium);color:var(--color-fg-muted)}
+.cc-panel p{margin:0;overflow-wrap:anywhere}
+.cc-panel .kv{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:2px var(--gap-sm)}
+.cc-panel .kv span:nth-child(odd){color:var(--color-fg-muted)}
+.cc-panel ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.cc-panel li{overflow-wrap:anywhere}
+.cc-panel .lv::before{content:"";display:inline-block;width:.5rem;height:.5rem;border-radius:50%;margin-right:.35rem;background:var(--color-ok)}
+.cc-panel .lv.watch::before,.cc-panel .lv.warn::before{background:var(--color-warn)}
+.cc-panel .lv.care::before,.cc-panel .lv.bad::before{background:var(--color-bad)}
+.cc-panel .lv.mute::before,.cc-panel .lv.unknown::before{background:var(--chart-muted)}
+.cc-panel .fix{display:block;color:var(--color-fg-muted);margin-left:.85rem}
+.cc-panel .lnk{font:inherit;font-size:var(--font-size-caption);background:none;border:0;padding:0;color:var(--color-fg);text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left}
+.cc-legend{display:flex;flex-wrap:wrap;gap:var(--gap-xs) var(--gap-md);font-size:var(--font-size-caption);color:var(--color-fg-muted)}
+.cc-legend i{display:inline-block;width:.7rem;height:.7rem;border-radius:2px;margin-right:var(--gap-xs);vertical-align:-1px}
+.cc-legend .lg-line{width:1.2rem;height:0;border-top:2px solid var(--color-fg-muted);border-radius:0;vertical-align:3px}
+.cc-legend .lg-dash{width:1.2rem;height:0;border-top:2px dashed var(--color-fg-muted);border-radius:0;vertical-align:3px}
+.cc-legend .lg-ok{background:var(--color-ok);border-radius:50%}
+.cc-legend .lg-warn{background:var(--color-warn);border-radius:50%}
+.cc-legend .lg-care{background:var(--color-bad);border-radius:50%}
+.cc-legend .lg-mute{border:1px dashed var(--chart-muted);border-radius:50%}
+.cc-legend .lg-epc-a{background:#1E8A45}
+.cc-legend .lg-epc-f{background:#E03A2E;margin-left:var(--gap-xs)}
+.cc [hidden]{display:none!important}
+.cc-map svg.cc-scene{min-width:0}
+.cc-map .gl{fill:var(--color-bg);stroke:var(--color-border-line);stroke-width:1;stroke-linejoin:round}
+.cc-map .gl.sel{stroke:var(--color-fg);stroke-width:1.6}
+.cc-map .gl.hl{stroke:var(--color-warn);stroke-width:2.2}
+.cc-map .rd{fill:var(--color-border-line);fill-opacity:.75}
+.cc-map .nb{fill-opacity:.07}
+.cc-map .sn{fill:var(--color-fg-muted);paint-order:stroke;stroke:var(--color-panel);stroke-width:3px;stroke-linejoin:round}
+.cc-map .cd{fill:var(--color-bg);stroke:var(--color-border-line)}
+.cc-map .tb{fill:var(--color-panel);stroke:var(--color-border-line)}
+.cc-map .tg.sel .tb,.cc-map .tg:hover .tb{stroke:var(--color-fg)}
+.cc-map .ck{cursor:pointer}
+.cc-map .ck:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.cc-map .rw .hit{fill:transparent}
+.cc-map .rw.ck:hover .hit,.cc-map .rw.sel .hit{fill:var(--color-border-line);fill-opacity:.6}
+.cc-legend .lg-crate{background:#C9A06A}
+.cc-legend .lg-held{background:#F0A82A}
+.cc-legend .lg-flag{background:#E03A2E}
+.cc-legend .lg-shed{background:#3F9E5A}
+.cc-legend .lg-lit{background:#F5D58A}
+.cc-legend .lg-tile{border:1px dashed var(--color-fg-muted);background:transparent}
+.cc-panel .fs{display:grid;gap:3px}
+.cc-panel .fs-top{display:flex;justify-content:space-between;gap:var(--gap-sm)}
+.cc .cc-panel .fs-top b{font-weight:var(--font-weight-medium);font-variant-numeric:tabular-nums}
+.cc-panel .fs-bar{height:6px;border-radius:3px;min-width:2px}
+.cc-panel .fd{color:var(--color-fg-muted)}
+.cc-btn.on{border-color:var(--color-fg);font-weight:var(--font-weight-medium)}
+.cc-days{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,11rem),1fr));gap:var(--gap-sm);min-height:4rem}
+.cc-day{border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-sm);font-size:var(--font-size-caption);display:grid;gap:var(--gap-xs);align-content:start;min-width:0}
+.cc-day h3{margin:0;font-size:var(--font-size-caption);font-weight:var(--font-weight-medium);color:var(--color-fg-muted)}
+.cc-day p{margin:0;overflow-wrap:anywhere}
+.cc-day .cc-time{font-variant-numeric:tabular-nums;color:var(--color-fg-muted);margin-right:.3rem}
+.cc-day .cc-task{border-left:2px solid var(--chart-muted);padding-left:var(--pad-xs)}
+[data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--dur-slow)}
+[data-dash-source-state=empty]{color:transparent}
+@media (max-width:1100px){.cc-map{grid-template-columns:minmax(0,1fr)}.cc-panel{position:static;max-height:none}}
+@media (max-width:640px){.cc-list li{grid-template-columns:4rem minmax(0,1fr)}}
+</style>
+
+<div class="cc">
+  <header class="cc-head">
+    <h1 class="cc-title">Command center</h1>
+    <p class="cc-take"><b class="dash-skeleton" data-draw="n-late" data-source="summary" data-field="n" data-where="key=late">—</b> late, <b class="dash-skeleton" data-draw="n-today" data-source="summary" data-field="n" data-where="key=today">—</b> due today, <b class="dash-skeleton" data-draw="n-held" data-source="summary" data-field="n" data-where="key=held">—</b> triage items held for your decision, and <b class="dash-skeleton" data-draw="n-repos" data-source="summary" data-field="n" data-where="key=repos">—</b> repos with something to look at.</p>
+  </header>
+
+  <div class="cc-grid">
+    <section class="cc-card" id="today">
+      <h2>Today's meetings</h2>
+      <p class="cc-note">Both calendars and the vaults' meeting lists</p>
+      <ul class="cc-list" data-draw="today-events" data-source="agenda"></ul>
+    </section>
+    <section class="cc-card" id="due">
+      <h2>Late and due today</h2>
+      <p class="cc-note">Across every vault, highest priority first, then oldest</p>
+      <ul class="cc-list" data-draw="due-list" data-source="tasks"></ul>
+    </section>
+  </div>
+
+  <section class="cc-card" id="map">
+    <div class="cc-maphead">
+      <div>
+        <h2>Your portfolio</h2>
+        <p class="cc-note">What came in over the last 7 days, grouped by type, what the sorting centre did with it, and how every vault stands, by neighbourhood and street. Click a building or a line in a card for its details, and the sorting centre for the triage funnel. Wiring shows every connection as a diagram.</p>
+      </div>
+      <div class="cc-controls">
+        <button type="button" class="cc-btn cc-view-p on">Portfolio</button>
+        <button type="button" class="cc-btn cc-view-w">Wiring</button>
+        <button type="button" class="cc-btn cc-pause">Pause</button>
+        <button type="button" class="cc-btn cc-play" hidden>Play</button>
+        <button type="button" class="cc-btn cc-replay">Replay the week</button>
+        <button type="button" class="cc-btn cc-clear">Clear selection</button>
+      </div>
+    </div>
+    <div class="cc-map" data-draw="cmap" data-source="nodes edges flows health vaults repos sites funnel"></div>
+    <div class="cc-legend cc-leg-p">
+      <span><i class="lg-epc-a"></i>A to <i class="lg-epc-f"></i>F: the vault's health grade</span>
+      <span><i class="lg-crate"></i>Crates: items in triage</span>
+      <span><i class="lg-held"></i>Amber crates: held for your decision</span>
+      <span><i class="lg-flag"></i>Red flag: late actions</span>
+      <span><i class="lg-shed"></i>Shed: its repos, green when nothing is pending</span>
+      <span><i class="lg-sign"></i>Roof sign: it has a website</span>
+      <span><i class="lg-lit"></i>Lit windows: edited in the last two days</span>
+      <span><i class="lg-tile"></i>Dashed lot: not pulled on this machine</span>
+    </div>
+    <div class="cc-legend cc-leg-w" hidden>
+      <span><i class="lg-line lg-mail"></i>Mail, thicker for more threads</span>
+      <span><i class="lg-line lg-meet"></i>Meeting notes from Granola, Pocket and Plaud, thicker for more</span>
+      <span><i class="lg-line lg-tool"></i>A connection used on demand</span>
+      <span><i class="lg-dash"></i>Pulled on another machine</span>
+      <span><i class="lg-line"></i>Other declared link</span>
+      <span><i class="lg-ok"></i>Healthy or on time</span>
+      <span><i class="lg-warn"></i>To watch</span>
+      <span><i class="lg-care"></i>Needs care</span>
+      <span><i class="lg-mute"></i>Quiet: nothing pending, no recent commits</span>
+    </div>
+  </section>
+
+  <section class="cc-card" id="week">
+    <h2>The rest of this week and the next two</h2>
+    <p class="cc-note">Meetings and dated actions, day by day. An action for a meeting is folded into that meeting.</p>
+    <div class="cc-days" data-draw="week" data-source="agenda tasks"></div>
+  </section>
+  <p class="cc-note" data-draw="built"></p>
+</div>
+
+<script id="data" type="application/json">__PARAOS_DATA__</script>
+<script>
+// The page's data, embedded by command_center.py, and the small runner its drawings register with.
+const DATA = JSON.parse(document.getElementById('data').textContent);
+const META = DATA.meta || {}, HUB_ID = META.hub || null;
+const dash = (() => {
+  const draws = [];
+  const runOne = (d) => {
+    for (const el of document.querySelectorAll('[data-draw="' + d.name + '"]')) {
+      if (typeof d.fn === 'function') d.fn(el);
+      else { if (!el.__made) { el.replaceChildren(); el.__made = d.fn.mount(el) || {}; } d.fn.update(el, el.__made); }
+    }
+  };
+  const run = () => draws.forEach(runOne);
+  let width = 0;
+  window.addEventListener('resize', () => { if (window.innerWidth !== width) { width = window.innerWidth; run(); } });
+  window.addEventListener('DOMContentLoaded', () => { width = window.innerWidth; run(); });
+  return {colors: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => 'var(--series-' + i + ')'),
+    data: (id) => ({status: 'ok', data: DATA[id] || []}),
+    draw: (name, fn) => { if (fn) draws.push({name, fn}); else draws.filter((d) => d.name === name).forEach(runOne); }};
+})();
+</script>
+<script>
+DATA.summary = [
+  {key: 'late', n: DATA.tasks.filter((t) => t.band === 'late').length},
+  {key: 'today', n: DATA.tasks.filter((t) => t.band === 'today').length},
+  {key: 'held', n: DATA.vaults.reduce((s, v) => s + Number(v.held || 0), 0)},
+  {key: 'repos', n: DATA.repos.filter((r) => r.signal !== 'clean' && r.signal !== 'quiet').length},
+];
+
+const SEV = {ci: 'bad', diverged: 'bad', unpushed: 'warn', dirty: 'warn', behind: 'warn', quiet: 'mute', missing: 'mute'};
+const sev = (s) => SEV[s] || 'ok';
+const dayFmt = (d) => d.toLocaleDateString('en-GB', {weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC'});
+const asDay = (s) => new Date(s + 'T00:00:00Z');
+const make = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+function setText(el, d, val) {
+  el.classList.toggle('dash-skeleton', d.status === 'loading');
+  el.textContent = d.status === 'ok' && val != null && val !== '' ? String(val) : '—';
+}
+for (const key of ['late', 'today', 'held', 'repos']) {
+  dash.draw('n-' + key, (el) => { const d = dash.data('summary'); const row = d.status === 'ok' ? d.data.find((r) => r.key === key) : null; setText(el, d, row ? row.n : null); });
+}
+
+dash.draw('built', (el) => { el.textContent = 'Built ' + String(META.generated_at || '').slice(0, 16).replace('T', ' ') + '.' + (META.notes && META.notes.length ? ' ' + META.notes.join(' ') : ''); });
+dash.draw('today-events', (ul) => {
+  const d = dash.data('agenda');
+  ul.replaceChildren();
+  if (d.status !== 'ok') return;
+  const rows = d.data.filter((e) => e.band === 'today').sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  for (const e of rows) {
+    const li = make('li');
+    li.append(make('span', 'cc-when', e.end ? e.start + '-' + e.end : e.start));
+    const t = make('span', null, e.title); t.append(make('span', 'cc-chip', e.source)); li.append(t); ul.append(li);
+  }
+  if (!rows.length) ul.append(make('li', 'cc-note', 'No meetings today'));
+});
+const PRIORITY = {'\u{1F53A}': 0, '\u{1F53C}': 1, '\u{1F53D}': 3, '\u23EC': 4};
+const rank = (t) => (t.priority in PRIORITY ? PRIORITY[t.priority] : 2);
+dash.draw('due-list', (ul) => {
+  const d = dash.data('tasks');
+  ul.replaceChildren();
+  if (d.status !== 'ok') return;
+  const rows = d.data.filter((t) => t.band === 'late' || t.band === 'today').sort((a, b) => rank(a) - rank(b) || String(a.date).localeCompare(String(b.date)));
+  for (const t of rows) {
+    const li = make('li');
+    li.append(make('span', 'cc-when' + (t.band === 'late' ? ' cc-late' : ''), t.band === 'late' ? Number(t.days_late) + 'd late' : 'Today'));
+    const s = make('span', null, (t.priority ? t.priority + ' ' : '') + t.text); s.append(make('span', 'cc-chip', t.vault)); li.append(s); ul.append(li);
+  }
+  if (!rows.length) ul.append(make('li', 'cc-note', 'Nothing late or due today'));
+});
+dash.draw('week', (box) => {
+  const a = dash.data('agenda'), t = dash.data('tasks');
+  box.replaceChildren();
+  if (a.status !== 'ok' || t.status !== 'ok') return;
+  const byDay = new Map();
+  const add = (date, item) => { if (!byDay.has(date)) byDay.set(date, []); byDay.get(date).push(item); };
+  for (const e of a.data) if (e.band === 'week' || e.band === 'next2') add(e.date, {kind: 'event', sort: e.start || '99', time: e.start, text: e.title, tags: [e.source], also: []});
+  // an action that names a meeting of the same day, by its title or its start time, is that meeting: it is shown once
+  for (const x of t.data) {
+    if (x.band !== 'week' && x.band !== 'next2') continue;
+    const low = String(x.text).toLowerCase();
+    const same = (byDay.get(x.date) || []).find((it) => it.kind === 'event' && it.text && (low.includes(String(it.text).toLowerCase()) || (it.time && String(x.text).includes(it.time))));
+    if (same) { if (!same.tags.includes(x.vault)) same.tags.push(x.vault); same.also.push(x.text); }
+    else add(x.date, {kind: 'task', sort: '98', time: '', text: x.text, tags: [x.vault], also: []});
+  }
+  for (const date of [...byDay.keys()].sort()) {
+    const day = make('div', 'cc-day');
+    day.append(make('h3', null, dayFmt(asDay(date))));
+    for (const it of byDay.get(date).sort((p, q) => String(p.sort).localeCompare(String(q.sort)))) {
+      const p = make('p', it.kind === 'task' ? 'cc-task' : null);
+      if (it.time) p.append(make('span', 'cc-time', it.time));
+      p.append(document.createTextNode(it.text));
+      for (const tag of it.tags) if (tag) p.append(make('span', 'cc-chip', tag));
+      if (it.also.length) p.title = it.also.join('\n');
+      day.append(p);
+    }
+    box.append(day);
+  }
+});
+
+const NS = 'http://www.w3.org/2000/svg';
+const LW = 236, NW = 198, NH = 38, NG = 8, TOP = 46, PADX = 12, W = PADX * 2 + LW * 5 + NW;
+const TRAVEL = 2600, SPAWN = 70;
+const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cmap = window.__ccMap = window.__ccMap || {paused: false, replay: null, clear: null};
+const svgEl = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) if (attrs[k] != null) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const svgText = (parent, attrs, txt) => { const e = svgEl('text', attrs, parent); e.textContent = txt; return e; };
+const clip = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + '…' : s || '');
+const parseDetail = (d) => (d && typeof d === 'object' ? d : {});
+const curvePts = (x1, y1, x2, y2) => { const dx = Math.max(40, (x2 - x1) * 0.45); return [x1, y1, x1 + dx, y1, x2 - dx, y2, x2, y2]; };
+const bez = (p, t) => { const u = 1 - t; return [u * u * u * p[0] + 3 * u * u * t * p[2] + 3 * u * t * t * p[4] + t * t * t * p[6], u * u * u * p[1] + 3 * u * u * t * p[3] + 3 * u * t * t * p[5] + t * t * t * p[7]]; };
+const plen = (p) => Math.hypot(p[6] - p[0], p[7] - p[1]) * 1.1;
+function along(segs, t) {
+  const L = segs.map(plen), T = L.reduce((a, b) => a + b, 0);
+  let d = t * T;
+  for (let i = 0; i < segs.length; i++) { if (d <= L[i] || i === segs.length - 1) return bez(segs[i], Math.min(1, d / L[i])); d -= L[i]; }
+  return [0, 0];
+}
+
+function layout(nodes, edges) {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const nb = new Map(nodes.map((n) => [n.id, new Set()]));
+  for (const e of edges) { if (nb.has(e.source) && nb.has(e.target)) { nb.get(e.source).add(e.target); nb.get(e.target).add(e.source); } }
+  const lanes = [[], [], [], [], [], []];
+  for (const n of nodes) lanes[Number(n.lane)].push(n);
+  const pos = new Map();
+  const place = (lane, desired, gap) => {
+    const items = lanes[lane].map((n, i) => ({n, i, d: desired(n)}));
+    items.sort((a, b) => (a.d === b.d ? a.i - b.i : (a.d < b.d ? -1 : 1)));
+    let y = TOP;
+    for (const it of items) { const yy = Number.isFinite(it.d) ? Math.max(it.d, y) : y; pos.set(it.n.id, {x: PADX + lane * LW, y: yy}); y = yy + NH + gap; }
+  };
+  const meanY = (n, ok) => { const ys = [...nb.get(n.id)].filter((id) => pos.has(id) && ok(Number(byId.get(id).lane))).map((id) => pos.get(id).y); return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : Infinity; };
+  place(3, (n) => TOP + Number(n.order) * (NH + 22), 22);
+  place(2, (n) => meanY(n, (l) => l === 3), NG);
+  place(4, (n) => meanY(n, (l) => l === 3), NG);
+  place(5, (n) => meanY(n, (l) => l >= 2 && l <= 4), NG);
+  place(1, (n) => meanY(n, (l) => l === 2 || l === 3), NG);
+  place(0, (n) => meanY(n, (l) => l === 1 || l === 2), NG);
+  let H = 0; for (const p of pos.values()) H = Math.max(H, p.y + NH);
+  return {pos, nb, byId, H: H + 24};
+}
+
+function renderPanel(panel, n, ctx) {
+  panel.replaceChildren();
+  if (!n) {
+    panel.append(make('h3', null, 'Select a part'), make('p', null, 'Click any part. The sorting centre shows the triage funnel; a vault shows its full health card, its repos and its websites; a mailbox shows where its mail went this week; a scheduled run shows when it last ran.'));
+    return;
+  }
+  const d = parseDetail(n.detail);
+  const kv = (pairs) => { const box = make('div', 'kv'); for (const [k, v] of pairs) if (v != null && v !== '') box.append(make('span', null, k), make('span', null, String(v))); return box; };
+  panel.append(make('h3', null, n.label));
+  const KIND = {mailbox: 'Mailbox', calendar: 'Calendar', source: 'Outside source', mcp: 'MCP server', connector: 'Connector', cli: 'Command-line tool', script: 'Script', browser: 'Browser', task: 'Scheduled run', process: 'Another machine', vault: 'Vault', repos: 'Repos', site: 'Website', page: 'Page'};
+  panel.append(make('p', 'cc-note', (KIND[n.kind] || n.kind) + (n.sub ? ' · ' + n.sub : '')));
+  if (n.kind === 'vault') {
+    const v = ctx.vaults.find((x) => x.vault === n.ref) || {};
+    if (v.note) panel.append(make('p', null, v.note));
+    if (!v.state) panel.append(kv([['Pulled by', v.machine || 'this machine'], ['New this week', v.machine ? '' : v.routed], ['In triage', v.machine ? '' : v.triage_items + (Number(v.triage_oldest_days) ? ', oldest ' + v.triage_oldest_days + ' days' : '')], ['Held for you', v.machine ? '' : v.held], ['Late', v.overdue], ['Last edit', v.last_edit]]));
+    if (ctx.health.some((x) => x.vault === n.ref)) panel.append(make('h4', null, 'Health'));
+    const ul = make('ul');
+    for (const h of ctx.health.filter((x) => x.vault === n.ref)) {
+      const li = make('li'); const s = make('span', 'lv ' + h.level, h.label + ': ' + h.value); li.append(s);
+      if (h.level !== 'ok' && h.fix) li.append(make('span', 'fix', h.fix));
+      ul.append(li);
+    }
+    panel.append(ul);
+    const rp = ctx.repos.filter((r) => r.vault === n.ref);
+    if (rp.length) { panel.append(make('h4', null, 'Repos')); const u = make('ul'); for (const r of rp) u.append(make('li', 'lv ' + sev(r.signal), r.repo + ': ' + r.signal_label)); panel.append(u); }
+    const st = ctx.sites.filter((s) => s.serves === n.ref);
+    if (st.length) { panel.append(make('h4', null, 'Websites')); const u = make('ul'); for (const s of st) { const li = make('li'); const a = make('a', null, s.site); a.href = 'https://' + s.site; a.target = '_blank'; a.rel = 'noopener'; li.append(a, document.createTextNode(' · from ' + s.repo)); u.append(li); } panel.append(u); }
+  } else if (n.kind === 'mailbox') {
+    const rows = ctx.flows.filter((f) => String(f.address).toLowerCase() === n.ref);
+    panel.append(kv([['Address', n.ref], ['Threads in 7 days', rows.reduce((s, f) => s + Number(f.count), 0)]]));
+    if (rows.length) { panel.append(make('h4', null, 'Where it went')); const u = make('ul'); for (const f of rows.sort((a, b) => Number(b.count) - Number(a.count))) u.append(make('li', null, f.dest + ': ' + f.count)); panel.append(u); }
+  } else if (n.kind === 'task') {
+    if (n.id === HUB_ID && ctx.funnel && ctx.funnel.length) {
+      panel.append(make('h4', null, 'Triage funnel, last 7 days'));
+      const rows = ctx.funnel.slice().sort((a, b) => Number(a.order) - Number(b.order)), max = Math.max(1, ...rows.map((r) => Number(r.value)));
+      for (const r of rows) {
+        const st = make('div', 'fs'), top = make('div', 'fs-top'), bar = make('div', 'fs-bar');
+        top.append(make('span', null, r.label), make('b', null, Number(r.value).toLocaleString('en')));
+        bar.style.width = (100 * Number(r.value) / max).toFixed(1) + '%';
+        bar.style.background = r.who === 'you' ? 'var(--color-warn)' : (r.who === 'model' ? dash.colors[1] : dash.colors[0]);
+        st.append(top, bar, make('span', 'fd', 'by ' + r.who + ' · ' + r.detail));
+        panel.append(st);
+      }
+      panel.append(make('h4', null, 'The run'));
+    }
+    panel.append(kv([['Schedule', d.schedule], ['Last run', d.last ? String(d.last).slice(0, 16).replace('T', ' ') : 'no record yet'], ['Result', d.last_status], ['Skill', d.skill]]));
+    if (d.summary) panel.append(make('p', null, d.summary));
+  } else if (n.kind === 'repos') {
+    const u = make('ul');
+    for (const r of ctx.repos.filter((x) => x.vault === n.ref)) { const li = make('li'); li.append(make('span', 'lv ' + sev(r.signal), r.repo + ': ' + r.signal_label)); li.append(make('span', 'fix', [r.branch, r.last_commit ? 'last commit ' + r.last_commit : '', r.ci ? 'CI ' + r.ci_result : ''].filter(Boolean).join(' · '))); u.append(li); }
+    panel.append(u);
+  } else if (n.kind === 'site') {
+    const s = ctx.sites.find((x) => x.site === n.ref) || {};
+    panel.append(kv([['For', s.what], ['Serves', s.serves], ['Steered by', s.vault], ['Built from', s.repo]]));
+    const a = make('a', null, 'Open ' + s.site); a.href = 'https://' + s.site; a.target = '_blank'; a.rel = 'noopener'; panel.append(a);
+  } else if (n.kind === 'page') {
+    if (d.url) { const a = make('a', null, 'Open the page'); a.href = d.url; a.target = '_blank'; a.rel = 'noopener'; panel.append(a); }
+  } else if (d.provider || d.writes) {
+    panel.append(kv([['Reaches', d.provider], ['Writes', d.writes]]));
+  }
+  const linked = [...ctx.nb.get(n.id)].map((id) => ctx.byId.get(id)).sort((a, b) => Number(a.lane) - Number(b.lane));
+  if (linked.length) {
+    panel.append(make('h4', null, 'Linked to'));
+    const u = make('ul');
+    for (const m of linked) { const li = make('li'); const b = make('button', 'lnk', m.label); b.type = 'button'; b.addEventListener('click', () => ctx.select(m.id)); li.append(b); u.append(li); }
+    panel.append(u);
+  }
+}
+
+function buildMap(el, made, data) {
+  el.replaceChildren();
+  const {nodes, edges, flows} = data;
+  const L = layout(nodes, edges);
+  const wrap = make('div', 'cc-mapwrap'), panel = make('div', 'cc-panel');
+  el.append(wrap, panel);
+  const root = svgEl('svg', {viewBox: `0 0 ${W} ${L.H}`, role: 'img', 'aria-label': 'Map of every source, connector, scheduled run, vault, repo, website and page, and the links between them'}, wrap);
+  const LANES = ['Outside sources', 'Connections: MCP, script, CLI', 'Scheduled runs', 'Vaults', 'Repos', 'Websites and pages'];
+  LANES.forEach((t, i) => svgText(root, {class: 'lane', x: PADX + i * LW, y: 22}, t));
+  const ge = svgEl('g', {}, root), gp = svgEl('g', {}, root), gn = svgEl('g', {}, root);
+  const anchorR = (id) => { const p = L.pos.get(id); return [p.x + NW, p.y + NH / 2]; };
+  const anchorL = (id) => { const p = L.pos.get(id); return [p.x, p.y + NH / 2]; };
+  const muted = 'var(--color-fg-muted)';
+  const edgeEls = [];
+  for (const e of edges) {
+    if (!L.pos.has(e.source) || !L.pos.has(e.target)) continue;
+    const [x1, y1] = anchorR(e.source), [x2, y2] = anchorL(e.target);
+    const p = curvePts(x1, y1, x2, y2);
+    const c = Number(e.count) || 0;
+    const mail = e.kind === 'mail', meet = e.kind === 'sync', tool = e.kind === 'tool';
+    const width = mail ? 1.2 + Math.min(6, c / 10) : (meet ? 1.2 + Math.min(6, c / 2) : 1.1);
+    const path = svgEl('path', {class: 'ed', d: `M${p[0]} ${p[1]} C${p[2]} ${p[3]} ${p[4]} ${p[5]} ${p[6]} ${p[7]}`,
+      'stroke-width': width.toFixed(1), 'stroke-dasharray': e.dashed ? '4 4' : null}, ge);
+    path.style.stroke = mail ? dash.colors[0] : (meet ? dash.colors[4] : (tool ? dash.colors[3] : muted));
+    path.style.strokeOpacity = mail ? 0.55 : (meet ? (c ? 0.65 : 0.3) : (tool ? 0.6 : 0.4));
+    edgeEls.push({e, path});
+  }
+  const nodeEls = new Map();
+  for (const n of nodes) {
+    const p = L.pos.get(n.id);
+    const g = svgEl('g', {class: 'nd ' + n.kind, tabindex: 0, role: 'button', 'aria-label': n.label + (n.sub ? ', ' + n.sub : '')}, gn);
+    const r = svgEl('rect', {x: p.x, y: p.y, width: NW, height: NH, rx: 6}, g);
+    const st = n.status && n.status !== 'none' ? n.status : null;
+    const tx = st ? p.x + 22 : p.x + 10;
+    if (st) svgEl('circle', {class: 'dot-' + st, cx: p.x + 12, cy: p.y + 13, r: 4}, g);
+    svgText(g, {class: 't', x: tx, y: p.y + 14, 'dominant-baseline': 'central', 'font-size': 12.5, 'font-weight': 500}, clip(n.label, st ? 24 : 26));
+    if (n.sub) svgText(g, {class: 'tm', x: tx, y: p.y + 28, 'dominant-baseline': 'central', 'font-size': 10.5}, clip(n.sub, st ? 31 : 33));
+    const pick = (ev) => { ev.stopPropagation(); select(n.id); };
+    g.addEventListener('click', pick);
+    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(ev); } });
+    nodeEls.set(n.id, g);
+  }
+  const ctx = {vaults: data.vaults, health: data.health, repos: data.repos, sites: data.sites, flows, funnel: data.funnel, nb: L.nb, byId: L.byId, select: null};
+  function select(id) {
+    const keep = new Set([id, ...(L.nb.get(id) || [])]);
+    for (const [nid, g] of nodeEls) { g.classList.toggle('dim', !keep.has(nid)); g.classList.toggle('sel', nid === id); }
+    for (const {e, path} of edgeEls) path.classList.toggle('edim', e.source !== id && e.target !== id);
+    renderPanel(panel, L.byId.get(id), ctx);
+  }
+  function clear() {
+    for (const g of nodeEls.values()) g.classList.remove('dim', 'sel');
+    for (const {path} of edgeEls) path.classList.remove('edim');
+    renderPanel(panel, null, ctx);
+  }
+  ctx.select = select;
+  root.addEventListener('click', clear);
+  cmap.clear = clear;
+  renderPanel(panel, null, ctx);
+  const deck = [];
+  for (const f of flows) {
+    const mid = 'box:' + String(f.address).toLowerCase();
+    const acc = edges.find((e) => e.source === mid && e.kind === 'mail');
+    if (!acc || !L.pos.has(mid) || !L.pos.has(HUB_ID)) continue;
+    const hops = [mid, acc.target, HUB_ID];
+    if (f.kind === 'vault') { if (!L.pos.has('vault:' + f.dest)) continue; hops.push('vault:' + f.dest); }
+    const segs = [];
+    for (let i = 0; i < hops.length - 1; i++) { const [a1, b1] = anchorR(hops[i]), [a2, b2] = anchorL(hops[i + 1]); segs.push(curvePts(a1, b1, a2, b2)); }
+    for (let k = 0; k < Number(f.count); k++) deck.push({segs, kind: f.kind});
+  }
+  for (const e of edges) {
+    if (e.kind !== 'sync' || !Number(e.count) || !String(e.target).startsWith('vault:')) continue;
+    const inbound = edges.find((x) => x.target === e.source && x.kind === 'sync');
+    if (!inbound || ![inbound.source, e.source, e.target].every((id) => L.pos.has(id))) continue;
+    const hops = [inbound.source, e.source, e.target], segs = [];
+    for (let i = 0; i < hops.length - 1; i++) { const [a1, b1] = anchorR(hops[i]), [a2, b2] = anchorL(hops[i + 1]); segs.push(curvePts(a1, b1, a2, b2)); }
+    for (let k = 0; k < Number(e.count); k++) deck.push({segs, kind: 'meeting'});
+  }
+  for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+  made.deck = deck; made.layer = gp;
+}
+
+const parcelFill = (k) => (k === 'vault' ? dash.colors[0] : (k === 'meeting' ? dash.colors[4] : (k === 'excluded' ? dash.colors[2] : 'var(--chart-muted)')));
+function stopMap(made) { if (made.raf) cancelAnimationFrame(made.raf); made.raf = 0; }
+function startMap(made) {
+  stopMap(made);
+  if (made.layer) made.layer.replaceChildren();
+  made.idx = 0; made.live = []; made.clock = 0; made.prev = null; made.last = -SPAWN;
+  if (reduce || !made.deck || !made.deck.length) return;
+  const frame = (ts) => {
+    const dt = made.prev == null ? 0 : ts - made.prev; made.prev = ts;
+    if (!cmap.paused) made.clock += dt;
+    if (!cmap.paused && made.idx < made.deck.length && made.clock - made.last >= SPAWN) {
+      const p = made.deck[made.idx++];
+      const big = p.kind === 'meeting';
+      p.t0 = made.clock; p.node = svgEl('rect', {width: big ? 8 : 6, height: big ? 8 : 6, rx: big ? 4 : 1.5}, made.layer); p.node.style.fill = parcelFill(p.kind);
+      made.live.push(p); made.last = made.clock;
+    }
+    made.live = made.live.filter((p) => {
+      const t = Math.min(1, (made.clock - p.t0) / TRAVEL);
+      const [x, y] = along(p.segs, t);
+      p.node.setAttribute('x', (x - 3).toFixed(1)); p.node.setAttribute('y', (y - 3).toFixed(1));
+      if (t >= 1) { p.node.remove(); return false; }
+      return true;
+    });
+    if (made.idx >= made.deck.length && !made.live.length) { made.raf = 0; return; }
+    made.raf = requestAnimationFrame(frame);
+  };
+  made.raf = requestAnimationFrame(frame);
+}
+
+function adjacency(nodes, edges) {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const nb = new Map(nodes.map((n) => [n.id, new Set()]));
+  for (const e of edges) if (nb.has(e.source) && nb.has(e.target)) { nb.get(e.source).add(e.target); nb.get(e.target).add(e.source); }
+  return {byId, nb};
+}
+const EPC = [['A', '#1E8A45', '#fff'], ['B', '#57A639', '#fff'], ['C', '#B5CC2E', '#1d1d1b'], ['D', '#F2D21B', '#1d1d1b'], ['E', '#F09A2A', '#1d1d1b'], ['F', '#E03A2E', '#fff']];
+function epcOf(vault, health) {
+  let s = 0;
+  for (const h of health) if (h.vault === vault) s += h.level === 'care' ? 2 : (h.level === 'watch' || h.level === 'warn' ? 1 : 0);
+  const i = s === 0 ? 0 : s === 1 ? 1 : s === 2 ? 2 : s <= 4 ? 3 : s <= 6 ? 4 : 5;
+  return {letter: EPC[i][0], fill: EPC[i][1], ink: EPC[i][2], score: s};
+}
+const CRATE = '#C9A06A', HELD = '#F0A82A', LIT = '#F5D58A', HUB = '#4C5F8A', FLAG = '#E03A2E', SHED = {ok: '#3F9E5A', warn: '#E0A030', bad: '#E03A2E'};
+const ptsOf = (a) => a.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+const lin = (a, b) => [a[0], a[1], a[0], a[1], b[0], b[1], b[0], b[1]];
+function isoFace(g, P, fill, shade) {
+  const e = svgEl('polygon', {points: ptsOf(P)}, g);
+  e.style.fill = fill; e.style.stroke = fill; e.style.strokeWidth = 0.7; e.style.strokeLinejoin = 'round';
+  if (shade) { const o = svgEl('polygon', {points: ptsOf(P)}, g); o.style.fill = shade > 0 ? '#fff' : '#000'; o.style.fillOpacity = Math.abs(shade); o.style.pointerEvents = 'none'; }
+  return e;
+}
+// A box seen from the front corner: the left face (y side), the right face (x side, where the street is) and the top.
+function isoBox(g, pr, x, y, z, a, b, h, fill) {
+  isoFace(g, [pr(x, y + b, z), pr(x + a, y + b, z), pr(x + a, y + b, z + h), pr(x, y + b, z + h)], fill, -0.22);
+  isoFace(g, [pr(x + a, y, z), pr(x + a, y + b, z), pr(x + a, y + b, z + h), pr(x + a, y, z + h)], fill, 0);
+  isoFace(g, [pr(x, y, z + h), pr(x + a, y, z + h), pr(x + a, y + b, z + h), pr(x, y + b, z + h)], fill, 0.26);
+}
+
+function buildPortfolio(el, made, data) {
+  el.replaceChildren();
+  const {nodes, edges, flows, vaults, health, repos, sites} = data;
+  const A = adjacency(nodes, edges);
+  const wrap = make('div', 'cc-mapwrap'), panel = make('div', 'cc-panel');
+  el.append(wrap, panel);
+  const cw = wrap.clientWidth || 960, wide = cw >= 720;
+  let DW = wide ? 1040 : Math.max(300, Math.round(cw));
+  const root = svgEl('svg', {class: 'cc-scene', role: 'img', 'aria-label': 'What came in this week by type, the sorting centre, and every vault as a building with its grade, triage items, held items and late actions'}, wrap);
+  root.setAttribute('viewBox', `0 0 ${DW} 100`);
+  const gGround = svgEl('g', {}, root), gLane = svgEl('g', {}, root), gP = svgEl('g', {}, root), gObj = svgEl('g', {}, root), gTag = svgEl('g', {}, root), gCard = svgEl('g', {}, root);
+  const T = (p, a, s) => svgText(p, Object.assign({class: 't', 'dominant-baseline': 'central'}, a), s);
+  const TM = (p, a, s) => { const f = a.fill; delete a.fill; const e = svgText(p, Object.assign({class: 'tm', 'dominant-baseline': 'central', 'font-size': 11}, a), s); if (f) e.style.fill = f; return e; };
+  const ctx = {vaults, health, repos, sites, flows, funnel: data.funnel, nb: A.nb, byId: A.byId, select: null};
+  const tiles = new Map();
+  let sel = [];
+  const reach = (id) => {
+    const out = new Set(), seen = new Set([id]);
+    let front = [id];
+    for (let d = 0; d < 3 && front.length; d++) {
+      const next = [];
+      for (const e of edges) {
+        if (!front.includes(e.source) || seen.has(e.target)) continue;
+        seen.add(e.target);
+        const m = /^(?:vault|repos):(.+)$/.exec(e.target);
+        if (m) out.add(m[1]); else next.push(e.target);
+      }
+      front = next;
+    }
+    return out;
+  };
+  function select(id, els, hl) {
+    for (const x of sel) x.classList.remove('sel');
+    sel = els || [];
+    for (const x of sel) x.classList.add('sel');
+    const n = A.byId.get(id);
+    let on = hl || new Set();
+    if (!hl && n) {
+      if (n.kind === 'mailbox') on = new Set(flows.filter((f) => String(f.address).toLowerCase() === n.ref && f.kind === 'vault').map((f) => f.dest));
+      else if (n.kind === 'site') { const s = sites.find((x) => x.site === n.ref); if (s) on = new Set([s.serves]); }
+      else if (n.kind === 'repos') on = new Set([n.ref]);
+      else if (n.kind !== 'vault') on = reach(id);
+    }
+    for (const [name, tile] of tiles) tile.classList.toggle('hl', on.has(name));
+    renderPanel(panel, n, ctx);
+  }
+  ctx.select = (id) => select(id, null, null);
+  const clickable = (els, id, hl) => {
+    for (const g of els) {
+      g.classList.add('ck');
+      if (g === els[0]) { g.setAttribute('tabindex', 0); g.setAttribute('role', 'button'); }
+      const go = (ev) => { ev.stopPropagation(); select(id, els, hl); };
+      g.addEventListener('click', go);
+      g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(ev); } });
+    }
+  };
+  const clearP = () => { for (const x of sel) x.classList.remove('sel'); sel = []; for (const t of tiles.values()) t.classList.remove('hl'); renderPanel(panel, null, ctx); };
+  root.addEventListener('click', clearP);
+  cmap.clear = clearP;
+
+  // ---- what came in, by type ----
+  const sum = (rows, f) => rows.reduce((s, r) => s + Number(f(r) || 0), 0);
+  const mailRows = nodes.filter((n) => n.kind === 'mailbox').map((n) => {
+    const fs = flows.filter((f) => String(f.address).toLowerCase() === n.ref), k = (kind) => sum(fs.filter((f) => f.kind === kind), (f) => f.count);
+    const r = {n, v: k('vault'), x: k('excluded'), u: k('unrouted')};
+    r.c = r.v + r.x + r.u;
+    return r;
+  }).sort((a, b) => b.c - a.c);
+  const live = mailRows.filter((r) => r.c > 0), quiet = mailRows.length - live.length;
+  const mailTotal = sum(live, (r) => r.c), mailMax = Math.max(1, ...live.map((r) => r.c));
+  const recIds = nodes.filter((n) => n.kind === 'source' && n.group === 'recording').map((n) => n.id);
+  const recs = recIds.map((id) => ({n: A.byId.get(id), c: sum(edges.filter((e) => e.source === id && e.kind === 'sync'), (e) => e.count)})).filter((r) => r.n).sort((a, b) => b.c - a.c);
+  const recTotal = sum(recs, (r) => r.c), recMax = Math.max(1, ...recs.map((r) => r.c));
+  const watchers = edges.filter((e) => e.kind === 'watch' && String(e.source).startsWith('src:')).map((e) => {
+    const out = edges.find((x) => x.kind === 'watch' && x.source === e.target);
+    return {src: A.byId.get(e.source), task: A.byId.get(e.target), vault: out ? String(out.target).replace('vault:', '') : ''};
+  }).filter((w) => w.src && w.task);
+  const runs = nodes.filter((n) => n.kind === 'task').map((n) => {
+    const times = parseDetail(n.detail).times || [];
+    return {n, times, first: times[0] || '99'};
+  }).sort((a, b) => a.first.localeCompare(b.first) || a.n.label.localeCompare(b.n.label));
+  const sysMap = new Map();
+  for (const n of nodes) {
+    if (n.kind !== 'source' || n.group !== 'system') continue;
+    const mid = A.byId.get((edges.find((e) => e.source === n.id) || {}).target) || {};
+    const via = mid.kind === 'mcp' || mid.kind === 'connector' ? 'mcp' : mid.kind === 'cli' ? 'cli' : 'script';
+    const key = n.label;
+    if (!sysMap.has(key)) sysMap.set(key, {label: key, via, id: n.id, vs: new Set()});
+    for (const v of reach(n.id)) sysMap.get(key).vs.add(v);
+  }
+  const VIA = {mcp: 0, cli: 1, script: 2};
+  const viaFill = (v) => (v === 'mcp' ? dash.colors[4] : v === 'cli' ? dash.colors[3] : 'var(--chart-muted)');
+  const systems = [...sysMap.values()].sort((a, b) => VIA[a.via] - VIA[b.via] || a.label.localeCompare(b.label));
+  const tot = (k) => sum(flows.filter((f) => f.kind === k), (f) => f.count);
+  const ingest = A.byId.get(HUB_ID);
+
+  const card = (x, y, w, h, title, right) => {
+    const g = svgEl('g', {}, gCard);
+    svgEl('rect', {class: 'cd', x, y, width: w, height: h, rx: 8}, g);
+    T(g, {x: x + 10, y: y + 15, 'font-size': 12.5, 'font-weight': 500}, title);
+    if (right) TM(g, {x: x + w - 10, y: y + 15, 'text-anchor': 'end', 'font-size': 10.5}, right);
+    return g;
+  };
+  const row = (parent, x, y, w, id, hl) => {
+    const g = svgEl('g', {class: 'rw'}, parent);
+    svgEl('rect', {class: 'hit', x: x + 4, y: y - 9, width: w - 8, height: 18, rx: 4}, g);
+    if (id) clickable([g], id, hl);
+    return g;
+  };
+  const swatches = (g, x, y, items) => {
+    let lx = x;
+    for (const [lab, col] of items) {
+      const sw = svgEl('rect', {x: lx, y: y - 4, width: 8, height: 8, rx: 2}, g); sw.style.fill = col;
+      const t = TM(g, {x: lx + 11, y, 'font-size': 10.5}, lab);
+      lx += 11 + t.getComputedTextLength() + 9;
+    }
+  };
+  const SPLIT = [['to a vault', dash.colors[0]], ['excluded', dash.colors[2]], ['no vault', 'var(--chart-muted)']];
+  function emailCard(x, y, w) {
+    const h = 44 + live.length * 19 + (quiet ? 16 : 0) + 8;
+    const g = card(x, y, w, h, 'Email', mailTotal + ' threads, 7 days');
+    swatches(g, x + 10, y + 34, SPLIT);
+    const lw = Math.min(104, w * 0.48), bx = x + 10 + lw, bw = w - lw - 46;
+    live.forEach((r, i) => {
+      const ry = y + 54 + i * 19, rg = row(g, x, ry, w, r.n.id);
+      T(rg, {x: x + 10, y: ry, 'font-size': 11.5}, clip(r.n.label, 18));
+      let px = bx;
+      for (const [val, col] of [[r.v, SPLIT[0][1]], [r.x, SPLIT[1][1]], [r.u, SPLIT[2][1]]]) {
+        const wv = bw * val / mailMax;
+        if (wv > 0) { const b = svgEl('rect', {x: px, y: ry - 4, width: Math.max(1, wv - 1), height: 8, rx: 2}, rg); b.style.fill = col; px += wv; }
+      }
+      TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end'}, String(r.c));
+    });
+    if (quiet) TM(g, {x: x + 10, y: y + h - 14, 'font-size': 10.5}, quiet + ' more mailboxes, nothing this week');
+    return h;
+  }
+  function recCard(x, y, w) {
+    const h = 28 + recs.length * 19 + 8;
+    const g = card(x, y, w, h, 'Recordings', recTotal + ' meeting notes');
+    recs.forEach((r, i) => {
+      const ry = y + 38 + i * 19, rg = row(g, x, ry, w, r.n.id);
+      T(rg, {x: x + 10, y: ry, 'font-size': 11.5}, r.n.label.replace(' recorder', ''));
+      if (r.c) {
+        const b = svgEl('rect', {x: x + 70, y: ry - 4, width: Math.max(2, (w - 110) * r.c / recMax), height: 8, rx: 2}, rg); b.style.fill = dash.colors[4];
+        TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end'}, String(r.c));
+      } else TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end', 'font-size': 10.5}, clip(r.n.sub || 'nothing this week', 26));
+    });
+    return h;
+  }
+  function watchCard(x, y, w) {
+    const h = 28 + watchers.length * 19 + 8;
+    const g = card(x, y, w, h, 'Watchers', 'on a schedule');
+    watchers.forEach((wt, i) => {
+      const ry = y + 38 + i * 19, rg = row(g, x, ry, w, wt.src.id);
+      svgEl('circle', {class: 'dot-' + (wt.task.status || 'ok'), cx: x + 14, cy: ry, r: 3.5}, rg);
+      T(rg, {x: x + 23, y: ry, 'font-size': 11.5}, clip(wt.src.label, 16));
+      TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end', 'font-size': 10.5}, 'for ' + wt.vault);
+    });
+    return h;
+  }
+  function runsCard(x, y, w, pitch = 19) {
+    const h = 28 + runs.length * pitch + 8, onTime = runs.filter((r) => (r.n.status || 'ok') === 'ok').length;
+    const g = card(x, y, w, h, 'Scheduled runs', runs.some((r) => r.n.status !== 'none') ? onTime + ' of ' + runs.length + ' on time' : 'no run records yet');
+    runs.forEach((r, i) => {
+      const ry = y + 38 + i * pitch, rg = row(g, x, ry, w, r.n.id), two = r.times.length > 1;
+      svgEl('circle', {class: 'dot-' + (r.n.status || 'ok'), cx: x + 14, cy: ry, r: 3.5}, rg);
+      TM(rg, {x: x + 23, y: ry, 'font-size': 10.5}, r.times.join(' '));
+      T(rg, {x: x + (two ? 88 : 56), y: ry, 'font-size': 11.5}, clip(r.n.label, Math.floor((w - (two ? 98 : 66)) / 6.2)));
+    });
+    return h;
+  }
+  function systemsCard(x, y, w) {
+    const h = 44 + systems.length * 18 + 8;
+    const g = card(x, y, w, h, 'Systems on demand', '');
+    swatches(g, x + 10, y + 34, [['MCP', viaFill('mcp')], ['CLI', viaFill('cli')], ['script', viaFill('script')]]);
+    systems.forEach((s, i) => {
+      const ry = y + 54 + i * 18, rg = row(g, x, ry, w, s.id, s.vs);
+      const d = svgEl('rect', {x: x + 10, y: ry - 4, width: 8, height: 8, rx: 2}, rg); d.style.fill = viaFill(s.via);
+      T(rg, {x: x + 23, y: ry, 'font-size': 11.5}, clip(s.label, 19));
+      TM(rg, {x: x + w - 10, y: ry, 'text-anchor': 'end', 'font-size': 10.5}, clip([...s.vs].join(', '), Math.floor((w - 150) / 5.2)));
+    });
+    return h;
+  }
+  function hubCard(x, y, w) {
+    const h = 66, g = card(x, y, w, h, 'Sorting centre', 'ingest and routing');
+    clickable([g], HUB_ID);
+    if (ingest) svgEl('circle', {class: 'dot-' + (ingest.status || 'ok'), cx: x + w - 12, cy: y + 34, r: 3.5}, g);
+    T(g, {x: x + 10, y: y + 34, 'font-size': 11.5}, `${mailTotal + recTotal} in, ${tot('vault') + recTotal} delivered`);
+    TM(g, {x: x + 10, y: y + 51, 'font-size': 10.5}, `${tot('excluded')} excluded · ${tot('unrouted')} belong to no vault`);
+    return h;
+  }
+
+  // ---- the vaults ----
+  const shown = vaults;
+  const vOrder = (v) => Number((A.byId.get('vault:' + v.vault) || {}).order || 0);
+  const HOOD_FILL = [dash.colors[0], dash.colors[1], dash.colors[5]], fillOf = new Map();
+  const hoods = [];
+  for (const v of shown.slice().sort((a, b) => vOrder(a) - vOrder(b))) {
+    const label = v.neighbourhood || 'Vaults';
+    const rank = Number(v.neighbourhood_rank || 0);
+    let h = hoods.find((x) => x.label === label);
+    if (!h) { h = {label, rank, fill: HOOD_FILL[rank % HOOD_FILL.length], streets: []}; hoods.push(h); }
+    fillOf.set(v.vault, h.fill);
+    const name = v.street || '';
+    let st = h.streets.find((x) => x.name === name);
+    if (!st) { st = {name, lots: []}; h.streets.push(st); }
+    st.lots.push(v);
+  }
+  hoods.sort((a, b) => a.rank - b.rank);
+  // a street holds three vaults at most: a longer one is drawn as several, the name on the first
+  for (const h of hoods) {
+    h.streets = h.streets.flatMap((st) => {
+      const n = Math.ceil(st.lots.length / 3), per = Math.ceil(st.lots.length / n);
+      return Array.from({length: n}, (_, i) => ({name: i ? '' : st.name, lots: st.lots.slice(i * per, (i + 1) * per)}));
+    });
+  }
+  if (wide) DW += Math.max(0, Math.max(0, ...hoods.slice(0, 2).map((h) => h.streets.length)) - 3) * 182;
+  const streetName = (box, name) => T(gTag, {x: box[0] + 1, y: box[1] - 9, 'font-size': 11, 'font-weight': 500}, name).classList.add('sn');
+  const L = 78;
+  function drawLot(pr, lx, ly, v, tagRight) {
+    const away = !!v.machine && !v.state, gone = !!v.state;
+    const col = gone ? 'var(--chart-muted)' : (fillOf.get(v.vault) || dash.colors[0]);
+    const tile = svgEl('polygon', {class: 'gl', points: ptsOf([pr(lx, ly), pr(lx + L, ly), pr(lx + L, ly + L), pr(lx, ly + L)]), 'stroke-dasharray': away || gone ? '5 4' : null}, gGround);
+    tiles.set(v.vault, tile);
+    const g = svgEl('g', {'aria-label': v.vault}, gObj), tg = svgEl('g', {class: 'tg'}, gTag);
+    clickable([tg, g, tile], 'vault:' + v.vault);
+    const bx = lx + 5, by = ly + 9, ba = 38, bb = L - 18, bh = 40;
+    const body = svgEl('g', {opacity: away ? 0.5 : gone ? 0.65 : null}, g);
+    isoBox(body, pr, bx, by, 0, ba, bb, bh, col);
+    const days = parseInt(String(v.last_edit || ''), 10), lit = !gone && Number.isFinite(days) && days <= 2, fx = bx + ba + 0.3, ww = (bb - 12) / 3;
+    for (let i = 0; i < 3; i++) {
+      const y0 = by + 8 + i * ww, y1 = y0 + ww - 6;
+      const wnd = svgEl('polygon', {points: ptsOf([pr(fx, y0, 17), pr(fx, y1, 17), pr(fx, y1, 30), pr(fx, y0, 30)])}, body);
+      wnd.style.fill = lit ? LIT : '#1c1c1a'; wnd.style.fillOpacity = lit ? 0.95 : 0.45;
+    }
+    const vs = sites.filter((st) => st.serves === v.vault);
+    if (vs.length) {
+      const sg = svgEl('g', {'aria-label': vs[0].site}, g), sx = bx + ba * 0.55;
+      const sign = svgEl('polygon', {points: ptsOf([pr(sx, by + 8, bh + 2), pr(sx, by + bb - 8, bh + 2), pr(sx, by + bb - 8, bh + 13), pr(sx, by + 8, bh + 13)])}, sg);
+      sign.style.fill = dash.colors[6]; sign.style.stroke = 'var(--color-bg)'; sign.style.strokeWidth = 1;
+      clickable([sg], 'site:' + vs[0].site);
+    }
+    const ax = bx + ba + 5;
+    const stack = (n, x0, c) => { for (let k = 0; k < n; k++) isoBox(g, pr, x0, by + 1 + Math.floor(k / 3) * 11, (k % 3) * 8, 9, 9, 8, c); };
+    stack(Math.min(12, Math.ceil(Number(v.triage_items) / 3)), ax, CRATE);
+    if (!away) stack(Math.min(12, Math.ceil(Number(v.held) / 5)), ax + 12, HELD);
+    const rg = A.byId.get('repos:' + v.vault);
+    if (rg) {
+      const sh = svgEl('g', {'aria-label': rg.label}, g);
+      isoBox(sh, pr, ax, by + bb - 12, 0, 21, 12, 11, SHED[rg.status] || SHED.ok);
+      clickable([sh], rg.id);
+    }
+    if (Number(v.overdue) > 0) {
+      const [px, py] = pr(bx + ba, by, bh);
+      const pole = svgEl('line', {x1: px, y1: py, x2: px, y2: py - 20}, g); pole.style.stroke = 'var(--color-fg-muted)';
+      const fl = svgEl('polygon', {points: ptsOf([[px, py - 20], [px + 13, py - 15.5], [px, py - 11]])}, g); fl.style.fill = FLAG;
+    }
+    const [cx, cy] = pr(bx + ba / 2, by + bb / 2, bh), e = epcOf(v.vault, health);
+    const parts = [];
+    if (away) parts.push(['pulled by ' + v.machine, null]);
+    if (Number(v.triage_items)) parts.push([v.triage_items + ' in triage', Number(v.triage_oldest_days) > 14 ? 'var(--color-bad)' : null]);
+    if (!away && Number(v.held)) parts.push([v.held + ' held', null]);
+    if (Number(v.overdue)) parts.push([v.overdue + ' late', 'var(--color-bad)']);
+    if (gone) parts.splice(0, parts.length, [v.state || 'handed over', null]);
+    if (!parts.length) parts.push(['all clear', null]);
+    const tb = svgEl('rect', {class: 'tb', rx: 6}, tg), badge = svgEl('rect', {rx: 3, width: 18, height: 15}, tg);
+    badge.style.fill = e.fill;
+    const letter = svgText(tg, {'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 11.5, 'font-weight': 500}, e.letter); letter.style.fill = e.ink;
+    const name = T(tg, {'font-size': 12.5, 'font-weight': 500}, v.vault);
+    const st = svgEl('text', {class: 'tm', 'font-size': 10.5, 'dominant-baseline': 'central'}, tg);
+    parts.forEach(([s, c], i) => { if (i) svgEl('tspan', {}, st).textContent = ' · '; const ts = svgEl('tspan', {}, st); ts.textContent = s; if (c) ts.style.fill = c; });
+    const wT = Math.max(26 + name.getComputedTextLength(), st.getComputedTextLength()) + 16, hT = 36;
+    const x0 = tagRight ? cx + 28 - wT : cx - wT / 2, y0 = cy - 13 - hT;
+    for (const [k, val] of [['x', x0], ['y', y0], ['width', wT], ['height', hT]]) tb.setAttribute(k, val.toFixed(1));
+    badge.setAttribute('x', x0 + 8); badge.setAttribute('y', y0 + 4.5);
+    letter.setAttribute('x', x0 + 17); letter.setAttribute('y', y0 + 12.5);
+    name.setAttribute('x', x0 + 32); name.setAttribute('y', y0 + 12.5);
+    st.setAttribute('x', x0 + 8); st.setAttribute('y', y0 + 26.5);
+    if (gone) { badge.style.display = 'none'; letter.style.display = 'none'; name.setAttribute('x', x0 + 8); }
+    const lead = svgEl('line', {x1: cx, y1: y0 + hT, x2: cx, y2: cy - 2}, tg); lead.style.stroke = 'var(--color-border-line)';
+    tg.setAttribute('aria-label', `${v.vault}, grade ${e.letter}, ${parts.map((p) => p[0]).join(', ')}`);
+    return [x0, y0];
+  }
+  function drawHub(pr, hx, hy, HA, HB) {
+    svgEl('polygon', {class: 'gl', points: ptsOf([pr(hx, hy), pr(hx + HA, hy), pr(hx + HA, hy + HB), pr(hx, hy + HB)])}, gGround);
+    const g = svgEl('g', {'aria-label': 'Sorting centre'}, gObj);
+    clickable([g], HUB_ID);
+    const bx = hx + 8, by = hy + 8, ba = HA - 30, bb = HB - 32, bh = 48;
+    isoBox(g, pr, bx, by, 0, ba, bb, bh, HUB);
+    for (let i = 0; i < 3; i++) {
+      const x0 = bx + 8 + i * (ba - 10) / 3, x1 = x0 + (ba - 10) / 3 - 8, fy = by + bb + 0.3;
+      const door = svgEl('polygon', {points: ptsOf([pr(x0, fy, 0), pr(x1, fy, 0), pr(x1, fy, 22), pr(x0, fy, 22)])}, g); door.style.fill = '#1c1c1a'; door.style.fillOpacity = 0.55;
+    }
+    const band = svgEl('polygon', {points: ptsOf([pr(bx + ba + 0.3, by, bh - 14), pr(bx + ba + 0.3, by + bb, bh - 14), pr(bx + ba + 0.3, by + bb, bh - 6), pr(bx + ba + 0.3, by, bh - 6)])}, g); band.style.fill = '#fff'; band.style.fillOpacity = 0.75;
+    isoBox(g, pr, bx + ba + 5, by + 2, 0, 12, 22, 12, dash.colors[2]);
+    for (let k = 0; k < 4; k++) isoBox(g, pr, bx + ba + 5, by + 30 + (k % 2) * 11, Math.floor(k / 2) * 8, 9, 9, 8, 'var(--chart-muted)');
+    return pr(bx + ba / 2, by + bb / 2, bh);
+  }
+
+  const deck = [];
+  let H = 0;
+  if (wide) {
+    const G = 20, STEP = L + 14, Y0 = 30, SX = 210, HA = 108, HB = 90, hx = -G - HA, hy = -G - HB, colW = 216, OX = 536, OY = 196;
+    const pr = (x, y, z = 0) => [OX + (x - y) * 0.866, OY + (x + y) * 0.5 - z];
+    const road = (P) => svgEl('polygon', {class: 'rd', points: ptsOf(P)}, gGround);
+    const dashes = (p, q) => { const c = svgEl('line', {x1: p[0], y1: p[1], x2: q[0], y2: q[1], 'stroke-dasharray': '7 6', 'stroke-width': 1.2}, gGround); c.style.stroke = 'var(--color-bg)'; };
+    // one band per neighbourhood: a main road, and one side street per theme with its vaults along it
+    let yNext = 0;
+    const bands = hoods.slice(0, 2).map((h, k) => {
+      const depth = Y0 + Math.max(...h.streets.map((st) => st.lots.length)) * STEP + 10;
+      const band = {h, k, y0: yNext, x0: 40 + (k % 2) * 250, depth};
+      band.xEnd = band.x0 + (h.streets.length - 1) * SX + L + G;
+      yNext += depth + 26 + G;
+      return band;
+    });
+    const last = bands[bands.length - 1], ups = [];
+    hoods.slice(2).forEach((h) => h.streets.forEach((st) => ups.push({h, st, X: bands[0].x0 + (1 + ups.length) * SX, top: -G - (16 + st.lots.length * STEP + 2)})));
+    for (const u of ups) {
+      const pl = svgEl('polygon', {class: 'nb', points: ptsOf([pr(u.X - 14, u.top + 2), pr(u.X + L + G + 2, u.top + 2), pr(u.X + L + G + 2, -G - 6), pr(u.X - 14, -G - 6)])}, gGround);
+      pl.style.fill = u.h.fill;
+    }
+    for (const band of bands) {
+      const pl = svgEl('polygon', {class: 'nb', points: ptsOf([pr(band.x0 - 14, band.y0 + 6), pr(band.xEnd + 8, band.y0 + 6), pr(band.xEnd + 8, band.y0 + band.depth + 6), pr(band.x0 - 14, band.y0 + band.depth + 6)])}, gGround);
+      pl.style.fill = band.h.fill;
+    }
+    for (const u of ups) {
+      road([pr(u.X + L, u.top), pr(u.X + L + G, u.top), pr(u.X + L + G, -G), pr(u.X + L, -G)]);
+      dashes(pr(u.X + L + G / 2, u.top + 6), pr(u.X + L + G / 2, -G - 4));
+    }
+    if (bands.length > 1) road([pr(-G, -G), pr(0, -G), pr(0, last.y0), pr(-G, last.y0)]);
+    for (const band of bands) {
+      const xa = band.k === 0 ? hx : -G;
+      road([pr(xa, band.y0 - G), pr(band.xEnd, band.y0 - G), pr(band.xEnd, band.y0), pr(xa, band.y0)]);
+      band.h.streets.forEach((st, i) => {
+        const X = band.x0 + i * SX + L;
+        road([pr(X, band.y0), pr(X + G, band.y0), pr(X + G, band.y0 + band.depth), pr(X, band.y0 + band.depth)]);
+        dashes(pr(X + G / 2, band.y0 + 4), pr(X + G / 2, band.y0 + band.depth - 6));
+      });
+      dashes(pr(xa + 6, band.y0 - G / 2), pr(band.xEnd - 6, band.y0 - G / 2));
+      const F = pr(band.xEnd + 8, band.y0 + band.depth + 6);
+      TM(gGround, {x: F[0], y: F[1] + 14, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 500}, band.h.label);
+    }
+    if (bands.length > 1) dashes(pr(-G / 2, 2), pr(-G / 2, last.y0 - G - 4));
+    const roof = drawHub(pr, hx, hy, HA, HB);
+    const spot = new Map();
+    for (const u of ups) {
+      let topBox = null;
+      for (let j = u.st.lots.length - 1; j >= 0; j--) {
+        const v = u.st.lots[j], ly = -G - 16 - L - j * STEP, box = drawLot(pr, u.X, ly, v, true);
+        spot.set(v.vault, {band: bands[0], X: u.X, ly});
+        if (!topBox) topBox = box;
+      }
+      if (topBox) streetName(topBox, u.h.streets.length > 1 && u.st.name ? u.st.name : u.h.label);
+    }
+    for (const band of bands) band.h.streets.forEach((st, i) => st.lots.forEach((v, j) => {
+      const X = band.x0 + i * SX, ly = band.y0 + Y0 + j * STEP, box = drawLot(pr, X, ly, v, true);
+      spot.set(v.vault, {band, X, ly});
+      if (j === 0 && st.name) streetName(box, st.name);
+    }));
+    let y = 0;
+    const eH = emailCard(0, y, colW), eY = y + 15; y += eH + 10;
+    const rH = recCard(0, y, colW), rY = y + 15; y += rH + 10;
+    y += watchCard(0, y, colW) + 10;
+    y += systemsCard(0, y, colW);
+    const hcx = Math.min(roof[0] + 72, DW - 216 - 214);
+    hubCard(hcx, 0, 204);
+    const lead = svgEl('line', {x1: hcx, y1: 36, x2: roof[0] + 26, y2: roof[1] + 4, 'stroke-dasharray': '2 3'}, gTag); lead.style.stroke = 'var(--color-fg-muted)';
+    runsCard(DW - 212, 0, 212, ups.length ? 17 : 19);
+    H = Math.max(y, pr(last.xEnd + 8, last.y0 + last.depth + 6)[1] + 26) + 4;
+    // lanes from the cards into the back of the sorting centre
+    const back = pr(hx, hy + HB * 0.55), yTop = 26;
+    const lane = (yFrom, yT, c, dx) => {
+      const x0 = colW, xa = x0 + 34 + dx, xb = back[0] - 74 - dx, end = [back[0] - dx * 0.4, back[1] + dx * 0.25];
+      const segs = [[x0, yFrom, xa - 14, yFrom, xa - 14, yT, xa + 22, yT], lin([xa + 22, yT], [xb, yT]), [xb, yT, xb + 46, yT, end[0] - 22, end[1] - 34, end[0], end[1]]];
+      const d = segs.map((sg, i) => (i ? '' : `M${sg[0]} ${sg[1]} `) + `C${sg[2]} ${sg[3]} ${sg[4]} ${sg[5]} ${sg[6]} ${sg[7]}`).join(' ');
+      const path = svgEl('path', {class: 'ed', d, 'stroke-width': 2}, gLane); path.style.stroke = c; path.style.strokeOpacity = 0.55;
+      return segs;
+    };
+    const mailLane = lane(eY, yTop, dash.colors[0], 0), recLane = lane(rY, yTop + 9, dash.colors[4], 12);
+    const door = pr(hx + HA / 2, hy + HB), out = pr(hx + HA / 2, -G / 2);
+    const onward = (laneSegs, t) => {
+      const ax = t.X + L + G / 2, j = pr(ax, t.band.y0 - G / 2);
+      const via = t.band.k === 0 ? [out, j] : [out, pr(-G / 2, -G / 2), pr(-G / 2, t.band.y0 - G / 2), j];
+      const P = [laneSegs[2].slice(6), door, ...via, pr(ax, t.ly + L / 2), pr(t.X + L - 5, t.ly + L / 2)];
+      return laneSegs.concat(P.slice(1).map((q, i) => lin(P[i], q)));
+    };
+    for (const f of flows) {
+      if (!live.some((m) => m.n.ref === String(f.address).toLowerCase())) continue;
+      const to = f.kind === 'vault' ? spot.get(f.dest) : null;
+      if (f.kind === 'vault' && !to) continue;
+      for (let k = 0; k < Number(f.count); k++) deck.push({segs: to ? onward(mailLane, to) : mailLane, kind: f.kind});
+    }
+    for (const e of edges) {
+      if (e.kind !== 'sync' || !Number(e.count) || !String(e.target).startsWith('vault:')) continue;
+      const to = spot.get(e.target.slice(6)); if (!to) continue;
+      for (let k = 0; k < Number(e.count); k++) deck.push({segs: onward(recLane, to), kind: 'meeting'});
+    }
+  } else {
+    const w = DW, cell = w / 2;
+    let y = 0;
+    y += emailCard(0, y, w) + 10; y += recCard(0, y, w) + 10; y += watchCard(0, y, w) + 10; y += hubCard(0, y, w) + 14;
+    for (const h of hoods) {
+      T(gCard, {x: 2, y: y + 9, 'font-size': 12.5, 'font-weight': 500}, h.label); y += 26;
+      for (const st of h.streets) {
+        if (st.name) { TM(gCard, {x: 2, y: y + 6, 'font-weight': 500}, st.name); y += 14; }
+        st.lots.forEach((v, i) => {
+          const ox = (i % 2) * cell + cell / 2 + 12, oy = y + Math.floor(i / 2) * 158 + 104;
+          drawLot((p, q, z = 0) => [ox + (p - q) * 0.866, oy + (p + q) * 0.5 - z], -L / 2, -L / 2, v, false);
+        });
+        y += Math.ceil(st.lots.length / 2) * 158 + 6;
+      }
+      y += 8;
+    }
+    y += runsCard(0, y, w) + 10; y += systemsCard(0, y, w);
+    H = y + 4;
+  }
+  root.setAttribute('viewBox', `0 0 ${DW} ${Math.ceil(H)}`);
+  renderPanel(panel, null, ctx);
+  for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+  made.deck = deck; made.layer = gP;
+}
+
+const MAP_SOURCES = ['nodes', 'edges', 'flows', 'health', 'vaults', 'repos', 'sites', 'funnel'];
+dash.draw('cmap', {
+  mount: () => ({sig: '', raf: 0, deck: [], layer: null}),
+  update: (el, made) => {
+    const ds = MAP_SOURCES.map((id) => dash.data(id));
+    if (ds.some((d) => d.status !== 'ok')) { stopMap(made); el.replaceChildren(); made.sig = ''; return; }
+    const data = {}; MAP_SOURCES.forEach((id, i) => { data[id] = ds[i].data; });
+    const view = cmap.view === 'wiring' ? 'wiring' : 'portfolio';
+    const sig = JSON.stringify([view, Math.round(el.clientWidth / 40), data.nodes.map((n) => [n.id, n.status, n.sub]), data.edges.map((e) => [e.id, e.count]), data.flows.length]);
+    if (sig === made.sig && el.firstChild) return;
+    made.sig = sig;
+    if (view === 'wiring') buildMap(el, made, data); else buildPortfolio(el, made, data);
+    cmap.replay = () => startMap(made);
+    startMap(made);
+  },
+  unmount: (el, made) => { stopMap(made); cmap.replay = null; cmap.clear = null; },
+});
+
+const showPause = (paused) => {
+  for (const x of document.querySelectorAll('.cc-pause')) x.hidden = paused;
+  for (const x of document.querySelectorAll('.cc-play')) x.hidden = !paused;
+};
+for (const b of document.querySelectorAll('.cc-pause')) b.addEventListener('click', () => { cmap.paused = true; showPause(true); });
+for (const b of document.querySelectorAll('.cc-play')) b.addEventListener('click', () => { cmap.paused = false; showPause(false); });
+for (const b of document.querySelectorAll('.cc-replay')) b.addEventListener('click', () => { cmap.paused = false; showPause(false); if (cmap.replay) cmap.replay(); });
+for (const b of document.querySelectorAll('.cc-clear')) b.addEventListener('click', () => { if (cmap.clear) cmap.clear(); else dash.draw('cmap'); });
+const setView = (v) => {
+  cmap.view = v;
+  for (const x of document.querySelectorAll('.cc-view-p')) x.classList.toggle('on', v === 'portfolio');
+  for (const x of document.querySelectorAll('.cc-view-w')) x.classList.toggle('on', v === 'wiring');
+  for (const x of document.querySelectorAll('.cc-leg-p')) x.hidden = v !== 'portfolio';
+  for (const x of document.querySelectorAll('.cc-leg-w')) x.hidden = v !== 'wiring';
+  dash.draw('cmap');
+};
+for (const b of document.querySelectorAll('.cc-view-p')) b.addEventListener('click', () => setView('portfolio'));
+for (const b of document.querySelectorAll('.cc-view-w')) b.addEventListener('click', () => setView('wiring'));
+for (const i of document.querySelectorAll('.cc-legend .lg-mail')) i.style.borderTopColor = dash.colors[0];
+for (const i of document.querySelectorAll('.cc-legend .lg-sign')) i.style.background = dash.colors[6];
+for (const i of document.querySelectorAll('.cc-legend .lg-tool')) i.style.borderTopColor = dash.colors[3];
+for (const i of document.querySelectorAll('.cc-legend .lg-meet')) i.style.borderTopColor = dash.colors[4];
+</script>
+</body>
+</html>

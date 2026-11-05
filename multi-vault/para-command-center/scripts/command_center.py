@@ -38,7 +38,8 @@ What the data holds, and where each part comes from:
   `ended`, `neighbourhood`, `street` and `note`, adds vaults no longer read, shown as handed
   over with no counts: the registry itself lists only vaults that are read.
 - `funnel` and `flows`: para-ingest's `funnel_page.gather()` over `--days` days (default 7)
-  and the ingest ledger, a thread counted once per vault it was routed to.
+  and the ingest ledger, a thread counted once per vault it was routed to. A recording
+  source's notes are counted from its sync script's own ledger in each vault.
 - `repos` and `sites`: the `owned` rows of each vault's code-repos table
   (`paraos_repos.py`), each repo looked for under `--code-root` (repeatable; default
   `~/Code`), then `git fetch`, `git status` and, for a GitHub remote, `gh` for open issues and
@@ -300,16 +301,12 @@ def inbound(home, days, today, labels):
     """The funnel's stages, the mail flows and the per-vault counts the page shows."""
     f = funnel_gather(str(home), days, today)
     led = f["ledger"]
-    held, acted, synced = Counter(), Counter(), Counter()
+    held, acted = Counter(), Counter()
     for p in f["proposals"]:
         held[p["vault"]] += len(p["items"])
     for q in f["quarantine"]:
         if q["in_window"]:
             acted[q["vault"]] += len(q["items"])
-    for run in f["runs"]:
-        for s in run["sync_runs"]:
-            if isinstance(s, dict) and s.get("script"):
-                synced[(script_name(s["script"]), s.get("vault"))] += int(s.get("written") or 0)
     decided = sum(d["window"] for d in f["decisions"].values())
     accepted = sum(d["window_accepted"] for d in f["decisions"].values())
     stages = [
@@ -324,7 +321,28 @@ def inbound(home, days, today, labels):
     return {"funnel": [{"stage": s, "order": i + 1, "label": label, "who": who, "value": value,
                         "detail": detail} for i, (s, label, who, value, detail) in enumerate(stages)],
             "flows": flow_rows(home, f["since"], labels), "held": held, "acted": acted,
-            "routed": led["routed_per_vault"], "synced": synced}
+            "routed": led["routed_per_vault"], "since": f["since"]}
+
+
+def synced_counts(entries, since):
+    """`{(script, vault): notes}` each sync script wrote in the window, from its own ledger,
+    `resources/scripts/<script name>.synced.json` in the vault the note went to: the notes
+    whose file name opens on a date in the window."""
+    floor, out = since.replace("-", ""), Counter()
+    for entry in entries:
+        root = here(entry)
+        if root is None:
+            continue
+        for row in triage_sources(root)["rows"]:
+            if row["kind"] != "sync-script" or not row["path"]:
+                continue
+            script = script_name(row["path"])
+            ledger = load_json(root / "resources" / "scripts" / f"{Path(script).stem}.synced.json", {})
+            for note in (ledger.values() if isinstance(ledger, dict) else []):
+                stamp = re.match(r"\d{8}", script_name(note)) if isinstance(note, str) else None
+                if stamp and stamp.group(0) >= floor:
+                    out[(script, entry["name"])] += 1
+    return out
 
 
 # ------------------------------------------------------------- repos and sites
@@ -715,7 +733,8 @@ def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS
     if not tasks:
         notes.append("No task registry: the scheduled runs are not shown.")
     notes += [f"{e['name'] or 'An entry'} was not read: {e['reason']}" for e in scan["excluded"]]
-    nodes, edges, hub = catalog(entries, vaults, scan["calendars"], feed["flows"], feed["synced"],
+    nodes, edges, hub = catalog(entries, vaults, scan["calendars"], feed["flows"],
+                                synced_counts(entries, feed["since"]),
                                 feed["routed"], repos, sites,
                                 listed["connections"], listed["mailboxes"], tasks,
                                 load_index(paraos_home), days, now)
