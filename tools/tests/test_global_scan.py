@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "multi-vault" / "para-command-center" / "scripts"))
 
 import global_scan  # noqa: E402
+import paraos_clone  # noqa: E402
 from global_scan import build_report, main  # noqa: E402
 from test_audit_scan import build_clone, build_vault as build_kit_vault  # noqa: E402
 
@@ -221,6 +222,15 @@ class GlobalScan(unittest.TestCase):
             ("2026-03-24", "09:30", "Stand-up", True),
             ("2026-03-30", "09:00", "Weekly sync", True)])
 
+    def test_a_cadence_no_reader_counts_shows_the_meeting_once_and_stops_nothing(self):
+        write(self.tmp / "north", "meetings.md", "\n".join([
+            "- 🗓 2026-03-11 · Retro 🔁 every other week",
+            "- 🗓 2026-03-12 · Board 🔁 every first Monday",
+            "- 🗓 2026-03-03 · Bi-weekly 🔁 every 2 tuesdays", ""]))
+        got = [(m["date"], m["title"], m["recurring"]) for m in self.report()["meetings"]]
+        self.assertEqual(got, [("2026-03-11", "Retro", False), ("2026-03-12", "Board", False),
+                               ("2026-03-17", "Bi-weekly", True)])
+
     def test_the_cli_prints_json_and_stops_without_a_registry(self):
         with contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(main(["--paraos-home", str(self.home)]), 3)
@@ -256,6 +266,18 @@ class KitSignal(unittest.TestCase):
     def kits(self, home=None):
         report = build_report(self.entries, TODAY, str(home or self.home))
         return {v["name"]: v["kit"] for v in report["vaults"]}
+
+    def test_every_vault_is_audited_inside_one_clone_session(self):
+        sessions = []
+        real = global_scan.audit_scan.audit_vault
+
+        def audit(*args):
+            sessions.append(paraos_clone._SESSION)
+            return real(*args)
+
+        with mock.patch.object(global_scan.audit_scan, "audit_vault", side_effect=audit):
+            self.kits()
+        self.assertTrue(sessions[0] is not None and all(s is sessions[0] for s in sessions))
 
     def test_each_vault_carries_the_audits_findings_and_a_level(self):
         kits = self.kits()

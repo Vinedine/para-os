@@ -28,6 +28,7 @@ SCRIPTS = ROOT / "multi-vault" / "para-audit" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import audit_scan  # noqa: E402
+import paraos_clone  # noqa: E402
 from audit_scan import build_report, main  # noqa: E402
 
 SCRIPT = SCRIPTS / "audit_scan.py"
@@ -178,6 +179,21 @@ class CloneCase(unittest.TestCase):
 
 
 # ======================================================== which entries are excluded
+
+class CloneSession(CloneCase):
+    def test_the_whole_audit_reads_the_clone_in_one_session(self):
+        build_vault(self.work / "alpha")
+        sessions = []
+        real = audit_scan.audit_vault
+
+        def audit(*args):
+            sessions.append(paraos_clone._SESSION)
+            return real(*args)
+
+        with mock.patch.object(audit_scan, "audit_vault", side_effect=audit):
+            self.run_audit([self.entry("alpha")])
+        self.assertIsNotNone(sessions[0])
+
 
 class ExcludedStatus(unittest.TestCase):
     THEIRS = {"name": "theirs", "machine": "the studio laptop"}
