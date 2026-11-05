@@ -169,7 +169,7 @@ def sync_run(vault, root, declared, write):
     elif write and n:
         out, error = run_script(run_with + [str(script), "--write"], root)
         wrote = WROTE_RE.findall(out)
-        record["written"] = int(wrote[-1]) if wrote else n
+        record["written"] = int(wrote[-1]) if wrote else 0 if error else n
         record["error"] = error
     return record
 

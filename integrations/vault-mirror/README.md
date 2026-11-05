@@ -15,7 +15,7 @@ A `.git` inside a synced folder breaks two ways. Git does not run reliably on ev
 
 ## The rule that matters
 
-**Never edit the mirror.** It is a copy: a run overwrites what changed there and deletes any file the vault does not hold. The script refuses to run over uncommitted changes in the mirror; `--dry-run` lists them, and `--force` overwrites them.
+**Never edit the mirror.** It is a copy, and a run overwrites it. The script refuses to run over uncommitted changes in the mirror, unless a stopped run left them, which it finishes; `--dry-run` lists them, and `--force` overwrites them.
 
 ## Install
 

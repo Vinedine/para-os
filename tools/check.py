@@ -907,11 +907,14 @@ COUNTS = (re.compile(r"^Ran (\d+) tests?", re.M), re.compile(r"^\D*pass (\d+)$",
 TESTS_DIR = ROOT / "tools" / "tests"   # one suite per skill script, test_<script>.py
 
 
+def pipeline_dirs():
+    return sorted(d for d in (ROOT / "addons").glob("*/pipeline") if d.is_dir())
+
+
 def check_tests():
     suite_dirs = integration_dirs() + [TESTS_DIR]
     # An add-on's pipeline/ runs its suite where it ships one, but is not held to having one.
-    pipelines = sorted(d for d in (ROOT / "addons").glob("*/pipeline") if d.is_dir())
-    suites = [p for d in suite_dirs + pipelines for p in sorted(d.iterdir())
+    suites = [p for d in suite_dirs + pipeline_dirs() for p in sorted(d.iterdir())
               if p.suffix in RUNNERS and is_test_file(p)]
     for d in suite_dirs:
         if not any(p.parent == d for p in suites):

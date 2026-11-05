@@ -38,7 +38,7 @@ NODE_ROW = re.compile(r"^#\s*(\S+\.m?js)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*
 def suites():
     """{suite folder: [test files]} for every folder check.py runs a suite in."""
     found = {}
-    for d in check.integration_dirs() + [check.TESTS_DIR]:
+    for d in check.integration_dirs() + check.pipeline_dirs() + [check.TESTS_DIR]:
         tests = sorted(p for p in d.iterdir() if check.is_test_file(p) and p.suffix in check.RUNNERS)
         if tests:
             found[d] = tests
@@ -47,9 +47,11 @@ def suites():
 
 def python_coverage(folders, tmp, fail_under):
     """Run every Python suite under coverage.py; return (ok, text report, Markdown report).
-    What is measured is the scripts: the integrations and every skill's scripts/ folder."""
+    What is measured is the scripts: the integrations, the add-on pipelines and every skill's
+    scripts/ folder."""
     rc = tmp / "coveragerc"
-    sources = "\n    ".join(str(d) for d in check.integration_dirs() + check.skill_script_dirs())
+    sources = "\n    ".join(str(d) for d in check.integration_dirs() + check.pipeline_dirs()
+                             + check.skill_script_dirs())
     rc.write_text(
         "[run]\n"
         "branch = True\n"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: outlook 2026.11.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 """Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph and hand the
 messages to a caller that decides what they mean. Writes nothing, anywhere, ever.
 
@@ -192,10 +192,13 @@ def load_vault_config(required=True):
 
 def write_json_atomic(path, data):
     """Write via temp file + replace. These files are shared by every vault's copy of this
-    script; a truncating write that dies half way takes every account's token with it."""
+    script; a truncating write that dies half way takes every account's token with it. Created
+    owner-only, so no token is readable by another account, even for the moment before replace."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(data, indent=2, ensure_ascii=False))
     os.replace(tmp, path)
 
 

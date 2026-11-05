@@ -21,6 +21,7 @@ import io
 import itertools
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -123,6 +124,14 @@ class AtomicState(unittest.TestCase):
         osync.write_json_atomic(self.f, {"a": 1, "b": 2})
         osync.write_json_atomic(self.f, {"a": 9})
         self.assertEqual(json.loads(self.f.read_text(encoding="utf-8")), {"a": 9})
+
+    @unittest.skipIf(os.name == "nt", "Windows keeps no owner-only mode bits")
+    def test_the_secrets_file_is_owner_only_and_a_rotation_keeps_it_so(self):
+        osync.write_json_atomic(self.f, {"a": 1})
+        self.assertEqual(stat.S_IMODE(self.f.stat().st_mode), 0o600)
+        os.chmod(self.f, 0o644)
+        osync.write_json_atomic(self.f, {"a": 2})
+        self.assertEqual(stat.S_IMODE(self.f.stat().st_mode), 0o600)
 
     def test_save_account_keeps_a_concurrent_runs_rotation(self):
         # Two vault copies refresh different accounts at once. Writing our whole in-memory cfg

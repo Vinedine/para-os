@@ -82,7 +82,7 @@ def in_vault(target):
 
 def read_events(path):
     events, skipped = [], 0
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").split("\n"):
         if not line.strip():
             continue
         try:

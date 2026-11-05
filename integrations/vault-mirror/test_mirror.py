@@ -399,6 +399,70 @@ class Failures(MirrorCase):
                 self.assertRaises(PermissionError):
             mirror.copy(self.vault / "a.md", self.mirror / "a.md")
 
+    def stopped_copy(self):
+        """A run that copies a.md and dies on b.md, as a file a sync client holds stops it."""
+        self.commit_in_mirror({"a.md": "old", "b.md": "old"})
+        write(self.vault / "a.md", "from the vault")
+        write(self.vault / "b.md", "from the vault")
+        real = mirror.copy
+
+        def copy(src, dst):
+            if src.name == "b.md":
+                raise PermissionError(13, "denied", str(src))
+            real(src, dst)
+
+        with mock.patch.object(mirror, "copy", copy), self.assertRaises(PermissionError):
+            self.run_mirror()
+        self.assertEqual((self.mirror / "a.md").read_text(), "from the vault")
+        self.assertEqual((self.mirror / "b.md").read_text(), "old")
+
+    def assert_finished(self):
+        self.assertEqual((self.mirror / "b.md").read_text(), "from the vault")
+        self.assertEqual(git(self.mirror, "status", "--porcelain"), "")
+        self.assertIn("~ b.md", self.message())
+
+    def test_the_run_after_a_stopped_copy_says_so_and_finishes_it_without_force(self):
+        self.stopped_copy()
+        out = self.run_mirror()
+        self.assertIn("The last run stopped", out)
+        self.assert_finished()
+
+    def test_a_dry_run_after_a_stopped_copy_leaves_it_to_the_next_run(self):
+        self.stopped_copy()
+        self.assertIn("The last run stopped", self.run_mirror("--dry-run"))
+        self.assertEqual((self.mirror / "b.md").read_text(), "old")
+        self.run_mirror()
+        self.assert_finished()
+
+    def test_the_run_after_a_failed_commit_finishes_it_without_force(self):
+        write(self.vault / "b.md", "from the vault")
+        real = mirror.git
+
+        def git_that_cannot_commit(repo, *args, **kwargs):
+            if args[0] == "commit":
+                sys.exit("git commit failed")
+            return real(repo, *args, **kwargs)
+
+        with mock.patch.object(mirror, "git", git_that_cannot_commit):
+            self.refused()
+        self.run_mirror()
+        self.assertEqual(git(self.mirror, "status", "--porcelain"), "")
+        self.assertIn("+ b.md", self.message())
+
+    def test_an_edit_after_a_finished_run_is_refused_again(self):
+        self.stopped_copy()
+        self.run_mirror()
+        write(self.mirror / "a.md", "edited in the mirror")
+        self.assertIn("--force", self.refused())
+
+    def test_an_edit_after_a_finished_run_with_nothing_to_commit_is_refused_again(self):
+        self.stopped_copy()
+        write(self.vault / "a.md", "old")
+        write(self.vault / "b.md", "old")
+        self.assertIn("Nothing to commit", self.run_mirror())
+        write(self.mirror / "a.md", "edited in the mirror")
+        self.assertIn("--force", self.refused())
+
     def test_a_git_failure_stops_the_run_with_gits_message(self):
         with self.assertRaises(SystemExit) as stop:
             mirror.git(self.mirror, "rev-parse", "--verify", "no-such-ref")
