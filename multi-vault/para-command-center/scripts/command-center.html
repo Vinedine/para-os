@@ -368,12 +368,13 @@ function renderPanel(panel, n, ctx) {
       const li = make('li'), b = make('button', 'lnk', m.label);
       b.type = 'button';
       b.addEventListener('click', () => ctx.select(m.id));
-      li.append(b, document.createTextNode(' · ' + (KIND[m.kind] || m.kind) + (vs.length ? ' · for ' + vs.join(', ') : '')));
+      li.append(b, document.createTextNode(' · ' + (KIND[m.kind] || m.kind) + (vs.length ? ' · for ' + vs.join(', ') : '') + (parseDetail(m.detail).path ? ' · not listed' : '')));
       u.append(li);
     }
     panel.append(u);
-  } else if (d.provider || d.writes) {
-    panel.append(kv([['Reaches', d.provider], ['Writes', d.writes]]));
+  } else if (d.provider || d.writes || d.through || d.calls || d.run_by) {
+    panel.append(kv([['Reaches', d.provider], ['Through', d.through], ['Calls', d.calls], ['Run by', d.run_by], ['Writes', d.writes], ['File', d.path]]));
+    if (d.path) panel.append(make('p', 'cc-note', 'Found by reading its code. Give it an entry in connections.json to label it, or list it under ignore there if it is not a connection.'));
   }
   const linked = [...ctx.nb.get(n.id)].map((id) => ctx.byId.get(id)).sort((a, b) => Number(a.lane) - Number(b.lane));
   if (linked.length) {

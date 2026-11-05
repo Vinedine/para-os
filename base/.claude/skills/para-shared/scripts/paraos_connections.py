@@ -11,7 +11,8 @@
                       "vaults": ["work"], "machine": null, "secret": "granola.json",
                       "writes": "meeting notes into triage/", "read_only": true,
                       "path": "resources/scripts/granola.js"}],
-     "mailboxes": [{"address": "me@example.com", "owner": "Me", "label": "Work"}]}
+     "mailboxes": [{"address": "me@example.com", "owner": "Me", "label": "Work"}],
+     "ignore": ["resources/scripts/probe.ps1"]}
 
 - `id`: the connection's name. For an MCP server or a hosted connector, the name a vault's
   `## Triage sources` or `## Agenda sources` Type cell writes after `connector:` and a task
@@ -26,6 +27,8 @@
   the outside source.
 - `path` (a script only): from each listed vault's root, or absolute.
 - `mailboxes`: every address a vault reads, with its `owner` and the `label` a page shows.
+- `ignore` (optional): scripts whose code reaches outside and that are not a connection, a
+  sign-in helper or a probe, each a path, the end of one, or a file name.
 
 What a file already declares is discovered, never listed again: each registered vault's
 `## Triage sources` rows (a connector, a recording source, a script, a mailbox), its
@@ -36,12 +39,32 @@ a claude.ai calendar connector to one name, a remark in parentheses after it dro
 spellings of one connector are one; a script written as a bare file name matches the entry
 whose path ends on it.
 
+What a script's own code shows is discovered too, so a script nobody listed is still seen.
+The scripts read are those of each registered vault on this machine: every script in a folder
+named `scripts` or below one (tests, `archive/`, `triage/`, an environment's or a package
+manager's folders and every folder whose name starts with a dot left out), and for each of the
+vault's own skills (a folder in `.claude/skills/` whose name does not start `para-`) the
+scripts the skill holds and the ones its text names: an absolute path, a path from the vault's
+root, or a path from the folder of the last `cd <absolute folder>` written on its line or
+above it in the same file, which is how a skill runs a script that lives in a code repo. A
+script reaches outside when its code, with a docstring, a block comment and every comment line
+dropped, runs a CLI the registry lists (its name where a command starts, as in `az account
+show` or `"az", [...]`, never inside a sentence) or makes a network call (`fetch(`, `urllib`,
+`requests.`, `Invoke-RestMethod`, `curl` and the like) and names an `http(s)://` host. A host
+that names a format or an example (`www.w3.org`, `schemas.*`, `example.com`) is not one. This
+is a reading of text, not a run: a call through a library that hides its host is not seen, and
+a script wrongly read as reaching outside goes in `ignore`. A listed CLI in the code of a
+skill's text (a fenced block or an inline span) is a use of that CLI.
+
 `list` prints `{registry, exists, error, connections, mailboxes}`. Each connection carries its
 registry fields (null where only discovered), `declared` (whether the registry lists it) and
-`used_by`, one `{vault, via}` per use: `via` is `triage`, `agenda`, `mcp.json`, `task:<id>` or
+`used_by`, one `{vault, via}` per use: `via` is `triage`, `agenda`, `mcp.json`, `task:<id>`,
+`scripts` (found in a scripts folder), `skill:<name>` (held, named or run by that skill) or
 `registry` (a vault the entry lists that nothing else shows using it). A discovered `.mcp.json`
-server adds its `url` where it has one. Each mailbox carries `vaults`, every vault whose triage
-sources read it.
+server adds its `url` where it has one. A discovered script has `path` (from its vault's root,
+or whole when it lives outside the vault), an `id` made from it, and `calls`, `{hosts, clis}`:
+the hosts its code names and the listed CLIs it runs; a declared script has `calls` too where
+its code shows any. Each mailbox carries `vaults`, every vault whose triage sources read it.
 
 `check` prints `{registry, exists, findings}`; each finding is `{connection, kind, detail,
 fix}`, kind one of:
@@ -50,7 +73,7 @@ fix}`, kind one of:
 - `missing_script`: a script's `path` is not there, in a listed vault on this machine (one with
   no `machine` in `vaults.json` and a folder on disk) or as an absolute path.
 - `undeclared`: a connector, a script or a task's `via` that neither the registry nor a
-  vault's `.mcp.json` names.
+  vault's `.mcp.json` names, a script whose code reaches outside among them.
 - `unlabelled_mailbox`: an address a vault reads that `mailboxes` does not label.
 With no registry file, everything a vault or task uses is `undeclared`.
 
@@ -82,6 +105,21 @@ KINDS = ("mcp", "connector", "script", "cli", "browser")
 START = "<!-- paraos-connections:start -->"
 END = "<!-- paraos-connections:end -->"
 MANIFEST_COLUMNS = ("Connection", "Kind", "Reaches", "Vaults", "Secret", "Writes", "Read-only")
+SCRIPT_TYPES = (".py", ".js", ".mjs", ".cjs", ".ts", ".ps1", ".sh")
+SKIPPED = frozenset(("node_modules", "venv", "site-packages", "archive", "triage", "tests",
+                     "test", "__pycache__"))
+BIGGEST = 400_000
+CALLS = re.compile(
+    r"\bfetch\s*\(|\burllib\b|\brequests\.|\bhttpx\b|\baiohttp\b|\bhttp\.client\b|"
+    r"\bhttps?\.(?:request|get)\s*\(|\baxios\b|Invoke-RestMethod|Invoke-WebRequest|\bcurl\b|"
+    r"\bwget\b|WebClient|HttpClient|XMLHttpRequest|\bplaywright\b|\bpuppeteer\b|\bselenium\b",
+    re.I)
+HOST = re.compile(r"https?://([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})")
+FORMAT_HOSTS = ("www.w3.org", "json-schema.org", "purl.org", "xmlns.com")
+BLOCKS = {".py": r'[rRbBuUfF]{0,2}("""|\'\'\').*?\1', ".ps1": r"<#.*?#>", ".sh": None}
+NAMED = re.compile(r"[\w~.:/\\-]+\.(?:py|js|mjs|cjs|ts|ps1|sh)\b")
+RUN_IN = re.compile(r"""\bcd\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|"']+))""")
+FENCE = r"(?ms)^[ \t]*```[^\n]*\n(.*?)^[ \t]*```"
 
 
 # --- the registry ---------------------------------------------------------------------------
@@ -91,10 +129,11 @@ def registry_file(home):
 
 
 def load(home):
-    """`(data, error)`: the registry as `{"connections": [...], "mailboxes": [...]}`, empty
-    where the file is missing, and why it could not be read where it does not parse."""
+    """`(data, error)`: the registry as `{"connections": [...], "mailboxes": [...], "ignore":
+    [...]}`, empty where the file is missing, and why it could not be read where it does not
+    parse."""
     path = registry_file(home)
-    empty = {"connections": [], "mailboxes": []}
+    empty = {"connections": [], "mailboxes": [], "ignore": []}
     if not path.is_file():
         return empty, None
     try:
@@ -105,8 +144,10 @@ def load(home):
         return empty, f"{path.name} is not an object holding connections and mailboxes"
     conns = data.get("connections", [])
     boxes = data.get("mailboxes", [])
+    ignore = data.get("ignore", [])
     return {"connections": conns if isinstance(conns, list) else [],
-            "mailboxes": boxes if isinstance(boxes, list) else []}, None
+            "mailboxes": boxes if isinstance(boxes, list) else [],
+            "ignore": [p for p in ignore if isinstance(p, str)] if isinstance(ignore, list) else []}, None
 
 
 def key(name):
@@ -163,6 +204,18 @@ def _here(entry):
     return Path(path)
 
 
+def _vaults_here(home):
+    """`(folder, name)` for every registered vault that is on this machine and on disk."""
+    out = []
+    for entry in registry(home):
+        if not isinstance(entry, dict):
+            continue
+        root, name = _here(entry), entry.get("name")
+        if root is not None and isinstance(name, str) and name:
+            out.append((root, name))
+    return out
+
+
 def _norm_path(path):
     return str(path or "").strip().replace("\\", "/").lower()
 
@@ -198,12 +251,7 @@ def discover(home):
     """Every use the files declare: `(uses, mailboxes)`. A use is `{kind, name, vault, via}`,
     kind `connector`, `script`, `mcp`, `browser` or `cli`; a mailbox use `{address, vault}`."""
     uses, boxes = [], []
-    for entry in registry(home):
-        if not isinstance(entry, dict):
-            continue
-        root, name = _here(entry), entry.get("name")
-        if root is None or not isinstance(name, str) or not name:
-            continue
+    for root, name in _vaults_here(home):
         for row in triage_sources(root)["rows"]:
             if row["kind"] in ("connector", "recording") and row["connector"]:
                 uses.append({"kind": "connector", "name": row["connector"], "vault": name,
@@ -235,6 +283,176 @@ def discover(home):
     return uses, boxes
 
 
+# --- what a script's own code shows -----------------------------------------------------------
+
+def _is_test(name):
+    return name.startswith("test_") or bool(re.search(r"[._](?:test|spec)\.[A-Za-z]+$", name))
+
+
+def _walk(folder, types, under=None):
+    """Files of the given types below a folder, with tests, the SKIPPED folders and every
+    folder whose name starts with a dot left out; with `under`, only those in a folder of
+    that name or below one."""
+    out = []
+    for where, dirs, files in os.walk(folder):
+        dirs[:] = sorted(d for d in dirs if d.lower() not in SKIPPED and not d.startswith("."))
+        if under and under not in (p.lower() for p in Path(where).relative_to(folder).parts):
+            continue
+        out += [Path(where) / f for f in sorted(files)
+                if Path(f).suffix.lower() in types and not _is_test(f)]
+    return out
+
+
+def own_skills(root):
+    """A vault's own skills: each folder in `.claude/skills/` that para-os does not ship,
+    which is every name not starting `para-`."""
+    base = Path(root) / ".claude" / "skills"
+    if not base.is_dir():
+        return []
+    return sorted(d for d in base.iterdir() if d.is_dir() and not d.name.lower().startswith("para-"))
+
+
+def _read(path):
+    """A file's text, empty where it cannot be read or is too large to be a script."""
+    try:
+        if Path(path).stat().st_size > BIGGEST:
+            return ""
+    except OSError:
+        return ""
+    return read_text(path)
+
+
+def _code(text, suffix):
+    """A script's text with what only a reader sees dropped: a block comment or a docstring
+    that starts its line, then every line that is a comment."""
+    block = BLOCKS.get(suffix, r"/\*.*?\*/")
+    if block:
+        text = re.sub(r"(?ms)^[ \t]*" + block, "", text)
+    mark = "#" if suffix in (".py", ".ps1", ".sh") else "//"
+    return "\n".join(ln for ln in text.splitlines() if not ln.lstrip().startswith(mark))
+
+
+def _format_host(host):
+    """Whether a host names a format or an example, not a place a script calls."""
+    return (host in FORMAT_HOSTS or host.startswith("schemas.")
+            or re.search(r"(?:^|\.)example\.(?:com|org|net)$", host) is not None)
+
+
+def _runs(code, clis):
+    """The listed CLIs a piece of code runs: the name where a command starts (a line, a
+    quote, or after one of `; & | ( = !`), then a subcommand or, as the first element of an
+    argument list, a closing quote and a comma. The name inside a sentence is not a run."""
+    return [c for c in clis if re.search(
+        rf"(?m)(?:^|[;&|(=!\"'`])[ \t]*{re.escape(c)}(?:\.cmd|\.exe)?(?:\s+[a-z]|[\"']\s*,)", code)]
+
+
+def reach(text, suffix, clis=()):
+    """`(hosts, clis)`: the outside hosts a script's code names, read only where the code
+    makes a network call, and the listed CLIs it runs."""
+    code = _code(text, suffix)
+    hosts = []
+    if CALLS.search(code):
+        for host in HOST.findall(code):
+            host = host.lower()
+            if host not in hosts and not _format_host(host):
+                hosts.append(host)
+    return hosts, _runs(code, clis)
+
+
+def _is_file(path):
+    try:
+        return path.is_file()
+    except (OSError, ValueError):
+        return False
+
+
+def _expand(text):
+    """A path as written, its leading `~` resolved where it names a home that is known."""
+    try:
+        return Path(text).expanduser()
+    except RuntimeError:
+        return Path(text)
+
+
+def named_scripts(text, root):
+    """The script files a skill's text names and that are there: an absolute path, a path
+    from the folder of the last `cd <absolute folder>` written on its line or above it, or a
+    path from the vault's root."""
+    out, bases = [], [Path(root)]
+    for line in text.splitlines():
+        for cd in ("".join(groups) for groups in RUN_IN.findall(line)):
+            if _expand(cd).is_absolute():
+                bases = [_expand(cd), Path(root)]
+        for token in NAMED.findall(line):
+            path = _expand(token)
+            hit = next((c for c in ([path] if path.is_absolute() else [b / path for b in bases])
+                        if _is_file(c)), None)
+            if hit is not None and hit not in out:
+                out.append(hit)
+    return out
+
+
+def _spans(text):
+    """The code in a skill's text: its fenced blocks and its inline spans."""
+    return "\n".join(re.findall(FENCE, text) + re.findall(r"`([^`\n]+)`", re.sub(FENCE, "", text)))
+
+
+def _label(path, root):
+    """A script as a use names it: from the vault's root when it is in the vault, else whole."""
+    path, root = Path(os.path.abspath(path)), Path(os.path.abspath(root))
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _ignored(label, ignore):
+    name = _norm_path(label)
+    return any(name == p or name.endswith("/" + p) for p in map(_norm_path, ignore) if p)
+
+
+def scan(home, clis=(), ignore=()):
+    """What the code shows, as uses: `{kind: "script", name, vault, via, calls}` for every
+    script that reaches outside, `calls` being `{hosts, clis}`, and `{kind: "cli", name, vault,
+    via}` for every listed CLI a vault's own skill runs in its text. `via` is `scripts` for a
+    script in a scripts folder, `skill:<name>` for what a skill holds, names or runs."""
+    uses = []
+    for root, name in _vaults_here(home):
+        read = {}
+        found = [(p, "scripts") for p in _walk(root, SCRIPT_TYPES, "scripts")]
+        for skill in own_skills(root):
+            via = f"skill:{skill.name}"
+            found += [(p, via) for p in _walk(skill, SCRIPT_TYPES)]
+            for doc in _walk(skill, (".md",)):
+                text = _read(doc)
+                found += [(p, via) for p in named_scripts(text, root)]
+                for cli in _runs(_spans(text), clis):
+                    use = {"kind": "cli", "name": cli, "vault": name, "via": via}
+                    if use not in uses:
+                        uses.append(use)
+        seen = set()
+        for path, via in found:
+            label = _label(path, root)
+            if (label.lower(), via) in seen or _ignored(label, ignore):
+                continue
+            seen.add((label.lower(), via))
+            if label not in read:
+                read[label] = reach(_read(path), path.suffix.lower(), clis)
+            hosts, ran = read[label]
+            if hosts or ran:
+                uses.append({"kind": "script", "name": label, "vault": name, "via": via,
+                             "calls": {"hosts": list(hosts), "clis": list(ran)}})
+    return uses
+
+
+def _script_id(path, taken):
+    """A discovered script's id: its file name in a vault, its last two folders and its name
+    outside one, and the whole path where a connection already carries that."""
+    parts = str(path).replace("\\", "/").split("/")
+    short = "/".join(parts[-3:]) if re.match(r"(?:[A-Za-z]:)?/", str(path).replace("\\", "/")) else parts[-1]
+    return str(path) if short.lower() in taken else short
+
+
 def _matches(entry, use):
     if use["kind"] == "script":
         if entry.get("kind") != "script":
@@ -257,6 +475,13 @@ def _record(entry, declared):
     return out
 
 
+def _add_calls(rec, use):
+    """What a scanned script's code calls, kept on its connection, each name once."""
+    for field, names in (use.get("calls") or {}).items():
+        mine = rec.setdefault("calls", {"hosts": [], "clis": []})[field]
+        mine += [n for n in names if n not in mine]
+
+
 def list_all(paraos_home=None):
     listed, _, _ = gather(paraos_home)
     return listed
@@ -269,6 +494,7 @@ def gather(paraos_home=None):
     data, error = load(home)
     uses, box_uses = discover(home)
     entries = [e for e in data["connections"] if not entry_problems(e)]
+    uses += scan(home, [e["id"] for e in entries if e["kind"] == "cli"], data["ignore"])
     out = [_record(e, True) for e in entries]
     unmatched = []
     for use in uses:
@@ -279,18 +505,29 @@ def gather(paraos_home=None):
         ref = {"vault": use["vault"], "via": use["via"]}
         if ref not in out[hit]["used_by"]:
             out[hit]["used_by"].append(ref)
+        _add_calls(out[hit], use)
     discovered = {}
     for use in unmatched:
-        if use["kind"] != "mcp":
+        if use["kind"] == "mcp":
+            tag = ("mcp", key(use["name"]))
+        elif use["kind"] == "script" and "calls" in use:
+            tag = ("script", _norm_path(use["name"]))
+        else:
             continue
-        rec = discovered.get(key(use["name"]))
-        if rec is None:
+        rec = discovered.get(tag)
+        if rec is None and tag[0] == "mcp":
             rec = _record({"id": use["name"], "kind": "mcp", "vaults": []}, False)
             rec["url"] = use.get("url")
-            discovered[key(use["name"])] = rec
+        elif rec is None:
+            ident = _script_id(use["name"], {str(r["id"]).lower() for r in out})
+            rec = _record({"id": ident, "kind": "script", "vaults": [], "path": use["name"]}, False)
+        if tag not in discovered:
+            discovered[tag] = rec
             out.append(rec)
-        rec["vaults"].append(use["vault"])
+        if use["vault"] not in rec["vaults"]:
+            rec["vaults"].append(use["vault"])
         rec["used_by"].append({"vault": use["vault"], "via": use["via"]})
+        _add_calls(rec, use)
     for rec in out:
         if rec["declared"] and isinstance(rec["vaults"], list):
             seen = {u["vault"] for u in rec["used_by"]}
@@ -355,7 +592,17 @@ def check(paraos_home=None):
         if tag in reported:
             continue
         reported.add(tag)
-        users = sorted({f"{u['vault']} ({u['via']})" for u in unmatched if _use_tag(u) == tag})
+        same = [u for u in unmatched if _use_tag(u) == tag]
+        users = sorted({f"{u['vault']} ({u['via']})" for u in same})
+        calls = {}
+        for u in same:
+            _add_calls(calls, u)
+        if calls:
+            names = calls["calls"]["clis"] + calls["calls"]["hosts"]
+            findings.append(finding(use["name"], "undeclared",
+                                    f"The script {use['name']!r}, used by {', '.join(users)}, calls {', '.join(names)}, and the registry does not list it.",
+                                    "Add its entry to connections.json, or list its path under ignore where it is not a connection."))
+            continue
         findings.append(finding(use["name"], "undeclared",
                                 f"The {use['kind']} {use['name']!r} is used by {', '.join(users)}, and the registry does not list it.",
                                 "Add its entry to connections.json: kind, provider, vaults, secret, what it writes, read_only."))
@@ -404,9 +651,12 @@ def manifest_block(listed):
     for c in sorted(listed["connections"], key=lambda c: (KINDS.index(c["kind"]), c["id"].lower())):
         vaults = c["vaults"] if c["vaults"] == "*" else ", ".join(c["vaults"] or [])
         read_only = "" if c["read_only"] is None else ("yes" if c["read_only"] else "no")
-        name = f"`{c['id']}`" + ("" if c["declared"] else " (from .mcp.json)")
+        found = c["kind"] == "script" and not c["declared"]
+        name = f"`{c['id']}`" + ("" if c["declared"] else
+                                 " (found by its code)" if found else " (from .mcp.json)")
+        reaches = ", ".join(c["calls"]["clis"] + c["calls"]["hosts"]) if found else c["provider"]
         rows.append("| " + " | ".join(_cell(x) for x in (
-            name, c["kind"], c["provider"], vaults, c["secret"] and f"`{c['secret']}`",
+            name, c["kind"], reaches, vaults, c["secret"] and f"`{c['secret']}`",
             c["writes"], read_only)) + " |")
     rows += ["", END]
     return "\n".join(rows)

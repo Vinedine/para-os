@@ -452,6 +452,28 @@ class WholePage(unittest.TestCase):
         known = set(nodes)
         self.assertEqual([e["id"] for e in data["edges"] if e["source"] not in known or e["target"] not in known], [])
 
+    def test_a_script_found_by_its_code_is_a_part(self):
+        alpha = self.tmp / "alpha"
+        write(alpha, "resources/scripts/ledger.py", "import subprocess\nsubprocess.run(['books', 'export'])\n")
+        write(alpha, "resources/scripts/probe.py", "import urllib.request\nURL = 'https://api.shop.io/v1'\n")
+        write(alpha, "resources/scripts/rec.py", "import subprocess\nsubprocess.run('books sync', shell=True)\n")
+        write(alpha, ".claude/skills/close-books/SKILL.md", "Run `py -3 resources/scripts/ledger.py`.\n")
+        data = self.build()
+        nodes = {n["id"]: n for n in data["nodes"]}
+        edges = {e["id"] for e in data["edges"]}
+        self.assertEqual((nodes["conn:ledger.py"]["kind"], nodes["conn:ledger.py"]["sub"]), ("script", cc.UNLISTED))
+        self.assertEqual(nodes["conn:ledger.py"]["detail"],
+                         {"provider": "Books", "writes": "", "through": "books", "calls": "", "run_by": "close-books",
+                          "path": "resources/scripts/ledger.py"})
+        self.assertEqual(nodes["conn:probe.py"]["detail"],
+                         {"provider": "", "writes": "", "through": "", "calls": "api.shop.io", "run_by": "",
+                          "path": "resources/scripts/probe.py"})
+        for eid in ("src:Books>conn:ledger.py", "conn:ledger.py>vault:alpha", "conn:probe.py>vault:alpha",
+                    f"src:{cc.UNLABELLED}>conn:probe.py"):
+            self.assertIn(eid, edges)
+        self.assertEqual(nodes[f"src:{cc.UNLABELLED}"]["group"], "system")
+        self.assertNotIn("src:Books>conn:rec", edges)
+
     def test_what_is_missing_is_said(self):
         notes = self.build()["meta"]["notes"]
         self.assertEqual(notes[0], "One calendar failed.")

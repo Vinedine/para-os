@@ -56,7 +56,10 @@ What the data holds, and where each part comes from:
   fine however old its last commit.
 - `nodes` and `edges`, every part and every link a file declares: each vault's triage and
   agenda sources, the connections registry (`paraos_connections.py`), the task registry and
-  its run records (`paraos_runs.py`), the repo tables and the pages index. A scheduled run is
+  its run records (`paraos_runs.py`), the repo tables and the pages index. A script the
+  registry does not list and whose code reaches outside is a part too: under the source of
+  each listed CLI it runs, or under `Not labelled yet` where it names hosts alone, with what
+  it calls, the skills that run it and its path in its `detail`. A scheduled run is
   `ok`, `watch` (its last record is older than its last due time), `warn` (partial), `bad`
   (failed) or `none` (no record yet). `meta.hub` is the run whose skill is `para-ingest`.
 - `meta`: `today`, `generated_at`, `days`, `hub` and `notes`, what was missing or left out.
@@ -114,6 +117,8 @@ KIT_SIGNAL = ("kit", "Kit", "Kit files that differ from the para-os clone at sta
 SEVERITY = {"ci": 3, "diverged": 3, "unpushed": 2, "dirty": 2, "behind": 2, "missing": 1,
             "quiet": 0, "clean": 0}
 SEVERITY_WORD = {3: "bad", 2: "warn", 1: "mute", 0: "ok"}
+UNLISTED = "not in the connections registry"
+UNLABELLED = "Not labelled yet"
 
 
 def load_json(path, default):
@@ -584,7 +589,7 @@ def catalog(entries, vaults, calendars, flows, synced, routed, repos, sites, lis
         """The node of the connection a source row or a task names, declared or not."""
         rec = declared(kind, name)
         ident = rec["id"] if rec else (script_name(name) if kind == "script" else name)
-        sub = "read-only" if rec and rec.get("read_only") else ("not in the connections registry" if not rec else "")
+        sub = "read-only" if rec and rec.get("read_only") else (UNLISTED if not rec else "")
         return node(f"conn:{ident}", 1, ident, rec["kind"] if rec else kind, sub=sub,
                     detail={"provider": (rec or {}).get("provider") or "",
                             "writes": (rec or {}).get("writes") or ""}), rec
@@ -678,16 +683,30 @@ def catalog(entries, vaults, calendars, flows, synced, routed, repos, sites, lis
         if refresh:
             edge(cid, refresh, "calendar")
 
+    tools = {connection_key(c["id"]): provider_name(c.get("provider")) or c["id"]
+             for c in listed if c.get("kind") == "cli" and c.get("declared")}
     for rec in listed:
         uses = rec.get("used_by") or []
         if rec.get("machine") or f"conn:{rec['id']}" in fed or any(
                 u["via"] in ("triage", "agenda") or u["via"].startswith("task:") for u in uses):
             continue
-        provider = provider_name(rec.get("provider")) or rec["id"]
+        calls = rec.get("calls") or {}
+        through = [c for c in calls.get("clis") or [] if connection_key(c) in tools]
+        found = rec.get("kind") == "script" and not rec.get("declared")
+        if found:
+            providers = list(dict.fromkeys(tools[connection_key(c)] for c in through)) or [UNLABELLED]
+        else:
+            providers = [provider_name(rec.get("provider")) or rec["id"]]
         cid = node(f"conn:{rec['id']}", 1, rec["id"], rec.get("kind") or "mcp",
-                   sub="read-only" if rec.get("read_only") else "",
-                   detail={"provider": provider, "writes": rec.get("writes") or ""})
-        edge(node(f"src:{provider}", 0, provider, "source", group="system"), cid, "tool")
+                   sub=UNLISTED if found else ("read-only" if rec.get("read_only") else ""),
+                   detail={"provider": "" if providers == [UNLABELLED] else ", ".join(providers),
+                           "writes": rec.get("writes") or "",
+                           "through": ", ".join(through),
+                           "calls": ", ".join(calls.get("hosts") or []),
+                           "run_by": ", ".join(sorted({u["via"][6:] for u in uses if u["via"].startswith("skill:")})),
+                           "path": (rec.get("path") or "") if found else ""})
+        for provider in providers:
+            edge(node(f"src:{provider}", 0, provider, "source", group="system"), cid, "tool")
         for u in uses:
             if f"vault:{u['vault']}" in nodes:
                 edge(cid, f"vault:{u['vault']}", "tool")
