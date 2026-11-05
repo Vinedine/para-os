@@ -251,6 +251,25 @@ class Checking(Home, unittest.TestCase):
         for quiet in ("abs-ok", "every", "remote", "awayonly"):
             self.assertNotIn(("missing_script", quiet), kinds)
 
+    def test_a_retired_script_still_listed(self):
+        scripts = self.work / "resources" / "scripts"
+        marker = "para-os-retired: 2026-01-15\n"
+        (scripts / "old.py").write_text("#!/usr/bin/env python3\n# " + marker, encoding="utf-8")
+        (scripts / "late.py").write_text("\n" * 10 + "# " + marker, encoding="utf-8")
+        (scripts / "undated.py").write_text("# para-os-retired: soon\n", encoding="utf-8")
+        (self.tmp / "abs.js").write_text("// " + marker, encoding="utf-8")
+        self.connections([{**GOOD, "id": i, "path": f"resources/scripts/{i}.py"}
+                          for i in ("old", "late", "undated")]
+                         + [{**GOOD, "id": "abs", "vaults": "*", "path": str(self.tmp / "abs.js")}])
+        result = check(self.home)
+        kinds = self.kinds(result)
+        self.assertIn(("retired_script", "old"), kinds)
+        self.assertIn(("retired_script", "abs"), kinds)
+        self.assertNotIn(("retired_script", "late"), kinds)
+        self.assertNotIn(("retired_script", "undated"), kinds)
+        self.assertIn("2026-01-15", next(f["detail"] for f in result["findings"]
+                                         if f["connection"] == "old"))
+
     def test_a_complete_registry_is_clean(self):
         gmail = {"id": "claude.ai Gmail", "kind": "connector", "provider": "Gmail", "vaults": ["work", "house"],
                  "read_only": True}
