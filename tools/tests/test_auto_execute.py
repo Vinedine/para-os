@@ -129,8 +129,56 @@ class Executor(unittest.TestCase):
         code, out = self.run_all([{"item": "shorter.md", "action": "Delete (duplicate)",
                                    "survivor": "areas/mail/sources/full.md"}])
         self.assertEqual(out["refused"], [{"item": "shorter.md",
-                                           "reason": "the scan finds no byte match for it"}])
+                                           "reason": "no byte match for it stays"}])
         self.assertTrue((self.vault / "triage" / "shorter.md").exists())
+
+    def test_of_two_identical_items_the_second_stays(self):
+        self.switch_on("Delete (duplicate)")
+        write(self.vault, "triage/a.md", "Only these two.\n" * 20)
+        write(self.vault, "triage/b.md", "Only these two.\n" * 20)
+        rows = [{"item": n, "action": "Delete (duplicate)"} for n in ("a.md", "b.md")]
+        code, out = self.run_all(rows)
+        self.assertEqual(out["acted"], [rows[0]])
+        self.assertEqual(out["refused"], [{"item": "b.md", "reason": "no byte match for it stays"}])
+        self.assertTrue((self.vault / "triage" / "b.md").exists())
+
+    def test_a_match_gone_since_the_scan_is_no_match(self):
+        self.switch_on("Delete (duplicate)")
+        saved = self.scan()
+        os.remove(self.vault / "projects/site/dup.pdf")
+        decisions = self.decide([{"item": "dup.pdf", "action": "Delete (duplicate)"}])
+        _, out = call("run", "--scan", saved, "--decisions", decisions, "--paraos-home", self.home)
+        self.assertEqual(out["acted"], [])
+        self.assertTrue((self.vault / "triage" / "dup.pdf").exists())
+
+    def test_a_row_naming_no_item_refuses_the_run_before_anything_moves(self):
+        self.switch_on("Dismiss (noise)")
+        code, out = self.run_all([{"item": "noise.md", "action": "Dismiss (noise)"},
+                                  {"action": "Dismiss (noise)"}])
+        self.assertEqual(code, 3)
+        self.assertIn("naming no item", out["refused"])
+        self.assertTrue((self.vault / "triage" / "noise.md").exists())
+
+    def test_a_run_that_dies_after_a_move_leaves_a_manifest_restore_reads(self):
+        self.switch_on("Dismiss (noise)")
+        saved = self.scan()
+        decisions = self.decide([{"item": n, "action": "Dismiss (noise)"}
+                                 for n in ("noise.md", "invoice.md")])
+        real = auto_execute.item_record
+
+        def dies_on_the_second(path):
+            if path.name == "invoice.md":
+                raise RuntimeError("no disk")
+            return real(path)
+
+        with mock.patch.object(auto_execute, "item_record", side_effect=dies_on_the_second):
+            with self.assertRaises(RuntimeError):
+                call("run", "--scan", saved, "--decisions", decisions, "--paraos-home", self.home)
+        self.assertFalse((self.vault / "triage" / "noise.md").exists())
+        run = next((self.home / "quarantine" / "north").iterdir()).name
+        code, _ = call("restore", "--vault-name", "north", "--run", run, "--paraos-home", self.home)
+        self.assertEqual(code, 0)
+        self.assertTrue((self.vault / "triage" / "noise.md").exists())
 
     def test_a_run_consumes_its_decisions_file(self):
         self.switch_on("Delete (duplicate)")
@@ -213,6 +261,16 @@ class Executor(unittest.TestCase):
         self.assertEqual((code, rec["recorded"]), (0, 1))
         _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
         self.assertIsNone(status["proposal"])
+
+    def test_a_pdfs_markdown_twin_is_no_new_item(self):
+        for name in ("dup.pdf", "noise.md", "invoice.md", "linked.md"):
+            os.remove(self.vault / "triage" / name)
+        write(self.vault, "triage/scan.pdf", "%PDF\n")
+        write(self.vault, "triage/scan.md", "The extracted text.\n")
+        self.run_all([{"item": "scan.pdf", "action": "Keep it"}])
+        _, status = call("status", "--vault-name", "north", "--vault", self.vault,
+                         "--paraos-home", self.home)
+        self.assertTrue(status["nothing_new"])
 
     def test_status_reads_no_proposal_of_a_vault_whose_name_extends_this_one(self):
         write(self.home, "cache/triage/proposals/north-east-20261018-1200.md", "x\n")
@@ -445,6 +503,16 @@ class Executor(unittest.TestCase):
         self.assertIn("nothing to move", back["failed"][0]["reason"])
         self.assertNotIn("commit", back)
 
+    def test_a_link_file_it_could_not_rewrite_is_reported(self):
+        self.init_git()
+        self.switch_on("File it")
+        link = "../../triage/linked.md"
+        (self.vault / "projects/site/README.md").write_bytes(f"café [it]({link}).\n".encode("cp1252"))
+        _, out = self.run_all([self.FILE])
+        self.assertEqual(out["acted"], [{"item": "linked.md", "action": "File it"}])
+        self.assertEqual(out["missed"], [{"item": "linked.md", "file": "projects/site/README.md",
+                                          "href": link}])
+
     def test_a_move_that_fails_holds_its_item_and_the_run_still_writes_its_manifest(self):
         self.init_git()
         self.switch_on("File it", "Dismiss (noise)")
@@ -549,6 +617,20 @@ class RegistryPolicy(Executor):
         self.assertEqual(demoted["north"][0]["run"], "r1")
         self.assertTrue((self.home / "auto-triage.json.migrated").exists())
         self.assertEqual(list(json.loads((self.home / "auto-triage.json").read_text(encoding="utf-8"))), ["gone"])
+
+    def test_a_second_migrate_takes_the_vault_the_first_kept(self):
+        self.register()
+        write(self.home, "auto-triage.json", json.dumps({
+            "north": {"on": ["Dismiss (noise)"], "demoted": []},
+            "gone": {"on": ["Dismiss (noise)"], "demoted": []}}))
+        call("migrate", "--paraos-home", self.home)
+        write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)},
+                                                    {"name": "gone", "path": str(self.tmp)}]))
+        code, out = call("migrate", "--paraos-home", self.home)
+        self.assertEqual((code, out["migrated"], out["kept"]), (0, ["gone"], []))
+        self.assertFalse((self.home / "auto-triage.json").exists())
+        kept = json.loads((self.home / "auto-triage.json.migrated").read_text(encoding="utf-8"))
+        self.assertEqual(sorted(kept), ["gone", "north"])
 
     def test_a_vault_without_the_key_still_reads_the_older_file(self):
         self.register()

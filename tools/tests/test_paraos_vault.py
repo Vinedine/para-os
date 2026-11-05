@@ -1734,6 +1734,13 @@ class Move(VaultCase):
         self.assertEqual(rewrite_links(path, [row]), [row])
         self.assertEqual(path.read_text("utf-8"), "# Piet\n\n[a](../x/a.md)\n")
 
+    def test_a_file_that_cannot_be_read_or_written_comes_back_rather_than_raising(self):
+        path = write(self.root, "areas/network/piet.md", "# Piet\n\n[a](../x/a.md)\n")
+        row = {"line": 3, "raw": "../x/a.md", "new_href": "../y/a.md"}
+        for method in ("read_bytes", "write_bytes"):
+            with mock.patch.object(Path, method, side_effect=PermissionError("in use")):
+                self.assertEqual(rewrite_links(path, [row]), [row])
+
     def test_without_apply_it_prints_the_plan_and_moves_nothing(self):
         self.build()
         code, got = self.run_move("areas/properties/orchard-lane",
