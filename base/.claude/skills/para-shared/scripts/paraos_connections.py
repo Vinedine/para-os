@@ -53,7 +53,8 @@ show` or `"az", [...]`, never inside a sentence) or makes a network call (`fetch
 `requests.`, `Invoke-RestMethod`, `curl` and the like) and names an `http(s)://` host. A host
 that names a format or an example (`www.w3.org`, `schemas.*`, `example.com`) is not one. This
 is a reading of text, not a run: a call through a library that hides its host is not seen, and
-a script wrongly read as reaching outside goes in `ignore`. A listed CLI in the code of a
+a script wrongly read as reaching outside goes in `ignore`. A script marked `para-os-retired`
+in its first ten lines is kept as reference and reaches nothing. A listed CLI in the code of a
 skill's text (a fenced block or an inline span) is a use of that CLI.
 
 `list` prints `{registry, exists, error, connections, mailboxes}`. Each connection carries its
@@ -72,6 +73,8 @@ fix}`, kind one of:
 - `unknown_vault`: an entry names a vault the registry of vaults does not.
 - `missing_script`: a script's `path` is not there, in a listed vault on this machine (one with
   no `machine` in `vaults.json` and a folder on disk) or as an absolute path.
+- `retired_script`: a listed script whose first ten lines carry `para-os-retired: YYYY-MM-DD`,
+  the mark on a script kept as reference and no longer run.
 - `undeclared`: a connector, a script or a task's `via` that neither the registry nor a
   vault's `.mcp.json` names, a script whose code reaches outside among them.
 - `unlabelled_mailbox`: an address a vault reads that `mailboxes` does not label.
@@ -120,6 +123,7 @@ BLOCKS = {".py": r'[rRbBuUfF]{0,2}("""|\'\'\').*?\1', ".ps1": r"<#.*?#>", ".sh":
 NAMED = re.compile(r"[\w~.:/\\-]+\.(?:py|js|mjs|cjs|ts|ps1|sh)\b")
 RUN_IN = re.compile(r"""\bcd\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|"']+))""")
 FENCE = r"(?ms)^[ \t]*```[^\n]*\n(.*?)^[ \t]*```"
+RETIRED = re.compile(r"para-os-retired:\s*(\d{4}-\d{2}-\d{2})")
 
 
 # --- the registry ---------------------------------------------------------------------------
@@ -437,7 +441,9 @@ def scan(home, clis=(), ignore=()):
                 continue
             seen.add((label.lower(), via))
             if label not in read:
-                read[label] = reach(_read(path), path.suffix.lower(), clis)
+                text = _read(path)
+                retired = RETIRED.search("\n".join(text.splitlines()[:10]))
+                read[label] = ([], []) if retired else reach(text, path.suffix.lower(), clis)
             hosts, ran = read[label]
             if hosts or ran:
                 uses.append({"kind": "script", "name": label, "vault": name, "via": via,
@@ -621,10 +627,17 @@ def _use_tag(use):
     return use["kind"], _norm_path(use["name"]) if use["kind"] == "script" else key(use["name"])
 
 
+def _retired(entry, file):
+    marked = RETIRED.search("\n".join(read_text(file).splitlines()[:10]))
+    return [finding(entry["id"], "retired_script",
+                    f"{file.name} was retired on {marked.group(1)}, and the registry still lists it.",
+                    "Remove the entry; the script stays as reference.")] if marked else []
+
+
 def _script_findings(entry, vault_entries):
     path = Path(entry["path"])
     if path.is_absolute():
-        return [] if path.exists() else [finding(
+        return _retired(entry, path) if path.exists() else [finding(
             entry["id"], "missing_script", f"Its path {entry['path']} is not there.",
             "Correct the path, or remove the entry if the script is gone.")]
     if entry["vaults"] == "*":
@@ -633,7 +646,11 @@ def _script_findings(entry, vault_entries):
     for vault in entry["vaults"]:
         reg = next((e for e in vault_entries if e.get("name") == vault), None)
         root = _here(reg) if reg else None
-        if root is not None and not (root / path).exists():
+        if root is None:
+            continue
+        if (root / path).exists():
+            out += _retired(entry, root / path)
+        else:
             out.append(finding(entry["id"], "missing_script",
                                f"{vault} has no {entry['path']}.",
                                "Install the script there, correct the path, or drop the vault from the entry."))

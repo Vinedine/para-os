@@ -251,6 +251,7 @@ class Scanning(Home, unittest.TestCase):
                     "resources/scripts/tests/t.py", "triage/scripts/t.py"):
             self.write(self.work, rel)
         self.write(self.work, "resources/scripts/quiet.py", "print('local')\n")
+        self.write(self.work, "resources/scripts/old.py", "# para-os-retired: 2026-01-15\n" + CALLER)
         self.assertEqual(self.scripts(), [("areas/shop/scripts/lib/call.py", "work", "scripts"),
                                           ("resources/scripts/shop.py", "work", "scripts")])
 
@@ -417,6 +418,25 @@ class Checking(Home, unittest.TestCase):
         self.assertIn("used by work (scripts), calls az, api.shop.io,", found[0]["detail"])
         self.assertIn("under ignore", found[0]["fix"])
         self.assertNotIn("probe.ps1", json.dumps(check(self.home)))
+
+    def test_a_retired_script_still_listed(self):
+        scripts = self.work / "resources" / "scripts"
+        marker = "para-os-retired: 2026-01-15\n"
+        (scripts / "old.py").write_text("#!/usr/bin/env python3\n# " + marker, encoding="utf-8")
+        (scripts / "late.py").write_text("\n" * 10 + "# " + marker, encoding="utf-8")
+        (scripts / "undated.py").write_text("# para-os-retired: soon\n", encoding="utf-8")
+        (self.tmp / "abs.js").write_text("// " + marker, encoding="utf-8")
+        self.connections([{**GOOD, "id": i, "path": f"resources/scripts/{i}.py"}
+                          for i in ("old", "late", "undated")]
+                         + [{**GOOD, "id": "abs", "vaults": "*", "path": str(self.tmp / "abs.js")}])
+        result = check(self.home)
+        kinds = self.kinds(result)
+        self.assertIn(("retired_script", "old"), kinds)
+        self.assertIn(("retired_script", "abs"), kinds)
+        self.assertNotIn(("retired_script", "late"), kinds)
+        self.assertNotIn(("retired_script", "undated"), kinds)
+        self.assertIn("2026-01-15", next(f["detail"] for f in result["findings"]
+                                         if f["connection"] == "old"))
 
     def test_a_complete_registry_is_clean(self):
         gmail = {"id": "claude.ai Gmail", "kind": "connector", "provider": "Gmail", "vaults": ["work", "house"],
