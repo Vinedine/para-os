@@ -658,6 +658,33 @@ const NEXT_DAY = new Date(Date.parse(DAY) + 86400000).toISOString().slice(0, 10)
 const compact = iso => iso.replace(/-/g, "");
 const ID_A = "aaaaaaaa-1111-4111-8111-111111111111";
 const ID_B = "bbbbbbbb-2222-4222-8222-222222222222";
+
+const noteOf = id => `---\ntitle: "Standup"\ngranola_id: ${id}\n---\n`;
+
+test("a note a stopped run left unledgered is ledgered, so filing it does not import it again", () => {
+  const name = `${compact(DAY)} Standup.md`;
+  const sync = syncInVault([{ id: ID_A, title: "Standup", created_at: `${DAY}T10:00:00.000Z` }],
+                           { notes: { [name]: noteOf(ID_A) } });
+  assert.deepStrictEqual(Object.keys(sync.ledger("vault")), [ID_A]);
+  assert.match(sync.stdout, /wrote: 0 · recorded: 1/);
+  assert.equal(sync.read(name), noteOf(ID_A));
+});
+
+test("a dry run names the note it would ledger and writes nothing", () => {
+  const sync = syncInVault([{ id: ID_A, title: "Standup", created_at: `${DAY}T10:00:00.000Z` }],
+                           { argv: [], notes: { [`${compact(DAY)} Standup.md`]: noteOf(ID_A) } });
+  assert.equal(sync.ledger("vault"), null);
+  assert.match(sync.stdout, /would write: 0 · would record: 1/);
+});
+
+test("a third meeting of one date, title and id start takes its whole id, never another's note", () => {
+  const [first, second, third] = ["1111", "2222", "3333"].map(n => `aaaaaaaa-${n}-4111-8111-111111111111`);
+  const taken = { [`${compact(DAY)} Standup.md`]: noteOf(first),
+                  [`${compact(DAY)} Standup (aaaaaa).md`]: noteOf(second) };
+  const sync = syncInVault([{ id: third, title: "Standup", created_at: `${DAY}T10:00:00.000Z` }], { notes: taken });
+  assert.ok(sync.files.includes(`${compact(DAY)} Standup (${third}).md`), sync.files.join(", "));
+  assert.equal(sync.read(`${compact(DAY)} Standup (aaaaaa).md`), noteOf(second));
+});
 const idsIn = (sync, files) => files.map(f => /^granola_id: (.*)$/m.exec(sync.read(f))[1]).sort();
 
 test("a meeting just after local midnight is dated and named by its local day", () => {
