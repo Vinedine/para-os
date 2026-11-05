@@ -171,8 +171,8 @@ body{padding:16px clamp(16px,3vw,40px)}
     <div class="cc-legend cc-leg-w" hidden>
       <span><i class="lg-line lg-mail"></i>Mail, from the sorting centre, thicker for more threads</span>
       <span><i class="lg-line lg-meet"></i>Recording notes</span>
-      <span><i class="lg-line lg-tool"></i>Systems reached on demand</span>
-      <span><i class="lg-dash"></i>Watchers on a schedule</span>
+      <span><i class="lg-line lg-tool"></i>Systems reached on demand, from the API centre</span>
+      <span><i class="lg-dash"></i>Watchers on a schedule, from the API centre</span>
       <span>Each kind runs under the streets as its own line, to the vaults it reaches</span>
       <span><i class="lg-mute"></i>Click a vault to see only what feeds it, or a line in a card to see only where it goes</span>
     </div>
@@ -750,6 +750,57 @@ function buildPortfolio(el, made, data, under) {
     return pr(bx + ba / 2, by + bb / 2, bh);
   }
 
+  function drawExchange(pr, ex, ey, EA, EB) {
+    svgEl('polygon', {class: 'gl', points: ptsOf([pr(ex, ey), pr(ex + EA, ey), pr(ex + EA, ey + EB), pr(ex, ey + EB)])}, gGround);
+    const g = svgEl('g', {'aria-label': 'API centre', class: 'ck', tabindex: 0, role: 'button'}, gObj), tg = svgEl('g', {class: 'tg ck'}, gTag);
+    const bx = ex + 8, by = ey + 8, ba = EA - 30, bb = EB - 30, bh = 38;
+    isoBox(g, pr, bx, by, 0, ba, bb, bh, HUB);
+    for (let i = 0; i < 2; i++) {
+      const x0 = bx + 8 + i * (ba - 10) / 2, x1 = x0 + (ba - 10) / 2 - 8, fy = by + bb + 0.3;
+      const door = svgEl('polygon', {points: ptsOf([pr(x0, fy, 0), pr(x1, fy, 0), pr(x1, fy, 18), pr(x0, fy, 18)])}, g); door.style.fill = '#1c1c1a'; door.style.fillOpacity = 0.55;
+    }
+    const band = svgEl('polygon', {points: ptsOf([pr(bx + ba + 0.3, by, bh - 13), pr(bx + ba + 0.3, by + bb, bh - 13), pr(bx + ba + 0.3, by + bb, bh - 6), pr(bx + ba + 0.3, by, bh - 6)])}, g); band.style.fill = dash.colors[3];
+    const [cx, cy] = pr(bx + ba / 2, by + bb / 2, bh);
+    const tb = svgEl('rect', {class: 'tb', rx: 6}, tg);
+    const name = T(tg, {'font-size': 12.5, 'font-weight': 500}, 'API centre');
+    const sub = TM(tg, {'font-size': 10.5}, `${systems.length} systems` + (watchers.length ? ` · ${watchers.length} watched` : ''));
+    const wT = Math.max(name.getComputedTextLength(), sub.getComputedTextLength()) + 16, x0 = cx - 22, y0 = cy - 13 - 36;
+    for (const [k, val] of [['x', x0], ['y', y0], ['width', wT], ['height', 36]]) tb.setAttribute(k, val.toFixed(1));
+    name.setAttribute('x', x0 + 8); name.setAttribute('y', y0 + 12.5);
+    sub.setAttribute('x', x0 + 8); sub.setAttribute('y', y0 + 26.5);
+    const lead = svgEl('line', {x1: cx, y1: y0 + 36, x2: cx, y2: cy - 2}, tg); lead.style.stroke = 'var(--color-border-line)';
+    const pick = (ev) => {
+      ev.stopPropagation();
+      for (const x of sel) x.classList.remove('sel');
+      sel = [g, tg];
+      for (const x of sel) x.classList.add('sel');
+      const on = new Set([...systems.flatMap((sy) => [...sy.vs]), ...watchers.map((wt) => wt.vault)]);
+      for (const [vault, tile] of tiles) tile.classList.toggle('hl', on.has(vault));
+      for (const p of pipes) p.path.classList.toggle('edim', p.kind !== 'sys' && p.kind !== 'watch');
+      panel.replaceChildren(make('h3', null, 'API centre'), make('p', 'cc-note', 'Outside systems, reached when asked for or on a schedule'));
+      const u = make('ul'), how = {mcp: 'MCP server or connector', cli: 'command-line tool', script: 'script'};
+      for (const sy of systems) {
+        const li = make('li'), b = make('button', 'lnk', sy.label);
+        b.type = 'button';
+        b.addEventListener('click', () => select(sy.id, null, sy.vs));
+        li.append(b, document.createTextNode(' · ' + how[sy.via] + ' · for ' + [...sy.vs].join(', ')));
+        u.append(li);
+      }
+      for (const wt of watchers) {
+        const li = make('li'), b = make('button', 'lnk', wt.src.label);
+        b.type = 'button';
+        b.addEventListener('click', () => select(wt.src.id, null, null));
+        li.append(b, document.createTextNode(' · watched on a schedule · for ' + wt.vault));
+        u.append(li);
+      }
+      panel.append(u);
+    };
+    for (const part of [g, tg]) {
+      part.addEventListener('click', pick);
+      part.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(ev); } });
+    }
+  }
+
   const deck = [];
   let H = 0;
   if (wide) {
@@ -795,6 +846,8 @@ function buildPortfolio(el, made, data, under) {
     }
     if (bands.length > 1) dashes(pr(-G / 2, 2), pr(-G / 2, last.y0 - G - 4));
     const roof = drawHub(pr, hx, hy, HA, HB);
+    const EA = 92, EB = 80, ex = 40, ey = -G - EB;
+    if (systems.length || watchers.length) drawExchange(pr, ex, ey, EA, EB);
     const spot = new Map();
     for (const u of ups) {
       let topBox = null;
@@ -824,20 +877,20 @@ function buildPortfolio(el, made, data, under) {
     H = Math.max(y, pr(last.xEnd + 8, last.y0 + last.depth + 6)[1] + 26) + 4;
     // lanes from the cards into the back of the sorting centre
     const back = pr(hx, hy + HB * 0.55), yTop = 26;
-    const lane = (yFrom, yT, c, dx) => {
-      const x0 = colW, xa = x0 + 34 + dx, xb = back[0] - 74 - dx, end = [back[0] - dx * 0.4, back[1] + dx * 0.25];
+    const lane = (yFrom, yT, c, dx, to = back, layer = gLane) => {
+      const x0 = colW, xa = x0 + 34 + dx, xb = to[0] - 74 - dx, end = [to[0] - dx * 0.4, to[1] + dx * 0.25];
       const segs = [[x0, yFrom, xa - 14, yFrom, xa - 14, yT, xa + 22, yT], lin([xa + 22, yT], [xb, yT]), [xb, yT, xb + 46, yT, end[0] - 22, end[1] - 34, end[0], end[1]]];
       const d = segs.map((sg, i) => (i ? '' : `M${sg[0]} ${sg[1]} `) + `C${sg[2]} ${sg[3]} ${sg[4]} ${sg[5]} ${sg[6]} ${sg[7]}`).join(' ');
-      const path = svgEl('path', {class: 'ed', d, 'stroke-width': 2}, gLane); path.style.stroke = c; path.style.strokeOpacity = 0.55;
+      const path = svgEl('path', {class: 'ed', d, 'stroke-width': 2}, layer); path.style.stroke = c; path.style.strokeOpacity = 0.55;
       return segs;
     };
     const mailLane = lane(eY, yTop, dash.colors[0], 0), recLane = lane(rY, yTop + 9, dash.colors[4], 12);
     const door = pr(hx + HA / 2, hy + HB), out = pr(hx + HA / 2, -G / 2);
     const hole = (t) => pr(t.X + L - 5, t.ly + L / 2);
-    const route = (t) => {  // from the sorting centre's door along the roads to a vault's dock
+    const route = (t, from = [door, out]) => {  // from a building's door along the roads to a vault's dock
       const ax = t.X + L + G / 2, j = pr(ax, t.band.y0 - G / 2);
-      const via = t.band.k === 0 ? [out, j] : [out, pr(-G / 2, -G / 2), pr(-G / 2, t.band.y0 - G / 2), j];
-      return [door, ...via, pr(ax, t.ly + L / 2), hole(t)];
+      const via = t.band.k === 0 ? [j] : [pr(-G / 2, -G / 2), pr(-G / 2, t.band.y0 - G / 2), j];
+      return [...from, ...via, pr(ax, t.ly + L / 2), hole(t)];
     };
     const onward = (laneSegs, t) => {
       const P = [laneSegs[2].slice(6), ...route(t)];
@@ -862,27 +915,23 @@ function buildPortfolio(el, made, data, under) {
         path.style.stroke = color; path.style.strokeOpacity = 0.8;
         pipes.push({path, kind, vault});
       };
-      const trunk = (yFrom, color, lift, dashed) => {  // from a card to where the roads start
-        const path = svgEl('path', {class: 'pipe', d: `M${colW} ${yFrom} C${colW + 130} ${yFrom} ${out[0] - 150} ${out[1] + lift + 70} ${out[0].toFixed(1)} ${(out[1] + lift).toFixed(1)}`,
-          'stroke-width': 1.6, 'stroke-dasharray': dashed ? '5 4' : null}, gPipe);
-        path.style.stroke = color; path.style.strokeOpacity = 0.6;
-      };
+      const hall = [pr(ex + EA / 2, ey + EB), pr(ex + EA / 2, -G / 2)], hallBack = pr(ex, ey + EB * 0.55);
       const fedBy = (rows, vaultsOf) => new Set(rows.flatMap((r) => [...vaultsOf(r)]));
       const lines = [
-        ['mail', dash.colors[0], 0, new Set(flows.filter((fl) => fl.kind === 'vault').map((fl) => fl.dest)), false],
-        ['rec', dash.colors[4], 4, fedBy(recs, (r) => edges.filter((e) => e.kind === 'sync' && String(e.target).startsWith('vault:') && A.nb.get(r.n.id).has(e.source)).map((e) => e.target.slice(6))), false],
-        ['sys', dash.colors[3], 8, fedBy(systems, (sy) => sy.vs), false],
-        ['watch', dash.colors[2], 12, fedBy(watchers, (wt) => [wt.vault]), true],
+        ['mail', dash.colors[0], 0, new Set(flows.filter((fl) => fl.kind === 'vault').map((fl) => fl.dest)), false, undefined],
+        ['rec', dash.colors[4], 4, fedBy(recs, (r) => edges.filter((e) => e.kind === 'sync' && String(e.target).startsWith('vault:') && A.nb.get(r.n.id).has(e.source)).map((e) => e.target.slice(6))), false, undefined],
+        ['sys', dash.colors[3], 8, fedBy(systems, (sy) => sy.vs), false, hall],
+        ['watch', dash.colors[2], 12, fedBy(watchers, (wt) => [wt.vault]), true, hall],
       ];
-      for (const [kind, color, lift, names, dashed] of lines) {
+      for (const [kind, color, lift, names, dashed, from] of lines) {
         for (const name of names) {
           if (!spot.has(name)) continue;
           const got = kind === 'mail' ? flows.filter((fl) => fl.kind === 'vault' && fl.dest === name).reduce((sum, fl) => sum + Number(fl.count), 0) : 0;
-          pipe(route(spot.get(name)).slice(1), color, kind === 'mail' ? (1.8 + Math.min(2.4, got / 12)).toFixed(1) : 1.8, kind, name, lift, dashed);
+          pipe(route(spot.get(name), from), color, kind === 'mail' ? (1.8 + Math.min(2.4, got / 12)).toFixed(1) : 1.8, kind, name, lift, dashed);
         }
       }
-      if (lines[2][3].size) trunk(sY, dash.colors[3], 8, false);
-      if (lines[3][3].size) trunk(wY, dash.colors[2], 12, true);
+      if (lines[2][3].size) lane(sY, yTop + 18, dash.colors[3], 24, hallBack, gPipe);
+      if (lines[3][3].size) lane(wY, yTop + 27, dash.colors[2], 36, hallBack, gPipe);
       for (const t of spot.values()) { const [hx0, hy0] = hole(t); svgEl('ellipse', {class: 'hole', cx: hx0.toFixed(1), cy: (hy0 + 6).toFixed(1), rx: 7, ry: 3.4}, gPipe); }
     }
   } else {
