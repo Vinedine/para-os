@@ -49,6 +49,8 @@ fix}`, kind one of:
 - `unknown_vault`: an entry names a vault the registry of vaults does not.
 - `missing_script`: a script's `path` is not there, in a listed vault on this machine (one with
   no `machine` in `vaults.json` and a folder on disk) or as an absolute path.
+- `retired_script`: a listed script whose first ten lines carry `para-os-retired: YYYY-MM-DD`,
+  the mark on a script kept as reference and no longer run.
 - `undeclared`: a connector, a script or a task's `via` that neither the registry nor a
   vault's `.mcp.json` names.
 - `unlabelled_mailbox`: an address a vault reads that `mailboxes` does not label.
@@ -82,6 +84,7 @@ KINDS = ("mcp", "connector", "script", "cli", "browser")
 START = "<!-- paraos-connections:start -->"
 END = "<!-- paraos-connections:end -->"
 MANIFEST_COLUMNS = ("Connection", "Kind", "Reaches", "Vaults", "Secret", "Writes", "Read-only")
+RETIRED = re.compile(r"para-os-retired:\s*(\d{4}-\d{2}-\d{2})")
 
 
 # --- the registry ---------------------------------------------------------------------------
@@ -374,10 +377,17 @@ def _use_tag(use):
     return use["kind"], _norm_path(use["name"]) if use["kind"] == "script" else key(use["name"])
 
 
+def _retired(entry, file):
+    marked = RETIRED.search("\n".join(read_text(file).splitlines()[:10]))
+    return [finding(entry["id"], "retired_script",
+                    f"{file.name} was retired on {marked.group(1)}, and the registry still lists it.",
+                    "Remove the entry; the script stays as reference.")] if marked else []
+
+
 def _script_findings(entry, vault_entries):
     path = Path(entry["path"])
     if path.is_absolute():
-        return [] if path.exists() else [finding(
+        return _retired(entry, path) if path.exists() else [finding(
             entry["id"], "missing_script", f"Its path {entry['path']} is not there.",
             "Correct the path, or remove the entry if the script is gone.")]
     if entry["vaults"] == "*":
@@ -386,7 +396,11 @@ def _script_findings(entry, vault_entries):
     for vault in entry["vaults"]:
         reg = next((e for e in vault_entries if e.get("name") == vault), None)
         root = _here(reg) if reg else None
-        if root is not None and not (root / path).exists():
+        if root is None:
+            continue
+        if (root / path).exists():
+            out += _retired(entry, root / path)
+        else:
             out.append(finding(entry["id"], "missing_script",
                                f"{vault} has no {entry['path']}.",
                                "Install the script there, correct the path, or drop the vault from the entry."))
