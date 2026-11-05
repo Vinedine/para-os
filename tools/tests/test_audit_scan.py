@@ -215,6 +215,7 @@ class FleetCase(CloneCase):
         self.assertEqual(self.code, 0)
         self.assertEqual(self.report["master"]["revision"], "2026.10.01")
         self.assertEqual(self.report["tasks"]["findings"], [])
+        self.assertFalse(self.report["connections"]["exists"])
         self.assertEqual([v["name"] for v in self.report["vaults"]], ["aligned", "behind"])
 
     def test_the_aligned_vault_has_no_finding(self):
@@ -899,6 +900,27 @@ class TasksCase(unittest.TestCase):
         block = audit_scan.tasks_block(self.home, self.home / "missing.json")
         self.assertIn("missing.json", block["app_error"])
         self.assertFalse(block["app_compared"])
+
+
+class ConnectionsCase(unittest.TestCase):
+    """The connections registry's drift, from paraos_connections.check, in the report."""
+
+    def test_the_report_carries_the_connections_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            vault = home / "v"
+            build_vault(vault)
+            write(vault, "CLAUDE.md", (vault / "CLAUDE.md").read_text(encoding="utf-8")
+                  + "\n## Triage sources\n\n| Source | Type | Endpoint | Relevant when |\n"
+                    "|---|---|---|---|\n| mail | connector: mailer | a@example.com | All. |\n")
+            write(home, "connections.json", json.dumps({"connections": [], "mailboxes": [
+                {"address": "a@example.com", "owner": "A", "label": "A"}]}))
+            entries = [{"name": "v", "path": str(vault)}]
+            write(home, "vaults.json", json.dumps(entries))
+            report, _ = audit_scan.build_report(home / "vaults.json", entries, None, None, None, None)
+        self.assertTrue(report["connections"]["exists"])
+        self.assertEqual([(f["connection"], f["kind"]) for f in report["connections"]["findings"]],
+                         [("mailer", "undeclared")])
 
 
 if __name__ == "__main__":

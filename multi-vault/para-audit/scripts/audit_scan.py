@@ -68,6 +68,10 @@ most findings, registry order breaking a tie; null where no vault has one.
 folders and, given `--app-tasks` (the app's own task list, saved as JSON), against what the
 app runs. A list that cannot be read is `tasks.app_error`, and the folders are compared alone.
 
+`connections` is para-shared/scripts/paraos_connections.py's `check`: the connections registry
+against what the vaults' triage and agenda sources, their `.mcp.json` files and the task
+registry use, and every mailbox they read against its labels.
+
 Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one
 listing no entry; 4 the clone or the ref cannot be read, or its template carries no marker;
 5 no `--ref` and the clone has no `origin/stable`. With no clone found the audit still
@@ -108,6 +112,7 @@ try:
     )
     from paraos_clone import addon_root, clone_session, master_template  # noqa: E402
     from paraos_runs import app_list, check as tasks_check  # noqa: E402
+    from paraos_connections import check as connections_check  # noqa: E402
     from upgrade_scan import drift_block, files_block, open_clone, revision_block  # noqa: E402
 except ImportError as missing:
     print(f"audit_scan: {missing}. install para-shared and para-upgrade beside this skill",
@@ -485,6 +490,7 @@ def build_report(registry_path, entries, clone, ref_arg, clone_source, default_c
         return report, 3
     report["auto_triage"] = auto_triage_check(Path(registry_path).parent, entries)
     report["tasks"] = tasks_block(Path(registry_path).parent, app_tasks)
+    report["connections"] = connections_check(Path(registry_path).parent)
     kit = ref = in_development = None
     if clone is None:
         report["clone"] = {"path": None, "source": None, "error": (

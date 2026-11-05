@@ -16,7 +16,7 @@ An integration is **not** an [add-on](../addons/). An add-on changes what a vaul
 | Bulk working data | `~/.paraos/data/<name>/` - kept, but not vault-worthy |
 | Dedup ledger of a sync script | `<vault>/resources/scripts/<script name>.synced.json` in the vault the note went to, so it syncs with that vault, `{id: path of the note written}`, each note's name opening on its item's `YYYYMMDD` date: `/para-daily-brief` reads it to flag a source gone silent |
 
-The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a home path. `~/.paraos/README.md` on each machine is the manifest of what's actually installed. The full convention for that destination folder - the buckets and the `PARAOS_HOME` resolver, with Python and Node snippets - is specified in [`base/resources/scripts/README.md`](../base/resources/scripts/README.md).
+The state root is `PARAOS_HOME` (default `~/.paraos`); no script hardcodes a home path. `~/.paraos/README.md` on each machine is the manifest of what's actually installed, and `~/.paraos/connections.json` beside it lists each connection once ([template](connections.json.template)), with the vaults it serves, its secret's file name and what it writes: `para-shared/scripts/paraos_connections.py` defines the fields, checks the file against what the vaults declare, and writes its table into the manifest. The full convention for that destination folder - the buckets and the `PARAOS_HOME` resolver, with Python and Node snippets - is specified in [`base/resources/scripts/README.md`](../base/resources/scripts/README.md).
 
 ## Available
 
