@@ -41,26 +41,19 @@ body{padding:16px clamp(16px,3vw,40px)}
 .cc-controls{display:flex;gap:var(--gap-xs);flex-wrap:wrap}
 .cc-btn{font:inherit;font-size:var(--font-size-caption);color:var(--color-fg);background:transparent;border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-xs) var(--pad-sm);cursor:pointer}
 .cc-btn:hover{border-color:var(--color-fg-muted)}
-.cc-btn:focus-visible,.cc-map .nd:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.cc-btn:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
 .cc-map{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:var(--gap-md);min-height:640px;align-items:start}
 .cc-mapwrap{overflow-x:auto;min-width:0}
-.cc-map svg{display:block;width:100%;min-width:1100px;height:auto}
+.cc-map svg{display:block;width:100%;height:auto}
 .cc-map text{font-family:var(--font-sans)}
 .cc-map .t{fill:var(--color-fg)}
 .cc-map .tm{fill:var(--color-fg-muted)}
-.cc-map .lane{fill:var(--color-fg-muted);font-size:12px;letter-spacing:.02em}
-.cc-map .nd{cursor:pointer}
-.cc-map .nd rect{fill:var(--color-bg);stroke:var(--color-border-line)}
-.cc-map .nd:hover rect{stroke:var(--color-fg-muted)}
-.cc-map .nd.sel rect{stroke:var(--color-fg);stroke-width:1.5}
-.cc-map .nd.vault rect{stroke-width:1.4}
 .cc-map .dot-ok{fill:var(--color-ok)}
 .cc-map .dot-watch,.cc-map .dot-warn{fill:var(--color-warn)}
 .cc-map .dot-care,.cc-map .dot-bad{fill:var(--color-bad)}
 .cc-map .dot-none{fill:var(--chart-muted)}
 .cc-map .dot-mute{fill:none;stroke:var(--chart-muted);stroke-dasharray:2 2}
 .cc-map .ed{fill:none;stroke-linecap:round;transition:opacity var(--dur-slow)}
-.cc-map .nd{transition:opacity var(--dur-slow)}
 .cc-map .dim{opacity:.15}
 .cc-map .edim{opacity:.05}
 .cc-panel{position:sticky;top:8px;border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-md);display:grid;gap:var(--gap-sm);font-size:var(--font-size-caption);max-height:80vh;overflow:auto;min-width:0}
@@ -88,7 +81,11 @@ body{padding:16px clamp(16px,3vw,40px)}
 .cc-legend .lg-epc-a{background:#1E8A45}
 .cc-legend .lg-epc-f{background:#E03A2E;margin-left:var(--gap-xs)}
 .cc [hidden]{display:none!important}
-.cc-map svg.cc-scene{min-width:0}
+.cc-scene.under .gl{fill:transparent;stroke-dasharray:4 3}
+.cc-scene.under .rd{fill-opacity:.3}
+.cc-scene.under .nb{fill-opacity:.04}
+.cc-map .pipe{fill:none;stroke-linecap:round;stroke-linejoin:round;transition:opacity var(--dur-slow)}
+.cc-map .hole{fill:var(--color-fg-muted)}
 .cc-map .gl{fill:var(--color-bg);stroke:var(--color-border-line);stroke-width:1;stroke-linejoin:round}
 .cc-map .gl.sel{stroke:var(--color-fg);stroke-width:1.6}
 .cc-map .gl.hl{stroke:var(--color-warn);stroke-width:2.2}
@@ -149,7 +146,7 @@ body{padding:16px clamp(16px,3vw,40px)}
     <div class="cc-maphead">
       <div>
         <h2>Your portfolio</h2>
-        <p class="cc-note">What came in over the last 7 days, grouped by type, what the sorting centre did with it, and how every vault stands, by neighbourhood and street. Click a building or a line in a card for its details, and the sorting centre for the triage funnel. Wiring shows every connection as a diagram.</p>
+        <p class="cc-note">What came in over the last 7 days, grouped by type, what the sorting centre did with it, and how every vault stands, by neighbourhood and street. Click a building or a line in a card for its details, and the sorting centre for the triage funnel. Wiring is the same map from underground: every pipe is a connection a file declares.</p>
       </div>
       <div class="cc-controls">
         <button type="button" class="cc-btn cc-view-p on">Portfolio</button>
@@ -172,15 +169,12 @@ body{padding:16px clamp(16px,3vw,40px)}
       <span><i class="lg-tile"></i>Dashed lot: not pulled on this machine</span>
     </div>
     <div class="cc-legend cc-leg-w" hidden>
-      <span><i class="lg-line lg-mail"></i>Mail, thicker for more threads</span>
-      <span><i class="lg-line lg-meet"></i>Meeting notes from Granola, Pocket and Plaud, thicker for more</span>
-      <span><i class="lg-line lg-tool"></i>A connection used on demand</span>
-      <span><i class="lg-dash"></i>Pulled on another machine</span>
-      <span><i class="lg-line"></i>Other declared link</span>
-      <span><i class="lg-ok"></i>Healthy or on time</span>
-      <span><i class="lg-warn"></i>To watch</span>
-      <span><i class="lg-care"></i>Needs care</span>
-      <span><i class="lg-mute"></i>Quiet: nothing pending, no recent commits</span>
+      <span><i class="lg-line lg-mail"></i>Mail, from the sorting centre, thicker for more threads</span>
+      <span><i class="lg-line lg-meet"></i>Recording notes</span>
+      <span><i class="lg-line lg-tool"></i>Systems reached on demand</span>
+      <span><i class="lg-dash"></i>Watchers on a schedule</span>
+      <span>Each kind runs under the streets as its own line, to the vaults it reaches</span>
+      <span><i class="lg-mute"></i>Click a vault to see only what feeds it, or a line in a card to see only where it goes</span>
     </div>
   </section>
 
@@ -293,7 +287,6 @@ dash.draw('week', (box) => {
 });
 
 const NS = 'http://www.w3.org/2000/svg';
-const LW = 236, NW = 198, NH = 38, NG = 8, TOP = 46, PADX = 12, W = PADX * 2 + LW * 5 + NW;
 const TRAVEL = 2600, SPAWN = 70;
 const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const cmap = window.__ccMap = window.__ccMap || {paused: false, replay: null, clear: null};
@@ -301,7 +294,6 @@ const svgEl = (tag, attrs, parent) => { const e = document.createElementNS(NS, t
 const svgText = (parent, attrs, txt) => { const e = svgEl('text', attrs, parent); e.textContent = txt; return e; };
 const clip = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + '…' : s || '');
 const parseDetail = (d) => (d && typeof d === 'object' ? d : {});
-const curvePts = (x1, y1, x2, y2) => { const dx = Math.max(40, (x2 - x1) * 0.45); return [x1, y1, x1 + dx, y1, x2 - dx, y2, x2, y2]; };
 const bez = (p, t) => { const u = 1 - t; return [u * u * u * p[0] + 3 * u * u * t * p[2] + 3 * u * t * t * p[4] + t * t * t * p[6], u * u * u * p[1] + 3 * u * u * t * p[3] + 3 * u * t * t * p[5] + t * t * t * p[7]]; };
 const plen = (p) => Math.hypot(p[6] - p[0], p[7] - p[1]) * 1.1;
 function along(segs, t) {
@@ -309,30 +301,6 @@ function along(segs, t) {
   let d = t * T;
   for (let i = 0; i < segs.length; i++) { if (d <= L[i] || i === segs.length - 1) return bez(segs[i], Math.min(1, d / L[i])); d -= L[i]; }
   return [0, 0];
-}
-
-function layout(nodes, edges) {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const nb = new Map(nodes.map((n) => [n.id, new Set()]));
-  for (const e of edges) { if (nb.has(e.source) && nb.has(e.target)) { nb.get(e.source).add(e.target); nb.get(e.target).add(e.source); } }
-  const lanes = [[], [], [], [], [], []];
-  for (const n of nodes) lanes[Number(n.lane)].push(n);
-  const pos = new Map();
-  const place = (lane, desired, gap) => {
-    const items = lanes[lane].map((n, i) => ({n, i, d: desired(n)}));
-    items.sort((a, b) => (a.d === b.d ? a.i - b.i : (a.d < b.d ? -1 : 1)));
-    let y = TOP;
-    for (const it of items) { const yy = Number.isFinite(it.d) ? Math.max(it.d, y) : y; pos.set(it.n.id, {x: PADX + lane * LW, y: yy}); y = yy + NH + gap; }
-  };
-  const meanY = (n, ok) => { const ys = [...nb.get(n.id)].filter((id) => pos.has(id) && ok(Number(byId.get(id).lane))).map((id) => pos.get(id).y); return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : Infinity; };
-  place(3, (n) => TOP + Number(n.order) * (NH + 22), 22);
-  place(2, (n) => meanY(n, (l) => l === 3), NG);
-  place(4, (n) => meanY(n, (l) => l === 3), NG);
-  place(5, (n) => meanY(n, (l) => l >= 2 && l <= 4), NG);
-  place(1, (n) => meanY(n, (l) => l === 2 || l === 3), NG);
-  place(0, (n) => meanY(n, (l) => l === 1 || l === 2), NG);
-  let H = 0; for (const p of pos.values()) H = Math.max(H, p.y + NH);
-  return {pos, nb, byId, H: H + 24};
 }
 
 function renderPanel(panel, n, ctx) {
@@ -392,6 +360,18 @@ function renderPanel(panel, n, ctx) {
     const a = make('a', null, 'Open ' + s.site); a.href = 'https://' + s.site; a.target = '_blank'; a.rel = 'noopener'; panel.append(a);
   } else if (n.kind === 'page') {
     if (d.url) { const a = make('a', null, 'Open the page'); a.href = d.url; a.target = '_blank'; a.rel = 'noopener'; panel.append(a); }
+  } else if (n.kind === 'source' && ctx.edges.some((e) => e.source === n.id)) {
+    panel.append(make('h4', null, 'Reached through'));
+    const u = make('ul');
+    for (const m of ctx.edges.filter((e) => e.source === n.id).map((e) => ctx.byId.get(e.target)).filter(Boolean)) {
+      const vs = ctx.edges.filter((e) => e.source === m.id && String(e.target).startsWith('vault:')).map((e) => e.target.slice(6));
+      const li = make('li'), b = make('button', 'lnk', m.label);
+      b.type = 'button';
+      b.addEventListener('click', () => ctx.select(m.id));
+      li.append(b, document.createTextNode(' · ' + (KIND[m.kind] || m.kind) + (vs.length ? ' · for ' + vs.join(', ') : '')));
+      u.append(li);
+    }
+    panel.append(u);
   } else if (d.provider || d.writes) {
     panel.append(kv([['Reaches', d.provider], ['Writes', d.writes]]));
   }
@@ -402,87 +382,6 @@ function renderPanel(panel, n, ctx) {
     for (const m of linked) { const li = make('li'); const b = make('button', 'lnk', m.label); b.type = 'button'; b.addEventListener('click', () => ctx.select(m.id)); li.append(b); u.append(li); }
     panel.append(u);
   }
-}
-
-function buildMap(el, made, data) {
-  el.replaceChildren();
-  const {nodes, edges, flows} = data;
-  const L = layout(nodes, edges);
-  const wrap = make('div', 'cc-mapwrap'), panel = make('div', 'cc-panel');
-  el.append(wrap, panel);
-  const root = svgEl('svg', {viewBox: `0 0 ${W} ${L.H}`, role: 'img', 'aria-label': 'Map of every source, connector, scheduled run, vault, repo, website and page, and the links between them'}, wrap);
-  const LANES = ['Outside sources', 'Connections: MCP, script, CLI', 'Scheduled runs', 'Vaults', 'Repos', 'Websites and pages'];
-  LANES.forEach((t, i) => svgText(root, {class: 'lane', x: PADX + i * LW, y: 22}, t));
-  const ge = svgEl('g', {}, root), gp = svgEl('g', {}, root), gn = svgEl('g', {}, root);
-  const anchorR = (id) => { const p = L.pos.get(id); return [p.x + NW, p.y + NH / 2]; };
-  const anchorL = (id) => { const p = L.pos.get(id); return [p.x, p.y + NH / 2]; };
-  const muted = 'var(--color-fg-muted)';
-  const edgeEls = [];
-  for (const e of edges) {
-    if (!L.pos.has(e.source) || !L.pos.has(e.target)) continue;
-    const [x1, y1] = anchorR(e.source), [x2, y2] = anchorL(e.target);
-    const p = curvePts(x1, y1, x2, y2);
-    const c = Number(e.count) || 0;
-    const mail = e.kind === 'mail', meet = e.kind === 'sync', tool = e.kind === 'tool';
-    const width = mail ? 1.2 + Math.min(6, c / 10) : (meet ? 1.2 + Math.min(6, c / 2) : 1.1);
-    const path = svgEl('path', {class: 'ed', d: `M${p[0]} ${p[1]} C${p[2]} ${p[3]} ${p[4]} ${p[5]} ${p[6]} ${p[7]}`,
-      'stroke-width': width.toFixed(1), 'stroke-dasharray': e.dashed ? '4 4' : null}, ge);
-    path.style.stroke = mail ? dash.colors[0] : (meet ? dash.colors[4] : (tool ? dash.colors[3] : muted));
-    path.style.strokeOpacity = mail ? 0.55 : (meet ? (c ? 0.65 : 0.3) : (tool ? 0.6 : 0.4));
-    edgeEls.push({e, path});
-  }
-  const nodeEls = new Map();
-  for (const n of nodes) {
-    const p = L.pos.get(n.id);
-    const g = svgEl('g', {class: 'nd ' + n.kind, tabindex: 0, role: 'button', 'aria-label': n.label + (n.sub ? ', ' + n.sub : '')}, gn);
-    const r = svgEl('rect', {x: p.x, y: p.y, width: NW, height: NH, rx: 6}, g);
-    const st = n.status && n.status !== 'none' ? n.status : null;
-    const tx = st ? p.x + 22 : p.x + 10;
-    if (st) svgEl('circle', {class: 'dot-' + st, cx: p.x + 12, cy: p.y + 13, r: 4}, g);
-    svgText(g, {class: 't', x: tx, y: p.y + 14, 'dominant-baseline': 'central', 'font-size': 12.5, 'font-weight': 500}, clip(n.label, st ? 24 : 26));
-    if (n.sub) svgText(g, {class: 'tm', x: tx, y: p.y + 28, 'dominant-baseline': 'central', 'font-size': 10.5}, clip(n.sub, st ? 31 : 33));
-    const pick = (ev) => { ev.stopPropagation(); select(n.id); };
-    g.addEventListener('click', pick);
-    g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(ev); } });
-    nodeEls.set(n.id, g);
-  }
-  const ctx = {vaults: data.vaults, health: data.health, repos: data.repos, sites: data.sites, flows, funnel: data.funnel, nb: L.nb, byId: L.byId, select: null};
-  function select(id) {
-    const keep = new Set([id, ...(L.nb.get(id) || [])]);
-    for (const [nid, g] of nodeEls) { g.classList.toggle('dim', !keep.has(nid)); g.classList.toggle('sel', nid === id); }
-    for (const {e, path} of edgeEls) path.classList.toggle('edim', e.source !== id && e.target !== id);
-    renderPanel(panel, L.byId.get(id), ctx);
-  }
-  function clear() {
-    for (const g of nodeEls.values()) g.classList.remove('dim', 'sel');
-    for (const {path} of edgeEls) path.classList.remove('edim');
-    renderPanel(panel, null, ctx);
-  }
-  ctx.select = select;
-  root.addEventListener('click', clear);
-  cmap.clear = clear;
-  renderPanel(panel, null, ctx);
-  const deck = [];
-  for (const f of flows) {
-    const mid = 'box:' + String(f.address).toLowerCase();
-    const acc = edges.find((e) => e.source === mid && e.kind === 'mail');
-    if (!acc || !L.pos.has(mid) || !L.pos.has(HUB_ID)) continue;
-    const hops = [mid, acc.target, HUB_ID];
-    if (f.kind === 'vault') { if (!L.pos.has('vault:' + f.dest)) continue; hops.push('vault:' + f.dest); }
-    const segs = [];
-    for (let i = 0; i < hops.length - 1; i++) { const [a1, b1] = anchorR(hops[i]), [a2, b2] = anchorL(hops[i + 1]); segs.push(curvePts(a1, b1, a2, b2)); }
-    for (let k = 0; k < Number(f.count); k++) deck.push({segs, kind: f.kind});
-  }
-  for (const e of edges) {
-    if (e.kind !== 'sync' || !Number(e.count) || !String(e.target).startsWith('vault:')) continue;
-    const inbound = edges.find((x) => x.target === e.source && x.kind === 'sync');
-    if (!inbound || ![inbound.source, e.source, e.target].every((id) => L.pos.has(id))) continue;
-    const hops = [inbound.source, e.source, e.target], segs = [];
-    for (let i = 0; i < hops.length - 1; i++) { const [a1, b1] = anchorR(hops[i]), [a2, b2] = anchorL(hops[i + 1]); segs.push(curvePts(a1, b1, a2, b2)); }
-    for (let k = 0; k < Number(e.count); k++) deck.push({segs, kind: 'meeting'});
-  }
-  for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
-  made.deck = deck; made.layer = gp;
 }
 
 const parcelFill = (k) => (k === 'vault' ? dash.colors[0] : (k === 'meeting' ? dash.colors[4] : (k === 'excluded' ? dash.colors[2] : 'var(--chart-muted)')));
@@ -543,7 +442,7 @@ function isoBox(g, pr, x, y, z, a, b, h, fill) {
   isoFace(g, [pr(x, y, z + h), pr(x + a, y, z + h), pr(x + a, y + b, z + h), pr(x, y + b, z + h)], fill, 0.26);
 }
 
-function buildPortfolio(el, made, data) {
+function buildPortfolio(el, made, data, under) {
   el.replaceChildren();
   const {nodes, edges, flows, vaults, health, repos, sites} = data;
   const A = adjacency(nodes, edges);
@@ -553,10 +452,12 @@ function buildPortfolio(el, made, data) {
   let DW = wide ? 1040 : Math.max(300, Math.round(cw));
   const root = svgEl('svg', {class: 'cc-scene', role: 'img', 'aria-label': 'What came in this week by type, the sorting centre, and every vault as a building with its grade, triage items, held items and late actions'}, wrap);
   root.setAttribute('viewBox', `0 0 ${DW} 100`);
-  const gGround = svgEl('g', {}, root), gLane = svgEl('g', {}, root), gP = svgEl('g', {}, root), gObj = svgEl('g', {}, root), gTag = svgEl('g', {}, root), gCard = svgEl('g', {}, root);
+  const gGround = svgEl('g', {}, root), gLane = svgEl('g', {}, root), gPipe = svgEl('g', {}, root), gP = svgEl('g', {}, root), gObj = svgEl('g', {}, root), gTag = svgEl('g', {}, root), gCard = svgEl('g', {}, root);
+  const pipes = [], anchors = new Map();
+  if (under) { root.classList.add('under'); gObj.setAttribute('opacity', 0.28); }
   const T = (p, a, s) => svgText(p, Object.assign({class: 't', 'dominant-baseline': 'central'}, a), s);
   const TM = (p, a, s) => { const f = a.fill; delete a.fill; const e = svgText(p, Object.assign({class: 'tm', 'dominant-baseline': 'central', 'font-size': 11}, a), s); if (f) e.style.fill = f; return e; };
-  const ctx = {vaults, health, repos, sites, flows, funnel: data.funnel, nb: A.nb, byId: A.byId, select: null};
+  const ctx = {vaults, health, repos, sites, flows, edges, funnel: data.funnel, nb: A.nb, byId: A.byId, select: null};
   const tiles = new Map();
   let sel = [];
   const reach = (id) => {
@@ -587,6 +488,13 @@ function buildPortfolio(el, made, data) {
       else if (n.kind !== 'vault') on = reach(id);
     }
     for (const [name, tile] of tiles) tile.classList.toggle('hl', on.has(name));
+    // underground: only the pipes of what was picked stay lit
+    const kind = !n ? null : n.kind === 'mailbox' || id === HUB_ID ? 'mail' : recs.some((r) => r.n.id === id) ? 'rec'
+      : watchers.some((wt) => wt.src.id === id) ? 'watch' : n.kind === 'source' ? 'sys' : null;
+    for (const p of pipes) {
+      const lit = n && (n.kind === 'vault' ? p.vault === n.ref : p.kind === kind && on.has(p.vault));
+      p.path.classList.toggle('edim', !!n && !lit);
+    }
     renderPanel(panel, n, ctx);
   }
   ctx.select = (id) => select(id, null, null);
@@ -599,7 +507,7 @@ function buildPortfolio(el, made, data) {
       g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(ev); } });
     }
   };
-  const clearP = () => { for (const x of sel) x.classList.remove('sel'); sel = []; for (const t of tiles.values()) t.classList.remove('hl'); renderPanel(panel, null, ctx); };
+  const clearP = () => { for (const x of sel) x.classList.remove('sel'); sel = []; for (const t of tiles.values()) t.classList.remove('hl'); for (const p of pipes) p.path.classList.remove('edim'); renderPanel(panel, null, ctx); };
   root.addEventListener('click', clearP);
   cmap.clear = clearP;
 
@@ -649,7 +557,7 @@ function buildPortfolio(el, made, data) {
   const row = (parent, x, y, w, id, hl) => {
     const g = svgEl('g', {class: 'rw'}, parent);
     svgEl('rect', {class: 'hit', x: x + 4, y: y - 9, width: w - 8, height: 18, rx: 4}, g);
-    if (id) clickable([g], id, hl);
+    if (id) { anchors.set(id, [x + w, y]); clickable([g], id, hl); }
     return g;
   };
   const swatches = (g, x, y, items) => {
@@ -905,7 +813,9 @@ function buildPortfolio(el, made, data) {
     let y = 0;
     const eH = emailCard(0, y, colW), eY = y + 15; y += eH + 10;
     const rH = recCard(0, y, colW), rY = y + 15; y += rH + 10;
+    const wY = y + 15;
     y += watchCard(0, y, colW) + 10;
+    const sY = y + 15;
     y += systemsCard(0, y, colW);
     const hcx = Math.min(roof[0] + 72, DW - 216 - 214);
     hubCard(hcx, 0, 204);
@@ -923,10 +833,14 @@ function buildPortfolio(el, made, data) {
     };
     const mailLane = lane(eY, yTop, dash.colors[0], 0), recLane = lane(rY, yTop + 9, dash.colors[4], 12);
     const door = pr(hx + HA / 2, hy + HB), out = pr(hx + HA / 2, -G / 2);
-    const onward = (laneSegs, t) => {
+    const hole = (t) => pr(t.X + L - 5, t.ly + L / 2);
+    const route = (t) => {  // from the sorting centre's door along the roads to a vault's dock
       const ax = t.X + L + G / 2, j = pr(ax, t.band.y0 - G / 2);
       const via = t.band.k === 0 ? [out, j] : [out, pr(-G / 2, -G / 2), pr(-G / 2, t.band.y0 - G / 2), j];
-      const P = [laneSegs[2].slice(6), door, ...via, pr(ax, t.ly + L / 2), pr(t.X + L - 5, t.ly + L / 2)];
+      return [door, ...via, pr(ax, t.ly + L / 2), hole(t)];
+    };
+    const onward = (laneSegs, t) => {
+      const P = [laneSegs[2].slice(6), ...route(t)];
       return laneSegs.concat(P.slice(1).map((q, i) => lin(P[i], q)));
     };
     for (const f of flows) {
@@ -940,8 +854,43 @@ function buildPortfolio(el, made, data) {
       const to = spot.get(e.target.slice(6)); if (!to) continue;
       for (let k = 0; k < Number(e.count); k++) deck.push({segs: onward(recLane, to), kind: 'meeting'});
     }
+    if (under) {
+      // each kind of connection is one line under the streets, side by side, to the vaults it reaches
+      const pipe = (pts, color, width, kind, vault, lift, dashed) => {
+        const d = 'M' + pts.map((q) => q[0].toFixed(1) + ' ' + (q[1] + lift).toFixed(1)).join(' L');
+        const path = svgEl('path', {class: 'pipe', d, 'stroke-width': width, 'stroke-dasharray': dashed ? '5 4' : null}, gPipe);
+        path.style.stroke = color; path.style.strokeOpacity = 0.8;
+        pipes.push({path, kind, vault});
+      };
+      const trunk = (yFrom, color, lift, dashed) => {  // from a card to where the roads start
+        const path = svgEl('path', {class: 'pipe', d: `M${colW} ${yFrom} C${colW + 130} ${yFrom} ${out[0] - 150} ${out[1] + lift + 70} ${out[0].toFixed(1)} ${(out[1] + lift).toFixed(1)}`,
+          'stroke-width': 1.6, 'stroke-dasharray': dashed ? '5 4' : null}, gPipe);
+        path.style.stroke = color; path.style.strokeOpacity = 0.6;
+      };
+      const fedBy = (rows, vaultsOf) => new Set(rows.flatMap((r) => [...vaultsOf(r)]));
+      const lines = [
+        ['mail', dash.colors[0], 0, new Set(flows.filter((fl) => fl.kind === 'vault').map((fl) => fl.dest)), false],
+        ['rec', dash.colors[4], 4, fedBy(recs, (r) => edges.filter((e) => e.kind === 'sync' && String(e.target).startsWith('vault:') && A.nb.get(r.n.id).has(e.source)).map((e) => e.target.slice(6))), false],
+        ['sys', dash.colors[3], 8, fedBy(systems, (sy) => sy.vs), false],
+        ['watch', dash.colors[2], 12, fedBy(watchers, (wt) => [wt.vault]), true],
+      ];
+      for (const [kind, color, lift, names, dashed] of lines) {
+        for (const name of names) {
+          if (!spot.has(name)) continue;
+          const got = kind === 'mail' ? flows.filter((fl) => fl.kind === 'vault' && fl.dest === name).reduce((sum, fl) => sum + Number(fl.count), 0) : 0;
+          pipe(route(spot.get(name)).slice(1), color, kind === 'mail' ? (1.8 + Math.min(2.4, got / 12)).toFixed(1) : 1.8, kind, name, lift, dashed);
+        }
+      }
+      if (lines[2][3].size) trunk(sY, dash.colors[3], 8, false);
+      if (lines[3][3].size) trunk(wY, dash.colors[2], 12, true);
+      for (const t of spot.values()) { const [hx0, hy0] = hole(t); svgEl('ellipse', {class: 'hole', cx: hx0.toFixed(1), cy: (hy0 + 6).toFixed(1), rx: 7, ry: 3.4}, gPipe); }
+    }
   } else {
-    const w = DW, cell = w / 2;
+    const w = DW, cell = w / 2, rowH = under ? 172 : 158;
+    // underground on a narrow screen: under each vault, what feeds it
+    const feeds = (v) => [Number(v.routed) ? 'mail' : '', ...recs.filter((r) => reach(r.n.id).has(v.vault)).map((r) => r.n.label),
+      ...watchers.filter((wt) => wt.vault === v.vault).map((wt) => wt.src.label), ...systems.filter((sy) => sy.vs.has(v.vault)).map((sy) => sy.label)]
+      .filter(Boolean).join(' · ') || 'nothing declared';
     let y = 0;
     y += emailCard(0, y, w) + 10; y += recCard(0, y, w) + 10; y += watchCard(0, y, w) + 10; y += hubCard(0, y, w) + 14;
     for (const h of hoods) {
@@ -949,10 +898,11 @@ function buildPortfolio(el, made, data) {
       for (const st of h.streets) {
         if (st.name) { TM(gCard, {x: 2, y: y + 6, 'font-weight': 500}, st.name); y += 14; }
         st.lots.forEach((v, i) => {
-          const ox = (i % 2) * cell + cell / 2 + 12, oy = y + Math.floor(i / 2) * 158 + 104;
+          const ox = (i % 2) * cell + cell / 2 + 12, oy = y + Math.floor(i / 2) * rowH + 104;
           drawLot((p, q, z = 0) => [ox + (p - q) * 0.866, oy + (p + q) * 0.5 - z], -L / 2, -L / 2, v, false);
+          if (under) TM(gCard, {x: ox - 12, y: oy + 50, 'text-anchor': 'middle', 'font-size': 10.5}, clip(feeds(v), Math.floor(cell / 6.2)));
         });
-        y += Math.ceil(st.lots.length / 2) * 158 + 6;
+        y += Math.ceil(st.lots.length / 2) * rowH + 6;
       }
       y += 8;
     }
@@ -976,7 +926,7 @@ dash.draw('cmap', {
     const sig = JSON.stringify([view, Math.round(el.clientWidth / 40), data.nodes.map((n) => [n.id, n.status, n.sub]), data.edges.map((e) => [e.id, e.count]), data.flows.length]);
     if (sig === made.sig && el.firstChild) return;
     made.sig = sig;
-    if (view === 'wiring') buildMap(el, made, data); else buildPortfolio(el, made, data);
+    buildPortfolio(el, made, data, view === 'wiring');
     cmap.replay = () => startMap(made);
     startMap(made);
   },
