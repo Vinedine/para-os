@@ -94,7 +94,8 @@ try:
     from paraos_repos import list_repos  # noqa: E402
     from paraos_runs import parse_time, status as runs_status  # noqa: E402
     from paraos_vault import (  # noqa: E402
-        iso, paraos_home_dir, parse_date, registry, triage_sources, utf8_stdout,
+        date_arg, iso, paraos_home_dir, parse_date, read_json, registry, triage_sources,
+        utf8_stdout,
     )
     from render_dashboard import cut, health_card, plain  # noqa: E402
 except ImportError as missing:
@@ -120,13 +121,6 @@ SEVERITY = {"ci": 3, "diverged": 3, "unpushed": 2, "dirty": 2, "behind": 2, "mis
 SEVERITY_WORD = {3: "bad", 2: "warn", 1: "mute", 0: "ok"}
 UNLISTED = "not in the connections registry"
 UNLABELLED = "Not labelled yet"
-
-
-def load_json(path, default):
-    try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return default
 
 
 # ------------------------------------------------------------- the scan, as page rows
@@ -289,7 +283,7 @@ def vault_rows(scan, entries, inbound, repos, today, past):
 def flow_rows(home, since, labels):
     """Threads per mailbox and where each went in the window: a vault, the exclusion list, or
     no vault. A thread routed to two vaults is one row in each."""
-    ledger = load_json(Path(home) / "cache" / "ingest" / "ledger.json", {})
+    ledger = read_json(Path(home) / "cache" / "ingest" / "ledger.json", {})
     boxes = ledger.get("mailboxes") if isinstance(ledger, dict) else None
     counts = Counter()
     for mailbox, entries in (boxes.items() if isinstance(boxes, dict) else []):
@@ -358,7 +352,7 @@ def synced_counts(entries, since):
             if row["kind"] != "sync-script" or not row["path"]:
                 continue
             script = script_name(row["path"])
-            ledger = load_json(root / "resources" / "scripts" / f"{Path(script).stem}.synced.json", {})
+            ledger = read_json(root / "resources" / "scripts" / f"{Path(script).stem}.synced.json", {})
             for note in (ledger.values() if isinstance(ledger, dict) else []):
                 stamp = re.match(r"\d{8}", script_name(note)) if isinstance(note, str) else None
                 if stamp and stamp.group(0) >= floor:
@@ -757,7 +751,7 @@ def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS
     labels = {b["address"].lower(): b["label"] for b in listed["mailboxes"]}
     feed = inbound(home, days, today, labels, entries)
     repos, sites = repo_rows(entries, paraos_home, roots, today, run, online)
-    past = load_json(home / "past-vaults.json", [])
+    past = read_json(home / "past-vaults.json", [])
     vaults, health = vault_rows(scan, entries, feed, repos, today, past if isinstance(past, list) else [])
     agenda, dropped = agenda_rows(scan, events or [], today)
     if events is None:
@@ -797,7 +791,7 @@ def write_data(data, paraos_home=None):
 
 def read_events(path):
     """`(events, note)` from the file the skill wrote, `(None, why)` where it cannot be used."""
-    data = load_json(path, None)
+    data = read_json(path, None)
     if isinstance(data, list):
         return data, ""
     if isinstance(data, dict) and isinstance(data.get("events"), list):
@@ -824,7 +818,7 @@ def calendar_events(given, now, paraos_home=None):
     if not kept.is_file():
         return None, ""
     events, note = read_events(kept)
-    read_at = parse_time(load_json(kept, {}).get("read_at")) if events is not None else None
+    read_at = parse_time(read_json(kept, {}).get("read_at")) if events is not None else None
     if read_at and read_at.astimezone(now.tzinfo).date() != now.date():
         note = (note + " " if note else "") + f"The calendars were last read on {read_at.astimezone(now.tzinfo).date().isoformat()}."
     return events, note
@@ -833,7 +827,7 @@ def calendar_events(given, now, paraos_home=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Build the Command Center page from files on disk.")
     ap.add_argument("--events", help="the calendars' events, as the skill fetched them")
-    ap.add_argument("--today", help="date to bucket against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to bucket against (default: the system date)")
     ap.add_argument("--days", type=int, default=DAYS, help="the inbound window, in days")
     ap.add_argument("--code-root", action="append", help="a folder repos are checked out under (default: ~/Code)")
     ap.add_argument("--offline", action="store_true", help="no git fetch and no gh")
@@ -850,9 +844,7 @@ def main(argv=None):
         path = store(key, PAGE, args.paraos_home, publish=args.publish)
         print(json.dumps({"publish": args.publish, "cache": path.as_posix()}))
         return 0
-    today = parse_date(args.today) if args.today else date.today()
-    if not today:
-        ap.error("--today wants YYYY-MM-DD")
+    today = args.today or date.today()
     entries = registry(args.paraos_home)
     if not entries:
         print("command_center: no registry, or one listing no vault", file=sys.stderr)

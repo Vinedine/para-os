@@ -9,17 +9,6 @@ entities collected from the union of each stage's home, each entity's stage, day
 next step and flag inputs, the counts by stage, and the quarter's metrics. It never writes
 to the vault; wording stays with references/render.md.
 
-Why a script. The board rests on a mechanical read: which folder or row belongs to
-which stage, where a next step lives, which dates fall in a quarter (of the financial year
-the vault's `**Locale:**` line declares, else the calendar's). Two correct runs have to
-agree; instructions re-derived per run do not.
-
-Reading the vault's primitives - Stage lines, header fields, register rows, lifecycle
-tables, open tasks - is not this script's own work: para-shared/scripts/paraos_vault.py
-holds it. What lives here is what this skill alone decides: how a lifecycle's declared
-homes turn into entities, how a next step is chosen among its sources, which
-flags fire, and how the quarter's metrics are counted.
-
 What it deliberately does NOT do, so the skill keeps owning it: cap entities, order them by
 anything but stated Value (the By value line, unweighted), word a flag into a sentence, render
 the board, or choose the single closing next action.
@@ -41,10 +30,10 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        DATE_RE, H1_RE, add_months, amount_of, emit, entity_doc, field_ci, first_link,
-        header_fields, is_live, iso, lifecycles, link_spans, live_lines, locale, open_tasks,
-        parse_date, read_lines, register_rows, stage_of, stage_parts, utf8_stdout, vault_currency,
-        year_end_of,
+        DATE_RE, add_months, amount_of, date_arg, emit, entity_doc, field_ci, first_h1,
+        first_link, header_fields, is_live, iso, lifecycles, link_spans, locale,
+        open_tasks, parse_date, read_lines, register_rows, stage_of, stage_parts, utf8_stdout,
+        vault_currency, year_end_of,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"pipeline_scan: {missing}. The shared vault library belongs at "
@@ -75,17 +64,6 @@ def extract_date(text):
     return parse_date(m.group(0)) if m else None
 
 
-def doc_h1(path):
-    """A document's own title, for scoping which of a contact file's tasks are candidates
-    open_tasks() gives a task this same H1 as its section when it
-    sits under Next actions or under no H2 at all, and its H2 text otherwise."""
-    for _, text in live_lines(read_lines(path)):
-        m = H1_RE.match(text)
-        if m:
-            return m.group(1).strip()
-    return None
-
-
 # The homes base gives an ordinary project, area or idea (CLAUDE.md.template), as globs.
 ORDINARY_HOMES = {"projects/*", "areas/*", "resources/ideas/*", "archive/projects/*",
                   "archive/ideas/*"}
@@ -93,7 +71,7 @@ ORDINARY_HOMES = {"projects/*", "areas/*", "resources/ideas/*", "archive/project
 
 def home_is_lifecycle_only(home):
     """Whether no ordinary project, area or idea can occupy a home: a document there with no Stage line, or one naming no declared stage, is a
-    filing gap even with nothing else marking it as staged (issue #67)."""
+    filing gap even with nothing else marking it as staged."""
     return re.sub(r"<[^>]+>", "*", home.rstrip("/")) not in ORDINARY_HOMES
 
 
@@ -182,7 +160,7 @@ def champion_step(vault, today, context_dir, fields, own_doc, live_docs):
     resolved = resolve_link(context_dir, link)
     if not resolved or not resolved.is_file():
         return None
-    h1 = doc_h1(resolved)
+    h1 = first_h1(resolved)
     lines = read_lines(resolved)
     mine, unclaimed = [], []
     for t in tag_tasks(vault, resolved):
@@ -280,7 +258,7 @@ def build_flags(entity, dated_facts, next_step, stage_idx, today):
     stale = None
     if basis and days is not None and days >= STALE_DAYS:
         # An undated next step, or none at all, never suppresses the flag - only a dated
-        # step that has not yet arrived does (finding 4 of the 20260921-2035 test run).
+        # step that has not yet arrived does.
         still_ahead = False
         if next_step and next_step.get("date"):
             nd = parse_date(next_step["date"])
@@ -294,7 +272,7 @@ def build_flags(entity, dated_facts, next_step, stage_idx, today):
 
 def apply_name_collision(entities):
     """Two live entities sharing a name across homes. A name recovered from the Contact
-    column (finding 1) is excluded from the check on both sides: an `unknown` Company cell
+    column is excluded from the check on both sides: an `unknown` Company cell
     would otherwise collide every row against every other before the fallback runs."""
     groups = {}
     for e in entities:
@@ -413,7 +391,7 @@ def collect_row_entities(vault, home, stage_by_name, stage_index, today, live_do
         opened_date = extract_date(opened_raw)
         since_str, since_from = info["since"], None
         if not since_str and idx == 0 and opened_raw:
-            since_str, since_from = opened_raw, "opened"   # finding 3
+            since_str, since_from = opened_raw, "opened"
         since_date = extract_date(since_str) if since_str else None
         last_touch_date = extract_date(field_ci(row, "Last touch"))
 
@@ -515,7 +493,7 @@ def won_outside_homes(vault, promoting_home):
     """An entity carrying a Won date wherever it now sits: the archived mirror of the
     promoting stage's own home, which is outside every declared home once a project ships
     and archives (render.md's Won-date rule). Each record is shaped enough to join the
-    opened count and the referrers table (issue #66), and has no stage of its own."""
+    opened count and the referrers table, and has no stage of its own."""
     pattern = "archive/" + re.sub(r"<[^>]+>", "*", promoting_home.rstrip("/"))
     out = []
     for d in sorted(vault.glob(pattern)):
@@ -543,15 +521,15 @@ def strip_links(text):
 
 
 def referrer_key(vault, e):
-    """The Source text before its first comma (finding 2), each link replaced by the title
+    """The Source text before its first comma, each link replaced by the title
     of the file it resolves to (its name where it has none), else by its label: two labels
-    linking one contact are one referrer (issue #174)."""
+    linking one contact are one referrer."""
     base_dir = (vault / e["path"]).parent
 
     def name(m):
         target = resolve_link(base_dir, m.group(2))
         if target and target.is_file():
-            return doc_h1(target) or target.stem
+            return first_h1(target) or target.stem
         return m.group(1)
 
     return LABELLED_LINK_RE.sub(name, e["source"]).split(",", 1)[0].strip()
@@ -607,7 +585,7 @@ def counted_once(vault, entities):
 
 def reason_declared(vault, reason_field):
     """Whether a rule file under .claude/rules/ declares the `**<Stage> reason:**` line, so a
-    terminal entity without one is a gap rather than a stage that records none (issue #181)."""
+    terminal entity without one is a gap rather than a stage that records none."""
     needle = f"**{reason_field}:**".lower()
     return any(needle in p.read_text(encoding="utf-8", errors="replace").lower()
                for p in sorted((vault / ".claude" / "rules").glob("*.md")))
@@ -672,7 +650,7 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
             reasons_all[key] = reasons_all.get(key, 0) + 1
             if in_quarter:
                 reasons_q[key] = reasons_q.get(key, 0) + 1
-        # finding 5: a quarter with no terminal entity still shows what the vault holds.
+        # A quarter with no terminal entity still shows what the vault holds.
         terminal[s["name"]] = {"this_quarter": this_q, "reasons_this_quarter": reasons_q,
                                "all_time_reasons": reasons_all, "missing_reason": missing}
 
@@ -694,7 +672,7 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
 def revisits_due(vault, lc, entities, today, live_docs):
     """Won entities archived out of the promoting home whose Last touch (else Won date) is
     REVISIT_MONTHS old and that hold no dated next step: past clients nothing asks about
-    again (issue #266). A `Revisit: none` line, or a live entity of the same name, clears
+    again. A `Revisit: none` line, or a live entity of the same name, clears
     one; versioned engagements (`nova-v1`, `nova-v2`) are one client, read from the latest."""
     promoting = next((s for s in lc["stages"] if s["home"].startswith("projects/")), None)
     if not promoting:
@@ -737,7 +715,7 @@ def counts_by_stage(lc, entities):
 
 def with_totals(counts, entities, currency):
     """Each stage's count with the total of its live entities' Values in the vault's
-    currency, null where none has one: another currency is never added in (issue #425)."""
+    currency, null where none has one: another currency is never added in."""
     totals = {}
     for e in entities:
         v = e.get("value")
@@ -817,15 +795,13 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Scan a vault's declared lifecycles.")
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
     ap.add_argument("--lifecycle", help="scope to one declared lifecycle, by noun or heading")
-    ap.add_argument("--today", help="date to measure against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to measure against (default: the system date)")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
 
     utf8_stdout()
 
-    today = parse_date(args.today) if args.today else date.today()
-    if args.today and not today:
-        ap.error("--today wants YYYY-MM-DD")
+    today = args.today or date.today()
     root = Path(args.vault)
     if not root.is_dir():
         ap.error(f"no such vault: {root}")

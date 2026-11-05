@@ -22,13 +22,6 @@ whether a freshly fetched thread is
 already staged as a note, where its seen-ledger watermark stands, and how many working days
 a message of the operator's own has gone unanswered.
 
-Reading the vault's primitives - the registry, run logs, staged-note names, thread hashes,
-watermarks, content hashes, tasks, links, snapshots - is not this script's own work:
-para-shared/scripts/paraos_vault.py holds it. What lives here is what this skill alone
-decides: how a triage source row's `plan` is computed from the vault's ingest coverage and its
-roster, how a staged note's two header shapes are parsed, which registered vaults its Routed
-line names, and how a fetched thread folds against an already-staged note.
-
 What it deliberately does NOT do, so the skill keeps owning it: run a sync script, fetch a
 mailbox, convert a Google-native file, write a ledger, or decide what happens to any item.
 """

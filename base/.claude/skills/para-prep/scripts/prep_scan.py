@@ -16,11 +16,6 @@ links, or whose brief links the card, its stage against the vault's declared lif
 header, its do-not-raise list and its open count. It never writes to the
 vault, never words anything an operator reads, and never decides what matters for a meeting:
 that stays with the skill, per references/gather.md and references/output.md.
-
-Reading the vault's primitives (a card's names, header fields, Stage lines, lifecycle
-tables, register rows, open tasks, links) is para-shared/scripts/paraos_vault.py's. What
-lives here is what this skill alone decides: which card a person is, which entities and
-records belong to them, and which open items name them.
 """
 
 import argparse
@@ -38,10 +33,10 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        EMAIL_RE, H1_RE, HEADING_RE, NOT_CARDS, abspath, action_files, contact_names, entity_doc,
-        extract_links, field_ci, header_fields, lifecycles, live_lines, open_tasks, parse_date,
-        read_lines, read_text, register_rows, rel_posix, resolve_link, stage_of, stage_parts,
-        strip_code, utf8_stdout,
+        EMAIL_RE, HEADING_RE, NOT_CARDS, abspath, action_files, contact_names, date_arg,
+        entity_candidates, entity_doc, extract_links, field_ci, first_h1, header_fields, lifecycles,
+        live_lines, open_tasks, parse_date, read_lines, read_text, register_rows, rel_posix,
+        resolve_link, stage_of, stage_parts, strip_code, utf8_stdout,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"prep_scan: {missing}. The shared vault library belongs at "
@@ -96,14 +91,6 @@ def name_pattern(name):
     return re.compile(r"(?<![\w-])(?:" + "|".join(forms) + r")(?![\w-])")
 
 
-def title(path):
-    for _, text in live_lines(read_lines(path)):
-        m = H1_RE.match(text.strip())
-        if m:
-            return m.group(1).strip()
-    return None
-
-
 def same_target(path):
     return os.path.normcase(str(abspath(path)))
 
@@ -121,7 +108,7 @@ def read_cards(vault):
     for path in sorted(base.rglob("*.md")):
         if path.name.lower() in NOT_CARDS:
             continue
-        h1 = title(path)
+        h1 = first_h1(path)
         aliases = [n for n in contact_names(path) if n != h1]
         names, seen = [], set()
         for n, by in ([(h1, "name")] if h1 else []) + [(a, "alias") for a in aliases] + \
@@ -243,13 +230,8 @@ def entity_of(vault, target):
 
 
 def entity_folders(vault):
-    out = []
-    for bucket in ENTITY_BUCKETS:
-        base = vault / bucket
-        if base.is_dir():
-            out += [d for d in sorted(base.iterdir())
-                    if d.is_dir() and not (bucket == "areas" and d.name == CARD_DIR[1])]
-    return out
+    return [vault / c["path"] for c in entity_candidates(vault, ENTITY_BUCKETS)
+            if c["path"] != "/".join(CARD_DIR)]
 
 
 def linked_entities(vault, card, folders):
@@ -350,7 +332,7 @@ def entity_block(vault, rel, declared, today):
     tasks = open_tasks(actions) if actions.is_file() else None
     return {
         "path": rel, "document": rel_posix(vault, doc) if doc else None,
-        "title": (title(doc) if doc else None) or folder.name,
+        "title": (first_h1(doc) if doc else None) or folder.name,
         "stage": entity_stage(doc, rel, declared, today) if doc else None,
         "header": fields,
         "unknown": [k for k, v in fields.items() if v.strip().lower().startswith("unknown")],
@@ -500,15 +482,13 @@ def main(argv=None):
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
     ap.add_argument("--person", action="append", required=True,
                     help="a name, an address, or `Name <address>`; repeat for each attendee")
-    ap.add_argument("--today", help="date to measure against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to measure against (default: the system date)")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
 
     utf8_stdout()
 
-    today = parse_date(args.today) if args.today else date.today()
-    if args.today and not today:
-        ap.error("--today wants YYYY-MM-DD")
+    today = args.today or date.today()
     root = Path(args.vault)
     if not root.is_dir():
         ap.error(f"no such vault: {root}")

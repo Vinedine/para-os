@@ -99,8 +99,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paraos_vault import (  # noqa: E402
-    _normalize_connector, _triage_kind, paraos_home_dir, read_text, register_rows, registry,
-    triage_sources, utf8_stdout,
+    _normalize_connector, _triage_kind, paraos_home_dir, read_json, read_text, register_rows,
+    registry, triage_sources, utf8_stdout,
 )
 from paraos_runs import load_tasks  # noqa: E402
 
@@ -240,10 +240,7 @@ def agenda_rows(vault):
 def mcp_servers(vault):
     """`{name: url or None}` for the servers a vault's `.mcp.json` names. Nothing else of a
     server is read: a command line or an environment value can carry a token."""
-    try:
-        data = json.loads((Path(vault) / ".mcp.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+    data = read_json(Path(vault) / ".mcp.json")
     servers = data.get("mcpServers") if isinstance(data, dict) else None
     if not isinstance(servers, dict):
         return {}

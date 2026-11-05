@@ -93,7 +93,7 @@ from paraos_mail import (  # noqa: E402
 )
 from paraos_vault import (  # noqa: E402
     EMAIL_RE, TEXT_SUFFIXES, down_drives, emit, ingested_here, lifecycles, operator_card,
-    paraos_home_dir, registry, reserved_for, roster, triage_sources, utf8_stdout, writer,
+    paraos_home_dir, read_text, registry, reserved_for, roster, triage_sources, utf8_stdout, writer,
 )
 
 WINDOW_DAYS = {"write": 2, "preview": 30}
@@ -458,11 +458,7 @@ def addresses_in(root, homes):
             if (path.suffix.lower() not in TEXT_SUFFIXES or not path.is_file()
                     or "sources" in parts or parts[0] == "triage"):
                 continue
-            try:
-                text = path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            found.update(a.lower() for a in EMAIL_RE.findall(text))
+            found.update(a.lower() for a in EMAIL_RE.findall(read_text(path)))
     return found
 
 

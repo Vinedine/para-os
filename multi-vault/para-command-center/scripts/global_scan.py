@@ -55,6 +55,8 @@ try:
     from brief_scan import scan  # noqa: E402
     from paraos_clone import clone_session  # noqa: E402
     from paraos_vault import (  # noqa: E402
+        read_json,
+        date_arg,
         utf8_stdout,
         cadence_days, deep_clean_stamp, iso, live_lines, operator_card,
         paraos_home_dir, parse_date, read_lines, register_rows, registry, vault_paths,
@@ -130,10 +132,7 @@ def deep_clean_audit(vault, paraos_home=None):
     """The last `/para-deep-clean audit` record for the vault, written by `clean_scan.py
     --record` beside the deep-clean stamp, or None."""
     path = deep_clean_stamp(vault, paraos_home).with_suffix(".audit.json")
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+    data = read_json(path)
     if not isinstance(data, dict) or not parse_date(data.get("date")):
         return None
     return {"date": data["date"], "total": int(data.get("total") or 0),
@@ -276,15 +275,13 @@ def build_report(entries, today, paraos_home=None, model=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Scan every registered vault for one brief.")
-    ap.add_argument("--today", help="date to bucket against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to bucket against (default: the system date)")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     ap.add_argument("--model", help="the running model's id, for each health card's skills review")
     args = ap.parse_args(argv)
     utf8_stdout()
-    today = parse_date(args.today) if args.today else date.today()
-    if not today:
-        ap.error("--today wants YYYY-MM-DD")
+    today = args.today or date.today()
     entries = registry(args.paraos_home)
     if not entries:
         print("global_scan: no registry, or one listing no vault", file=sys.stderr)

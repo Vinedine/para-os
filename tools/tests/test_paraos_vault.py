@@ -1806,10 +1806,6 @@ class FileContents(VaultCase):
         self.assertEqual(list(got["files"]), ["projects/a/brief.md"])
         self.assertEqual(got["skipped"], [])
 
-    def test_duplicates_reads_a_plain_digest_map_too(self):
-        self.assertEqual(duplicates({"a.md": "x", "b.md": "x", "c.md": "y"}),
-                         [["a.md", "b.md"]])
-
     def test_a_file_edited_after_the_snapshot_is_caught_before_the_write(self):
         path = write(self.root, "projects/a/brief.md", "# a\n")
         before = snapshot([path])
@@ -1858,19 +1854,12 @@ class Normalised(VaultCase):
         self.assertNotEqual(copy, master)
         self.assertEqual(normalised(copy), normalised(master))
 
-    def test_a_str_reads_as_its_utf8_bytes(self):
-        self.assertEqual(normalised("﻿café\r\n"), "café\n".encode("utf-8"))
-
     def test_snapshot_still_sees_a_line_ending_change(self):
         # A write-time check has to see every byte a writer changed.
         path = write_bytes(self.root, "projects/a/brief.md", b"# a\n")
         before = snapshot([path])
         path.write_bytes(b"# a\r\n")
         self.assertEqual(changed(before), [str(path)])
-
-    def test_anything_but_bytes_or_str_is_refused(self):
-        with self.assertRaises(TypeError):
-            normalised(None)
 
 
 CHANGELOG = "\n".join([

@@ -18,14 +18,6 @@ Verify mode answers Step 8, after the move: whether anything in the vault still 
 path, whether every repointed link actually resolves, and what git shows untracked at the new
 path.
 
-Reading the vault's primitives - resolving an entity, the registry, header fields, stage
-lines, lifecycle tables, tasks, links, snapshots - is not this script's own work:
-para-shared/scripts/paraos_vault.py holds it. What lives here is what this skill alone
-decides: how a plan's default destination and version suffix are derived, how a `## Backlog`
-item is parsed and judged settled, how a lifecycle's reason line is parsed from a vault's own
-rule-file prose, how an inbound reference is classified into a real reference versus a
-name-only substring, and what a verify pass has to re-check after a move.
-
 What it deliberately does NOT do, so the skill keeps owning it: decide whether the entity is
 actually done, choose a disposition for an open action, decide the version suffix, write the
 Stage or reason line, or move a single file.
@@ -45,11 +37,11 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         DATE_RE, H1_RE, H2_RE, HEADING_RE, LINK_ROOTS, abspath, blank_spans, contact_card_level,
-        emit, extract_links, field_ci, git_untracked, header_fields, inbound_references, is_under,
-        lifecycles, link_files, link_spans, live_lines, open_tasks, parse_date, read_lines,
-        read_text, registered_vault, registry, registry_holding, rel_posix, resolve_entity,
-        resolve_link, snapshot, stage_line, stage_of, strip_code, utf8_stdout, vault_paths,
-        vault_root,
+        date_arg, emit, extract_links, field_ci, git_untracked, header_fields, inbound_references,
+        is_under, lifecycles, link_files, link_spans, live_lines, open_tasks, parse_date,
+        read_lines, read_text, registered_vault, registry, registry_holding, rel_posix,
+        resolve_entity, resolve_link, snapshot, stage_line, stage_of, strip_code, utf8_stdout,
+        vault_paths, vault_root,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"archive_scan: {missing}. The shared vault library belongs at "
@@ -643,7 +635,7 @@ def main(argv=None):
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
     ap.add_argument("--entity", help="the project, idea or area to archive (plan mode)")
     ap.add_argument("--destination", help="a vault-relative destination overriding the default")
-    ap.add_argument("--today", help="date to measure against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to measure against (default: the system date)")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     ap.add_argument("--verify", action="store_true", help="verify mode, after the move")
     ap.add_argument("--moved-from", help="vault-relative old path (verify mode)")
@@ -685,9 +677,7 @@ def main(argv=None):
     if args.verify:
         report, code = verify(root, args.moved_from, args.moved_to, args.routed, args.keep)
     else:
-        today = parse_date(args.today) if args.today else date.today()
-        if args.today and not today:
-            ap.error("--today wants YYYY-MM-DD")
+        today = args.today or date.today()
         report, code = plan(root, args.entity, args.destination, today, args.paraos_home,
                            args.route)
 

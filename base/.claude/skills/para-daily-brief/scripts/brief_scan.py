@@ -12,17 +12,6 @@ never reads a mailbox; outside the vault it reads only what is under PARAOS_HOME
 of the sources the vault declares, the unattended triage runs, the date /para-deep-clean's
 phase 3 last ran, and the para-os clone's template revision at `origin/stable`.
 
-Why a script. Everything here has exactly one right answer: which folder a name resolves
-to, which marker a line carries, which side of today a date falls on, which files share an
-mtime. Instructions for that are re-derived on every run, cost a round trip each, and
-cannot be regression-tested. What stays with the model is what the model is for: ranking
-by what the vault's Vision rewards, choosing the one next action, and writing the brief.
-
-Reading the vault is not this script's own work: `para-shared/scripts/paraos_vault.py`
-holds it, so the next skill that needs a scan does not write a second one that disagrees.
-What lives here is what the brief alone decides: which lane a task falls in against today,
-how entities aggregate, and which signals the brief reports.
-
 What it deliberately does NOT do, so the skill keeps owning it: rank, cap, or choose the
 next action; read the root README's Vision, any calendar, or any mailbox; render anything
 an operator reads.
@@ -47,7 +36,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         DATE_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS, OPEN_ITEM_CAP, STALE_FILE_DAYS,
-        WAITING_FLAG_DAYS, action_files, cadence_days, cap_count, contact_names, emit,
+        WAITING_FLAG_DAYS, action_files, cadence_days, cap_count, contact_names, date_arg, emit,
         entity_candidates, entity_doc, extract_links, field_ci, file_dates, header_fields, headline,
         is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes, never_folders,
         open_tasks, over_grown_briefs, parse_date, read_lines, register_rows, resolve_entity,
@@ -1039,7 +1028,7 @@ def scan(vault, today, entity=None, paraos_home=None, review=None, model=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Scan a PARA vault's open actions.")
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
-    ap.add_argument("--today", help="date to bucket against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to bucket against (default: the system date)")
     ap.add_argument("--entity", help="scope to one project or area")
     ap.add_argument("--review", metavar="WINDOW",
                     help="add the review block: week, month, or a YYYY-MM-DD date to review since")
@@ -1050,9 +1039,7 @@ def main(argv=None):
 
     utf8_stdout()
 
-    today = parse_date(args.today) if args.today else date.today()
-    if args.today and not today:
-        ap.error("--today wants YYYY-MM-DD")
+    today = args.today or date.today()
     root = Path(args.vault)
     if not root.is_dir():
         ap.error(f"no such vault: {root}")

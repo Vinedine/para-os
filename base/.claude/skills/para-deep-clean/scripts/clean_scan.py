@@ -14,20 +14,6 @@ third-party verbatim content, frozen records, or a vault's own declared contract
 skill's job, per references/phase1-structural.md, phase3-open-items.md and
 SKILL.md's Phase 4. Phase 2 has no script: README normalisation is judgment start to finish.
 
-Why a script. The preconditions and the housekeeping scan are a mechanical read of the
-vault - which folder holds a figure, whether a link resolves, whether an open item carries
-a date - and two correct runs have to agree, which instructions re-derived per run do not.
-This pins the rules the same way pipeline_scan.py pins /para-pipeline's.
-
-Reading the vault's primitives - fenced-block-aware line scanning, link extraction and
-resolution, content hashing, the checkbox and staleness thresholds - is not this script's
-own work: para-shared/scripts/paraos_vault.py holds it. What lives here is what this
-skill alone decides: which files are in scope for a placeholder or figure scan, how a
-contact's citations are counted, what an "entity folder" is under archive/, how a
-stale item's date is measured, which project has had no dated commitment for six months,
-which meeting record has one owner, which briefs Phase 3 reads, and which files nothing
-links to.
-
 What it deliberately does NOT do, so the skill keeps owning it: decide whether a finding
 is a real defect or an exempt third-party file, propose a fix, ask a question, or write
 anything but phase 3's date to `deep_clean_stamp`, outside the vault, which /para-daily-brief
@@ -50,13 +36,14 @@ try:
     from paraos_vault import (  # noqa: E402
         ANY_DATE_RE, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE,
         HEADING_RE, LINK_ROOTS, MARKED_SUFFIXES, NOT_CARDS, OPEN_ITEM_CAP, STALE_UNDATED_DAYS,
-        TASK_RE, abspath, action_files, cap_count, contact_names, dangling_links, deep_clean_stamp,
-        duplicates, emit, entity_doc, extract_links, field_ci, find_clone, git, git_blame_line_date,
-        hashes, header_fields, inbound_references_by_name, integration_markers, is_separator_row, iso,
-        lifecycles, link_files, link_spans, live_lines, log_entries, misplaced_checkboxes, norm,
-        open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
-        reference_shape, rel_posix, resolve_entity, resolve_link, snapshot, split_lines, stage_of,
-        strip_code, table_cells, template_marker, triage_items, under_any, utf8_stdout, vault_paths,
+        TASK_RE, abspath, action_files, cap_count, contact_names, dangling_links, date_arg,
+        deep_clean_stamp, duplicates, emit, entity_candidates, entity_doc, extract_links, field_ci,
+        find_clone, git, git_blame_line_date, hashes, header_fields, inbound_references_by_name,
+        integration_markers, is_separator_row, iso, lifecycles, link_files, link_spans, live_lines,
+        log_entries, misplaced_checkboxes, norm, open_tasks, other_checkbox_paths,
+        over_grown_briefs, parse_date, read_lines, read_text, reference_shape, rel_posix,
+        resolve_entity, resolve_link, snapshot, split_lines, stage_of, strip_code, table_cells,
+        template_marker, triage_items, under_any, utf8_stdout, vault_paths,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -503,12 +490,7 @@ def figures_in_line(line):
 
 
 def entity_names(vault):
-    names = set()
-    for bucket in ENTITY_BASES:
-        base = vault / bucket
-        if base.is_dir():
-            names.update(d.name for d in base.iterdir() if d.is_dir())
-    return sorted(names)
+    return sorted({c["label"] for c in entity_candidates(vault, ENTITY_BASES)})
 
 
 def rollup_files(vault):
@@ -1121,7 +1103,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Scan a vault for /para-deep-clean's mechanical checks.")
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
     ap.add_argument("--phase", required=True, choices=["1", "3", "4"], help="which phase to scan")
-    ap.add_argument("--today", help="date to measure against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to measure against (default: the system date)")
     ap.add_argument("--ref", default="origin/stable",
                     help="committed para-os ref for the template-marker precondition")
     ap.add_argument("--clone", help="path to a local para-os clone, for the template-marker "
@@ -1146,9 +1128,7 @@ def main(argv=None):
 
     utf8_stdout()
 
-    today = parse_date(args.today) if args.today else date.today()
-    if args.today and not today:
-        ap.error("--today wants YYYY-MM-DD")
+    today = args.today or date.today()
     root = Path(args.vault)
     if not root.is_dir():
         ap.error(f"no such vault: {root}")

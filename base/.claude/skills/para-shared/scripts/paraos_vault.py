@@ -17,17 +17,9 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "para-shared" / "scripts"))
     from paraos_vault import live_lines, open_tasks, resolve_entity
 
-What lives here is what two skills would otherwise each answer their own way about a vault:
-whether a folder is a vault root, what the machine's registry says about it and its neighbours,
-which registered vaults one unmounted drive took with it,
-where a checkbox may live, what counts as one, what a task marker means, which folder a name
-resolves to, which names a contact card answers to, who writes the vault and in which role,
-which of them the operator is, when a file was really last touched, what
-a link points at and what a move has to rewrite, whether two files hold the same bytes,
-what a vault declares it is built from and the locale it declares, the numbers a vault's own
-rules state, which lines a development log dates, the last day to give notice on a renewing
-agreement, and the date a promised weekday points at. A second implementation of any of those is a vault getting two answers to
-one question, which is the failure this repo exists to prevent. Three siblings hold what is not
+What lives here is what two skills would otherwise each answer their own way about a vault.
+A second implementation of any of it is a vault answering one question twice, the failure
+this repo exists to prevent. Three siblings hold what is not
 about the vault itself: `paraos_clone.py` reads the para-os clone a vault is measured against,
 `paraos_mail.py` reads mail threads, the notes they become and the ledgers that track them, and
 `paraos_pages.py` says where a skill's page goes.
@@ -168,11 +160,7 @@ def registry(paraos_home=None):
     or unparseable, never an exception: a registry read is background context for a stop
     line, not something a run needs to fail on.
     """
-    home = paraos_home_dir(paraos_home)
-    try:
-        data = json.loads((home / "vaults.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
+    data = read_json(paraos_home_dir(paraos_home) / "vaults.json")
     return data if isinstance(data, list) else []
 
 
@@ -328,6 +316,14 @@ def read_lines(path):
     return split_lines(read_text(path))
 
 
+def read_json(path, default=None):
+    """A JSON file's data, `default` where it is missing or does not parse."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return default
+
+
 def fence_step(fence, line):
     """The fence state after one line, and whether the line itself is a fence marker
     (an opening or a closing line).
@@ -457,6 +453,14 @@ def weekday_index(name):
         if len(text) >= 3 and day.startswith(text):
             return index
     raise ValueError(f"not a weekday: {name!r}; write an English day name or 1 to 7")
+
+
+def date_arg(text):
+    """An argparse `type` for `--today`."""
+    day = parse_date(text)
+    if not day:
+        raise argparse.ArgumentTypeError("--today wants YYYY-MM-DD")
+    return day
 
 
 def weekday_after(day, weekday):
@@ -1018,18 +1022,21 @@ NOT_CARDS = {"readme.md", "actions.md"}   # files beside the contact cards that 
 ALSO_RE = re.compile(r"^Also:\s*(.+)$", re.IGNORECASE)
 
 
+def first_h1(path):
+    for _, text in live_lines(read_lines(path)):
+        m = H1_RE.match(text.strip())
+        if m:
+            return m.group(1).strip()
+    return None
+
+
 def contact_names(card):
     """A contact card's names: its H1, plus every alias a `**Aliases:**` or `Also:` line
     lists, split on commas and semicolons. One reading for every skill that looks a person
     up, so a card answers to the same names wherever it is asked."""
-    lines = [t for _, t in live_lines(read_lines(card))]
-    names = []
-    for t in lines:
-        m = H1_RE.match(t.strip())
-        if m:
-            names.append(m.group(1).strip())
-            break
-    for t in lines:
+    title = first_h1(card)
+    names = [title] if title else []
+    for _, t in live_lines(read_lines(card)):
         m = ALIASES_RE.match(t.strip()) or ALSO_RE.match(t.strip())
         if m:
             names += [a.strip() for a in re.split(r"[,;]", m.group(1)) if a.strip()]
@@ -1101,11 +1108,7 @@ def operator_card(paraos_home=None):
     """Who "I" am, which a vault's shared files cannot say: the file name without `.md` of the
     operator's own contact card, from `<paraos home>/operator.json`, `{"card": "jane-doe"}`.
     None where the file is missing, does not parse, or names no card."""
-    try:
-        data = json.loads((paraos_home_dir(paraos_home) / "operator.json")
-                          .read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+    data = read_json(paraos_home_dir(paraos_home) / "operator.json")
     card = data.get("card") if isinstance(data, dict) else None
     if not isinstance(card, str) or not card.strip():
         return None
@@ -2260,9 +2263,8 @@ def hashes(vault, skip=SKIP_HASH_FOLDERS, sizes=None, within=None, eol=False, sh
 def duplicates(digests):
     """Every group of two or more paths holding the same bytes, each group sorted. Content,
     never a matching name or size, which are not evidence of anything."""
-    digests = digests["files"] if isinstance(digests.get("files"), dict) else digests
     groups = {}
-    for path, digest in digests.items():
+    for path, digest in digests["files"].items():
         groups.setdefault(digest, []).append(path)
     return sorted((sorted(g) for g in groups.values() if len(g) > 1), key=lambda g: g[0])
 
@@ -2272,8 +2274,7 @@ UTF8_BOM = b"\xef\xbb\xbf"
 
 def normalised(data):
     """A file's bytes in the form two copies of it are compared by: a leading UTF-8
-    byte-order mark dropped, and CRLF and a lone CR each read as LF. A `str` is taken as
-    its UTF-8 bytes.
+    byte-order mark dropped, and CRLF and a lone CR each read as LF.
 
     A copy that passed through a Windows editor or a sync client comes back with CRLF or a
     BOM and nothing else changed, and a raw compare reports that as drift from its master:
@@ -2281,11 +2282,6 @@ def normalised(data):
     the bytes on disk. `snapshot()` stays on the raw bytes, since a write-time check has to
     see every byte a writer changed.
     """
-    if isinstance(data, str):
-        data = data.encode("utf-8")
-    elif not isinstance(data, (bytes, bytearray)):
-        raise TypeError(f"normalised() takes bytes or str, not {type(data).__name__}")
-    data = bytes(data)
     if data.startswith(UTF8_BOM):
         data = data[len(UTF8_BOM):]
     return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
@@ -2431,12 +2427,6 @@ def emit(data, indent=None):
     sys.stdout.write("\n")
 
 
-def answer_for(args, root):
-    if args.command in ("move", "move-plan"):
-        return (move if args.apply else move_plan)(root, args.src, args.dst)
-    return dangling_links(root)
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Answer one question about a vault, as JSON.")
     sub = ap.add_subparsers(dest="command", required=True)
@@ -2552,7 +2542,8 @@ def main(argv=None):
         emit(open_items(root, files), 2)
         return 0
     try:
-        answer = answer_for(args, root)
+        answer = (move if args.apply else move_plan)(root, args.src, args.dst) \
+            if args.command in ("move", "move-plan") else dangling_links(root)
     except (ValueError, OSError) as err:
         ap.error(str(err))
     emit(answer, 2)

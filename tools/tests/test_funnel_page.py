@@ -172,6 +172,16 @@ class FunnelModelTests(unittest.TestCase):
         self.assertEqual((rows[("*", "Class list")]["kind"], rows[("*", "to members@club.test")]["kind"]),
                          ("group", "to"))
 
+    def test_an_entry_with_two_kinds_finds_the_drops_logged_under_its_label(self):
+        write(self.home, "triage-exclusions.json", json.dumps({
+            "*": [{"from": "a@shop.test", "subject": "Sale", "reason": "ads", "added": RECENT}]}))
+        write(self.home, f"cache/ingest/runs/{STAMP}-161500.json", json.dumps({
+            "mode": "write", "files_written": [],
+            "exclusions_applied": {"by_entry": {"*": {"subject Sale": 3}}, "dropped": 3,
+                                   "file": "applied"}}))
+        d = gather(str(self.home), 7, today=TODAY)
+        self.assertEqual([(e["label"], e["dropped"]) for e in d["exclusions"]], [("subject Sale", 3)])
+
     def test_decisions_window_share_and_switches(self):
         d = gather(str(self.home), 7, today=TODAY)
         alpha = d["decisions"]["Alpha"]
