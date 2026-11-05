@@ -56,8 +56,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paraos_vault import (  # noqa: E402
-    CELL_MARKS_RE, HEADING_RE, is_separator_row, live_lines, paraos_home_dir, read_lines,
-    table_cells,
+    CELL_MARKS_RE, HEADING_RE, is_separator_row, live_lines, paraos_home_dir, read_json, read_lines,
+    table_cells, utf8_stdout,
 )
 
 SKILLS_DIR = Path(__file__).resolve().parents[2]
@@ -113,10 +113,7 @@ def _migrate(paraos_home=None):
     entries = []
     for old_file in sorted((paraos_home_dir(paraos_home) / "cache").glob("*/dashboards.json")):
         page = old_file.parent.name
-        try:
-            old = json.loads(old_file.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
+        old = read_json(old_file)
         for key, fields in (old.items() if isinstance(old, dict) else ()):
             if isinstance(fields, dict):
                 entries.append(_entry(key, page, producer_of(key, page), fields))
@@ -127,10 +124,7 @@ def load_index(paraos_home=None):
     path = index_file(paraos_home)
     if not path.exists():
         return _migrate(paraos_home)
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
+    data = read_json(path)
     return [e for e in data if isinstance(e, dict) and e.get("key") and e.get("page")
             ] if isinstance(data, list) else []
 
@@ -331,10 +325,7 @@ def main(argv=None):
     m.add_argument("title")
     m.add_argument("listed", nargs="*")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     if args.cmd == "publish":
         path = store(args.vault, args.page, publish=args.choice)

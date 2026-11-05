@@ -31,7 +31,7 @@ from paraos_vault import (
     contact_card_level, contact_names, dangling_links, declarations, drive_of, duplicates, extract_links,
     field_ci, file_dates, find_clone, first_link, git, git_blame_line_date, git_bytes,
     git_last_commit_date, git_modified, git_untracked, hashes, header_fields, headline,
-    inbound_references, integration_markers, lifecycles, live_lines, locale, main,
+    inbound_references, inbound_references_by_name, integration_markers, lifecycles, live_lines, locale, main,
     match_encoding, misplaced_checkboxes, move_plan, next_occurrence, norm, normalised, rewrite_links,
     notice_date, open_items, open_tasks, operator_card, over_grown_briefs, parse_markers,
     register_rows, registered_vault, registry, registry_holding, rel_posix, resolve_entity,
@@ -829,6 +829,12 @@ class FileDates(VaultCase):
         missing = self.root / "projects/x/gone.md"
         self.assertEqual(file_dates(self.root, [missing]), {missing: None})
 
+    def test_a_cluster_outside_a_repo_asks_git_for_no_commit_date(self):
+        paths = [write(self.root, f"projects/p/{n}.md", "x\n") for n in "abc"]
+        with mock.patch("paraos_vault.git_last_commit_date") as asked:
+            file_dates(self.root, paths)
+        asked.assert_not_called()
+
 
 class EntityState(VaultCase):
 
@@ -1516,6 +1522,9 @@ class Inbound(VaultCase):
                          ["link_target", "link_text", "backtick", "prose"])
         self.assertEqual([h["line"] for h in got], [3, 4, 5, 6])
         self.assertFalse(any(h["in_sources"] for h in got))
+        both = inbound_references_by_name(self.root, ["orchard-lane", "Nothing to do"])
+        self.assertEqual(both["orchard-lane"], got)
+        self.assertEqual([h["line"] for h in both["Nothing to do"]], [7])
 
     def test_an_encoded_reference_is_found_and_the_line_comes_back_as_written(self):
         write(self.root, "README.md", "[deed](archive/meetings/Orchard%20Lane%20Deed.md)\n")
@@ -1797,10 +1806,6 @@ class FileContents(VaultCase):
         self.assertEqual(list(got["files"]), ["projects/a/brief.md"])
         self.assertEqual(got["skipped"], [])
 
-    def test_duplicates_reads_a_plain_digest_map_too(self):
-        self.assertEqual(duplicates({"a.md": "x", "b.md": "x", "c.md": "y"}),
-                         [["a.md", "b.md"]])
-
     def test_a_file_edited_after_the_snapshot_is_caught_before_the_write(self):
         path = write(self.root, "projects/a/brief.md", "# a\n")
         before = snapshot([path])
@@ -1849,19 +1854,12 @@ class Normalised(VaultCase):
         self.assertNotEqual(copy, master)
         self.assertEqual(normalised(copy), normalised(master))
 
-    def test_a_str_reads_as_its_utf8_bytes(self):
-        self.assertEqual(normalised("﻿café\r\n"), "café\n".encode("utf-8"))
-
     def test_snapshot_still_sees_a_line_ending_change(self):
         # A write-time check has to see every byte a writer changed.
         path = write_bytes(self.root, "projects/a/brief.md", b"# a\n")
         before = snapshot([path])
         path.write_bytes(b"# a\r\n")
         self.assertEqual(changed(before), [str(path)])
-
-    def test_anything_but_bytes_or_str_is_refused(self):
-        with self.assertRaises(TypeError):
-            normalised(None)
 
 
 CHANGELOG = "\n".join([

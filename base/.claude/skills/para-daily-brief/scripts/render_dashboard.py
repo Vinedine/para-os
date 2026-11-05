@@ -53,8 +53,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        OPEN_ITEM_CAP, PRIORITY_RANK, WAITING_FLAG_DAYS, registry,
-        same_place, scope_of,
+        OPEN_ITEM_CAP, PRIORITY_RANK, WAITING_FLAG_DAYS, read_lines, registry, same_place, scope_of,
+        utf8_stdout,
     )
     from brief_scan import EMPHASIS_RE, SENTENCE_END_RE, first_end  # noqa: E402
     from paraos_pages import PUBLISH, local_page, publish_choice, remembered_url, store  # noqa: E402
@@ -114,14 +114,12 @@ def display_name(vault):
     for entry in registry():
         if entry.get("name") and entry.get("path") and same_place(entry["path"]) == place:
             return entry["name"]
-    claude = Path(vault) / "CLAUDE.md"
-    if claude.is_file():
-        for line in claude.read_text(encoding="utf-8", errors="replace").splitlines():
-            if line.startswith("# "):
-                name = re.sub(r"\s*vault conventions\s*$", "", line[2:].strip(), flags=re.I)
-                if name:
-                    return name
-                break
+    for line in read_lines(Path(vault) / "CLAUDE.md"):
+        if line.startswith("# "):
+            name = re.sub(r"\s*vault conventions\s*$", "", line[2:].strip(), flags=re.I)
+            if name:
+                return name
+            break
     return Path(vault).name
 
 
@@ -483,10 +481,7 @@ def main(argv=None):
     ap.add_argument("--publish", choices=PUBLISH, help="where this vault's dashboard goes")
     ap.add_argument("--vault", help="vault root, with --publish")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     if args.publish:
         if not args.vault:

@@ -39,7 +39,9 @@ from email.utils import parseaddr, parsedate_to_datetime
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 
-from paraos_vault import is_under, iso, paraos_home_dir, parse_date, same_place, working_days
+from paraos_vault import (
+    emit, is_under, iso, paraos_home_dir, parse_date, same_place, utf8_stdout, working_days,
+)
 
 UNANSWERED_WORKING_DAYS = 5 # a sent message unanswered this many working days is a wait
 
@@ -618,11 +620,7 @@ def main(argv=None):
                                                               "triage-exclusions.json")
     args = ap.parse_args(argv)
 
-    # A Windows console defaults to a codepage that cannot encode a subject.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     if args.command == "exclude":
         try:
@@ -640,8 +638,7 @@ def main(argv=None):
     if args.command == "eml":
         if not Path(args.file).is_file():
             ap.error(f"no such file: {args.file}")
-        json.dump(eml(args.file, args.extract), sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(eml(args.file, args.extract), 2)
         return 0
 
     try:
@@ -656,8 +653,7 @@ def main(argv=None):
             keys.append(dedup_key(message if isinstance(message, dict) else {}))
         except ValueError as err:
             ap.error(f"message {n}: {err}")
-    json.dump({"keys": keys}, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")
+    emit({"keys": keys}, 2)
     return 0
 
 

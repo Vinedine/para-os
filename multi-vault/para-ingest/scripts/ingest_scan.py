@@ -92,8 +92,8 @@ from paraos_mail import (  # noqa: E402
     note_name_parts, received_instant, thread_hash, watermark,
 )
 from paraos_vault import (  # noqa: E402
-    EMAIL_RE, TEXT_SUFFIXES, down_drives, ingested_here, lifecycles, operator_card,
-    paraos_home_dir, registry, reserved_for, roster, triage_sources, writer,
+    EMAIL_RE, TEXT_SUFFIXES, down_drives, emit, ingested_here, lifecycles, operator_card,
+    paraos_home_dir, read_text, registry, reserved_for, roster, triage_sources, utf8_stdout, writer,
 )
 
 WINDOW_DAYS = {"write": 2, "preview": 30}
@@ -458,11 +458,7 @@ def addresses_in(root, homes):
             if (path.suffix.lower() not in TEXT_SUFFIXES or not path.is_file()
                     or "sources" in parts or parts[0] == "triage"):
                 continue
-            try:
-                text = path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            found.update(a.lower() for a in EMAIL_RE.findall(text))
+            found.update(a.lower() for a in EMAIL_RE.findall(read_text(path)))
     return found
 
 
@@ -699,11 +695,7 @@ def main(argv=None):
         parser.add_argument("--paraos-home", help="override for $PARAOS_HOME")
     args = ap.parse_args(argv)
 
-    # A Windows console defaults to a codepage that cannot encode a subject.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
     try:
         if args.command == "prepare":
             out = prepare(args.mode, args.paraos_home, parse_now(args.now), args.days)
@@ -711,8 +703,7 @@ def main(argv=None):
             out = route(args.work, args.connectors, args.paraos_home, args.unread)
     except ValueError as err:
         ap.error(str(err))
-    json.dump(out, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")
+    emit(out, 2)
     return 0
 
 

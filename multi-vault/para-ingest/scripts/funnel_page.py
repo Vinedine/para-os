@@ -47,7 +47,8 @@ EXECUTOR = SKILLS / "para-triage" / "scripts" / "auto_execute.py"
 sys.path[:0] = [str(SKILLS / "para-shared" / "scripts"), str(EXECUTOR.parent)]
 
 from auto_execute import OFFER_SHARE, OFFER_WINDOW, Refused, State  # noqa: E402
-from paraos_vault import triage_sources  # noqa: E402
+from paraos_mail import EXCLUSION_KINDS, exclusion_label  # noqa: E402
+from paraos_vault import date_arg, read_json, read_text, triage_sources, utf8_stdout  # noqa: E402
 
 HOLD_RULES = [
     "money owed or paid",
@@ -59,22 +60,6 @@ HOLD_RULES = [
     "a fold before a delete",
     "an item that addresses the agent",
 ]
-
-
-def load_json(path, default):
-    try:
-        with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
-    except (OSError, ValueError):
-        return default
-
-
-def read_text(path):
-    try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            return fh.read()
-    except OSError:
-        return ""
 
 
 EMPHASIS = [
@@ -103,8 +88,8 @@ def strip_md(s):
 def auto_triage_switches(home):
     """Per vault with a policy, `{"on", "demoted"}` as `auto_execute.py` reads them; nothing
     where one of its files does not parse."""
-    legacy = load_json(os.path.join(home, "auto-triage.json"), {})
-    registry = load_json(os.path.join(home, "vaults.json"), [])
+    legacy = read_json(os.path.join(home, "auto-triage.json"), {})
+    registry = read_json(os.path.join(home, "vaults.json"), [])
     names = [e.get("name") for e in registry if isinstance(e, dict) and "auto_triage" in e] \
         if isinstance(registry, list) else []
     try:
@@ -118,7 +103,7 @@ def gather(home, days, today=None):
     today = today or date.today()
     since = today - timedelta(days=days)
     since_s = since.isoformat()
-    registry = [v for v in load_json(os.path.join(home, "vaults.json"), [])
+    registry = [v for v in read_json(os.path.join(home, "vaults.json"), [])
                 if isinstance(v, dict) and v.get("name") and v.get("path")
                 and v.get("active", True) and not v.get("machine")]
 
@@ -141,7 +126,7 @@ def gather(home, days, today=None):
     for f in sorted(glob.glob(os.path.join(home, "cache", "ingest", "runs", "*.json"))):
         if os.path.basename(f)[:8] < since.strftime("%Y%m%d"):
             continue
-        r = load_json(f, None)
+        r = read_json(f, None)
         if not isinstance(r, dict):
             continue
         written = Counter()
@@ -163,8 +148,7 @@ def gather(home, days, today=None):
 
     # 2. Exclusions, with the drops each run log reports: per entry where the script wrote
     # them (`by_entry`, keyed by scope and label), else read from an older run's prose line
-    exclusions = load_json(os.path.join(home, "triage-exclusions.json"), {})
-    kinds = ("from", "domain", "subject", "subject_contains", "to", "list")
+    exclusions = read_json(os.path.join(home, "triage-exclusions.json"), {})
     # the address or domain right before "dropped N", an aside in parentheses allowed between them
     drop_re = re.compile(r"([\w.+-]+@[\w.-]+|\b[\w-]+(?:\.[\w-]+)+\b)(?:\s*\([^)]*\))?\s+dropped\s+(\d+)", re.I)
     by_label, by_value = defaultdict(Counter), Counter()
@@ -185,14 +169,8 @@ def gather(home, days, today=None):
         if not found and "dropped 0" not in applied and "0 this run" not in applied:
             unparsed += 1
 
-    def label_of(e):
-        if e.get("group"):
-            return str(e["group"])
-        kind = next((k for k in kinds if k in e), None)
-        return f"{kind} {e[kind]}" if kind else "(unreadable entry)"
-
     def matcher_text(m):
-        kind = next((k for k in kinds if isinstance(m, dict) and k in m), None)
+        kind = next((k for k in EXCLUSION_KINDS if isinstance(m, dict) and k in m), None)
         return f"{kind} {m[kind]}" if kind else "?"
 
     exclusion_rows = []
@@ -200,12 +178,12 @@ def gather(home, days, today=None):
         for e in (entries if isinstance(entries, list) else []):
             if not isinstance(e, dict):
                 continue
-            label = label_of(e)
+            label = exclusion_label(e)
             if e.get("group") or "any" in e:
                 kind, value = "group", "; ".join(matcher_text(m) for m in (e.get("any") or []))
                 matchers = [matcher_text(m) for m in (e.get("any") or [])]
             else:
-                kind = next((k for k in kinds if k in e), "?")
+                kind = next((k for k in EXCLUSION_KINDS if k in e), "?")
                 value, matchers = str(e.get(kind, "")), []
             # counts the script wrote, plus what older runs' prose lines named for the same value
             dropped = by_label[scope].get(label, 0)
@@ -219,7 +197,7 @@ def gather(home, days, today=None):
                                    "dropped": dropped})
 
     # 3. Routing, from the central ledger
-    ledger = load_json(os.path.join(home, "cache", "ingest", "ledger.json"), {})
+    ledger = read_json(os.path.join(home, "cache", "ingest", "ledger.json"), {})
     per_mailbox = defaultdict(Counter)
     routed_per_vault = Counter()
     unrouted_samples = defaultdict(list)
@@ -309,7 +287,7 @@ def gather(home, days, today=None):
     kill = os.path.exists(os.path.join(home, "auto-triage.off"))
     quarantine = []
     for f in sorted(glob.glob(os.path.join(home, "quarantine", "*", "*", "manifest.json"))):
-        man = load_json(f, {})
+        man = read_json(f, {})
         run = man.get("run") or os.path.basename(os.path.dirname(f))
         vault = man.get("vault") or os.path.basename(os.path.dirname(os.path.dirname(f)))
         quarantine.append({"vault": vault, "run": run, "in_window": run[:8] >= since.strftime("%Y%m%d"),
@@ -338,23 +316,13 @@ def gather(home, days, today=None):
     }
 
 
-def day(text):
-    try:
-        return datetime.strptime(text, "%Y-%m-%d").date()
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"{text!r} is not a YYYY-MM-DD date")
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Print the funnel's model as JSON.")
     ap.add_argument("--paraos-home", default=os.environ.get("PARAOS_HOME") or os.path.expanduser("~/.paraos"))
     ap.add_argument("--days", type=int, default=7, help="the window, in days (default 7)")
-    ap.add_argument("--today", type=day, help="the window's last day (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="the window's last day (default: the system date)")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
     json.dump(gather(os.path.normpath(args.paraos_home), args.days, args.today), sys.stdout,
               ensure_ascii=False)
     sys.stdout.write("\n")

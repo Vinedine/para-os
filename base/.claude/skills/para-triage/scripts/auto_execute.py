@@ -101,6 +101,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (entity_candidates, git, move, paraos_home_dir,  # noqa: E402
+                              utf8_stdout, emit,
                               same_place, snapshot, trash, triage_items)
 except ImportError as missing:
     print(f"auto_execute: {missing}. install para-shared beside this skill", file=sys.stderr)
@@ -681,18 +682,14 @@ def main(argv=None):
     parsers["switch"].add_argument("action")
     parsers["purge"].add_argument("--days", type=int, default=30)
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
     try:
         out = commands[args.command](args)
     except Refused as why:
         out, code = {"refused": str(why)}, 3
     else:
         code = 4 if out.get("failed") else 0
-    json.dump(out, sys.stdout, ensure_ascii=False, indent=1)
-    sys.stdout.write("\n")
+    emit(out, 1)
     return code
 
 

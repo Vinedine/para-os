@@ -61,7 +61,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paraos_vault import (  # noqa: E402
-    first_link, is_separator_row, read_text, registry, split_lines, table_cells,
+    first_link, is_separator_row, read_text, registry, split_lines, table_cells, utf8_stdout,
 )
 
 RULE_FILE = Path(".claude") / "rules" / "code-repos.md"
@@ -423,10 +423,7 @@ def main(argv=None):
     cv.add_argument("--vault", required=True)
     cv.add_argument("--write", action="store_true", help="write the converted file")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
     if not Path(args.vault).is_dir():
         print(f"paraos_repos: --vault {args.vault!r} is not a folder", file=sys.stderr)
         return 2

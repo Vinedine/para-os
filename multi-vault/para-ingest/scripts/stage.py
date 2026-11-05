@@ -89,7 +89,9 @@ from paraos_mail import (  # noqa: E402
     apply_exclusions, dedup_key, ingest_logs, load_exclusions, received_instant, thread_hash,
     watermark,
 )
-from paraos_vault import ingested_here, paraos_home_dir, registry  # noqa: E402
+from paraos_vault import (  # noqa: E402
+    emit, ingested_here, paraos_home_dir, read_text, registry, utf8_stdout,
+)
 
 SIGNIN = "sign-in or security code"
 SUBJECT_CAP = 80
@@ -245,11 +247,7 @@ def note_path(triage, stem, read):
     names = {p.name for p in triage.iterdir()} if triage.is_dir() else set()
     for name in sorted(names):
         if name == f"{stem}.md" or (name.startswith(f"{stem} ") and name.endswith(".md")):
-            try:
-                text = (triage / name).read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            found = MESSAGE_ID_RE.search(text)
+            found = MESSAGE_ID_RE.search(read_text(triage / name))
             if found and found.group(1).strip() == read:
                 return triage / name, True
     n = 1
@@ -421,11 +419,7 @@ def main(argv=None):
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     args = ap.parse_args(argv)
 
-    # A Windows console defaults to a codepage that cannot encode a subject.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     loaded = []
     for path, shape in ((args.run, dict), (args.decisions, list)):
@@ -451,8 +445,7 @@ def main(argv=None):
                 raw.unlink()
             except OSError:
                 pass
-    json.dump(summary, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")
+    emit(summary, 2)
     return 0
 
 

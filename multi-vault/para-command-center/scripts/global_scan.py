@@ -15,26 +15,16 @@ says `"brief": "summary"`; one they steward, are a member of, or whose roster do
 them is `health` only, since action lines carry no assignee yet.
 
 `vaults`, in registry order: `name`, `role` (null where the roster does not name the
-operator), `treatment`, `type` (the vault's `**Type:**` label), `machine` (the registry's,
-naming the machine that pulls the vault, else null), `open`, `overdue`, `this_week` (due in
-the next seven days), `undated`, `triage` (loose files in `triage/`), `flags` (the name of
-every health flag the scan fired), `proposal` (the newest
-`<paraos home>/cache/triage/proposals/<name>-<YYYYMMDD-HHMM>.md` by name, else null),
-`health`, the vault's health card as brief_scan.py's `health()` gives it, and `cells`, the
-chat table's `shown`, `open`, `overdue`, `this_week`, `triage` and `health` as it prints them.
-A vault with a `machine` keeps its health card and carries no inbound counts: `triage` and
-`proposal` are null, and its triage cell reads `pulled on <machine>`.
+operator), `treatment`, `machine` (the registry's, naming the machine that pulls the vault,
+else null), `open`, `overdue`, `triage` (loose files in `triage/`, null with a `machine`),
+`health`, the vault's health card as brief_scan.py's `health()` gives it, `kit` and
+`deep_clean_audit`.
 
-`tasks`: every dated open task of a `full` vault, with its `vault`; `entities`: their
-projects and areas; `undated`: their undated count; `people`: their contact cards with
-something open either way, one row per card across them, with the `vaults` it is in.
+`tasks`: every dated open task of a `full` vault, with its `vault`.
 
 `summaries`: per `summary` vault, its `overdue`, `today` and `this_week` counts, the areas
 those come from (`by_area`, the largest first) and up to three top-priority items late or
 due today (`top`).
-
-`urgent`: every task of a `full` vault overdue or due today, with its `vault`, sorted as
-render_dashboard.py's `--mechanical` sorts a vault's Next action, uncapped.
 
 `calendars`: every `## Agenda sources` row of a `full` or `summary` vault, one per
 `endpoint` (the calendar's account, whatever connector a vault wrote), with the `vaults`
@@ -65,7 +55,10 @@ try:
     from brief_scan import scan  # noqa: E402
     from paraos_clone import clone_session  # noqa: E402
     from paraos_vault import (  # noqa: E402
-        cadence_days, declarations, deep_clean_stamp, iso, live_lines, norm, operator_card,
+        read_json,
+        date_arg,
+        utf8_stdout,
+        cadence_days, deep_clean_stamp, iso, live_lines, operator_card,
         paraos_home_dir, parse_date, read_lines, register_rows, registry, vault_paths,
         weekday_index, writer)
     from render_dashboard import now_key  # noqa: E402
@@ -81,16 +74,6 @@ TOP_ITEMS = 3
 MEETING_RE = re.compile(r"^\s*[-*]\s+🗓️?\s*(\d{4}-\d{2}-\d{2})"
                         r"(?:\s+(\d{1,2}:\d{2})(?:\s*[-\u2013]\s*(\d{1,2}:\d{2}))?)?\s*·\s*(.+)$")
 EVERY_RE = re.compile(r"🔁️?\s*(every\s+[^·]+?)\s*(?:·|$)")
-
-
-def proposal(home, name):
-    found = sorted((home / "cache" / "triage" / "proposals").glob(f"{name}-{'[0-9]' * 8}-{'[0-9]' * 4}.md"))
-    return found[-1].as_posix() if found else None
-
-
-def fired(value):
-    """A flag's value is a list, a dict of lists (`misplaced`), or null."""
-    return any(value.values()) if isinstance(value, dict) else bool(value)
 
 
 def treatment(entry, role):
@@ -149,44 +132,19 @@ def deep_clean_audit(vault, paraos_home=None):
     """The last `/para-deep-clean audit` record for the vault, written by `clean_scan.py
     --record` beside the deep-clean stamp, or None."""
     path = deep_clean_stamp(vault, paraos_home).with_suffix(".audit.json")
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+    data = read_json(path)
     if not isinstance(data, dict) or not parse_date(data.get("date")):
         return None
     return {"date": data["date"], "total": int(data.get("total") or 0),
             "findings": data.get("findings") if isinstance(data.get("findings"), dict) else {}}
 
 
-LEVEL_WORDS = {"ok": "healthy", "watch": "watch", "care": "needs care", "unknown": "unknown"}
-
-
-def cells(row, operator):
-    """The chat table's cells: the treatment, with why for a health-only vault; the counts;
-    triage with the waiting proposal named; the card's level with each signal at watch or
-    care."""
-    shown = row["treatment"] if row["treatment"] != "health" else "health ({})".format(
-        row["role"] or ("no operator.json" if operator is None else "not on the roster"))
-    triage = f"pulled on {row['machine']}" if row["machine"] else str(row["triage"]) + (
-        f", proposal waiting: {Path(row['proposal']).name}" if row["proposal"] else "")
-    flagged = [k.replace("_", " ") for k, s in row["health"]["signals"].items()
-               if s["level"] in ("watch", "care")]
-    health = LEVEL_WORDS[row["health"]["level"]] + (": " + ", ".join(flagged) if flagged else "")
-    return {"shown": shown, "open": row["open"], "overdue": row["overdue"],
-            "this_week": row["this_week"], "triage": triage, "health": health}
-
-
 def vault_row(entry, report, home, role, shown, kit=None):
-    t, lanes = report["totals"], report["lanes"]
+    t = report["totals"]
     name, machine = entry["name"], entry.get("machine") or None
-    return {"name": name, "role": role, "treatment": shown,
-            "type": declarations(entry["path"])["type"], "machine": machine, "open": t["open"],
-            "overdue": t["overdue"], "this_week": len(lanes.get("this_week", [])),
-            "undated": t["undated"], "triage": None if machine else len(report["triage"]),
-            "flags": sorted(k for k, v in report["flags"].items() if fired(v)),
-            "proposal": None if machine else proposal(home, name), "health": report["health"],
-            "kit": kit_signal(entry, *(kit or (None, None, None))),
+    return {"name": name, "role": role, "treatment": shown, "machine": machine, "open": t["open"],
+            "overdue": t["overdue"], "triage": None if machine else len(report["triage"]),
+            "health": report["health"], "kit": kit_signal(entry, *(kit or (None, None, None))),
             "deep_clean_audit": deep_clean_audit(entry["path"], home)}
 
 
@@ -206,24 +164,6 @@ def summary(name, report):
     return {"vault": name, **{lane: len(tasks) for lane, tasks in counted.items()},
             "by_area": sorted(areas.items(), key=lambda a: (-a[1], a[0])),
             "top": [dict(t, vault=name) for t in late[:TOP_ITEMS]]}
-
-
-def merge_people(rows, name, people):
-    """One row per contact card across the vaults, its counts added up."""
-    for p in people:
-        if not (p["owe"] or p["waiting"]):
-            continue
-        row = rows.setdefault(p["person"], dict(p, owe=0, waiting=0, vaults=[],
-                                                owe_next_due=None, waiting_since=None,
-                                                last_touch=None))
-        row["vaults"].append(name)
-        row["owe"] += p["owe"]
-        row["waiting"] += p["waiting"]
-        row["kind"] = row["kind"] or p["kind"]
-        row["entity"] = row["entity"] or p["entity"]
-        for key, pick in (("owe_next_due", min), ("waiting_since", min), ("last_touch", max)):
-            seen = [v for v in (row[key], p[key]) if v]
-            row[key] = pick(seen) if seen else None
 
 
 def calendar_rows(vault):
@@ -278,15 +218,32 @@ def meetings(vault, name, today, until):
     return out
 
 
+def add_calendars(calendars, vault, name):
+    for row in calendar_rows(vault):
+        cal = calendars.setdefault(row["endpoint"] or row["source"], dict(row, vaults=[]))
+        cal["vaults"] += [] if name in cal["vaults"] else [name]
+
+
+def calendars_only(entries, today, paraos_home=None):
+    """What `build_report` says about calendars, without scanning a vault to say it."""
+    me, calendars = operator_card(paraos_home), {}
+    for entry in entries:
+        if excluded_status(entry) is None:
+            place = writer(entry["path"], me)
+            if treatment(entry, place["role"] if place else None) != "health":
+                add_calendars(calendars, entry["path"], entry["name"])
+    return {"today": today.isoformat(), "horizon": iso(today + timedelta(days=HORIZON_DAYS)),
+            "calendars": list(calendars.values())}
+
+
 @clone_session()
 def build_report(entries, today, paraos_home=None, model=None):
     home = paraos_home_dir(paraos_home)
     me = operator_card(paraos_home)
     until = today + timedelta(days=HORIZON_DAYS)
-    out = {"today": today.isoformat(), "horizon": iso(until), "operator": me, "vaults": [],
-           "tasks": [], "entities": [], "undated": 0, "people": [], "summaries": [],
-           "urgent": [], "calendars": [], "meetings": [], "excluded": []}
-    people, calendars = {}, {}
+    out = {"today": today.isoformat(), "horizon": iso(until), "vaults": [], "tasks": [],
+           "summaries": [], "calendars": [], "meetings": [], "excluded": []}
+    calendars = {}
     kit = open_kit(paraos_home)
     for entry in entries:
         status = excluded_status(entry)
@@ -302,25 +259,15 @@ def build_report(entries, today, paraos_home=None, model=None):
         place = writer(entry["path"], me)
         role = place["role"] if place else None
         shown = treatment(entry, role)
-        row = vault_row(entry, report, home, role, shown, kit)
-        out["vaults"].append(dict(row, cells=cells(row, me)))
+        out["vaults"].append(vault_row(entry, report, home, role, shown, kit))
         if shown == "full":
             out["tasks"] += [dict(t, vault=name) for t in report["tasks"]
                              if t["lane"] not in NOT_DATED and t["effective_date"]]
-            out["entities"] += [dict(e, vault=name) for e in report["entities"]]
-            out["undated"] += report["totals"]["undated"]
-            out["urgent"] += [dict(t, vault=name) for t in in_lanes(report, URGENT_LANES)]
-            merge_people(people, name, report.get("people") or [])
         elif shown == "summary":
             out["summaries"].append(summary(name, report))
         if shown != "health":
-            for row in calendar_rows(entry["path"]):
-                cal = calendars.setdefault(row["endpoint"] or row["source"], dict(row, vaults=[]))
-                cal["vaults"] += [] if name in cal["vaults"] else [name]
+            add_calendars(calendars, entry["path"], name)
             out["meetings"] += meetings(entry["path"], name, today, until)
-    out["urgent"].sort(key=lambda t: now_key(t) + (t["vault"],))
-    out["people"] = sorted(people.values(), key=lambda p: (p["waiting_since"] or "9999",
-                                                           p["owe_next_due"] or "9999", p["name"]))
     out["calendars"] = list(calendars.values())
     out["meetings"].sort(key=lambda e: (e["date"], e["start"] or "", e["title"]))
     return out
@@ -328,18 +275,13 @@ def build_report(entries, today, paraos_home=None, model=None):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Scan every registered vault for one brief.")
-    ap.add_argument("--today", help="date to bucket against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to bucket against (default: the system date)")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     ap.add_argument("--model", help="the running model's id, for each health card's skills review")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
-    today = parse_date(args.today) if args.today else date.today()
-    if not today:
-        ap.error("--today wants YYYY-MM-DD")
+    utf8_stdout()
+    today = args.today or date.today()
     entries = registry(args.paraos_home)
     if not entries:
         print("global_scan: no registry, or one listing no vault", file=sys.stderr)

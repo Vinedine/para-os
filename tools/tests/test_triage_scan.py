@@ -510,7 +510,6 @@ class NoteShapes(unittest.TestCase):
         self.assertEqual(note["mentioned_vaults"], ["Beta", "Gamma"])
         # no ledger entry for this thread: routed_vaults is null, not an empty guess
         self.assertIsNone(note["routed_vaults"])
-        self.assertIsNone(note["routed_from"])
         self.assertIsNone(note["message_id"])
         self.assertIsNone(note["conversation_id"])
 
@@ -617,7 +616,7 @@ class NoteShapes(unittest.TestCase):
             "1a0c556d2559b07c": {"routed": ["Alpha", "Beta"]},
         }}
         self.assertEqual(_routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
-                                             "88604c", "Alpha"), (["Beta"], "ledger"))
+                                             "88604c", "Alpha"), ["Beta"])
 
     def test_mentioned_vaults_excludes_this_vault_and_matches_short_names_case_sensitively(self):
         entries = [{"name": "Beta"}, {"name": "Alpha"}, {"name": "BF"}, {"name": "QZ"}]
@@ -641,10 +640,8 @@ class NoteShapes(unittest.TestCase):
         ledger_mailboxes = {"alex@example-work.com": {
             "1a0c556d2559b07c": {"routed": ["Alpha", "Beta"]},
         }}
-        routed, source = _routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
-                                             "88604c", "Alpha")
+        routed = _routed_from_ledger(ledger_mailboxes, "alex@example-work.com", "88604c", "Alpha")
         self.assertEqual(routed, ["Beta"])
-        self.assertEqual(source, "ledger")
 
     def test_ingest_seen_carries_the_ledger_entrys_watermark(self):
         ledger_mailboxes = {"alex@example-work.com": {"1a0c556d2559b07c": {
@@ -671,18 +668,14 @@ class NoteShapes(unittest.TestCase):
         self.assertIsNone(note_block(path, [], "Alpha", {})["ingest_seen"])
 
     def test_routed_vaults_is_null_when_the_mailbox_is_unknown_to_the_ledger(self):
-        routed, source = _routed_from_ledger({}, "alex@example-work.com", "88604c", "Alpha")
-        self.assertIsNone(routed)
-        self.assertIsNone(source)
+        self.assertIsNone(_routed_from_ledger({}, "alex@example-work.com", "88604c", "Alpha"))
 
     def test_routed_vaults_is_null_when_no_threads_hash_matches(self):
         ledger_mailboxes = {"alex@example-work.com": {
             "some-other-thread-id": {"routed": ["Alpha"]},
         }}
-        routed, source = _routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
-                                             "88604c", "Alpha")
-        self.assertIsNone(routed)
-        self.assertIsNone(source)
+        self.assertIsNone(_routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
+                                              "88604c", "Alpha"))
 
     def test_a_six_hex_hash_is_never_searched_across_mailboxes(self):
         # thread_hash("1a0c556d2559b07c") == "88604c" - planted under a DIFFERENT mailbox
@@ -690,10 +683,8 @@ class NoteShapes(unittest.TestCase):
         ledger_mailboxes = {"other@example-work.com": {
             "1a0c556d2559b07c": {"routed": ["Beta"]},
         }}
-        routed, source = _routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
-                                             "88604c", "Alpha")
-        self.assertIsNone(routed)
-        self.assertIsNone(source)
+        self.assertIsNone(_routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
+                                              "88604c", "Alpha"))
 
     def test_thread_id_is_kept_only_when_it_matches_the_filename_hash(self):
         # thread_hash("1a0c556d2559b07c") == "88604c" (verified pair, test_paraos_vault.py)
@@ -841,7 +832,6 @@ class DuplicatesAndCrossVault(VaultCase):
         loose = build_loose(self.root, entries, "Alpha", ledger_mailboxes)
         item = next(i for i in loose if i["name"] == "20260913 Visit debrief 88604c.md")
         self.assertEqual(item["note"]["routed_vaults"], [])
-        self.assertEqual(item["note"]["routed_from"], "ledger")
         self.assertEqual(item["note"]["mentioned_vaults"], ["Beta"])
         self.assertEqual(item["cross_vault"],
                          [{"vault": "Beta",
@@ -1000,15 +990,14 @@ class LooseItemMisc(VaultCase):
 
 class Subdirectories(VaultCase):
 
-    def test_an_underscore_prefixed_subdirectory_is_flagged_as_handoff(self):
+    def test_a_subdirectory_carries_its_file_count(self):
         write(self.root, "triage/_handover/a.pdf", "x\n")
         write(self.root, "triage/_handover/b.pdf", "x\n")
         write(self.root, "triage/normal-batch/c.pdf", "x\n")
         subs = subdirectories_block(self.root)
         by_name = {s["name"]: s for s in subs}
-        self.assertTrue(by_name["_handover"]["handoff"])
         self.assertEqual(by_name["_handover"]["files"], 2)
-        self.assertFalse(by_name["normal-batch"]["handoff"])
+        self.assertEqual(by_name["normal-batch"]["files"], 1)
 
     def test_empty_triage_reports_empty(self):
         report = self.plan()
@@ -1260,7 +1249,6 @@ class IngestLedgerBlock(VaultCase):
         self.assertIsNotNone(report["ingest_ledger"]["load_error"])
         note = report["items"]["loose"][0]["note"]
         self.assertIsNone(note["routed_vaults"])
-        self.assertIsNone(note["routed_from"])
         self.assertEqual(note["mentioned_vaults"], ["Beta"])  # the text scan is unaffected
 
 

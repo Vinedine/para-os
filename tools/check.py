@@ -154,6 +154,16 @@ def failure_report(text, transform=str):
     return "\n".join([f"        {transform(ln)}" for ln in named] + [tail(text, transform=transform)])
 
 
+def unfenced(text):
+    """(line number, line) outside code fences."""
+    fenced = False
+    for n, line in enumerate(text.splitlines(), 1):
+        if FENCE.match(line):
+            fenced = not fenced
+        elif not fenced:
+            yield n, line
+
+
 def is_test_file(p):
     return p.name.startswith("test_") or ".test." in p.name
 
@@ -359,12 +369,8 @@ def check_dashes():
             text = p.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        in_fence = False
-        for n, line in enumerate(text.splitlines(), 1):
-            if FENCE.match(line):
-                in_fence = not in_fence
-            elif not in_fence and any(d in CODE_SPAN.sub("", line) for d in DASHES):
-                hits.append(f"{rel(p)}:{n}")
+        hits += [f"{rel(p)}:{n}" for n, line in unfenced(text)
+                 if any(d in CODE_SPAN.sub("", line) for d in DASHES)]
     if hits:
         bad(f"em/en dash in shipped text: {listed(hits)}")
     else:
@@ -467,12 +473,7 @@ def prose_lines(suffix, text):
     elif suffix in DATE_SCRIPT_SUFFIXES:
         found = script_comments(text, "//", ("/*", "*/"), {q: "\\" for q in "'\"`"})
     else:
-        found, in_fence = {}, False
-        for n, ln in enumerate(text.splitlines(), 1):
-            if FENCE.match(ln):
-                in_fence = not in_fence
-            elif not in_fence:
-                found[n] = ln
+        found = dict(unfenced(text))
     for n in sorted(found):
         yield n, CODE_SPAN.sub("", found[n])
 
@@ -693,13 +694,7 @@ def check_installed_links():
         for f in sorted(d.rglob("*.md")):
             if WALK_SKIP_DIRS & set(f.relative_to(d).parts):
                 continue
-            fenced = False
-            for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
-                if FENCE.match(line):
-                    fenced = not fenced
-                    continue
-                if fenced:
-                    continue
+            for n, line in unfenced(f.read_text(encoding="utf-8")):
                 for target in MD_LINK.findall(CODE_SPAN.sub("", line)):
                     if target.startswith(("#", "/")) or URL_SCHEME.match(target):
                         continue

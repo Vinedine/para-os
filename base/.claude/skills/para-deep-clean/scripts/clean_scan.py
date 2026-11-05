@@ -14,20 +14,6 @@ third-party verbatim content, frozen records, or a vault's own declared contract
 skill's job, per references/phase1-structural.md, phase3-open-items.md and
 SKILL.md's Phase 4. Phase 2 has no script: README normalisation is judgment start to finish.
 
-Why a script. The preconditions and the housekeeping scan are a mechanical read of the
-vault - which folder holds a figure, whether a link resolves, whether an open item carries
-a date - and two correct runs have to agree, which instructions re-derived per run do not.
-This pins the rules the same way pipeline_scan.py pins /para-pipeline's.
-
-Reading the vault's primitives - fenced-block-aware line scanning, link extraction and
-resolution, content hashing, the checkbox and staleness thresholds - is not this script's
-own work: para-shared/scripts/paraos_vault.py holds it. What lives here is what this
-skill alone decides: which files are in scope for a placeholder or figure scan, how a
-contact's citations are counted, what an "entity folder" is under archive/, how a
-stale item's date is measured, which project has had no dated commitment for six months,
-which meeting record has one owner, which briefs Phase 3 reads, and which files nothing
-links to.
-
 What it deliberately does NOT do, so the skill keeps owning it: decide whether a finding
 is a real defect or an exempt third-party file, propose a fix, ask a question, or write
 anything but phase 3's date to `deep_clean_stamp`, outside the vault, which /para-daily-brief
@@ -48,18 +34,16 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        FROZEN_MARKER_RE, NOT_CARDS, STALE_UNDATED_DAYS, TASK_RE,
-        LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
-        MARKED_SUFFIXES, dangling_links, deep_clean_stamp, duplicates, find_clone,
-        integration_markers,
-        extract_links, field_ci, git, git_blame_line_date, hashes, header_fields,
-        inbound_references, is_separator_row,
-        iso, lifecycles, link_files, link_spans, live_lines, log_entries, misplaced_checkboxes,
-        norm, open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines,
-        read_text, reference_shape,
-        rel_posix, resolve_entity, resolve_link, snapshot, split_lines, stage_of, strip_code,
-        table_cells, template_marker, triage_items, under_any, vault_paths,
+        ANY_DATE_RE, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE,
+        HEADING_RE, LINK_ROOTS, MARKED_SUFFIXES, NOT_CARDS, OPEN_ITEM_CAP, STALE_UNDATED_DAYS,
+        TASK_RE, abspath, action_files, cap_count, contact_names, dangling_links, date_arg,
+        deep_clean_stamp, duplicates, emit, entity_candidates, entity_doc, extract_links, field_ci,
+        find_clone, git, git_blame_line_date, hashes, header_fields, inbound_references_by_name,
+        integration_markers, is_separator_row, iso, lifecycles, link_files, link_spans, live_lines,
+        log_entries, misplaced_checkboxes, norm, open_tasks, other_checkbox_paths,
+        over_grown_briefs, parse_date, read_lines, read_text, reference_shape, rel_posix,
+        resolve_entity, resolve_link, snapshot, split_lines, stage_of, strip_code, table_cells,
+        template_marker, triage_items, under_any, utf8_stdout, vault_paths,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -74,7 +58,6 @@ ENTITY_BASES = ("projects", "areas", "resources/ideas")
 GROWN = 1.5     # a brief past this many times its length at the last deep clean is read again
 ORPHANS_LISTED = 5  # an entity with more orphans than this is reported as a count
 STRUCTURE_FILES = ("README.md", "brief.md", "actions.md")
-LIVE_ROOTS = ("projects", "areas", "resources", "triage")  # archive/ is history, not live
 # A link target inside archive/ is still a path that must resolve; only prose there is history.
 # A rule file links into the vault too, from two folders down.
 DANGLING_ROOTS = LINK_ROOTS + ("archive", ".claude/rules")
@@ -84,10 +67,9 @@ def in_live_scope(rel):
     """Whether a vault-relative path sits in a live bucket: a root-level file (the root
     README, CLAUDE.md), or under projects/areas/resources/triage - the same roots
     dangling_links() and link_files() default to. archive/ is never live."""
-    return "/" not in rel or rel.split("/", 1)[0] in LIVE_ROOTS
+    return "/" not in rel or rel.split("/", 1)[0] in LINK_ROOTS
 
 
-HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 BULLET_RE = re.compile(r"^\s*-\s+(.*)$")
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]")
 # A figure ends on a digit, a `k` or a `%` - never on the space or the sentence's own
@@ -302,10 +284,10 @@ def wikilink_matches(vault, index, target):
             if ("/" + p.relative_to(vault).as_posix().lower()).endswith(tail)]
 
 
-def find_wikilinks(vault, roots=("projects", "areas", "resources", "triage")):
+def find_wikilinks(vault):
     index = build_md_index(vault)
     out = []
-    for path in link_files(vault, roots):
+    for path in link_files(vault, LINK_ROOTS):
         text = strip_code(read_text(path))
         for lineno, line in enumerate(split_lines(text), start=1):
             for m in WIKILINK_RE.finditer(line):
@@ -338,15 +320,13 @@ def identity_section(readme):
     return "\n".join(lines)
 
 
-def is_principal(vault, card_rel):
+def principal_cards(vault):
+    """The cards the root README's identity section links to, as absolute paths."""
     readme = vault / "README.md"
     if not readme.is_file():
-        return False
-    card_target = abspath(vault / card_rel)
-    for _, href, _ in extract_links(strip_code(identity_section(readme))):
-        if resolve_link(readme, href) == card_target:
-            return True
-    return False
+        return set()
+    return {resolve_link(readme, href)
+            for _, href, _ in extract_links(strip_code(identity_section(readme)))}
 
 
 def top_level_area_readme(vault, card_rel):
@@ -374,19 +354,20 @@ def uncited_contacts(vault, excluded_dirs=()):
     blanked = {rel: name_only_lines(vault / rel) for rel in registers if (vault / rel).is_file()}
     frozen, targets = {}, {}
     out, exempt = [], set()
-    for card in cards:
+    named_on_card = {card: contact_names(card) for card in cards}
+    hits_by_name = inbound_references_by_name(vault, {n for ns in named_on_card.values() for n in ns})
+    principals = principal_cards(vault)
+    for card, names in named_on_card.items():
         card_rel = card.relative_to(vault).as_posix()
-        names = contact_names(card)
         if not names:
             continue
-        principal = is_principal(vault, card_rel)
-        allowed = {top_level_area_readme(vault, card_rel)} if principal else None
         card_target = abspath(card)
+        allowed = {top_level_area_readme(vault, card_rel)} if card_target in principals else None
 
         named = set()
         for name in names:
             pattern = whole_word(name)
-            for hit in inbound_references(vault, name):
+            for hit in hits_by_name[name]:
                 if hit["file"] == card_rel or hit["in_sources"] or not in_live_scope(hit["file"]) \
                         or under_any(hit["file"], excluded):
                     continue
@@ -447,16 +428,15 @@ def inline_contact_details(vault):
         rel = path.relative_to(vault).as_posix()
         if "sources" in Path(rel).parts[:-1] or not in_live_scope(rel):
             continue
-        raw_lines = read_lines(path)
-        code_stripped = split_lines(strip_code(read_text(path)))
-        for lineno, text in live_lines(raw_lines):
+        body = read_text(path)
+        code_stripped = split_lines(strip_code(body))
+        for lineno, text in live_lines(split_lines(body)):
             uncoded = code_stripped[lineno - 1] if lineno - 1 < len(code_stripped) else text
             clean = link_targets_stripped(uncoded)
-            names_on_line = sorted({n for n, c in names_by_card.items()
-                                    if c != rel and patterns[n].search(clean)})
-            if not names_on_line:
-                continue
-            for detail in [m.group(0) for m in EMAIL_RE.finditer(clean)] + phone_matches(clean):
+            details = [m.group(0) for m in EMAIL_RE.finditer(clean)] + phone_matches(clean)
+            names_on_line = details and sorted({n for n, c in names_by_card.items()
+                                                if c != rel and patterns[n].search(clean)})
+            for detail in details if names_on_line else ():
                 out.append({"file": rel, "line": lineno, "text": text.strip(),
                             "names_on_line": names_on_line, "detail": detail.strip()})
     return out
@@ -510,21 +490,7 @@ def figures_in_line(line):
 
 
 def entity_names(vault):
-    names = set()
-    for bucket in ENTITY_BASES:
-        base = vault / bucket
-        if base.is_dir():
-            names.update(d.name for d in base.iterdir() if d.is_dir())
-    return sorted(names)
-
-
-def pick_doc(folder):
-    readme, brief = folder / "README.md", folder / "brief.md"
-    if readme.is_file():
-        return readme
-    if brief.is_file():
-        return brief
-    return None
+    return sorted({c["label"] for c in entity_candidates(vault, ENTITY_BASES)})
 
 
 def rollup_files(vault):
@@ -558,7 +524,7 @@ def figure_pairs(vault):
             for bucket in ENTITY_BASES:
                 folder = vault / bucket / name
                 if folder.is_dir():
-                    doc = pick_doc(folder)
+                    doc = entity_doc(folder)
                     if doc:
                         figs = set()
                         for line in split_lines(strip_code(read_text(doc))):
@@ -802,41 +768,36 @@ def stale_undated_from(vault, files, today):
     blame reports as still uncommitted counts as unmeasurable rather than as a fabricated
     date."""
     out = {}
+    listed = set((git(vault, ["ls-files", "-z"]) or "").split("\0"))
     for f in files:
         rel = f.relative_to(vault).as_posix()
-        tracked = git(vault, ["ls-files", "--error-unmatch", rel]) is not None
+        tracked = rel in listed
         items = []
         for t in open_tasks(f):
             if t["due"] or t["scheduled"] or t["start"]:
                 continue
             entry = {"line": t["line"], "text": t["text"]}
-            date_str, reason = None, None
-            if tracked:
-                blame = git_blame_line_date(vault, f, t["line"])
-                if blame == "uncommitted":
-                    entry["unmeasurable"] = "line not yet committed"
-                    items.append(entry)
-                    continue
-                if blame:
-                    date_str = blame
-                else:
-                    reason = "tracked, but git blame returned no date for this line"
-            else:
-                try:
-                    date_str = date.fromtimestamp(f.stat().st_mtime).isoformat()
-                except OSError:
-                    reason = "untracked, and the file's mtime could not be read"
-            if date_str:
-                days = (today - parse_date(date_str)).days
-                if days >= STALE_UNDATED_DAYS:
-                    entry["days"] = days
-                    items.append(entry)
-            else:
-                entry["unmeasurable"] = reason
-                items.append(entry)
+            stamp, reason = line_date(vault, f, t["line"], tracked)
+            if not stamp:
+                items.append(dict(entry, unmeasurable=reason))
+            elif (today - parse_date(stamp)).days >= STALE_UNDATED_DAYS:
+                items.append(dict(entry, days=(today - parse_date(stamp)).days))
         if items:
             out[rel] = items
     return out
+
+
+def line_date(vault, f, line, tracked):
+    """(date, why there is none) for one line: blame where the file is tracked, else its mtime."""
+    if tracked:
+        blame = git_blame_line_date(vault, f, line)
+        if blame == "uncommitted":
+            return None, "line not yet committed"
+        return blame, None if blame else "tracked, but git blame returned no date for this line"
+    try:
+        return date.fromtimestamp(f.stat().st_mtime).isoformat(), None
+    except OSError:
+        return None, "untracked, and the file's mtime could not be read"
 
 
 def aspirational_from(files, vault, today):
@@ -880,7 +841,7 @@ def briefs(vault):
     last = parse_date(read_text(stamp).strip()) if stamp.is_file() else None
     growth = "no deep clean on record" if last is None else \
         "measured" if git(vault, ["rev-parse", "--git-dir"]) is not None else "no git history"
-    over = {b["file"] for b in over_grown_briefs(vault, limit=None)}
+    over = {b["file"] for b in over_grown_briefs(vault)}
     read, skipped = [], []
     for path in live_briefs(vault):
         rel = path.relative_to(vault).as_posix()
@@ -1142,7 +1103,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description="Scan a vault for /para-deep-clean's mechanical checks.")
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
     ap.add_argument("--phase", required=True, choices=["1", "3", "4"], help="which phase to scan")
-    ap.add_argument("--today", help="date to measure against (default: the system date)")
+    ap.add_argument("--today", type=date_arg, help="date to measure against (default: the system date)")
     ap.add_argument("--ref", default="origin/stable",
                     help="committed para-os ref for the template-marker precondition")
     ap.add_argument("--clone", help="path to a local para-os clone, for the template-marker "
@@ -1165,16 +1126,9 @@ def main(argv=None):
                          "under $PARAOS_HOME, for the brief's health card")
     args = ap.parse_args(argv)
 
-    # A Windows console and a Windows pipe both default to a codepage that cannot encode a
-    # task marker, and the traceback lands where the JSON was meant to be.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
-    today = parse_date(args.today) if args.today else date.today()
-    if args.today and not today:
-        ap.error("--today wants YYYY-MM-DD")
+    today = args.today or date.today()
     root = Path(args.vault)
     if not root.is_dir():
         ap.error(f"no such vault: {root}")
@@ -1186,8 +1140,7 @@ def main(argv=None):
     if args.record:
         record_findings(root, today, args.phase, report)
 
-    json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
-    sys.stdout.write("\n")
+    emit(report, args.indent)
     return code
 
 

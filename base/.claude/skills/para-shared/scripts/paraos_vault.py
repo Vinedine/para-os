@@ -17,17 +17,9 @@ entry point in `<skill>/scripts/` and calls into this. The first caller is
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "para-shared" / "scripts"))
     from paraos_vault import live_lines, open_tasks, resolve_entity
 
-What lives here is what two skills would otherwise each answer their own way about a vault:
-whether a folder is a vault root, what the machine's registry says about it and its neighbours,
-which registered vaults one unmounted drive took with it,
-where a checkbox may live, what counts as one, what a task marker means, which folder a name
-resolves to, which names a contact card answers to, who writes the vault and in which role,
-which of them the operator is, when a file was really last touched, what
-a link points at and what a move has to rewrite, whether two files hold the same bytes,
-what a vault declares it is built from and the locale it declares, the numbers a vault's own
-rules state, which lines a development log dates, the last day to give notice on a renewing
-agreement, and the date a promised weekday points at. A second implementation of any of those is a vault getting two answers to
-one question, which is the failure this repo exists to prevent. Three siblings hold what is not
+What lives here is what two skills would otherwise each answer their own way about a vault.
+A second implementation of any of it is a vault answering one question twice, the failure
+this repo exists to prevent. Three siblings hold what is not
 about the vault itself: `paraos_clone.py` reads the para-os clone a vault is measured against,
 `paraos_mail.py` reads mail threads, the notes they become and the ledgers that track them, and
 `paraos_pages.py` says where a skill's page goes.
@@ -168,11 +160,7 @@ def registry(paraos_home=None):
     or unparseable, never an exception: a registry read is background context for a stop
     line, not something a run needs to fail on.
     """
-    home = paraos_home_dir(paraos_home)
-    try:
-        data = json.loads((home / "vaults.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return []
+    data = read_json(paraos_home_dir(paraos_home) / "vaults.json")
     return data if isinstance(data, list) else []
 
 
@@ -328,6 +316,14 @@ def read_lines(path):
     return split_lines(read_text(path))
 
 
+def read_json(path, default=None):
+    """A JSON file's data, `default` where it is missing or does not parse."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return default
+
+
 def fence_step(fence, line):
     """The fence state after one line, and whether the line itself is a fence marker
     (an opening or a closing line).
@@ -366,30 +362,13 @@ def live_lines(lines):
             yield i, raw
 
 
+CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)")
+
+
 def blank_spans(line):
     """One line with its inline code spans blanked to spaces, a span closing on a backtick
     run of its own length. Backticks nothing closes are prose and stay."""
-    out, i = list(line), 0
-    while i < len(line):
-        if line[i] != "`":
-            i += 1
-            continue
-        opened = i
-        while i < len(line) and line[i] == "`":
-            i += 1
-        run, j = i - opened, i
-        while j < len(line):
-            if line[j] != "`":
-                j += 1
-                continue
-            closed = j
-            while j < len(line) and line[j] == "`":
-                j += 1
-            if j - closed == run:
-                out[opened:j] = " " * (j - opened)
-                i = j
-                break
-    return "".join(out)
+    return CODE_SPAN_RE.sub(lambda m: " " * len(m.group()), line) if "`" in line else line
 
 
 def strip_code(text):
@@ -474,6 +453,14 @@ def weekday_index(name):
         if len(text) >= 3 and day.startswith(text):
             return index
     raise ValueError(f"not a weekday: {name!r}; write an English day name or 1 to 7")
+
+
+def date_arg(text):
+    """An argparse `type` for `--today`."""
+    day = parse_date(text)
+    if not day:
+        raise argparse.ArgumentTypeError("--today wants YYYY-MM-DD")
+    return day
 
 
 def weekday_after(day, weekday):
@@ -906,13 +893,14 @@ def file_dates(vault, paths):
     if len(run) >= 3:
         clustered.update(p for _, p in run)
 
-    modified = git_modified(vault) if clustered else set()
+    status = git_status_lines(vault) if clustered else None
+    modified = {(Path(vault) / name).resolve() for _, name in status or ()}
     out = {}
     for p, t in stamps.items():
         stamp = date.fromtimestamp(t).isoformat() if t else None
-        # git_modified names each path resolved, so a relative or symlinked one is compared
+        # `modified` names each path resolved, so a relative or symlinked one is compared
         # in that form too, or an uncommitted edit would read as its last commit's date.
-        if p in clustered and p.resolve() not in modified:
+        if status is not None and p in clustered and p.resolve() not in modified:
             stamp = git_last_commit_date(vault, p) or stamp
         out[p] = stamp
     return out
@@ -986,6 +974,11 @@ def stage_parts(body, raw):
             "dated_facts": facts, "raw": raw}
 
 
+def entity_doc(folder):
+    """README.md over brief.md where a folder holds both."""
+    return next((folder / n for n in ("README.md", "brief.md") if (folder / n).is_file()), None)
+
+
 def header_fields(path):
     """The bold-led lines under an entity's title, field name to text, in the order written.
     A link is left as written, so `first_link` can take its target out of one.
@@ -1029,18 +1022,21 @@ NOT_CARDS = {"readme.md", "actions.md"}   # files beside the contact cards that 
 ALSO_RE = re.compile(r"^Also:\s*(.+)$", re.IGNORECASE)
 
 
+def first_h1(path):
+    for _, text in live_lines(read_lines(path)):
+        m = H1_RE.match(text.strip())
+        if m:
+            return m.group(1).strip()
+    return None
+
+
 def contact_names(card):
     """A contact card's names: its H1, plus every alias a `**Aliases:**` or `Also:` line
     lists, split on commas and semicolons. One reading for every skill that looks a person
     up, so a card answers to the same names wherever it is asked."""
-    lines = [t for _, t in live_lines(read_lines(card))]
-    names = []
-    for t in lines:
-        m = H1_RE.match(t.strip())
-        if m:
-            names.append(m.group(1).strip())
-            break
-    for t in lines:
+    title = first_h1(card)
+    names = [title] if title else []
+    for _, t in live_lines(read_lines(card)):
         m = ALIASES_RE.match(t.strip()) or ALSO_RE.match(t.strip())
         if m:
             names += [a.strip() for a in re.split(r"[,;]", m.group(1)) if a.strip()]
@@ -1112,11 +1108,7 @@ def operator_card(paraos_home=None):
     """Who "I" am, which a vault's shared files cannot say: the file name without `.md` of the
     operator's own contact card, from `<paraos home>/operator.json`, `{"card": "jane-doe"}`.
     None where the file is missing, does not parse, or names no card."""
-    try:
-        data = json.loads((paraos_home_dir(paraos_home) / "operator.json")
-                          .read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+    data = read_json(paraos_home_dir(paraos_home) / "operator.json")
     card = data.get("card") if isinstance(data, dict) else None
     if not isinstance(card, str) or not card.strip():
         return None
@@ -1547,7 +1539,7 @@ def contact_card_level(vault):
     """What a contact card may hold: `yes`, `relationship only` or `never`, from the
     `areas/network/` row of the vault's checkbox table. With no row, a `## Who writes this
     vault` roster implies `never` and anything else is `yes`."""
-    text = read_text(Path(vault) / "CLAUDE.md") or ""
+    text = read_text(Path(vault) / "CLAUDE.md")
     rows = checkbox_rows(text)
     cells = rows.get("areas/network/") or rows.get("areas/network")
     if cells:
@@ -1564,7 +1556,7 @@ def _frozen(lines, first):
 def never_folders(vault):
     """Every folder the vault's checkbox table declares at `never`, without its slash."""
     return [k.strip("/") for k, cells in
-            checkbox_rows(read_text(Path(vault) / "CLAUDE.md") or "").items()
+            checkbox_rows(read_text(Path(vault) / "CLAUDE.md")).items()
             if cells[0].startswith("never") and "," not in k and k.endswith("/")]
 
 
@@ -1808,7 +1800,7 @@ def log_entries(path):
     return out
 
 
-def over_grown_briefs(vault, cap=BRIEF_LINE_CAP, limit=3):
+def over_grown_briefs(vault):
     """Briefs past the line cap, longest first."""
     vault = Path(vault)
     rows = []
@@ -1816,9 +1808,9 @@ def over_grown_briefs(vault, cap=BRIEF_LINE_CAP, limit=3):
                     "projects/*/README.md", "areas/*/README.md"):
         for path in sorted(vault.glob(pattern)):
             count = len(read_lines(path))
-            if count > cap:
+            if count > BRIEF_LINE_CAP:
                 rows.append({"file": path.relative_to(vault).as_posix(), "lines": count})
-    return sorted(rows, key=lambda r: -r["lines"])[:limit]
+    return sorted(rows, key=lambda r: -r["lines"])
 
 
 def triage_items(vault):
@@ -1869,8 +1861,9 @@ def under_any(rel, folders):
 
 def vault_paths(vault, pattern="*"):
     """`rglob(pattern)` over the vault, sorted, less NOT_VAULT_CONTENT: copies of something else."""
+    cut = len(Path(vault).parts)
     return [p for p in sorted(Path(vault).rglob(pattern))
-            if not under_any(p.relative_to(vault).as_posix(), NOT_VAULT_CONTENT)]
+            if not under_any("/".join(p.parts[cut:]), NOT_VAULT_CONTENT)]
 
 
 def is_under(path, base):
@@ -2033,19 +2026,28 @@ def inbound_references(vault, name, parent=None):
     `projects/p/README.md`. Without it any substring counts, for a caller that sorts the
     loose hits itself.
     """
+    return inbound_references_by_name(vault, [name], parent)[name]
+
+
+def inbound_references_by_name(vault, names, parent=None):
+    """{name: its `inbound_references`} from one walk of the vault: a walk per name reads every
+    file once per name, which a vault's contact cards turn into minutes."""
     vault = Path(vault)
-    out = []
+    out = {name: [] for name in names}
     for path in vault_paths(vault, "*.md"):
         rel = rel_posix(vault, path)
         in_sources = "sources" in Path(rel).parts[:-1]
-        for lineno, text in live_lines(read_lines(path)):
+        lines = read_lines(path)
+        body = unquote("\n".join(lines))
+        named = [name for name in out if name in body]
+        for lineno, text in live_lines(lines) if named else ():
             decoded = unquote(text)
-            at = first_mention(decoded, name, parent)
-            if at < 0:
-                continue
-            out.append({"file": rel, "line": lineno, "text": text,
-                        "shape": reference_shape(decoded, at, at + len(name)),
-                        "in_sources": in_sources})
+            for name in named:
+                at = first_mention(decoded, name, parent)
+                if at >= 0:
+                    out[name].append({"file": rel, "line": lineno, "text": text,
+                                      "shape": reference_shape(decoded, at, at + len(name)),
+                                      "in_sources": in_sources})
     return out
 
 
@@ -2207,9 +2209,8 @@ SKIP_HASH_FOLDERS = ("photos", "plans", "styles", "public")  # media, and a buil
 TEXT_SUFFIXES = (".md", ".txt")
 
 
-def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, within=None,
-           eol=False, shared=False):
-    """Every file in the vault at or above `min_bytes` by content digest, as {path: md5},
+def hashes(vault, skip=SKIP_HASH_FOLDERS, sizes=None, within=None, eol=False, shared=False):
+    """Every file in the vault at or above MIN_HASH_BYTES by content digest, as {path: md5},
     with what a skipped folder holds named under `skipped` rather than dropped: a scan that
     passed over a folder in silence reports a vault it never read as clean. A dot-folder is
     not vault content and is never walked.
@@ -2217,28 +2218,29 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
     `sizes` (a set of byte counts) and `within` (a tuple of folder names) each narrow which
     files are even opened, for a vault synced by a streaming cloud client where reading a
     file's bytes downloads it: a file `stat` alone rules out is not listed at all, not even
-    under `skipped`. Both default to `None`, which keeps today's answer exactly.
+    under `skipped`.
     `shared` opens only a byte size two of the remaining files share, since a size no other
     file has holds no copy; `skipped` is unchanged. It compares raw sizes, so not with `eol`.
     `eol` digests a text file (`TEXT_SUFFIXES`) with its CRLF line endings read as LF.
     """
     vault = Path(vault)
+    cut = len(vault.parts)
     lowered = {s.lower() for s in skip}
     found, digests, skipped = {}, {}, []
     for path in sorted(vault.rglob("*")):
-        if not path.is_file():
-            continue
-        rel = rel_posix(vault, path)
-        parts = Path(rel).parts
+        parts = path.parts[cut:]
         if any(p.startswith(".") for p in parts[:-1]):
             continue
         if within is not None and not any(p in within for p in parts[:-1]):
             continue
+        if not path.is_file():
+            continue
+        rel = "/".join(parts)
         try:
             size = path.stat().st_size
         except OSError:
             continue
-        if size < min_bytes or (sizes is not None and size not in sizes):
+        if size < MIN_HASH_BYTES or (sizes is not None and size not in sizes):
             continue
         if any(p.lower() in lowered for p in parts[:-1]):
             skipped.append(rel)
@@ -2261,9 +2263,8 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
 def duplicates(digests):
     """Every group of two or more paths holding the same bytes, each group sorted. Content,
     never a matching name or size, which are not evidence of anything."""
-    digests = digests["files"] if isinstance(digests.get("files"), dict) else digests
     groups = {}
-    for path, digest in digests.items():
+    for path, digest in digests["files"].items():
         groups.setdefault(digest, []).append(path)
     return sorted((sorted(g) for g in groups.values() if len(g) > 1), key=lambda g: g[0])
 
@@ -2273,8 +2274,7 @@ UTF8_BOM = b"\xef\xbb\xbf"
 
 def normalised(data):
     """A file's bytes in the form two copies of it are compared by: a leading UTF-8
-    byte-order mark dropped, and CRLF and a lone CR each read as LF. A `str` is taken as
-    its UTF-8 bytes.
+    byte-order mark dropped, and CRLF and a lone CR each read as LF.
 
     A copy that passed through a Windows editor or a sync client comes back with CRLF or a
     BOM and nothing else changed, and a raw compare reports that as drift from its master:
@@ -2282,11 +2282,6 @@ def normalised(data):
     the bytes on disk. `snapshot()` stays on the raw bytes, since a write-time check has to
     see every byte a writer changed.
     """
-    if isinstance(data, str):
-        data = data.encode("utf-8")
-    elif not isinstance(data, (bytes, bytearray)):
-        raise TypeError(f"normalised() takes bytes or str, not {type(data).__name__}")
-    data = bytes(data)
     if data.startswith(UTF8_BOM):
         data = data[len(UTF8_BOM):]
     return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
@@ -2363,7 +2358,7 @@ TEMPLATE_MARKER_RE = re.compile(r"<!--\s*para-os-template:\s*(" + REVISION_PATTE
 INTEGRATION_MARKER_RE = re.compile(r"para-os-integration:\s*([A-Za-z0-9._-]+)\s+("
                                    + REVISION_PATTERN + r")")
 LEGACY_REVISIONS = {"2026.08": "2026.08.01"}
-MARKED_SUFFIXES = (".py", ".js", ".mjs", ".ps1", ".sh")
+MARKED_SUFFIXES = SCRIPT_SUFFIXES
 MARKER_HEADER_LINES = 80
 
 
@@ -2418,10 +2413,18 @@ def skill_reviews(vault):
 
 # --- from the command line ------------------------------------------------------------------
 
-def answer_for(args, root):
-    if args.command in ("move", "move-plan"):
-        return (move if args.apply else move_plan)(root, args.src, args.dst)
-    return dangling_links(root)
+def utf8_stdout():
+    """A Windows console or pipe defaults to a codepage that cannot encode a task marker, and
+    the traceback lands where the JSON was meant to be."""
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, OSError):
+        pass
+
+
+def emit(data, indent=None):
+    json.dump(data, sys.stdout, ensure_ascii=False, indent=indent)
+    sys.stdout.write("\n")
 
 
 def main(argv=None):
@@ -2471,11 +2474,7 @@ def main(argv=None):
         parser.add_argument("--vault", default=".", help="vault root (default: .)")
     args = ap.parse_args(argv)
 
-    # A Windows console defaults to a codepage that cannot encode what a vault writes.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     if args.command == "trash":
         missing = [p for p in args.paths if not Path(p).exists()]
@@ -2484,8 +2483,7 @@ def main(argv=None):
         answer = {"trashed": [], "not_trashed": []}
         for p in args.paths:
             answer["trashed" if trash(p) else "not_trashed"].append(p)
-        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(answer, 2)
         return 1 if answer["not_trashed"] else 0
 
     if args.command == "changed":
@@ -2498,8 +2496,7 @@ def main(argv=None):
             ap.error(f"{args.file} holds no snapshot")
         diffs = {"changed": changed(snap, args.done),
                  "arrived": arrived(snap, scan_snapshot_folders(data), args.done)}
-        json.dump(diffs, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(diffs, 2)
         return 1 if diffs["changed"] or diffs["arrived"] else 0
 
     if args.command == "notice-date":
@@ -2510,8 +2507,7 @@ def main(argv=None):
             answer = notice_date(renewal, args.notice, args.term, today)
         except ValueError as err:
             ap.error(str(err))
-        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(answer, 2)
         return 0
 
     if args.command == "weekday-after":
@@ -2524,8 +2520,7 @@ def main(argv=None):
             ap.error(str(err))
         answer = {"after": iso(day), "weekday": WEEKDAYS[weekday].capitalize(),
                   "date": iso(weekday_after(day, weekday))}
-        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(answer, 2)
         return 0
 
     if args.command == "next-occurrence":
@@ -2536,8 +2531,7 @@ def main(argv=None):
             answer = next_occurrence(args.line, today)
         except ValueError as err:
             ap.error(str(err))
-        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(answer, 2)
         return 0
 
     root = Path(args.vault)
@@ -2545,15 +2539,14 @@ def main(argv=None):
         ap.error(f"no such vault: {root}")
     if args.command == "open-items":
         files = [root / f for f in args.files] or sorted(git_modified(root))
-        json.dump(open_items(root, files), sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(open_items(root, files), 2)
         return 0
     try:
-        answer = answer_for(args, root)
+        answer = (move if args.apply else move_plan)(root, args.src, args.dst) \
+            if args.command in ("move", "move-plan") else dangling_links(root)
     except (ValueError, OSError) as err:
         ap.error(str(err))
-    json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")
+    emit(answer, 2)
     return 1 if isinstance(answer, dict) and answer.get("missed") else 0
 
 

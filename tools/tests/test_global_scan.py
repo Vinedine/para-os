@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT / "multi-vault" / "para-command-center" / "scripts")
 
 import global_scan  # noqa: E402
 import paraos_clone  # noqa: E402
-from global_scan import build_report, main  # noqa: E402
+from global_scan import build_report, calendars_only, main  # noqa: E402
 from test_audit_scan import build_clone, build_vault as build_kit_vault  # noqa: E402
 
 TODAY = date(2026, 3, 10)
@@ -85,30 +85,11 @@ class GlobalScan(unittest.TestCase):
 
     def test_each_vault_carries_its_own_counts(self):
         north, south = self.report()["vaults"]
-        self.assertEqual((north["name"], north["open"], north["overdue"], north["this_week"],
-                          north["undated"], north["triage"]), ("north", 4, 1, 1, 1, 1))
+        self.assertEqual((north["name"], north["open"], north["overdue"], north["triage"]),
+                         ("north", 4, 1, 1))
         self.assertEqual((south["name"], south["open"], south["overdue"]), ("south", 1, 1))
-        self.assertIsNone(north["proposal"])
         self.assertIn(north["health"]["level"], ("ok", "watch", "care"))
         self.assertEqual(north["health"]["signals"]["triage"]["items"], 1)
-        self.assertEqual(south["flags"], [])
-        write(self.tmp / "south", "resources/notes.md", "- [ ] A checkbox out of place\n")
-        self.assertEqual(self.report()["vaults"][1]["flags"], ["misplaced"])
-
-    def test_each_vault_carries_its_table_cells(self):
-        write(self.home, "cache/triage/proposals/north-20260310-0700.md", "x\n")
-        north, south = self.report()["vaults"]
-        cells = north["cells"]
-        self.assertEqual([cells[k] for k in ("shown", "open", "overdue", "this_week", "triage")],
-                         ["full", 4, 1, 1, "1, proposal waiting: north-20260310-0700.md"])
-        self.assertEqual(south["cells"]["triage"], "0")
-        word = {"ok": "healthy", "watch": "watch", "care": "needs care"}[north["health"]["level"]]
-        self.assertTrue(cells["health"].startswith(word))
-        self.assertIn("deep clean", cells["health"])   # no deep clean on record: watch
-
-    def test_urgent_spans_the_vaults_in_the_brief_sort(self):
-        urgent = [(t["vault"], t["text"].split(" ")[0]) for t in self.report()["urgent"]]
-        self.assertEqual(urgent, [("north", "Send"), ("south", "Pay"), ("north", "Renew")])
 
     def test_invalid_and_unreachable_are_listed(self):
         excluded = {(e["name"], e["status"]) for e in self.report()["excluded"]}
@@ -116,31 +97,18 @@ class GlobalScan(unittest.TestCase):
 
     def test_a_vault_another_machine_pulls_keeps_its_health_but_no_inbound_counts(self):
         self.entries[0]["machine"] = "the studio laptop"
-        write(self.home, "cache/triage/proposals/north-20260310-0700.md", "x\n")
         north, south = self.report()["vaults"]
-        self.assertEqual((north["machine"], north["triage"], north["proposal"]),
-                         ("the studio laptop", None, None))
-        self.assertEqual(north["cells"]["triage"], "pulled on the studio laptop")
+        self.assertEqual((north["machine"], north["triage"]), ("the studio laptop", None))
         self.assertEqual((north["open"], north["overdue"]), (4, 1))
         self.assertEqual(north["health"]["signals"]["triage"]["items"], 1)
         self.assertEqual((south["machine"], south["triage"]), (None, 0))
 
-    def test_the_newest_proposal_is_named(self):
-        for stamp in ("20260309-0800", "20260310-0700"):
-            write(self.home, f"cache/triage/proposals/north-{stamp}.md", "x\n")
-        write(self.home, "cache/triage/proposals/northwest-20260311-0700.md", "x\n")
-        write(self.home, "cache/triage/proposals/north-east-20260311-0700.md", "x\n")
-        north = self.report()["vaults"][0]
-        self.assertTrue(north["proposal"].endswith("north-20260310-0700.md"))
-
-    def test_a_vault_you_keep_lists_its_dated_tasks_areas_and_undated_count(self):
+    def test_a_vault_you_keep_lists_its_dated_tasks(self):
         report = self.report()
         self.assertEqual([v["treatment"] for v in report["vaults"]], ["full", "full"])
         self.assertEqual(sorted((t["vault"], t["effective_date"]) for t in report["tasks"]),
                          [("north", "2026-03-08"), ("north", "2026-03-10"),
                           ("north", "2026-03-12"), ("south", "2026-03-09")])
-        self.assertEqual({e["vault"] for e in report["entities"]}, {"north", "south"})
-        self.assertEqual(report["undated"], 1)
 
     def test_a_summary_setting_counts_the_vault_instead_of_listing_it(self):
         self.entries[1]["brief"] = "summary"
@@ -150,7 +118,7 @@ class GlobalScan(unittest.TestCase):
         self.assertEqual((south["vault"], south["overdue"], south["today"]), ("south", 1, 1))
         self.assertEqual([t["text"] for t in south["top"]], ["Restart the box"])
         self.assertEqual(dict(south["by_area"]), {"site": 1, "ops": 1})
-        self.assertFalse([t for t in report["tasks"] + report["urgent"] if t["vault"] == "south"])
+        self.assertFalse([t for t in report["tasks"] if t["vault"] == "south"])
 
     def roster(self, me=None):
         write(self.tmp / "north", "CLAUDE.md", "# North\n\n**Type:** client-vault\n\n"
@@ -163,8 +131,7 @@ class GlobalScan(unittest.TestCase):
     def test_a_vault_you_steward_shows_its_health_only(self):
         self.roster(me="bo-peeters")
         north = self.report()["vaults"][0]
-        self.assertEqual((north["role"], north["treatment"], north["type"]),
-                         ("steward", "health", "client-vault"))
+        self.assertEqual((north["role"], north["treatment"]), ("steward", "health"))
         self.assertFalse([t for t in self.report()["tasks"] if t["vault"] == "north"])
         self.assertIn("level", north["health"])
 
@@ -173,22 +140,6 @@ class GlobalScan(unittest.TestCase):
         north = self.report()["vaults"][0]
         self.assertEqual((north["role"], north["treatment"]), (None, "health"))
 
-    def test_a_health_only_vault_shows_why_in_its_cell(self):
-        self.roster()
-        self.assertEqual(self.report()["vaults"][0]["cells"]["shown"], "health (no operator.json)")
-        self.roster(me="cy-lambert")
-        self.assertEqual(self.report()["vaults"][0]["cells"]["shown"], "health (not on the roster)")
-        self.roster(me="bo-peeters")
-        self.assertEqual(self.report()["vaults"][0]["cells"]["shown"], "health (steward)")
-
-    def test_a_card_in_two_vaults_is_one_person(self):
-        for vault in ("north", "south"):
-            write(self.tmp / vault, "areas/network/ann-smet.md",
-                  "# Ann Smet\n\n## Next actions\n\n- [ ] Send Ann the deck 📅 2026-03-15\n")
-        people = self.report()["people"]
-        self.assertEqual([(p["person"], p["vaults"], p["owe"]) for p in people],
-                         [("ann-smet", ["north", "south"], 2)])
-
     def test_a_calendar_two_vaults_declare_is_read_once(self):
         for vault, kind in (("north", "connector: google-workspace"),
                             ("south", "connector: `google-workspace`")):
@@ -196,9 +147,14 @@ class GlobalScan(unittest.TestCase):
                   "# V\n\n**Type:** vault\n\n## Agenda sources\n\n"
                   "| Source | Type | Endpoint | Relevant when |\n|---|---|---|---|\n"
                   f"| work | {kind} | `Me@Example.com` | All events |\n")
-        cals = self.report()["calendars"]
+        report = self.report()
+        cals = report["calendars"]
         self.assertEqual([(c["endpoint"], c["vaults"]) for c in cals],
                          [("me@example.com", ["north", "south"])])
+        with mock.patch.object(global_scan, "scan") as scanned:
+            alone = calendars_only(self.entries, TODAY, str(self.home))
+        scanned.assert_not_called()
+        self.assertEqual(alone, {k: report[k] for k in ("today", "horizon", "calendars")})
 
     def test_meetings_in_the_horizon_and_a_recurring_one_rolled_forward(self):
         write(self.tmp / "north", "meetings.md", "\n".join([
