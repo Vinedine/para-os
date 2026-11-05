@@ -89,7 +89,7 @@ from paraos_mail import (  # noqa: E402
     apply_exclusions, dedup_key, ingest_logs, load_exclusions, received_instant, thread_hash,
     watermark,
 )
-from paraos_vault import ingested_here, paraos_home_dir, registry  # noqa: E402
+from paraos_vault import emit, ingested_here, paraos_home_dir, registry, utf8_stdout  # noqa: E402
 
 SIGNIN = "sign-in or security code"
 SUBJECT_CAP = 80
@@ -421,11 +421,7 @@ def main(argv=None):
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     args = ap.parse_args(argv)
 
-    # A Windows console defaults to a codepage that cannot encode a subject.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     loaded = []
     for path, shape in ((args.run, dict), (args.decisions, list)):
@@ -451,8 +447,7 @@ def main(argv=None):
                 raw.unlink()
             except OSError:
                 pass
-    json.dump(summary, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")
+    emit(summary, 2)
     return 0
 
 

@@ -99,11 +99,11 @@ class Pieces(unittest.TestCase):
         rows, health = cc.vault_rows(scan, [{"name": "a"}], feed, [{"vault": "a", "signal": "dirty"},
                                                                     {"vault": "a", "signal": "quiet"}], TODAY, past)
         self.assertEqual(health, [])
-        self.assertEqual([(r["vault"], r["level"], r["held"], r["repos"], r["repos_flagged"], r["state"], r["neighbourhood"],
+        self.assertEqual([(r["vault"], r["level"], r["held"], r["repos"], r["state"], r["neighbourhood"],
                            r["neighbourhood_rank"], r["street"]) for r in rows],
-                         [("a", "unknown", 2, 2, 1, "", cc.OWN, 0, ""),
-                          ("old", "", 0, 0, 0, "handed over, ended last spring", "Clients", 1, "Sold"),
-                          ("older", "", 0, 0, 0, "handed over", cc.KEPT, 2, "")])
+                         [("a", "unknown", 2, 2, "", cc.OWN, 0, ""),
+                          ("old", "", 0, 0, "handed over, ended last spring", "Clients", 1, "Sold"),
+                          ("older", "", 0, 0, "handed over", cc.KEPT, 2, "")])
         self.assertEqual([r["note"] for r in rows[1:]], ["Gone.", "Handed over: no longer read on this machine."])
 
     def test_a_cron_line_gives_its_times_and_its_words(self):
@@ -179,23 +179,21 @@ class Repos(unittest.TestCase):
     def test_a_repo_not_checked_out_is_missing(self):
         self.assertEqual(cc.repo_state("lib", None, TODAY)["signal"], "missing")
 
-    def test_a_github_repo_carries_its_issues_and_its_last_run(self):
+    def test_a_github_repo_carries_its_last_run(self):
         run = fake_run({"get-url": "git@github.com:me/site.git", "fetch": "", "--abbrev-ref": "main",
                         "--porcelain": " M a\n?? b", "--left-right": "1\t2", "log": "2026-03-01",
-                        "issue": "7", "run": json.dumps([{"workflowName": "check", "conclusion": "success",
-                                                           "createdAt": "2026-03-09T10:00:00Z"}])})
+                        "run": json.dumps([{"workflowName": "check", "conclusion": "success"}])})
         row = cc.repo_state("site", self.tmp, TODAY, run)
-        self.assertEqual({k: row[k] for k in ("host", "fetched", "branch", "dirty", "behind", "ahead", "last_commit",
-                                              "days_quiet", "open_issues", "ci", "ci_result", "ci_date", "signal")},
-                         {"host": "GitHub", "fetched": True, "branch": "main", "dirty": 2, "behind": 1, "ahead": 2,
-                          "last_commit": "2026-03-01", "days_quiet": 9, "open_issues": 7, "ci": "check",
-                          "ci_result": "success", "ci_date": "2026-03-09", "signal": "diverged"})
+        self.assertEqual({k: row[k] for k in ("host", "branch", "dirty", "behind", "ahead", "last_commit",
+                                              "days_quiet", "ci", "ci_result", "signal")},
+                         {"host": "GitHub", "branch": "main", "dirty": 2, "behind": 1, "ahead": 2,
+                          "last_commit": "2026-03-01", "days_quiet": 9, "ci": "check",
+                          "ci_result": "success", "signal": "diverged"})
 
     def test_what_a_command_does_not_answer_stays_empty(self):
-        run = fake_run({"get-url": "git@github.com:me/site.git", "issue": "many", "run": "not json"})
+        run = fake_run({"get-url": "git@github.com:me/site.git", "run": "not json"})
         row = cc.repo_state("site", self.tmp, TODAY, run)
-        self.assertEqual((row["fetched"], row["open_issues"], row["ci"], row["last_commit"], row["signal"]),
-                         (False, None, "", "", "clean"))
+        self.assertEqual((row["ci"], row["last_commit"], row["signal"]), ("", "", "clean"))
         running = fake_run({"get-url": "git@github.com:me/site.git", "--left-right": "x y z",
                             "run": json.dumps([{"status": "in_progress"}])})
         self.assertEqual(cc.repo_state("site", self.tmp, TODAY, running)["ci_result"], "in_progress")
@@ -208,7 +206,7 @@ class Repos(unittest.TestCase):
             asked.append(args)
             return "https://git.example/r" if "get-url" in args else None
         offline = cc.repo_state("site", self.tmp, TODAY, fake_run({"get-url": "git@github.com:me/site.git"}), online=False)
-        self.assertEqual((offline["fetched"], offline["open_issues"]), (False, None))
+        self.assertEqual(offline["ci"], "")
         self.assertEqual(cc.repo_state("site", self.tmp, TODAY, run)["host"], "other")
         self.assertFalse(any(a[0] == "gh" for a in asked))
         self.assertEqual(cc.repo_state("site", self.tmp, TODAY, fake_run({}))["host"], "none")
@@ -379,7 +377,7 @@ class WholePage(unittest.TestCase):
     def test_every_part_is_built_from_the_files(self):
         data = self.build()
         self.assertEqual(sorted(data), ["agenda", "edges", "flows", "funnel", "health", "meta", "nodes", "repos",
-                                        "signals", "sites", "tasks", "vaults"])
+                                        "sites", "tasks", "vaults"])
         self.assertEqual(data["meta"]["hub"], "run:ingest")
         self.assertEqual(data["meta"]["today"], "2026-03-10")
         self.assertEqual([(t["vault"], t["band"]) for t in data["tasks"]], [("alpha", "late"), ("alpha", "today"), ("beta", "week")])
@@ -390,16 +388,15 @@ class WholePage(unittest.TestCase):
         self.assertEqual([(f["address"], f["dest"], f["kind"], f["count"]) for f in data["flows"]],
                          [("a@x.test", "", "excluded", 1), ("a@x.test", "", "unrouted", 1), ("a@x.test", "alpha", "vault", 2),
                           ("a@x.test", "beta", "vault", 1), ("b@x.test", "ghost", "vault", 1)])
-        self.assertIn("kit", [s["key"] for s in data["signals"]])
 
     def test_each_vault_carries_its_place_its_counts_and_its_card(self):
         data = self.build()
         rows = {v["vault"]: v for v in data["vaults"]}
         self.assertEqual(list(rows), ["alpha", "beta", "gamma", "omega"])
         self.assertEqual({k: rows["alpha"][k] for k in ("neighbourhood", "neighbourhood_rank", "street", "held", "acted", "routed",
-                                                        "triage_items", "repos", "repos_flagged", "machine", "state")},
+                                                        "triage_items", "repos", "machine", "state")},
                          {"neighbourhood": "Mine", "neighbourhood_rank": 0, "street": "Work", "held": 1, "acted": 1, "routed": 2,
-                          "triage_items": 1, "repos": 2, "repos_flagged": 2, "machine": "", "state": ""})
+                          "triage_items": 1, "repos": 2, "machine": "", "state": ""})
         self.assertEqual((rows["beta"]["neighbourhood"], rows["gamma"]["machine"], rows["omega"]["state"]),
                          (cc.OWN, "Sam", "handed over, ended last spring"))
         self.assertEqual((rows["beta"]["held"], rows["gamma"]["held"]), (0, 1))
@@ -453,7 +450,7 @@ class WholePage(unittest.TestCase):
                            ("run:center>page:" + cc.vault_key(self.home) + ":command-center", 0),
                            ("vault:alpha>page:" + cc.vault_key(self.tmp / "alpha") + ":daily-brief", 0)):
             self.assertEqual(edges[eid]["count"], count, eid)
-        self.assertTrue(edges["machine:Sam>vault:gamma"]["dashed"])
+        self.assertEqual(edges["machine:Sam>vault:gamma"]["kind"], "away")
         self.assertNotIn("run:ingest>vault:ghost", edges)
         self.assertNotIn("run:watch>vault:nowhere", edges)
         known = set(nodes)

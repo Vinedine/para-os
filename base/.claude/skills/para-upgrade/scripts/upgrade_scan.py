@@ -82,9 +82,9 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         CELL_MARKS_RE, H2_RE, HEADING_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, declarations,
-        fence_step, find_clone, git, git_bytes, integration_markers, is_separator_row, normalised,
-        paraos_home_dir, read_text, snapshot, split_lines, table_cells, template_marker,
-        vault_root,
+        emit, fence_step, find_clone, git, git_bytes, integration_markers, is_separator_row,
+        normalised, paraos_home_dir, read_text, snapshot, split_lines, table_cells, template_marker,
+        utf8_stdout, vault_root,
     )
     from paraos_clone import (  # noqa: E402
         BASE_TEMPLATE, addon_root, changelog_entries, clone_read, clone_ref, clone_session,
@@ -625,15 +625,11 @@ def main(argv=None):
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
     clone, _ = find_clone(args.clone, args.paraos_home)
     report, code = build_report(args.vault, clone, args.ref, args.user_skills,
                                 paraos_home_dir(args.paraos_home) / "para-os")
-    json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
-    sys.stdout.write("\n")
+    emit(report, args.indent)
     if code == 3:
         print(f"upgrade_scan: not a vault root: {args.vault} (projects/, areas/ or archive/, "
               f"and CLAUDE.md)", file=sys.stderr)

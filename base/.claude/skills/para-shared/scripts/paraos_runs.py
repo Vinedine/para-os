@@ -52,7 +52,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from paraos_vault import paraos_home_dir, registry  # noqa: E402
+from paraos_vault import emit, paraos_home_dir, registry, utf8_stdout  # noqa: E402
 
 STATUSES = ("ok", "failed", "partial")
 CONNECTION_KINDS = ("mcp:", "script:", "cli:")
@@ -295,10 +295,7 @@ def main(argv=None):
     ck.add_argument("--app-tasks")
     ck.add_argument("--tasks-dir")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     if args.cmd == "record":
         if "/" in args.task or "\\" in args.task or args.task.startswith("."):
@@ -319,8 +316,7 @@ def main(argv=None):
                 print(f"paraos_runs: --app-tasks {args.app_tasks}: {err}", file=sys.stderr)
                 return 2
         result = check(args.paraos_home, app, args.tasks_dir)
-    json.dump(result, sys.stdout, ensure_ascii=False)
-    sys.stdout.write("\n")
+    emit(result)
     return 0
 
 

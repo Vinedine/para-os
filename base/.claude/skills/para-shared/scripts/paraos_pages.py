@@ -57,7 +57,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paraos_vault import (  # noqa: E402
     CELL_MARKS_RE, HEADING_RE, is_separator_row, live_lines, paraos_home_dir, read_lines,
-    table_cells,
+    table_cells, utf8_stdout,
 )
 
 SKILLS_DIR = Path(__file__).resolve().parents[2]
@@ -331,10 +331,7 @@ def main(argv=None):
     m.add_argument("title")
     m.add_argument("listed", nargs="*")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     if args.cmd == "publish":
         path = store(args.vault, args.page, publish=args.choice)

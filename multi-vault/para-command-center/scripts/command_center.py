@@ -93,8 +93,10 @@ try:
         PUBLISH, load_index, local_page, publish_choice, remembered_url, store, vault_key)
     from paraos_repos import list_repos  # noqa: E402
     from paraos_runs import parse_time, status as runs_status  # noqa: E402
-    from paraos_vault import iso, paraos_home_dir, parse_date, registry, triage_sources  # noqa: E402
-    from render_dashboard import HEALTH_SIGNALS, cut, health_card, plain  # noqa: E402
+    from paraos_vault import (  # noqa: E402
+        iso, paraos_home_dir, parse_date, registry, triage_sources, utf8_stdout,
+    )
+    from render_dashboard import cut, health_card, plain  # noqa: E402
 except ImportError as missing:
     print(f"command_center: {missing}. install para-audit, para-daily-brief, para-ingest and "
           "para-shared beside this skill", file=sys.stderr)
@@ -112,7 +114,6 @@ LATE = timedelta(hours=1)
 OWN, KEPT = "Your vaults", "Vaults you look after"
 DAY_NAMES = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 KIT_SIGNAL = ("kit", "Kit", "Kit files that differ from the para-os clone at stable, as /para-audit counts them.",
-              "A current marker can sit on drifted files; the audit reads the files behind it.",
               "Run /para-upgrade for what it applies; the rest is yours to decide.")
 SEVERITY = {"ci": 3, "diverged": 3, "unpushed": 2, "dirty": 2, "behind": 2, "missing": 1,
             "quiet": 0, "clean": 0}
@@ -208,7 +209,7 @@ def health_rows(v, today):
         return None
     k = v.get("kit") or {"level": "unknown"}
     kit_row = {"key": "kit", "label": KIT_SIGNAL[1], "level": k["level"], "value": kit_value(k),
-               "what": KIT_SIGNAL[2], "why": KIT_SIGNAL[3], "fix": plain(KIT_SIGNAL[4])}
+               "what": KIT_SIGNAL[2], "fix": plain(KIT_SIGNAL[3])}
     rows = []
     for r in card["rows"]:
         if r["key"] == "deep_clean" and v.get("deep_clean_audit"):
@@ -260,8 +261,7 @@ def vault_rows(scan, entries, inbound, repos, today, past):
             "held": inbound["held"].get(name, 0), "routed": inbound["routed"].get(name, 0),
             "acted": inbound["acted"].get(name, 0), "last_edit": value.get("last_edit", ""),
             "neighbourhood": hood, "neighbourhood_rank": rank, "street": street,
-            "repos": len(mine),
-            "repos_flagged": sum(1 for r in mine if r["signal"] not in ("clean", "quiet"))})
+            "repos": len(mine)})
         health += [{"id": f"{name}:{r['key']}", "vault": name, "key": r["key"], "label": r["label"],
                     "value": r["value"], "level": r["level"], "what": r.get("what", ""),
                     "fix": r.get("fix", "")} for r in card["rows"]]
@@ -280,7 +280,7 @@ def vault_rows(scan, entries, inbound, repos, today, past):
             "level": "", "word": "", "open": 0, "overdue": 0, "triage_items": 0,
             "triage_oldest_days": 0, "held": 0, "routed": 0, "acted": 0, "last_edit": "",
             "neighbourhood": hood, "neighbourhood_rank": order.index(hood),
-            "street": str(p.get("street") or "").strip(), "repos": 0, "repos_flagged": 0})
+            "street": str(p.get("street") or "").strip(), "repos": 0})
     return rows, health
 
 
@@ -407,8 +407,7 @@ def signal_of(row):
 def repo_state(name, folder, today, run=run_command, online=True):
     """A repo's local state, and for a GitHub remote its open issues and last workflow run."""
     row = {"repo": name, "host": "", "branch": "", "dirty": 0, "ahead": 0, "behind": 0,
-           "last_commit": "", "days_quiet": None, "fetched": False, "ci": "", "ci_result": "",
-           "ci_date": "", "open_issues": None, "signal": "missing",
+           "last_commit": "", "days_quiet": None, "ci": "", "ci_result": "", "signal": "missing",
            "signal_label": "Not checked out here"}
     if folder is None:
         return row
@@ -419,7 +418,7 @@ def repo_state(name, folder, today, run=run_command, online=True):
     remote = git("remote", "get-url", "origin") or ""
     row["host"] = host_of(remote)
     if remote and online:
-        row["fetched"] = git("fetch", "--quiet", "origin", timeout=60) is not None
+        git("fetch", "--quiet", "origin", timeout=60)
     row["branch"] = git("rev-parse", "--abbrev-ref", "HEAD") or ""
     row["dirty"] = len((git("status", "--porcelain") or "").splitlines())
     counts = (git("rev-list", "--left-right", "--count", "@{upstream}...HEAD") or "").split()
@@ -430,18 +429,14 @@ def repo_state(name, folder, today, run=run_command, online=True):
         row["last_commit"], row["days_quiet"] = iso(last), (today - last).days
     if row["host"] == "GitHub" and online:
         slug = re.sub(r"\.git$", "", re.sub(r".*github\.com[:/]", "", remote))
-        count = run(["gh", "issue", "list", "-R", slug, "--state", "open", "--limit", "300",
-                     "--json", "number", "--jq", "length"])
-        row["open_issues"] = int(count) if count and count.isdigit() else None
         try:
             latest = json.loads(run(["gh", "run", "list", "-R", slug, "--limit", "1", "--json",
-                                     "conclusion,status,workflowName,createdAt"]) or "[]")
+                                     "conclusion,status,workflowName"]) or "[]")
         except ValueError:
             latest = []
         if isinstance(latest, list) and latest and isinstance(latest[0], dict):
             row["ci"] = latest[0].get("workflowName") or ""
             row["ci_result"] = latest[0].get("conclusion") or latest[0].get("status") or ""
-            row["ci_date"] = (latest[0].get("createdAt") or "")[:10]
     row["signal"], row["signal_label"] = signal_of(row)
     return row
 
@@ -580,9 +575,9 @@ def catalog(entries, vaults, calendars, flows, synced, routed, repos, sites, lis
                                     "detail": {}, "order": len(nodes)}, **more))
         return nid
 
-    def edge(a, b, kind, count=0, dashed=False):
+    def edge(a, b, kind, count=0):
         e = edges.setdefault(f"{a}>{b}", {"id": f"{a}>{b}", "source": a, "target": b,
-                                          "kind": kind, "count": 0, "dashed": dashed})
+                                          "kind": kind, "count": 0})
         e["count"] += count
         return e
 
@@ -651,8 +646,8 @@ def catalog(entries, vaults, calendars, flows, synced, routed, repos, sites, lis
                 box = node(f"box:{address}", 0, labels.get(address, address), "mailbox", ref=address,
                            sub=f"{threads[address]} threads in {days} days")
                 if away:
-                    edge(box, away, "away", dashed=True)
-                    edge(away, vid, "away", dashed=True)
+                    edge(box, away, "away")
+                    edge(away, vid, "away")
                     continue
                 kind = "script" if row["kind"] == "fetch-script" else "connector"
                 cid, rec = connection(kind, row["path"] if kind == "script" else row["connector"])
@@ -668,8 +663,8 @@ def catalog(entries, vaults, calendars, flows, synced, routed, repos, sites, lis
                 label = provider_name((declared(kind, name) or {}).get("provider")) or row["source"] or script_name(name)
                 src = node(f"src:{label}", 0, label, "source", group="recording")
                 if away:
-                    edge(src, away, "away", dashed=True)
-                    edge(away, vid, "away", dashed=True)
+                    edge(src, away, "away")
+                    edge(away, vid, "away")
                     continue
                 cid, rec = connection(kind, name)
                 fed.add(cid)
@@ -782,19 +777,7 @@ def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS
                      "days": days, "hub": hub, "notes": notes},
             "tasks": task_rows(scan, today), "agenda": agenda, "vaults": vaults, "health": health,
             "funnel": feed["funnel"], "flows": feed["flows"], "repos": repos, "sites": sites,
-            "nodes": nodes, "edges": edges,
-            "signals": [{"key": key, "label": label, "what": what, "why": why, "fix": plain(fix)}
-                        for key, label, what, why, fix in with_kit(HEALTH_SIGNALS)]}
-
-
-def with_kit(signals):
-    """HEALTH_SIGNALS with the Kit signal after Template, the order the rows take."""
-    out = []
-    for s in signals:
-        out.append(s)
-        if s[0] == "template":
-            out.append(KIT_SIGNAL)
-    return out
+            "nodes": nodes, "edges": edges}
 
 
 def page(data):
@@ -860,10 +843,7 @@ def main(argv=None):
     ap.add_argument("--calendars", action="store_true", help="print the calendars to read, and stop")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     key = paraos_home_dir(args.paraos_home)
     if args.publish:

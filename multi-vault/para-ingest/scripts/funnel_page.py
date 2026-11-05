@@ -47,7 +47,7 @@ EXECUTOR = SKILLS / "para-triage" / "scripts" / "auto_execute.py"
 sys.path[:0] = [str(SKILLS / "para-shared" / "scripts"), str(EXECUTOR.parent)]
 
 from auto_execute import OFFER_SHARE, OFFER_WINDOW, Refused, State  # noqa: E402
-from paraos_vault import triage_sources  # noqa: E402
+from paraos_vault import triage_sources, utf8_stdout  # noqa: E402
 
 HOLD_RULES = [
     "money owed or paid",
@@ -351,10 +351,7 @@ def main(argv=None):
     ap.add_argument("--days", type=int, default=7, help="the window, in days (default 7)")
     ap.add_argument("--today", type=day, help="the window's last day (default: the system date)")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
     json.dump(gather(os.path.normpath(args.paraos_home), args.days, args.today), sys.stdout,
               ensure_ascii=False)
     sys.stdout.write("\n")

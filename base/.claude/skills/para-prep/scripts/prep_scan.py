@@ -38,10 +38,10 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        EMAIL_RE, H1_RE, HEADING_RE, NOT_CARDS, abspath, action_files, contact_names,
+        EMAIL_RE, H1_RE, HEADING_RE, NOT_CARDS, abspath, action_files, contact_names, entity_doc,
         extract_links, field_ci, header_fields, lifecycles, live_lines, open_tasks, parse_date,
-        read_lines,
-        read_text, register_rows, rel_posix, resolve_link, stage_of, stage_parts, strip_code,
+        read_lines, read_text, register_rows, rel_posix, resolve_link, stage_of, stage_parts,
+        strip_code, utf8_stdout,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"prep_scan: {missing}. The shared vault library belongs at "
@@ -242,14 +242,6 @@ def entity_of(vault, target):
     return rel if (vault / rel).is_dir() else None
 
 
-def pick_doc(folder):
-    """README.md over brief.md where a folder holds both, the rule /para-pipeline reads by."""
-    for name in ("README.md", "brief.md"):
-        if (folder / name).is_file():
-            return folder / name
-    return None
-
-
 def entity_folders(vault):
     out = []
     for bucket in ENTITY_BUCKETS:
@@ -270,7 +262,7 @@ def linked_entities(vault, card, folders):
             found.add(rel)
     target = same_target(card["path"])
     for folder in folders:
-        doc = pick_doc(folder)
+        doc = entity_doc(folder)
         if doc and any(same_target(resolve_link(doc, href)) == target
                        for _, href, _ in extract_links(strip_code(read_text(doc)))):
             found.add(rel_posix(vault, folder))
@@ -352,7 +344,7 @@ def earliest(tasks):
 
 def entity_block(vault, rel, declared, today):
     folder = vault / rel
-    doc = pick_doc(folder)
+    doc = entity_doc(folder)
     fields = header_fields(doc) if doc else {}
     actions = folder / "actions.md"
     tasks = open_tasks(actions) if actions.is_file() else None
@@ -512,12 +504,7 @@ def main(argv=None):
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
 
-    # A Windows console and a Windows pipe both default to a codepage that cannot encode a
-    # task marker, and the traceback lands where the JSON was meant to be.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     today = parse_date(args.today) if args.today else date.today()
     if args.today and not today:

@@ -100,7 +100,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paraos_vault import (  # noqa: E402
     _normalize_connector, _triage_kind, paraos_home_dir, read_text, register_rows, registry,
-    triage_sources,
+    triage_sources, utf8_stdout,
 )
 from paraos_runs import load_tasks  # noqa: E402
 
@@ -722,10 +722,7 @@ def main(argv=None):
     mf = sub.add_parser("manifest", help="the connections table in the machine manifest")
     mf.add_argument("--write", action="store_true", help="write the table into README.md")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
     if args.cmd == "list":
         result = list_all(args.paraos_home)
     elif args.cmd == "check":

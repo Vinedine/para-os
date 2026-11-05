@@ -36,7 +36,6 @@ mailbox, convert a Google-native file, write a ledger, or decide what happens to
 import argparse
 import hashlib
 import json
-import os
 import re
 import sys
 from datetime import datetime, timedelta
@@ -48,11 +47,11 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        MIN_HASH_BYTES, OPEN_ITEM_CAP, TEXT_SUFFIXES, abspath, cap_count, action_files, contact_card_level,
-        hashes, inbound_references, lifecycles, live_lines, norm, open_tasks, operator_card,
-        read_lines,
-        registered_vault, registry, rel_posix, reserved_for, roster, same_place, snapshot,
-        triage_items, triage_sources, vault_root, writer,
+        MIN_HASH_BYTES, OPEN_ITEM_CAP, TEXT_SUFFIXES, abspath, action_files, cap_count,
+        contact_card_level, emit, hashes, inbound_references, lifecycles, live_lines, norm,
+        open_tasks, operator_card, paraos_home_dir, read_lines, registered_vault, registry,
+        rel_posix, reserved_for, roster, same_place, snapshot, triage_items, triage_sources,
+        utf8_stdout, vault_root, writer,
     )
     from paraos_mail import (  # noqa: E402
         ingest_ledger, ingest_logs, log_instant, note_name_parts, thread_hash, unanswered,
@@ -216,7 +215,7 @@ def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs,
     return "run", "log records no per-vault sync runs"
 
 
-def sources_block(vault, entries, vault_name, ingest, newest_write, writers=None, me=None):
+def sources_block(vault, vault_name, ingest, newest_write, writers=None, me=None):
     src = triage_sources(vault)
     declaring_vaults = newest_write.get("declaring_vaults") if newest_write else None
     errors_list = (newest_write.get("errors") if newest_write else None) or []
@@ -236,26 +235,10 @@ def sources_block(vault, entries, vault_name, ingest, newest_write, writers=None
 
 # ------------------------------------------------------------------------------- items: kind
 
-IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".gif")
-GOOGLE_NATIVE_SUFFIXES = (".gdoc", ".gsheet", ".gslides", ".gform", ".gdraw")
-ARCHIVE_SUFFIXES = (".zip", ".7z", ".rar", ".tar", ".gz", ".tgz")
-
-
-def kind_of(path):
-    suffix = path.suffix.lower()
-    if suffix == ".pdf":
-        return "pdf"
-    if suffix in IMAGE_SUFFIXES:
-        return "image"
-    if suffix == ".md":
-        return "markdown"
-    if suffix in GOOGLE_NATIVE_SUFFIXES:
-        return "google-native"
-    if suffix in ARCHIVE_SUFFIXES:
-        return "archive"
-    if suffix == ".txt":
-        return "text"
-    return "other"
+KINDS = {".pdf": "pdf", ".md": "markdown", ".txt": "text",
+         **dict.fromkeys((".jpg", ".jpeg", ".png", ".gif"), "image"),
+         **dict.fromkeys((".gdoc", ".gsheet", ".gslides", ".gform", ".gdraw"), "google-native"),
+         **dict.fromkeys((".zip", ".7z", ".rar", ".tar", ".gz", ".tgz"), "archive")}
 
 
 # -------------------------------------------------------------------------- items: the note
@@ -361,14 +344,13 @@ def _ledger_entry(ledger_mailboxes, mailbox, filename_hash):
 
 
 def _routed_from_ledger(ledger_mailboxes, mailbox, filename_hash, vault_name):
-    """`(routed_vaults, routed_from)`: the ledger entry's `routed` list minus this vault,
-    and `"ledger"`; `(None, None)` with no entry."""
+    """The ledger entry's `routed` list minus this vault, None with no entry."""
     _, record = _ledger_entry(ledger_mailboxes, mailbox, filename_hash)
     if record is None:
-        return None, None
+        return None
     routed = record.get("routed")
     routed = routed if isinstance(routed, list) else []
-    return sorted({v for v in routed if v and v != vault_name}), "ledger"
+    return sorted({v for v in routed if v and v != vault_name})
 
 
 def _ingest_seen(ledger_mailboxes, mailbox, filename_hash):
@@ -412,37 +394,22 @@ def note_block(path, entries, vault_name, ledger_mailboxes):
     filename_hash = name_parts["hash"] if name_parts else None
     lines = [text for _, text in live_lines(read_lines(path))]
 
-    shape, fields = None, {}
-    ingest_fields = _parse_ingest_shape(lines)
-    if ingest_fields is not None:
-        shape, fields = "ingest", ingest_fields
-    else:
-        frontmatter_fields = _parse_frontmatter(lines)
-        if frontmatter_fields is not None:
-            shape, fields = "frontmatter", frontmatter_fields
-
-    if shape == "ingest":
-        source_value = fields.get("Source")
-        mail_note = bool(fields.get("Source")) and bool(fields.get("Link"))
-        mailbox = _extract_mailbox(source_value)
-        mentioned_vaults = _mentioned_vaults(fields.get("Routed"), entries, vault_name)
-        link_value = fields.get("Link")
-    elif shape == "frontmatter":
-        source_value = fields.get("source")
-        mail_note = bool(fields.get("thread_id"))
-        mailbox = _extract_mailbox(source_value)
-        mentioned_vaults = []
-        link_value = fields.get("link")
-    else:
-        mail_note, mailbox, mentioned_vaults, link_value = False, None, [], None
-
-    routed_vaults, routed_from = _routed_from_ledger(ledger_mailboxes, mailbox, filename_hash,
-                                                      vault_name)
+    ingest = _parse_ingest_shape(lines)
+    front = _parse_frontmatter(lines) if ingest is None else None
+    shape = "ingest" if ingest is not None else "frontmatter" if front is not None else None
+    fields = ingest or front or {}
+    is_ingest = shape == "ingest"
+    mailbox = _extract_mailbox(fields.get("Source" if is_ingest else "source"))
+    mail_note = bool(fields.get("Source") and fields.get("Link")) if is_ingest \
+        else bool(fields.get("thread_id"))
+    mentioned_vaults = _mentioned_vaults(fields.get("Routed"), entries, vault_name) \
+        if is_ingest else []
+    link_value = fields.get("Link" if is_ingest else "link")
 
     return {
         "shape": shape, "fields": fields, "mail_note": mail_note, "mailbox": mailbox,
-        "mentioned_vaults": mentioned_vaults, "routed_vaults": routed_vaults,
-        "routed_from": routed_from, "thread_hash": filename_hash,
+        "mentioned_vaults": mentioned_vaults,
+        "routed_vaults": _routed_from_ledger(ledger_mailboxes, mailbox, filename_hash, vault_name),
         "thread_id": _extract_thread_id(link_value, filename_hash),
         "message_id": fields.get("Message id") if shape == "ingest" else None,
         "conversation_id": fields.get("Conversation id") if shape == "ingest" else None,
@@ -548,25 +515,16 @@ def _mailbox_readers(entries):
 
 def build_loose(vault, entries, vault_name, ledger_mailboxes):
     triage_dir = vault / "triage"
-    file_map = {}
-    if triage_dir.is_dir():
-        file_map = {p.name: p for p in triage_dir.iterdir()
-                    if p.is_file() and p.name != ".gitkeep"}
-
     items = []
     for name in triage_items(vault):
-        path = file_map.get(name)
-        if path is None:
-            continue
+        path = triage_dir / name
         entry = {
-            "name": name, "size": path.stat().st_size, "kind": kind_of(path),
+            "name": name, "size": path.stat().st_size, "kind": KINDS.get(path.suffix.lower(), "other"),
             "readme": name.lower() == "readme.md", "twin": None, "note": None,
             "duplicates": None, "cross_vault": [], "inbound": [],
         }
-        if path.suffix.lower() == ".pdf":
-            twin_name = f"{path.stem}.md"
-            if twin_name in file_map:
-                entry["twin"] = twin_name
+        if path.suffix.lower() == ".pdf" and path.with_suffix(".md").is_file():
+            entry["twin"] = path.with_suffix(".md").name
         if path.suffix.lower() == ".md":
             entry["note"] = note_block(path, entries, vault_name, ledger_mailboxes)
         items.append(entry)
@@ -602,8 +560,7 @@ def subdirectories_block(vault):
         for entry in sorted(triage_dir.iterdir()):
             if entry.is_dir():
                 count = sum(1 for p in entry.rglob("*") if p.is_file())
-                out.append({"name": entry.name, "files": count,
-                            "handoff": entry.name.startswith("_")})
+                out.append({"name": entry.name, "files": count})
     return out
 
 
@@ -658,23 +615,18 @@ def same_thread_block(items):
 
 # ------------------------------------------------------------------------------ seen ledger
 
-def _paraos_home(paraos_home):
-    return Path(paraos_home) if paraos_home else Path(
-        os.environ.get("PARAOS_HOME") or (Path.home() / ".paraos"))
-
-
 def ingest_ledger_block(paraos_home):
     """The top-level `ingest_ledger` summary (`path`, `exists`, `load_error`) - not the
     ledger's own content, which can span every vault on the machine. `note_block` reads the
     full `mailboxes` map separately, once per scan, to compute each note's `routed_vaults`."""
     ledger = ingest_ledger(paraos_home)
-    path = _paraos_home(paraos_home) / "cache" / "ingest" / "ledger.json"
+    path = paraos_home_dir(paraos_home) / "cache" / "ingest" / "ledger.json"
     block = {"path": str(path), "exists": ledger["exists"], "load_error": ledger["load_error"]}
     return block, ledger["mailboxes"]
 
 
 def seen_ledger_block(paraos_home, vault_name):
-    path = _paraos_home(paraos_home) / "cache" / "triage-email" / f"{vault_name}.json"
+    path = paraos_home_dir(paraos_home) / "cache" / "triage-email" / f"{vault_name}.json"
     exists, load_error = path.is_file(), None
     if exists:
         try:
@@ -764,7 +716,7 @@ def plan(vault, paraos_home, now, threads_data):
     writers = roster(vault)
     me = None if writers is None else writer(vault, operator_card(paraos_home))
     ingest, newest_write = ingest_block(vault, entries, vault_name, paraos_home, now)
-    sources = sources_block(vault, entries, vault_name, ingest, newest_write, writers, me)
+    sources = sources_block(vault, vault_name, ingest, newest_write, writers, me)
 
     ingest_ledger_summary, ledger_mailboxes = ingest_ledger_block(paraos_home)
 
@@ -805,7 +757,7 @@ def save_report(report, vault, paraos_home, now):
     snapshot before each delete or move, and return (path, error). Written by the scan so the
     re-check never depends on a run remembering to redirect its output. Copies older than a
     week are pruned; a copy that would land inside the vault is refused."""
-    folder = _paraos_home(paraos_home) / "data" / "scans"
+    folder = paraos_home_dir(paraos_home) / "data" / "scans"
     name = re.sub(r"[^\w.-]+", "-", report["vault"]["name"] or "vault").strip("-") or "vault"
     target = folder / f"triage-{name}-{now.strftime('%Y%m%dT%H%M%S')}.json"
     try:
@@ -849,10 +801,7 @@ def main(argv=None):
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
 
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     try:
         now = _parse_now(args.now)
@@ -872,8 +821,7 @@ def main(argv=None):
     entries = registry(args.paraos_home)
     info = vault_block(root, entries)
     if not info["root"]:
-        json.dump({"vault": info}, sys.stdout, ensure_ascii=False, indent=args.indent)
-        sys.stdout.write("\n")
+        emit({"vault": info}, args.indent)
         hint = f" (registry: {info['hint']['name']} at {info['hint']['path']})" \
             if info["hint"] else ""
         print(f"triage_scan: not a vault root: {root} (missing "
@@ -882,8 +830,7 @@ def main(argv=None):
 
     report = plan(root, args.paraos_home, now, threads_data)
     report["saved_to"], report["save_error"] = save_report(report, root, args.paraos_home, now)
-    json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
-    sys.stdout.write("\n")
+    emit(report, args.indent)
     return 0
 
 

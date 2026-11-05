@@ -48,18 +48,15 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        ANY_DATE_RE, BRIEF_LINE_CAP, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        FROZEN_MARKER_RE, NOT_CARDS, STALE_UNDATED_DAYS, TASK_RE,
-        LINK_ROOTS, OPEN_ITEM_CAP, abspath, action_files, cap_count, contact_names,
-        MARKED_SUFFIXES, dangling_links, deep_clean_stamp, duplicates, find_clone,
-        integration_markers,
-        extract_links, field_ci, git, git_blame_line_date, hashes, header_fields,
-        inbound_references, is_separator_row,
-        iso, lifecycles, link_files, link_spans, live_lines, log_entries, misplaced_checkboxes,
-        norm, open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines,
-        read_text, reference_shape,
-        rel_posix, resolve_entity, resolve_link, snapshot, split_lines, stage_of, strip_code,
-        table_cells, template_marker, triage_items, under_any, vault_paths,
+        ANY_DATE_RE, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE,
+        HEADING_RE, LINK_ROOTS, MARKED_SUFFIXES, NOT_CARDS, OPEN_ITEM_CAP, STALE_UNDATED_DAYS,
+        TASK_RE, abspath, action_files, cap_count, contact_names, dangling_links, deep_clean_stamp,
+        duplicates, emit, entity_doc, extract_links, field_ci, find_clone, git, git_blame_line_date,
+        hashes, header_fields, inbound_references, integration_markers, is_separator_row, iso,
+        lifecycles, link_files, link_spans, live_lines, log_entries, misplaced_checkboxes, norm,
+        open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
+        reference_shape, rel_posix, resolve_entity, resolve_link, snapshot, split_lines, stage_of,
+        strip_code, table_cells, template_marker, triage_items, under_any, utf8_stdout, vault_paths,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -74,7 +71,6 @@ ENTITY_BASES = ("projects", "areas", "resources/ideas")
 GROWN = 1.5     # a brief past this many times its length at the last deep clean is read again
 ORPHANS_LISTED = 5  # an entity with more orphans than this is reported as a count
 STRUCTURE_FILES = ("README.md", "brief.md", "actions.md")
-LIVE_ROOTS = ("projects", "areas", "resources", "triage")  # archive/ is history, not live
 # A link target inside archive/ is still a path that must resolve; only prose there is history.
 # A rule file links into the vault too, from two folders down.
 DANGLING_ROOTS = LINK_ROOTS + ("archive", ".claude/rules")
@@ -84,10 +80,9 @@ def in_live_scope(rel):
     """Whether a vault-relative path sits in a live bucket: a root-level file (the root
     README, CLAUDE.md), or under projects/areas/resources/triage - the same roots
     dangling_links() and link_files() default to. archive/ is never live."""
-    return "/" not in rel or rel.split("/", 1)[0] in LIVE_ROOTS
+    return "/" not in rel or rel.split("/", 1)[0] in LINK_ROOTS
 
 
-HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 BULLET_RE = re.compile(r"^\s*-\s+(.*)$")
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|([^\]]+))?\]\]")
 # A figure ends on a digit, a `k` or a `%` - never on the space or the sentence's own
@@ -302,10 +297,10 @@ def wikilink_matches(vault, index, target):
             if ("/" + p.relative_to(vault).as_posix().lower()).endswith(tail)]
 
 
-def find_wikilinks(vault, roots=("projects", "areas", "resources", "triage")):
+def find_wikilinks(vault):
     index = build_md_index(vault)
     out = []
-    for path in link_files(vault, roots):
+    for path in link_files(vault, LINK_ROOTS):
         text = strip_code(read_text(path))
         for lineno, line in enumerate(split_lines(text), start=1):
             for m in WIKILINK_RE.finditer(line):
@@ -518,15 +513,6 @@ def entity_names(vault):
     return sorted(names)
 
 
-def pick_doc(folder):
-    readme, brief = folder / "README.md", folder / "brief.md"
-    if readme.is_file():
-        return readme
-    if brief.is_file():
-        return brief
-    return None
-
-
 def rollup_files(vault):
     files = [vault / "README.md"]
     for bucket in ("projects", "areas", "resources", "archive"):
@@ -558,7 +544,7 @@ def figure_pairs(vault):
             for bucket in ENTITY_BASES:
                 folder = vault / bucket / name
                 if folder.is_dir():
-                    doc = pick_doc(folder)
+                    doc = entity_doc(folder)
                     if doc:
                         figs = set()
                         for line in split_lines(strip_code(read_text(doc))):
@@ -810,33 +796,27 @@ def stale_undated_from(vault, files, today):
             if t["due"] or t["scheduled"] or t["start"]:
                 continue
             entry = {"line": t["line"], "text": t["text"]}
-            date_str, reason = None, None
-            if tracked:
-                blame = git_blame_line_date(vault, f, t["line"])
-                if blame == "uncommitted":
-                    entry["unmeasurable"] = "line not yet committed"
-                    items.append(entry)
-                    continue
-                if blame:
-                    date_str = blame
-                else:
-                    reason = "tracked, but git blame returned no date for this line"
-            else:
-                try:
-                    date_str = date.fromtimestamp(f.stat().st_mtime).isoformat()
-                except OSError:
-                    reason = "untracked, and the file's mtime could not be read"
-            if date_str:
-                days = (today - parse_date(date_str)).days
-                if days >= STALE_UNDATED_DAYS:
-                    entry["days"] = days
-                    items.append(entry)
-            else:
-                entry["unmeasurable"] = reason
-                items.append(entry)
+            stamp, reason = line_date(vault, f, t["line"], tracked)
+            if not stamp:
+                items.append(dict(entry, unmeasurable=reason))
+            elif (today - parse_date(stamp)).days >= STALE_UNDATED_DAYS:
+                items.append(dict(entry, days=(today - parse_date(stamp)).days))
         if items:
             out[rel] = items
     return out
+
+
+def line_date(vault, f, line, tracked):
+    """(date, why there is none) for one line: blame where the file is tracked, else its mtime."""
+    if tracked:
+        blame = git_blame_line_date(vault, f, line)
+        if blame == "uncommitted":
+            return None, "line not yet committed"
+        return blame, None if blame else "tracked, but git blame returned no date for this line"
+    try:
+        return date.fromtimestamp(f.stat().st_mtime).isoformat(), None
+    except OSError:
+        return None, "untracked, and the file's mtime could not be read"
 
 
 def aspirational_from(files, vault, today):
@@ -880,7 +860,7 @@ def briefs(vault):
     last = parse_date(read_text(stamp).strip()) if stamp.is_file() else None
     growth = "no deep clean on record" if last is None else \
         "measured" if git(vault, ["rev-parse", "--git-dir"]) is not None else "no git history"
-    over = {b["file"] for b in over_grown_briefs(vault, limit=None)}
+    over = {b["file"] for b in over_grown_briefs(vault)}
     read, skipped = [], []
     for path in live_briefs(vault):
         rel = path.relative_to(vault).as_posix()
@@ -1165,12 +1145,7 @@ def main(argv=None):
                          "under $PARAOS_HOME, for the brief's health card")
     args = ap.parse_args(argv)
 
-    # A Windows console and a Windows pipe both default to a codepage that cannot encode a
-    # task marker, and the traceback lands where the JSON was meant to be.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     today = parse_date(args.today) if args.today else date.today()
     if args.today and not today:
@@ -1186,8 +1161,7 @@ def main(argv=None):
     if args.record:
         record_findings(root, today, args.phase, report)
 
-    json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
-    sys.stdout.write("\n")
+    emit(report, args.indent)
     return code
 
 

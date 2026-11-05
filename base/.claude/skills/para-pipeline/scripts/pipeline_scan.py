@@ -27,7 +27,6 @@ the board, or choose the single closing next action.
 
 import argparse
 import calendar
-import json
 import re
 import statistics
 import sys
@@ -42,9 +41,10 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        DATE_RE, H1_RE, add_months, field_ci, first_link, header_fields, is_live, iso,
-        lifecycles, link_spans, live_lines, locale, open_tasks, parse_date, read_lines,
-        register_rows, stage_of, stage_parts, year_end_of, amount_of, vault_currency,
+        DATE_RE, H1_RE, add_months, amount_of, emit, entity_doc, field_ci, first_link,
+        header_fields, is_live, iso, lifecycles, link_spans, live_lines, locale, open_tasks,
+        parse_date, read_lines, register_rows, stage_of, stage_parts, utf8_stdout, vault_currency,
+        year_end_of,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"pipeline_scan: {missing}. The shared vault library belongs at "
@@ -73,16 +73,6 @@ def extract_date(text):
         return exact
     m = DATE_RE.search(text)
     return parse_date(m.group(0)) if m else None
-
-
-def pick_doc(folder):
-    """README.md over brief.md when a folder holds both."""
-    readme, brief = folder / "README.md", folder / "brief.md"
-    if readme.is_file():
-        return readme
-    if brief.is_file():
-        return brief
-    return None
 
 
 def doc_h1(path):
@@ -148,7 +138,7 @@ def live_documents(vault, declared):
             if not s["home"] or s["row"]:
                 continue
             for d in vault.glob(re.sub(r"<[^>]+>", "*", s["home"].rstrip("/"))):
-                doc = pick_doc(d) if d.is_dir() else None
+                doc = entity_doc(d) if d.is_dir() else None
                 info = stage_of(doc) if doc else None
                 if info and info["name"].strip().lower() in live:
                     docs.add(doc.resolve())
@@ -328,7 +318,7 @@ def collect_folder_entities(vault, home, stage_by_name, stage_index, other_files
     lifecycle_only = home_is_lifecycle_only(home)
 
     for d in dirs:
-        doc = pick_doc(d)
+        doc = entity_doc(d)
         if not doc:
             continue
         info = stage_of(doc)
@@ -531,7 +521,7 @@ def won_outside_homes(vault, promoting_home):
     for d in sorted(vault.glob(pattern)):
         if not d.is_dir():
             continue
-        doc = pick_doc(d)
+        doc = entity_doc(d)
         if not doc:
             continue
         fields = header_fields(doc)
@@ -831,11 +821,7 @@ def main(argv=None):
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
 
-    # A Windows console or pipe defaults to a codepage that cannot encode a task marker.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     today = parse_date(args.today) if args.today else date.today()
     if args.today and not today:
@@ -845,8 +831,7 @@ def main(argv=None):
         ap.error(f"no such vault: {root}")
 
     report, code = scan(root, today, args.lifecycle)
-    json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
-    sys.stdout.write("\n")
+    emit(report, args.indent)
     return code
 
 

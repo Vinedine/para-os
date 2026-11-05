@@ -106,9 +106,9 @@ sys.path[:0] = [str(SKILLS_ROOT / lib / "scripts") for lib in ("para-shared", "p
 
 try:
     from paraos_vault import (  # noqa: E402
-        HEADER_FIELD_RE, TEMPLATE_MARKER_RE, declarations, down_drives, find_clone,
-        header_fields, live_lines, norm, paraos_home_dir, read_lines, read_text, registry,
-        roster,
+        HEADER_FIELD_RE, TEMPLATE_MARKER_RE, declarations, down_drives, emit, find_clone,
+        header_fields, live_lines, norm, paraos_home_dir, read_lines, read_text, registry, roster,
+        utf8_stdout,
     )
     from paraos_clone import addon_root, clone_session, master_template  # noqa: E402
     from paraos_runs import app_list, check as tasks_check  # noqa: E402
@@ -538,10 +538,7 @@ def main(argv=None):
     ap.add_argument("--app-tasks", help="the app's scheduled-task list, saved as JSON")
     ap.add_argument("--indent", type=int, default=None, help="pretty-print the JSON")
     args = ap.parse_args(argv)
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     home = paraos_home_dir(args.paraos_home)
     registry_path = home / "vaults.json"
@@ -549,8 +546,7 @@ def main(argv=None):
     clone, source = find_clone(args.clone, args.paraos_home)
     report, code = build_report(registry_path, entries, clone, args.ref, source,
                                 home / "para-os", args.app_tasks)
-    json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
-    sys.stdout.write("\n")
+    emit(report, args.indent)
     error = report.get("error") or (report.get("clone") or {}).get("error")
     if code:
         print(f"audit_scan: {error}", file=sys.stderr)

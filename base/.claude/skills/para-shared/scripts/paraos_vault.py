@@ -986,6 +986,11 @@ def stage_parts(body, raw):
             "dated_facts": facts, "raw": raw}
 
 
+def entity_doc(folder):
+    """README.md over brief.md where a folder holds both."""
+    return next((folder / n for n in ("README.md", "brief.md") if (folder / n).is_file()), None)
+
+
 def header_fields(path):
     """The bold-led lines under an entity's title, field name to text, in the order written.
     A link is left as written, so `first_link` can take its target out of one.
@@ -1547,7 +1552,7 @@ def contact_card_level(vault):
     """What a contact card may hold: `yes`, `relationship only` or `never`, from the
     `areas/network/` row of the vault's checkbox table. With no row, a `## Who writes this
     vault` roster implies `never` and anything else is `yes`."""
-    text = read_text(Path(vault) / "CLAUDE.md") or ""
+    text = read_text(Path(vault) / "CLAUDE.md")
     rows = checkbox_rows(text)
     cells = rows.get("areas/network/") or rows.get("areas/network")
     if cells:
@@ -1564,7 +1569,7 @@ def _frozen(lines, first):
 def never_folders(vault):
     """Every folder the vault's checkbox table declares at `never`, without its slash."""
     return [k.strip("/") for k, cells in
-            checkbox_rows(read_text(Path(vault) / "CLAUDE.md") or "").items()
+            checkbox_rows(read_text(Path(vault) / "CLAUDE.md")).items()
             if cells[0].startswith("never") and "," not in k and k.endswith("/")]
 
 
@@ -1808,7 +1813,7 @@ def log_entries(path):
     return out
 
 
-def over_grown_briefs(vault, cap=BRIEF_LINE_CAP, limit=3):
+def over_grown_briefs(vault):
     """Briefs past the line cap, longest first."""
     vault = Path(vault)
     rows = []
@@ -1816,9 +1821,9 @@ def over_grown_briefs(vault, cap=BRIEF_LINE_CAP, limit=3):
                     "projects/*/README.md", "areas/*/README.md"):
         for path in sorted(vault.glob(pattern)):
             count = len(read_lines(path))
-            if count > cap:
+            if count > BRIEF_LINE_CAP:
                 rows.append({"file": path.relative_to(vault).as_posix(), "lines": count})
-    return sorted(rows, key=lambda r: -r["lines"])[:limit]
+    return sorted(rows, key=lambda r: -r["lines"])
 
 
 def triage_items(vault):
@@ -2207,9 +2212,8 @@ SKIP_HASH_FOLDERS = ("photos", "plans", "styles", "public")  # media, and a buil
 TEXT_SUFFIXES = (".md", ".txt")
 
 
-def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, within=None,
-           eol=False, shared=False):
-    """Every file in the vault at or above `min_bytes` by content digest, as {path: md5},
+def hashes(vault, skip=SKIP_HASH_FOLDERS, sizes=None, within=None, eol=False, shared=False):
+    """Every file in the vault at or above MIN_HASH_BYTES by content digest, as {path: md5},
     with what a skipped folder holds named under `skipped` rather than dropped: a scan that
     passed over a folder in silence reports a vault it never read as clean. A dot-folder is
     not vault content and is never walked.
@@ -2217,7 +2221,7 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
     `sizes` (a set of byte counts) and `within` (a tuple of folder names) each narrow which
     files are even opened, for a vault synced by a streaming cloud client where reading a
     file's bytes downloads it: a file `stat` alone rules out is not listed at all, not even
-    under `skipped`. Both default to `None`, which keeps today's answer exactly.
+    under `skipped`.
     `shared` opens only a byte size two of the remaining files share, since a size no other
     file has holds no copy; `skipped` is unchanged. It compares raw sizes, so not with `eol`.
     `eol` digests a text file (`TEXT_SUFFIXES`) with its CRLF line endings read as LF.
@@ -2238,7 +2242,7 @@ def hashes(vault, min_bytes=MIN_HASH_BYTES, skip=SKIP_HASH_FOLDERS, sizes=None, 
             size = path.stat().st_size
         except OSError:
             continue
-        if size < min_bytes or (sizes is not None and size not in sizes):
+        if size < MIN_HASH_BYTES or (sizes is not None and size not in sizes):
             continue
         if any(p.lower() in lowered for p in parts[:-1]):
             skipped.append(rel)
@@ -2363,7 +2367,7 @@ TEMPLATE_MARKER_RE = re.compile(r"<!--\s*para-os-template:\s*(" + REVISION_PATTE
 INTEGRATION_MARKER_RE = re.compile(r"para-os-integration:\s*([A-Za-z0-9._-]+)\s+("
                                    + REVISION_PATTERN + r")")
 LEGACY_REVISIONS = {"2026.08": "2026.08.01"}
-MARKED_SUFFIXES = (".py", ".js", ".mjs", ".ps1", ".sh")
+MARKED_SUFFIXES = SCRIPT_SUFFIXES
 MARKER_HEADER_LINES = 80
 
 
@@ -2418,6 +2422,20 @@ def skill_reviews(vault):
 
 # --- from the command line ------------------------------------------------------------------
 
+def utf8_stdout():
+    """A Windows console or pipe defaults to a codepage that cannot encode a task marker, and
+    the traceback lands where the JSON was meant to be."""
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, OSError):
+        pass
+
+
+def emit(data, indent=None):
+    json.dump(data, sys.stdout, ensure_ascii=False, indent=indent)
+    sys.stdout.write("\n")
+
+
 def answer_for(args, root):
     if args.command in ("move", "move-plan"):
         return (move if args.apply else move_plan)(root, args.src, args.dst)
@@ -2471,11 +2489,7 @@ def main(argv=None):
         parser.add_argument("--vault", default=".", help="vault root (default: .)")
     args = ap.parse_args(argv)
 
-    # A Windows console defaults to a codepage that cannot encode what a vault writes.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     if args.command == "trash":
         missing = [p for p in args.paths if not Path(p).exists()]
@@ -2484,8 +2498,7 @@ def main(argv=None):
         answer = {"trashed": [], "not_trashed": []}
         for p in args.paths:
             answer["trashed" if trash(p) else "not_trashed"].append(p)
-        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(answer, 2)
         return 1 if answer["not_trashed"] else 0
 
     if args.command == "changed":
@@ -2498,8 +2511,7 @@ def main(argv=None):
             ap.error(f"{args.file} holds no snapshot")
         diffs = {"changed": changed(snap, args.done),
                  "arrived": arrived(snap, scan_snapshot_folders(data), args.done)}
-        json.dump(diffs, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(diffs, 2)
         return 1 if diffs["changed"] or diffs["arrived"] else 0
 
     if args.command == "notice-date":
@@ -2510,8 +2522,7 @@ def main(argv=None):
             answer = notice_date(renewal, args.notice, args.term, today)
         except ValueError as err:
             ap.error(str(err))
-        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(answer, 2)
         return 0
 
     if args.command == "weekday-after":
@@ -2524,8 +2535,7 @@ def main(argv=None):
             ap.error(str(err))
         answer = {"after": iso(day), "weekday": WEEKDAYS[weekday].capitalize(),
                   "date": iso(weekday_after(day, weekday))}
-        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(answer, 2)
         return 0
 
     if args.command == "next-occurrence":
@@ -2536,8 +2546,7 @@ def main(argv=None):
             answer = next_occurrence(args.line, today)
         except ValueError as err:
             ap.error(str(err))
-        json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(answer, 2)
         return 0
 
     root = Path(args.vault)
@@ -2545,15 +2554,13 @@ def main(argv=None):
         ap.error(f"no such vault: {root}")
     if args.command == "open-items":
         files = [root / f for f in args.files] or sorted(git_modified(root))
-        json.dump(open_items(root, files), sys.stdout, ensure_ascii=False, indent=2)
-        sys.stdout.write("\n")
+        emit(open_items(root, files), 2)
         return 0
     try:
         answer = answer_for(args, root)
     except (ValueError, OSError) as err:
         ap.error(str(err))
-    json.dump(answer, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")
+    emit(answer, 2)
     return 1 if isinstance(answer, dict) and answer.get("missed") else 0
 
 

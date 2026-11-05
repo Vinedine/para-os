@@ -35,6 +35,7 @@ import json
 import os
 import re
 import sys
+from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -45,15 +46,13 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        BRIEF_LINE_CAP, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS,
-        OPEN_ITEM_CAP, STALE_FILE_DAYS, WAITING_FLAG_DAYS, action_files,
-        cadence_days, cap_count, waiting_on,
-        entity_candidates, field_ci, headline, stray_checkboxes, extract_links, header_fields,
-        contact_names,
-        file_dates, is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes,
-        open_tasks, read_lines, never_folders,
-        over_grown_briefs, parse_date, register_rows, resolve_entity,
-        resolve_link, scope_of, stage_line, stage_of, stage_parts, triage_items, unticked_tasks,
+        DATE_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS, OPEN_ITEM_CAP, STALE_FILE_DAYS,
+        WAITING_FLAG_DAYS, action_files, cadence_days, cap_count, contact_names, emit,
+        entity_candidates, entity_doc, extract_links, field_ci, file_dates, header_fields, headline,
+        is_under, iso, lifecycles, link_spans, live_lines, misplaced_checkboxes, never_folders,
+        open_tasks, over_grown_briefs, parse_date, read_lines, register_rows, resolve_entity,
+        resolve_link, scope_of, stage_line, stage_of, stage_parts, stray_checkboxes, triage_items,
+        unticked_tasks, utf8_stdout, waiting_on,
     )
     from paraos_vault import (  # noqa: E402
         DEEP_CLEAN_DUE_DAYS, deep_clean_stamp, paraos_home_dir, same_place, triage_sources,
@@ -352,37 +351,11 @@ def lifecycle_counts(vault):
     """One entry per declared lifecycle: its heading and the live entity count at each of
     its non-terminal stages. /para-pipeline owns the board and every other field on a
     staged entity; this is the one counts line the brief adds beside it."""
-    vault = Path(vault)
     out = []
     for lc in lifecycles(vault):
         stages = [s for s in lc["stages"] if not s["terminal"]]
-        by_name = {s["name"].lower(): s for s in stages}
-        counts = {s["name"]: 0 for s in stages}
-        seen_homes = set()
-        for s in stages:
-            if s["home"] in seen_homes:
-                continue
-            seen_homes.add(s["home"])
-            if s["row"]:
-                reg = vault / s["home"]
-                rows = register_rows(reg) if reg.is_file() else []
-                for row in rows:
-                    if (row.get("section") or "").strip().lower() == "closed":
-                        continue
-                    raw = re.sub(r"[*_]", "", field_ci(row, "Stage") or "").strip()
-                    matched = by_name.get(stage_parts(raw, raw)["name"].lower())
-                    if matched:
-                        counts[matched["name"]] += 1
-            elif s["home"]:
-                pattern = re.sub(r"<[^>]+>", "*", s["home"].rstrip("/"))
-                for d in sorted(vault.glob(pattern)):
-                    if not d.is_dir():
-                        continue
-                    doc = d / "README.md" if (d / "README.md").is_file() else d / "brief.md"
-                    info = stage_of(doc) if doc.is_file() else None
-                    matched = by_name.get(info["name"].strip().lower()) if info else None
-                    if matched:
-                        counts[matched["name"]] += 1
+        counts = Counter(e["stage"] for e in staged_entities(Path(vault), {"stages": stages})
+                         if not e["closed"])
         out.append({"heading": lc["heading"],
                     "counts": [{"stage": s["name"], "count": counts[s["name"]]} for s in stages]})
     return out
@@ -391,7 +364,7 @@ def lifecycle_counts(vault):
 def health_flags(vault, tasks, today, per_file_dates, scoped, entity_path=None):
     """Under an entity scope, every flag here is that entity's alone - an over-grown brief
     in an unrelated project is not this entity's problem, so it never shows in this brief."""
-    briefs = over_grown_briefs(vault, cap=BRIEF_LINE_CAP, limit=None)
+    briefs = over_grown_briefs(vault)
     if scoped and entity_path:
         own = entity_path + "/"
         briefs = [b for b in briefs if b["file"].startswith(own)]
@@ -522,14 +495,15 @@ def unattended(vault, paraos_home=None):
             "proposal_waiting": waiting}
 
 
+def last_deep_clean(vault, paraos_home=None):
+    return parse_date(read_text(deep_clean_stamp(vault, paraos_home)).strip())
+
+
 def deep_clean_due(vault, today, paraos_home=None):
     """The day /para-deep-clean's phase 3 last ran on this vault, from its stamp, where that
     is over DEEP_CLEAN_DUE_DAYS ago or never: `{"last", "days"}`, both null for never. Null
     while it is recent."""
-    try:
-        last = parse_date(deep_clean_stamp(vault, paraos_home).read_text(encoding="utf-8").strip())
-    except OSError:
-        last = None
+    last = last_deep_clean(vault, paraos_home)
     if last and (today - last).days <= DEEP_CLEAN_DUE_DAYS:
         return None
     return {"last": iso(last) if last else None, "days": (today - last).days if last else None}
@@ -560,7 +534,7 @@ def template_behind(vault, paraos_home=None, ref="origin/stable"):
     master = master_template(clone, ref)["marker"] if clone else None
     if not master:
         return None
-    mine = template_marker(read_text(Path(vault) / "CLAUDE.md") or "")
+    mine = template_marker(read_text(Path(vault) / "CLAUDE.md"))
     raw = clone_read(clone, ref, "CHANGELOG.md")
     entries = changelog_entries(raw.decode("utf-8", errors="replace")) if raw else []
     return {"vault": mine, "master": master, "behind": len(entries_between(entries, mine, master))}
@@ -590,10 +564,7 @@ def health(vault, today, report, paraos_home=None, model=None):
     signals["auto_triage"] = {"level": "watch" if run.get("proposal_waiting") else "ok",
                               "run": run.get("run"),
                               "proposal_waiting": bool(run.get("proposal_waiting"))}
-    try:
-        last = parse_date(deep_clean_stamp(vault, paraos_home).read_text(encoding="utf-8").strip())
-    except OSError:
-        last = None
+    last = last_deep_clean(vault, paraos_home)
     since = (today - last).days if last else None
     signals["deep_clean"] = {"level": level(since, (DEEP_CLEAN_DUE_DAYS + 1,
                                                     2 * DEEP_CLEAN_DUE_DAYS + 1))
@@ -662,7 +633,6 @@ def nothing_open(vault, tasks, per_file_dates):
 
 REVIEW_DAYS = {"week": 7, "month": 30}
 NAME_LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
-DATE_IN_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def review_window(arg, today):
@@ -746,8 +716,8 @@ def staged_entities(vault, lc):
                         "terminal": matched["terminal"], "closed": closed or matched["terminal"]}
             continue
         for d in sorted(vault.glob(re.sub(r"<[^>]+>", "*", s["home"].rstrip("/")))):
-            doc = d / "README.md" if (d / "README.md").is_file() else d / "brief.md"
-            info = stage_of(doc) if doc.is_file() else None
+            doc = entity_doc(d)
+            info = stage_of(doc) if doc else None
             matched = by_name.get(info["name"].strip().lower()) if info else None
             if matched:
                 rel = doc.relative_to(vault).as_posix()
@@ -895,7 +865,7 @@ def annotate_owed_to(vault, tasks):
 
 def last_touch(text):
     """(date, the note after it) from a `Last touch` field or cell: `<date>, <what happened>`."""
-    m = DATE_IN_RE.search(text or "")
+    m = DATE_RE.search(text or "")
     if not m:
         return None, (text or "").strip()
     return m.group(0), NAME_LINK_RE.sub(r"\1", text[m.end():]).strip(" ,;-")
@@ -1078,12 +1048,7 @@ def main(argv=None):
     ap.add_argument("--model", help="the running model's id, for the health card's skills review")
     args = ap.parse_args(argv)
 
-    # A Windows console and a Windows pipe both default to a codepage that cannot encode a
-    # task marker, and the traceback lands where the JSON was meant to be.
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    utf8_stdout()
 
     today = parse_date(args.today) if args.today else date.today()
     if args.today and not today:
@@ -1095,8 +1060,7 @@ def main(argv=None):
         ap.error("--review wants week, month, or a YYYY-MM-DD date no later than today")
 
     report = scan(root, today, args.entity, args.paraos_home, args.review, args.model)
-    json.dump(report, sys.stdout, ensure_ascii=False, indent=args.indent)
-    sys.stdout.write("\n")
+    emit(report, args.indent)
     return 0
 
 
