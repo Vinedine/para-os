@@ -26,8 +26,12 @@ sys.path.insert(0, str(SCRIPTS))
 import paraos_connections  # noqa: E402
 from paraos_connections import (  # noqa: E402
     END, START, check, discover, entry_problems, key, list_all, load, mailbox_problems, main,
-    manifest,
+    manifest, named_scripts, own_skills, reach, scan,
 )
+
+EMPTY = {"connections": [], "mailboxes": [], "ignore": []}
+AZ = {"id": "az", "kind": "cli", "provider": "Cloud, one sign-in", "vaults": ["work"], "read_only": True}
+CALLER = 'import urllib.request\nURL = "https://api.shop.io/v1"\n'
 
 WORK_CLAUDE = """# Work
 
@@ -103,18 +107,27 @@ class Home:
     def kinds(self, result):
         return sorted((f["kind"], f["connection"] or "") for f in result["findings"])
 
+    def write(self, root, rel, text=CALLER):
+        path = Path(root) / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
 
 class Registry(Home, unittest.TestCase):
     def test_missing_is_empty(self):
-        self.assertEqual(load(self.home), ({"connections": [], "mailboxes": []}, None))
+        self.assertEqual(load(self.home), (EMPTY, None))
 
     def test_unparseable_and_wrong_shape(self):
         (self.home / "connections.json").write_text("{", encoding="utf-8")
         self.assertIn("does not parse", load(self.home)[1])
         (self.home / "connections.json").write_text("[]", encoding="utf-8")
         self.assertIn("is not an object", load(self.home)[1])
-        (self.home / "connections.json").write_text('{"connections": 1, "mailboxes": 2}', encoding="utf-8")
-        self.assertEqual(load(self.home), ({"connections": [], "mailboxes": []}, None))
+        (self.home / "connections.json").write_text(
+            '{"connections": 1, "mailboxes": 2, "ignore": "x"}', encoding="utf-8")
+        self.assertEqual(load(self.home), (EMPTY, None))
+        (self.home / "connections.json").write_text('{"ignore": ["a.py", 3]}', encoding="utf-8")
+        self.assertEqual(load(self.home)[0]["ignore"], ["a.py"])
 
     def test_entry_shape(self):
         self.assertEqual(entry_problems(GOOD), [])
@@ -180,11 +193,154 @@ class Discovery(Home, unittest.TestCase):
 
     def test_registry_entries_that_are_not_here(self):
         self.registry([{"name": "work", "path": str(self.work), "machine": "laptop"},
-                       {"name": "gone", "path": str(self.tmp / "nope")}, "junk"])
+                       {"name": "gone", "path": str(self.tmp / "nope")}, {"path": str(self.house)}, "junk"])
         self.assertEqual(discover(self.home), ([], []))
 
 
+class Reading(unittest.TestCase):
+    """What a script's code reaches, read from its text."""
+
+    def test_a_host_counts_only_where_the_code_calls_out(self):
+        self.assertEqual(reach(CALLER, ".py"), (["api.shop.io"], []))
+        self.assertEqual(reach('PAGE = "https://shop.io/about"\n', ".py"), ([], []))
+
+    def test_what_only_a_reader_sees_is_dropped(self):
+        py = ('"""Reads https://docs.shop.io/api first."""\nimport urllib.request\n'
+              "# see https://wiki.shop.io\n    '''Also https://notes.shop.io'''\n"
+              'URL = "https://api.shop.io/v1"  # https://api.shop.io again\n'
+              'HELP = """kept: https://help.shop.io"""\n')
+        self.assertEqual(reach(py, ".py")[0], ["api.shop.io", "help.shop.io"])
+        js = ("/**\n * https://docs.shop.io\n */\n// https://wiki.shop.io\n"
+              "const r = await fetch('https://api.shop.io/v1');\nconst g = 'src/**/*.js';\n")
+        self.assertEqual(reach(js, ".mjs")[0], ["api.shop.io"])
+        ps = "<#\n https://docs.shop.io\n#>\n# https://wiki.shop.io\nInvoke-RestMethod https://api.shop.io/v1\n"
+        self.assertEqual(reach(ps, ".ps1")[0], ["api.shop.io"])
+        sh = "#!/bin/sh\n# https://wiki.shop.io\ncurl -s https://api.shop.io/v1\n"
+        self.assertEqual(reach(sh, ".sh")[0], ["api.shop.io"])
+
+    def test_a_format_or_an_example_is_not_a_host(self):
+        text = ('import requests\nrequests.get("https://API.shop.io")\n'
+                'NS = ["http://www.w3.org/2000/svg", "http://schemas.openxmlformats.org/x",\n'
+                '      "https://example.com/a", "https://api.example.org/b", "http://127.0.0.1:8080",\n'
+                '      "http://localhost:3000"]\n')
+        self.assertEqual(reach(text, ".py")[0], ["api.shop.io"])
+
+    def test_a_listed_cli_where_a_command_starts(self):
+        for code in ("az storage blob list --account x\n", "$rows = az account show | ConvertFrom-Json\n",
+                     "execSync('az account show')\n", 'subprocess.run(["az", "rest"])\n',
+                     "spawn('az.cmd', ['login'])\n", "if ! az account show; then exit 1; fi\n",
+                     "x=$(az account show)\n", "cd repo && az login\n"):
+            self.assertEqual(reach(code, ".sh", ["az", "gh"])[1], ["az"], code)
+        for code in ('NOTE = "The az write guard refuses it"\n', "topaz login\n", "$az = 1\n",
+                     "./tools/az login\n", "# az account show\n", 'which("az")\n'):
+            self.assertEqual(reach(code, ".sh", ["az", "gh"])[1], [], code)
+        self.assertEqual(reach("az account show\n", ".sh")[1], [])
+
+
+class Scanning(Home, unittest.TestCase):
+    """The scripts a vault holds and the ones its own skills name."""
+
+    def scripts(self, **more):
+        return sorted((u["name"], u["vault"], u["via"]) for u in scan(self.home, **more) if u["kind"] == "script")
+
+    def test_scripts_folders_and_what_is_left_out(self):
+        for rel in ("resources/scripts/shop.py", "areas/shop/scripts/lib/call.py", "resources/shop.py",
+                    "archive/old/scripts/gone.py", ".hidden/scripts/x.py", "resources/scripts/node_modules/m.js",
+                    "resources/scripts/test_shop.py", "resources/scripts/shop.test.js",
+                    "resources/scripts/shop_spec.ts", "resources/scripts/notes.txt",
+                    "resources/scripts/tests/t.py", "triage/scripts/t.py"):
+            self.write(self.work, rel)
+        self.write(self.work, "resources/scripts/quiet.py", "print('local')\n")
+        self.write(self.work, "resources/scripts/old.py", "# para-os-retired: 2026-01-15\n" + CALLER)
+        self.assertEqual(self.scripts(), [("areas/shop/scripts/lib/call.py", "work", "scripts"),
+                                          ("resources/scripts/shop.py", "work", "scripts")])
+
+    def test_own_skills_and_the_kit_s(self):
+        self.assertEqual(own_skills(self.house), [])
+        for name in ("para-triage", "Para-Shared", "shop-status"):
+            self.write(self.work, f".claude/skills/{name}/scripts/run.py")
+        (self.work / ".claude" / "skills" / "README.md").write_text("x", encoding="utf-8")
+        self.assertEqual([s.name for s in own_skills(self.work)], ["shop-status"])
+        self.assertEqual(self.scripts(), [(".claude/skills/shop-status/scripts/run.py", "work", "skill:shop-status")])
+
+    def test_a_skill_names_a_script(self):
+        repo = self.tmp / "code" / "shop api"
+        harness = self.write(repo, ".test/test.js", "execSync('az account show')\n")
+        self.write(repo, ".infra/add.ps1", "az ad user list\n")
+        self.write(repo, "tools/abs.py")
+        self.write(self.work, "resources/scripts/shop.py")
+        text = (f'Run `cd "{repo.as_posix()}" && node .test/test.js prod` first.\n'
+                "Then:\n```\n./.infra/add.ps1 -WhatIf\n```\n"
+                f"Also `py -3 {(repo / 'tools' / 'abs.py').as_posix().replace(' ', '?')}` and\n"
+                "`py -3 resources/scripts/shop.py`, `py -3 resources/scripts/none.py`, `cd repo && node x.js`.\n")
+        got = named_scripts(text, self.work)
+        self.assertEqual(got, [harness, repo / ".infra" / "add.ps1", self.work / "resources" / "scripts" / "shop.py"])
+        plain = self.tmp / "code" / "plain"
+        self.write(plain, "run.py")
+        self.assertEqual(named_scripts(f"cd {plain.as_posix()}\npy -3 run.py\npy -3 {(plain / 'run.py').as_posix()}\n"
+                                       f"cd '{repo.as_posix()}'; pwsh .infra/add.ps1\n", self.work),
+                         [plain / "run.py", repo / ".infra" / "add.ps1"])
+
+    def test_a_path_that_cannot_be_read_is_not_a_script(self):
+        with mock.patch.object(Path, "expanduser", side_effect=RuntimeError("no home")):
+            self.assertEqual(named_scripts("py -3 ~nobody/run.py\n", self.work), [])
+        self.write(self.work, "resources/scripts/shop.py")
+        with mock.patch.object(Path, "is_file", side_effect=OSError("held")):
+            self.assertEqual(named_scripts("py -3 resources/scripts/shop.py\n", self.work), [])
+
+    def test_a_script_too_large_or_gone_is_empty(self):
+        big = self.write(self.work, "resources/scripts/big.py")
+        with mock.patch("paraos_connections.BIGGEST", 5):
+            self.assertEqual(paraos_connections._read(big), "")
+        self.assertEqual(paraos_connections._read(self.work / "nope.py"), "")
+        self.assertEqual(paraos_connections._read(big), CALLER)
+
+    def test_a_skill_s_text_runs_a_listed_cli(self):
+        self.write(self.work, ".claude/skills/shop-status/SKILL.md",
+                   "Sign in with `az login --tenant x`, never by hand.\n\n```\naz account show\n```\n"
+                   "The az guard refuses the rest, and `gh pr list` is not listed.\n")
+        self.write(self.work, ".claude/skills/shop-status/references/more.md", "```bash\naz rest --url x\n```\n")
+        uses = [u for u in scan(self.home, clis=["az"]) if u["kind"] == "cli"]
+        self.assertEqual(uses, [{"kind": "cli", "name": "az", "vault": "work", "via": "skill:shop-status"}])
+        self.assertEqual([u for u in scan(self.home) if u["kind"] == "cli"], [])
+
+    def test_ignore_by_name_or_by_the_end_of_a_path(self):
+        for rel in ("resources/scripts/shop.py", "resources/scripts/probe.ps1", "areas/x/scripts/sign-in.js"):
+            self.write(self.work, rel, "curl https://api.shop.io\n")
+        self.assertEqual(len(self.scripts()), 3)
+        self.assertEqual(self.scripts(ignore=["probe.ps1", "x/scripts/sign-in.js", "", "hop.py"]),
+                         [("resources/scripts/shop.py", "work", "scripts")])
+
+
 class Listing(Home, unittest.TestCase):
+    def test_a_script_found_by_its_code(self):
+        repo = self.tmp / "code" / "shop-api"
+        for root in (self.work, self.house):
+            self.write(root, "resources/scripts/shop.py")
+        self.write(self.house, "resources/scripts/shop.py", "import requests\nrequests.get('https://api.bank.io')\naz login\n")
+        self.write(self.work, "zones/x/scripts/shop.py", "az account show\n")
+        self.write(repo, ".test/test.js", "execSync('az account show')\n")
+        self.write(self.work, "resources/scripts/notes.js", "fetch('https://api.notes.io')\n")
+        self.write(self.work, ".claude/skills/shop-status/SKILL.md",
+                       f"`cd {repo.as_posix()} && node .test/test.js`, then `py -3 resources/scripts/shop.py`.\n")
+        self.connections([GOOD, AZ])
+        by_id = {c["id"]: c for c in list_all(self.home)["connections"]}
+        shop = by_id["shop.py"]
+        self.assertEqual((shop["declared"], shop["kind"], shop["path"], shop["provider"]),
+                         (False, "script", "resources/scripts/shop.py", None))
+        self.assertEqual(shop["vaults"], ["work", "house"])
+        self.assertEqual(shop["used_by"], [{"vault": "work", "via": "scripts"},
+                                           {"vault": "work", "via": "skill:shop-status"},
+                                           {"vault": "house", "via": "scripts"}])
+        self.assertEqual(shop["calls"], {"hosts": ["api.shop.io", "api.bank.io"], "clis": ["az"]})
+        self.assertEqual(by_id["zones/x/scripts/shop.py"]["calls"], {"hosts": [], "clis": ["az"]})
+        harness = by_id["shop-api/.test/test.js"]
+        self.assertEqual(harness["path"], (repo / ".test" / "test.js").as_posix())
+        self.assertEqual(harness["used_by"], [{"vault": "work", "via": "skill:shop-status"}])
+        self.assertEqual(by_id["notes"]["calls"], {"hosts": ["api.notes.io"], "clis": []})
+        self.assertIn({"vault": "work", "via": "scripts"}, by_id["notes"]["used_by"])
+        self.assertNotIn("calls", by_id["az"])
+
     def test_declared_and_discovered(self):
         self.connections([GOOD, {"id": "claude.ai Gmail", "kind": "connector", "provider": "Gmail",
                                  "vaults": ["house", "work"], "machine": None, "secret": None,
@@ -251,6 +407,18 @@ class Checking(Home, unittest.TestCase):
         for quiet in ("abs-ok", "every", "remote", "awayonly"):
             self.assertNotIn(("missing_script", quiet), kinds)
 
+    def test_a_script_nobody_listed(self):
+        self.write(self.work, "resources/scripts/shop.py", CALLER + "az account show\n")
+        self.write(self.work, "resources/scripts/probe.ps1", "curl https://api.shop.io\n")
+        (self.home / "connections.json").write_text(json.dumps(
+            {"connections": [GOOD, AZ], "ignore": ["probe.ps1"]}), encoding="utf-8")
+        found = [f for f in check(self.home)["findings"] if f["connection"] == "resources/scripts/shop.py"]
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["kind"], "undeclared")
+        self.assertIn("used by work (scripts), calls az, api.shop.io,", found[0]["detail"])
+        self.assertIn("under ignore", found[0]["fix"])
+        self.assertNotIn("probe.ps1", json.dumps(check(self.home)))
+
     def test_a_retired_script_still_listed(self):
         scripts = self.work / "resources" / "scripts"
         marker = "para-os-retired: 2026-01-15\n"
@@ -294,6 +462,12 @@ class Manifest(Home, unittest.TestCase):
         self.assertIn("| `b` | browser | Web | * |  | a \\| b | no |", block)
         self.assertIn("| `tracker` (from .mcp.json) | mcp |  | work |  |  |  |", block)
         self.assertLess(block.index("`notes`"), block.index("`b`"))
+
+    def test_a_found_script_s_row(self):
+        self.write(self.work, "resources/scripts/shop.py", CALLER + "az account show\n")
+        self.connections([AZ])
+        self.assertIn("| `shop.py` (found by its code) | script | az, api.shop.io | work |  |  |  |",
+                      manifest(self.home)["block"])
 
     def test_write_appends_then_replaces_only_the_block(self):
         readme = self.home / "README.md"

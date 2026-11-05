@@ -36,6 +36,7 @@ examples/belfoot-vault/.claude/skills/
 __pycache__/
 *.pyc
 .pytest_cache/
+.coverage
 
 # MCP server config holds live tokens.
 .mcp.json

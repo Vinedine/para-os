@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The mechanics of /para-global-brief: every vault the registry lists, scanned the way its
+"""The vault scan of /para-command-center: every vault the registry lists, scanned the way its
 own /para-daily-brief scans it, as one JSON document on stdout.
 
     py -3 global_scan.py [--today YYYY-MM-DD] [--paraos-home DIR] [--model <id>] [--indent N]
@@ -63,7 +63,6 @@ try:
     from audit_scan import SKILLS_ROOT, excluded_status  # noqa: E402
     sys.path.insert(0, str(SKILLS_ROOT / "para-daily-brief" / "scripts"))
     from brief_scan import scan  # noqa: E402
-    from paraos_pages import remembered_url  # noqa: E402
     from paraos_vault import (  # noqa: E402
         cadence_days, declarations, deep_clean_stamp, iso, live_lines, norm, operator_card,
         paraos_home_dir, parse_date, read_lines, register_rows, registry, vault_paths,
@@ -279,8 +278,7 @@ def build_report(entries, today, paraos_home=None, model=None):
     until = today + timedelta(days=HORIZON_DAYS)
     out = {"today": today.isoformat(), "horizon": iso(until), "operator": me, "vaults": [],
            "tasks": [], "entities": [], "undated": 0, "people": [], "summaries": [],
-           "urgent": [], "calendars": [], "meetings": [], "excluded": [],
-           "funnel_url": remembered_url(str(home), "funnel", paraos_home)}
+           "urgent": [], "calendars": [], "meetings": [], "excluded": []}
     people, calendars = {}, {}
     kit = open_kit(paraos_home)
     for entry in entries:

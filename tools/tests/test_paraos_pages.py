@@ -162,7 +162,7 @@ class Index(PagesCase):
         remember(self.home, "funnel", "https://example.invalid/h", "Triage funnel")
         self.assertNotIn("replaced_by", self.entry("global-brief", vault_key(self.home)))
         [retired] = retire("global-brief", "command-center")
-        self.assertEqual(retired["replaced_by"], "command-center")
+        self.assertEqual((retired["replaced_by"], retired["producer"]), ("command-center", None))
         self.assertEqual(self.entry("global-brief", vault_key(self.home))["replaced_by"],
                          "command-center")
         self.assertNotIn("replaced_by", self.entry("funnel", vault_key(self.home)))

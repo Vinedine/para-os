@@ -16,8 +16,8 @@ vaults scanned, so a scan's own writes land nowhere real. A vault is only read.
 The scans, all on `--today` (default the system date), are VAULT_SCANS per vault and
 REGISTRY_SCANS once; upgrade, audit and clean read the kit from this repo at the side's own
 ref, and upgrade measures what the vault holds, not this machine's user-level skills, which
-would repeat under every vault. clean phase 3 runs last, since the brief and the global brief
-read the stamp it writes.
+would repeat under every vault. clean phase 3 runs last, since the brief and the Command
+Center's vault scan read the stamp it writes.
 Left out: ingest's prepare, which runs each vault's sync and fetch scripts against live
 services, archive, which needs an entity, and prep, which needs a person.
 
@@ -81,7 +81,7 @@ VAULT_SCANS = {
                  ["--vault", "{vault}", "--today", "{today}"]),
 }
 REGISTRY_SCANS = {
-    "global": ("multi-vault/para-global-brief/scripts/global_scan.py",
+    "global": ("multi-vault/para-command-center/scripts/global_scan.py",
                ["--today", "{today}", "--paraos-home", "{home}"]),
     "audit": ("multi-vault/para-audit/scripts/audit_scan.py",
               ["--clone", "{repo}", "--ref", "{ref}", "--paraos-home", "{home}"]),

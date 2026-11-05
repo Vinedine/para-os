@@ -74,11 +74,11 @@ python3 "<scripts>/stage.py" "<work>/run.json" --decisions "<work>/decisions.jso
 
 Exit 2 names a decision to fix. Then report, per [references/staging.md](references/staging.md): a table of vault, staged count and unrouted count, and, **at the top of the report**, every error and every thread under `undelivered`, `resolved`, `carry_over` and `rerouted`, a carry-over with its `--days` and a rerouted thread as a `Relevant when` rule to tighten. A run that staged nothing says so.
 
-Then rebuild the funnel page and publish it per [para-shared/pages.md](../para-shared/pages.md), the printed `key` standing in for the vault root:
+Then, where `para-command-center/` is installed beside this skill, rebuild its page so the inbound figures follow this run, and publish it per [para-shared/pages.md](../para-shared/pages.md), the printed `key` standing in for the vault root. It reuses the calendar events `/para-command-center` last read:
 
 ```bash
 # Windows: py -3
-python3 "<scripts>/funnel_page.py"
+python3 "<scripts>/../../para-command-center/scripts/command_center.py" --out <work>/command-center.html
 ```
 
 ## Strict rules

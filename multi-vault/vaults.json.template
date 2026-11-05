@@ -3,7 +3,9 @@
     "name": "acme-client",
     "path": "C:/Users/<you>/Documents/acme-client",
     "purpose": "The Acme engagement: delivery workstreams, their stakeholders, invoices against the statement of work, and anything the client is waiting on.",
-    "active": true
+    "active": true,
+    "neighbourhood": "Mine",
+    "street": "Client work"
   },
   {
     "name": "household",
@@ -13,19 +15,24 @@
     "auto_triage": [
       "Delete (duplicate)",
       "Dismiss (noise)"
-    ]
+    ],
+    "neighbourhood": "Mine",
+    "street": "Home"
   },
   {
     "name": "side-business",
     "path": "C:/Users/<you>/Documents/side-business",
     "purpose": "The side business: prospects and leads, supplier correspondence, and the two products it sells.",
-    "active": true
+    "active": true,
+    "neighbourhood": "Mine",
+    "street": "Client work"
   },
   {
     "name": "team-studio",
     "path": "C:/Users/<you>/Documents/team-studio",
     "purpose": "The studio the team shares. Its operator pulls its mail on their own machine, so this one shows its health and routes nothing to it.",
     "active": false,
-    "machine": "<who pulls it>"
+    "machine": "<who pulls it>",
+    "neighbourhood": "The studio's"
   }
 ]
