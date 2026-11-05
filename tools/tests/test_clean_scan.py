@@ -1228,14 +1228,29 @@ class Orphans(VaultCase):
         write(self.root, "projects/acme/actions.md", "# Actions\n")
         write(self.root, "projects/acme/README.md", "# Acme\n")
         write(self.root, "projects/acme/sources/contract.md", "# Contract\n")
-        self.assertEqual(self.run_scan("3")["phase3"]["orphans"], ["resources/old-notes.md"])
+        self.assertEqual(self.run_scan("3")["phase3"]["orphans"],
+                         {"files": ["resources/old-notes.md"], "folders": {}})
 
-    def test_a_ledger_and_a_scripts_bytecode_are_no_orphans(self):
+    def test_a_ledger_a_script_and_its_bytecode_are_no_orphans(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "resources/logs/sessions/2026-09-20-sam-aaaaaaaa.jsonl", "{}\n")
-        write(self.root, "resources/scripts/__pycache__/sync.cpython-312.pyc", "\n")
+        write(self.root, "resources/scripts/sync.py", "\n")
+        write(self.root, "areas/billing/scripts/export.py", "\n")
+        write(self.root, "areas/billing/tools/__pycache__/sync.cpython-312.pyc", "\n")
         write(self.root, "resources/old-notes.md", "# Old notes\n")
-        self.assertEqual(self.run_scan("3")["phase3"]["orphans"], ["resources/old-notes.md"])
+        self.assertEqual(self.run_scan("3")["phase3"]["orphans"]["files"],
+                         ["resources/old-notes.md"])
+
+    def test_an_entity_past_five_is_counted_across_its_subfolders(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        for n in range(3):
+            write(self.root, f"areas/contracts/signed-{n}.pdf", "\n")
+            write(self.root, f"areas/contracts/2026/signed-{n}.pdf", "\n")
+        for n in range(5):
+            write(self.root, f"projects/acme/note-{n}.md", "# Note\n")
+        found = self.run_scan("3")["phase3"]["orphans"]
+        self.assertEqual(found["folders"], {"areas/contracts": 6})
+        self.assertEqual(found["files"], [f"projects/acme/note-{n}.md" for n in range(5)])
 
 
 class StaleUndated(VaultCase):
