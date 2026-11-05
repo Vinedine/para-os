@@ -234,6 +234,11 @@ class Mentions(VaultCase):
         self.assertEqual(self.mentioned("- [ ] Reply to JAN@acme.example"),
                          [("projects/acme/actions.md", "email")])
 
+    def test_an_address_holding_the_cards_is_another_persons(self):
+        write(self.root, "areas/network/jan-janssen.md", "# Jan Janssen\n\njan@acme.example\n")
+        for text in ("Reply to marjan@acme.example", "Reply to jan@acme.example.org"):
+            self.assertEqual(self.mentioned(f"- [ ] {text}"), [])
+
     def test_the_cards_own_items_are_not_mentions_but_another_cards_are(self):
         write(self.root, "areas/network/ann-peeters.md",
               "# Ann Peeters\n\n## Next actions\n\n- [ ] Introduce Ann to Jan Janssen\n")

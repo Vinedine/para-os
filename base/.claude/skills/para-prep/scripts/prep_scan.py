@@ -215,7 +215,7 @@ class Who:
                 if same_target(resolve_link(from_file, href)) == self.card:
                     return "link"
         folded = fold(text)
-        if any(e in folded for e in self.emails):
+        if set(self.emails) & set(EMAIL_RE.findall(folded)):
             return "email"
         for pattern, kind in self.full:
             if pattern.search(folded):

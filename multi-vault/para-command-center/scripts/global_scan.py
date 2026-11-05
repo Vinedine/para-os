@@ -63,6 +63,7 @@ try:
     from audit_scan import SKILLS_ROOT, excluded_status  # noqa: E402
     sys.path.insert(0, str(SKILLS_ROOT / "para-daily-brief" / "scripts"))
     from brief_scan import scan  # noqa: E402
+    from paraos_clone import clone_session  # noqa: E402
     from paraos_vault import (  # noqa: E402
         cadence_days, declarations, deep_clean_stamp, iso, live_lines, norm, operator_card,
         paraos_home_dir, parse_date, read_lines, register_rows, registry, vault_paths,
@@ -239,10 +240,15 @@ def calendar_rows(vault):
 
 
 def step_days(cadence):
-    """A recurring meeting's period in days: a cadence word, or a weekday, which is weekly."""
-    body = cadence[len("every"):].strip().lower()
-    return cadence_days(cadence) or (7 if weekday_index(body.split()[0] if body else "")
-                                     is not None else None)
+    """A recurring meeting's period in days: a cadence word, or a weekday, which is weekly, or
+    every second one for `every 2 tuesdays`. None for other wording: the meeting shows once."""
+    words = cadence[len("every"):].lower().split()
+    count = int(words.pop(0)) if words and words[0].isdigit() else 1
+    try:
+        return cadence_days(cadence) or (7 * count if words and
+                                         weekday_index(words[0].rstrip("s")) is not None else None)
+    except ValueError:
+        return None
 
 
 def meetings(vault, name, today, until):
@@ -272,6 +278,7 @@ def meetings(vault, name, today, until):
     return out
 
 
+@clone_session()
 def build_report(entries, today, paraos_home=None, model=None):
     home = paraos_home_dir(paraos_home)
     me = operator_card(paraos_home)

@@ -460,7 +460,7 @@ def delivered(vault, row, paraos_home):
     older copy kept one per machine at `<PARAOS_HOME>/data/<name>/synced.json` or
     `cache/<name>/`, where a note is this vault's when it was written under it. Each note is
     named from its item's date. A mailbox's own ledger is `/para-ingest`'s, its threads this
-    vault's when routed to the folder's name. `/para-triage`'s seen-ledger is the vault's,
+    vault's when routed to its registry name. `/para-triage`'s seen-ledger is the vault's,
     not a source's, so a mailbox read without ingest has none."""
     home = paraos_home_dir(paraos_home)
     if row["kind"] == "sync-script" and row["path"]:
@@ -495,7 +495,7 @@ def delivered(vault, row, paraos_home):
             return path, [], "unreadable"
         threads = next((t for box, t in ledger["mailboxes"].items()
                         if box.lower() == row["mailbox"].lower()), {})
-        name = Path(vault).name
+        name = vault_name(vault, paraos_home)
         return path, [parse_date(str(t.get("seen_date") or t.get("date"))[:10])
                       for t in threads.values()
                       if isinstance(t, dict) and name in (t.get("routed") or [])], None

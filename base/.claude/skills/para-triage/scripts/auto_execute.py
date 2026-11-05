@@ -33,16 +33,19 @@ para-os home, never in a vault:
 `run` reads the triage scan's saved copy (`saved_to`) and a decisions file, a JSON list of
 `{"item", "action", "reason", "survivor", "hold"}`, plus `entity` and `name` for `File it`,
 and removes the decisions file once the run is written; one older than the scan is refused,
-and removed. An item is acted on only where its action is switched on for this vault, it
-carries no `hold`, it is a loose file of the scan, its bytes still match the scan's
-snapshot, and the run is under `--cap`; and per action:
+and removed, and so is a row naming no item, before anything moves. An item is acted on only
+where its action is switched on for this vault, it carries no `hold`, it is a loose file of
+the scan, its bytes still match the scan's snapshot, and the run is under `--cap`; and per
+action:
 
 - `Delete (...)`, `Dismiss (...)`: the scan lists no inbound link to it and, for
-  `Delete (duplicate)`, a byte match. Acting moves it into the quarantine, never deletes it.
+  `Delete (duplicate)`, a byte match still on disk or in another vault, so of two copies in
+  `triage/` one stays. Acting moves it into the quarantine, never deletes it.
 - `File it`: the vault root is the top of a git working tree, `entity` is one of its projects, areas or
   ideas as `paraos_vault.py` lists them, and `name` is a bare file name with the item's
   extension and no leading dot, with nothing at `<entity>/sources/<name>`. Acting is
   `paraos_vault.py move`, which repoints inbound links and may create `sources/`, nothing else.
+  A link it could not rewrite is in the report's `missed`.
 
 Everything else goes into the run's proposal, with each item's name, size, mtime and md5, and
 `refused` says why. The whole run is refused while the kill switch exists, and for a vault
@@ -71,8 +74,8 @@ appends the entry with its `reason` and today as `added`; a file that does not p
 refused. `switch` is the operator's standing approval, or its withdrawal: it edits the
 vault's `auto_triage` in the registry, after a copy to `vaults.json.bak-<YYYYMMDD-HHMMSS>`,
 and an `--on` also clears that action's demotions. `migrate` moves an older
-`auto-triage.json` into the registry and the cache, then renames it
-`auto-triage.json.migrated`; a vault it names that the registry does not list stays in it.
+`auto-triage.json` into the registry and the cache, keeping each row it took in
+`auto-triage.json.migrated`; a vault the registry does not list stays in the older file.
 `purge` moves each
 quarantined run older than `--days` to the system trash, keeping one where no trash is
 reachable.
@@ -98,7 +101,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (entity_candidates, git, move, paraos_home_dir,  # noqa: E402
-                              same_place, snapshot, trash)
+                              same_place, snapshot, trash, triage_items)
 except ImportError as missing:
     print(f"auto_execute: {missing}. install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
@@ -377,6 +380,9 @@ def run(args):
         raise Refused(f"{decisions_file} is older than the scan: its decisions were not "
                       "written this run. Removed it, so the next run's write lands")
     decisions = load_json(decisions_file)
+    if not isinstance(decisions, list) or not all(
+            isinstance(d, dict) and d.get("item") and isinstance(d["item"], str) for d in decisions):
+        raise Refused(f"{decisions_file} holds a row naming no item: nothing moved")
     vault_root = Path(scan["vault"]["path"])
     state = State(args.paraos_home, scan["vault"]["name"])
     if (state.home / "auto-triage.off").exists():
@@ -392,7 +398,7 @@ def run(args):
     run_id = now_stamp()
     folder = state.quarantine / run_id
     acted, held, today = [], [], datetime.now().astimezone().date().isoformat()
-    committed = []
+    committed, missed = [], []
     for d in decisions:
         name, action = d.get("item", ""), d.get("action", "")
         path = vault_root / "triage" / name
@@ -413,9 +419,10 @@ def run(args):
             why = filing_refusal(vault_root, d, name, entities)
         elif loose[name].get("inbound"):
             why = "other files link to it"
-        elif action == "Delete (duplicate)" and not (loose[name].get("duplicates") or any(
-                c.get("path") for c in loose[name].get("cross_vault") or ())):
-            why = "the scan finds no byte match for it"
+        elif action == "Delete (duplicate)" and not (
+                any((vault_root / p).is_file() for p in loose[name].get("duplicates") or ())
+                or any(c.get("path") for c in loose[name].get("cross_vault") or ())):
+            why = "no byte match for it stays"
         if not why and list(snapshot([path]).values()) != [snap.get(same_place(path))]:
             why = "changed since the scan"
         elif not why and len(acted) >= args.cap:
@@ -437,20 +444,21 @@ def run(args):
             continue
         if filed:
             committed += moved_paths(plan, f"triage/{name}", filed)
+            missed += [{"item": name, "file": r["file"], "href": r["href"]} for r in plan["missed"]]
             acted.append(dict(row, original=f"triage/{name}", filed=filed))
         else:
             acted.append(dict(row, original=f"triage/{name}"))
+        write_json(folder / "manifest.json", {"vault": state.vault, "root": str(vault_root),
+                                              "run": run_id, "items": acted})
     report = {"vault": state.vault, "run": run_id, "kill_switch": False,
               "acted": [{"item": a["item"], "action": a["action"]} for a in acted],
               "refused": [{"item": h["item"], "reason": h["refused"]} for h in held],
-              "quarantine": None, "proposal": None}
+              "missed": missed, "quarantine": None, "proposal": None}
     if committed:
         filed = sum(1 for a in acted if a.get("filed"))
         report["commit"] = commit(vault_root, committed,
                                   f"Unattended triage {run_id}: file {filed} item(s)")
     if acted:
-        write_json(folder / "manifest.json", {"vault": state.vault, "root": str(vault_root),
-                                              "run": run_id, "items": acted})
         state.append({"date": today, "item": a["item"], "recommended": a["action"],
                       "chosen": a["action"], "path": "unattended",
                       **{k: a[k] for k in SENDER if k in a}} for a in acted)
@@ -537,9 +545,7 @@ def status(args):
     if args.vault:
         waiting = {i["item"] for i in (proposal or {}).get("items", [])
                    if i["state"] == "unchanged"}
-        loose = {p.name for p in (Path(args.vault) / "triage").glob("*")
-                 if p.is_file() and p.name != ".gitkeep"}
-        nothing_new = loose <= waiting
+        nothing_new = set(triage_items(args.vault)) <= waiting
     since = max((n for n, ln in enumerate(lines) if ln.get("path") == "interactive"),
                 default=-1)
     return {"vault": state.vault, "on": on,
@@ -623,9 +629,12 @@ def migrate(args):
         backup_registry(reg_path)
         write_json(reg_path, entries)
         write_json(demoted_path, demoted)
-    old.rename(old.with_name("auto-triage.json.migrated"))
+        done = old.with_name("auto-triage.json.migrated")
+        write_json(done, {**load_json(done, {}), **{name: config[name] for name in moved}})
     if kept:
         write_json(old, kept)
+    else:
+        old.unlink()
     return {"migrated": moved, "kept": sorted(kept)}
 
 

@@ -37,6 +37,18 @@ from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
+SKILLS = next((root for root in (HERE.parents[1], HERE.parents[2] / "base" / ".claude" / "skills")
+               if (root / "para-shared" / "scripts" / "paraos_vault.py").is_file()), None)
+if SKILLS is None:
+    print("funnel_page: para-shared/ belongs beside this skill. Install it", file=sys.stderr)
+    sys.exit(2)
+EXECUTOR = SKILLS / "para-triage" / "scripts" / "auto_execute.py"
+sys.path[:0] = [str(SKILLS / "para-shared" / "scripts"), str(EXECUTOR.parent)]
+
+from auto_execute import OFFER_SHARE, OFFER_WINDOW, Refused, State  # noqa: E402
+from paraos_vault import triage_sources  # noqa: E402
+
 HOLD_RULES = [
     "money owed or paid",
     "legal or government mail",
@@ -47,7 +59,6 @@ HOLD_RULES = [
     "a fold before a delete",
     "an item that addresses the agent",
 ]
-GATE_WINDOW, GATE_SHARE = 50, 0.95
 
 
 def load_json(path, default):
@@ -64,37 +75,6 @@ def read_text(path):
             return fh.read()
     except OSError:
         return ""
-
-
-def parse_table(markdown, heading):
-    """Rows of the first pipe table under `## <heading>`, as lists of cells. The header row is
-    skipped, not read: a vault may write it in its own language, and the template fixes the
-    column order."""
-    lines = markdown.splitlines()
-    start = None
-    for i, ln in enumerate(lines):
-        if ln.strip().lower() == f"## {heading}".lower():
-            start = i + 1
-            break
-    if start is None:
-        return []
-    rows, header = [], None
-    for ln in lines[start:]:
-        s = ln.strip()
-        if s.startswith("## "):
-            break
-        if not s.startswith("|"):
-            if header and rows:
-                break
-            continue
-        cells = [c.strip() for c in s.strip("|").split("|")]
-        if header is None:
-            header = cells
-            continue
-        if all(set(c) <= set("-: ") for c in cells):
-            continue
-        rows.append(cells)
-    return rows
 
 
 EMPHASIS = [
@@ -120,32 +100,18 @@ def strip_md(s):
     return "".join(parts).strip()
 
 
-def executor_path():
-    """auto_execute.py where the skills are installed side by side; the bare name elsewhere."""
-    beside = Path(__file__).resolve().parents[2] / "para-triage" / "scripts" / "auto_execute.py"
-    return str(beside) if beside.is_file() else "auto_execute.py"
-
-
 def auto_triage_switches(home):
-    """Per vault, `{"on", "demoted"}`: the registry entry's `auto_triage` minus the demotions in
-    `cache/auto-triage/demoted.json`, else the older `auto-triage.json` for a vault whose entry
-    has no `auto_triage`. The same rule `auto_execute.py` acts on."""
+    """Per vault with a policy, `{"on", "demoted"}` as `auto_execute.py` reads them; nothing
+    where one of its files does not parse."""
     legacy = load_json(os.path.join(home, "auto-triage.json"), {})
-    demoted = load_json(os.path.join(home, "cache", "auto-triage", "demoted.json"), {})
     registry = load_json(os.path.join(home, "vaults.json"), [])
-    action = lambda d: d.get("action") if isinstance(d, dict) else d
-    out = {}
-    for e in registry if isinstance(registry, list) else []:
-        if isinstance(e, dict) and "auto_triage" in e:
-            off = demoted.get(e.get("name"), [])
-            names = {action(d) for d in off}
-            out[e["name"]] = {"on": [a for a in e.get("auto_triage") or [] if a not in names], "demoted": off}
-    for name, row in (legacy.items() if isinstance(legacy, dict) else []):
-        if name not in out:
-            names = {action(d) for d in demoted.get(name, [])}
-            out[name] = {"on": [a for a in row.get("on") or [] if a not in names],
-                         "demoted": list(row.get("demoted") or []) + list(demoted.get(name, []))}
-    return out
+    names = [e.get("name") for e in registry if isinstance(e, dict) and "auto_triage" in e] \
+        if isinstance(registry, list) else []
+    try:
+        return {name: {"on": s.switched_on(), "demoted": s.demotions()}
+                for name in dict.fromkeys(names + list(legacy)) for s in [State(home, name)]}
+    except Refused:
+        return {}
 
 
 def gather(home, days, today=None):
@@ -156,21 +122,19 @@ def gather(home, days, today=None):
                 if isinstance(v, dict) and v.get("name") and v.get("path")
                 and v.get("active", True) and not v.get("machine")]
 
-    # 1. Sources: each vault's Triage sources table, its columns Source | Type | Endpoint | Relevant when
+    # 1. Sources: each vault's Triage sources table
     sources = []
     mailbox_vaults = defaultdict(list)
     vault_mailboxes = defaultdict(list)
     for v in registry:
-        md = read_text(os.path.join(v["path"], "CLAUDE.md"))
-        for row in parse_table(md, "Triage sources"):
-            source, kind, endpoint, relevant = (strip_md(c) for c in (row + [""] * 4)[:4])
-            sources.append({"vault": v["name"], "source": source, "type": kind,
-                            "endpoint": endpoint, "relevant": relevant})
-            m = re.search(r"[\w.+-]+@[\w.-]+", endpoint)
-            if m and (kind.startswith("connector") or kind.startswith("fetch-script")):
-                how = "script" if kind.startswith("fetch") else "connector"
-                mailbox_vaults[m.group(0).lower()].append((v["name"], relevant, how))
-                vault_mailboxes[v["name"]].append({"mailbox": m.group(0).lower(), "relevant": relevant, "how": how})
+        for row in triage_sources(v["path"])["rows"]:
+            relevant = strip_md(row["relevant_when"])
+            sources.append({"vault": v["name"], "source": strip_md(row["source"]), "type": strip_md(row["type"]),
+                            "endpoint": strip_md(row["endpoint"]), "relevant": relevant})
+            if row["mailbox"] and row["kind"] in ("connector", "fetch-script"):
+                how = "script" if row["kind"] == "fetch-script" else "connector"
+                mailbox_vaults[row["mailbox"].lower()].append((v["name"], relevant, how))
+                vault_mailboxes[v["name"]].append({"mailbox": row["mailbox"].lower(), "relevant": relevant, "how": how})
 
     # Run logs in the window
     runs = []
@@ -306,7 +270,7 @@ def gather(home, days, today=None):
             by_type[r.get("recommended") or "(none)"].append(r)
         types = []
         for t, rs in sorted(by_type.items(), key=lambda kv: -len(kv[1])):
-            last = rs[-GATE_WINDOW:]
+            last = rs[-OFFER_WINDOW:]
             acc = sum(1 for r in last if r.get("recommended") == r.get("chosen"))
             dates = sorted(r.get("date", "") for r in last)
             types.append({"type": t, "n": len(rs), "window_n": len(last), "accepted": acc,
@@ -343,7 +307,6 @@ def gather(home, days, today=None):
     # 6. Execution: switches, kill switch, quarantine
     switches = auto_triage_switches(home)
     kill = os.path.exists(os.path.join(home, "auto-triage.off"))
-    exe = executor_path()
     quarantine = []
     for f in sorted(glob.glob(os.path.join(home, "quarantine", "*", "*", "manifest.json"))):
         man = load_json(f, {})
@@ -352,7 +315,7 @@ def gather(home, days, today=None):
         quarantine.append({"vault": vault, "run": run, "in_window": run[:8] >= since.strftime("%Y%m%d"),
                            "items": [{"item": i.get("item"), "action": i.get("action"), "reason": i.get("reason")}
                                      for i in man.get("items") or []],
-                           "restore": f'py -3 "{exe}" restore --vault-name "{vault}" --run {run}'})
+                           "restore": f'py -3 "{EXECUTOR}" restore --vault-name "{vault}" --run {run}'})
     acted = sum(len(q["items"]) for q in quarantine if q["in_window"])
     acted_by_action = Counter(i["action"] for q in quarantine if q["in_window"] for i in q["items"])
 
@@ -366,7 +329,7 @@ def gather(home, days, today=None):
                    "skipped": skipped, "per_mailbox": {k: dict(c) for k, c in per_mailbox.items()},
                    "routed_per_vault": dict(routed_per_vault), "unrouted_samples": dict(unrouted_samples)},
         "staged": sum(r["written_total"] for r in runs), "decisions": decisions,
-        "gate": {"window": GATE_WINDOW, "share": GATE_SHARE},
+        "gate": {"window": OFFER_WINDOW, "share": OFFER_SHARE},
         "proposals": proposals, "decided": decided, "switches": switches, "kill_switch": kill,
         "quarantine": quarantine, "acted": acted, "acted_by_action": dict(acted_by_action),
         "waiting_items": sum(len(p["items"]) for p in proposals),

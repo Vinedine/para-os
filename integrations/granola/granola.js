@@ -1,5 +1,5 @@
 // granola.js - pull recent Granola meetings (enhanced notes + transcript) into a vault's triage/.
-// para-os-integration: granola 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+// para-os-integration: granola 2026.11.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 // Drop this file in <vault>/resources/scripts/ and run it there. By default every recent meeting is
 // written to THIS vault's triage/ as a dated Markdown note, ready for /para-triage to file.
 //   node granola.js            # DRY RUN: shows what it would write, touches nothing
@@ -269,16 +269,17 @@ function noteId(file) {
   } catch { return null; }
 }
 
-// [path, alreadyWritten]. A different meeting sharing a date and title gets its id's first six
-// characters appended, instead of the existing-file check dropping it as a duplicate.
-// Matches pocket.py's pick_path.
+// [path, alreadyWritten]. Meetings sharing a date and title get an id suffix, the first six
+// characters, then the whole id, then a counter, each taken only when the file there is absent
+// or carries this meeting's id. Matches pocket.py's pick_path.
 function pickPath(dir, date, desc, id) {
-  const base = `${date.replace(/-/g, "")} ${desc}`;
-  const p = path.join(dir, `${base}.md`);
-  if (!fs.existsSync(p)) return [p, false];
-  if (noteId(p) === String(id)) return [p, true];
-  const alt = path.join(dir, `${base} (${String(id).slice(0, 6)}).md`);
-  return [alt, fs.existsSync(alt)];
+  const base = `${date.replace(/-/g, "")} ${desc}`, full = sanitize(id);
+  for (let i = 0; ; i++) {
+    const suffix = ["", ` (${String(id).slice(0, 6)})`, ` (${full})`][i] ?? ` (${full} ${i - 1})`;
+    const p = path.join(dir, `${base}${suffix}.md`);
+    if (!fs.existsSync(p)) return [p, false];
+    if (noteId(p) === String(id)) return [p, true];
+  }
 }
 
 // Decide which vault (and folder) a meeting belongs to.
@@ -319,7 +320,7 @@ async function main() {
   const recent = docs.filter(d => new Date(d.created_at).getTime() >= cutoff && !d.deleted_at);
   console.log(`${WRITE ? "WRITE" : "DRY RUN"} · last ${DAYS} days · ${recent.length} meetings${MULTI ? ` · routing ${ONLY_VAULT ? "-> " + ONLY_VAULT : "all vaults"}` : ""}\n`);
 
-  let written = 0, skipped = 0, unrouted = 0, elsewhere = 0, held = 0, failed = 0;
+  let written = 0, recorded = 0, skipped = 0, unrouted = 0, elsewhere = 0, held = 0, failed = 0;
   for (const d of recent.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))) {
     const r = resolveDest(d);
     const when = localTime(d.created_at);
@@ -335,7 +336,15 @@ async function main() {
 
     const [dest, exists] = pickPath(r.dir, r.date, r.desc, d.id);
     const fname = path.basename(dest);
-    if (state[d.id] || exists) { console.log("  ==  " + label + "-> " + r.vault + "/" + MEETINGS_SUBDIR + " (exists, skip)"); skipped++; continue; }
+    if (state[d.id]) { console.log("  ==  " + label + "-> " + r.vault + "/" + MEETINGS_SUBDIR + " (exists, skip)"); skipped++; continue; }
+    if (exists) {
+      // This meeting's note, written by a run that stopped before ledgering it: ledger it now, or
+      // it is imported again once /para-triage files the note out of this folder.
+      console.log(`  ==  ${label}-> ${r.vault}/${MEETINGS_SUBDIR}/${fname} (exists, ${WRITE ? "recorded" : "would record"})`);
+      if (WRITE) record(d.id, dest, r.vault);
+      recorded++;
+      continue;
+    }
 
     // enhanced notes (the "Summary" panel Granola generates). A failed fetch (429, 5xx, an expired
     // token) is not "no notes": nothing is written or ledgered, so the next run retries it.
@@ -388,7 +397,7 @@ async function main() {
     written++;
   }
 
-  console.log(`\n${WRITE ? "wrote" : "would write"}: ${written} · skipped(exists): ${skipped} · held: ${held} · failed: ${failed}${MULTI ? ` · unrouted: ${unrouted} · other vaults: ${elsewhere}` : ""}`);
+  console.log(`\n${WRITE ? "wrote" : "would write"}: ${written}${recorded ? ` · ${WRITE ? "recorded" : "would record"}: ${recorded}` : ""} · skipped(exists): ${skipped} · held: ${held} · failed: ${failed}${MULTI ? ` · unrouted: ${unrouted} · other vaults: ${elsewhere}` : ""}`);
   if (!WRITE) console.log("Re-run with --write to create the files.");
 }
 // Run only when invoked directly, so the test suite can require() the pure helpers below

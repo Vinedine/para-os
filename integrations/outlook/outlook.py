@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# para-os-integration: outlook 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+# para-os-integration: outlook 2026.11.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 """Read Outlook.com / Hotmail / Microsoft 365 mailboxes via Microsoft Graph and hand the
 messages to a caller that decides what they mean. Writes nothing, anywhere, ever.
 
@@ -860,7 +860,9 @@ def cmd_fetch(cfg, args):
     when` rules exactly as it judges mail from a Gmail connector, and writes only what
     survives. The reading happens here; the decision happens where the context is.
 
-    stdout is pure JSON so a caller can parse it; every human-readable line goes to stderr.
+    stdout is pure JSON so a caller can parse it; every human-readable line goes to stderr. A
+    mailbox that failed exits non-zero after the JSON: /para-ingest starts a mailbox's next
+    window from its last clean read, so a clean exit here loses what arrived in the outage.
 
     `--sent` adds Sent Items to the folders read, over at least SENT_MIN_DAYS, so each thread
     also carries the owner's own messages: what they promised, and what nobody answered.
@@ -960,15 +962,14 @@ def cmd_fetch(cfg, args):
     if missing:
         print(f"! {len(missing)} mailbox(es) skipped (not logged in here): "
               f"{', '.join(missing)}", file=sys.stderr)
-    if failed:
-        print(f"! {len(failed)} mailbox(es) failed and were skipped: "
-              f"{', '.join(failed)}", file=sys.stderr)
     print(f"total: {scanned_total} scanned, {bulk_total} bulk skipped, "
           f"{msg_total} messages in {len(records)} candidate threads. "
           f"Read-only: nothing was written.", file=sys.stderr)
 
     json.dump(records, sys.stdout, indent=2, ensure_ascii=False)
     sys.stdout.write("\n")
+    if failed:
+        sys.exit(f"{len(failed)} mailbox(es) failed and were skipped: {', '.join(failed)}")
 
 
 def cmd_search(cfg, args):
