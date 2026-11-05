@@ -129,7 +129,7 @@ body{padding:16px clamp(16px,3vw,40px)}
 <div class="cc">
   <header class="cc-head">
     <h1 class="cc-title">Command center</h1>
-    <p class="cc-take"><b class="dash-skeleton" data-draw="n-late" data-source="summary" data-field="n" data-where="key=late">—</b> late, <b class="dash-skeleton" data-draw="n-today" data-source="summary" data-field="n" data-where="key=today">—</b> due today, <b class="dash-skeleton" data-draw="n-held" data-source="summary" data-field="n" data-where="key=held">—</b> triage items held for your decision, and <b class="dash-skeleton" data-draw="n-repos" data-source="summary" data-field="n" data-where="key=repos">—</b> repos with something to look at.</p>
+    <p class="cc-take"><b class="dash-skeleton" data-draw="n-late" data-source="summary" data-field="n" data-where="key=late">·</b> late, <b class="dash-skeleton" data-draw="n-today" data-source="summary" data-field="n" data-where="key=today">·</b> due today, <b class="dash-skeleton" data-draw="n-held" data-source="summary" data-field="n" data-where="key=held">·</b> triage items held for your decision, and <b class="dash-skeleton" data-draw="n-repos" data-source="summary" data-field="n" data-where="key=repos">·</b> repos with something to look at.</p>
   </header>
 
   <div class="cc-grid">
@@ -229,7 +229,7 @@ const asDay = (s) => new Date(s + 'T00:00:00Z');
 const make = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 function setText(el, d, val) {
   el.classList.toggle('dash-skeleton', d.status === 'loading');
-  el.textContent = d.status === 'ok' && val != null && val !== '' ? String(val) : '—';
+  el.textContent = d.status === 'ok' && val != null && val !== '' ? String(val) : '·';
 }
 for (const key of ['late', 'today', 'held', 'repos']) {
   dash.draw('n-' + key, (el) => { const d = dash.data('summary'); const row = d.status === 'ok' ? d.data.find((r) => r.key === key) : null; setText(el, d, row ? row.n : null); });
