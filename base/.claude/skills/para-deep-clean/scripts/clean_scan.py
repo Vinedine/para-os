@@ -72,6 +72,7 @@ DEFAULT_DATED_PATTERN = r"^\d{8} "
 DEFAULT_NEXT_STEPS_HEADINGS = ("Next steps", "Open items")
 ENTITY_BASES = ("projects", "areas", "resources/ideas")
 GROWN = 1.5     # a brief past this many times its length at the last deep clean is read again
+ORPHANS_LISTED = 5  # an entity with more orphans than this is reported as a count
 STRUCTURE_FILES = ("README.md", "brief.md", "actions.md")
 LIVE_ROOTS = ("projects", "areas", "resources", "triage")  # archive/ is history, not live
 # A link target inside archive/ is still a path that must resolve; only prose there is history.
@@ -898,21 +899,25 @@ def briefs(vault):
 
 
 def orphans(vault):
-    """Files under projects/, areas/ or resources/ that no link anywhere in the vault reaches,
-    percent-decoded. A README, brief or actions file is reached by its folder, a `sources/`
-    file or a ledger is a record, and `__pycache__` is a script's own, so none is listed."""
+    """Files under projects/, areas/ or resources/ that no link anywhere in the vault reaches:
+    `files`, percent-decoded, or in `folders` only the count of an entity past ORPHANS_LISTED.
+    A README, brief or actions file is reached by its folder, a `sources/` file or a ledger is
+    a record, and `scripts/` and `__pycache__` hold code, so none is listed."""
     reached = {abspath(resolve_link(f, href)) for f in link_files(vault, DANGLING_ROOTS)
                for _, href, _ in extract_links(read_text(f))}
-    out = []
+    found = {}
     for bucket in ("projects", "areas", "resources"):
         for path in (vault / bucket).rglob("*"):
             rel = path.relative_to(vault)
             if path.is_file() and path.name not in STRUCTURE_FILES \
-                    and not {"sources", "__pycache__"} & set(rel.parts) \
+                    and not {"sources", "scripts", "__pycache__"} & set(rel.parts) \
                     and not any(p.startswith(".") for p in rel.parts) \
                     and not is_ledger_exempt(rel) and abspath(path) not in reached:
-                out.append(rel.as_posix())
-    return sorted(out)
+                found.setdefault("/".join(rel.parts[:2]), []).append(rel.as_posix())
+    listed = [f for files in found.values() if len(files) <= ORPHANS_LISTED for f in files]
+    return {"files": sorted(listed), "folders": {entity: len(files) for entity, files
+                                                 in sorted(found.items())
+                                                 if len(files) > ORPHANS_LISTED}}
 
 
 def bullets_under_headings(path, headings, vault):
