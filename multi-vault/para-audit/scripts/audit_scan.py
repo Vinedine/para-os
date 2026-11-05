@@ -453,7 +453,6 @@ def upgrade_first(rows):
 
 # =========================================================================== the report
 
-@clone_session()
 def auto_triage_check(home, entries):
     """Vault names in `cache/auto-triage/demoted.json` the registry does not list: a demotion
     keyed by a name that no longer matches switches nothing off. `legacy` is true while an
@@ -480,6 +479,7 @@ def tasks_block(home, app_tasks=None):
     return block
 
 
+@clone_session()
 def build_report(registry_path, entries, clone, ref_arg, clone_source, default_clone,
                  app_tasks=None):
     report = {"registry": {"path": str(registry_path),

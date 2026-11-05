@@ -19,7 +19,7 @@ function card(level: string, signals: Record<string, string>) {
 }
 
 // The world beneath the mod: a vault folder, its triage/, git or not, and the scan.
-function world(on: any, opts: { git: string | null; triage: number; scan: string | null }) {
+function world(on: any, opts: { git: string | null; prefix?: string; triage: number; scan: string | null }) {
   const clock = mock.clock(on, { now: START + 60000 })
   on('session.start', (_: any, e: any) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: VAULT }))
@@ -34,6 +34,7 @@ function world(on: any, opts: { git: string | null; triage: number; scan: string
   on('process.run', (_: any, e: any) => {
     runs.push(e.argv)
     const out = (stdout: string, exitCode = 0) => ({ value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
+    if (e.argv[0] === 'git' && e.argv[1] === 'rev-parse') return out(`${opts.prefix ?? ''}\n`)
     if (e.argv[0] === 'git') return opts.git === null ? out('', 128) : out(opts.git)
     return opts.scan === null ? out('', 1) : out(opts.scan)
   })
@@ -63,6 +64,16 @@ test('a git vault: this session\'s uncommitted edit shows, and clears the verdic
   await clock.advance(5)
   await $.turn.complete({ answer: 'Done.\n\nClose: ready', text: 'Done.\n\nClose: ready', reason: 'end_turn' } as any)
   expect(await band($)).toBe('Can close · open 1m · health ok · Claude: ready')
+  await $.tool.call({ tool: 'Edit', file_path: `${VAULT}/notes.md`, old_string: 'a', new_string: 'b' } as any)
+  expect(await band($)).toBe('Not yet · 1 edited, not committed · open 1m · health ok · Claude: ready')
+})
+
+test('a vault below its repo root: git names paths from the root, and the edit still shows', async ($, on) => {
+  const w = { git: ' M vault/notes.md\0 M elsewhere.md\0', prefix: 'vault/', triage: 0, scan: card('ok', { last_edit: 'ok', triage: 'ok', deep_clean: 'ok', template: 'ok', waits: 'ok' }) }
+  const { clock } = world(on, w)
+  await $.session.start({ cwd: VAULT, surface: 'desktop', isInteractive: true } as any)
+  await clock.advance(5)
+  await $.turn.complete({ answer: 'Close: ready', text: 'Close: ready', reason: 'end_turn' } as any)
   await $.tool.call({ tool: 'Edit', file_path: `${VAULT}/notes.md`, old_string: 'a', new_string: 'b' } as any)
   expect(await band($)).toBe('Not yet · 1 edited, not committed · open 1m · health ok · Claude: ready')
 })

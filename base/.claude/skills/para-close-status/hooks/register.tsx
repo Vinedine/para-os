@@ -64,11 +64,12 @@ function paths(stdout: string): string[] {
 async function scan($: EngineInterface): Promise<Files> {
   const cwd = await $.session.cwd()
   const { startedAt } = await $.session.usage()
-  const git = await $.process
-    .run(['git', 'status', '--porcelain', '-z', '--untracked-files=all'], { cwd, timeoutMs: 10000 })
-    .catch(() => null)
+  const run = (...args: string[]) => $.process.run(['git', ...args], { cwd, timeoutMs: 10000 }).catch(() => null)
+  const git = await run('status', '--porcelain', '-z', '--untracked-files=all')
   const isGit = !!git && git.exitCode === 0
-  const changed = isGit ? paths(git.stdout) : []
+  // git names paths from the repo's root, and a vault can sit below it.
+  const prefix = isGit ? ((await run('rev-parse', '--show-prefix'))?.stdout.trim() ?? '') : ''
+  const changed = isGit ? paths(git.stdout).filter((p) => p.startsWith(prefix)).map((p) => p.slice(prefix.length)) : []
   const mine = new Set(await read($, touched))
   const fromSession = changed.filter((p) => mine.has(norm(`${cwd}/${p}`))).length
   let triage: number | null = null

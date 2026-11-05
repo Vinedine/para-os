@@ -625,6 +625,14 @@ class InlineContactDetails(VaultCase):
         self.assertEqual(hits[0]["detail"], "jan.claes@example.com")
         self.assertNotIn("card", hits[0])
 
+    def test_a_form_feed_above_a_detail_shifts_no_line(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md",
+              "page one\x0cstill line one\nReach Jan Claes at jan.claes@example.com.\n")
+        hits = self.run_scan("1")["phase1"]["inline_contact_details"]
+        self.assertEqual([(h["line"], h["detail"]) for h in hits], [(2, "jan.claes@example.com")])
+
     def test_a_sentence_full_stop_is_not_part_of_the_email(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")

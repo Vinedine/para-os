@@ -958,6 +958,15 @@ class SilentSources(VaultCase):
         self.assertEqual([(s["source"], s["newest"], s["days"]) for s in self.silent()],
                          [("work", "2026-09-02", 19)])
 
+    def test_a_mailbox_reads_the_registry_name_where_the_folder_differs(self):
+        self.declare("| work | connector: google-workspace 🔁 every 2 weeks | "
+                     "`ann@example.com` | Clients. |")
+        write(self.home, "vaults.json", json.dumps([{"name": "Work", "path": str(self.vault)}]))
+        self.ledger("cache/ingest/ledger.json", {"by_message_id": {}, "mailboxes": {
+            "ann@example.com": {"t1": {"routed": ["Work"],
+                                       "seen_date": "2026-09-02T10:00:00+02:00"}}}})
+        self.assertEqual([s["newest"] for s in self.silent()], ["2026-09-02"])
+
     def test_an_entity_scope_does_not_check_silence(self):
         self.declare(self.GRANOLA)
         self.ledger("data/granola/synced.json", self.notes(self.vault, "20260901 Old.md"))

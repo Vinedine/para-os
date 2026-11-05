@@ -526,16 +526,15 @@ def _html_text(html):
 
 def _part_text(part):
     """A text part decoded by its declared charset; one Python does not know, or that its
-    bytes break, is read as UTF-8, else cp1252, never refused."""
-    try:
-        text = part.get_content()
-    except (LookupError, UnicodeError):
-        data = part.get_payload(decode=True) or b""
+    bytes break, is read as UTF-8, else cp1252, never refused. Not `get_content()`, which
+    replaces what it cannot decode and so never reaches the fallback."""
+    data = part.get_payload(decode=True) or b""
+    for charset in (part.get_content_charset("ascii"), "utf-8"):
         try:
-            text = data.decode("utf-8")
-        except UnicodeDecodeError:
-            text = data.decode("cp1252", errors="replace")
-    return text.replace("\r\n", "\n").strip()
+            return data.decode(charset).replace("\r\n", "\n").strip()
+        except (LookupError, UnicodeError):
+            pass
+    return data.decode("cp1252", errors="replace").replace("\r\n", "\n").strip()
 
 
 def _leaves(part):

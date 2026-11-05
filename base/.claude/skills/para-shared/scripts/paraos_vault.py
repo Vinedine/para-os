@@ -2116,12 +2116,12 @@ def move_plan(vault, src, dst):
 
 def rewrite_links(path, rows):
     """Write each row's `new_href` over its `raw` target on its `line`, every other byte of the
-    file kept; the rows whose link is not there come back."""
-    data = Path(path).read_bytes()
-    bom = UTF8_BOM if data.startswith(UTF8_BOM) else b""
+    file kept; the rows whose link is not there, or could not be written, come back."""
     try:
+        data = Path(path).read_bytes()
+        bom = UTF8_BOM if data.startswith(UTF8_BOM) else b""
         text = data[len(bom):].decode("utf-8")
-    except UnicodeDecodeError:
+    except (OSError, UnicodeDecodeError):
         return list(rows)
     code = strip_code(text)
     spans = [(s, e) for s, e, _ in link_spans(code)]
@@ -2138,15 +2138,18 @@ def rewrite_links(path, rows):
             missed.append(row)
     for start, end, new in sorted(edits, reverse=True):
         text = text[:start] + new + text[end:]
-    if edits:
-        Path(path).write_bytes(bom + text.encode("utf-8"))
+    try:
+        if edits:
+            Path(path).write_bytes(bom + text.encode("utf-8"))
+    except OSError:
+        return list(rows)
     return missed
 
 
 def move(vault, src, dst):
     """Move a folder or a file in one rename and apply its `move_plan`, returned with each
-    `inside` row at its new path, plus `missed`: rows whose link was not on its line. Refuses
-    (ValueError) a source that is not there and a destination that is, before anything moves.
+    `inside` row at its new path, plus `missed`: rows it could not rewrite. Refuses (ValueError)
+    a source that is not there and a destination that is, before anything moves.
     """
     vault = Path(vault)
     src_path, dst_path = vault_path(vault, src), vault_path(vault, dst)

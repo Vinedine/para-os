@@ -1377,7 +1377,11 @@ class CmdFetch(unittest.TestCase):
                                   return_value=list(self.MSGS if msgs is None else msgs)), \
                 contextlib.redirect_stdout(out), \
                 contextlib.redirect_stderr(err):
-            osync.cmd_fetch(cfg, args)
+            try:
+                osync.cmd_fetch(cfg, args)
+                self.stopped = None
+            except SystemExit as stop:
+                self.stopped = stop.code
         return json.loads(out.getvalue()), err.getvalue()
 
     def test_the_module_has_no_write_path_left_at_all(self):
@@ -1418,7 +1422,21 @@ class CmdFetch(unittest.TestCase):
             feeds=("a@x.com", "b@x.com"), token=token)
         self.assertEqual([r["id"] for r in records], ["1"])
         self.assertIn("FETCH FAILED", err)
-        self.assertIn("1 mailbox(es) failed", err)
+        self.assertIn("1 mailbox(es) failed", self.stopped)
+
+    def test_a_failed_mailbox_exits_non_zero_so_its_caller_never_counts_it_as_read(self):
+        # /para-ingest dates a mailbox's next window from a clean exit, so an exit 0 here skips
+        # every message that arrives while the mailbox cannot be read.
+        def token(_cfg, email):
+            sys.exit(f"{email} has no token yet.")
+
+        records, _ = self.run_fetch(token=token)
+        self.assertEqual(records, [])
+        self.assertIn("a@x.com", self.stopped)
+
+    def test_a_clean_fetch_exits_clean(self):
+        self.run_fetch()
+        self.assertIsNone(self.stopped)
 
     def test_a_noreply_notice_with_no_unsubscribe_header_survives(self):
         # The regression this suite exists to hold: a domain-expiry notice, a tax filing
