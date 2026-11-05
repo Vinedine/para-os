@@ -267,7 +267,7 @@ def find_placeholders_in(files, vault):
     out = []
     for f in files:
         text = strip_code(read_text(f))
-        for lineno, line in enumerate(text.splitlines(), start=1):
+        for lineno, line in enumerate(split_lines(text), start=1):
             if "{{" in line:
                 out.append({"file": f.relative_to(vault).as_posix(), "line": lineno,
                             "text": line.strip()})
@@ -306,7 +306,7 @@ def find_wikilinks(vault, roots=("projects", "areas", "resources", "triage")):
     out = []
     for path in link_files(vault, roots):
         text = strip_code(read_text(path))
-        for lineno, line in enumerate(text.splitlines(), start=1):
+        for lineno, line in enumerate(split_lines(text), start=1):
             for m in WIKILINK_RE.finditer(line):
                 target = m.group(1).strip()
                 display = m.group(2).strip() if m.group(2) else None
@@ -447,7 +447,7 @@ def inline_contact_details(vault):
         if "sources" in Path(rel).parts[:-1] or not in_live_scope(rel):
             continue
         raw_lines = read_lines(path)
-        code_stripped = strip_code(read_text(path)).splitlines()
+        code_stripped = split_lines(strip_code(read_text(path)))
         for lineno, text in live_lines(raw_lines):
             uncoded = code_stripped[lineno - 1] if lineno - 1 < len(code_stripped) else text
             clean = link_targets_stripped(uncoded)
@@ -560,7 +560,7 @@ def figure_pairs(vault):
                     doc = pick_doc(folder)
                     if doc:
                         figs = set()
-                        for line in strip_code(read_text(doc)).splitlines():
+                        for line in split_lines(strip_code(read_text(doc))):
                             figs.update(figures_in_line(link_targets_stripped(line)))
                     break
             brief_cache[name] = figs
@@ -569,7 +569,7 @@ def figure_pairs(vault):
     out = []
     for path in rollup_files(vault):
         text = strip_code(read_text(path))
-        for lineno, raw_line in enumerate(text.splitlines(), start=1):
+        for lineno, raw_line in enumerate(split_lines(text), start=1):
             clean = link_targets_stripped(raw_line)
             for name in names:
                 if not name_patterns[name].search(clean):
