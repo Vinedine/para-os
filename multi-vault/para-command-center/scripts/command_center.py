@@ -45,7 +45,9 @@ What the data holds, and where each part comes from:
   `ended`, `neighbourhood`, `street` and `note`, adds vaults no longer read, shown as handed
   over with no counts: the registry itself lists only vaults that are read.
 - `funnel` and `flows`: para-ingest's `funnel_page.gather()` over `--days` days (default 7)
-  and the ingest ledger, a thread counted once per vault it was routed to. A recording
+  and the ingest ledger, a thread counted once per vault it was routed to. An item a
+  scheduled run held for the operator is counted once, however many proposals list it, and
+  only while it is still in the vault's triage folder. A recording
   source's notes are counted from its sync script's own ledger in each vault.
 - `repos` and `sites`: the `owned` rows of each vault's code-repos table
   (`paraos_repos.py`), each repo looked for under `--code-root` (repeatable; default
@@ -304,13 +306,20 @@ def flow_rows(home, since, labels):
             for (mailbox, dest, kind), n in sorted(counts.items())]
 
 
-def inbound(home, days, today, labels):
-    """The funnel's stages, the mail flows and the per-vault counts the page shows."""
+def inbound(home, days, today, labels, entries=()):
+    """The funnel's stages, the mail flows and the per-vault counts the page shows. An item a
+    scheduled run held is counted once, however many proposals list it, and only while it is
+    still in its vault's triage folder, where this machine can look."""
     f = funnel_gather(str(home), days, today)
     led = f["ledger"]
-    held, acted = Counter(), Counter()
+    acted, waiting = Counter(), {}
+    roots = {e["name"]: here(e) for e in entries if isinstance(e, dict) and e.get("name")}
     for p in f["proposals"]:
-        held[p["vault"]] += len(p["items"])
+        root = roots.get(p["vault"])
+        for item in p["items"]:
+            if item["item"] and (root is None or (root / "triage" / item["item"]).exists()):
+                waiting.setdefault(p["vault"], set()).add(item["item"])
+    held = Counter({vault: len(names) for vault, names in waiting.items()})
     for q in f["quarantine"]:
         if q["in_window"]:
             acted[q["vault"]] += len(q["items"])
@@ -323,7 +332,7 @@ def inbound(home, days, today, labels):
         ("stage", "Staged in triage", "code", f["staged"], "notes written to triage folders"),
         ("classify", "Decided in triage", "model", decided, f"{accepted} took the recommendation"),
         ("execute", "Acted on unattended", "code", f["acted"], "moved to quarantine, nothing deleted"),
-        ("operator", "Waiting for you", "you", f["waiting_items"], f"{len(f['proposals'])} proposals in the vaults"),
+        ("operator", "Waiting for you", "you", sum(held.values()), "held by a scheduled run and still in triage"),
     ]
     return {"funnel": [{"stage": s, "order": i + 1, "label": label, "who": who, "value": value,
                         "detail": detail} for i, (s, label, who, value, detail) in enumerate(stages)],
@@ -723,7 +732,7 @@ def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS
     if not listed["exists"]:
         notes.append("No connections registry: connections are named as the vaults write them.")
     labels = {b["address"].lower(): b["label"] for b in listed["mailboxes"]}
-    feed = inbound(home, days, today, labels)
+    feed = inbound(home, days, today, labels, entries)
     repos, sites = repo_rows(entries, paraos_home, roots, today, run, online)
     past = load_json(home / "past-vaults.json", [])
     vaults, health = vault_rows(scan, entries, feed, repos, today, past if isinstance(past, list) else [])

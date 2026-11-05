@@ -342,8 +342,10 @@ class WholePage(unittest.TestCase):
             "a@x.test": {"1": {"date": "2026-03-09", "routed": ["alpha"]}, "2": {"date": "2026-03-09", "routed": ["alpha", "beta"]},
                          "3": {"date": "2026-03-09", "reason": "excluded: a rule"}, "4": {"date": "2026-03-09"}},
             "b@x.test": {"1": {"date": "2026-03-09", "routed": ["ghost"]}}}}))
-        write(self.home, "cache/triage/proposals/alpha-20260309-0600.md",
-              "# Proposal\n\n| Item | Recommended | Why | Held |\n|---|---|---|---|\n| a.md | File | fits | money |\n| b.md | File | fits | deadline |\n")
+        table = "# Proposal\n\n| Item | Recommended | Why | Held |\n|---|---|---|---|\n"
+        write(self.home, "cache/triage/proposals/alpha-20260309-0600.md", table + "| note.md | File | fits | money |\n| gone.md | File | fits | deadline |\n")
+        write(self.home, "cache/triage/proposals/alpha-20260309-1600.md", table + "| note.md | File | fits | money |\n")
+        write(self.home, "cache/triage/proposals/gamma-20260309-0600.md", table + "| far.md | File | fits | money |\n| far.md | File | fits | money |\n")
         write(self.home, "quarantine/alpha/20260309-060000/manifest.json",
               json.dumps({"vault": "alpha", "run": "20260309-060000", "items": [{"item": "x.md", "action": "Dismiss"}]}))
         write(self.home, "quarantine/alpha/20260101-060000/manifest.json",
@@ -377,6 +379,7 @@ class WholePage(unittest.TestCase):
         self.assertEqual([(e["title"], e["source"]) for e in data["agenda"]], [("Board", "alpha"), ("Demo", "work")])
         self.assertEqual([s["stage"] for s in data["funnel"]], ["fetch", "exclude", "route", "stage", "classify", "execute", "operator"])
         self.assertEqual({s["stage"]: s["value"] for s in data["funnel"]}["operator"], 2)
+        self.assertEqual(self.build()["meta"]["hub"], "run:ingest")
         self.assertEqual([(f["address"], f["dest"], f["kind"], f["count"]) for f in data["flows"]],
                          [("a@x.test", "", "excluded", 1), ("a@x.test", "", "unrouted", 1), ("a@x.test", "alpha", "vault", 2),
                           ("a@x.test", "beta", "vault", 1), ("b@x.test", "ghost", "vault", 1)])
@@ -388,10 +391,11 @@ class WholePage(unittest.TestCase):
         self.assertEqual(list(rows), ["alpha", "beta", "gamma", "omega"])
         self.assertEqual({k: rows["alpha"][k] for k in ("neighbourhood", "neighbourhood_rank", "street", "held", "acted", "routed",
                                                         "triage_items", "repos", "repos_flagged", "machine", "state")},
-                         {"neighbourhood": "Mine", "neighbourhood_rank": 0, "street": "Work", "held": 2, "acted": 1, "routed": 2,
+                         {"neighbourhood": "Mine", "neighbourhood_rank": 0, "street": "Work", "held": 1, "acted": 1, "routed": 2,
                           "triage_items": 1, "repos": 2, "repos_flagged": 2, "machine": "", "state": ""})
         self.assertEqual((rows["beta"]["neighbourhood"], rows["gamma"]["machine"], rows["omega"]["state"]),
                          (cc.OWN, "Sam", "handed over, ended last spring"))
+        self.assertEqual((rows["beta"]["held"], rows["gamma"]["held"]), (0, 1))
         self.assertIn(rows["alpha"]["level"], ("ok", "watch", "care"))
         keys = [h["key"] for h in data["health"] if h["vault"] == "alpha"]
         self.assertEqual(keys[keys.index("template") + 1], "kit")
