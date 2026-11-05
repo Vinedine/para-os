@@ -27,7 +27,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "multi-vault" / "para-ingest" / "scripts"))
 
-from funnel_page import gather, main, parse_table, strip_md  # noqa: E402
+from funnel_page import gather, main, strip_md  # noqa: E402
 
 TODAY = date(2030, 6, 20)
 STAMP = TODAY.strftime("%Y%m%d")
@@ -115,12 +115,21 @@ class FunnelModelTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def test_table_rows_read_by_position(self):
-        rows = parse_table(SOURCES, "Triage sources")
-        self.assertEqual([r[0] for r in rows], ["mail-ops", "mail-shared", "notes"])
-        self.assertEqual(parse_table(SOURCES, "Absent"), [])
-        translated = "## Triage sources\n\n| Bron | Soort | Eindpunt | Relevant wanneer |\n|---|---|---|---|\n| post | connector: x | `post@example.com` | Alleen facturen. |\n"
-        self.assertEqual(parse_table(translated, "Triage sources"), [["post", "connector: x", "`post@example.com`", "Alleen facturen."]])
+    def test_a_fenced_sample_table_declares_no_mailbox(self):
+        write(self.beta, "CLAUDE.md", "# Beta\n\n## Triage sources\n\n```\n| Source | Type | Endpoint | Relevant when |\n|---|---|---|---|\n| sample | connector: x | `sample@example.test` | Never. |\n```\n")
+        self.assertNotIn("sample@example.test", gather(str(self.home), 7, today=TODAY)["mailbox_vaults"])
+
+    def test_columns_are_read_by_name_where_the_header_names_them(self):
+        write(self.beta, "CLAUDE.md", "# Beta\n\n## Triage sources\n\n| Source | Endpoint | Type | Relevant when |\n|---|---|---|---|\n| moved | `moved@example.test` | connector: x | Invoices. |\n")
+        self.assertEqual(gather(str(self.home), 7, today=TODAY)["mailbox_vaults"]["moved@example.test"],
+                         [("Beta", "Invoices.", "connector")])
+
+    def test_the_switches_are_the_ones_the_executor_acts_on(self):
+        write(self.home, "cache/auto-triage/demoted.json", json.dumps({"Alpha": [{"action": "Dismiss (noise)"}]}))
+        got = gather(str(self.home), 7, today=TODAY)["switches"]["Alpha"]
+        self.assertEqual((got["on"], got["demoted"]), ([], [{"action": "Dismiss (noise)"}]))
+        write(self.home, "cache/auto-triage/demoted.json", "{not json")
+        self.assertEqual(gather(str(self.home), 7, today=TODAY)["switches"], {})
 
     def test_connector_and_fetch_script_declare_a_mailbox(self):
         d = gather(str(self.home), 7, today=TODAY)
