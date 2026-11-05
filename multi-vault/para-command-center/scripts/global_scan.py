@@ -219,6 +219,24 @@ def meetings(vault, name, today, until):
     return out
 
 
+def add_calendars(calendars, vault, name):
+    for row in calendar_rows(vault):
+        cal = calendars.setdefault(row["endpoint"] or row["source"], dict(row, vaults=[]))
+        cal["vaults"] += [] if name in cal["vaults"] else [name]
+
+
+def calendars_only(entries, today, paraos_home=None):
+    """What `build_report` says about calendars, without scanning a vault to say it."""
+    me, calendars = operator_card(paraos_home), {}
+    for entry in entries:
+        if excluded_status(entry) is None:
+            place = writer(entry["path"], me)
+            if treatment(entry, place["role"] if place else None) != "health":
+                add_calendars(calendars, entry["path"], entry["name"])
+    return {"today": today.isoformat(), "horizon": iso(today + timedelta(days=HORIZON_DAYS)),
+            "calendars": list(calendars.values())}
+
+
 @clone_session()
 def build_report(entries, today, paraos_home=None, model=None):
     home = paraos_home_dir(paraos_home)
@@ -249,9 +267,7 @@ def build_report(entries, today, paraos_home=None, model=None):
         elif shown == "summary":
             out["summaries"].append(summary(name, report))
         if shown != "health":
-            for row in calendar_rows(entry["path"]):
-                cal = calendars.setdefault(row["endpoint"] or row["source"], dict(row, vaults=[]))
-                cal["vaults"] += [] if name in cal["vaults"] else [name]
+            add_calendars(calendars, entry["path"], name)
             out["meetings"] += meetings(entry["path"], name, today, until)
     out["calendars"] = list(calendars.values())
     out["meetings"].sort(key=lambda e: (e["date"], e["start"] or "", e["title"]))

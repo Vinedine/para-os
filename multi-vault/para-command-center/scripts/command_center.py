@@ -87,7 +87,7 @@ try:
     from audit_scan import SKILLS_ROOT  # noqa: E402
     sys.path.insert(0, str(SKILLS_ROOT / "para-daily-brief" / "scripts"))
     from funnel_page import gather as funnel_gather  # noqa: E402
-    from global_scan import build_report  # noqa: E402
+    from global_scan import build_report, calendars_only  # noqa: E402
     from paraos_connections import gather as connections_gather, key as connection_key  # noqa: E402
     from paraos_pages import (  # noqa: E402
         PUBLISH, load_index, local_page, publish_choice, remembered_url, store, vault_key)
@@ -858,8 +858,7 @@ def main(argv=None):
         print("command_center: no registry, or one listing no vault", file=sys.stderr)
         return 3
     if args.calendars:
-        scan = build_report(entries, today, args.paraos_home, args.model)
-        print(json.dumps({k: scan[k] for k in ("today", "horizon", "calendars")}, ensure_ascii=False))
+        print(json.dumps(calendars_only(entries, today, args.paraos_home), ensure_ascii=False))
         return 0
     publish = publish_choice(key, PAGE, args.paraos_home)
     if publish == "local":

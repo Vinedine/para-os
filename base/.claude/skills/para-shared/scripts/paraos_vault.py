@@ -366,30 +366,13 @@ def live_lines(lines):
             yield i, raw
 
 
+CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)")
+
+
 def blank_spans(line):
     """One line with its inline code spans blanked to spaces, a span closing on a backtick
     run of its own length. Backticks nothing closes are prose and stay."""
-    out, i = list(line), 0
-    while i < len(line):
-        if line[i] != "`":
-            i += 1
-            continue
-        opened = i
-        while i < len(line) and line[i] == "`":
-            i += 1
-        run, j = i - opened, i
-        while j < len(line):
-            if line[j] != "`":
-                j += 1
-                continue
-            closed = j
-            while j < len(line) and line[j] == "`":
-                j += 1
-            if j - closed == run:
-                out[opened:j] = " " * (j - opened)
-                i = j
-                break
-    return "".join(out)
+    return CODE_SPAN_RE.sub(lambda m: " " * len(m.group()), line) if "`" in line else line
 
 
 def strip_code(text):
@@ -906,13 +889,14 @@ def file_dates(vault, paths):
     if len(run) >= 3:
         clustered.update(p for _, p in run)
 
-    modified = git_modified(vault) if clustered else set()
+    status = git_status_lines(vault) if clustered else None
+    modified = {(Path(vault) / name).resolve() for _, name in status or ()}
     out = {}
     for p, t in stamps.items():
         stamp = date.fromtimestamp(t).isoformat() if t else None
-        # git_modified names each path resolved, so a relative or symlinked one is compared
+        # `modified` names each path resolved, so a relative or symlinked one is compared
         # in that form too, or an uncommitted edit would read as its last commit's date.
-        if p in clustered and p.resolve() not in modified:
+        if status is not None and p in clustered and p.resolve() not in modified:
             stamp = git_last_commit_date(vault, p) or stamp
         out[p] = stamp
     return out
@@ -1874,8 +1858,9 @@ def under_any(rel, folders):
 
 def vault_paths(vault, pattern="*"):
     """`rglob(pattern)` over the vault, sorted, less NOT_VAULT_CONTENT: copies of something else."""
+    cut = len(Path(vault).parts)
     return [p for p in sorted(Path(vault).rglob(pattern))
-            if not under_any(p.relative_to(vault).as_posix(), NOT_VAULT_CONTENT)]
+            if not under_any("/".join(p.parts[cut:]), NOT_VAULT_CONTENT)]
 
 
 def is_under(path, base):
@@ -2038,19 +2023,28 @@ def inbound_references(vault, name, parent=None):
     `projects/p/README.md`. Without it any substring counts, for a caller that sorts the
     loose hits itself.
     """
+    return inbound_references_by_name(vault, [name], parent)[name]
+
+
+def inbound_references_by_name(vault, names, parent=None):
+    """{name: its `inbound_references`} from one walk of the vault: a walk per name reads every
+    file once per name, which a vault's contact cards turn into minutes."""
     vault = Path(vault)
-    out = []
+    out = {name: [] for name in names}
     for path in vault_paths(vault, "*.md"):
         rel = rel_posix(vault, path)
         in_sources = "sources" in Path(rel).parts[:-1]
-        for lineno, text in live_lines(read_lines(path)):
+        lines = read_lines(path)
+        body = unquote("\n".join(lines))
+        named = [name for name in out if name in body]
+        for lineno, text in live_lines(lines) if named else ():
             decoded = unquote(text)
-            at = first_mention(decoded, name, parent)
-            if at < 0:
-                continue
-            out.append({"file": rel, "line": lineno, "text": text,
-                        "shape": reference_shape(decoded, at, at + len(name)),
-                        "in_sources": in_sources})
+            for name in named:
+                at = first_mention(decoded, name, parent)
+                if at >= 0:
+                    out[name].append({"file": rel, "line": lineno, "text": text,
+                                      "shape": reference_shape(decoded, at, at + len(name)),
+                                      "in_sources": in_sources})
     return out
 
 
@@ -2227,17 +2221,18 @@ def hashes(vault, skip=SKIP_HASH_FOLDERS, sizes=None, within=None, eol=False, sh
     `eol` digests a text file (`TEXT_SUFFIXES`) with its CRLF line endings read as LF.
     """
     vault = Path(vault)
+    cut = len(vault.parts)
     lowered = {s.lower() for s in skip}
     found, digests, skipped = {}, {}, []
     for path in sorted(vault.rglob("*")):
-        if not path.is_file():
-            continue
-        rel = rel_posix(vault, path)
-        parts = Path(rel).parts
+        parts = path.parts[cut:]
         if any(p.startswith(".") for p in parts[:-1]):
             continue
         if within is not None and not any(p in within for p in parts[:-1]):
             continue
+        if not path.is_file():
+            continue
+        rel = "/".join(parts)
         try:
             size = path.stat().st_size
         except OSError:

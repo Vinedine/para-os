@@ -52,7 +52,7 @@ try:
         HEADING_RE, LINK_ROOTS, MARKED_SUFFIXES, NOT_CARDS, OPEN_ITEM_CAP, STALE_UNDATED_DAYS,
         TASK_RE, abspath, action_files, cap_count, contact_names, dangling_links, deep_clean_stamp,
         duplicates, emit, entity_doc, extract_links, field_ci, find_clone, git, git_blame_line_date,
-        hashes, header_fields, inbound_references, integration_markers, is_separator_row, iso,
+        hashes, header_fields, inbound_references_by_name, integration_markers, is_separator_row, iso,
         lifecycles, link_files, link_spans, live_lines, log_entries, misplaced_checkboxes, norm,
         open_tasks, other_checkbox_paths, over_grown_briefs, parse_date, read_lines, read_text,
         reference_shape, rel_posix, resolve_entity, resolve_link, snapshot, split_lines, stage_of,
@@ -333,15 +333,13 @@ def identity_section(readme):
     return "\n".join(lines)
 
 
-def is_principal(vault, card_rel):
+def principal_cards(vault):
+    """The cards the root README's identity section links to, as absolute paths."""
     readme = vault / "README.md"
     if not readme.is_file():
-        return False
-    card_target = abspath(vault / card_rel)
-    for _, href, _ in extract_links(strip_code(identity_section(readme))):
-        if resolve_link(readme, href) == card_target:
-            return True
-    return False
+        return set()
+    return {resolve_link(readme, href)
+            for _, href, _ in extract_links(strip_code(identity_section(readme)))}
 
 
 def top_level_area_readme(vault, card_rel):
@@ -369,19 +367,20 @@ def uncited_contacts(vault, excluded_dirs=()):
     blanked = {rel: name_only_lines(vault / rel) for rel in registers if (vault / rel).is_file()}
     frozen, targets = {}, {}
     out, exempt = [], set()
-    for card in cards:
+    named_on_card = {card: contact_names(card) for card in cards}
+    hits_by_name = inbound_references_by_name(vault, {n for ns in named_on_card.values() for n in ns})
+    principals = principal_cards(vault)
+    for card, names in named_on_card.items():
         card_rel = card.relative_to(vault).as_posix()
-        names = contact_names(card)
         if not names:
             continue
-        principal = is_principal(vault, card_rel)
-        allowed = {top_level_area_readme(vault, card_rel)} if principal else None
         card_target = abspath(card)
+        allowed = {top_level_area_readme(vault, card_rel)} if card_target in principals else None
 
         named = set()
         for name in names:
             pattern = whole_word(name)
-            for hit in inbound_references(vault, name):
+            for hit in hits_by_name[name]:
                 if hit["file"] == card_rel or hit["in_sources"] or not in_live_scope(hit["file"]) \
                         or under_any(hit["file"], excluded):
                     continue
@@ -442,16 +441,15 @@ def inline_contact_details(vault):
         rel = path.relative_to(vault).as_posix()
         if "sources" in Path(rel).parts[:-1] or not in_live_scope(rel):
             continue
-        raw_lines = read_lines(path)
-        code_stripped = split_lines(strip_code(read_text(path)))
-        for lineno, text in live_lines(raw_lines):
+        body = read_text(path)
+        code_stripped = split_lines(strip_code(body))
+        for lineno, text in live_lines(split_lines(body)):
             uncoded = code_stripped[lineno - 1] if lineno - 1 < len(code_stripped) else text
             clean = link_targets_stripped(uncoded)
-            names_on_line = sorted({n for n, c in names_by_card.items()
-                                    if c != rel and patterns[n].search(clean)})
-            if not names_on_line:
-                continue
-            for detail in [m.group(0) for m in EMAIL_RE.finditer(clean)] + phone_matches(clean):
+            details = [m.group(0) for m in EMAIL_RE.finditer(clean)] + phone_matches(clean)
+            names_on_line = details and sorted({n for n, c in names_by_card.items()
+                                                if c != rel and patterns[n].search(clean)})
+            for detail in details if names_on_line else ():
                 out.append({"file": rel, "line": lineno, "text": text.strip(),
                             "names_on_line": names_on_line, "detail": detail.strip()})
     return out
@@ -788,9 +786,10 @@ def stale_undated_from(vault, files, today):
     blame reports as still uncommitted counts as unmeasurable rather than as a fabricated
     date."""
     out = {}
+    listed = set((git(vault, ["ls-files", "-z"]) or "").split("\0"))
     for f in files:
         rel = f.relative_to(vault).as_posix()
-        tracked = git(vault, ["ls-files", "--error-unmatch", rel]) is not None
+        tracked = rel in listed
         items = []
         for t in open_tasks(f):
             if t["due"] or t["scheduled"] or t["start"]:

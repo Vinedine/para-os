@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT / "multi-vault" / "para-command-center" / "scripts")
 
 import global_scan  # noqa: E402
 import paraos_clone  # noqa: E402
-from global_scan import build_report, main  # noqa: E402
+from global_scan import build_report, calendars_only, main  # noqa: E402
 from test_audit_scan import build_clone, build_vault as build_kit_vault  # noqa: E402
 
 TODAY = date(2026, 3, 10)
@@ -147,9 +147,14 @@ class GlobalScan(unittest.TestCase):
                   "# V\n\n**Type:** vault\n\n## Agenda sources\n\n"
                   "| Source | Type | Endpoint | Relevant when |\n|---|---|---|---|\n"
                   f"| work | {kind} | `Me@Example.com` | All events |\n")
-        cals = self.report()["calendars"]
+        report = self.report()
+        cals = report["calendars"]
         self.assertEqual([(c["endpoint"], c["vaults"]) for c in cals],
                          [("me@example.com", ["north", "south"])])
+        with mock.patch.object(global_scan, "scan") as scanned:
+            alone = calendars_only(self.entries, TODAY, str(self.home))
+        scanned.assert_not_called()
+        self.assertEqual(alone, {k: report[k] for k in ("today", "horizon", "calendars")})
 
     def test_meetings_in_the_horizon_and_a_recurring_one_rolled_forward(self):
         write(self.tmp / "north", "meetings.md", "\n".join([

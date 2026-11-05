@@ -48,7 +48,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (  # noqa: E402
         MIN_HASH_BYTES, OPEN_ITEM_CAP, TEXT_SUFFIXES, abspath, action_files, cap_count,
-        contact_card_level, emit, hashes, inbound_references, lifecycles, live_lines, norm,
+        contact_card_level, emit, hashes, inbound_references_by_name, lifecycles, live_lines, norm,
         open_tasks, operator_card, paraos_home_dir, read_lines, registered_vault, registry,
         rel_posix, reserved_for, roster, same_place, snapshot, triage_items, triage_sources,
         utf8_stdout, vault_root, writer,
@@ -484,14 +484,9 @@ def _cross_vault(entries, note_path, size, routed_vaults):
     return out
 
 
-def _inbound_for_item(vault, name):
-    triage_rel = f"triage/{name}"
-    out = []
-    for hit in inbound_references(vault, name, parent="triage"):
-        if hit["file"] == triage_rel:
-            continue
-        out.append({"file": hit["file"], "line": hit["line"], "shape": hit["shape"]})
-    return out
+def _inbound_for_item(name, hits):
+    return [{"file": h["file"], "line": h["line"], "shape": h["shape"]} for h in hits
+            if h["file"] != f"triage/{name}"]
 
 
 # ------------------------------------------------------------------------------ items: loose
@@ -530,6 +525,7 @@ def build_loose(vault, entries, vault_name, ledger_mailboxes):
         items.append(entry)
 
     _fill_duplicates(vault, items)
+    inbound = inbound_references_by_name(vault, [e["name"] for e in items], parent="triage")
     readers = None
     for entry in items:
         note = entry["note"]
@@ -547,7 +543,7 @@ def build_loose(vault, entries, vault_name, ledger_mailboxes):
             if union_vaults:
                 entry["cross_vault"] = _cross_vault(
                     entries, triage_dir / entry["name"], entry["size"], union_vaults)
-        entry["inbound"] = _inbound_for_item(vault, entry["name"])
+        entry["inbound"] = _inbound_for_item(entry["name"], inbound[entry["name"]])
     return items
 
 
