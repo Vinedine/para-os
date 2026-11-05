@@ -576,6 +576,14 @@ class Eml(VaultCase):
         raw = LEGACY_EML.replace(b"charset=windows-1252", b"charset=x-unknown-legacy")
         self.assertIn("Montant d", eml(self.save(raw))["text"])
 
+    def test_bytes_that_break_the_declared_character_set_still_read(self):
+        for declared, body in ((b"; charset=us-ascii", "café".encode("utf-8")),
+                               (b"", "café".encode("utf-8")),
+                               (b"; charset=utf-8", "café".encode("cp1252"))):
+            raw = (b"Subject: x\r\nMIME-Version: 1.0\r\nContent-Type: text/plain" + declared
+                   + b"\r\nContent-Transfer-Encoding: 8bit\r\n\r\n" + body + b"\r\n")
+            self.assertEqual(eml(self.save(raw))["text"], "café")
+
     def test_a_forwarded_message_is_an_attachment_not_more_body(self):
         outer = self.multipart()
         inner = EmailMessage()
