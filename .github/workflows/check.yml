@@ -29,9 +29,12 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python: ["3.12"]
         include:
+          # Python 3.9 has no build for the newest Ubuntu. `os` stays, as the job's name is the
+          # check .github/rulesets/main.json requires.
           - os: ubuntu-latest
             python: "3.9"
-    runs-on: ${{ matrix.os }}
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner || matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
