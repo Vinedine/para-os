@@ -174,12 +174,12 @@ class AtomicState(unittest.TestCase):
         original = osync.CONFIG_FILE
         osync.CONFIG_FILE = self.f
         try:
-            cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.be": {
+            cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.example": {
                 "refresh_token": "old", "client_id": "WORK", "authority": "tenant-guid"}}}
             osync.write_json_atomic(self.f, cfg)
-            osync.save_account(cfg, "v@corp.be", refresh_token="new")
+            osync.save_account(cfg, "v@corp.example", refresh_token="new")
             on_disk = json.loads(self.f.read_text(encoding="utf-8"))
-            self.assertEqual(osync.account_app(on_disk, "v@corp.be"), ("WORK", "tenant-guid"))
+            self.assertEqual(osync.account_app(on_disk, "v@corp.example"), ("WORK", "tenant-guid"))
         finally:
             osync.CONFIG_FILE = original
 
@@ -199,14 +199,14 @@ class AtomicState(unittest.TestCase):
             # device_code=True on purpose: this test is about the long login wait, and the
             # default flow is now the browser one, which would bind a socket and sit for
             # five minutes waiting for a redirect that no test is going to send it.
-            args = argparse.Namespace(email="v@corp.be", client_id="WORK", authority="tenant",
+            args = argparse.Namespace(email="v@corp.example", client_id="WORK", authority="tenant",
                                       shared=False, device_code=True)
             with mock.patch.object(osync, "device_login", return_value="v-token"), \
                     contextlib.redirect_stdout(io.StringIO()):
                 osync.cmd_login(cfg, args)
             on_disk = json.loads(self.f.read_text(encoding="utf-8"))
             self.assertEqual(on_disk["accounts"]["b@h.com"]["refresh_token"], "b-NEW")
-            self.assertEqual(osync.account_app(on_disk, "v@corp.be"), ("WORK", "tenant"))
+            self.assertEqual(osync.account_app(on_disk, "v@corp.example"), ("WORK", "tenant"))
         finally:
             osync.CONFIG_FILE = original
 
@@ -374,14 +374,14 @@ class AccountApp(unittest.TestCase):
 
     def test_account_overrides_win(self):
         cfg = {"client_id": "GLOBAL", "authority": "consumers",
-               "accounts": {"v@corp.be": {"client_id": "WORK", "authority": "tenant-guid"}}}
-        self.assertEqual(osync.account_app(cfg, "v@corp.be"), ("WORK", "tenant-guid"))
+               "accounts": {"v@corp.example": {"client_id": "WORK", "authority": "tenant-guid"}}}
+        self.assertEqual(osync.account_app(cfg, "v@corp.example"), ("WORK", "tenant-guid"))
 
     def test_one_override_does_not_drag_the_other(self):
         # The two settings are independent: an app shared across tenants would switch only the
         # authority. Coupling them would silently send a work account at the personal app.
-        cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.be": {"authority": "tenant-guid"}}}
-        self.assertEqual(osync.account_app(cfg, "v@corp.be"), ("GLOBAL", "tenant-guid"))
+        cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.example": {"authority": "tenant-guid"}}}
+        self.assertEqual(osync.account_app(cfg, "v@corp.example"), ("GLOBAL", "tenant-guid"))
 
     def test_unknown_account_still_resolves(self):
         # `login` resolves the app before the account exists in the file.
@@ -404,22 +404,22 @@ class CmdAccounts(unittest.TestCase):
     """cmd_accounts() lists every configured account; one bad account must not blank the rest."""
 
     def test_an_account_with_no_resolvable_client_id_does_not_abort_the_listing(self):
-        # No top-level client_id and no per-account override for stale@corp.be: account_app()
+        # No top-level client_id and no per-account override for stale@corp.example: account_app()
         # would sys.exit on it. That must not stop the other accounts from being listed.
         cfg = {"accounts": {
             "a@hotmail.com": {"refresh_token": "t", "client_id": "X"},
-            "stale@corp.be": {"refresh_token": "t2"},
+            "stale@corp.example": {"refresh_token": "t2"},
         }}
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             osync.cmd_accounts(cfg, argparse.Namespace())
         text = out.getvalue()
         self.assertIn("a@hotmail.com", text)
-        self.assertIn("stale@corp.be", text)
+        self.assertIn("stale@corp.example", text)
 
     CFG = {"client_id": "GLOBAL", "accounts": {
-        "me@corp.com": {"refresh_token": "t", "authority": "tenant-guid"},
-        "info@corp.com": {"via": "me@corp.com"},
+        "me@corp.example": {"refresh_token": "t", "authority": "tenant-guid"},
+        "info@corp.example": {"via": "me@corp.example"},
         "new@h.com": {},
         "home@h.com": {"refresh_token": "t"},
     }}
@@ -444,8 +444,8 @@ class CmdAccounts(unittest.TestCase):
     def test_a_shared_mailbox_reads_as_shared_not_as_a_login_still_to_do(self):
         # It has no sign-in of its own, so "NOT logged in" would name a step nobody can take.
         lines, _ = self.listing(self.CFG)
-        self.assertIn("[shared, read via me@corp.com]", lines["info@corp.com"])
-        self.assertNotIn("NOT logged in", lines["info@corp.com"])
+        self.assertIn("[shared, read via me@corp.example]", lines["info@corp.example"])
+        self.assertNotIn("NOT logged in", lines["info@corp.example"])
         self.assertIn("NOT logged in (run login)", lines["new@h.com"])
         self.assertIn("[logged in]", lines["home@h.com"])
 
@@ -453,14 +453,14 @@ class CmdAccounts(unittest.TestCase):
         # It is the only account that can fail with AADSTS65001; hiding which one it is makes
         # that failure look like it came from nowhere.
         lines, _ = self.listing(self.CFG)
-        self.assertIn("+Mail.Read.Shared", lines["me@corp.com"])
+        self.assertIn("+Mail.Read.Shared", lines["me@corp.example"])
         self.assertNotIn("+Mail.Read.Shared", lines["home@h.com"])
 
     def test_this_vaults_feeds_are_starred_and_a_foreign_tenant_is_shown(self):
-        lines, text = self.listing(self.CFG, feeds=["me@corp.com"])
-        self.assertTrue(lines["me@corp.com"].lstrip().startswith("*"))
+        lines, text = self.listing(self.CFG, feeds=["me@corp.example"])
+        self.assertTrue(lines["me@corp.example"].lstrip().startswith("*"))
         self.assertFalse(lines["home@h.com"].lstrip().startswith("*"))
-        self.assertIn("via tenant-guid", lines["me@corp.com"])
+        self.assertIn("via tenant-guid", lines["me@corp.example"])
         self.assertNotIn("via", lines["home@h.com"])
         self.assertIn("(* = feeds this vault", text)
 
@@ -745,8 +745,8 @@ class HasUnsubscribe(unittest.TestCase):
         # The exclusion connectors.md forbids by default: a domain-expiry notice, a tax
         # filing alert, an invoice and a booking confirmation all come from noreply@, and
         # dropping them on the sender name loses exactly the mail the vault exists to catch.
-        for addr in ("noreply@registrar.example", "donotreply@tax.gov",
-                     "notifications@invoicing.com", "newsletter@brand.fr"):
+        for addr in ("noreply@registrar.example", "donotreply@tax.example",
+                     "notifications@invoicing.example", "newsletter@brand.example"):
             self.assertFalse(osync.has_unsubscribe({"from": {"emailAddress":
                                                              {"address": addr}}}), addr)
 
@@ -763,64 +763,63 @@ class MailboxRoute(unittest.TestCase):
     Access on it. Every branch matters: the wrong one reads the wrong mailbox.
     """
 
-    CFG = {"accounts": {"me@corp.com": {"refresh_token": "t"},
-                        "info@corp.com": {"via": "me@corp.com"}}}
+    CFG = {"accounts": {"me@corp.example": {"refresh_token": "t"},
+                        "info@corp.example": {"via": "me@corp.example"}}}
 
     def test_an_ordinary_mailbox_resolves_to_itself_and_me(self):
-        self.assertEqual(osync.mailbox_route(self.CFG, "me@corp.com"), ("me@corp.com", "/me"))
+        self.assertEqual(osync.mailbox_route(self.CFG, "me@corp.example"), ("me@corp.example", "/me"))
 
     def test_a_shared_mailbox_borrows_its_via_users_token(self):
-        self.assertEqual(osync.mailbox_route(self.CFG, "info@corp.com"),
-                         ("me@corp.com", "/users/info@corp.com"))
+        self.assertEqual(osync.mailbox_route(self.CFG, "info@corp.example"),
+                         ("me@corp.example", "/users/info@corp.example"))
 
     def test_an_account_absent_from_the_config_still_resolves_to_itself(self):
         # `login` needs a route before the entry exists.
-        self.assertEqual(osync.mailbox_route(self.CFG, "new@corp.com"), ("new@corp.com", "/me"))
+        self.assertEqual(osync.mailbox_route(self.CFG, "new@corp.example"), ("new@corp.example", "/me"))
 
     def test_a_via_user_absent_from_this_machine_exits(self):
-        cfg = {"accounts": {"info@corp.com": {"via": "elsewhere@corp.com"}}}
+        cfg = {"accounts": {"info@corp.example": {"via": "elsewhere@corp.example"}}}
         with self.assertRaises(SystemExit) as e:
-            osync.mailbox_route(cfg, "info@corp.com")
-        self.assertIn("elsewhere@corp.com", str(e.exception))
+            osync.mailbox_route(cfg, "info@corp.example")
+        self.assertIn("elsewhere@corp.example", str(e.exception))
 
 
 class AccountScope(unittest.TestCase):
     """Which scope ONE account's token is asked for.
 
-    This is the regression that took every work mailbox on a live machine offline at once,
-    so the tests pin the asymmetry rather than the string: a refresh may ask for less than
+    The tests pin the asymmetry rather than the string: a refresh may ask for less than
     was consented but never more, so asking every account for Mail.Read.Shared turns a
     scope the caller chose into an authentication failure it cannot log its way out of.
     Personal accounts hid it - `consumers` drops the extra silently - which is exactly why
     a test has to hold the line instead of a live run.
     """
 
-    CFG = {"accounts": {"me@corp.com": {"refresh_token": "t"},
-                        "other@corp.com": {"refresh_token": "t"},
-                        "info@corp.com": {"via": "me@corp.com"}}}
+    CFG = {"accounts": {"me@corp.example": {"refresh_token": "t"},
+                        "other@corp.example": {"refresh_token": "t"},
+                        "info@corp.example": {"via": "me@corp.example"}}}
 
     def test_an_ordinary_account_is_asked_for_mail_read_only(self):
-        scope = osync.account_scope(self.CFG, "other@corp.com")
+        scope = osync.account_scope(self.CFG, "other@corp.example")
         self.assertIn(osync.READ_SCOPE, scope)
         self.assertNotIn(osync.SHARED_SCOPE, scope)
         self.assertIn(osync.OFFLINE_SCOPE, scope)
 
     def test_the_via_user_of_a_shared_mailbox_gets_the_wider_scope(self):
-        self.assertIn(osync.SHARED_SCOPE, osync.account_scope(self.CFG, "me@corp.com"))
+        self.assertIn(osync.SHARED_SCOPE, osync.account_scope(self.CFG, "me@corp.example"))
 
     def test_an_explicit_shared_flag_widens_before_any_via_line_exists(self):
         # login --shared, so the consent is in place before the shared entry is added.
-        cfg = {"accounts": {"me@corp.com": {"refresh_token": "t", "shared": True}}}
-        self.assertIn(osync.SHARED_SCOPE, osync.account_scope(cfg, "me@corp.com"))
+        cfg = {"accounts": {"me@corp.example": {"refresh_token": "t", "shared": True}}}
+        self.assertIn(osync.SHARED_SCOPE, osync.account_scope(cfg, "me@corp.example"))
 
     def test_the_shared_mailbox_itself_is_never_asked_for_anything_wider(self):
         # It holds no token; the scope that matters is its `via` user's.
-        self.assertNotIn(osync.SHARED_SCOPE, osync.account_scope(self.CFG, "info@corp.com"))
+        self.assertNotIn(osync.SHARED_SCOPE, osync.account_scope(self.CFG, "info@corp.example"))
 
     def test_an_account_absent_from_the_config_gets_the_narrow_scope(self):
         # `login` resolves a scope before the entry exists, and a first login must not ask
         # for a permission the tenant may refuse to consent to.
-        self.assertNotIn(osync.SHARED_SCOPE, osync.account_scope(self.CFG, "new@corp.com"))
+        self.assertNotIn(osync.SHARED_SCOPE, osync.account_scope(self.CFG, "new@corp.example"))
 
     def test_no_module_wide_scope_constant_survives(self):
         # A single SCOPE is what made one mailbox's needs everyone's problem. If it comes
@@ -841,7 +840,7 @@ class AuthFailure(unittest.TestCase):
     def _msg(self, codes, desc="AADSTS%s: something" , scope=None):
         body = {"error": "invalid_grant", "error_codes": list(codes),
                 "error_description": (desc % codes[0]) if "%s" in desc else desc}
-        return osync.auth_failure("v@corp.be", scope or osync.READ_SCOPE,
+        return osync.auth_failure("v@corp.example", scope or osync.READ_SCOPE,
                                   "tenant-guid", "app-guid", body)
 
     def test_the_aadsts_code_is_quoted_rather_than_swallowed(self):
@@ -871,21 +870,21 @@ class AuthFailure(unittest.TestCase):
 
     def test_an_expired_token_still_says_log_in_again(self):
         m = self._msg([700082])
-        self.assertIn("login v@corp.be", m)
+        self.assertIn("login v@corp.example", m)
 
     def test_an_mfa_challenge_says_a_refresh_cannot_answer_it(self):
         m = self._msg([50076])
         self.assertIn("interactive challenge", m)
-        self.assertIn("login v@corp.be", m)
+        self.assertIn("login v@corp.example", m)
 
     def test_an_unrecognised_code_still_quotes_the_description(self):
         m = self._msg([999999], desc="AADSTS999999: brand new failure mode")
         self.assertIn("brand new failure mode", m)
-        self.assertIn("login v@corp.be", m)
+        self.assertIn("login v@corp.example", m)
 
     def test_a_response_with_no_description_still_produces_a_message(self):
-        m = osync.auth_failure("v@corp.be", osync.READ_SCOPE, "t", "a", {"error": "invalid_request"})
-        self.assertIn("v@corp.be", m)
+        m = osync.auth_failure("v@corp.example", osync.READ_SCOPE, "t", "a", {"error": "invalid_request"})
+        self.assertIn("v@corp.example", m)
         self.assertIn("invalid_request", m)
 
 
@@ -927,7 +926,7 @@ class PkceLogin(unittest.TestCase):
         seen = {}
         cfg = {"client_id": "X", "accounts": {}}
         for flag, expect in ((False, "pkce_login"), (True, "device_login")):
-            args = argparse.Namespace(email="v@corp.be", client_id=None, authority=None,
+            args = argparse.Namespace(email="v@corp.example", client_id=None, authority=None,
                                       shared=False, device_code=flag)
             with mock.patch.object(osync, "pkce_login", lambda *a: seen.setdefault("f", "pkce_login") or "t"),                     mock.patch.object(osync, "device_login", lambda *a: seen.setdefault("f", "device_login") or "t"),                     mock.patch.object(osync, "save_account"),                     contextlib.redirect_stdout(io.StringIO()):
                 seen.clear()
@@ -942,7 +941,7 @@ class AuthFailureRemedies(unittest.TestCase):
     affected tenant did not have."""
 
     def _m(self, codes, what="Token refresh"):
-        return osync.auth_failure("v@corp.be", osync.READ_SCOPE, "tenant-guid", "app-guid",
+        return osync.auth_failure("v@corp.example", osync.READ_SCOPE, "tenant-guid", "app-guid",
                                   {"error": "invalid_request", "error_codes": list(codes),
                                    "error_description": "AADSTS%d: blocked" % codes[0]},
                                   what=what)
@@ -955,7 +954,7 @@ class AuthFailureRemedies(unittest.TestCase):
     def test_530035_offers_the_browser_login_first_and_needs_no_admin(self):
         m = self._m([530035])
         self.assertIn("needs no admin", m)
-        self.assertIn("login v@corp.be", m)
+        self.assertIn("login v@corp.example", m)
         self.assertIn("PKCE", m)
 
     def test_530035_still_names_the_admin_route_and_its_licence_cost(self):
@@ -972,7 +971,7 @@ class AuthFailureRemedies(unittest.TestCase):
         self.assertNotIn("PKCE", m)
 
     def test_the_message_names_what_failed_so_a_login_does_not_say_refresh(self):
-        self.assertTrue(self._m([530035], what="Sign-in").startswith("Sign-in for v@corp.be"))
+        self.assertTrue(self._m([530035], what="Sign-in").startswith("Sign-in for v@corp.example"))
 
 
 def _response(status=200, body=None):
@@ -1007,10 +1006,10 @@ class AccessToken(unittest.TestCase):
         return json.loads(self.secrets.read_text(encoding="utf-8"))
 
     def test_the_refresh_goes_to_the_accounts_own_tenant_and_app(self):
-        cfg = self.seed({"client_id": "GLOBAL", "accounts": {"v@corp.be": {
+        cfg = self.seed({"client_id": "GLOBAL", "accounts": {"v@corp.example": {
             "refresh_token": "old", "client_id": "WORK", "authority": "tenant-guid"}}})
         self.session.post.return_value = _response(body={"access_token": "AT"})
-        self.assertEqual(osync.access_token(cfg, "v@corp.be"), "AT")
+        self.assertEqual(osync.access_token(cfg, "v@corp.example"), "AT")
         call = self.session.post.call_args
         self.assertEqual(call.args[0], "https://login.microsoftonline.com/tenant-guid/oauth2/v2.0/token")
         self.assertEqual(call.kwargs["data"]["grant_type"], "refresh_token")
@@ -1021,11 +1020,11 @@ class AccessToken(unittest.TestCase):
         # Only the via user of a shared mailbox may ask for Mail.Read.Shared; asking any other
         # account for it fails its refresh outright.
         cfg = self.seed({"client_id": "X", "accounts": {
-            "me@corp.com": {"refresh_token": "t"}, "other@corp.com": {"refresh_token": "t"},
-            "info@corp.com": {"via": "me@corp.com"}}})
+            "me@corp.example": {"refresh_token": "t"}, "other@corp.example": {"refresh_token": "t"},
+            "info@corp.example": {"via": "me@corp.example"}}})
         self.session.post.return_value = _response(body={"access_token": "AT"})
-        osync.access_token(cfg, "me@corp.com")
-        osync.access_token(cfg, "other@corp.com")
+        osync.access_token(cfg, "me@corp.example")
+        osync.access_token(cfg, "other@corp.example")
         me, other = (c.kwargs["data"]["scope"] for c in self.session.post.call_args_list)
         self.assertIn(osync.SHARED_SCOPE, me)
         self.assertNotIn(osync.SHARED_SCOPE, other)
@@ -1186,7 +1185,7 @@ class PkceLoginFlow(unittest.TestCase):
                 mock.patch.object(osync, "SESSION", session), \
                 contextlib.redirect_stdout(out):
             try:
-                result = osync.pkce_login(cfg or self.CFG, "v@corp.be")
+                result = osync.pkce_login(cfg or self.CFG, "v@corp.example")
             except SystemExit as e:
                 result = e
         self.bound = bound
@@ -1217,16 +1216,16 @@ class PkceLoginFlow(unittest.TestCase):
         self.assertEqual(self.bound, [("127.0.0.1", 0)])   # loopback only, on a port the OS picks
 
     def test_the_authorize_request_names_the_account_its_app_and_its_scope(self):
-        cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.be": {
+        cfg = {"client_id": "GLOBAL", "accounts": {"v@corp.example": {
             "client_id": "WORK", "authority": "tenant-guid", "shared": True}}}
         _, params, post, _ = self.run_login(self.signed_in, cfg=cfg)
         base = osync.token_url("tenant-guid")
         self.assertTrue(self.authorize_url.startswith(f"{base}/authorize?"))
         self.assertEqual(post.call_args.args[0], f"{base}/token")
         self.assertEqual(params["client_id"], "WORK")
-        self.assertEqual(params["login_hint"], "v@corp.be")
+        self.assertEqual(params["login_hint"], "v@corp.example")
         self.assertEqual(params["response_type"], "code")
-        self.assertEqual(params["scope"], osync.account_scope(cfg, "v@corp.be"))
+        self.assertEqual(params["scope"], osync.account_scope(cfg, "v@corp.example"))
         self.assertEqual(post.call_args.kwargs["data"]["scope"], params["scope"])
 
     def test_a_redirect_with_the_wrong_state_is_refused_before_any_code_is_redeemed(self):
@@ -1248,7 +1247,7 @@ class PkceLoginFlow(unittest.TestCase):
             "error": "invalid_grant", "error_codes": [65001],
             "error_description": "AADSTS65001: consent required"}))
         self.assertIsInstance(result, SystemExit)
-        self.assertTrue(str(result).startswith("Sign-in for v@corp.be failed"))
+        self.assertTrue(str(result).startswith("Sign-in for v@corp.example failed"))
         self.assertIn("AADSTS65001", str(result))
 
     def test_no_redirect_times_out_naming_the_missing_reply_address(self):
@@ -1264,7 +1263,7 @@ class PkceLoginFlow(unittest.TestCase):
     def test_a_port_that_cannot_be_opened_points_at_device_code(self):
         result, params, _, _ = self.run_login(self.signed_in, bind_error=OSError("in use"))
         self.assertIsInstance(result, SystemExit)
-        self.assertIn("login v@corp.be --device-code", str(result))
+        self.assertIn("login v@corp.example --device-code", str(result))
         self.assertIsNone(params)        # no browser sent to a port nobody is listening on
 
     def test_a_machine_with_no_browser_still_gets_the_url_to_paste(self):
@@ -1291,7 +1290,7 @@ class DeviceLoginFlow(unittest.TestCase):
                 mock.patch.object(osync.time, "sleep") as slept, \
                 contextlib.redirect_stdout(out):
             try:
-                result = osync.device_login(cfg, "v@corp.be")
+                result = osync.device_login(cfg, "v@corp.example")
             except SystemExit as e:
                 result = e
         return result, session.post, [c.args[0] for c in slept.call_args_list], out.getvalue()
@@ -1338,7 +1337,7 @@ class CmdFetch(unittest.TestCase):
         {"id": "1", "internetMessageId": "<a@x>", "receivedDateTime": "2026-09-01T10:00:00Z",
          "conversationId": "conv-1",
          "subject": "Onze factuur", "bodyPreview": "  beste   collega  ",
-         "from": {"emailAddress": {"name": "Zoe", "address": "zoe@acme.be"}},
+         "from": {"emailAddress": {"name": "Zoe", "address": "zoe@acme.example"}},
          "toRecipients": [{"emailAddress": {"address": "k@x.com"}}],
          "ccRecipients": [], "webLink": "https://example/1"},
         {"id": "2", "internetMessageId": "<b@x>", "receivedDateTime": "2026-09-02T10:00:00Z",
@@ -1454,8 +1453,7 @@ class CmdFetch(unittest.TestCase):
 
     def test_a_record_says_whether_the_sender_is_the_mailbox_owner(self):
         # Every message in a mailbox is to or from its owner, so a caller matching on contact
-        # identity matches all of it unless it can tell. Measured before this existed: 126 of
-        # 220 contact hits on a real mailbox were the owner writing to herself.
+        # identity matches all of it unless it can tell.
         records, _ = self.run_fetch()
         self.assertIs(records[0]["from_owner"], False)
 
@@ -1544,7 +1542,7 @@ class CmdFetch(unittest.TestCase):
         r = self.run_fetch()[0][0]
         self.assertEqual(r["message_count"], 1)
         self.assertEqual([m["id"] for m in r["messages"]], ["1"])
-        self.assertEqual(r["participants"], ["zoe@acme.be"])
+        self.assertEqual(r["participants"], ["zoe@acme.example"])
 
     def test_messages_without_a_conversation_id_do_not_collapse_into_one(self):
         # Graph omits conversationId often enough to matter. Keyed on a missing value they
@@ -1759,16 +1757,16 @@ class CmdSearch(unittest.TestCase):
     never prints personal mail."""
 
     CFG = {"client_id": "X", "accounts": {
-        "me@corp.com": {"refresh_token": "t"},
-        "info@corp.com": {"via": "me@corp.com"},
+        "me@corp.example": {"refresh_token": "t"},
+        "info@corp.example": {"via": "me@corp.example"},
         "home@h.com": {"refresh_token": "t"}}}
 
     HIT = {"receivedDateTime": "2026-09-01T10:00:00Z", "subject": "Contract\n   renewal  2027",
            "bodyPreview": "  Dear  team,\n see the attached draft ",
-           "from": {"emailAddress": {"name": "Zoe", "address": "zoe@acme.be"}}}
+           "from": {"emailAddress": {"name": "Zoe", "address": "zoe@acme.example"}}}
 
     def run_search(self, account=None, all_mailboxes=False, body=False, limit=50,
-                   feeds=("me@corp.com",), hits=None, cfg=None, broken=()):
+                   feeds=("me@corp.example",), hits=None, cfg=None, broken=()):
         """cmd_search with the token and the Graph search stubbed.
 
         `hits` maps a Graph root to the messages found there. An account in `broken` exits
@@ -1797,23 +1795,23 @@ class CmdSearch(unittest.TestCase):
         return out.getvalue(), err.getvalue(), calls
 
     def test_by_default_only_this_vaults_mailboxes_are_searched(self):
-        _, _, calls = self.run_search(feeds=("me@corp.com",), limit=5)
-        self.assertEqual(calls, [("tok:me@corp.com", "/me", 5)])
+        _, _, calls = self.run_search(feeds=("me@corp.example",), limit=5)
+        self.assertEqual(calls, [("tok:me@corp.example", "/me", 5)])
 
     def test_all_mailboxes_widens_to_every_account_on_the_machine(self):
         _, _, calls = self.run_search(all_mailboxes=True)
         self.assertEqual(sorted((t, r) for t, r, _ in calls), [
-            ("tok:home@h.com", "/me"), ("tok:me@corp.com", "/me"),
-            ("tok:me@corp.com", "/users/info@corp.com")])
+            ("tok:home@h.com", "/me"), ("tok:me@corp.example", "/me"),
+            ("tok:me@corp.example", "/users/info@corp.example")])
 
     def test_a_named_account_is_searched_alone_even_outside_this_vault(self):
-        _, _, calls = self.run_search(account="home@h.com", feeds=("me@corp.com",))
+        _, _, calls = self.run_search(account="home@h.com", feeds=("me@corp.example",))
         self.assertEqual([(t, r) for t, r, _ in calls], [("tok:home@h.com", "/me")])
 
     def test_a_shared_mailbox_is_searched_through_its_via_users_token(self):
-        _, _, calls = self.run_search(feeds=("info@corp.com",))
+        _, _, calls = self.run_search(feeds=("info@corp.example",))
         self.assertEqual([(t, r) for t, r, _ in calls],
-                         [("tok:me@corp.com", "/users/info@corp.com")])
+                         [("tok:me@corp.example", "/users/info@corp.example")])
 
     def test_a_vault_listing_no_accounts_exits_naming_the_flags_that_widen_it(self):
         with self.assertRaises(SystemExit) as e:
@@ -1827,16 +1825,16 @@ class CmdSearch(unittest.TestCase):
         self.assertIn("No accounts configured", str(e.exception))
 
     def test_one_failing_mailbox_does_not_cost_the_others(self):
-        out, err, calls = self.run_search(feeds=("home@h.com", "me@corp.com"),
+        out, err, calls = self.run_search(feeds=("home@h.com", "me@corp.example"),
                                           hits={"/me": [self.HIT]}, broken=("home@h.com",))
-        self.assertEqual([t for t, _, _ in calls], ["tok:me@corp.com"])
+        self.assertEqual([t for t, _, _ in calls], ["tok:me@corp.example"])
         self.assertIn("home@h.com  SEARCH FAILED", err)
-        self.assertIn("me@corp.com  1 hit(s) for 'contract renewal'", out)
+        self.assertIn("me@corp.example  1 hit(s) for 'contract renewal'", out)
         self.assertIn("1 hit(s) total. Read-only: nothing was written.", out)
 
     def test_a_hit_prints_its_date_sender_and_a_one_line_subject(self):
         out, _, _ = self.run_search(hits={"/me": [self.HIT]})
-        self.assertIn("  2026-09-01  zoe@acme.be ", out)
+        self.assertIn("  2026-09-01  zoe@acme.example ", out)
         self.assertIn("Contract renewal 2027", out)
         self.assertNotIn("T10:00", out)
         self.assertNotIn("Dear team", out)        # the preview is --body's to add
@@ -1859,9 +1857,9 @@ class CmdSearch(unittest.TestCase):
                                       hits={"/me": [null_address, null_email, self.HIT]})
         self.assertEqual(err, "")
         lines = [ln for ln in out.splitlines() if "Contract renewal 2027" in ln]
-        self.assertEqual(len(lines), 3 * 2)   # two mailboxes read /me: me@corp.com, home@h.com
+        self.assertEqual(len(lines), 3 * 2)   # two mailboxes read /me: me@corp.example, home@h.com
         self.assertTrue(lines[0].split()[1] == "?" and lines[1].split()[1] == "?")
-        self.assertIn("zoe@acme.be", lines[2])
+        self.assertIn("zoe@acme.example", lines[2])
 
 
 class CmdRaw(unittest.TestCase):

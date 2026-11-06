@@ -8,7 +8,7 @@
 
 Joined BelFoot from a Brussels-based fintech in 2023. Architect by background, not a career manager - she's still hands-on in the architecture decisions, which I like. Knows the BelFoot system landscape better than anyone else at the club.
 
-She uses the Structurizr workspace as her actual working tool, not just documentation. We co-edit it. If you change the architecture without her in the loop, you'll hear about it.
+She uses the architecture model as her actual working tool, not just documentation. We co-edit it. If you change the architecture without her in the loop, you'll hear about it.
 
 Direct, dry, prefers Slack to email or Teams. Reasonable about scope changes if the trade-offs are written down.
 

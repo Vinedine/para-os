@@ -60,7 +60,7 @@ except ImportError as missing:  # para-shared/scripts.md: the skill stops
 
 LINK_TARGET_RE = re.compile(r"\]\([^)]*\)")
 # signals.md's sentence end, which render_dashboard.py's task cut imports: `e.g. the call`,
-# `art. 12` and `€500.000` hold none.
+# `p. 12` and `€500.000` hold none.
 SENTENCE_END_RE = re.compile(r"[.!?](?=\s+[^a-z0-9\s]|\s*$)")
 EMPHASIS_RE = re.compile(r"(?<![\w*])([*_])(?![\s*])(.+?)(?<![\s*])\1(?![\w*])")
 REVISIT_RE = re.compile(r"\brevisit when\b", re.IGNORECASE)

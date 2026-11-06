@@ -476,11 +476,11 @@ class IdeasAndTriage(VaultCase):
         self.assertEqual(stages["hub"], "Proposal, see the offer and e.g. the call")
 
     def test_a_full_stop_before_a_number_ends_no_sentence_and_emphasis_drops(self):
-        write(self.root, "resources/ideas/fund/brief.md", "# fund\n\nWaiting on the art. 12 "
+        write(self.root, "resources/ideas/fund/brief.md", "# fund\n\nWaiting on the p. 12 "
               "statement _(per the listing)_. Then decide.\n\nAsk for nr. 4 and revisit when "
               "the statement is in, see p. 3. Then decide.\n")
         idea = next(i for i in scan(self.root, TODAY)["ideas"] if i["name"] == "fund")
-        self.assertEqual(idea["stage"], "Waiting on the art. 12 statement (per the listing)")
+        self.assertEqual(idea["stage"], "Waiting on the p. 12 statement (per the listing)")
         self.assertEqual(idea["revisit"],
                          "Ask for nr. 4 and revisit when the statement is in, see p. 3")
 
@@ -519,19 +519,19 @@ class IdeasAndTriage(VaultCase):
         build_vault(self.root)
         write(self.root, "triage/20260920 Mail - Hello.md", "\n".join([
             "---", "source: gmail", "---", "# Re: Hello", "",
-            "- **From:** Jan Janssen <jan@example.be>", "- **Received:** 2026-09-20", "",
-            "**2026-09-20, Jan to Vincent**", "", "Plus: one thing.", "Second line.", "",
+            "- **From:** Jan Janssen <jan@be.example>", "- **Received:** 2026-09-20", "",
+            "**2026-09-20, Jan to Sam**", "", "Plus: one thing.", "Second line.", "",
             "Later paragraph."]))
         got = scan(self.root, TODAY)["triage_preview"]["20260920 Mail - Hello.md"]
-        self.assertEqual(got, {"from": "Jan Janssen <jan@example.be>", "subject": "Re: Hello"})
+        self.assertEqual(got, {"from": "Jan Janssen <jan@be.example>", "subject": "Re: Hello"})
 
     def test_an_eml_previews_its_headers_and_other_formats_have_none(self):
         build_vault(self.root)
-        write(self.root, "triage/m.eml", "From: Ann <ann@example.be>\nSubject: Quote\n"
+        write(self.root, "triage/m.eml", "From: Ann <ann@be.example>\nSubject: Quote\n"
               "Content-Type: text/plain; charset=utf-8\n\nHello,\n\nthe quote is attached.\n")
         (self.root / "triage" / "scan.docx").write_bytes(b"PK\x03\x04")
         got = scan(self.root, TODAY)["triage_preview"]
-        self.assertEqual(got["m.eml"], {"from": "Ann <ann@example.be>", "subject": "Quote"})
+        self.assertEqual(got["m.eml"], {"from": "Ann <ann@be.example>", "subject": "Quote"})
         self.assertNotIn("scan.docx", got)
 
     def test_a_sign_in_code_or_reset_link_is_marked_auth_and_never_previewed(self):

@@ -740,13 +740,11 @@ class InlineContactDetails(VaultCase):
                          ["03 234 56 78", "0470 12 34 56"])
 
     def test_identifiers_and_references_are_not_phones(self):
-        # Finding 2 of the 20261018 test runs: file numbers, personal identifiers, case
-        # references, IBANs and register numbers were reported as phones to move to a card.
-        for line in ("file 4417.3300912 is closed.", "identifier 123456782 on the letter.",
-                     "case 2019 07311 is pending.", "docket 1834/20977.",
+        for line in ("file 1111.2222222 is closed.", "identifier 123456782 on the letter.",
+                     "case 2000 01234 is pending.", "docket 1111/22222.",
                      "IBAN BE71 0961 2345 6769.", "account NL91 ABNA 0417 1643 00.",
-                     "register number 90.01.01-123.45.", "ref. 0391 552 708.",
-                     "n° 0470 12 34 56 on the invoice.", "total 5172.4400391 units."):
+                     "register number 90.01.01-123.45.", "ref. 0123 456 789.",
+                     "n° 0470 12 34 56 on the invoice.", "total 3333.4444444 units."):
             with self.subTest(line=line):
                 self.assertEqual(self.phones_on(line), [])
 

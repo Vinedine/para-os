@@ -12,7 +12,7 @@ Map BelFoot's IT landscape and turn the club's modernisation wish list into a pr
 In:
 
 - Interviews with the four directors and the match-day operations team.
-- An architecture model of the current landscape, kept in the club's Structurizr workspace.
+- An architecture model of the current landscape, kept in the club's modelling tool.
 - A programme plan for the board: workstreams, sequence, owners and budget envelope.
 
 Out:

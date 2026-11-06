@@ -97,10 +97,9 @@ const MEETINGS_SUBDIR = CONFIG.meetings_subdir || "triage";
 const ROUTE = CONFIG.route || {};
 const MULTI = Object.keys(ROUTE).length > 0;
 // "." resolves to the vault this copy lives in, so no route value has to name it literally.
-// A vault's folder name is machine-local: the OneDrive client names a synced library in ITS
-// OWN display language, so one library is "Client Site - Documents" here and
-// "Client Site - Documenten" on a Dutch machine. granola.config.json is version-controlled and
-// syncs to the whole team, so a literal name is correct on at most one machine and, worse,
+// A vault's folder name is machine-local: a sync client names a folder in ITS OWN display
+// language. granola.config.json is version-controlled and syncs to the whole team, so a
+// literal name is correct on at most one machine and, worse,
 // fails by silent skip on the rest (resolveDest returns {skip:true}, which prints nothing).
 // Name a folder only for a genuine sibling vault; use "." for this one.
 const SELF = ".";

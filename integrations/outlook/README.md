@@ -7,8 +7,6 @@ Outlook.com  ──▶  outlook.py fetch   ──▶  JSON on stdout  ──▶ 
              └──▶  outlook.py search "..." ──▶  stdout only, an answer to one question
 ```
 
-There used to be a third arrow. `sync --write` decided relevance from a static config and wrote every match into `triage/`, leaving something else to sort it out afterwards. It was **removed**, for two reasons that had both been measured. The filters were guesses maintained by hand, so being wrong cost a folder of files to delete rather than nothing. And on a live personal inbox the honest setting was "take everything", which meant four figures a week per vault. Reading the mailbox and judging before writing costs the same read and removes both problems, so there was nothing left for the write path to be better at.
-
 Personal Microsoft accounts no longer accept Basic Auth or app passwords, so OAuth2 is the only way in: a browser sign-in (authorization code + PKCE), delegated `Mail.Read`, no client secret. A Graph GET does not change is-read state, so nothing here is visible in the mailbox.
 
 ## Prerequisites
@@ -34,7 +32,7 @@ Personal Microsoft accounts no longer accept Basic Auth or app passwords, so OAu
 
 Every mailbox is asked for `Mail.Read` + `offline_access`. **`Mail.Read.Shared` is asked for only on an account that actually reads a shared mailbox**, which `account_scope()` derives from the config: some entry names it as its `via`, or `login --shared` set the flag ahead of that entry existing.
 
-It is narrow by default because the token endpoint is asymmetric. A refresh may ask for **less** than was consented but never **more**, so a scope the account never consented to does not degrade to what it can have - it fails the refresh outright with `AADSTS65001` and takes an already-working mailbox offline. Asking every account for `Mail.Read.Shared` because one of them needed it did exactly that on a live machine: **every Microsoft 365 mailbox stopped authenticating at once**, while the personal ones kept working, because the `consumers` endpoint silently drops the extra and hands back a `Mail.Read` token. So the symptom pointed at the work tenants and the cause was a constant in this file. `AccountScope` in the test suite pins it, including that no module-wide `SCOPE` comes back.
+It is narrow by default because the token endpoint is asymmetric. A refresh may ask for **less** than was consented but never **more**, so a scope the account never consented to does not degrade to what it can have - it fails the refresh outright with `AADSTS65001` and takes an already-working mailbox offline.
 
 `--shared` is only for the ordering case: consenting a user *before* the shared mailbox entry that names them exists. Once the `via` line is there, the scope follows from it and the flag is redundant.
 
@@ -90,7 +88,7 @@ Both print Graph's `bodyPreview`, a couple of hundred characters. **To read a hi
 
 `fetch` reads a recent window and **writes nothing**. It prints the candidates as JSON on stdout, one object per thread, and leaves the relevance decision to whatever consumes it.
 
-**It reads the inbox and the archive, and nothing else.** It used to read `/me/messages`, which is the whole mailbox, so a run re-surfaced mail the spam filter had already caught and mail the operator had already thrown away, and offered it back as something to triage. Measured across two live mailboxes over one 2-day window: **233 messages, of which 171 came from Junk Email, Deleted Items or Sent Items** - one of the two had an empty inbox and returned 30 messages, all of them junk. Nothing failed while this was wrong; the run simply looked productive, which is why the scope is pinned by tests rather than left to this paragraph. The archive stays in scope because an operator who archives fast can file a real message between two runs, and it is cheap: 6 messages over 30 days on the mailbox that actually archives. The folders are named by Graph's language-independent well-known names, since display names are localized and `Junk Email` is `Ongewenste e-mail` on a Dutch mailbox.
+**It reads the inbox and the archive, and nothing else.** Reading the whole mailbox re-surfaces mail the spam filter caught and mail the operator threw away, with nothing failing, so the scope is pinned by tests. The archive stays in scope because an operator who archives fast can file a real message between two runs. The folders are named by Graph's language-independent well-known names, since display names are localized.
 
 **`--sent` adds Sent Items**, for a vault whose `## Triage sources` row asks for the sent pass ([`para-shared/connectors.md`](../../base/.claude/skills/para-shared/connectors.md)): each thread then carries the owner's own messages beside the replies to them, so a promise made in mail and a message nobody answered are visible. The window is at least 14 days whatever `--days` says, so a message is still read on the run after its fifth working day without an answer. It stays off by default because Sent Items re-surfaced handled mail; the caller's seen-ledger is what keeps a handled thread from coming back.
 
@@ -102,7 +100,7 @@ The remainder is the right remainder. What survives is spam and phishing that de
 
 stdout is pure JSON so a caller can parse it; the per-account counts and every other human-readable line go to stderr.
 
-**One record is one conversation, not one message.** The script groups on Graph's `conversationId` before it emits anything, falling back to the message id where Graph omits one. It used to hand the caller a record per message and leave the collapsing to them, which every caller then had to remember and one caller did not: a live mailbox produced 137 routing decisions over 68 real threads, one conversation accounting for 15 of them, and the run read as productive because the failure inflates rather than drops. Grouping at the source makes the invariant true for every caller instead of for the ones that remember.
+**One record is one conversation, not one message.** The script groups on Graph's `conversationId` before it emits anything, falling back to the message id where Graph omits one. Grouping at the source makes the invariant true for every caller instead of for the ones that remember.
 
 A record describes the **newest** message in its thread and carries the whole of it:
 
@@ -119,7 +117,7 @@ A record describes the **newest** message in its thread and carries the whole of
 
 Nothing configurable, which is the point. There is no keyword list, no catch-all switch and no contact allowlist any more; those existed to decide what got written, and nothing is written. Relevance is judged by the caller against the vault's own `## Triage sources` rules and its README, where the context actually is.
 
-The one cut this script still makes is **bulk mail**, on one signal and a cost-saver rather than a filter: **RFC 2369 `List-Unsubscribe`**, which every legitimate marketing sender sets and ordinary correspondence does not. Measured on a live personal inbox: **177 messages over two days, 159 dropped, 18 candidates**, in about four seconds. `--include-bulk` turns it off.
+The one cut this script still makes is **bulk mail**, on one signal and a cost-saver rather than a filter: **RFC 2369 `List-Unsubscribe`**, which every legitimate marketing sender sets and ordinary correspondence does not. `--include-bulk` turns it off.
 
 **There is deliberately no noreply-style sender-name backstop**, and adding one back would be a regression the tests catch. Matching `noreply`, `notification` or `newsletter` on the local part is the exact exclusion [`para-shared/connectors.md`](../../base/.claude/skills/para-shared/connectors.md) forbids by default for every mailbox source, this one included: a domain or DNS action-required notice, a tax filing alert, an invoice, a payment receipt and a booking confirmation are nearly always sent from a `noreply@` address, so the pattern drops precisely the mail the vault exists to catch, and drops it invisibly. It also earned little - on that same inbox the name test alone left 144 of 177, because the shops write from `hello@` and `news@`. A mailbox that is measurably mostly bot mail is narrowed by naming that application's own domain in the vault's own `Relevant when` rules, where the narrowing stays visible to whoever reads the run.
 

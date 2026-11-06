@@ -344,10 +344,8 @@ test("the closing summary accounts for meetings routed to other vaults", () => {
 
 
 // --- route targets ----------------------------------------------------------------------
-// Routing resolves against folder NAMES, and a folder name is machine-local: the OneDrive
-// client names a synced SharePoint library in its own display language, so one library is
-// "Client Site - Documents" here and "Client Site - Documenten" on a Dutch machine. The
-// config is version-controlled and syncs to everyone, so a literal name is right on at most
+// Routing resolves against folder NAMES, and a folder name is machine-local: a sync client
+// names a folder in its own display language. The config is version-controlled and syncs to everyone, so a literal name is right on at most
 // one machine - and wrong in the worst way on the rest, since an unmatched target is treated
 // as another vault's meeting and dropped in silence while the run still reports success.
 //
@@ -445,10 +443,10 @@ test("a literal name for this vault still resolves, on the machine that spells i
 test("a route target that is neither this vault nor a sibling warns once, at startup", () => {
   // The Dutch-machine config, read on an English machine. Before this warning the meeting
   // vanished through the silent multi-vault skip and the run still reported success.
-  const { result, stderr } = inVault({ route: { Client: "Client Site - Documenten" } },
+  const { result, stderr } = inVault({ route: { Client: "Client Site - Library" } },
                                      meeting("Client - Kickoff"));
   assert.ok(result.skip, "an unresolvable target still skips - the warning is the fix, not a route");
-  assert.match(stderr, /Client Site - Documenten/);
+  assert.match(stderr, /Client Site - Library/);
   assert.match(stderr, /route "Client"/,
     "the prefix must be quoted as the config spells it - a lowercased key is not findable there");
   assert.match(stderr, /skipped silently/);
@@ -483,7 +481,7 @@ test("--vault naming something no route points to stops the run", () => {
   // explicit ask, so it gets an explicit answer - the same call outlook.py makes for
   // --account, and the reason this exits where an unresolvable route only warns.
   const r = inVault({ route: { Client: ".", Acme: "acme-client" } }, meeting("Client - Kickoff"),
-                    { siblings: ["acme-client"], argv: ["--vault", "Client Site - Documenten"],
+                    { siblings: ["acme-client"], argv: ["--vault", "Client Site - Library"],
                       allowFailure: true });
   assert.notEqual(r.status, 0, "a --vault nothing routes to must not report success");
   assert.match(r.stderr, /nothing routes there/);

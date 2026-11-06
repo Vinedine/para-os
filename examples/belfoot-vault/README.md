@@ -2,7 +2,7 @@
 
 Master document for the BelFoot IT modernisation engagement. Single source of truth for the engagement's scope, stakeholders, and track record; derived outputs (decks, status one-pagers, reports) regenerate from it.
 
-> **Reference date: 2026-06-24.** This is a fixed synthetic vault, so every date in it is frozen at that Wednesday in late June 2026. Its dates are deliberately *not* refreshed to match the calendar: the fiction is anchored to real match days (soft launch Sunday 2026-08-02, season opener Sunday 2026-08-09), and sliding everything forward would break that anchor and re-age within weeks anyway. Read whatever `/para-daily-brief` reports as "overdue" against 2026-06-24, not against today - the further past that date you are, the redder the dashboard looks. To see the buckets spread across 🔴 / 🟠 / 🟡 the way a live vault would, shift every date in the vault forward by the gap between 2026-06-24 and today.
+> **Reference date: 2026-06-24.** This is a fixed synthetic vault, so every date in it is frozen at that Wednesday in late June 2026. Its dates are deliberately *not* refreshed to match the calendar: the fiction is anchored to match days (soft launch Sunday 2026-08-02, season opener Sunday 2026-08-09), and sliding everything forward would break that anchor and re-age within weeks anyway. Read whatever `/para-daily-brief` reports as "overdue" against 2026-06-24, not against today - the further past that date you are, the redder the dashboard looks. To see the buckets spread across 🔴 / 🟠 / 🟡 the way a live vault would, shift every date in the vault forward by the gap between 2026-06-24 and today.
 
 ## Identity
 

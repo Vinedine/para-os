@@ -31,7 +31,7 @@ from paraos_connections import (  # noqa: E402
 
 EMPTY = {"connections": [], "mailboxes": [], "ignore": []}
 AZ = {"id": "az", "kind": "cli", "provider": "Cloud, one sign-in", "vaults": ["work"], "read_only": True}
-CALLER = 'import urllib.request\nURL = "https://api.shop.io/v1"\n'
+CALLER = 'import urllib.request\nURL = "https://api.shop.example/v1"\n'
 
 WORK_CLAUDE = """# Work
 
@@ -201,29 +201,29 @@ class Reading(unittest.TestCase):
     """What a script's code reaches, read from its text."""
 
     def test_a_host_counts_only_where_the_code_calls_out(self):
-        self.assertEqual(reach(CALLER, ".py"), (["api.shop.io"], []))
-        self.assertEqual(reach('PAGE = "https://shop.io/about"\n', ".py"), ([], []))
+        self.assertEqual(reach(CALLER, ".py"), (["api.shop.example"], []))
+        self.assertEqual(reach('PAGE = "https://shop.example/about"\n', ".py"), ([], []))
 
     def test_what_only_a_reader_sees_is_dropped(self):
-        py = ('"""Reads https://docs.shop.io/api first."""\nimport urllib.request\n'
-              "# see https://wiki.shop.io\n    '''Also https://notes.shop.io'''\n"
-              'URL = "https://api.shop.io/v1"  # https://api.shop.io again\n'
-              'HELP = """kept: https://help.shop.io"""\n')
-        self.assertEqual(reach(py, ".py")[0], ["api.shop.io", "help.shop.io"])
-        js = ("/**\n * https://docs.shop.io\n */\n// https://wiki.shop.io\n"
-              "const r = await fetch('https://api.shop.io/v1');\nconst g = 'src/**/*.js';\n")
-        self.assertEqual(reach(js, ".mjs")[0], ["api.shop.io"])
-        ps = "<#\n https://docs.shop.io\n#>\n# https://wiki.shop.io\nInvoke-RestMethod https://api.shop.io/v1\n"
-        self.assertEqual(reach(ps, ".ps1")[0], ["api.shop.io"])
-        sh = "#!/bin/sh\n# https://wiki.shop.io\ncurl -s https://api.shop.io/v1\n"
-        self.assertEqual(reach(sh, ".sh")[0], ["api.shop.io"])
+        py = ('"""Reads https://docs.shop.example/api first."""\nimport urllib.request\n'
+              "# see https://wiki.shop.example\n    '''Also https://notes.shop.example'''\n"
+              'URL = "https://api.shop.example/v1"  # https://api.shop.example again\n'
+              'HELP = """kept: https://help.shop.example"""\n')
+        self.assertEqual(reach(py, ".py")[0], ["api.shop.example", "help.shop.example"])
+        js = ("/**\n * https://docs.shop.example\n */\n// https://wiki.shop.example\n"
+              "const r = await fetch('https://api.shop.example/v1');\nconst g = 'src/**/*.js';\n")
+        self.assertEqual(reach(js, ".mjs")[0], ["api.shop.example"])
+        ps = "<#\n https://docs.shop.example\n#>\n# https://wiki.shop.example\nInvoke-RestMethod https://api.shop.example/v1\n"
+        self.assertEqual(reach(ps, ".ps1")[0], ["api.shop.example"])
+        sh = "#!/bin/sh\n# https://wiki.shop.example\ncurl -s https://api.shop.example/v1\n"
+        self.assertEqual(reach(sh, ".sh")[0], ["api.shop.example"])
 
     def test_a_format_or_an_example_is_not_a_host(self):
-        text = ('import requests\nrequests.get("https://API.shop.io")\n'
+        text = ('import requests\nrequests.get("https://API.shop.example")\n'
                 'NS = ["http://www.w3.org/2000/svg", "http://schemas.openxmlformats.org/x",\n'
                 '      "https://example.com/a", "https://api.example.org/b", "http://127.0.0.1:8080",\n'
                 '      "http://localhost:3000"]\n')
-        self.assertEqual(reach(text, ".py")[0], ["api.shop.io"])
+        self.assertEqual(reach(text, ".py")[0], ["api.shop.example"])
 
     def test_a_listed_cli_where_a_command_starts(self):
         for code in ("az storage blob list --account x\n", "$rows = az account show | ConvertFrom-Json\n",
@@ -306,7 +306,7 @@ class Scanning(Home, unittest.TestCase):
 
     def test_ignore_by_name_or_by_the_end_of_a_path(self):
         for rel in ("resources/scripts/shop.py", "resources/scripts/probe.ps1", "areas/x/scripts/sign-in.js"):
-            self.write(self.work, rel, "curl https://api.shop.io\n")
+            self.write(self.work, rel, "curl https://api.shop.example\n")
         self.assertEqual(len(self.scripts()), 3)
         self.assertEqual(self.scripts(ignore=["probe.ps1", "x/scripts/sign-in.js", "", "hop.py"]),
                          [("resources/scripts/shop.py", "work", "scripts")])
@@ -332,7 +332,7 @@ class Listing(Home, unittest.TestCase):
         self.assertEqual(shop["used_by"], [{"vault": "work", "via": "scripts"},
                                            {"vault": "work", "via": "skill:shop-status"},
                                            {"vault": "house", "via": "scripts"}])
-        self.assertEqual(shop["calls"], {"hosts": ["api.shop.io", "api.bank.io"], "clis": ["az"]})
+        self.assertEqual(shop["calls"], {"hosts": ["api.shop.example", "api.bank.io"], "clis": ["az"]})
         self.assertEqual(by_id["zones/x/scripts/shop.py"]["calls"], {"hosts": [], "clis": ["az"]})
         harness = by_id["shop-api/.test/test.js"]
         self.assertEqual(harness["path"], (repo / ".test" / "test.js").as_posix())
@@ -409,13 +409,13 @@ class Checking(Home, unittest.TestCase):
 
     def test_a_script_nobody_listed(self):
         self.write(self.work, "resources/scripts/shop.py", CALLER + "az account show\n")
-        self.write(self.work, "resources/scripts/probe.ps1", "curl https://api.shop.io\n")
+        self.write(self.work, "resources/scripts/probe.ps1", "curl https://api.shop.example\n")
         (self.home / "connections.json").write_text(json.dumps(
             {"connections": [GOOD, AZ], "ignore": ["probe.ps1"]}), encoding="utf-8")
         found = [f for f in check(self.home)["findings"] if f["connection"] == "resources/scripts/shop.py"]
         self.assertEqual(len(found), 1)
         self.assertEqual(found[0]["kind"], "undeclared")
-        self.assertIn("used by work (scripts), calls az, api.shop.io,", found[0]["detail"])
+        self.assertIn("used by work (scripts), calls az, api.shop.example,", found[0]["detail"])
         self.assertIn("under ignore", found[0]["fix"])
         self.assertNotIn("probe.ps1", json.dumps(check(self.home)))
 
@@ -466,7 +466,7 @@ class Manifest(Home, unittest.TestCase):
     def test_a_found_script_s_row(self):
         self.write(self.work, "resources/scripts/shop.py", CALLER + "az account show\n")
         self.connections([AZ])
-        self.assertIn("| `shop.py` (found by its code) | script | az, api.shop.io | work |  |  |  |",
+        self.assertIn("| `shop.py` (found by its code) | script | az, api.shop.example | work |  |  |  |",
                       manifest(self.home)["block"])
 
     def test_write_appends_then_replaces_only_the_block(self):

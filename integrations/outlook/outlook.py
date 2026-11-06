@@ -5,12 +5,10 @@ messages to a caller that decides what they mean. Writes nothing, anywhere, ever
 
 That last part is the design, not a caveat. This script used to have a `sync` subcommand
 that decided relevance from a static config - keywords, a catch-all switch, a contact
-allowlist - and wrote every match into the vault's triage/ folder. Two things were wrong
-with it. The filters were guesses maintained by hand, and being wrong cost a folder full
-of files to delete; and on a live personal inbox the honest setting was "take everything",
-which meant four figures a week. `fetch` reads the same mailbox and prints the candidates
-instead, so a skill can judge them against the vault's own rules and write only what
-survives. Removed: nothing here files mail any more.
+allowlist - and wrote every match into the vault's triage/ folder. The filters were guesses
+maintained by hand, and being wrong cost a folder full of files to delete. `fetch` reads the
+same mailbox and prints the candidates instead, so a skill can judge them against the vault's
+own rules and write only what survives. Removed: nothing here files mail any more.
 
 Microsoft accounts no longer accept Basic Auth or app passwords: the ONLY way in is
 OAuth2, against an Entra app registration (delegated Graph Mail.Read) with no client
@@ -599,9 +597,9 @@ def graph_get(token, path, prefer=None):
 
 
 # Folders a fetch reads, as Graph well-known names rather than display names, which are
-# localized ("Junk Email" is "Ongewenste e-mail" on a Dutch mailbox) and so cannot be
-# matched on. An allowlist, because the folders worth reading are few and the ones worth
-# skipping are not: Junk and Deleted Items are disposals the operator or the spam filter
+# localized and so cannot be matched on. An allowlist, because the folders worth reading
+# are few and the ones worth skipping are not: Junk and Deleted Items are disposals the
+# operator or the spam filter
 # has already made, and re-surfacing them undoes that decision.
 FETCH_FOLDERS = ("inbox", "archive")
 

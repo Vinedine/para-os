@@ -156,7 +156,7 @@ def name_only_lines(path):
 
 def phone_matches(text):
     """Phone-shaped runs in `text`: a `+` and 8 to 15 digits, or a trunk `0` and 9 to 11 in
-    two groups or more, never part of a longer number (`2019 07311`), an IBAN, or a number
+    two groups or more, never part of a longer number (`2000 01234`), an IBAN, or a number
     after a reference label (`ref.`, `nr`, `#`). Run on the line link_targets_stripped()
     produces, so a date or a path segment inside a link target is never a phone."""
     text = IBAN_RE.sub(lambda m: " " * len(m.group(0)), text)

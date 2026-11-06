@@ -480,9 +480,9 @@ class GitUntracked(VaultCase):
         git_init(self.root)
         write(self.root, "projects/x/actions.md", "# x\n")
         git_commit_at(self.root, "2026-01-01")
-        write(self.root, "archive/meetings/20260801 Mats Jørgen Øyan - Call.md", "# call\n")
+        write(self.root, "archive/meetings/20260801 Ola Bjørn Østmann - Call.md", "# call\n")
         self.assertEqual(git_untracked(self.root, "archive"),
-                         ["archive/meetings/20260801 Mats Jørgen Øyan - Call.md"])
+                         ["archive/meetings/20260801 Ola Bjørn Østmann - Call.md"])
 
     def test_nothing_untracked_is_an_empty_list_not_none(self):
         git_init(self.root)
@@ -2242,17 +2242,17 @@ TRIAGE_LINES = [
     "|---|---|---|---|",                                                                   # 6
     "| granola | sync-script | `resources/scripts/granola.js` (writes meeting notes to "
     "`triage/`) | Meeting carries the `BF` title prefix (the script's own routing). |",     # 7
-    "| workspace-primary | connector: `google-workspace` | `alex.rivera@example-work.com` "
+    "| workspace-primary | connector: `google-workspace` | `alex.rivera@work.example` "
     "| Primary work mailbox. |",                                                            # 8
     "| gmail-personal | connector: claude.ai Gmail | `alex.rivera@example.com` | Threads "
     "that arrived at the personal address. |",                                              # 9
     "| outlook-partner | fetch-script | `partner@example-mail.com` via "
     "`resources/scripts/outlook.py fetch` (no MCP connector for this mailbox; the script "
     "reads it and prints candidates, writing nothing) | Household mail. |",                   # 10
-    "| biz-info | fetch-script | **Shared mailbox.** `info@example-biz.com` via "
-    "`resources/scripts/outlook.py`, read through `owner@example-biz.com`'s token "
+    "| biz-info | fetch-script | **Shared mailbox.** `info@biz.example` via "
+    "`resources/scripts/outlook.py`, read through `owner@biz.example`'s token "
     "using delegated `Mail.Read.Shared`. | Shared inbox. |",               # 11
-    "| biz-partner | fetch-script | `partner@example-biz.com` via `outlook.py` | The "
+    "| biz-partner | fetch-script | `partner@biz.example` via `outlook.py` | The "
     "primary mailbox for this business. |",                                                 # 12
     "",                                                                                    # 13
     "## Agenda sources",                                                                    # 14
@@ -2365,7 +2365,7 @@ class TriageSourcesTable(VaultCase):
         row = triage_sources(self.root)["rows"][1]
         self.assertEqual(row["kind"], "connector")
         self.assertEqual(row["connector"], "google-workspace")
-        self.assertEqual(row["mailbox"], "alex.rivera@example-work.com")
+        self.assertEqual(row["mailbox"], "alex.rivera@work.example")
         self.assertIsNone(row["path"])
 
     def test_a_claude_ai_gmail_connector_row_is_normalized(self):
@@ -2393,13 +2393,13 @@ class TriageSourcesTable(VaultCase):
         self.write_claude(TRIAGE_LINES)
         row = triage_sources(self.root)["rows"][4]
         self.assertEqual(row["path"], "resources/scripts/outlook.py")
-        self.assertEqual(row["mailbox"], "info@example-biz.com")
+        self.assertEqual(row["mailbox"], "info@biz.example")
 
     def test_a_short_fetch_script_row(self):
         self.write_claude(TRIAGE_LINES)
         row = triage_sources(self.root)["rows"][5]
         self.assertEqual(row["path"], "outlook.py")
-        self.assertEqual(row["mailbox"], "partner@example-biz.com")
+        self.assertEqual(row["mailbox"], "partner@biz.example")
 
     def test_a_french_header_falls_back_to_position(self):
         self.write_claude([
@@ -2450,12 +2450,12 @@ class TriageSourcesTable(VaultCase):
             "| notes | sync-script | resources/scripts/notes-sync.py --write | Meetings. |",
             "| bold | sync-script | **resources/scripts/Notes-Sync.PS1** (writes to triage/) "
             "| Meetings. |",
-            "| shared | fetch-script | `info@example-biz.com` via resources/scripts/outlook.py "
+            "| shared | fetch-script | `info@biz.example` via resources/scripts/outlook.py "
             "| Shared inbox. |")
         self.assertEqual([r["path"] for r in got],
                          ["resources/scripts/notes-sync.py", "resources/scripts/Notes-Sync.PS1",
                           "resources/scripts/outlook.py"])
-        self.assertEqual(got[2]["mailbox"], "info@example-biz.com")
+        self.assertEqual(got[2]["mailbox"], "info@biz.example")
 
     def test_a_cadence_hint_is_read_and_leaves_the_kind_alone(self):
         got = self.rows(
@@ -2478,7 +2478,7 @@ class TriageSourcesTable(VaultCase):
 
     def test_a_pulled_by_marker_is_read_from_any_cell_up_to_where_the_name_ends(self):
         got = self.rows(
-            "| mail | connector: google-workspace | `sam@example-biz.com`, pulled by Sam Peeters. "
+            "| mail | connector: google-workspace | `sam@biz.example`, pulled by Sam Peeters. "
             "Signed in on her machine. | Bookings. |",
             "| home | fetch-script | `resources/scripts/outlook.py fetch` (no connector), Pulled By "
             "[Sam Peeters](areas/network/sam-peeters.md) | Mail. |",
@@ -2487,7 +2487,7 @@ class TriageSourcesTable(VaultCase):
             "| work | connector: google-workspace | `ann@example.com` | Clients. |")
         self.assertEqual([r["pulled_by"] for r in got],
                          ["Sam Peeters", "Sam Peeters", "Robin Maes", None])
-        self.assertEqual(got[0]["mailbox"], "sam@example-biz.com")
+        self.assertEqual(got[0]["mailbox"], "sam@biz.example")
 
     def test_a_script_row_naming_no_script_has_no_path(self):
         got = self.rows("| mail | fetch-script | ask Alex which script, `TBD` | Leads. |",

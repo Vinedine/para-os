@@ -30,4 +30,4 @@ Legal review came back clean. Four vendors confirmed. Sofie wants the evaluation
 
 ## Side topic
 
-Sofie is reading the Structurizr workspace properly now (not just glancing at it). She caught an inconsistency in the cashless payment container's deployment target. Good. I owe her a clean-up pass on the ADRs.
+Sofie is reading the architecture model properly now (not just glancing at it). She caught an inconsistency in the cashless payment container's deployment target. Good. I owe her a clean-up pass on the ADRs.
