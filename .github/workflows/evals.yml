@@ -44,24 +44,13 @@ jobs:
           npm install -g @anthropic-ai/claude-code
           version=$(claude --version)
           echo "Claude Code $version" | tee -a "$GITHUB_STEP_SUMMARY"
-      # A granted shell runs inside bubblewrap. Ubuntu 24.04's AppArmor stops bwrap creating user
-      # namespaces; the profile below, from Claude Code's sandboxing docs, covers bwrap alone.
+      # A granted shell runs inside bubblewrap, and Claude Code's seccomp helper inside that. Ubuntu
+      # 24.04's AppArmor stops both using user namespaces, so this throwaway runner lifts the limit.
       - name: Install the sandbox
         run: |
           sudo apt-get update
           sudo apt-get install -y bubblewrap socat
-          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
-            sudo tee /etc/apparmor.d/bwrap > /dev/null <<'EOF'
-          abi <abi/4.0>,
-          include <tunables/global>
-
-          profile bwrap /usr/bin/bwrap flags=(unconfined) {
-            userns,
-            include if exists <local/bwrap>
-          }
-          EOF
-            sudo systemctl reload apparmor
-          fi
+          sudo sysctl -e -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --ro-bind / / true
       # --threshold 0: a low score never fails the job. --keep-temp keeps the traces the summary
       # reads the model from. TMPDIR keeps case folders off /tmp, which the shell cannot write.
