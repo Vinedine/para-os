@@ -461,6 +461,88 @@ class Records(VaultCase):
         self.assertEqual(self.found(), [])
 
 
+class NoCard(VaultCase):
+    """Lotte has no card; a record in Acme's sources/ names her."""
+
+    WHO = "Lotte Maes <lotte@acme.example>"
+
+    def setUp(self):
+        super().setUp()
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\n**Stage:** Goal (since 2026-09-01)\n**Signer:** unknown\n\n"
+              "**Do not raise:** the old quote\n")
+        write(self.root, "projects/acme/sources/20260912 Acme - Kickoff.md", "Lotte Maes joined.\n")
+
+    def open_items(self, text, rel="projects/acme/actions.md"):
+        write(self.root, rel, f"# Actions\n\n{text}\n")
+
+    def mentioned(self, who=WHO):
+        return [(m["file"], m["line"], m["by"]) for m in self.person(who)["mentions"]]
+
+    def test_a_record_in_an_entitys_sources_brings_the_entity_in(self):
+        self.open_items("- [ ] Send the deck 📅 2026-09-25")
+        report = self.scan(self.WHO)
+        self.assertEqual(report["people"][0]["status"], "no_card")
+        self.assertEqual(report["people"][0]["entities"], ["projects/acme"])
+        e = report["entities"][0]
+        self.assertEqual(e["path"], "projects/acme")
+        self.assertEqual(e["stage"]["name"], "Goal")
+        self.assertEqual(e["unknown"], ["Signer"])
+        self.assertEqual(e["do_not_raise"], ["the old quote"])
+        self.assertEqual(e["actions"]["open"], 1)
+
+    def test_a_record_older_than_those_listed_still_brings_its_entity_in(self):
+        for day in range(1, RECORDS_SHOWN + 1):
+            write(self.root, f"projects/newer/sources/202610{day:02d} Call.md", "Lotte Maes.\n")
+        self.assertEqual(self.person(self.WHO)["entities"], ["projects/acme", "projects/newer"])
+
+    def test_an_address_alone_brings_the_entity_in_with_no_first_name_to_search(self):
+        write(self.root, "projects/acme/sources/20260913 Mail.md", "From lotte@acme.example\n")
+        self.open_items("- [ ] Ask Lotte for the file")
+        p = self.person("lotte@acme.example")
+        self.assertEqual(p["entities"], ["projects/acme"])
+        self.assertEqual(p["mentions"], [])
+
+    def test_a_meeting_record_outside_any_entity_brings_nothing_in(self):
+        shutil.rmtree(self.root / "projects/acme/sources")
+        write(self.root, "archive/meetings/20260912 Review.md", "Lotte Maes joined.\n")
+        self.open_items("- [ ] Ask Lotte for the file")
+        report = self.scan(self.WHO)
+        self.assertEqual(len(report["people"][0]["records"]), 1)
+        self.assertEqual(report["people"][0]["entities"], [])
+        self.assertEqual(report["entities"], [])
+        self.assertEqual(report["people"][0]["mentions"], [])
+
+    def test_the_first_name_is_a_weak_match_inside_that_entity_only(self):
+        self.open_items("- [ ] Ask Lotte for the file\n- [ ] Send the deck")
+        self.open_items("- [ ] Ask Lotte about the invoice", "projects/other/actions.md")
+        write(self.root, "areas/network/jan-janssen.md",
+              "# Jan Janssen\n\n## Next actions\n\n- [ ] Tell Lotte the date\n")
+        self.assertEqual(self.mentioned(), [("projects/acme/actions.md", 3, "short name")])
+
+    def test_a_whole_name_still_counts_anywhere_and_outranks_the_first_name(self):
+        self.open_items("- [ ] Ask Lotte Maes for the file")
+        self.open_items("- [ ] Copy Lotte Maes", "projects/other/actions.md")
+        self.assertEqual(self.mentioned(), [("projects/acme/actions.md", 3, "name"),
+                                            ("projects/other/actions.md", 3, "name")])
+
+    def test_a_name_written_last_first_is_searched_by_its_first_name(self):
+        self.open_items("- [ ] Ask Lotte for the file\n- [ ] Ask Maes for the file")
+        self.assertEqual(self.mentioned("Maes, Lotte"),
+                         [("projects/acme/actions.md", 3, "short name")])
+
+    def test_a_first_name_a_card_carries_is_that_persons(self):
+        write(self.root, "areas/network/lotte-claes.md", "# Lotte Claes\n")
+        self.open_items("- [ ] Ask Lotte for the file")
+        self.assertEqual(self.mentioned(), [])
+
+    def test_with_no_record_the_first_name_is_not_searched(self):
+        self.open_items("- [ ] Ask Sofie for the file")
+        p = self.person("Sofie Wouters")
+        self.assertEqual(p["entities"], [])
+        self.assertEqual(p["mentions"], [])
+
+
 class RegisterRows(VaultCase):
 
     def test_a_row_naming_the_person_carries_its_stage(self):
