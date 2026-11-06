@@ -1961,8 +1961,17 @@ class Trash(VaultCase):
         self.assertEqual(got, {"trashed": [str(a), str(folder)], "not_trashed": []})
         self.assertEqual(len(calls), 2)
         if sys.platform == "win32":
-            self.assertIn("::DeleteFile('" + str(a).replace("'", "''") + "'", calls[0][-1])
+            self.assertIn("::DeleteFile(", calls[0][-1])
             self.assertIn("::DeleteDirectory(", calls[1][-1])
+
+    def test_on_windows_the_path_reaches_powershell_outside_its_script(self):
+        a = write(self.root, "triage/don\u2019t forget.md", "x\n")
+        done = subprocess.CompletedProcess([], 0)
+        with mock.patch("paraos_vault.sys.platform", "win32"), \
+                mock.patch("paraos_vault.subprocess.run", return_value=done) as run:
+            self.assertTrue(trash(a))
+        self.assertNotIn("forget", " ".join(run.call_args.args[0]))
+        self.assertEqual(run.call_args.kwargs["env"]["PARAOS_TRASH_PATH"], str(abspath(a)))
 
     def test_a_path_with_no_trash_reachable_is_reported_and_exits_1(self):
         a = write(self.root, "triage/a.md", "x\n")
