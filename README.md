@@ -51,8 +51,6 @@ It downloads the kit, asks a few short questions, and ends by filing a few of yo
 - **Portable by rule.** Where an AI platform ships one of the kit's features built in, the kit uses it only if your knowledge stays in your own files and keeps working when you switch AI. Otherwise it keeps its own.
 - **Free and open.** MIT-licensed, and kept up because the maintainer's own daily work runs on it.
 
-> **Rather have it done for you?** para-os is the open method I work by: I set it up for a business, connect it and train the team, then take the work wherever the business needs to get working with AI. [trotstar.tech](https://trotstar.tech)
-
 ## More
 
 - [Getting started](docs/getting-started.md): requirements, a terminal or VS Code, synced drives, version history.
