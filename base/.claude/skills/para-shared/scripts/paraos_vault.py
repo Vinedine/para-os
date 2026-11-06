@@ -2182,22 +2182,22 @@ def vault_path(vault, path):
 
 def trash(path):
     """Send a file or a folder to the system trash, per operating-discipline.md; False where
-    none is reachable. The path is quoted here, never by hand."""
+    none is reachable. The path goes in the environment: no escape covers PowerShell's quotes."""
     path = abspath(path)
     if sys.platform == "win32":
-        quoted = str(path).replace("'", "''")
         method = "DeleteDirectory" if path.is_dir() else "DeleteFile"
         cmd = ["powershell", "-NoProfile", "-Command",
                "Add-Type -AssemblyName Microsoft.VisualBasic; "
                f"[Microsoft.VisualBasic.FileIO.FileSystem]::{method}("
-               f"'{quoted}', 'OnlyErrorDialogs', 'SendToRecycleBin')"]
+               "$env:PARAOS_TRASH_PATH, 'OnlyErrorDialogs', 'SendToRecycleBin')"]
     elif sys.platform == "darwin":
         quoted = str(path).replace("\\", "\\\\").replace('"', '\\"')
         cmd = ["osascript", "-e", f'tell application "Finder" to delete POSIX file "{quoted}"']
     else:
         cmd = ["gio", "trash", str(path)]
     try:
-        return subprocess.run(cmd, capture_output=True).returncode == 0
+        return subprocess.run(cmd, capture_output=True,
+                              env=dict(os.environ, PARAOS_TRASH_PATH=str(path))).returncode == 0
     except OSError:
         return False
 
