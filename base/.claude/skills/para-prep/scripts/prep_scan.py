@@ -51,7 +51,8 @@ SHORT_NAME_MIN = 3       # a shorter word is an initial or a particle, never a n
 DATE_PREFIX_RE = re.compile(r"^(\d{4})-?(\d{2})-?(\d{2})(?!\d)")
 DO_NOT_RAISE_RE = re.compile(r"\bdo\s+not\s+raise\b", re.IGNORECASE)
 LABEL_RE = re.compile(r"^\*\*\s*do\s+not\s+raise\s*:?\s*\*\*\s*:?\s*(.*)$", re.IGNORECASE)
-BULLET_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
+BULLET_RE = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$")
+SECTION_RE = re.compile(r"^[ \t]*#{2,6}\s", re.MULTILINE)
 NAME_SEP = r"[\s,.'-]+"
 
 
@@ -100,7 +101,8 @@ def same_target(path):
 def read_cards(vault):
     """Every contact card under areas/network/, with the names it answers to: its H1, its
     aliases, and its file name read as words, which is how a card named last-name first, or
-    titled with a first name alone, still answers to the whole name."""
+    titled with a first name alone, still answers to the whole name. Its addresses are those
+    above its first `##` heading: below it, a history or an action names other people's."""
     base = vault.joinpath(*CARD_DIR)
     if not base.is_dir():
         return []
@@ -117,9 +119,10 @@ def read_cards(vault):
                 seen.add(name_key(n))
                 names.append((n, by))
         text = "\n".join(t for _, t in live_lines(read_lines(path)))
+        lead = SECTION_RE.split(text, maxsplit=1)[0]
         cards.append({"path": path, "rel": rel_posix(vault, path), "name": h1 or path.stem,
                       "aliases": aliases, "names": names,
-                      "emails": sorted({e.lower() for e in EMAIL_RE.findall(text)})})
+                      "emails": sorted({e.lower() for e in EMAIL_RE.findall(lead)})})
     return cards
 
 
@@ -284,8 +287,10 @@ def entity_stage(doc, rel, declared, today):
 
 def do_not_raise(doc):
     """What a brief keeps under a `Do not raise` label: the text after a bold-led label and
-    the list directly under it, or everything under a heading of that name."""
-    out, mode, level, listed = [], None, 0, 0
+    the list directly under it, or everything under a heading of that name. A bullet that
+    carries the label and its text keeps its sub-bullets alone, never the bullets after it;
+    any other label's list ends at a bullet shallower than its first item."""
+    out, mode, level, listed, floor = [], None, 0, 0, None
     for _, text in live_lines(read_lines(doc)):
         stripped = text.strip()
         heading = HEADING_RE.match(stripped)
@@ -296,14 +301,19 @@ def do_not_raise(doc):
             level = len(heading.group(1))
             continue
         bullet = BULLET_RE.match(text)
-        body = bullet.group(1).strip() if bullet else stripped
+        body = bullet.group(2).strip() if bullet else stripped
+        depth = len(bullet.group(1)) if bullet else 0
         label = LABEL_RE.match(body)
         if label:
             mode, listed = "label", int(bool(label.group(1).strip()))
+            floor = depth + 1 if bullet and listed else None
             if listed:
                 out.append(label.group(1).strip())
             continue
-        if mode == "label" and (not bullet and stripped or not stripped and listed):
+        if mode == "label" and bullet and floor is None:
+            floor = depth
+        if mode == "label" and (not bullet and stripped or not stripped and listed
+                                or bullet and depth < floor):
             mode = None
         if mode and body:
             out.append(body)

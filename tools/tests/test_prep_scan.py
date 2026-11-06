@@ -112,6 +112,19 @@ class Matching(VaultCase):
         self.assertEqual((p["matched_by"], p["card"]["path"]),
                          ("email", "areas/network/jan-janssen.md"))
 
+    def test_an_address_below_the_cards_first_heading_is_another_persons(self):
+        write(self.root, "areas/network/ann-peeters.md", "\n".join([
+            "# Ann Peeters", "", "- **Email:** ann@acme.example", "", "## Next actions", "",
+            "- [x] Mail Lotte (lotte.maes@acme.example, Ann in copy) for the document", ""]))
+        write(self.root, "projects/acme/actions.md",
+              "# Acme\n\n- [ ] Reply to lotte.maes@acme.example\n")
+        lotte = self.person("lotte.maes@acme.example")
+        self.assertEqual((lotte["status"], lotte["matched_by"]), ("no_card", None))
+        self.assertEqual([(m["file"], m["by"]) for m in lotte["mentions"]],
+                         [("projects/acme/actions.md", "email")])
+        ann = self.person("ann@acme.example")
+        self.assertEqual((ann["matched_by"], ann["mentions"]), ("email", []))
+
     def test_an_alias_matches_and_says_so(self):
         write(self.root, "areas/network/marten-van-oost.md",
               "# Marten Van Oost\n\n**Aliases:** Tinus Vanoost\n")
@@ -378,6 +391,14 @@ class DoNotRaise(AcmeDeal):
         self.assertEqual(self.raised("\n".join([
             "- **Do not raise:**", "", "- pricing", "1. the merger", "", "- not this", ""])),
             ["pricing", "the merger"])
+
+    def test_a_labelled_bullet_takes_its_sub_bullets_and_never_its_siblings(self):
+        for label, own in (("- **Do not raise:** the old invoice", ["the old invoice"]),
+                           ("- **Do not raise:**", [])):
+            self.assertEqual(self.raised("\n".join([
+                "- **Scope is settled.** Phase one only.", label, "  - their reorganisation",
+                "- **Pricing is known.** The list exists.", "- **Not answered:** who signs.",
+                ""])), own + ["their reorganisation"])
 
     def test_a_heading_takes_everything_under_it_to_the_next_peer(self):
         self.assertEqual(self.raised("\n".join([
