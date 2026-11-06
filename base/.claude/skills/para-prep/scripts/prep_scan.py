@@ -12,9 +12,9 @@ reads as one name.
 Prints one JSON document: for each person, the contact card they match and how, the open
 items on that card, the open items naming them in any other action file, the newest records
 naming them and the register rows naming them; and once for every entity a matched card
-links, or whose brief links the card, its stage against the vault's declared lifecycles, its
-header, its do-not-raise list and its open count. It never writes to the
-vault, never words anything an operator reads, and never decides what matters for a meeting:
+links, whose brief links the card, or whose sources/ hold a record naming a person with no
+card, its stage against the vault's declared lifecycles, its header, its do-not-raise list
+and its open count. It never writes to the vault, never words anything an operator reads, and never decides what matters for a meeting:
 that stays with the skill, per references/gather.md and references/output.md.
 """
 
@@ -184,6 +184,16 @@ def short_names(cards):
     return out
 
 
+def first_name(name, cards):
+    """[the first name] of a person with no card, as `Who` takes it; empty where it is too
+    short to be one, or where a card carries it, which makes it that card's person."""
+    words = (name or "").split(",")[-1].split()
+    if not words or len(words[0]) < SHORT_NAME_MIN:
+        return []
+    carried = {w for c in cards for n, _ in c["names"] for w in tokens(n)}
+    return [] if fold(words[0]) in carried else words[:1]
+
+
 class Who:
     """What says a line is about one person: a link to their card, an address, a whole name
     or alias, or, in an open item only, a one-word name no other card carries."""
@@ -252,6 +262,11 @@ def linked_entities(vault, card, folders):
                        for _, href, _ in extract_links(strip_code(read_text(doc)))):
             found.add(rel_posix(vault, folder))
     return sorted(found)
+
+
+def record_entities(vault, found):
+    """The paths of the entities whose sources/ hold one of the (file, by) records."""
+    return sorted({rel for rel in (entity_of(vault, f["path"]) for f, _ in found) if rel})
 
 
 def home_pattern(home):
@@ -361,14 +376,16 @@ def task_out(task):
             if k != "first_link" and not (k == "malformed_date" and not v)}
 
 
-def mentions(vault, tasks, who, card_path=None):
-    """Open items in any action file but the person's own card that name them."""
+def mentions(vault, tasks, who, card_path=None, within=None):
+    """Open items in any action file but the person's own card that name them, a short name
+    counting only in the entities `within`, where that is given."""
     own = same_target(card_path) if card_path else None
     out = []
     for path, task in tasks:
         if own and same_target(path) == own:
             continue
-        by = who.by(task["text"], path)
+        by = who.by(task["text"], path,
+                    short=within is None or entity_of(vault, path) in within)
         if by:
             out.append({"file": rel_posix(vault, path), **task_out(task), "by": by})
     return out
@@ -400,9 +417,9 @@ def naming(files, who):
     return found
 
 
-def records(vault, files, who, today):
-    """The newest records naming the person, dated by their file names."""
-    found = sorted(naming(files, who), reverse=True,
+def records(vault, found, today):
+    """The newest of the (file, by) records, dated by their file names."""
+    found = sorted(found, reverse=True,
                    key=lambda fb: (fb[0]["date"] or date.min, fb[0]["path"].name))
     return [{"path": rel_posix(vault, f["path"]), "date": f["date"] and f["date"].isoformat(),
              "days_ago": (today - f["date"]).days if f["date"] else None, "by": by}
@@ -469,19 +486,24 @@ def scan(vault, people, today):
             who = Who(card["path"], card["names"], card["emails"], short[card["rel"]])
             person["card"] = card_out(card)
             person["entities"] = linked_entities(vault, card, folders)
-            for rel in person["entities"]:
-                if rel not in entities:
-                    entities[rel] = entity_block(vault, rel, declared, today)
         else:
-            who = Who(names=[(name, "name")] if name else (), emails=[email] if email else ())
+            who = Who(names=[(name, "name")] if name else (), emails=[email] if email else (),
+                      short=first_name(name, cards))
         # None is "not searched": an ambiguous name, or a one-word name with no card.
         person.update(mentions=None, records=None, unfiled=None, rows=None)
         if match["status"] != "ambiguous" and who.searchable:
-            person["mentions"] = mentions(vault, tasks, who, card and card["path"])
-            person["records"] = records(vault, files, who, today)
+            found = naming(files, who)
+            if not card:
+                person["entities"] = record_entities(vault, found)
+            person["mentions"] = mentions(vault, tasks, who, card and card["path"],
+                                          None if card else person["entities"])
+            person["records"] = records(vault, found, today)
             person["unfiled"] = [{"path": rel_posix(vault, f["path"]), "by": by}
                                  for f, by in naming(unfiled, who)]
             person["rows"] = register_hits(vault, declared, who, today)
+        for rel in person.get("entities", ()):
+            if rel not in entities:
+                entities[rel] = entity_block(vault, rel, declared, today)
         out.append(person)
     return {"today": today.isoformat(), "people": out,
             "entities": [entities[k] for k in sorted(entities)]}

@@ -61,4 +61,4 @@ One question per line, in this order: an attendee with no card (who they are to 
 
 ## When the vault knows little
 
-No attendee matches a card, or the cards tie to nothing and nothing names them: the prep is **Who**, the objective question and `The vault holds nothing more on <names>.` Nothing from general knowledge, and no guess at the meeting beyond its title.
+No attendee matches a card and no record, mention or row names one: the prep is **Who**, the objective question and `The vault holds nothing more on <names>.` Nothing from general knowledge, and no guess at the meeting beyond its title.
