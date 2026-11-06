@@ -19,6 +19,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ### Safer by default
 
+- **On Windows, upgrade soon: a delete keeps a file's name out of the command it runs.** A name holding certain characters could make the delete fail or reach that command. `/para-upgrade` brings the fix.
 - **A failed copy during an upgrade leaves the file as it was.** The upgrade used to empty a file when the version it copied in could not be read; it now writes the new version whole or not at all.
 - **Your sign-in tokens can stay out of the assistant's reach.** The sync scripts read their own tokens and no skill opens them, so one setting can keep the assistant out of that folder. [Data and privacy](docs/data-and-privacy.md#keep-the-secrets-folder-out-of-the-agents-reach) shows it.
 
