@@ -35,7 +35,7 @@ body{padding:16px clamp(16px,3vw,40px)}
 .cc-list li{display:grid;grid-template-columns:5rem minmax(0,1fr);gap:var(--gap-sm);padding:var(--pad-xs) 0;border-bottom:1px solid var(--color-border-line);font-size:var(--font-size-body)}
 .cc-list li:last-child{border-bottom:0}
 .cc-when{font-variant-numeric:tabular-nums;color:var(--color-fg-muted);font-size:var(--font-size-caption);padding-top:2px}
-.cc-when.cc-late{color:var(--color-bad)}
+.cc-when.cc-late,.cc-note.cc-late{color:var(--color-bad)}
 .cc-maphead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:start;gap:var(--gap-sm)}
 .cc-maphead>div:first-child{display:grid;gap:var(--gap-xs);max-width:48rem}
 .cc-controls{display:flex;gap:var(--gap-xs);flex-wrap:wrap}
@@ -127,6 +127,7 @@ body{padding:16px clamp(16px,3vw,40px)}
   <header class="cc-head">
     <h1 class="cc-title">Command center</h1>
     <p class="cc-take"><b class="dash-skeleton" data-draw="n-late" data-source="summary" data-field="n" data-where="key=late">·</b> late, <b class="dash-skeleton" data-draw="n-today" data-source="summary" data-field="n" data-where="key=today">·</b> due today, <b class="dash-skeleton" data-draw="n-held" data-source="summary" data-field="n" data-where="key=held">·</b> triage items held for your decision, and <b class="dash-skeleton" data-draw="n-repos" data-source="summary" data-field="n" data-where="key=repos">·</b> repos with something to look at.</p>
+    <p class="cc-note" data-draw="built"></p>
   </header>
 
   <div class="cc-grid">
@@ -183,7 +184,6 @@ body{padding:16px clamp(16px,3vw,40px)}
     <p class="cc-note">Meetings and dated actions, day by day. An action for a meeting is folded into that meeting.</p>
     <div class="cc-days" data-draw="week" data-source="agenda tasks"></div>
   </section>
-  <p class="cc-note" data-draw="built"></p>
 </div>
 
 <script id="data" type="application/json">__PARAOS_DATA__</script>
@@ -229,7 +229,12 @@ for (const key of ['late', 'today', 'held', 'repos']) {
   dash.draw('n-' + key, (el) => { const d = dash.data('summary'); const row = d.status === 'ok' ? d.data.find((r) => r.key === key) : null; setText(el, d, row ? row.n : null); });
 }
 
-dash.draw('built', (el) => { el.textContent = 'Built ' + String(META.generated_at || '').slice(0, 16).replace('T', ' ') + '.' + (META.notes && META.notes.length ? ' ' + META.notes.join(' ') : ''); });
+dash.draw('built', (el) => {
+  const now = new Date(), here = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const old = Boolean(META.today) && META.today < here;
+  el.classList.toggle('cc-late', old);
+  el.textContent = 'Built ' + String(META.generated_at || '').slice(0, 16).replace('T', ' ') + '.' + (old ? ' "Today" on this page is ' + dayFmt(asDay(META.today)) + '.' : '') + (META.notes && META.notes.length ? ' ' + META.notes.join(' ') : '');
+});
 dash.draw('today-events', (ul) => {
   const d = dash.data('agenda');
   ul.replaceChildren();

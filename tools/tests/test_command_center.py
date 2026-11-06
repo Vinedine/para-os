@@ -496,6 +496,9 @@ class WholePage(unittest.TestCase):
         self.assertIn("2 calendar events had no date or no title and were left out.",
                       self.build(events=[{}, {}])["meta"]["notes"])
 
+    def test_the_build_time_stands_in_the_header(self):
+        self.assertIn('data-draw="built"', cc.page({"meta": {}}).split("</header>")[0])
+
     def test_the_page_embeds_the_data_and_loads_nothing(self):
         text = cc.page({"meta": {"notes": ["a <b> note"]}})
         self.assertIn("<title>Command Center</title>", text)
