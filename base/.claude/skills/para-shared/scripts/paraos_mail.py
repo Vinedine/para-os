@@ -80,8 +80,7 @@ def _filename_instant(stem):
 
 def _ingest_started(data, stem):
     """(ISO string, which field it came from) for one run log: `started_at`, else
-    `started`, else the filename stamp - the drift 50 real logs on this machine show
-    between what a model happened to write each run."""
+    `started`, else the filename stamp, since a model wrote its own field each run."""
     for key in ("started_at", "started"):
         instant = _parse_instant(data.get(key))
         if instant:
@@ -95,7 +94,7 @@ def ingest_logs(paraos_home=None):
     `paraos_home` defaults the way `registry()` does: `$PARAOS_HOME`, else `~/.paraos`.
 
     `stage.py` writes them; one a model wrote by hand names its fields as that run chose,
-    so this reads every spelling seen on this machine rather than one. A file that
+    so this reads every spelling rather than one. A file that
     fails to parse still comes back as a record with `load_error` set, its `started_at`
     read from the filename: dropping it would report an ingest run that never happened
     rather than one this reader could not read. A missing directory is `[]`.

@@ -20,7 +20,7 @@
 
 The scan's `ideas`, newest-touched first: each idea's `name`, `touched` date and `stage` line, cut to its first sentence. An idea with no stage line renders as name and date. One marked `dormant` is a retirement candidate.
 
-A **sentence end** is a `.`, `!` or `?` outside parentheses, at the line's end or followed by a space and anything but a lowercase letter or a digit: `€500.000`, `e.g. the call` and `art. 12` hold none.
+A **sentence end** is a `.`, `!` or `?` outside parentheses, at the line's end or followed by a space and anything but a lowercase letter or a digit: `€500.000`, `e.g. the call` and `p. 12` hold none.
 
 ## Step 4e: Read the Vision
 

@@ -135,11 +135,11 @@ class IngestLogsReading(VaultCase):
         self.write_run("20260918-161013.json", {
             "mode": "write", "started_at": "2026-09-18T16:10:13+02:00",
             "source_plan": {"declaring_vaults":
-                            {"alex.rivera@example-work.com": ["BF", "Alpha"]}},
+                            {"alex.rivera@work.example": ["BF", "Alpha"]}},
         })
         got = ingest_logs(self.root)[0]
         self.assertEqual(got["declaring_vaults"],
-                         {"alex.rivera@example-work.com": ["BF", "Alpha"]})
+                         {"alex.rivera@work.example": ["BF", "Alpha"]})
 
     def test_files_written_absent_is_none_not_empty(self):
         self.write_run("20260906-225301.json",
@@ -206,7 +206,7 @@ class IngestLedger(VaultCase):
 
     def test_a_real_ledger_is_read_through(self):
         self.write_ledger({
-            "mailboxes": {"alex@example-work.com": {
+            "mailboxes": {"alex@work.example": {
                 "840140deadbeef": {"routed": ["Alpha"], "reason": "contact: alex@example.com",
                                   "date": "2026-09-17", "subject": "Invoice",
                                   "seen_through": "<msg-1>",
@@ -217,7 +217,7 @@ class IngestLedger(VaultCase):
         got = ingest_ledger(self.root)
         self.assertTrue(got["exists"])
         self.assertIsNone(got["load_error"])
-        self.assertEqual(got["mailboxes"]["alex@example-work.com"]["840140deadbeef"]["routed"],
+        self.assertEqual(got["mailboxes"]["alex@work.example"]["840140deadbeef"]["routed"],
                          ["Alpha"])
         self.assertEqual(got["by_message_id"], {"<msg-1>": ["Alpha"]})
 
@@ -511,11 +511,11 @@ class DedupKey(VaultCase):
 
 
 LEGACY_EML = (
-    b"From: =?iso-8859-1?q?Ren=E9e_Exemple?= <renee@example.fr>\r\n"
+    b"From: =?iso-8859-1?q?Ren=E9e_Exemple?= <renee@fr.example>\r\n"
     b"To: me@example.org\r\n"
     b"Subject: =?iso-8859-1?q?Facture_n=B0_12_=E9t=E9?=\r\n"
     b"Date: Fri, 23 Oct 2026 11:14:07 +0200\r\n"
-    b"Message-ID: <legacy.1@example.fr>\r\n"
+    b"Message-ID: <legacy.1@fr.example>\r\n"
     b"MIME-Version: 1.0\r\n"
     b"Content-Type: text/plain; charset=windows-1252\r\n"
     b"Content-Transfer-Encoding: quoted-printable\r\n"
@@ -569,7 +569,7 @@ class Eml(VaultCase):
     def test_a_legacy_character_set_is_decoded_in_headers_and_body(self):
         got = eml(self.save(LEGACY_EML))
         self.assertEqual(got["headers"]["Subject"], "Facture n° 12 été")
-        self.assertEqual(got["headers"]["From"], "Renée Exemple <renee@example.fr>")
+        self.assertEqual(got["headers"]["From"], "Renée Exemple <renee@fr.example>")
         self.assertEqual(got["text"], "Montant dû pour l'été : 80 €.")
 
     def test_a_character_set_python_does_not_know_still_reads(self):
@@ -611,7 +611,7 @@ class Eml(VaultCase):
     def test_the_command_prints_the_message(self):
         code, out = run_main(["eml", str(self.save(LEGACY_EML))])
         self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out)["headers"]["Message-ID"], "<legacy.1@example.fr>")
+        self.assertEqual(json.loads(out)["headers"]["Message-ID"], "<legacy.1@fr.example>")
 
     def test_the_command_refuses_a_missing_file_with_exit_2(self):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as stop:

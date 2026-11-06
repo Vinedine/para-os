@@ -284,7 +284,7 @@ class IngestCoverage(VaultCase):
     def test_an_unregistered_vault_is_not_covered_and_everything_pulls(self):
         write_registry(self.home, [])  # nothing registered at all
         write(self.root, "CLAUDE.md", sources_claude_md([
-            "| mail | connector: google-workspace | alex.rivera@example-work.com | New leads. |",
+            "| mail | connector: google-workspace | alex.rivera@work.example | New leads. |",
             "| notes | sync-script | `resources/scripts/notes-sync.js` | Meetings. |",
         ]))
         report = self.plan()
@@ -317,14 +317,14 @@ class RowPlanning(VaultCase):
 
     def test_a_mailbox_absent_from_declaring_vaults_pulls_alone(self):
         write(self.root, "CLAUDE.md", sources_claude_md([
-            "| covered | connector: google-workspace | covered@example-work.com | A. |",
-            "| missing | connector: google-workspace | missing@example-work.com | B. |",
+            "| covered | connector: google-workspace | covered@work.example | A. |",
+            "| missing | connector: google-workspace | missing@work.example | B. |",
         ]))
         write_run(self.home, "20260922-090000.json", {
             "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
             "files_written": [str(self.root / "triage" / "x.md")],
-            "source_plan": {"declaring_vaults": {"covered@example-work.com": ["Alpha"],
-                                                "missing@example-work.com": ["OtherVault"]}},
+            "source_plan": {"declaring_vaults": {"covered@work.example": ["Alpha"],
+                                                "missing@work.example": ["OtherVault"]}},
         })
         report = self.plan()
         plans = {r["source"]: r["plan"] for r in report["sources"]["rows"]}
@@ -333,13 +333,13 @@ class RowPlanning(VaultCase):
 
     def test_a_mailbox_named_in_an_error_pulls(self):
         write(self.root, "CLAUDE.md", sources_claude_md([
-            "| clean | connector: google-workspace | clean@example-work.com | A. |",
-            "| broken | connector: google-workspace | broken@example-work.com | B. |",
+            "| clean | connector: google-workspace | clean@work.example | A. |",
+            "| broken | connector: google-workspace | broken@work.example | B. |",
         ]))
         write_run(self.home, "20260922-090000.json", {
             "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
             "files_written": [str(self.root / "triage" / "x.md")],
-            "errors": ["auth expired for broken@example-work.com"],
+            "errors": ["auth expired for broken@work.example"],
         })
         report = self.plan()
         plans = {r["source"]: r["plan"] for r in report["sources"]["rows"]}
@@ -348,13 +348,13 @@ class RowPlanning(VaultCase):
 
     def test_a_recording_row_pulls_where_ingest_covers_the_vault(self):
         write(self.root, "CLAUDE.md", sources_claude_md([
-            "| mail | connector: google-workspace | mail@example-work.com | A. |",
-            "| calls | connector: notetaker recording | mail@example-work.com | B. |",
+            "| mail | connector: google-workspace | mail@work.example | A. |",
+            "| calls | connector: notetaker recording | mail@work.example | B. |",
         ]))
         write_run(self.home, "20260922-090000.json", {
             "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
             "files_written": [str(self.root / "triage" / "x.md")],
-            "source_plan": {"declaring_vaults": {"mail@example-work.com": ["Alpha"]}},
+            "source_plan": {"declaring_vaults": {"mail@work.example": ["Alpha"]}},
         })
         plans = {r["source"]: r["plan"] for r in self.plan()["sources"]["rows"]}
         self.assertEqual((plans["mail"], plans["calls"]), ("skip", "pull"))
@@ -362,15 +362,15 @@ class RowPlanning(VaultCase):
     def test_a_covered_mailbox_asking_for_sent_mail_still_runs_the_sent_pass(self):
         # /para-ingest reads the inbox only, so its coverage never covers the sent pass.
         write(self.root, "CLAUDE.md", sources_claude_md([
-            "| plain | connector: google-workspace | plain@example-work.com | A. |",
-            "| sent | connector: google-workspace 📤 sent | sent@example-work.com | B. |",
-            "| stray | fetch-script 📤 sent | `stray@example-work.com` via `outlook.py` | C. |",
+            "| plain | connector: google-workspace | plain@work.example | A. |",
+            "| sent | connector: google-workspace 📤 sent | sent@work.example | B. |",
+            "| stray | fetch-script 📤 sent | `stray@work.example` via `outlook.py` | C. |",
         ]))
         write_run(self.home, "20260922-090000.json", {
             "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
             "files_written": [str(self.root / "triage" / "x.md")],
-            "source_plan": {"declaring_vaults": {"plain@example-work.com": ["Alpha"],
-                                                "sent@example-work.com": ["Alpha"]}},
+            "source_plan": {"declaring_vaults": {"plain@work.example": ["Alpha"],
+                                                "sent@work.example": ["Alpha"]}},
         })
         rows = {r["source"]: r for r in self.plan()["sources"]["rows"]}
         self.assertEqual([(rows[s]["plan"], rows[s]["sent"]) for s in ("plain", "sent", "stray")],
@@ -440,7 +440,7 @@ class RowReasons(VaultCase):
 
     def test_a_vault_not_covered_carries_its_verdict_as_every_rows_reason(self):
         write(self.root, "CLAUDE.md", sources_claude_md([
-            "| mail | connector: google-workspace | a@example-work.com | Leads. |",
+            "| mail | connector: google-workspace | a@work.example | Leads. |",
             "| notes | sync-script | `resources/scripts/notes-sync.js` | Meetings. |",
         ]))
         report = self.plan()  # registered and active, but no ingest log at all
@@ -495,8 +495,8 @@ class NoteShapes(unittest.TestCase):
     def test_the_ingest_shape_is_a_mail_note(self):
         path = self.note("20260920 Test subject 88604c.md", "\n".join([
             "# Test subject", "",
-            "- **Source:** connector: google-workspace (alex.rivera@example-work.com)",
-            "- **From:** Alex Rivera <alex.rivera@example-work.com>",
+            "- **Source:** connector: google-workspace (alex.rivera@work.example)",
+            "- **From:** Alex Rivera <alex.rivera@work.example>",
             "- **Received:** 2026-09-20T10:00:00+02:00",
             "- **Routed:** Beta and Gamma both hold pieces of this",
             "- **Content:** Full body of the message, nothing dropped.",
@@ -506,7 +506,7 @@ class NoteShapes(unittest.TestCase):
         note = note_block(path, [{"name": "Beta"}, {"name": "Gamma"}], "Alpha", {})
         self.assertEqual(note["shape"], "ingest")
         self.assertTrue(note["mail_note"])
-        self.assertEqual(note["mailbox"], "alex.rivera@example-work.com")
+        self.assertEqual(note["mailbox"], "alex.rivera@work.example")
         self.assertEqual(note["mentioned_vaults"], ["Beta", "Gamma"])
         # no ledger entry for this thread: routed_vaults is null, not an empty guess
         self.assertIsNone(note["routed_vaults"])
@@ -531,20 +531,20 @@ class NoteShapes(unittest.TestCase):
     def test_the_message_and_conversation_id_lines_are_read(self):
         path = self.note("20260920 Test subject 88604c.md", "\n".join([
             "# Test subject", "",
-            "- **Source:** fetch-script: outlook.py (info@example-work.com)",
-            "- **From:** Alex Rivera <alex.rivera@example-work.com>",
+            "- **Source:** fetch-script: outlook.py (info@work.example)",
+            "- **From:** Alex Rivera <alex.rivera@work.example>",
             "- **Received:** 2026-09-20T10:00:00+02:00",
-            "- **Routed:** contact: alex.rivera@example-work.com",
+            "- **Routed:** contact: alex.rivera@work.example",
             "- **Content:** Full body.",
             "- **Link:** https://outlook.example/owa/?ItemID=AAMk%2Fabc",
-            "- **Message id:** raw /users/info@example-work.com/messages/AAMk-abc_ "
-            "--account me@example-work.com",
+            "- **Message id:** raw /users/info@work.example/messages/AAMk-abc_ "
+            "--account me@work.example",
             "- **Conversation id:** AAQk-conv", "",
             "Body.", "",
         ]))
         note = note_block(path, [], "Alpha", {})
-        self.assertEqual(note["message_id"], "raw /users/info@example-work.com/messages/"
-                                             "AAMk-abc_ --account me@example-work.com")
+        self.assertEqual(note["message_id"], "raw /users/info@work.example/messages/"
+                                             "AAMk-abc_ --account me@work.example")
         self.assertEqual(note["conversation_id"], "AAQk-conv")
 
     def test_a_granola_frontmatter_note_is_not_a_mail_note(self):
@@ -574,7 +574,7 @@ class NoteShapes(unittest.TestCase):
 
     def test_a_quoted_frontmatter_value_is_read_without_its_quotes(self):
         path = self.note("20260920 Note 88604c.md", "\n".join([
-            "---", 'source: "google-workspace (alex@example-work.com)"',
+            "---", 'source: "google-workspace (alex@work.example)"',
             "tags:", "  - mail", "thread_id: '1a0c556d2559b07c'",
             "link: https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c", "---", "",
             "Short summary.", "",
@@ -582,10 +582,10 @@ class NoteShapes(unittest.TestCase):
         note = note_block(path, [], "Alpha", {})
         self.assertEqual(note["shape"], "frontmatter")
         self.assertEqual(note["fields"], {
-            "source": "google-workspace (alex@example-work.com)", "tags": "",
+            "source": "google-workspace (alex@work.example)", "tags": "",
             "thread_id": "1a0c556d2559b07c",
             "link": "https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c"})
-        self.assertEqual(note["mailbox"], "alex@example-work.com")
+        self.assertEqual(note["mailbox"], "alex@work.example")
         self.assertTrue(note["mail_note"])
 
     def test_a_frontmatter_block_that_never_closes_is_no_shape(self):
@@ -599,7 +599,7 @@ class NoteShapes(unittest.TestCase):
         # Blank lines before the title do not hide the header block under it.
         path = self.note("20260920 Forwarded 88604c.md", "\n".join([
             "", "", "# Forwarded", "",
-            "- **From:** Alex Rivera <alex@example-work.com>",
+            "- **From:** Alex Rivera <alex@work.example>",
             "- **Content:** Snippet only, the body was not read.", "",
             "Snippet body.", "",
         ]))
@@ -611,11 +611,11 @@ class NoteShapes(unittest.TestCase):
         self.assertIsNone(note["thread_id"])
 
     def test_a_ledger_record_that_is_not_an_object_is_passed_over(self):
-        ledger_mailboxes = {"alex@example-work.com": {
+        ledger_mailboxes = {"alex@work.example": {
             "some-thread": "not a record",
             "1a0c556d2559b07c": {"routed": ["Alpha", "Beta"]},
         }}
-        self.assertEqual(_routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
+        self.assertEqual(_routed_from_ledger(ledger_mailboxes, "alex@work.example",
                                              "88604c", "Alpha"), ["Beta"])
 
     def test_mentioned_vaults_excludes_this_vault_and_matches_short_names_case_sensitively(self):
@@ -637,53 +637,53 @@ class NoteShapes(unittest.TestCase):
 
     def test_routed_vaults_comes_from_the_ledger_entry_whose_thread_hashes_to_this_note(self):
         # thread_hash("1a0c556d2559b07c") == "88604c"
-        ledger_mailboxes = {"alex@example-work.com": {
+        ledger_mailboxes = {"alex@work.example": {
             "1a0c556d2559b07c": {"routed": ["Alpha", "Beta"]},
         }}
-        routed = _routed_from_ledger(ledger_mailboxes, "alex@example-work.com", "88604c", "Alpha")
+        routed = _routed_from_ledger(ledger_mailboxes, "alex@work.example", "88604c", "Alpha")
         self.assertEqual(routed, ["Beta"])
 
     def test_ingest_seen_carries_the_ledger_entrys_watermark(self):
-        ledger_mailboxes = {"alex@example-work.com": {"1a0c556d2559b07c": {
-            "routed": ["Alpha"], "seen_through": "<m2@example-work.com>",
+        ledger_mailboxes = {"alex@work.example": {"1a0c556d2559b07c": {
+            "routed": ["Alpha"], "seen_through": "<m2@work.example>",
             "seen_date": "2026-09-20T10:00:00+02:00"}}}
-        self.assertEqual(_ingest_seen(ledger_mailboxes, "alex@example-work.com", "88604c"),
+        self.assertEqual(_ingest_seen(ledger_mailboxes, "alex@work.example", "88604c"),
                          {"thread_id": "1a0c556d2559b07c",
-                          "seen_through": "<m2@example-work.com>",
+                          "seen_through": "<m2@work.example>",
                           "seen_date": "2026-09-20T10:00:00+02:00"})
-        self.assertIsNone(_ingest_seen(ledger_mailboxes, "other@example-work.com", "88604c"))
+        self.assertIsNone(_ingest_seen(ledger_mailboxes, "other@work.example", "88604c"))
 
     def test_a_staged_note_reports_its_ingest_seen_point(self):
         path = self.note("20260920 Re Quote 88604c.md", "\n".join([
             "# Re: Quote", "",
-            "- **Source:** google-workspace (alex@example-work.com)",
+            "- **Source:** google-workspace (alex@work.example)",
             "- **Content:** Full body.",
             "- **Link:** https://mail.google.com/mail/u/0/#all/1a0c556d2559b07c", "",
         ]))
-        ledger_mailboxes = {"alex@example-work.com": {"1a0c556d2559b07c": {
-            "routed": ["Alpha"], "seen_through": "<m2@example-work.com>",
+        ledger_mailboxes = {"alex@work.example": {"1a0c556d2559b07c": {
+            "routed": ["Alpha"], "seen_through": "<m2@work.example>",
             "seen_date": "2026-09-20T10:00:00+02:00"}}}
         note = note_block(path, [], "Alpha", ledger_mailboxes)
-        self.assertEqual(note["ingest_seen"]["seen_through"], "<m2@example-work.com>")
+        self.assertEqual(note["ingest_seen"]["seen_through"], "<m2@work.example>")
         self.assertIsNone(note_block(path, [], "Alpha", {})["ingest_seen"])
 
     def test_routed_vaults_is_null_when_the_mailbox_is_unknown_to_the_ledger(self):
-        self.assertIsNone(_routed_from_ledger({}, "alex@example-work.com", "88604c", "Alpha"))
+        self.assertIsNone(_routed_from_ledger({}, "alex@work.example", "88604c", "Alpha"))
 
     def test_routed_vaults_is_null_when_no_threads_hash_matches(self):
-        ledger_mailboxes = {"alex@example-work.com": {
+        ledger_mailboxes = {"alex@work.example": {
             "some-other-thread-id": {"routed": ["Alpha"]},
         }}
-        self.assertIsNone(_routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
+        self.assertIsNone(_routed_from_ledger(ledger_mailboxes, "alex@work.example",
                                               "88604c", "Alpha"))
 
     def test_a_six_hex_hash_is_never_searched_across_mailboxes(self):
         # thread_hash("1a0c556d2559b07c") == "88604c" - planted under a DIFFERENT mailbox
         # from the one being looked up, so a cross-mailbox collision must not match.
-        ledger_mailboxes = {"other@example-work.com": {
+        ledger_mailboxes = {"other@work.example": {
             "1a0c556d2559b07c": {"routed": ["Beta"]},
         }}
-        self.assertIsNone(_routed_from_ledger(ledger_mailboxes, "alex@example-work.com",
+        self.assertIsNone(_routed_from_ledger(ledger_mailboxes, "alex@work.example",
                                               "88604c", "Alpha"))
 
     def test_thread_id_is_kept_only_when_it_matches_the_filename_hash(self):
@@ -724,9 +724,9 @@ class DuplicatesAndCrossVault(VaultCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         reads = sources_claude_md(
-            ["| mail | connector: google-workspace | Alex@Example-Work.com | Leads. |"])
+            ["| mail | connector: google-workspace | Alex@Work.Example | Leads. |"])
         other = sources_claude_md(
-            ["| mail | connector: google-workspace | other@example-work.com | Leads. |"])
+            ["| mail | connector: google-workspace | other@work.example | Leads. |"])
         entries = [{"name": "Alpha", "path": str(self.root), "active": True}]
         write(self.root, "CLAUDE.md", reads)
         for name, text, active in (("Beta", reads, True), ("Gamma", other, True),
@@ -738,7 +738,7 @@ class DuplicatesAndCrossVault(VaultCase):
         entries.append({"path": str(Path(tmp.name) / "Beta"), "active": True})  # no name
         write(self.root, "triage/20260920 Re Quote 88604c.md", "\n".join([
             "# Re: Quote", "",
-            "- **Source:** google-workspace (alex@example-work.com)",
+            "- **Source:** google-workspace (alex@work.example)",
             "- **Link:** https://mail.google.com/mail/u/0/#all/1a0c556d2559b07c", "",
         ]))
         write(self.root, "triage/plain.md", "Not a mail note.\n")
@@ -784,8 +784,8 @@ class DuplicatesAndCrossVault(VaultCase):
         other_root = Path(tmp.name) / "Beta"
         note_text = "\n".join([
             "# A note", "",
-            "- **Source:** connector: google-workspace (x@example-work.com)",
-            "- **From:** Someone <x@example-work.com>",
+            "- **Source:** connector: google-workspace (x@work.example)",
+            "- **From:** Someone <x@work.example>",
             "- **Received:** 2026-09-13T10:00:00+02:00",
             "- **Routed:** also relevant to Beta", "- **Content:** Full body.",
             "- **Link:** https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c", "",
@@ -815,8 +815,8 @@ class DuplicatesAndCrossVault(VaultCase):
         other_root = Path(tmp.name) / "Beta"
         note_text = "\n".join([
             "# A note", "",
-            "- **Source:** connector: google-workspace (x@example-work.com)",
-            "- **From:** Someone <x@example-work.com>",
+            "- **Source:** connector: google-workspace (x@work.example)",
+            "- **From:** Someone <x@work.example>",
             "- **Received:** 2026-09-13T10:00:00+02:00",
             "- **Routed:** relevant here, also touches Beta's own prospect",
             "- **Content:** Full body.",
@@ -826,7 +826,7 @@ class DuplicatesAndCrossVault(VaultCase):
         write(self.root, "triage/20260913 Visit debrief 88604c.md", note_text)
         entries = [{"name": "Alpha", "path": str(self.root)},
                   {"name": "Beta", "path": str(other_root)}]
-        ledger_mailboxes = {"x@example-work.com": {
+        ledger_mailboxes = {"x@work.example": {
             "1a0c556d2559b07c": {"routed": ["Alpha"]},  # routed here only
         }}
         loose = build_loose(self.root, entries, "Alpha", ledger_mailboxes)
@@ -843,8 +843,8 @@ class DuplicatesAndCrossVault(VaultCase):
         self.addCleanup(tmp.cleanup)
         write(self.root, "triage/20260913 Note 91af05.md",
              "\n".join(["# A note", "",
-                       "- **Source:** connector: google-workspace (x@example-work.com)",
-                       "- **From:** Someone <x@example-work.com>",
+                       "- **Source:** connector: google-workspace (x@work.example)",
+                       "- **From:** Someone <x@work.example>",
                        "- **Received:** 2026-09-13T10:00:00+02:00",
                        "- **Routed:** also relevant to Gamma", "- **Content:** Full body.",
                        "- **Link:** https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c",
@@ -859,8 +859,8 @@ class DuplicatesAndCrossVault(VaultCase):
     def mail_note(self, routed, body_word):
         return "\n".join([
             "# A note", "",
-            "- **Source:** connector: google-workspace (x@example-work.com)",
-            "- **From:** Someone <x@example-work.com>",
+            "- **Source:** connector: google-workspace (x@work.example)",
+            "- **From:** Someone <x@work.example>",
             "- **Received:** 2026-09-13T10:00:00+02:00",
             f"- **Routed:** {routed}", "- **Content:** Full body.",
             "- **Link:** https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c", "",
@@ -1143,14 +1143,14 @@ class PulledBy(VaultCase):
     """A row a `pulled by <name>` reserves for one roster writer is pulled on their runs only."""
 
     ROWS = [
-        "| sam-mail | connector: google-workspace | `sam@example-biz.com`, pulled by Sam Peeters "
+        "| sam-mail | connector: google-workspace | `sam@biz.example`, pulled by Sam Peeters "
         "| Bookings. |",
         "| sam-home | fetch-script | `resources/scripts/outlook.py fetch`, pulled by sam peeters "
         "| Bookings. |",
         "| sam-notes | sync-script | `resources/scripts/notes-sync.js` (pulled by Sam Peeters) "
         "| Meetings. |",
-        "| shared | connector: google-workspace | `info@example-biz.com` | Everything. |",
-        "| stranger | connector: google-workspace | `x@example-biz.com`, pulled by Lee Wong "
+        "| shared | connector: google-workspace | `info@biz.example` | Everything. |",
+        "| stranger | connector: google-workspace | `x@biz.example`, pulled by Lee Wong "
         "| Other. |",
     ]
 
@@ -1238,8 +1238,8 @@ class IngestLedgerBlock(VaultCase):
         ])
         write(self.root, "triage/20260920 Note 88604c.md", "\n".join([
             "# Note", "",
-            "- **Source:** connector: google-workspace (x@example-work.com)",
-            "- **From:** Someone <x@example-work.com>",
+            "- **Source:** connector: google-workspace (x@work.example)",
+            "- **From:** Someone <x@work.example>",
             "- **Received:** 2026-09-20T10:00:00+02:00",
             "- **Routed:** also relevant to Beta", "- **Content:** Full body.",
             "- **Link:** https://mail.google.com/mail/u/0/#inbox/1a0c556d2559b07c", "",
@@ -1518,7 +1518,7 @@ class RunAsAScript(unittest.TestCase):
         for d in ("projects", "areas", "archive", "triage"):
             (vault / d).mkdir(parents=True)
         write(vault, "CLAUDE.md", "# Vault\n")
-        write(vault, "triage/20260920 Call Øyan 88604c.md", "# Call Øyan\n\nNotes.\n")
+        write(vault, "triage/20260920 Call Østmann 88604c.md", "# Call Østmann\n\nNotes.\n")
         result = subprocess.run(
             [sys.executable, str(SCRIPT), "--vault", str(vault), "--now",
              "2026-09-22T12:00:00Z", "--paraos-home", str(self.base / "home")],
@@ -1527,7 +1527,7 @@ class RunAsAScript(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace"))
         report = json.loads(result.stdout.decode("utf-8"))
         self.assertEqual([i["name"] for i in report["items"]["loose"]],
-                         ["20260920 Call Øyan 88604c.md"])
+                         ["20260920 Call Østmann 88604c.md"])
 
     def test_a_missing_shared_library_exits_2_and_says_where_it_belongs(self):
         # scripts.md: a missing shared library stops the skill, never a traceback.

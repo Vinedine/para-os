@@ -211,7 +211,7 @@ class Drilldowns(DashboardCase):
         write(self.root, "triage/20260914 Your verification code 482913.md",
               "# Your verification code\n\nYour verification code is 482913.\n")
         write(self.root, "triage/20260914 Mail - Quote.md",
-              "# Quote\n\n- **From:** Ann <ann@example.be>\n\nThe quote is attached.\n")
+              "# Quote\n\n- **From:** Ann <ann@be.example>\n\nThe quote is attached.\n")
         _, page = render(self.report(), self.judgment(self.report()))
         got = data(page)
         self.assertEqual(got["triage_codes"], 1)
@@ -219,7 +219,7 @@ class Drilldowns(DashboardCase):
         self.assertNotIn("482913", page)
         self.assertNotIn("verification code", page.lower())
         quote = next(x for x in got["triage"] if x["name"] == "20260914 Mail - Quote")
-        self.assertEqual(quote["from"], "Ann <ann@example.be>")
+        self.assertEqual(quote["from"], "Ann <ann@be.example>")
 
 
 class Judgment(DashboardCase):
@@ -389,8 +389,8 @@ class Cut(unittest.TestCase):
         self.assertEqual(cut("Read [the notes](a/b.md) twice"), "Read the notes twice")
 
     def test_a_full_stop_before_a_number_or_a_lowercase_word_ends_no_sentence(self):
-        self.assertEqual(cut("Ask for the art. 12 statement, e.g. the fund. Then file it"),
-                         "Ask for the art. 12 statement, e.g. the fund")
+        self.assertEqual(cut("Ask for the p. 12 statement, e.g. the fund. Then file it"),
+                         "Ask for the p. 12 statement, e.g. the fund")
 
     def test_a_clause_end_inside_parentheses_is_kept(self):
         self.assertEqual(cut("Call the notary (deed; date. Soon) about it; then wait"),
@@ -399,9 +399,9 @@ class Cut(unittest.TestCase):
     def test_emphasis_keeps_its_text(self):
         self.assertEqual(cut("Send the *signed* plans _(from the listing)_ to my_agent"),
                          "Send the signed plans (from the listing) to my_agent")
-        out = cut("Ask for the art. 12 statement (reserve fund, arrears, three years of "
-                  "minutes, the last balance) _(suggested from the listing)_")
-        self.assertTrue(out.startswith("Ask for the art. 12 statement (reserve fund"))
+        out = cut("Ask for the p. 12 statement (opening balance, arrears, two years of "
+                  "accounts, the last balance) _(suggested from the listing)_")
+        self.assertTrue(out.startswith("Ask for the p. 12 statement (opening balance"))
         self.assertNotIn("_", out)
 
 
