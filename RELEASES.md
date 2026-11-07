@@ -62,6 +62,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **Six smaller repairs from the same review.** Outlook's token file stays readable only by you after every refresh. The Command Center reads a schedule that names its days, such as `MON-FRI`, so a weekend no longer shows as due. A sync that failed no longer counts as written, the activity review keeps a prompt holding an unusual line separator, and a vault mirror whose copy stopped partway finishes it on the next run instead of blaming someone for editing it.
 - **`/para-prep` no longer takes one contact for another.** An email address counts as a contact's own only above the first heading of their card, so a card whose history or actions mention somebody else's address is no longer shown as that person. A "Do not raise" point written as one bullet in a list no longer pulls in the bullets after it.
 - **`/para-prep` no longer loses the project of someone with no contact card.** When meeting records in a project, area or idea name the attendee, the prep now shows that entity's stage, what not to raise and its open items, including those naming the person by first name only, and no longer says the vault holds nothing more on them.
+- **The triage routine no longer stops to ask while it publishes the page.** It pre-approves the two commands that record and find the page's link, so a scheduled run never waits on a permission prompt nobody is there to answer.
 
 ### Removed
 
@@ -82,10 +83,11 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 11. If you schedule tasks across your vaults: list each one in the task registry, from its template in the kit's multi-vault folder, and end each task's prompt with the record step the auto-triage routine shows.
 12. If you use integrations or connectors: create the connections file in your para-os folder from the template beside the integrations, one entry per connection and one per mailbox, then run the vault audit, which names anything still missing.
 13. If you run several vaults: point your morning scheduled task at `/para-command-center` instead of `/para-global-brief`, and take the funnel page step out of your ingest task's prompt.
-14. If you run several vaults: delete the old All Vaults and Triage funnel artifacts once the Command Center is published.
-15. If a vault you set up is no longer read, such as one handed over to a client, and you want it on the page: list it in `past-vaults.json` in your para-os folder, from the template beside the multi-vault README.
-16. If `/para-audit` or the Command Center names a script as not in the connections registry: give it an entry in `connections.json` in your para-os folder, or add its path to the `ignore` list there when it is not a connection, such as a sign-in helper.
-17. If a contact card keeps the person's own email address under a heading, move it above the card's first heading.
+14. If a scheduled task runs the triage routine, copy its prompt and its always-allowed commands again from the routine in the kit's multi-vault folder.
+15. If you run several vaults: delete the old All Vaults and Triage funnel artifacts once the Command Center is published.
+16. If a vault you set up is no longer read, such as one handed over to a client, and you want it on the page: list it in `past-vaults.json` in your para-os folder, from the template beside the multi-vault README.
+17. If `/para-audit` or the Command Center names a script as not in the connections registry: give it an entry in `connections.json` in your para-os folder, or add its path to the `ignore` list there when it is not a connection, such as a sign-in helper.
+18. If a contact card keeps the person's own email address under a heading, move it above the card's first heading.
 
 Full details: [CHANGELOG.md at this tag](https://github.com/Vinedine/para-os/blob/2026.11.01/CHANGELOG.md).
 
