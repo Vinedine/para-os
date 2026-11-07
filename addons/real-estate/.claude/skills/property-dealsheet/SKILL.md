@@ -4,6 +4,7 @@ description: Convert one property's decision-ready dossier into the designed dea
 allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion, TodoWrite
 argument-hint: '<property-name> [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Property dealsheet
 

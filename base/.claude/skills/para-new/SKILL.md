@@ -4,6 +4,7 @@ description: Create one new project, area, idea, or contact in the vault, or a s
 allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion
 argument-hint: '[project|area|idea|contact|promote] <name> [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Para new
 

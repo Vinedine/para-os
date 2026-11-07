@@ -4,6 +4,7 @@ description: Take the operator from what keeps going wrong to two or three ideas
 allowed-tools: Glob, Grep, Read, Write, Edit, Skill, AskUserQuestion
 argument-hint: '[<topic>|<path>] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Para brainstorm
 

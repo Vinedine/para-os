@@ -4,6 +4,7 @@ description: Empty the current vault's triage/ folder - and any configured triag
 allowed-tools: Bash(python3 *), Bash(py *), Bash(node *), Bash(git rm *), Bash(mv *), Bash(mkdir *), Bash(test *), Bash(echo *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content, mcp__google-workspace__get_gmail_attachment_content, mcp__google-workspace__search_drive_files, mcp__google-workspace__list_drive_items, mcp__google-workspace__get_drive_file_content
 argument-hint: '[preview|apply|convert|table|auto] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Triage
 

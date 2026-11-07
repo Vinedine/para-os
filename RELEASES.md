@@ -8,6 +8,87 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ---
 
+## 2026.11.01
+
+### Highlights
+
+- **You can see when a session is safe to close.** Every reply now ends with a Close line saying whether closing would lose anything, such as a decision not yet written down or a question still open, and the vault writes what it learns by the end of each turn rather than at a session's end it cannot see. In the Claude desktop app and terminal, a band above the prompt shows that verdict beside how long the session has been open, what waits in triage and the vault's health, and turns amber while closing would lose something.
+- **A health card for every vault.** The daily brief's page and the Command Center now say whether a vault is being kept: when it was last edited, how long triage has waited, the last deep clean, how far its template is behind, waits past two weeks, and which skills have not been reviewed against the model you run. Each line opens on what it measures, why it matters and what to do.
+- **A mail that tries to give the assistant instructions is held, not filed.** Triage already quoted such an instruction and ignored it, but still filed the item and added its actions. Whoever hides an instruction in a mail may have forged the rest, so the item now stays in triage until you confirm it through a contact you already have.
+- **Mail that skips the inbox is no longer missed.** The ingest and triage now read every message received in the window, archived or filtered ones included, as the Outlook reader already did, so a mailbox kept at inbox zero no longer looks empty.
+- **One page shows every vault at once.** For operators running several vaults, the Command Center draws each vault as a building in a neighbourhood you name, with its health grade, what waits in its triage folder and what is held for you; what came in over the week, grouped by kind, and where it went; the scheduled runs, the repos and the websites; and the weeks ahead. A script builds it from your files, with no judgment from the model, so the same files always give the same page. It replaces the global brief and the triage funnel page, which are retired.
+
+### Safer by default
+
+- **Your exclusions are applied by the script, not by the assistant.** An excluded sender used to depend on the assistant remembering the list at every run, and once it did not. The ingest now drops those threads in code and reports each entry's count from code. One entry can now cover every mailbox (`*`), several senders under one label (a group), or everyone writing to a group address (`to` and `list`).
+- **The agent can no longer open the integrations' tokens.** The vault's Claude Code settings refuse the agent's file tools the folder where the integration scripts keep their tokens, on every machine that opens the vault, with no setting of your own. The scripts keep working.
+
+### Also new
+
+- **Roles on a shared vault's roster.** Each person who writes a shared vault is now its keeper, a member or a steward, and triage reads which one is you from a small file instead of asking each time.
+- **Keep your own words out of a shared usage log.** Each person can switch off recording what they type, on their own machine, whatever the vault's setting says. A file path outside the vault is recorded only as being outside it, and the usage review counts conversations unrelated to the vault without quoting them.
+- **The fleet audit reads each vault's rule files, not just their names.** For operators running several vaults, `/para-audit` now reports a rule file with no list of the paths it governs, which loads into every session of its vault, and a shape file with no Placeholders section, each with its fix.
+- **Triage offers to stop a sender it keeps dismissing.** When you dismiss mail from the same sender, or from several addresses at one domain, as noise a second time, triage offers to add it to your exclusions and says what else that would hide. It writes nothing without your yes, and backs the file up first. Routing between vaults also stops treating a club or company named on a contact card as a reason to send its mail there.
+- **Scheduled triage can file documents.** In a vault kept in git, once you switch `File it` on for it, an unattended run moves a document into the sources folder of the project, area or idea it belongs to, repoints any link to it, and commits each run on its own, so one revert undoes it. A restore moves it back and switches `File it` off again.
+- **The upgrade checks your CLAUDE.md against the template, section by section.** A vault on the latest revision whose CLAUDE.md still carries an older revision's wording, or has lost a section, now gets each such section shown as a difference, to re-copy or keep, the same way as a kit file someone changed. The values you filled in and your own sections are never part of it.
+- **The fleet audit shows which vaults' CLAUDE.md has fallen behind the template.** A new Sections column counts, per vault, the sections that still carry an older revision's wording or are missing, so a vault on the latest revision no longer passes when its CLAUDE.md does not match it. The fix it names is the upgrade, which shows each section to re-copy or keep.
+- **Every page a skill publishes is listed in one place.** The pages index records each page with the skill or vault that publishes it, and a page another one replaces is marked retired, with what replaced it, before its artifact is deleted. The page records each skill kept on its own are read into the index the first time it is used, and left where they were.
+- **The vault registry says who pulls a vault.** A vault another machine pulls is left out of this machine's ingest and shows its health on the Command Center with no triage count. A vault whose work is over is deleted from the registry rather than marked retired.
+- **Scheduled runs are listed and leave a record.** A task registry beside the vault registry says what each scheduled task reads and through which connection, each run of the shipped routine records how it went, kept for 90 days, and the audit reports a scheduled task the registry misses or whose schedule differs.
+- **The code repos a vault steers are one table.** Each repo now says whether the vault owns it, keeps it for reference or only consults it, where its work lives in the vault, and, for a repo that builds a website, which site and which vault it serves. The upgrade turns the list you have into the table, each repo's description kept word for word, and asks only what it cannot tell from the text.
+- **Every connection to an outside source is listed once.** A connections file in your para-os folder names each mail connector, recorder sync, script, command-line tool and browser task, with the vaults it serves, the name of its secret and what it writes, plus a label for every mailbox. What your vaults already declare is read from them rather than listed again, the vault audit reports anything the file misses or gets wrong, and the machine manifest opens on a table built from it.
+- **The audit flags a retired script still listed as a connection.** Mark a script you keep but no longer run, and the vault audit tells you to take it off the connections file.
+- **A script nobody listed is still seen.** The connections registry now reads the code of the scripts in each vault, and of the ones your own skills run from a code repo, and counts any that calls an outside host or a command-line tool you listed, so the page draws it under the system it reaches and `/para-audit` names it until it has an entry.
+
+### Fixes
+
+- **The write-time check no longer stops on the run's own work.** Naming the files a run moved or wrote over several `--done` flags now leaves all of them out, not only the last flag's.
+- **A deep clean no longer proposes linking a name in the lead register.** Its Contact column holds a name, not a link, as the sales module's rules say, and the scan now reads that from the vault instead of waiting to be told.
+- **Unattended triage no longer skips a vault after a decision with no recommendation.** One such decision made the status check fail, so every scheduled run passed that vault by with an error.
+- **Two deals sharing a champion no longer show the same next step.** The board takes a deal's step from its champion's card only from an item that is not another live deal's, preferring one that links the deal itself.
+- **The usage review counts a session left open for days as one session, and flags it.** It counted one per day, so a vault with long sessions now reports fewer sessions than an earlier review did.
+- **A lead's next step keeps its own date.** A date written beside the step, such as the day a prospect's new site launched, no longer reads as the step's due date once the step carries the calendar marker. The upgrade offers to add the marker to the leads you already have.
+- **A vault that carries its own skills gets every one, even one you also installed for yourself.** The upgrade skipped a skill missing from the vault's own copies when the same skill was installed on your machine, so the people who run the vault from theirs never had it. The next upgrade copies any such skill in.
+- **A shared mailbox can be filtered by your lead register.** When several vaults read one mailbox, a thread from a company that is only a lead on your register, with no contact card yet, now reaches the vault that holds the lead instead of being routed nowhere.
+- **Mail among the people who write a shared vault no longer lands in it on their cards alone.** When a vault several people write reads one writer's mailbox, a thread that includes another writer is routed by a client's card or by what it is about, not by that writer's own contact card.
+- **A worktree copy of the vault no longer counts as the vault.** When a session ran in a worktree, its checkout inside the vault was read as vault content, so the briefs listed every open action in it twice and the cleanup and archive checks looked inside it too.
+- **A misspelt name now gets a suggestion.** Naming a project or area with a letter dropped or swapped near the start left the daily brief with nothing to offer. It now suggests the closest folders, best match first.
+- **A mailbox kept for one writer is no longer pulled on anyone else's triage.** A triage source marked `pulled by` a named writer was left out of the other writers' runs only when the session noticed the marker; the scan now plans it as skipped on their runs.
+- **`/para-ingest` does its mechanical steps in code.** Planning the run, running the sync and fetch scripts under the volume gate, checking each thread against the ledger and settling a thread a known contact decides used to be worked out from instructions on every run, a little differently each time. A script now does all of it the same way every run, and the assistant judges only the threads no contact settles.
+- **`/para-ingest` picks up where its last run left off.** Each mailbox is read from a day before the last write run that read it, so a machine closed for a long weekend no longer loses the mail in between, and a mailbox a run could not read is read again next time. Mail a vault was owed while it was unreachable is re-checked and delivered once it is back, and carry-over is worked out once, on a mailbox's first write run, instead of by hand on every run.
+- **The deep clean no longer downloads a whole cloud-synced vault.** Its duplicate check now opens only files whose size another file shares, so on a vault that Google Drive or OneDrive streams on demand it finishes in minutes instead of fetching every file. An area archived whole as one folder is no longer reported as missing its record.
+- **The actions a scheduled triage may take now sit with the vault they belong to.** They are a vault's `auto_triage` list in `vaults.json`, so renaming or adding a vault can no longer leave them silently unmatched. A restore writes only to the cache; `switch` is the one command that edits the registry, after a backup.
+- **Mail and unattended triage fail safe.** A mailbox Outlook could not read no longer counts as read, so `/para-ingest` fetches what arrived during the outage once it is back. A scheduled triage run keeps one of two identical items, and what it moved can always be restored, even after a crash. Granola no longer imports a filed meeting twice, the Command Center survives a meeting repeat it cannot count, the close band sees edits in a vault below its repo root, and a saved `.eml` keeps its accents.
+- **Six smaller repairs from the same review.** Outlook's token file stays readable only by you after every refresh. The Command Center reads a schedule that names its days, such as `MON-FRI`, so a weekend no longer shows as due. A sync that failed no longer counts as written, the activity review keeps a prompt holding an unusual line separator, and a vault mirror whose copy stopped partway finishes it on the next run instead of blaming someone for editing it.
+- **`/para-prep` no longer takes one contact for another.** An email address counts as a contact's own only above the first heading of their card, so a card whose history or actions mention somebody else's address is no longer shown as that person. A "Do not raise" point written as one bullet in a list no longer pulls in the bullets after it.
+- **`/para-prep` no longer loses the project of someone with no contact card.** When meeting records in a project, area or idea name the attendee, the prep now shows that entity's stage, what not to raise and its open items, including those naming the person by first name only, and no longer says the vault holds nothing more on them.
+
+### Removed
+
+- **CLAUDE.md no longer points at each voice profile.** A draft finds the sender's profile on its own, by the account it goes out from, so the paragraph naming each person's profile can go. The upgrade offers to delete yours.
+
+### What to do
+
+1. Run `/para-upgrade`.
+2. If you share a vault with someone: create `operator.json` in your para-os folder holding your own contact card's file name, such as `{"card": "jane-doe"}`.
+3. If you run several vaults: the `kind` field in your vault registry is no longer read, and you can delete it.
+4. If you run several vaults: to have a busy vault of your own counted rather than listed on the Command Center, add `"brief": "summary"` to its entry in your vault registry.
+5. If you write a vault that records its use and want what you type kept out of its log: create `activity.json` in your para-os folder holding `{"record_prompts": false}`.
+6. If you run `/para-ingest`, copy its folder from the kit's multi-vault folder again, beside the other skills.
+7. If a scheduled task runs the ingest, remove any step in its prompt that dry-runs the sync scripts or applies the volume gate itself: the ingest does that now.
+8. After the upgrade, start a new session: the band loads when a session starts, and only in a vault folder Claude Code trusts.
+9. If you run several vaults: in your vault registry, add `"machine"` naming who pulls each vault another machine ingests, and delete the entry of any vault marked `"retired"`, since the audit and the Command Center no longer skip it.
+10. After you upgrade: run `py -3 ~/.claude/skills/para-triage/scripts/auto_execute.py migrate` once. It moves `auto-triage.json` into the registry and the cache and renames it `auto-triage.json.migrated`; until then the older file keeps working.
+11. If you schedule tasks across your vaults: list each one in the task registry, from its template in the kit's multi-vault folder, and end each task's prompt with the record step the auto-triage routine shows.
+12. If you use integrations or connectors: create the connections file in your para-os folder from the template beside the integrations, one entry per connection and one per mailbox, then run the vault audit, which names anything still missing.
+13. If you run several vaults: point your morning scheduled task at `/para-command-center` instead of `/para-global-brief`, and take the funnel page step out of your ingest task's prompt.
+14. If you run several vaults: delete the old All Vaults and Triage funnel artifacts once the Command Center is published.
+15. If a vault you set up is no longer read, such as one handed over to a client, and you want it on the page: list it in `past-vaults.json` in your para-os folder, from the template beside the multi-vault README.
+16. If `/para-audit` or the Command Center names a script as not in the connections registry: give it an entry in `connections.json` in your para-os folder, or add its path to the `ignore` list there when it is not a connection, such as a sign-in helper.
+17. If a contact card keeps the person's own email address under a heading, move it above the card's first heading.
+
+Full details: [CHANGELOG.md at this tag](https://github.com/Vinedine/para-os/blob/2026.11.01/CHANGELOG.md).
+
 ## 2026.10.04
 
 ### Highlights

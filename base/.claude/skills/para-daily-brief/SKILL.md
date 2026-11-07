@@ -4,6 +4,7 @@ description: Produce a vault-state dashboard from the current vault - open actio
 allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
 argument-hint: '[today|week|overdue|all|<entity>|review [week|month|since <date>] [<entity>]] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Daily Brief
 
