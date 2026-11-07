@@ -4,6 +4,7 @@ description: Render the board for every lifecycle the vault declares - each enti
 allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Artifact
 argument-hint: '[<lifecycle>] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Para pipeline
 

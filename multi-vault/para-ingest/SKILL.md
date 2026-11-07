@@ -4,6 +4,7 @@ description: Read every vault's declared triage sources once from outside the va
 allowed-tools: Bash(python3 *), Bash(py *), Glob, Grep, Read, Write, Artifact, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
 argument-hint: '[preview|write] [--days N] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Cross-vault ingest
 

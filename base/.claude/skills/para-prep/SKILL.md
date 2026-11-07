@@ -4,6 +4,7 @@ description: Prepare a meeting from the vault's own files - who is coming and wh
 allowed-tools: Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
 argument-hint: '[<event>|<person>|today] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Para prep
 

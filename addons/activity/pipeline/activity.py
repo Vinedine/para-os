@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Append-only record of how a vault actually gets used.
 
-para-os-integration: activity 2026.10.04
+para-os-integration: activity 2026.11.01
 
 A Claude Code hook. Reads one event as JSON on stdin, writes one JSONL line into
 `<vault>/resources/logs/sessions/`, exits 0 no matter what. `/para-activity-review`

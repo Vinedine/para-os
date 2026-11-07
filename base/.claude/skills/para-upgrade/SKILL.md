@@ -4,6 +4,7 @@ description: Bring a vault in line with a newer para-os template revision - comp
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git -C * fetch *), Bash(git rm *), Glob, Grep, Read, Edit, Write
 argument-hint: '[--ref <git-ref>] [--clone <path>] [--add <name>] [audit] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Para upgrade
 

@@ -4,6 +4,7 @@ description: Bring one property's dossier to decision-ready - focused folder cle
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git mv *), Bash(mv *), Bash(pwd *), Glob, Grep, Read, Edit, Write, WebSearch, WebFetch, AskUserQuestion, TodoWrite, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
 argument-hint: '<property-name> [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Property underwrite
 

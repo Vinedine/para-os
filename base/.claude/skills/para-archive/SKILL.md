@@ -4,6 +4,7 @@ description: Archive a finished project, a retired idea, or an area the vault na
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git rm *), Bash(mkdir *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion
 argument-hint: '<name> [preview|table] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Para archive
 

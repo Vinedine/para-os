@@ -4,6 +4,7 @@ description: Run a comprehensive cleanup pass on a vault - audits structural/hou
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git show *), Bash(git rm *), Bash(diff *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion, ToolSearch, mcp__claude_ai_Gmail__search_threads, mcp__claude_ai_Gmail__get_thread, mcp__google-workspace__search_gmail_messages, mcp__google-workspace__get_gmail_messages_content_batch, mcp__google-workspace__get_gmail_thread_content
 argument-hint: '[phase1|phase2|phase3|phase4|audit] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Deep clean
 

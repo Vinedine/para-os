@@ -4,6 +4,7 @@ description: Read every vault the registry lists and report in one table how eac
 allowed-tools: Bash(python3 *), Bash(py *), Glob, Grep, Read
 argument-hint: '[ref=<git-ref>] [--clone <path>] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Fleet audit
 

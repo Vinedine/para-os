@@ -4,6 +4,7 @@ description: Read a vault's activity ledger and report how the vault is actually
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git rm *), Bash(pwd *), Glob, Grep, Read, Write, AskUserQuestion
 argument-hint: '[<vault-path>] [days] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Activity review
 

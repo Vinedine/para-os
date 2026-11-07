@@ -4,6 +4,7 @@ description: Build and publish the Command Center, one page across every vault t
 allowed-tools: Bash(python3 *), Bash(py *), Read, Write, Artifact, ToolSearch, mcp__google-workspace__list_calendars, mcp__google-workspace__get_events
 argument-hint: '[--offline] [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Command Center
 

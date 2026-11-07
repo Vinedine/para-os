@@ -14,6 +14,19 @@ Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero
 
 **One legacy label.** The first revision shipped as `2026.08` and was renumbered `2026.08.01`: a vault stamped `2026.08` is already on `2026.08.01`, collects only the entries after it, and is restamped.
 
+## 2026.11.01
+
+- In a vault with a `## Who writes this vault` roster, add a Role column after Person, asking the operator for each row whether that person is the keeper (runs the vault and its upkeep), a member (a lane, no upkeep) or a steward (keeps its conventions, scripts and template current, with no lane): CLAUDE.md (#756)
+- In a vault with the sales module, offer to rewrite the step's own date in each open register row's Next step as `📅 YYYY-MM-DD`, the rest of the cell unchanged, every rewritten cell shown in one batched question: the lead register (#642)
+- Propose deleting each paragraph that points at a voice profile ("Drafts from <Name>'s account are written in their voice..."), all in one approval: CLAUDE.md `## Memory` (#868)
+- Unattended triage's switched-on actions live in the registry: `vaults.json`, a vault entry's `auto_triage` (#913)
+- What a restore switched off lives in the cache: `cache/auto-triage/demoted.json` (#913)
+- In a vault with `.claude/rules/code-repos.md`, run the shared library's `paraos_repos.py convert --vault <root>`; where it reports `changed`, show the table it prints and every `dropped` line, write it with `--write` on the operator's yes, then ask for each `to_fill` entry: the repo's Vault home, and for a repo that builds a website its Site (its `site_hint` is the suggestion) and the vault that site serves: `.claude/rules/code-repos.md` (#908)
+- If the machine has a vault registry (`$PARAOS_HOME/vaults.json`) and the multi-vault skills are installed: copy `multi-vault/para-command-center/` from the para-os clone beside them and propose deleting the `para-global-brief/` folder there, then run the shared library's `paraos_pages.py retire --page global-brief --replaced-by command-center` and `paraos_pages.py retire --page funnel --replaced-by command-center`, each only where the pages index lists that page, and say the two old artifacts are the operator's to delete: `$PARAOS_HOME/cache/pages.json` (#909)
+- If the machine has a vault registry: ask, vault by vault, which `neighbourhood` it stands in on the Command Center and, where the operator groups vaults by theme, its `street`, and write each answer into that vault's registry entry; an operator who declines keeps the default groups: `$PARAOS_HOME/vaults.json` (#909)
+- If the task registry names `"skill": "para-global-brief"`: propose changing that entry's skill to `para-command-center`, and say the scheduled task's own prompt needs the same change, which only the operator can make: `$PARAOS_HOME/tasks.json` (#909)
+Retired: `.claude/skills/para-global-brief/`
+
 ## 2026.10.04
 
 - Compare each section with base's template whole, and with each declared add-on's `CLAUDE.md.sections`, as for a vault with no marker: `CLAUDE.md` (#592)

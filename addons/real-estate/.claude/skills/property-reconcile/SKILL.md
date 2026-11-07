@@ -4,6 +4,7 @@ description: Verify one property's dossier against its own source documents and 
 allowed-tools: Agent, Bash(python3 *), Bash(py *), Bash(pwd *), Glob, Grep, Read, Edit, Write, AskUserQuestion, TodoWrite
 argument-hint: '<property-name> [--test]'
 ---
+<!-- reviewed with: claude-opus-5-5 -->
 
 # Property reconcile
 
