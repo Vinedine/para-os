@@ -8,7 +8,7 @@ argument-hint: '[--offline] [--test]'
 
 # Command Center
 
-One page across every registered vault, built by a script from files on disk, so the same files always give the same page. **The skill adds no judgment to it: it reads the calendars, runs the script and publishes.** It writes nothing but the events file, the page and the page's data in `${PARAOS_HOME:-~/.paraos}/cache/command-center/data.json`.
+One page across every registered vault, built by a script from files on disk, so the same files always give the same page. **The skill adds no judgment to it: it reads the calendars, runs the script and publishes.** It writes nothing in a vault; elsewhere, only the events file, the page, the page's data in `${PARAOS_HOME:-~/.paraos}/cache/command-center/data.json`, the link publishing records, and `vaults.json` when the operator asks.
 
 - **It needs `para-audit/`, `para-daily-brief/`, `para-ingest/` and `para-shared/` beside it.**
 - **Run it from anywhere.** The registry, `${PARAOS_HOME:-~/.paraos}/vaults.json`, is the only list of vaults. A para-os home the operator names in prose replaces it for the run.

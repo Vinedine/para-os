@@ -84,8 +84,9 @@ So the first write run on each mailbox reports what the previews routed past its
 | `<vault>/triage/*.md` | The staged notes. New files only, in registered vaults only. |
 | `${PARAOS_HOME:-~/.paraos}/cache/ingest/ledger.json` | What has been seen, so nothing is fetched or judged twice. |
 | `${PARAOS_HOME:-~/.paraos}/cache/ingest/runs/*.json` | One log per run, in both modes. |
+| `${PARAOS_HOME:-~/.paraos}/cache/ingest/work/` | Each run's plan and working files; a folder older than 7 days is removed. |
 
-Nothing else, in any mode. It never edits an existing file anywhere, and it never moves or deletes anything in a `triage/` folder, including its own notes.
+Nothing else in a vault, in any mode. It never edits an existing file in a vault, and it never moves or deletes anything in a `triage/` folder, including its own notes.
 
 ## Known limits
 
