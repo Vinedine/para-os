@@ -32,7 +32,7 @@ Also worth one line each: a file `writers_by_file` gives one writer (a single po
 - **Failures and denials** (`failures`, by tool and target). A repeated failure on the same target is a defect with an address.
 - **Sessions that produced nothing** (`typed_without_writes`). One is noise; a pattern is people asking for something the vault cannot do.
 - **Sessions left open for days** (`multi_day_sessions`): stale context, and entities mixed up where it touched several (`entities`).
-- **Turns per request** (`tools_per_request`). A request that expands into many turns is either real work or a badly-shaped task; read it against what was written at the end.
+- **Tool calls per request** (`tools_per_request`). A request that expands into many tool calls is either real work or a badly-shaped task; read it against what was written at the end.
 - **Rephrasing** (`rephrased`): the strongest available signal that the vault did not understand a request.
 - **How sessions ended** (`endings`). The `reasons` are the harness's, and a client may report `other` for every ending: where they never vary, say so and build nothing on them. `last_request_without_tools` means the final request produced no tool call, never "abandoned": a question answered in prose looks the same.
 
