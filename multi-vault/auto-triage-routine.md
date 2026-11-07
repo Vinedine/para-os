@@ -12,7 +12,7 @@ A scheduled task that asks for a permission stalls until someone answers it, so 
 - `python3 <skills>/para-triage/scripts/auto_execute.py run *` and `auto_execute.py status *`
 - Write `${PARAOS_HOME:-~/.paraos}/cache/triage/*-decisions.json`, the file a run hands the executor
 - Read, Glob and Grep inside the registered vaults
-- `python3 <skills>/para-command-center/scripts/command_center.py *` (`py -3` on Windows) and the Artifact publish of the page it writes
+- `python3 <skills>/para-command-center/scripts/command_center.py *` (`py -3` on Windows) and the Artifact publish of the page it writes, with `python3 <skills>/para-shared/scripts/paraos_pages.py remember *` and `match *`
 - `python3 <skills>/para-shared/scripts/paraos_runs.py record *`
 
 ## The prompt
