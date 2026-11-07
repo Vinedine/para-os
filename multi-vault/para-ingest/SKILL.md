@@ -79,7 +79,7 @@ Then, where `para-command-center/` is installed beside this skill, rebuild its p
 
 ```bash
 # Windows: py -3
-python3 "<scripts>/../../para-command-center/scripts/command_center.py" --out <work>/command-center.html
+python3 "<scripts>/../../para-command-center/scripts/command_center.py" --model <your own model id> --out <work>/command-center.html
 ```
 
 ## Strict rules
