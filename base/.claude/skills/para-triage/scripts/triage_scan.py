@@ -164,9 +164,10 @@ def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs,
     these conditions. A drive row is never ingest's and
     always `lookup`, a recording row always `pull`; an unrecognised row is `unknown`; everything else follows the vault's
     coverage verdict, refined per row for a mailbox `declaring_vaults` does not list, a
-    mailbox an ingest error names, or a sync script `sync_runs` does not record without an
-    error. A covered mailbox row asking for the sent pass is `sent`, not `skip`: /para-ingest
-    reads no sent mail, so that pass still runs here.
+    mailbox an ingest error names. A sync-script row is always `run`: ingest's run covers only
+    what existed then, and the script's dedup ledger makes a second run cheap; `sync_runs`
+    only shapes its reason. A covered mailbox row asking for the sent pass is `sent`, not
+    `skip`: /para-ingest reads no sent mail, so that pass still runs here.
     """
     kind = row.get("kind")
     mailbox = row.get("mailbox")
@@ -195,7 +196,10 @@ def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs,
             return "sent", "ingest covered this mailbox's inbox; it reads no sent mail"
         return "skip", "ingest covered this mailbox"
 
-    # sync-script
+    # sync-script: always `run`, whatever ingest's log says. Ingest's run covers only what
+    # existed when it ran, so a skip here leaves anything recorded since (an afternoon
+    # meeting) waiting for the next ingest. The script deduplicates through its ledger, so a
+    # second run imports only what is new; the reason still names what ingest did.
     if sync_runs is not None:
         for record in sync_runs:
             if not isinstance(record, dict):
@@ -203,7 +207,8 @@ def row_plan(row, covered, vault_name, declaring_vaults, errors_list, sync_runs,
             if (record.get("vault") == vault_name
                     and _norm_script(record.get("script")) == _norm_script(path)
                     and not record.get("error")):
-                return "skip", f"ingest ran {path} for {vault_name} with no error"
+                return "run", (f"ingest ran {path} for {vault_name} with no error - "
+                               f"run again for anything since")
         return "run", "log records no matching sync run for this script"
     return "run", "log records no per-vault sync runs"
 
