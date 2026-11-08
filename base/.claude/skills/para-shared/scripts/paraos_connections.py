@@ -40,7 +40,8 @@ spellings of one connector are one; a script written as a bare file name matches
 whose path ends on it.
 
 What a script's own code shows is discovered too, so a script nobody listed is still seen.
-The scripts read are those of each registered vault on this machine: every script in a folder
+The scripts read are those of each registered vault whose folder is on disk, one pulled on
+another machine included: every script in a folder
 named `scripts` or below one (tests, `archive/`, `triage/`, an environment's or a package
 manager's folders and every folder whose name starts with a dot left out), and for each of the
 vault's own skills (a folder in `.claude/skills/` whose name does not start `para-`) the
@@ -200,21 +201,22 @@ def mailbox_problems(box):
 
 # --- what the files already declare -------------------------------------------------------------
 
-def _here(entry):
-    """A registry entry's folder when it is on this machine and on disk, else None."""
+def _here(entry, elsewhere=False):
+    """A registry entry's folder when it is on disk and, unless `elsewhere`, pulled on this
+    machine, else None."""
     path = entry.get("path")
-    if entry.get("machine") or not path or not Path(path).is_dir():
+    if (entry.get("machine") and not elsewhere) or not path or not Path(path).is_dir():
         return None
     return Path(path)
 
 
-def _vaults_here(home):
-    """`(folder, name)` for every registered vault that is on this machine and on disk."""
+def _vaults_here(home, elsewhere=False):
+    """`(folder, name)` for every registered vault `_here` finds."""
     out = []
     for entry in registry(home):
         if not isinstance(entry, dict):
             continue
-        root, name = _here(entry), entry.get("name")
+        root, name = _here(entry, elsewhere), entry.get("name")
         if root is not None and isinstance(name, str) and name:
             out.append((root, name))
     return out
@@ -418,7 +420,8 @@ def scan(home, clis=(), ignore=()):
     via}` for every listed CLI a vault's own skill runs in its text. `via` is `scripts` for a
     script in a scripts folder, `skill:<name>` for what a skill holds, names or runs."""
     uses = []
-    for root, name in _vaults_here(home):
+    machines = {e.get("name"): e.get("machine") or None for e in registry(home) if isinstance(e, dict)}
+    for root, name in _vaults_here(home, elsewhere=True):
         read = {}
         found = [(p, "scripts") for p in _walk(root, SCRIPT_TYPES, "scripts")]
         for skill in own_skills(root):
@@ -444,6 +447,7 @@ def scan(home, clis=(), ignore=()):
             hosts, ran = read[label]
             if hosts or ran:
                 uses.append({"kind": "script", "name": label, "vault": name, "via": via,
+                             "machine": machines.get(name),
                              "calls": {"hosts": list(hosts), "clis": list(ran)}})
     return uses
 
@@ -501,7 +505,9 @@ def gather(paraos_home=None):
     out = [_record(e, True) for e in entries]
     unmatched = []
     for use in uses:
-        hit = next((i for i, e in enumerate(entries) if _matches(e, use)), None)
+        hits = [i for i, e in enumerate(entries) if _matches(e, use)]
+        hit = next((i for i in hits if (entries[i].get("machine") or None) == use.get("machine")),
+                   hits[0] if hits else None)
         if hit is None:
             unmatched.append(use)
             continue
