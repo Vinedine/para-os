@@ -4,7 +4,7 @@
 
 ## sync-script sources
 
-A script writing items into `triage/` (`granola.js`), dry-run by default: run it from the vault root with `--write`, or on `preview` without it, listing what it would add. An error is reported and the other sources carry on.
+A script writing items into `triage/` (`granola.js`), dry-run by default: run it from the vault root with `--write`, or on `preview` without it, listing what it would add. It runs even where /para-ingest ran it today: its dedup ledger keeps a second run to what was recorded since. An error is reported and the other sources carry on.
 
 ## fetch-script sources
 

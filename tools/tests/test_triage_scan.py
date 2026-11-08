@@ -376,19 +376,27 @@ class RowPlanning(VaultCase):
         self.assertEqual([(rows[s]["plan"], rows[s]["sent"]) for s in ("plain", "sent", "stray")],
                          [("skip", False), ("sent", True), ("pull", True)])
 
-    def test_a_sync_script_the_log_ran_without_error_skips(self):
+    def test_a_sync_script_the_log_ran_without_error_still_runs(self):
+        # Ingest's run covers only what existed then: a meeting recorded after it would wait
+        # for the next ingest. The script's dedup ledger keeps a second run to what is new.
         write(self.root, "CLAUDE.md", sources_claude_md([
+            "| mail | connector: google-workspace | mail@work.example | A. |",
             "| notes | sync-script | `resources/scripts/notes-sync.js` | Meetings. |",
         ]))
         write_run(self.home, "20260922-090000.json", {
             "mode": "write", "started_at": (NOW - timedelta(hours=1)).isoformat(),
             "files_written": [str(self.root / "triage" / "x.md")],
+            "source_plan": {"declaring_vaults": {"mail@work.example": ["Alpha"]}},
             "sync_runs": [{"vault": "Alpha", "script": "resources/scripts/notes-sync.js",
                           "written": 0, "error": None}],
         })
         report = self.plan()
-        row = report["sources"]["rows"][0]
-        self.assertEqual(row["plan"], "skip")
+        self.assertTrue(report["ingest"]["covered"])
+        rows = {r["source"]: r for r in report["sources"]["rows"]}
+        self.assertEqual((rows["mail"]["plan"], rows["notes"]["plan"]), ("skip", "run"))
+        self.assertEqual(rows["notes"]["reason"],
+                         "ingest ran resources/scripts/notes-sync.js for Alpha with no error"
+                         " - run again for anything since")
 
     def test_a_sync_script_with_only_a_count_in_the_log_runs(self):
         write(self.root, "CLAUDE.md", sources_claude_md([
@@ -477,7 +485,9 @@ class RowReasons(VaultCase):
             "sync_runs": [{"vault": "Alpha", "script": "Resources\\Scripts\\Notes-Sync.js",
                            "error": None}],
         })
-        self.assertEqual(self.plan()["sources"]["rows"][0]["plan"], "skip")
+        row = self.plan()["sources"]["rows"][0]
+        self.assertEqual(row["plan"], "run")
+        self.assertIn("ingest ran", row["reason"])
 
 
 # --------------------------------------------------------------------------------- the note
