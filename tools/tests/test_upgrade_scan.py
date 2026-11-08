@@ -734,6 +734,17 @@ class ExampleCase(unittest.TestCase):
             "creates every project,", "creates every workstream,"), encoding="utf-8")
         self.assertEqual(self.drift(vault), {"Lifecycle": "drift"})
 
+    def test_a_vault_naming_its_own_cross_cutting_area_and_entity_file_holds(self):
+        vault = self.tmp / "own-area"
+        shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
+        md = vault / "CLAUDE.md"
+        md.write_text(md.read_text(encoding="utf-8")
+                      .replace("`business/` = running", "`wealth/` = running")
+                      .replace("its own `brief.md` + `actions.md`", "its own `README.md` + `actions.md`")
+                      .replace("in `areas/business/actions.md`", "in `areas/wealth/actions.md`"),
+                      encoding="utf-8")
+        self.assertEqual(self.drift(vault), {})
+
     def test_a_rule_file_pointer_names_the_paths_its_rule_file_covers_in_the_vault(self):
         vault = self.tmp / "own-paths"
         shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
