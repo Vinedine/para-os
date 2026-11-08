@@ -255,6 +255,17 @@ class Scanning(Home, unittest.TestCase):
         self.assertEqual(self.scripts(), [("areas/shop/scripts/lib/call.py", "work", "scripts"),
                                           ("resources/scripts/shop.py", "work", "scripts")])
 
+    def test_a_vault_pulled_elsewhere_is_read_where_its_folder_is_here(self):
+        away = self.vault("away", WORK_CLAUDE)
+        self.write(away, "resources/scripts/shop.py")
+        self.assertEqual(self.scripts(), [("resources/scripts/shop.py", "away", "scripts")])
+        self.assertNotIn("away", {u["vault"] for u in discover(self.home)[0]})
+        script = {**GOOD, "vaults": [], "path": "resources/scripts/shop.py"}
+        self.write(self.work, "resources/scripts/shop.py")
+        self.connections([{**script, "id": "shop"}, {**script, "id": "shop-laptop", "machine": "laptop"}])
+        got = {c["id"]: sorted(u["vault"] for u in c["used_by"]) for c in list_all(self.home)["connections"]}
+        self.assertEqual((got["shop"], got["shop-laptop"]), (["work"], ["away"]))
+
     def test_own_skills_and_the_kit_s(self):
         self.assertEqual(own_skills(self.house), [])
         for name in ("para-triage", "Para-Shared", "shop-status"):
