@@ -16,6 +16,7 @@ two produce together.
 """
 
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -999,10 +1000,23 @@ class Unattended(VaultCase):
         self.assertEqual(self.unattended(), {"run": "20260103-0700", "acted": {},
                                              "proposal_waiting": False})
         (self.home / "quarantine/north/20260103-0700/manifest.json").unlink()
-        write(self.home, "cache/triage/proposals/north-20260102-0700.md", "x\n")
+        self.propose("north-20260102-0700")
         self.assertEqual(self.unattended(), {
             "run": "20260102-0700", "acted": {"Dismiss (noise)": 2, "Delete (duplicate)": 1},
             "proposal_waiting": True})
+
+    def propose(self, name):
+        held = write(self.vault, "triage/held.md", "Held for the operator.\n")
+        manifest = {"root": str(self.vault), "items": [
+            {"item": "held.md", "md5": hashlib.md5(held.read_bytes()).hexdigest()}]}
+        write(self.home, f"cache/triage/proposals/{name}.md",
+              f"# Waiting\n\n```json\n{json.dumps(manifest)}\n```\n")
+        return held
+
+    def test_a_proposal_whose_items_left_triage_is_not_waiting(self):
+        write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
+        self.propose("north-20260102-0700").unlink()
+        self.assertIsNone(self.unattended())
 
     def test_a_proposal_of_a_vault_whose_name_extends_this_one_is_not_waiting(self):
         write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
@@ -1114,7 +1128,11 @@ class Health(VaultCase):
     def test_the_overall_level_leaves_out_skills_and_auto_triage(self):
         write(self.home, "data/deep-clean/vault.txt", self.today.isoformat() + "\n")
         write(self.vault, ".claude/skills/beta/SKILL.md", "---\nname: beta\n---\n")
-        write(self.home, "cache/triage/proposals/vault-20260101-0700.md", "x\n")
+        held = write(self.vault, "triage/held.md", "Held.\n")
+        manifest = {"root": str(self.vault), "items": [
+            {"item": "held.md", "md5": hashlib.md5(held.read_bytes()).hexdigest()}]}
+        write(self.home, "cache/triage/proposals/vault-20260101-0700.md",
+              f"```json\n{json.dumps(manifest)}\n```\n")
         card = self.card()
         self.assertEqual((card["signals"]["skills"]["level"],
                           card["signals"]["auto_triage"]["level"]), ("watch", "watch"))

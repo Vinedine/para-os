@@ -1824,6 +1824,28 @@ def triage_items(vault):
     return [p.name for p in files if not (p.suffix.lower() == ".md" and p.stem in pdfs)]
 
 
+def triage_proposals(proposals_dir, vault):
+    """A vault's unattended triage proposals in `proposals_dir`, oldest first, as `{"path",
+    "items"}`, each item `{"item", "state"}` against the triage/ folder its JSON manifest names:
+    `unchanged` (same md5), `changed` or `missing`. Only the newest can be waiting, and only
+    while an item is `unchanged`: a newer run re-proposed whatever an older one still held."""
+    out = []
+    for path in sorted(Path(proposals_dir).glob(f"{vault}-{'[0-9]' * 8}-{'[0-9]' * 4}.md")):
+        block = re.search(r"```json\n(.*?)\n```", read_text(path), re.DOTALL)
+        try:
+            manifest = json.loads(block.group(1)) if block else {}
+        except ValueError:
+            manifest = {}
+        items = []
+        for i in manifest.get("items", []):
+            p = Path(manifest.get("root", "")) / "triage" / i["item"]
+            state = "missing" if not p.is_file() else \
+                "unchanged" if hashlib.md5(p.read_bytes()).hexdigest() == i.get("md5") else "changed"
+            items.append({"item": i["item"], "state": state})
+        out.append({"path": str(path), "items": items})
+    return out
+
+
 # --- links ---------------------------------------------------------------------------------
 
 LINK_OPEN_RE = re.compile(r"\]\(")

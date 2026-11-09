@@ -254,13 +254,28 @@ class Executor(unittest.TestCase):
         write(self.vault, "triage/invoice.md", "Changed.\n")
         self.assertEqual(states, {"dup.pdf": "unchanged", "noise.md": "unchanged",
                                   "invoice.md": "changed", "linked.md": "missing"})
+        for name in ("dup.pdf", "noise.md"):
+            os.remove(self.vault / "triage" / name)
         rows = self.decide([{"item": "dup.pdf", "recommended": "Delete (duplicate)",
                              "chosen": "Delete (duplicate)"}], "chosen.json")
         code, rec = call("record", "--vault-name", "north", "--decisions", rows,
-                         "--proposal", status["proposal"]["path"], "--paraos-home", self.home)
+                         "--paraos-home", self.home)
         self.assertEqual((code, rec["recorded"]), (0, 1))
+        proposal = Path(status["proposal"]["path"])
+        self.assertEqual(rec["closed"], [str(proposal.parent / "decided" / proposal.name)])
         _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
         self.assertIsNone(status["proposal"])
+
+    def test_record_closes_a_superseded_proposal_and_keeps_one_still_waiting(self):
+        _, out = self.run_all(self.ROWS)
+        newest = Path(out["proposal"])
+        older = newest.parent / "north-20000101-0000.md"
+        shutil.copy(newest, older)
+        code, rec = call("record", "--vault-name", "north", "--decisions", self.decide([]),
+                         "--paraos-home", self.home)
+        self.assertEqual(rec["closed"], [str(newest.parent / "decided" / older.name)])
+        _, status = call("status", "--vault-name", "north", "--paraos-home", self.home)
+        self.assertEqual(status["proposal"]["path"], str(newest))
 
     def test_a_pdfs_markdown_twin_is_no_new_item(self):
         for name in ("dup.pdf", "noise.md", "invoice.md", "linked.md"):
