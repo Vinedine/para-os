@@ -13,7 +13,7 @@ The sorting test: **committed and dated → project. Maintained, no end date →
 
 - **triage/** - the inbox `/para-triage` empties; nothing lives here, not even a `README.md` (a `.gitkeep` holds the folder).
 - **projects/** - {{what a "project" means here. Default: time-bound work with a committed deliverable and deadline.}} One folder each, holding a `brief.md`, an `actions.md` and, where needed, `sources/`. A rolling backlog with no deadline is an area.
-- **areas/** - ongoing responsibilities. `{{business}}/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset, with its own {{`brief.md` or `README.md`}} + `actions.md`; assets that gate each other form **one** area.{{ Add any other area subfolders this vault needs.}}
+- **areas/** - ongoing responsibilities{{. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset, with its own `brief.md` + `actions.md`; assets that gate each other form **one** area.}}{{ Name this vault's own areas, entity file and cross-cutting area.}}
 - **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
 - **archive/** - inactive artifacts, always in a subfolder. `meetings/` = records spanning several entities.{{ Add `projects/` and `ideas/` if this vault archives finished projects and retired ideas (`/para-archive` fills both).}}
 
@@ -48,7 +48,7 @@ A folder whose work is tracked elsewhere (an external tracker, a generated file)
 | `resources/` | **never** | a checkbox here is a filing error |
 | `archive/` | yes | **all closed** - one open `- [ ]` means it was archived too early |
 
-An action goes in the `actions.md` of the project or area it belongs to; one about a person in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; strategic work tied to no single entity in `areas/{{business}}/actions.md`, and a dated go/no-go on an idea there too, linking the idea. Never a root `actions.md`.
+An action goes in the `actions.md` of the project or area it belongs to{{; one about a person in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; strategic work tied to no single entity in `areas/business/actions.md`, and a dated go/no-go on an idea there too, linking the idea}}. Never a root `actions.md`{{; add any routing rule this vault needs}}.
 
 ### The actionable frontier
 

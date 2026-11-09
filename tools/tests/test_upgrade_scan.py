@@ -745,6 +745,39 @@ class ExampleCase(unittest.TestCase):
                       encoding="utf-8")
         self.assertEqual(self.drift(vault), {})
 
+    def own_lines(self, name, areas, routing):
+        vault = self.tmp / name
+        shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
+        md = vault / "CLAUDE.md"
+        lines = md.read_text(encoding="utf-8").split("\n")
+        lines = [areas if ln.startswith("- **areas/** - ") else
+                 routing if ln.startswith("An action goes in the `actions.md`") else ln
+                 for ln in lines]
+        md.write_text("\n".join(lines), encoding="utf-8")
+        return vault
+
+    def test_a_vault_restructuring_its_areas_bullet_and_routing_sentence_holds(self):
+        vault = self.own_lines(
+            "restructured",
+            "- **areas/** - ongoing responsibilities. Per-entity folders (`properties/x/`, "
+            "`banking/y/`) each with `README.md` + `sources/` and an `actions.md`; `network/` = "
+            "one file per person. `wealth/` = the cross-cutting area: household strategy. "
+            "Entities that gate each other form **one** area.",
+            "An action goes in the `actions.md` of the project or area it belongs to; one about "
+            "a person in their contact file (`areas/network/<person>.md`) under `## Next actions`, "
+            "else with the entity it serves; strategic household work tied to no single entity in "
+            "`areas/wealth/actions.md`. Scheduled multi-step work means the thing is a project, "
+            "not an idea. Never a root `actions.md`; an `actions.md` archives *with its entity*, "
+            "fully closed.")
+        self.assertEqual(self.drift(vault), {})
+
+    def test_a_routing_sentence_dropping_the_root_actions_ban_is_drift(self):
+        vault = self.own_lines(
+            "no-ban",
+            "- **areas/** - ongoing responsibilities: anything live that is maintained.",
+            "A dated go/no-go on an idea is a strategic action in the owning area's `actions.md`.")
+        self.assertEqual(self.drift(vault), {"Where a checkbox may live": "drift"})
+
     def test_a_rule_file_pointer_names_the_paths_its_rule_file_covers_in_the_vault(self):
         vault = self.tmp / "own-paths"
         shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
