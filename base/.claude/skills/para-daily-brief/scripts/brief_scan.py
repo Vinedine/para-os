@@ -48,7 +48,7 @@ try:
         vault_name)
     from paraos_vault import (  # noqa: E402
         QUIET_DAYS, TEMPLATE_BEHIND, TRIAGE_AGE_DAYS, TRIAGE_PILE, WAITS_PAST_FLAG,
-        find_clone, read_text, skill_reviews, template_marker)
+        find_clone, read_text, skill_reviews, template_marker, triage_proposals)
     from paraos_clone import (  # noqa: E402
         changelog_entries, clone_read, clone_session, entries_between, master_template)
     from paraos_mail import ingest_ledger  # noqa: E402
@@ -471,7 +471,8 @@ def unattended(vault, paraos_home=None):
     name = vault_name(vault, paraos_home)
     home = paraos_home_dir(paraos_home)
     runs = sorted((home / "quarantine" / name).glob("*/manifest.json"))
-    waiting = bool(list((home / "cache" / "triage" / "proposals").glob(f"{name}-{'[0-9]' * 8}-{'[0-9]' * 4}.md")))
+    found = triage_proposals(home / "cache" / "triage" / "proposals", name)
+    waiting = bool(found) and any(i["state"] == "unchanged" for i in found[-1]["items"])
     if not runs and not waiting:
         return None
     acted = {}

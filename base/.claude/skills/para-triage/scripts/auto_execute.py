@@ -5,7 +5,6 @@
     py -3 auto_execute.py restore --vault-name <name> --run <run> [--item <name>]
     py -3 auto_execute.py status --vault-name <name> [--vault <root>]
     py -3 auto_execute.py record --vault-name <name> --decisions <file.json> [--scan <saved scan>]
-                                 [--proposal <path>]
     py -3 auto_execute.py switch --vault-name <name> (--on | --off) <action>
     py -3 auto_execute.py add-exclusion --mailbox <mailbox> (--from <address> | --domain <domain>)
                                         --reason <text>
@@ -62,7 +61,8 @@ skips the vault), and `offers`: each `Delete` or `Dismiss` action whose last 50 
 decisions in the vault were at least 95% the recommendation unchanged, not yet switched on;
 the ledger holds no destination, so `File it` is switched on by the operator, never offered. `record` appends the interactive path's decisions, `{"item", "recommended",
 "chosen"}` plus a fetched thread's `from` and `mailbox`, which `--scan` fills for a staged
-note from its `From` line, and moves a decided proposal into `proposals/decided/`.
+note from its `From` line, and moves into `proposals/decided/` (`closed`) every proposal
+`triage_proposals` shows nothing waits on.
 
 Both return `exclusion_offers`, `status` for the unattended decisions since the last
 interactive one, `record` for the rows it appended: each sender such a `Dismiss (noise)` names
@@ -102,7 +102,7 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 try:
     from paraos_vault import (entity_candidates, git, move, paraos_home_dir,  # noqa: E402
                               utf8_stdout, emit,
-                              same_place, snapshot, trash, triage_items)
+                              same_place, snapshot, trash, triage_items, triage_proposals)
 except ImportError as missing:
     print(f"auto_execute: {missing}. install para-shared beside this skill", file=sys.stderr)
     sys.exit(2)
@@ -366,12 +366,6 @@ def write_proposal(state, run, vault_root, rows):
     return path
 
 
-def proposal_manifest(path):
-    text = Path(path).read_text(encoding="utf-8")
-    block = re.search(r"```json\n(.*?)\n```", text, re.DOTALL)
-    return json.loads(block.group(1)) if block else {"items": []}
-
-
 def run(args):
     scan = load_json(args.scan)
     decisions_file = Path(args.decisions)
@@ -532,16 +526,7 @@ def status(args):
                 counts[i["action"]] = counts.get(i["action"], 0) + 1
             runs.append({"run": r, "acted": counts, "restore":
                          f"auto_execute.py restore --vault-name {state.vault} --run {r}"})
-    proposal = None
-    found = sorted(state.proposals.glob(f"{state.vault}-{'[0-9]' * 8}-{'[0-9]' * 4}.md"))
-    if found:
-        m = proposal_manifest(found[-1])
-        items = []
-        for i in m["items"]:
-            p = Path(m["root"]) / "triage" / i["item"]
-            items.append({"item": i["item"], "state": "missing" if not p.is_file()
-                          else "unchanged" if md5(p) == i["md5"] else "changed"})
-        proposal = {"path": str(found[-1]), "items": items}
+    proposal = (triage_proposals(state.proposals, state.vault) or [None])[-1]
     nothing_new = None
     if args.vault:
         waiting = {i["item"] for i in (proposal or {}).get("items", [])
@@ -564,13 +549,14 @@ def record(args):
               "chosen": r["chosen"], "path": "interactive", **sender(r, loose.get(r["item"]))}
              for r in rows]
     state.append(added)
-    moved = None
-    if args.proposal:
-        src = Path(args.proposal)
-        moved = state.proposals / "decided" / src.name
-        moved.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(moved))
-    return {"recorded": len(rows), "proposal": str(moved) if moved else None,
+    found, closed = triage_proposals(state.proposals, state.vault), []
+    for n, p in enumerate(found):
+        if n < len(found) - 1 or all(i["state"] != "unchanged" for i in p["items"]):
+            moved = state.proposals / "decided" / Path(p["path"]).name
+            moved.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(p["path"], str(moved))
+            closed.append(str(moved))
+    return {"recorded": len(rows), "closed": closed,
             "exclusion_offers": exclusion_offers(state.home, state.decisions(), added)}
 
 
@@ -670,7 +656,6 @@ def main(argv=None):
     parsers["status"].add_argument("--vault", help="the vault root, for `nothing_new`")
     parsers["record"].add_argument("--decisions", required=True)
     parsers["record"].add_argument("--scan")
-    parsers["record"].add_argument("--proposal")
     parsers["add-exclusion"].add_argument("--mailbox", required=True)
     parsers["add-exclusion"].add_argument("--reason", required=True)
     matcher = parsers["add-exclusion"].add_mutually_exclusive_group(required=True)

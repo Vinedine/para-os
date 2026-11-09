@@ -24,5 +24,3 @@ What Step 2's `status` reports:
 - **A waiting `proposal`**: its `unchanged` items join this run's questions with the run's recommendation; a `changed` or `missing` one is named and dropped.
 - **An `offer`**: one question, after the items, to switch that action on (`switch --vault-name <vault.name> --on "<action>"`).
 - **An `exclusion_offer`**, from `status` or `record`: one question, after the items, naming its senders and dismissals, to add its `entry` with a `reason` in the style of the file's entries, closing on `Accepted risk:` and what else it would hide. A public mail provider's domain is offered as its addresses instead. A yes runs `add-exclusion --mailbox <mailbox> --from|--domain <value> --reason "<reason>"`; a scheduled run never does.
-
-Step 7's `record` passes `--proposal <path>` where the run decided one.
