@@ -520,6 +520,14 @@ class SectionsCase(CloneCase):
         self.assertIn("/para-upgrade", found[0]["fix"])
         self.assertEqual(report["upgrade_first"]["name"], "v")
 
+    def test_a_section_the_operator_kept_is_not_counted(self):
+        text = claude_md().replace("A rule.", "An older rule.").replace(
+            "## Actions\n", "## Actions\n<!-- para-os-kept: 2026.10.01 -->\n")
+        report, row = self.row(text)
+        self.assertEqual(row["cells"]["sections"], "ok")
+        self.assertEqual(row["findings"], [])
+        self.assertIsNone(report["upgrade_first"])
+
     def test_a_missing_add_on_section_is_its_own_kit_file_s_finding(self):
         text = claude_md(extra_header="**Modules:** sales\n").replace("A rule.", "An older rule.")
         _, row = self.row(text, rules=("filing.md", "pipeline.md"))

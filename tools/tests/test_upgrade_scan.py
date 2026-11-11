@@ -693,6 +693,33 @@ class DriftCase(CloneCase):
         self.assertEqual(self.rows("unmarked", DRIFTED.replace(
             "<!-- para-os-template: 2026.10.02 -->\n", "")), {})
 
+    @staticmethod
+    def kept(text, heading, rev):
+        return text.replace(f"{heading}\n", f"{heading}\n<!-- para-os-kept: {rev} -->\n", 1)
+
+    def test_a_section_kept_at_the_ref_s_revision_is_no_drift(self):
+        text = self.kept(self.kept(DRIFTED, "## Layout", "2026.10.02"), "### Hygiene", "2026.10.02")
+        self.assertEqual(set(self.rows("kept", text)), {"", "Checkboxes", "Do not add"})
+
+    def test_a_section_kept_at_an_older_revision_holds_while_the_kit_s_wording_is_unchanged(self):
+        # Layout reads the same at both revisions; Hygiene was reworded at the second.
+        text = self.kept(self.kept(DRIFTED, "## Layout", "2026.10.01"), "### Hygiene", "2026.10.01")
+        rows = self.rows("kept-old", text)
+        self.assertNotIn("Layout", rows)
+        self.assertEqual(rows["Hygiene"]["state"], "drift")
+        self.assertIn("+<!-- para-os-kept: 2026.10.01 -->\n", rows["Hygiene"]["diff"])
+
+    def test_a_behind_vault_keeping_the_ref_s_wording_has_no_drift_before_its_stamp(self):
+        # What /para-upgrade's re-run sees after "keep" and before the marker moves.
+        text = kit_template("2026.10.01").replace("- No live work.\n", "- No live work, ever.\n")
+        self.assertEqual(set(self.rows("behind-drift", text)), {"Hygiene"})
+        self.assertEqual(self.rows("behind-kept", self.kept(text, "### Hygiene", "2026.10.02")), {})
+
+    def test_a_kept_revision_the_ref_never_carried_or_a_kept_line_elsewhere_holds_nothing(self):
+        for name, text in (("kept-unknown", self.kept(DRIFTED, "### Hygiene", "2026.09.09")),
+                           ("kept-other", self.kept(DRIFTED, "## Sources", "2026.10.02"))):
+            self.assertEqual(self.rows(name, text)["Hygiene"]["state"], "drift", name)
+
 
 class ExampleCase(unittest.TestCase):
     """examples/belfoot-vault against a clone of this checkout's template and add-on sections:
