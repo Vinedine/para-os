@@ -510,9 +510,8 @@ def stale_links(vault, moved_from):
 
 
 def relative_start(before):
-    """Whether a vault-relative path can begin right after `before`: at a word boundary, or
-    after a `../` or `./` climb. After a named folder (`archive/projects/x`) it is part of a
-    different, longer path."""
+    """Whether a path can begin right after `before`: at a word boundary or after a `../` or
+    `./` climb, never after a named folder (`archive/projects/x` is a longer path)."""
     last = before[-1:]
     if not last:
         return True
@@ -523,20 +522,29 @@ def relative_start(before):
     return re.split(r"[/\\]", before[:-1])[-1].lstrip("(<`'\" ") in ("..", ".", "")
 
 
+def new_targets(path, text, new_dir):
+    """The span in `unquote(text)` of each link target in the line resolving under `new_dir`."""
+    spans = []
+    for start, end, _ in link_spans(text):
+        link = extract_links("](" + text[start:end] + ")")  # its href, read as every link is
+        if link and is_under(resolve_link(path, link[0][1]), new_dir):
+            spans.append((len(unquote(text[:start])), len(unquote(text[:end]))))
+    return spans
+
+
 def stale_mentions(vault, moved_from, moved_to):
-    """Every plain-text occurrence of the old path (link display text, a backtick path, bare
-    prose) that carries a path boundary on both sides, excluding an occurrence that is part of
-    the new path or of another path ending in it - so "archive/projects/x" is never read as a
-    mention of "projects/x", and "archive/projects/x-v1" is not either, since both contain it
-    as a substring."""
+    """Every occurrence of the old path with a path boundary on both sides, except inside a
+    link target resolving under the new path or inside a longer path ending in the old one:
+    "archive/projects/x" and "archive/projects/x-v1" are never mentions of "projects/x"."""
+    new_dir = abspath(vault / moved_to)
     out, exempt = [], []
     for path in vault_paths(vault, "*.md"):
         rel = rel_posix(vault, path)
         in_sources = "sources" in Path(rel).parts[:-1]
         for lineno, text in live_lines(read_lines(path)):
             decoded = unquote(text)
-            new_spans = [(m.start(), m.end())
-                        for m in re.finditer(re.escape(moved_to), decoded)]
+            new_spans = new_targets(path, text, new_dir) + [
+                (m.start(), m.end()) for m in re.finditer(re.escape(moved_to), decoded)]
             start = 0
             while True:
                 at = decoded.find(moved_from, start)
