@@ -1009,6 +1009,31 @@ class Verify(VaultCase):
         self.assertEqual(v["stale_mentions"], [])
         self.assertTrue(v["clean"])
 
+    def test_a_link_target_resolving_under_the_new_path_is_not_a_mention(self):
+        # A sibling archive folder climbs into the moved one: `../../projects/acme/` written
+        # from archive/areas/ops/ names archive/projects/acme. The encoded link before it on
+        # line 4 shifts every offset the decoded line is read at.
+        write(self.root, "archive/areas/ops/actions.md", "\n".join([
+            "# Ops", "",
+            "See [Acme](../../projects/acme/brief.md).",
+            "After [the kick-off](sources/Kick%20off%20notes%20for%20the%20team.md), "
+            "[Acme](../../projects/acme/brief.md) again.", "",
+        ]))
+        v = self.verify("projects/acme", "archive/projects/acme")
+        self.assertEqual(v["stale_links"], [])
+        self.assertEqual(v["stale_mentions"], [])
+        self.assertEqual(v["inbound_resolved"], {"resolved": 2, "unresolved": []})
+        self.assertTrue(v["clean"])
+
+    def test_display_text_and_prose_beside_a_resolving_target_are_still_mentions(self):
+        write(self.root, "archive/areas/ops/actions.md", "\n".join([
+            "# Ops", "",
+            "See [projects/acme](../../projects/acme/brief.md).",
+            "Filed under projects/acme at the time.", "",
+        ]))
+        v = self.verify("projects/acme", "archive/projects/acme")
+        self.assertEqual([m["line"] for m in v["stale_mentions"]], [3, 4])
+
     def test_inside_counts_every_link_that_resolves(self):
         write(self.root, "areas/business/actions.md", "# Business\n")
         write(self.root, "archive/projects/acme/actions.md",
