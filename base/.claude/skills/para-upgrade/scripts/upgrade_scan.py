@@ -47,7 +47,10 @@ contract  What CLAUDE.md takes from base/CLAUDE.md.template and each declared ad
                  the ref; `diff` from the kit at `baseline`, each line the vault holds shown as
                  it wrote it, to the vault's. missing: one whose heading the vault lacks; `diff`
                  to the vault's own section closest to it, else to nothing. None with no
-                 baseline.
+                 baseline. A vault section holding a `<!-- para-os-kept: <revision> -->`
+                 line is no drift while the kit's lines of it at that revision are those at
+                 the ref: the operator kept their own wording, and a change to the kit's
+                 brings the row back.
           A vault line holds a kit line it equals, with each `{{...}}` matching any text, and a
           table row holds one with the same first cell. The vault's own added lines, a kit line
           that is only a placeholder or says "delete this line", and a heading no kit file
@@ -81,7 +84,8 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        CELL_MARKS_RE, H2_RE, HEADING_RE, INTEGRATION_MARKER_RE, TEMPLATE_MARKER_RE, declarations,
+        CELL_MARKS_RE, H2_RE, HEADING_RE, INTEGRATION_MARKER_RE, REVISION_PATTERN,
+        TEMPLATE_MARKER_RE, declarations,
         emit, fence_step, find_clone, git, git_bytes, integration_markers, is_separator_row,
         normalised, paraos_home_dir, read_text, snapshot, split_lines, table_cells, template_marker,
         utf8_stdout, vault_root,
@@ -103,6 +107,7 @@ RETIRED_RE = re.compile(r"^Retired:(.*)$", re.M)
 BACKTICK_RE = re.compile(r"`([^`]+)`")
 PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}")
 LONE_PLACEHOLDER_RE = re.compile(r"^(?:[-*+]|\d+\.)?\s*\{\{.*\}\}\W*$")
+KEPT_RE = re.compile(r"<!--\s*para-os-kept:\s*(" + REVISION_PATTERN + r")\s*-->")
 NEAR_RATIO = 0.5   # a vault section this close in words to a missing kit one is its likely home
 
 
@@ -181,8 +186,12 @@ def revision_block(vault, kit):
 def baseline(kit, raw, mine):
     if mine == kit.master:
         return kit.commit
-    if not raw:
-        return None
+    return revision_commit(kit, raw) if raw else None
+
+
+def revision_commit(kit, raw):
+    """The commit along the ref that stands for template revision `raw`: its release tag,
+    else the commit that added its marker; None where the ref never carried it."""
     hits = (git(kit.clone, ["log", kit.commit, "--format=%H",
                             f"-S<!-- para-os-template: {raw} -->", "--", BASE_TEMPLATE]) or "").split()
     tag = git(kit.clone, ["rev-parse", "-q", "--verify", f"refs/tags/{raw}^{{commit}}"])
@@ -322,6 +331,18 @@ def drift_block(kit, base, decl, vault_text):
         mine.setdefault(heading_key(heading), (heading, line, []))[2].extend(lines)
     known = {heading_key(b[0]) for _, _, b in then}
     own = [b for k, b in mine.items() if k not in known]
+    at = {kit.master: now}
+
+    def kept(name, key, theirs):
+        for raw in (m.group(1) for m in map(KEPT_RE.fullmatch, theirs) if m):
+            if raw not in at:
+                commit = revision_commit(kit, raw)
+                at[raw] = {(n, heading_key(b[0])): b[2] for _, n, b in
+                           kit_blocks(kit, commit, decl)} if commit else {}
+            if at[raw].get((name, key)) == now[name, key]:
+                return True
+        return False
+
     rows = []
     for path, name, (heading, line, lines) in then:
         key = heading_key(heading)
@@ -335,7 +356,7 @@ def drift_block(kit, base, decl, vault_text):
             continue
         _, their_line, theirs = mine[key]
         pairs, lacking = held(lines, theirs)
-        if lacking and held(now[name, key], theirs)[1]:
+        if lacking and held(now[name, key], theirs)[1] and not kept(name, key, theirs):
             shown_kit = [theirs[pairs[i]] if i in pairs else ln for i, ln in enumerate(lines)
                          if i in pairs or i in lacking]
             top = [their_line] if their_line else []
