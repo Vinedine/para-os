@@ -49,7 +49,7 @@ For each entry under `connectors`, fetch per [para-shared/connectors.md](../para
 - **Steps 3 and 5 are `route`'s**: no exclusions and no ledger check by hand.
 - **Find the connector by its tool suffix** ([connectors.md](../para-shared/connectors.md)), whatever its server is named: one wired under another name than `allowed-tools` lists is read the same and asks per call. **A mailbox you could not read to its `since` is unread, not empty**: a server absent, a call refused or failing. Pass it to `route` as `--unread <mailbox>` and go on: the next run reaches back over it. Never edit this file to widen your own permissions.
 
-Write every thread fetched to `<work>/connectors.json`: a JSON list in `stage.py`'s thread shape without `routed` and `reason`, with `text` `preview` and `own_messages` false. A sign-in or security code ([connectors.md](../para-shared/connectors.md#sign-in-and-security-codes)) goes in as `"signin": true` with its mailbox, thread id and each message's `received` and `message_id` alone, so nothing written carries it.
+With the Write tool, never the shell, write every thread fetched to `<work>/connectors.json`: a JSON list in `stage.py`'s thread shape without `routed` and `reason`, with `text` `preview` and `own_messages` false. A sign-in or security code ([connectors.md](../para-shared/connectors.md#sign-in-and-security-codes)) goes in as `"signin": true` with its mailbox, thread id and each message's `received` and `message_id` alone, so nothing written carries it.
 
 ### Step 3: Route
 
@@ -64,7 +64,7 @@ Exit 2 names a connector thread or an `--unread` mailbox to fix: fix it and run 
 
 For each `to_judge` thread, decide which of its `candidates` it belongs to: [references/routing.md](references/routing.md). Then flag every sign-in or security code left in `to_judge` or `decided`: it is counted, and never named in anything the run writes or shows, the report included ([connectors.md](../para-shared/connectors.md#sign-in-and-security-codes)).
 
-Write `<work>/decisions.json`, one entry per `to_judge` thread and per code: `{"mailbox", "thread_id", "routed": [...], "reason"}`, or `{"mailbox", "thread_id", "signin": true}`.
+Write `<work>/decisions.json` the same way, one entry per `to_judge` thread and per code: `{"mailbox", "thread_id", "routed": [...], "reason"}`, or `{"mailbox", "thread_id", "signin": true}`.
 
 ### Step 5: Stage and report
 
@@ -75,7 +75,7 @@ python3 "<scripts>/stage.py" "<work>/run.json" --decisions "<work>/decisions.jso
 
 Exit 2 names a decision to fix ([references/staging.md](references/staging.md): the ledger, and what a second run stages). Then report: a table of vault, staged count and unrouted count, and, **at the top of the report**, every error and every thread under `undelivered`, `resolved`, `carry_over` and `rerouted`, a carry-over with its `--days` and a rerouted thread as a `Relevant when` rule to tighten. A run that staged nothing says so.
 
-Then, where `para-command-center/` is installed beside this skill, rebuild its page so the inbound figures follow this run, and publish it per [para-shared/pages.md](../para-shared/pages.md), the printed `key` standing in for the vault root. It reuses the calendar events `/para-command-center` last read:
+Then, where `para-command-center/` is installed beside this skill, rebuild its page so the inbound figures follow this run, and publish it per [para-shared/pages.md](../para-shared/pages.md), the printed `key` standing in for the vault root. It reuses the calendar events and scheduled runs `/para-command-center` last read:
 
 ```bash
 # Windows: py -3

@@ -131,9 +131,11 @@ class Pieces(unittest.TestCase):
         self.assertIsNone(cc.last_due("* * * * *", NOW))
         self.assertIsNone(cc.last_due("daily", NOW))
 
-    def test_a_run_stands_by_its_last_record(self):
+    def test_a_run_stands_by_its_newest_run_in_the_apps_list(self):
         run = {"cron": "0 6 * * *"}
         self.assertEqual(cc.run_status(run, NOW), "none")
+        self.assertEqual(cc.run_status(dict(run, enabled=False, last={"status": "failed"}), NOW), "none")
+        self.assertEqual(cc.run_status(dict(run, last={"status": "running", "end": "2026-03-10T06:05:00Z"}), NOW), "ok")
         self.assertEqual(cc.run_status(dict(run, last={"status": "failed"}), NOW), "bad")
         self.assertEqual(cc.run_status(dict(run, last={"status": "partial"}), NOW), "warn")
         self.assertEqual(cc.run_status(dict(run, last={"status": "ok", "end": "2026-03-09T06:05:00Z"}), NOW), "watch")
@@ -288,6 +290,24 @@ class Inbound(unittest.TestCase):
         write(home, "cache/command-center/events.json", "{}")
         self.assertIsNone(cc.calendar_events(None, NOW, home)[0])
 
+    def test_the_last_app_list_is_kept_and_judged_as_of_its_read(self):
+        home = self.tmp / "home"
+        runs, at, note = cc.scheduled_runs(None, NOW, home)
+        self.assertEqual((runs, at), (None, None))
+        self.assertIn("never read", note)
+        given = write(self.tmp, "app.json", json.dumps([{"taskId": "ingest", "runs": [{"status": "running"}]}]))
+        runs, at, note = cc.scheduled_runs(str(given), NOW, home)
+        self.assertEqual((runs["ingest"]["last"]["status"], at, note), ("running", NOW, ""))
+        runs, at, note = cc.scheduled_runs(None, NOW + timedelta(hours=9), home)
+        self.assertEqual((sorted(runs), at, note), (["ingest"], NOW, ""))
+        note = cc.scheduled_runs(None, NOW + timedelta(days=1), home)[2]
+        self.assertEqual(note, "The scheduled runs are as the app listed them on 2026-03-10.")
+        runs, at, note = cc.scheduled_runs(str(write(self.tmp, "bad.json", "{}")), NOW, home)
+        self.assertEqual((runs, at), (None, None))
+        self.assertIn("could not be read", note)
+        write(home, "cache/command-center/app-tasks.json", json.dumps([{"taskId": "x"}]))
+        self.assertEqual(cc.scheduled_runs(None, NOW, home)[:2], ({"x": {"enabled": None, "last": None}}, NOW))
+
 
 class WholePage(unittest.TestCase):
     """One machine: two vaults read here, one another machine pulls, one unreachable, one past."""
@@ -339,10 +359,12 @@ class WholePage(unittest.TestCase):
             {"id": "center", "title": "Command Center", "cron": "0 7 * * *", "skill": "para-command-center", "vaults": "*", "sources": []},
             {"id": "watch", "title": "", "cron": "30 6 * * 1-5", "skill": None, "vaults": ["alpha", "nowhere"],
              "sources": [{"name": "Shop", "via": ["browser"]}, {"via": []}, "junk"]}]))
-        write(self.home, "cache/runs/ingest.jsonl", json.dumps({"task": "ingest", "start": None, "end": "2026-03-10T06:08:00+00:00",
-                                                                 "status": "ok", "summary": "Staged 3."}) + "\n")
-        write(self.home, "cache/runs/center.jsonl", json.dumps({"task": "center", "start": None, "end": "2026-03-10T07:02:00+00:00",
-                                                                 "status": "failed", "summary": "No registry."}) + "\n")
+        self.app = write(self.tmp, "app-tasks.json", json.dumps({"tasks": [
+            {"taskId": "ingest", "enabled": True, "runs": [{"status": "succeeded", "last_activity_at": "2026-03-10T06:08:00+00:00",
+                                                            "summary": "Staged 3."}]},
+            {"taskId": "center", "enabled": True, "runs": [{"status": "failed", "last_activity_at": "2026-03-10T07:02:00+00:00",
+                                                            "error": "No registry."}]},
+            {"taskId": "watch", "enabled": False, "runs": [{"status": "succeeded", "last_activity_at": "2026-03-01T06:30:00+00:00"}]}]}))
         write(self.home, "cache/ingest/ledger.json", json.dumps({"mailboxes": {
             "a@x.test": {"1": {"date": "2026-03-09", "routed": ["alpha"]}, "2": {"date": "2026-03-09", "routed": ["alpha", "beta"]},
                          "3": {"date": "2026-03-09", "reason": "excluded: a rule"}, "4": {"date": "2026-03-09"}},
@@ -370,7 +392,7 @@ class WholePage(unittest.TestCase):
     def build(self, **more):
         args = dict(events=[{"date": "2026-03-11", "start": "10:00", "title": "board", "source": "work"},
                             {"date": "2026-03-12", "start": "09:00", "title": "Demo", "source": "work"}, {"title": "no date"}],
-                    note="One calendar failed.", roots=[self.code], run=self.run)
+                    note="One calendar failed.", roots=[self.code], run=self.run, runs=cc.app_runs(cc.app_tasks(self.app)))
         args.update(more)
         return cc.build(self.entries, TODAY, NOW, str(self.home), **args)
 
@@ -433,6 +455,10 @@ class WholePage(unittest.TestCase):
                          {"status": "ok", "sub": "06:00 and 16:00 every day", "label": "Ingest"})
         self.assertEqual((nodes["run:center"]["status"], nodes["run:watch"]["status"], nodes["run:watch"]["label"]),
                          ("bad", "none", "watch"))
+        self.assertEqual((nodes["run:center"]["detail"]["summary"], nodes["run:watch"]["sub"]),
+                         ("No registry.", "paused · 06:30 Monday to Friday"))
+        unread = {n["id"]: n["status"] for n in self.build(runs=None)["nodes"]}
+        self.assertEqual((unread["run:ingest"], unread["run:center"]), ("none", "none"))
         self.assertEqual((nodes["box:a@x.test"]["label"], nodes["box:a@x.test"]["sub"], nodes["box:b@x.test"]["label"]),
                          ("Me · Mail", "5 threads in 7 days", "b@x.test"))
         self.assertEqual((nodes["conn:mailer"]["sub"], nodes["conn:fetch.py"]["sub"], nodes["conn:rec"]["sub"]),
@@ -521,9 +547,11 @@ class WholePage(unittest.TestCase):
         page = self.tmp / "out" / "cc.html"
         with mock.patch.object(cc, "build", wraps=cc.build) as built:
             code, out, _ = self.run_main("--today", "2026-03-10", "--events", str(events), "--out", str(page),
-                                         "--code-root", str(self.code), "--offline")
+                                         "--code-root", str(self.code), "--offline", "--app-tasks", str(self.app))
         self.assertEqual(code, 0)
         self.assertEqual(built.call_args.kwargs["online"], False)
+        self.assertEqual(built.call_args.kwargs["runs"]["center"]["last"]["status"], "failed")
+        self.assertTrue((self.home / "cache" / "command-center" / "app-tasks.json").is_file())
         line = json.loads(out)
         self.assertEqual((line["page"], line["publish"], line["title"], line["url"]), ("command-center", "claude", "Command Center", None))
         self.assertEqual(Path(line["out"]), page.resolve())

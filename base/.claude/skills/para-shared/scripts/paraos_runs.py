@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Scheduled runs: what each one is, and how its runs went.
+"""Scheduled runs: what each one is, and how its last run went.
 
-    py -3 paraos_runs.py record --task <id> --status ok|failed|partial --summary "<one line>" [--started <ISO time>]
-    py -3 paraos_runs.py status [--task <id>]
+    py -3 paraos_runs.py status [--task <id>] [--app-tasks <file>]
     py -3 paraos_runs.py check [--app-tasks <file>] [--tasks-dir <folder>]
 
 The task registry, `$PARAOS_HOME/tasks.json`, is a JSON list with one entry per scheduled
@@ -13,21 +12,20 @@ it reads that no vault's `## Triage sources` or `## Agenda sources` declares, as
 `{"name": <source>, "via": [<connection>, ...]}`. A connection is `mcp:<server>`, `browser`,
 `script:<path>` or `cli:<tool>`. A missing registry is an empty one.
 
-`record` appends one JSON line to `$PARAOS_HOME/cache/runs/<id>.jsonl`, `task`, `start`
-(`--started`, else null), `end` (now, UTC), `status` and `summary` (on one line, cut at
-`SUMMARY_MAX` characters), prints it, and drops the file's lines that ended more than
-`KEEP_DAYS` days ago. A line that does not parse is kept. A task the registry does not list is
-recorded all the same.
+How a run went is the app's to say, never a log of our own. `--app-tasks` names the app's task
+list saved as JSON: a list, or `{"tasks": [...]}`, of the scheduled-tasks tool's objects, each
+holding `taskId`, `cronExpression`, `enabled` and, where the caller added it, `runs`, what
+`list_task_runs` answered for it, newest first (`id` and `cron` also read).
 
-`status` prints `tasks`, every registry entry (or the one `--task` names) with `last`, its
-newest run line or null, and `runs`, its kept lines counted by status; and `unregistered_runs`,
-the run files no entry names.
+`status` prints `tasks`, every registry entry (or the one `--task` names) with `enabled` and
+`last`, its newest run in the app's list: `start`, `end` (its last activity), `summary` (its
+error, else its summary, on one line) and `status`, `ok`, `failed` or `running` for the app's
+`succeeded`, `failed` and `running`, and `partial` for any other word the app uses. Both are
+null where the app's list was not given or does not hold the task.
 
 `check` compares the registry with the task folders on disk (each holding a `SKILL.md`, under
 `--tasks-dir`, default `$CLAUDE_CONFIG_DIR/scheduled-tasks` or `~/.claude/scheduled-tasks`)
-and, given `--app-tasks`, with the app's own list: a JSON list, or `{"tasks": [...]}`, of objects
-holding `taskId` and `cronExpression`, the scheduled-tasks tool's fields (`id` and `cron` also
-read). It prints `registry` (the path), `exists`,
+and, given `--app-tasks`, with the app's own list. It prints `registry` (the path), `exists`,
 `app_compared` and `findings`, each with `task`, `kind`, `detail` and `fix`:
 
     invalid           an entry with no string `id`, a repeated id, `vaults` that is neither
@@ -47,17 +45,14 @@ import argparse
 import json
 import os
 import sys
-import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from paraos_vault import emit, paraos_home_dir, registry, utf8_stdout  # noqa: E402
 
-STATUSES = ("ok", "failed", "partial")
 CONNECTION_KINDS = ("mcp:", "script:", "cli:")
-KEEP_DAYS = 90
-SUMMARY_MAX = 500
+APP_STATUS = {"succeeded": "ok", "failed": "failed", "running": "running"}
 
 
 # ------------------------------------------------------------------ the registry
@@ -113,19 +108,7 @@ def entry_problems(entry, vault_names):
     return out
 
 
-# ------------------------------------------------------------------ run records
-
-def runs_dir(paraos_home=None):
-    return paraos_home_dir(paraos_home) / "cache" / "runs"
-
-
-def now_utc():
-    return datetime.now(timezone.utc)
-
-
-def iso(moment):
-    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
-
+# ------------------------------------------------------------------ the app's runs
 
 def parse_time(text):
     try:
@@ -135,65 +118,53 @@ def parse_time(text):
     return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
 
 
-def read_runs(path):
-    """Every line of one run file: a dict where it parses, else the raw text."""
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return []
-    out = []
-    for line in filter(str.strip, lines):
-        try:
-            out.append(json.loads(line))
-        except ValueError:
-            out.append(line)
-    return out
+def app_tasks(path):
+    """The app's task list from a file: every object naming its task. Raises ValueError where
+    the file holds no list."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if isinstance(data, dict):
+        data = data.get("tasks")
+    if not isinstance(data, list):
+        raise ValueError('not a list of tasks, nor {"tasks": [...]}')
+    return [t for t in data if isinstance(t, dict) and isinstance(t.get("taskId") or t.get("id"), str)]
 
 
-def expired(run, cutoff):
-    end = parse_time(run.get("end")) if isinstance(run, dict) else None
-    return end is not None and end < cutoff
+def app_list(path):
+    """The app's task list from a file: `{id: cron}`."""
+    return {t.get("taskId") or t.get("id"): t.get("cronExpression", t.get("cron"))
+            for t in app_tasks(path)}
 
 
-def record(task, status, summary, started=None, paraos_home=None, now=None):
-    """Append one run line for `task`, prune the file to `KEEP_DAYS`, and return the line."""
-    now = now or now_utc()
-    one_line = " ".join(str(summary).split())
-    if len(one_line) > SUMMARY_MAX:
-        one_line = one_line[:SUMMARY_MAX - 3] + "..."
-    line = {"task": task, "start": started, "end": iso(now), "status": status,
-            "summary": one_line}
-    folder = runs_dir(paraos_home)
-    folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"{task}.jsonl"
-    cutoff = now - timedelta(days=KEEP_DAYS)
-    kept = [r for r in read_runs(path) if not expired(r, cutoff)] + [line]
-    text = "".join((json.dumps(r, ensure_ascii=False) if isinstance(r, dict) else r) + "\n"
-                   for r in kept)
-    fd, tmp = tempfile.mkstemp(dir=folder, prefix=f".{task}.", suffix=".tmp")
-    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(text)
-    os.replace(tmp, path)
-    return line
+def last_run(task):
+    """A task's newest run in the app's list, as `status` prints it, or None."""
+    runs = task.get("runs")
+    run = runs[0] if isinstance(runs, list) and runs and isinstance(runs[0], dict) else None
+    if run is None:
+        return None
+    return {"start": run.get("started_at"), "end": run.get("last_activity_at") or run.get("started_at"),
+            "status": APP_STATUS.get(run.get("status"), "partial"),
+            "summary": " ".join(str(run.get("error") or run.get("summary") or "").split())}
 
 
-def status(task=None, paraos_home=None):
+def app_runs(tasks):
+    """`{id: {"enabled", "last"}}` for each task of the app's list."""
+    return {t.get("taskId") or t.get("id"): {"enabled": t.get("enabled"), "last": last_run(t)}
+            for t in tasks}
+
+
+def status(task=None, paraos_home=None, app=None):
+    """Every registry entry, or the one `task` names, with how the app (`app_runs`) last ran it."""
     entries, error = load_tasks(paraos_home)
-    folder = runs_dir(paraos_home)
     rows = []
     for entry in entries:
         if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
             continue
         if task and entry["id"] != task:
             continue
-        runs = [r for r in read_runs(folder / f"{entry['id']}.jsonl") if isinstance(r, dict)]
-        counts = {s: sum(1 for r in runs if r.get("status") == s) for s in STATUSES}
-        rows.append(dict(entry, last=runs[-1] if runs else None, runs=counts))
-    named = set(task_ids(entries))
-    stray = sorted(p.stem for p in folder.glob("*.jsonl") if p.stem not in named) \
-        if folder.is_dir() else []
-    return {"registry": str(tasks_file(paraos_home)), "error": error, "tasks": rows,
-            "unregistered_runs": stray}
+        seen = (app or {}).get(entry["id"]) or {}
+        rows.append(dict(entry, enabled=seen.get("enabled"), last=seen.get("last")))
+    return {"registry": str(tasks_file(paraos_home)), "error": error,
+            "app_compared": app is not None, "tasks": rows}
 
 
 # ------------------------------------------------------------------ drift
@@ -208,21 +179,6 @@ def task_folders(tasks_dir):
     if not folder.is_dir():
         return set()
     return {p.name for p in folder.iterdir() if (p / "SKILL.md").is_file()}
-
-
-def app_list(path):
-    """The app's task list from a file: `{id: cron}`. Raises ValueError where it is no list."""
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    if isinstance(data, dict):
-        data = data.get("tasks")
-    if not isinstance(data, list):
-        raise ValueError("not a list of tasks, nor {\"tasks\": [...]}")
-    out = {}
-    for item in data:
-        tid = item.get("taskId") or item.get("id") if isinstance(item, dict) else None
-        if isinstance(tid, str):
-            out[tid] = item.get("cronExpression", item.get("cron"))
-    return out
 
 
 def finding(task, kind, detail, fix):
@@ -281,40 +237,28 @@ def check(paraos_home=None, app=None, tasks_dir=None):
 # ------------------------------------------------------------------ command line
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Scheduled runs: the registry and run records.")
+    ap = argparse.ArgumentParser(description="Scheduled runs: the registry and the app's runs.")
     ap.add_argument("--paraos-home", help="override for $PARAOS_HOME (default: ~/.paraos)")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    rec = sub.add_parser("record")
-    rec.add_argument("--task", required=True)
-    rec.add_argument("--status", required=True, choices=STATUSES)
-    rec.add_argument("--summary", required=True)
-    rec.add_argument("--started")
     st = sub.add_parser("status")
     st.add_argument("--task")
+    st.add_argument("--app-tasks")
     ck = sub.add_parser("check")
     ck.add_argument("--app-tasks")
     ck.add_argument("--tasks-dir")
     args = ap.parse_args(argv)
     utf8_stdout()
 
-    if args.cmd == "record":
-        if "/" in args.task or "\\" in args.task or args.task.startswith("."):
-            print("paraos_runs: --task is a task's folder name, not a path", file=sys.stderr)
+    app = None
+    if args.app_tasks:
+        try:
+            app = app_runs(app_tasks(args.app_tasks)) if args.cmd == "status" else app_list(args.app_tasks)
+        except (OSError, ValueError) as err:
+            print(f"paraos_runs: --app-tasks {args.app_tasks}: {err}", file=sys.stderr)
             return 2
-        if args.started and parse_time(args.started) is None:
-            print(f"paraos_runs: --started {args.started!r} is not an ISO time", file=sys.stderr)
-            return 2
-        result = record(args.task, args.status, args.summary, args.started, args.paraos_home)
-    elif args.cmd == "status":
-        result = status(args.task, args.paraos_home)
+    if args.cmd == "status":
+        result = status(args.task, args.paraos_home, app)
     else:
-        app = None
-        if args.app_tasks:
-            try:
-                app = app_list(args.app_tasks)
-            except (OSError, ValueError) as err:
-                print(f"paraos_runs: --app-tasks {args.app_tasks}: {err}", file=sys.stderr)
-                return 2
         result = check(args.paraos_home, app, args.tasks_dir)
     emit(result)
     return 0

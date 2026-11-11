@@ -633,7 +633,7 @@ function buildPortfolio(el, made, data, under) {
   }
   function runsCard(x, y, w, pitch = 19) {
     const h = 28 + runs.length * pitch + 8, onTime = runs.filter((r) => (r.n.status || 'ok') === 'ok').length;
-    const g = card(x, y, w, h, 'Scheduled runs', runs.some((r) => r.n.status !== 'none') ? onTime + ' of ' + runs.length + ' on time' : 'no run records yet');
+    const g = card(x, y, w, h, 'Scheduled runs', runs.some((r) => r.n.status !== 'none') ? onTime + ' of ' + runs.length + ' on time' : 'no runs read yet');
     runs.forEach((r, i) => {
       const ry = y + 38 + i * pitch, rg = row(g, x, ry, w, r.n.id), two = r.times.length > 1;
       svgEl('circle', {class: 'dot-' + (r.n.status || 'ok'), cx: x + 14, cy: ry, r: 3.5}, rg);

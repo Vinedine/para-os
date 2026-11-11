@@ -2,7 +2,8 @@
 """The Command Center: every registered vault on one page, with what comes into it, the runs
 that move it and what it produces. Built from files on disk; no model judgment goes into it.
 
-    py -3 command_center.py [--events <events.json>] [--today YYYY-MM-DD] [--days N]
+    py -3 command_center.py [--events <events.json>] [--app-tasks <app-tasks.json>]
+                            [--today YYYY-MM-DD] [--days N]
                             [--code-root DIR] [--offline] [--model <id>] [--out <page.html>]
                             [--paraos-home DIR]
     py -3 command_center.py --calendars [--today YYYY-MM-DD] [--paraos-home DIR]
@@ -17,8 +18,12 @@ one JSON line: `out`, `page`, `publish`, the page's `title` and `description`, `
 para-os home, the `--vault` that paraos_pages.py's `remember` takes) and `url`, the artifact
 last published to, or null.
 
-`--events` names the one input a script cannot read for itself, the calendars' meetings, which
-the skill fetches through the vaults' agenda connectors:
+`--app-tasks` names the app's scheduled tasks with each one's newest run, in para-shared's
+`paraos_runs.py` shape. It is kept in `<para-os home>/cache/command-center/app-tasks.json` and
+used again by a run given none, each run then judged as of when the list was read.
+
+`--events` names the calendars' meetings, which the skill fetches through the vaults' agenda
+connectors:
 
     {"events": [{"date": "YYYY-MM-DD", "start": "13:00", "end": "14:00", "title": "...",
                  "source": "workspace", "recurring": false}],
@@ -55,13 +60,14 @@ What the data holds, and where each part comes from:
   the last workflow run. `--offline` skips the fetch and `gh`. A repo with nothing pending is
   fine however old its last commit.
 - `nodes` and `edges`, every part and every link a file declares: each vault's triage and
-  agenda sources, the connections registry (`paraos_connections.py`), the task registry and
-  its run records (`paraos_runs.py`), the repo tables and the pages index. A script the
+  agenda sources, the connections registry (`paraos_connections.py`), the task registry
+  (`paraos_runs.py`), the repo tables and the pages index. A script the
   registry does not list and whose code reaches outside is a part too: under the source of
   each listed CLI it runs, or under `Not labelled yet` where it names hosts alone, with what
   it calls, the skills that run it and its path in its `detail`. A scheduled run is
-  `ok`, `watch` (its last record is older than its last due time), `warn` (partial), `bad`
-  (failed) or `none` (no record yet). `meta.hub` is the run whose skill is `para-ingest`.
+  `ok`, `watch` (its newest run was last active before its last due time), `warn` (partial),
+  `bad` (failed) or `none` (paused, or no run in the app's list). `meta.hub` is the run whose
+  skill is `para-ingest`.
 - `meta`: `today`, `generated_at`, `days`, `hub` and `notes`, what was missing or left out.
 
 Exit codes: 0 answered; 2 the libraries are missing or an argument is wrong; 3 no registry, or
@@ -92,7 +98,7 @@ try:
     from paraos_pages import (  # noqa: E402
         PUBLISH, load_index, local_page, publish_choice, remembered_url, store, vault_key)
     from paraos_repos import list_repos  # noqa: E402
-    from paraos_runs import parse_time, status as runs_status  # noqa: E402
+    from paraos_runs import app_runs, app_tasks, parse_time, status as runs_status  # noqa: E402
     from paraos_vault import (  # noqa: E402
         date_arg, iso, paraos_home_dir, parse_date, read_json, registry, triage_sources,
         utf8_stdout,
@@ -532,9 +538,9 @@ def last_due(cron, now):
 
 
 def run_status(task, now):
-    """How a scheduled run stands, from its last run record."""
+    """How a scheduled run stands, from its newest run in the app's list read at `now`."""
     last = task.get("last")
-    if not isinstance(last, dict):
+    if task.get("enabled") is False or not isinstance(last, dict):
         return "none"
     if last.get("status") == "failed":
         return "bad"
@@ -556,7 +562,7 @@ def provider_name(text):
 
 
 def catalog(entries, vaults, calendars, flows, synced, routed, repos, sites, listed, boxes,
-            tasks, pages, days, now):
+            tasks, pages, days, runs_at):
     """`(nodes, edges, hub)`: every part of the system in six lanes (outside sources,
     connections, scheduled runs, vaults, repos, websites and pages) and every link a file
     declares between them. A link no file declares is not drawn."""
@@ -606,8 +612,8 @@ def catalog(entries, vaults, calendars, flows, synced, routed, repos, sites, lis
     for t in tasks:
         times, words = schedule(t.get("cron"))
         last = t["last"] if isinstance(t.get("last"), dict) else {}
-        rid = node(f"run:{t['id']}", 2, t.get("title") or t["id"], "task", status=run_status(t, now),
-                   sub=words, ref=t["id"],
+        rid = node(f"run:{t['id']}", 2, t.get("title") or t["id"], "task", status=run_status(t, runs_at),
+                   sub=words if t.get("enabled") is not False else f"paused · {words}", ref=t["id"],
                    detail={"schedule": words, "times": times, "last": last.get("end") or "",
                            "last_status": last.get("status") or "", "summary": last.get("summary") or "",
                            "skill": t.get("skill") or ""})
@@ -740,7 +746,7 @@ def catalog(entries, vaults, calendars, flows, synced, routed, repos, sites, lis
 # ------------------------------------------------------------- the whole page
 
 def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS, roots=(),
-          run=run_command, online=True, model=None):
+          run=run_command, online=True, model=None, runs=None, runs_at=None, runs_note=""):
     """Everything the page shows, as one dict."""
     home = paraos_home_dir(paraos_home)
     notes = [note] if note else []
@@ -758,15 +764,17 @@ def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS
         notes.append("No calendar events were given: the agenda holds only the vaults' own meetings.")
     if dropped:
         notes.append(f"{dropped} calendar event{'s' * (dropped > 1)} had no date or no title and {'were' if dropped > 1 else 'was'} left out.")
-    tasks = runs_status(paraos_home=paraos_home)["tasks"]
+    tasks = runs_status(paraos_home=paraos_home, app=runs)["tasks"]
     if not tasks:
         notes.append("No task registry: the scheduled runs are not shown.")
+    elif runs_note:
+        notes.append(runs_note)
     notes += [f"{e['name'] or 'An entry'} was not read: {e['reason']}" for e in scan["excluded"]]
     nodes, edges, hub = catalog(entries, vaults, scan["calendars"], feed["flows"],
                                 synced_counts(entries, feed["since"]),
                                 feed["routed"], repos, sites,
                                 listed["connections"], listed["mailboxes"], tasks,
-                                load_index(paraos_home), days, now)
+                                load_index(paraos_home), days, runs_at or now)
     return {"meta": {"today": iso(today), "generated_at": now.isoformat(timespec="seconds"),
                      "days": days, "hub": hub, "notes": notes},
             "tasks": task_rows(scan, today), "agenda": agenda, "vaults": vaults, "health": health,
@@ -824,9 +832,36 @@ def calendar_events(given, now, paraos_home=None):
     return events, note
 
 
+def runs_file(paraos_home=None):
+    return paraos_home_dir(paraos_home) / "cache" / PAGE / "app-tasks.json"
+
+
+def scheduled_runs(given, now, paraos_home=None):
+    """`(runs, read_at, note)`: each task's newest run as the app listed it, when it was read,
+    and what the page says about it. A list the skill just saved is used and kept; with none
+    given, the last one kept is used again, judged as of its read."""
+    kept = runs_file(paraos_home)
+    try:
+        if given:
+            tasks = app_tasks(given)
+            kept.parent.mkdir(parents=True, exist_ok=True)
+            kept.write_text(json.dumps({"tasks": tasks, "read_at": now.isoformat(timespec="seconds")},
+                                       ensure_ascii=False), encoding="utf-8")
+            return app_runs(tasks), now, ""
+        if not kept.is_file():
+            return None, None, "The app's scheduled runs were never read: no run shows how it went."
+        tasks, saved = app_tasks(kept), read_json(kept, {})
+    except (OSError, ValueError) as err:
+        return None, None, f"The app's task list {given or kept} could not be read ({err}): no run shows how it went."
+    read_at = (parse_time(saved.get("read_at")) if isinstance(saved, dict) else None) or now
+    day = read_at.astimezone(now.tzinfo).date()
+    return app_runs(tasks), read_at, "" if day == now.date() else f"The scheduled runs are as the app listed them on {day.isoformat()}."
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Build the Command Center page from files on disk.")
     ap.add_argument("--events", help="the calendars' events, as the skill fetched them")
+    ap.add_argument("--app-tasks", help="the app's scheduled tasks and their runs, as the skill saved them")
     ap.add_argument("--today", type=date_arg, help="date to bucket against (default: the system date)")
     ap.add_argument("--days", type=int, default=DAYS, help="the inbound window, in days")
     ap.add_argument("--code-root", action="append", help="a folder repos are checked out under (default: ~/Code)")
@@ -861,9 +896,10 @@ def main(argv=None):
         ap.error("this page publishes to claude.ai: name it with --out")
     now = datetime.now().astimezone()
     events, note = calendar_events(args.events, now, args.paraos_home)
+    runs, runs_at, runs_note = scheduled_runs(args.app_tasks, now, args.paraos_home)
     data = build(entries, today, now, args.paraos_home, events, note,
                  args.days, args.code_root or [str(Path.home() / "Code")], online=not args.offline,
-                 model=args.model)
+                 model=args.model, runs=runs, runs_at=runs_at, runs_note=runs_note)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(page(data), encoding="utf-8")
     write_data(data, args.paraos_home)
