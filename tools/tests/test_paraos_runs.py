@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Tests for paraos_runs.py, the task registry and its run records. Each one pins a rule of
+"""Tests for paraos_runs.py, the task registry and the app's runs. Each one pins a rule of
 the script, which is the specification.
 
     python3 test_paraos_runs.py
     py -3 test_paraos_runs.py
 
 Standard library only. The para-os home and the tasks folder are temporary directories:
-nothing reads or writes the machine's own registry, runs or scheduled tasks.
+nothing reads or writes the machine's own registry or scheduled tasks.
 """
 
 import contextlib
@@ -15,7 +15,6 @@ import json
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
 
@@ -25,11 +24,9 @@ sys.path.insert(0, str(SCRIPTS))
 
 import paraos_runs  # noqa: E402
 from paraos_runs import (  # noqa: E402
-    KEEP_DAYS, SUMMARY_MAX, app_list, check, entry_problems, load_tasks, main, record,
-    runs_dir, status,
+    app_list, app_runs, app_tasks, check, entry_problems, last_run, load_tasks, main, parse_time,
+    status,
 )
-
-NOW = datetime(2030, 3, 10, 6, 30, tzinfo=timezone.utc)
 
 INGEST = {"id": "ingest", "title": "Ingest", "cron": "0 6,16 * * *", "skill": "para-ingest",
           "vaults": "*", "sources": []}
@@ -108,82 +105,62 @@ class Registry(Home):
         self.assertIn("neither a list", entry_problems({"id": "x", "vaults": "all"}, set())[0])
 
 
-class Record(Home):
-    def lines(self, task):
-        return [json.loads(x) for x in
-                (runs_dir(self.home) / f"{task}.jsonl").read_text(encoding="utf-8").splitlines()]
-
-    def test_a_run_appends_one_line(self):
-        line = record("ingest", "ok", "staged 4\nin 2 vaults", paraos_home=self.home, now=NOW)
-        self.assertEqual(line, {"task": "ingest", "start": None, "end": "2030-03-10T06:30:00Z",
-                                "status": "ok", "summary": "staged 4 in 2 vaults"})
-        record("ingest", "failed", "mailbox down", "2030-03-10T15:59:00Z",
-               paraos_home=self.home, now=NOW + timedelta(hours=10))
-        lines = self.lines("ingest")
-        self.assertEqual([x["status"] for x in lines], ["ok", "failed"])
-        self.assertEqual(lines[1]["start"], "2030-03-10T15:59:00Z")
-
-    def test_a_long_summary_is_cut(self):
-        line = record("ingest", "ok", "x" * (SUMMARY_MAX + 50), paraos_home=self.home, now=NOW)
-        self.assertEqual(len(line["summary"]), SUMMARY_MAX)
-        self.assertTrue(line["summary"].endswith("..."))
-
-    def test_lines_older_than_the_window_are_dropped_and_unparsed_ones_kept(self):
-        folder = runs_dir(self.home)
-        folder.mkdir(parents=True)
-        old = NOW - timedelta(days=KEEP_DAYS + 1)
-        recent = NOW - timedelta(days=KEEP_DAYS - 1)
-        (folder / "ingest.jsonl").write_text(
-            json.dumps({"end": old.strftime("%Y-%m-%dT%H:%M:%SZ"), "status": "ok"}) + "\n"
-            + json.dumps({"end": recent.strftime("%Y-%m-%dT%H:%M:%SZ"), "status": "ok"}) + "\n"
-            + "not json\n" + json.dumps({"status": "partial"}) + "\n", encoding="utf-8")
-        record("ingest", "ok", "now", paraos_home=self.home, now=NOW)
-        text = (folder / "ingest.jsonl").read_text(encoding="utf-8").splitlines()
-        self.assertEqual(len(text), 4)
-        self.assertIn("not json", text)
-        self.assertNotIn(old.strftime("%Y-%m-%dT%H:%M:%SZ"), "".join(text))
-
-    def test_an_unregistered_task_is_recorded_all_the_same(self):
-        record("never-listed", "partial", "x", paraos_home=self.home, now=NOW)
-        self.assertEqual(self.lines("never-listed")[0]["status"], "partial")
-
-    def test_the_command_records_and_refuses_a_path_or_a_bad_time(self):
-        code, out, _ = self.run_main("record", "--task", "ingest", "--status", "ok",
-                                     "--summary", "fine")
-        self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out)["status"], "ok")
-        self.assertEqual(self.run_main("record", "--task", "../x", "--status", "ok",
-                                       "--summary", "s")[0], 2)
-        self.assertEqual(self.run_main("record", "--task", "x", "--status", "ok",
-                                       "--summary", "s", "--started", "soon")[0], 2)
-        with self.assertRaises(SystemExit):
-            self.run_main("record", "--task", "x", "--status", "maybe", "--summary", "s")
+APP = [{"taskId": "ingest", "cronExpression": "0 6,16 * * *", "enabled": True,
+        "runs": [{"status": "failed", "started_at": "2030-03-10T06:01:00Z",
+                  "last_activity_at": "2030-03-10T06:09:00Z", "error": "mailbox\ndown",
+                  "summary": "staged nothing"},
+                 {"status": "succeeded", "started_at": "2030-03-09T16:01:00Z"}]},
+       {"taskId": "price-watch", "cronExpression": "30 6 * * *", "enabled": False, "runs": []},
+       {"taskId": "elsewhere", "enabled": True}]
 
 
-class Status(Home):
-    def test_each_entry_gets_its_last_run_and_its_counts(self):
-        self.tasks([INGEST, WATCH, "junk"])
-        record("ingest", "ok", "one", paraos_home=self.home, now=NOW)
-        record("ingest", "failed", "two", paraos_home=self.home, now=NOW + timedelta(hours=1))
-        record("old-task", "ok", "gone", paraos_home=self.home, now=NOW)
-        report = status(paraos_home=self.home)
+class AppRuns(Home):
+    def test_the_newest_run_speaks_in_the_apps_words_mapped(self):
+        self.assertEqual(last_run(APP[0]), {"start": "2030-03-10T06:01:00Z", "end": "2030-03-10T06:09:00Z",
+                                            "status": "failed", "summary": "mailbox down"})
+        self.assertEqual(last_run({"runs": [{"status": "succeeded", "started_at": "s", "summary": "fine"}]}),
+                         {"start": "s", "end": "s", "status": "ok", "summary": "fine"})
+        self.assertEqual(last_run({"runs": [{"status": "running"}]})["status"], "running")
+        self.assertEqual(last_run({"runs": [{"status": "needs_approval"}]})["status"], "partial")
+        self.assertEqual(last_run({"runs": [{}]})["status"], "partial")
+        for task in ({}, {"runs": []}, {"runs": "x"}, {"runs": ["x"]}):
+            self.assertIsNone(last_run(task))
+
+    def test_each_entry_gets_how_the_app_last_ran_it(self):
+        self.tasks([INGEST, WATCH, dict(WATCH, id="unlisted"), "junk"])
+        report = status(paraos_home=self.home, app=app_runs(APP))
         rows = {r["id"]: r for r in report["tasks"]}
-        self.assertEqual(rows["ingest"]["last"]["summary"], "two")
-        self.assertEqual(rows["ingest"]["runs"], {"ok": 1, "failed": 1, "partial": 0})
-        self.assertIsNone(rows["price-watch"]["last"])
+        self.assertEqual(list(rows), ["ingest", "price-watch", "unlisted"])
+        self.assertEqual((rows["ingest"]["enabled"], rows["ingest"]["last"]["status"]), (True, "failed"))
+        self.assertEqual((rows["price-watch"]["enabled"], rows["price-watch"]["last"]), (False, None))
+        self.assertEqual((rows["unlisted"]["enabled"], rows["unlisted"]["last"]), (None, None))
         self.assertEqual(rows["price-watch"]["sources"], WATCH["sources"])
-        self.assertEqual(report["unregistered_runs"], ["old-task"])
+        self.assertTrue(report["app_compared"])
         self.assertIsNone(report["error"])
 
-    def test_task_narrows_to_one_entry(self):
-        self.tasks([INGEST, WATCH])
-        code, out, _ = self.run_main("status", "--task", "price-watch")
-        self.assertEqual(code, 0)
-        self.assertEqual([r["id"] for r in json.loads(out)["tasks"]], ["price-watch"])
-
-    def test_no_registry_and_no_runs_is_an_empty_answer(self):
+    def test_without_the_apps_list_no_entry_has_a_run(self):
+        self.tasks([INGEST])
         report = status(paraos_home=self.home)
-        self.assertEqual((report["tasks"], report["unregistered_runs"]), ([], []))
+        self.assertEqual((report["app_compared"], report["tasks"][0]["last"]), (False, None))
+        self.tasks([])
+        self.assertEqual(status(paraos_home=self.home)["tasks"], [])
+
+    def test_the_command_reads_the_apps_list_for_one_entry_and_refuses_an_unreadable_one(self):
+        self.tasks([INGEST, WATCH])
+        listed = Path(self.tmp.name) / "app.json"
+        listed.write_text(json.dumps({"tasks": APP}), encoding="utf-8")
+        code, out, _ = self.run_main("status", "--task", "ingest", "--app-tasks", str(listed))
+        self.assertEqual(code, 0)
+        self.assertEqual([(r["id"], r["last"]["summary"]) for r in json.loads(out)["tasks"]],
+                         [("ingest", "mailbox down")])
+        code, _, err = self.run_main("status", "--app-tasks", str(listed) + ".missing")
+        self.assertEqual(code, 2)
+        self.assertIn("--app-tasks", err)
+
+    def test_a_time_reads_with_or_without_its_zone(self):
+        self.assertEqual(parse_time("2030-03-10T06:01:00Z").utcoffset().total_seconds(), 0)
+        self.assertEqual(parse_time("2030-03-10T06:01:00").utcoffset().total_seconds(), 0)
+        self.assertIsNone(parse_time("soon"))
 
 
 class Check(Home):
@@ -249,6 +226,7 @@ class Check(Home):
                                       {"id": "b", "cron": None}, {"title": "no id"}, 7]),
                           encoding="utf-8")
         self.assertEqual(app_list(listed), {"a": "1 * * * *", "b": None})
+        self.assertEqual(len(app_tasks(listed)), 2)
         listed.write_text(json.dumps({"tasks": [{"taskId": "c", "cron": "x"}]}),
                           encoding="utf-8")
         self.assertEqual(app_list(listed), {"c": "x"})
