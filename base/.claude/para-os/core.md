@@ -34,9 +34,14 @@ Root `README.md` is the single source of truth for identity, operating model and
 
 ### Where a checkbox may live
 
-The table under this heading in the vault's `CLAUDE.md` says which folders may hold a checkbox.
+| Bucket | `actions.md` | State |
+|---|---|---|
+| `projects/`, `areas/` | yes | open + closed |
+| `areas/network/` | yes | any action about the person; `relationship only` keeps replies, introductions, thanks and check-ins; `never` keeps none |
+| `resources/` | **never** | a checkbox here is a filing error |
+| `archive/` | yes | **all closed** - one open `- [ ]` means it was archived too early |
 
-A folder whose work is tracked elsewhere (an external tracker, a generated file) gets its own row at `never`.
+A row the vault's `CLAUDE.md` writes under the same heading replaces the row of that bucket, and a new bucket adds one. A folder whose work is tracked elsewhere (an external tracker, a generated file) gets its own row at `never`.
 
 An action goes in the `actions.md` of the project or area it belongs to; one about a person in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; strategic work tied to no single entity in `areas/business/actions.md`, and a dated go/no-go on an idea there too, linking the idea. Never a root `actions.md`.
 

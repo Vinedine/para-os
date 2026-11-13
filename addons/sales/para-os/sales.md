@@ -1,10 +1,20 @@
 # para-os sales module
 
-The fixed rules of the sales module, the same in every vault that declares it. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` holds the stage table and names the lead register, and **wins wherever the two differ**.
+The fixed rules of the sales module, the same in every vault that declares it. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` **wins wherever the two differ**: a stage table it writes under the same heading replaces the one below.
 
 ## Deal lifecycle
 
 A deal's PARA home follows its stage, and the stages are the phases the prospect hears in the room. A deal is **won** when a first paid phase is agreed, which is the base promotion rule wearing this module's vocabulary.
+
+| Stage | Exit criterion | PARA home |
+|---|---|---|
+| Lead | A first conversation has been held | `areas/business/leads.md` (row) |
+| Qualified | Fits a target profile in `README.md`, and the signer is named | `resources/ideas/<company>/` |
+| Taste | Demo held, and recorded | `resources/ideas/<company>/` |
+| Proposal | The signer has seen it, and the next meeting is dated | `resources/ideas/<company>/` |
+| Goal | First paid phase agreed: promote | `projects/<company>/` |
+| Nurture | A dated revisit action exists in the business area | `resources/ideas/<company>/` |
+| Lost | Reason recorded, revisit trigger written | `archive/ideas/<company>/` |
 
 - **Rows before folders.** A lead is one row in the lead register the vault's stage table names, its columns in `.claude/rules/deal-brief.md`, until a real conversation has been held. No idea folder and no contact file, so a cold list of three hundred names costs three hundred rows and nothing else. The folder and the champion's contact file are created together at Qualified, by `/para-new deal`, only once the conversation showed a fit. A lead that never became a conversation, or did not fit, gets its outcome in the row and moves to the register's `## Closed` section; nothing is archived for it.
 - **A deal promotes on money or a formal engagement committed**, the vault's own promotion rule unchanged: Goal is the stage where that happens, and the project then runs its delivery phases as an ordinary project, archiving to `archive/projects/` when it ends. The client relationship lives on in the contact file, so sales needs no area of its own.
