@@ -79,7 +79,7 @@ Show the entry and the diff stat, and propose one commit, `Stamp revision <label
 `Fold changelog.d into revision <label>`. Commit only after approval. Never push or open a PR
 unless asked.
 
-Steps 7 and 8 run once every pull request in the revision's milestone has merged into `main`.
+Steps 7 and 8 run once the revision's milestone has merged into `main`.
 
 ## 7. Validate `main` on real vaults
 
@@ -97,12 +97,12 @@ On a new model, a case whose delta fell to about zero or below since the previou
 run proposes removing its rule; a removal is checked like a drop, and takes its case with it.
 The maintainer syncs installed skills from `<sha>`, then upgrades two vaults of different shapes
 with `/para-upgrade --ref <sha>`: one on the previous revision, one further behind or on an
-add-on. In each, run every skill the revision changed with `--test`. Each finding gets its own
-issue and pull request, and validation reruns from a new `<sha>` until clean.
+add-on. In each, run every skill the revision changed with `--test`. Give the maintainer the
+findings as one list; only those named as blocking get an issue and a pull request, then a new
+`<sha>`.
 
-**Do not go on to step 8 until the maintainer has named both vaults and confirmed each ran
-clean at `<sha>`.** Ask with `AskUserQuestion`; an answer that names fewer than two vaults is a
-no.
+**No step 8 until the maintainer has named both vaults and confirmed each ran clean at
+`<sha>`.** Ask with `AskUserQuestion`; an answer that names fewer than two vaults is a no.
 
 ## 8. Ship
 
