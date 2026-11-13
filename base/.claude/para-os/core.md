@@ -1,10 +1,16 @@
 # para-os core
 
-The fixed para-os rules, the same in every vault. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` holds its map, its tables and its own rules, and **wins wherever the two differ**.
+The fixed para-os rules, the same in every vault. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` holds only what is true of that vault, and **wins wherever the two differ**. The lines that open it (title, marker, `**Type:**`, `**Flavor:**`, `**Modules:**`) are machine-read: keep them through every upgrade.
 
 ## PARA layout
 
-The sorting test: **committed and dated → project. Maintained, no end date → area. Only thinking about it → idea. Over → archive.** What each folder holds in this vault is in its `CLAUDE.md`.
+The sorting test: **committed and dated → project. Maintained, no end date → area. Only thinking about it → idea. Over → archive.**
+
+- **triage/** - the inbox `/para-triage` empties; nothing lives here, not even a `README.md` (a `.gitkeep` holds the folder).
+- **projects/** - time-bound work with a committed deliverable and deadline. One folder each, holding a `brief.md`, an `actions.md` and, where needed, `sources/`. A rolling backlog with no deadline is an area.
+- **areas/** - ongoing responsibilities. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset, with its own `brief.md` + `actions.md`; assets that gate each other form **one** area.
+- **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
+- **archive/** - inactive artifacts, always in a subfolder. `meetings/` = records spanning several entities. `projects/` and `ideas/` = finished projects and retired ideas.
 
 Root `README.md` is the single source of truth for identity, operating model and track record. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in English, and Vision is never a stub. It holds no work state (a checkbox, a `📅`, a status list, a "to confirm"); a status fact about the subject (`| Status | Active |`) is not work state.
 
@@ -26,7 +32,13 @@ Root `README.md` is the single source of truth for identity, operating model and
 
 ## Actions
 
-Which folders may hold a checkbox, and where an action about a person or about no single entity goes, is in the vault's `CLAUDE.md`. Never a root `actions.md`.
+### Where a checkbox may live
+
+The table under this heading in the vault's `CLAUDE.md` says which folders may hold a checkbox.
+
+A folder whose work is tracked elsewhere (an external tracker, a generated file) gets its own row at `never`.
+
+An action goes in the `actions.md` of the project or area it belongs to; one about a person in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; strategic work tied to no single entity in `areas/business/actions.md`, and a dated go/no-go on an idea there too, linking the idea. Never a root `actions.md`.
 
 ### The actionable frontier
 
@@ -47,7 +59,7 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 - **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics): relationship context, an optional `## History`, then `## Next actions` (`_None currently._` when empty or at `never`), then any `## Backlog`. A shared workstream lives in the primary contact's file; the others point to it.
 - **Dated conversation records**: in the owning project's or area's `sources/`; in `archive/meetings/YYYYMMDD Description.ext` only when they span several entities.
-- **Source documents** are named as the vault's `CLAUDE.md` says. The rest of the convention is in `.claude/rules/filing.md`; read it explicitly before filing one.
+- **Source documents**: `YYYYMMDD <Who> <Description>.<ext>`, unless the vault's `CLAUDE.md` gives its own pattern. The rest of the convention is in `.claude/rules/filing.md`; read it explicitly before filing one.
 - **A contact file and a project brief cross-link** both ways.
 
 ## Authoritative sources
@@ -56,7 +68,7 @@ Name the owning file before answering, and check `triage/` before searching by d
 
 ## Language
 
-Folders and structural files in English; content in its source's language, untranslated unless asked. The operator's language is in the vault's `CLAUDE.md` and is the default; answer a request in the language it is written in, whatever the source's language, quoting the original only where the exact wording matters. A time follows `para-shared/timestamps.md`, installed beside the `/para-*` skills.
+Folders and structural files in English; content in its source's language, untranslated unless asked. The operator's language is English unless the vault's `CLAUDE.md` names another, and is the default; answer a request in the language it is written in, whatever the source's language, quoting the original only where the exact wording matters. A time follows `para-shared/timestamps.md`, installed beside the `/para-*` skills.
 
 ## Memory
 
