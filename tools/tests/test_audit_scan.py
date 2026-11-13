@@ -86,7 +86,7 @@ def build_clone(root):
     write(root, "base/.claude/rules/filing.md", RULE)
     write(root, "base/.claude/skills/para-notes/SKILL.md", skill(1))
     write(root, "integrations/logbook/logbook.py", logbook("2026.09.01", "v1"))
-    write(root, "addons/sales/CLAUDE.md.sections", "## Sales\n\nA section.\n")
+    write(root, "addons/sales/CLAUDE.md.sections", "## Deal lifecycle\n\nA section.\n")
     write(root, "addons/sales/.claude/rules/pipeline.md", SALES_RULE)
     fixture_git(root, "add", "-A")
     fixture_git(root, "commit", "-q", "-m", "2026.09.01")
@@ -533,8 +533,21 @@ class SectionsCase(CloneCase):
         _, row = self.row(text, rules=("filing.md", "pipeline.md"))
         self.assertEqual(row["cells"]["sections"], "1 drifted, 1 missing")
         self.assertEqual([f["detail"] for f in self.findings(row, "sections")][1:],
-                         ["`CLAUDE.md` has no `Sales` section, which "
+                         ["`CLAUDE.md` has no `Deal lifecycle` section, which "
                           "`addons/sales/CLAUDE.md.sections` holds at 2026.10.01"])
+
+    def test_a_lifecycle_under_the_vault_s_own_noun_is_named_both_ways(self):
+        text = claude_md(extra_header="**Modules:** sales\n") + \
+            "\n## Booking lifecycle\n\nOur own section.\n"
+        _, row = self.row(text, rules=("filing.md", "pipeline.md"))
+        self.assertEqual(row["cells"]["sections"], "1 drifted")
+        self.assertEqual([f["detail"] for f in self.findings(row, "sections")],
+                         ["`CLAUDE.md` lacks wording `addons/sales/CLAUDE.md.sections` holds at "
+                          "2026.10.01 in `Deal lifecycle` (headed `Booking lifecycle` here)"])
+        kept = text.replace("Booking lifecycle\n",
+                            "Booking lifecycle\n<!-- para-os-kept: 2026.10.01 -->\n")
+        _, row = self.row(kept, rules=("filing.md", "pipeline.md"))
+        self.assertEqual((row["cells"]["sections"], self.findings(row, "sections")), ("ok", []))
 
     def test_the_lines_above_the_first_heading_are_compared_too(self):
         _, row = self.row(claude_md().replace("Guidance.", "Other guidance."))
