@@ -766,6 +766,9 @@ def check_rules_contract():
     for claude_md, rules_dir in sorted(vault_roots_with_rules()):
         before = len(failures)
         claude_text = claude_md.read_text(encoding="utf-8", errors="ignore")
+        # A pointer may sit in a fixed kit file beside the rules: the core holds the kit's own.
+        for kit_file in sorted((claude_md.parent / ".claude" / "para-os").glob("*.md")):
+            claude_text += "\n" + kit_file.read_text(encoding="utf-8", errors="ignore")
         on_disk = {p.name for p in rules_dir.glob("*.md")}
         linked = set(RULES_POINTER.findall(claude_text))
 

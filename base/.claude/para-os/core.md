@@ -14,7 +14,7 @@ The sorting test: **committed and dated → project. Maintained, no end date →
 - **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
 - **archive/** - inactive artifacts, always in a subfolder. `meetings/` = records spanning several entities or owned by none. `projects/` and `ideas/` = finished projects and retired ideas.
 
-Root `README.md` is the single source of truth for identity, operating model and track record. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in English, and Vision is written out, not a stub. It holds no work state (a checkbox, a `📅`, a status list, a "to confirm"); a status fact about the subject (`| Status | Active |`) is not work state.
+Root `README.md` is the single source of truth for identity, operating model and track record. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, and it holds no work state (a checkbox, a due date, a status list).
 
 ### Lifecycle
 
@@ -24,14 +24,6 @@ Root `README.md` is the single source of truth for identity, operating model and
 - A big dated push on a maintained asset is a **project alongside its area**; surviving work returns to the area when it archives.
 - An entity **archives whole** via `/para-archive`, its open items routed first to the owning area, a successor project or a contact file. Where the vault's `CLAUDE.md` names an archive destination for a kind of entity, that kind goes there.
 - **Every move repoints inbound links in the same pass.**
-
-### Archive hygiene
-
-- **No live work**: zero open actions, each done or noted "fully closed; minor gaps not material".
-- **History archives; living references move to `resources/<name>/`.**
-- **No loose files at the archive root.**
-- **Minimum record**: a status marker saying why, plus its `brief.md`.
-- **Zero dangling links** to the old path; a historical mention inside the archived folder is fine.
 
 ## Actions
 
@@ -48,13 +40,7 @@ A row the vault's `CLAUDE.md` writes under the same heading replaces the row of 
 
 An action goes in the `actions.md` of the project or area it belongs to; one about a person in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; work tied to no single entity in the area the vault names for it, and a dated go/no-go on an idea there too, linking the idea. There is no root `actions.md`.
 
-### The actionable frontier
-
-A checkbox is something you could act on now or on its marked date. A step behind an uncleared dependency stays prose (a `## Backlog` section or the brief) until its gate opens. A file holds at most 8 open items, waits on others aside: at 8, close or demote one first. Triage and working sessions add at most one next step per inbound item. An action's headline (its bold lead, or the whole line) stays under 120 characters, detail going to a sub-bullet or the brief; an item that moves is closed and its successor written as a new line.
-
-### Task markers
-
-`📅 YYYY-MM-DD` due, `🛫` start, `⏳` scheduled, `🔁 every <cadence>` recurring (with `📅` for the next occurrence), `🔺 🔼 🔽 ⏬` priority (none = medium), `✅ YYYY-MM-DD` done. Markers go at the end of the line, and a fuzzy date ("Q4") becomes one concrete marker. A `📅` is a real-world deadline; work gated on an outside event stays undated. One `## Recurring` section per file. Something owed by someone else is `- [ ] Waiting on [<person>](<card>): <what> (since YYYY-MM-DD)`, with no `📅`.
+How an action is written (what is actionable, how many a file holds, the markers) is in `.claude/rules/writing-actions.md`, which loads when an `actions.md` or a contact card is opened; read it explicitly before writing an action anywhere else.
 
 ### The content frontier
 
@@ -65,7 +51,7 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 ## Filing and naming
 
-- **Contacts**: one file per person or organisation at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics; an organisation under its own name): relationship context, an optional `## History`, then `## Next actions` from the card's first action on, then any `## Backlog`. A shared workstream lives in the primary contact's file; the others point to it.
+- **Contacts**: one file per person or organisation at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics; an organisation under its own name). How a card is laid out is in `.claude/rules/writing-actions.md`.
 - **Source documents and dated records**: `YYYYMMDD <Who> - <Description>.<ext>` in every vault. The date is the document's own, and who is its most identifying party, or the subject for the operator's own notes. The rest of the convention is in `.claude/rules/filing.md`; read it explicitly before filing one.
 - **A dated conversation record** lives in the owning project's or area's `sources/`; in `archive/meetings/` when it spans several entities or none owns it.
 - **A contact file and a project brief cross-link** both ways.
@@ -88,11 +74,7 @@ Folders and structural files in English; content in its source's language, untra
 
 ## Memory
 
-This vault is the memory: never the agent's built-in memory, a `memory/` folder or session logs. A durable fact goes in the file it describes before the turn ends: what the conversation settled that no file holds (a date, a decision and its reason, an action done or promised) is written, or asked about in one question, not left as an offer for later. Each reply ends with `Close: ready` when closing would lose nothing (written-down open work does not count), else `Close: not yet, <what closing would lose>`. How the operator likes to work is kept apart, in `.claude/rules/working-preferences.md`; read it explicitly before drafting anything for the operator. A draft to send follows `para-shared/drafting.md`; a voice profile is built per `para-shared/voice-profile.md`.
-
-## File formats
-
-Markdown and plain text first; `.csv`, `.docx` and `.xlsx` for material received. A cloud-native stub (Google Docs or Sheets) is converted to a real file when it lands.
+This vault is the memory: never the agent's built-in memory, a `memory/` folder or session logs. A durable fact goes in the file it describes before the turn ends: what the conversation settled that no file holds (a date, a decision and its reason, an action done or promised) is written, or asked about in one question, not left as an offer for later. Each reply ends with `Close: ready` when closing would lose nothing (written-down open work does not count), else `Close: not yet, <what closing would lose>`. A draft to send follows `para-shared/drafting.md`.
 
 ## Integration scripts and their state
 
@@ -102,8 +84,6 @@ A script the agent writes lives in `resources/scripts/` (its `README.md` names t
 
 ## Do not add
 
-- **Templates** before a second instance proves the shape.
 - **Content rewrites during a reorganization**: structure changes keep copy verbatim.
-- **Procedure or rationale in the vault's `CLAUDE.md`**: it belongs in the owning script's README or the skill.
-- **A `.claude/rules/<topic>.md` file** other than as `para-shared/rule-files.md` describes; read it before creating or editing one. The vault's `CLAUDE.md` keeps only each one's pointer.
+- **A `.claude/rules/<topic>.md` file** other than as `para-shared/rule-files.md` describes; read it before creating or editing one.
 - **A skill before its third use.** A recurring request starts as a prompt in `resources/prompts/`. A vault's own skill takes a name that does not start with `para-`: `/para-upgrade` replaces a skill carrying a name para-os ships.

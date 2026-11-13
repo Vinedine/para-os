@@ -200,12 +200,15 @@ class TemplateRevisions(unittest.TestCase):
 
 
 class RulesContract(unittest.TestCase):
-    def failures_for(self, pointer, rule, name="a.md"):
+    def failures_for(self, pointer, rule, name="a.md", core=None):
         """check_rules_contract()'s failures over a vault whose CLAUDE.md holds `pointer` and
-        whose one rule file, `name`, holds `rule`."""
+        whose one rule file, `name`, holds `rule`; `core` is the text of a fixed kit file."""
         root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, root)
         (root / ".claude" / "rules").mkdir(parents=True)
+        if core is not None:
+            (root / ".claude" / "para-os").mkdir()
+            (root / ".claude" / "para-os" / "core.md").write_text(core, encoding="utf-8")
         (root / "CLAUDE.md").write_text(pointer, encoding="utf-8")
         (root / ".claude" / "rules" / name).write_text(rule, encoding="utf-8")
         with mock.patch.object(check, "ROOT", root), mock.patch.object(check, "failures", []):
@@ -216,6 +219,14 @@ class RulesContract(unittest.TestCase):
         rule = "---\npaths:\n  - x/**\n---\nBody.\n"
         self.assertEqual(self.failures_for("See .claude/rules/a.md.", rule), [])
         self.assertEqual(self.failures_for("", rule, "voice-ada-peeters.md"), [])
+
+    def test_a_pointer_in_a_fixed_kit_file_counts_and_a_dangling_one_there_fails(self):
+        rule = "---\npaths:\n  - x/**\n---\nBody.\n"
+        self.assertEqual(self.failures_for("", rule, core="See .claude/rules/a.md."), [])
+        failures = self.failures_for("See .claude/rules/a.md.", rule,
+                                     core="See .claude/rules/b.md.")
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("points at .claude/rules/b.md, which does not exist", failures[0])
 
     def test_an_orphan_a_dangling_pointer_and_a_pathless_rule_fail(self):
         failures = self.failures_for("See .claude/rules/b.md.", "---\ndescription: x\n---\n")
