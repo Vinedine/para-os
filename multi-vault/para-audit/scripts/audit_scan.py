@@ -56,8 +56,9 @@ The eight columns, one cell each in `cells`, every defect a `finding` with its `
                  bundled `para-*` folder no master ships. A vault's own skill is not a copy.
 7. sections      Each `CLAUDE.md` section upgrade_scan's drift check reports against base's
                  template and the declared add-ons at the vault's own revision, `drift` or
-                 `missing`: one finding per kit file, naming its sections. `not judged` where
-                 that revision has no commit.
+                 `missing`: one finding per kit file, naming its sections, and the vault's own
+                 heading for one it holds under another name. `not judged` where that revision
+                 has no commit.
 8. size          `CLAUDE.md` lines (`wc -l`) against the 200-line adherence target set in
                  base/CLAUDE.md.template; the fix is the template's lever.
 
@@ -350,13 +351,15 @@ def sections_check(vault, kit, base, decl, mine):
     rows = drift_block(kit, base, decl, read_text(vault / "CLAUDE.md"))
     by_file = {}
     for r in rows:
-        by_file.setdefault(r["file"], {"drift": [], "missing": []})[r["state"]].append(r["heading"])
+        by_file.setdefault(r["file"], {"drift": [], "missing": []})[r["state"]].append(
+            (r["heading"], r.get("vault_heading")))
     return state_cell(rows), [section_finding(path, mine, **states)
                               for path, states in by_file.items()]
 
 
 def section_names(headings):
-    return ", ".join(f"`{h}`" if h else "the lines above its first heading" for h in headings)
+    return ", ".join(f"`{h}`" + (f" (headed `{own}` here)" if own else "") if h
+                     else "the lines above its first heading" for h, own in headings)
 
 
 def section_finding(path, mine, drift, missing):

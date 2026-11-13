@@ -51,6 +51,10 @@ contract  What CLAUDE.md takes from base/CLAUDE.md.template and each declared ad
                  line is no drift while the kit's lines of it at that revision are those at
                  the ref: the operator kept their own wording, and a change to the kit's
                  brings the row back.
+          A vault heading holds the kit heading it equals, and a vault's `<noun> lifecycle`
+          that no kit file holds stands for a kit `<noun> lifecycle` it lacks, the noun being
+          the vault's to name as paraos_vault.lifecycles reads it; of several, the closest in
+          words. A drift row on a heading held that way names the vault's in `vault_heading`.
           A vault line holds a kit line it equals, with each `{{...}}` matching any text, and a
           table row holds one with the same first cell. The vault's own added lines, a kit line
           that is only a placeholder or says "delete this line", and a heading no kit file
@@ -109,6 +113,7 @@ PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}")
 LONE_PLACEHOLDER_RE = re.compile(r"^(?:[-*+]|\d+\.)?\s*\{\{.*\}\}\W*$")
 KEPT_RE = re.compile(r"<!--\s*para-os-kept:\s*(" + REVISION_PATTERN + r")\s*-->")
 NEAR_RATIO = 0.5   # a vault section this close in words to a missing kit one is its likely home
+LIFECYCLE = " lifecycle"
 
 
 class Kit:
@@ -301,12 +306,18 @@ def held(kit, vault):
     return pairs, [i for i, t in enumerate(tests) if t and t[0] and i not in pairs]
 
 
-def closest(lines, candidates):
+def closest(lines, candidates, floor=NEAR_RATIO):
     words = " ".join(lines).split()
     ratio, i = max(((difflib.SequenceMatcher(None, words, " ".join(c[2]).split(),
                                              autojunk=False).ratio(), -i)
-                    for i, c in enumerate(candidates)), default=(0, 0))
-    return candidates[-i] if ratio >= NEAR_RATIO else None
+                    for i, c in enumerate(candidates)), default=(-1, 0))
+    return candidates[-i] if ratio >= floor else None
+
+
+def stands_for(key, theirs):
+    """Whether the vault heading `theirs`, one no kit file holds, stands for the kit heading
+    `key`: a lifecycle under the vault's own noun."""
+    return key.endswith(LIFECYCLE) and theirs.endswith(LIFECYCLE)
 
 
 def kit_blocks(kit, commit, decl):
@@ -330,7 +341,15 @@ def drift_block(kit, base, decl, vault_text):
     for heading, line, lines in blocks(vault_text):
         mine.setdefault(heading_key(heading), (heading, line, []))[2].extend(lines)
     known = {heading_key(b[0]) for _, _, b in then}
-    own = [b for k, b in mine.items() if k not in known]
+    own = {k: b for k, b in mine.items() if k not in known}
+    for _, name, (heading, _, lines) in then:
+        key = heading_key(heading)
+        named = [] if key in mine or (name, key) not in now else \
+            [b for k, b in own.items() if stands_for(key, k)]
+        if named:
+            mine[key] = closest(lines, named, 0)
+            del own[heading_key(mine[key][0])]
+    own = list(own.values())
     at = {kit.master: now}
 
     def kept(name, key, theirs):
@@ -354,7 +373,7 @@ def drift_block(kit, base, decl, vault_text):
             rows.append(contract_row(path, heading, "missing", text_lines(head + lines),
                                      text_lines(([near[1]] + near[2]) if near else [])))
             continue
-        _, their_line, theirs = mine[key]
+        their_heading, their_line, theirs = mine[key]
         pairs, lacking = held(lines, theirs)
         if lacking and held(now[name, key], theirs)[1] and not kept(name, key, theirs):
             shown_kit = [theirs[pairs[i]] if i in pairs else ln for i, ln in enumerate(lines)
@@ -362,6 +381,8 @@ def drift_block(kit, base, decl, vault_text):
             top = [their_line] if their_line else []
             rows.append(contract_row(path, heading, "drift", text_lines(top + shown_kit),
                                      text_lines(top + theirs)))
+            if heading_key(their_heading) != key:
+                rows[-1]["vault_heading"] = their_heading
     return rows
 
 

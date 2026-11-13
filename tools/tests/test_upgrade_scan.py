@@ -528,7 +528,7 @@ Name the owning file before answering.
 """
 
 
-DEALS = "<!-- sales MODULE: merge it in. -->\n\n## Deals\n\nA deal is won on a paid phase.\n"
+DEALS = "<!-- sales MODULE: merge it in. -->\n\n## Deal lifecycle\n\nA deal is won on a paid phase.\n"
 
 ALIGNED = """# Shop Vault Conventions
 
@@ -575,7 +575,7 @@ Name the owning file before answering.
 |---|---|
 | Prices | the supplier list |
 
-## Deals
+## Deal lifecycle
 
 A deal is won on a paid phase.
 
@@ -719,6 +719,31 @@ class DriftCase(CloneCase):
         for name, text in (("kept-unknown", self.kept(DRIFTED, "### Hygiene", "2026.09.09")),
                            ("kept-other", self.kept(DRIFTED, "## Sources", "2026.10.02"))):
             self.assertEqual(self.rows(name, text)["Hygiene"]["state"], "drift", name)
+
+    def test_a_lifecycle_under_the_vault_s_own_noun_holds_the_kit_s(self):
+        self.assertEqual(self.rows("booking", ALIGNED.replace("## Deal lifecycle",
+                                                              "## Booking lifecycle")), {})
+        text = ALIGNED.replace(
+            "## Deal lifecycle\n\nA deal is won on a paid phase.\n",
+            "## Supplier lifecycle\n\nSuppliers are reviewed every year.\n\n"
+            "## Booking lifecycle\n\nA booking is won on a paid deposit.\n")
+        rows = self.rows("booking-drift", text.replace("### Hygiene\n", "### Hygiene (ours)\n"))
+        row = rows.pop("Deal lifecycle")
+        self.assertEqual((rows["Hygiene"]["state"], row["state"], row["file"], row["vault_heading"]),
+                         ("missing", "drift", "addons/sales/CLAUDE.md.sections", "Booking lifecycle"))
+        self.assertEqual(set(rows), {"Hygiene"})
+        self.assertNotIn("vault_heading", rows["Hygiene"])
+        self.assertIn(" ## Booking lifecycle\n-A deal is won on a paid phase.\n"
+                      "+A booking is won on a paid deposit.\n", row["diff"])
+        self.assertEqual(self.rows("booking-kept", self.kept(text, "## Booking lifecycle",
+                                                             "2026.10.02")), {})
+
+    def test_another_heading_holds_only_the_kit_s_own(self):
+        rows = self.rows("renamed", DRIFTED.replace("## Sources\n", "## Sources (ours)\n")
+                         .replace("## Layout\n", "## Layout lifecycle\n"))
+        self.assertEqual((rows["Sources"]["state"], rows["Layout"]["state"]),
+                         ("missing", "missing"))
+        self.assertEqual(rows["Do not add"]["state"], "missing")
 
 
 class ExampleCase(unittest.TestCase):
