@@ -2,23 +2,26 @@
 
 The fixed para-os rules, the same in every vault. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` holds only what is true of that vault, and **wins wherever the two differ**. The lines that open it (title, marker, `**Type:**`, `**Flavor:**`, `**Modules:**`) are machine-read: keep them through every upgrade.
 
+**A rule is written once.** The vault's `CLAUDE.md` repeats nothing from this file, a rule file or a skill: it holds what the vault adds and where it departs. Check before adding a line there, and a rule that would read the same in two vaults belongs here.
+
 ## PARA layout
 
 The sorting test: **committed and dated → project. Maintained, no end date → area. Only thinking about it → idea. Over → archive.**
 
-- **triage/** - the inbox `/para-triage` empties; nothing lives here, not even a `README.md` (a `.gitkeep` holds the folder).
+- **triage/** - the inbox `/para-triage` empties; nothing lives here, not even a `README.md`.
 - **projects/** - time-bound work with a committed deliverable and deadline. One folder each, holding a `brief.md`, an `actions.md` and, where needed, `sources/`. A rolling backlog with no deadline is an area.
-- **areas/** - ongoing responsibilities. `business/` = running narrative and strategic actions. `network/` = one file per person. One folder per maintained asset, with its own `brief.md` + `actions.md`; assets that gate each other form **one** area.
+- **areas/** - ongoing responsibilities. `network/` = one file per contact. One folder per maintained asset, with its own `brief.md` + `actions.md`; assets that gate each other form **one** area.
 - **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
-- **archive/** - inactive artifacts, always in a subfolder. `meetings/` = records spanning several entities. `projects/` and `ideas/` = finished projects and retired ideas.
+- **archive/** - inactive artifacts, always in a subfolder. `meetings/` = records spanning several entities or owned by none. `projects/` and `ideas/` = finished projects and retired ideas.
 
-Root `README.md` is the single source of truth for identity, operating model and track record. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in English, and Vision is never a stub. It holds no work state (a checkbox, a `📅`, a status list, a "to confirm"); a status fact about the subject (`| Status | Active |`) is not work state.
+Root `README.md` is the single source of truth for identity, operating model and track record. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, in English, and Vision is written out, not a stub. It holds no work state (a checkbox, a `📅`, a status list, a "to confirm"); a status fact about the subject (`| Status | Active |`) is not work state.
 
 ### Lifecycle
 
 - `/para-new` creates every project, area, idea and contact.
-- An idea **promotes** to a project when someone waits on a dated deliverable, money or a formal engagement is committed, or a go/no-go is on the calendar; it gets its `actions.md` then. Retiring one is the operator's call: never started goes to `archive/ideas/`, started and stopped to `archive/projects/`.
-- A big dated push on a maintained asset is a **project alongside its area**; surviving work returns to the area when it archives. A project with no dated commitment for six months is proposed for **demotion** to an area.
+- An idea **promotes** to a project when someone waits on a dated deliverable, money or a formal engagement is committed, or a go/no-go is on the calendar; it gets its `actions.md` then. Something on a lifecycle the vault declares moves by that lifecycle's stages instead. Retiring an idea is the operator's call: never started goes to `archive/ideas/`, started and stopped to `archive/projects/`.
+- Scheduled multi-step work is not an idea: it is a project, or an area where the thing is maintained.
+- A big dated push on a maintained asset is a **project alongside its area**; surviving work returns to the area when it archives.
 - An entity **archives whole** via `/para-archive`, its open items routed first to the owning area, a successor project or a contact file. Where the vault's `CLAUDE.md` names an archive destination for a kind of entity, that kind goes there.
 - **Every move repoints inbound links in the same pass.**
 
@@ -27,7 +30,7 @@ Root `README.md` is the single source of truth for identity, operating model and
 - **No live work**: zero open actions, each done or noted "fully closed; minor gaps not material".
 - **History archives; living references move to `resources/<name>/`.**
 - **No loose files at the archive root.**
-- **Minimum record**: a status marker saying why, plus its `brief.md` or `README.md`.
+- **Minimum record**: a status marker saying why, plus its `brief.md`.
 - **Zero dangling links** to the old path; a historical mention inside the archived folder is fine.
 
 ## Actions
@@ -43,7 +46,7 @@ Root `README.md` is the single source of truth for identity, operating model and
 
 A row the vault's `CLAUDE.md` writes under the same heading replaces the row of that bucket, and a new bucket adds one. A folder whose work is tracked elsewhere (an external tracker, a generated file) gets its own row at `never`.
 
-An action goes in the `actions.md` of the project or area it belongs to; one about a person in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; strategic work tied to no single entity in `areas/business/actions.md`, and a dated go/no-go on an idea there too, linking the idea. Never a root `actions.md`.
+An action goes in the `actions.md` of the project or area it belongs to; one about a person in their contact file under `## Next actions`, as far as the `areas/network/` row allows, else with the entity it serves; work tied to no single entity in the area the vault names for it, and a dated go/no-go on an idea there too, linking the idea. There is no root `actions.md`.
 
 ### The actionable frontier
 
@@ -55,21 +58,29 @@ A checkbox is something you could act on now or on its marked date. A step behin
 
 ### The content frontier
 
-- **Say it once.** Every fact has one owning file; elsewhere it is a link. The full convention is in `.claude/rules/figures.md`; read it explicitly before writing a figure into a brief or an entity README.
-- **A development log records decisions** and their reasons, never activity.
+- **Say it once.** Every fact has one owning file; elsewhere it is a link. The full convention is in `.claude/rules/figures.md`; read it explicitly before writing a figure into a brief.
+- **A development log records decisions** and their reasons, not activity.
 - **Superseded content leaves the live buckets.**
 - **Never delete to satisfy this.** Pruning is proposed item by item, *move* or *demote* by default, deletion only for a duplicate whose contents were compared; never a source document or `triage/`.
 
 ## Filing and naming
 
-- **Contacts**: one file per person at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics): relationship context, an optional `## History`, then `## Next actions` (`_None currently._` when empty or at `never`), then any `## Backlog`. A shared workstream lives in the primary contact's file; the others point to it.
-- **Dated conversation records**: in the owning project's or area's `sources/`; in `archive/meetings/YYYYMMDD Description.ext` only when they span several entities.
-- **Source documents**: `YYYYMMDD <Who> <Description>.<ext>`, unless the vault's `CLAUDE.md` gives its own pattern. The rest of the convention is in `.claude/rules/filing.md`; read it explicitly before filing one.
+- **Contacts**: one file per person or organisation at `areas/network/<firstname-lastname>.md` (kebab-case, no diacritics; an organisation under its own name): relationship context, an optional `## History`, then `## Next actions` from the card's first action on, then any `## Backlog`. A shared workstream lives in the primary contact's file; the others point to it.
+- **Source documents and dated records**: `YYYYMMDD <Who> - <Description>.<ext>` in every vault. The date is the document's own, and who is its most identifying party, or the subject for the operator's own notes. The rest of the convention is in `.claude/rules/filing.md`; read it explicitly before filing one.
+- **A dated conversation record** lives in the owning project's or area's `sources/`; in `archive/meetings/` when it spans several entities or none owns it.
 - **A contact file and a project brief cross-link** both ways.
 
 ## Authoritative sources
 
 Name the owning file before answering, and check `triage/` before searching by date. System-of-record data beats a hand-kept table; when they disagree, correct the table. Answer from the operator's own documents by quoting the clause with its file and page.
+
+A mailbox or calendar read through a connector is read-only: surface and draft, never send or change anything in it.
+
+## Who is working
+
+The operator is the person in the session. Where the vault's `CLAUDE.md` has a `## Who writes this vault` table, their row gives their role: the keeper decides for the vault, a member works in their own areas, the steward keeps the conventions. The table says who owns what; which row is in the session comes from the machine and the account, not from a file everyone shares.
+
+Two people saving one file at once is the one real failure of a shared vault, and it is silent: say so before editing a file someone else is working in. A vault several people sync holds no `.git` folder; its history is the sync service's version history plus the vault's mirror.
 
 ## Language
 
@@ -92,8 +103,7 @@ A script the agent writes lives in `resources/scripts/` (its `README.md` names t
 ## Do not add
 
 - **Templates** before a second instance proves the shape.
-- **Derived outputs as standalone files**: web copy, decks and one-pagers regenerate from `README.md`.
 - **Content rewrites during a reorganization**: structure changes keep copy verbatim.
 - **Procedure or rationale in the vault's `CLAUDE.md`**: it belongs in the owning script's README or the skill.
 - **A `.claude/rules/<topic>.md` file** other than as `para-shared/rule-files.md` describes; read it before creating or editing one. The vault's `CLAUDE.md` keeps only each one's pointer.
-- **A skill before its third use.** A recurring request starts as a prompt in `resources/prompts/`. Never name a skill `para-*`: `/para-upgrade` replaces a skill carrying a name para-os ships.
+- **A skill before its third use.** A recurring request starts as a prompt in `resources/prompts/`. A vault's own skill takes a name that does not start with `para-`: `/para-upgrade` replaces a skill carrying a name para-os ships.

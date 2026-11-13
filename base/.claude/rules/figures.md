@@ -14,7 +14,7 @@ paths:
 2. **Link to it** where no registry models it.
 3. **Copy it** only where the document cannot work as a link (a decision brief argued on its figures), with its as-of date, source and reason beside it.
 
-**Never generate what the registry does not model**; link or copy instead. **A table holding history the registry cannot** stays hand-kept, excluded from generation, with a check comparing its totals to the registry; the vault's copy of this file names each such table and its check.
+**Never generate what the registry does not model**; link or copy instead. **A table holding history the registry cannot** stays hand-kept, excluded from generation, with a check comparing its totals to the registry; a rule file of the vault's own names each such table and its check, and this file stays as the kit ships it.
 
 ## Freshness stamps
 

@@ -4,7 +4,7 @@ The fixed rules of the sales module, the same in every vault that declares it. `
 
 ## Deal lifecycle
 
-A deal's PARA home follows its stage, and the stages are the phases the prospect hears in the room. A deal is **won** when a first paid phase is agreed, which is the base promotion rule wearing this module's vocabulary.
+A deal's PARA home follows its stage, and the stages are the phases the prospect hears in the room. A deal is **won** when a first paid phase is agreed, which is the core's promotion rule wearing this module's vocabulary. `areas/business/` is this module's area for work tied to no single deal: the lead register, the weekly review and a nurtured deal's revisit live there.
 
 | Stage | Exit criterion | PARA home |
 |---|---|---|
@@ -17,9 +17,9 @@ A deal's PARA home follows its stage, and the stages are the phases the prospect
 | Lost | Reason recorded, revisit trigger written | `archive/ideas/<company>/` |
 
 - **Rows before folders.** A lead is one row in the lead register the vault's stage table names, its columns in `.claude/rules/deal-brief.md`, until a real conversation has been held. No idea folder and no contact file, so a cold list of three hundred names costs three hundred rows and nothing else. The folder and the champion's contact file are created together at Qualified, by `/para-new deal`, only once the conversation showed a fit. A lead that never became a conversation, or did not fit, gets its outcome in the row and moves to the register's `## Closed` section; nothing is archived for it.
-- **A deal promotes on money or a formal engagement committed**, the vault's own promotion rule unchanged: Goal is the stage where that happens, and the project then runs its delivery phases as an ordinary project, archiving to `archive/projects/` when it ends. The client relationship lives on in the contact file, so sales needs no area of its own.
+- **A deal promotes on money or a formal engagement committed**, the core's promotion rule unchanged: Goal is the stage where that happens, and the project then runs its delivery phases as an ordinary project, archiving to `archive/projects/` when it ends. The client relationship lives on in the contact file, so sales needs no area of its own.
 - **A deal stays at a stage until its exit holds, and moves back when a passed exit fails**, not at the next review. Proposal and Goal swap often enough that neither is a gate on the other: a verbal yes before a written proposal is Goal.
-- **Nurture is a stage, not a bucket.** The deal stays in the folder it was in, and its revisit is a dated checkbox in the business area's actions file linking the brief, which is the vault's rule for a dated go/no-go on an idea. `/para-pipeline`'s no-next-step flag is what catches a nurtured deal whose revisit was closed without a successor.
+- **Nurture is a stage, not a bucket.** The deal stays in the folder it was in, and its revisit is a dated checkbox in the business area's actions file linking the brief, which is the core's rule for a dated go/no-go on an idea. `/para-pipeline`'s no-next-step flag is what catches a nurtured deal whose revisit was closed without a successor.
 - **The board is reviewed weekly**, as one recurring checkbox under `## Recurring` in the business area's actions file: `- [ ] Weekly pipeline review: run /para-pipeline, move flagged deals, update Last touch, check buyer cards 🔁 every week when done 📅 <next Friday>`. Thirty minutes. Its job is movement, not status.
 - **Every contact card says what the person is to this business**, on a `**Kind:**` line directly under the name: `buyer` (could pay for what the vault sells, a prospect or a client, the deal's stage says which), `collaborator` (works alongside: a partner, a peer, a referrer) or `network` (neither for now). Pick the one that decides the next approach, and edit it when that changes. The register and the deal folders hold buyers only, and every buyer is on the board, in an archived deal or engagement (`/para-pipeline` lists a won one for a revisit six months after its last touch), or carries a dropped note; the weekly review checks it.
 
