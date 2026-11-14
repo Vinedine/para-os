@@ -221,11 +221,11 @@ distribution stops, so copy `out/trace.jsonl` out in the same session that ran t
 ## The write cases
 
 Some promises are about what a skill does not write: the bootstrap writes no file before
-its questions are answered, `/para-new` writes nothing before its proposal is approved, and
-`/para-activity-review` confirms a report's path before writing it. A case grading one lists
-`Write` and `Edit` in `allowed_tools` and carries the tag `write`. The harness gates those
-tools like `Bash`: without the grant it withholds them from the model, so a "never calls
-`Write`" grader passes for want of anything to refuse, and only the text graders score.
+its questions are answered, and `/para-new` writes nothing before its proposal is approved.
+A case grading one lists `Write` and `Edit` in `allowed_tools` and carries the tag `write`.
+The harness gates those tools like `Bash`: without the grant it withholds them from the
+model, so a "never calls `Write`" grader passes for want of anything to refuse, and only the
+text graders score.
 `tools/eval.py` grants both whenever a selected case lists them, so the write graders bite in
 an ordinary run. To run only these:
 
