@@ -142,12 +142,11 @@ class Lanes(VaultCase):
         self.assertEqual(self.task(report, "Weekly review")["also_lane"], "overdue")
         self.assertIsNone(self.task(report, "Due today")["also_lane"])
 
-    def test_an_overdue_recurring_item_joins_the_overdue_lane_but_not_its_total(self):
+    def test_an_overdue_recurring_item_joins_the_overdue_lane_and_its_total(self):
         weekly = self.task(self.report, "Weekly review")["line"]
         overdue = [(i["file"], i["line"]) for i in self.report["lanes"]["overdue"]]
         self.assertIn(("projects/acme-website/actions.md", weekly), overdue)
-        self.assertEqual(self.report["totals"]["overdue"],
-                         len(overdue) - 1)
+        self.assertEqual(self.report["totals"]["overdue"], len(overdue))
 
     def test_a_task_keeps_its_priority_and_its_heading(self):
         task = self.task(self.report, "Due today")
@@ -353,6 +352,13 @@ class AggregationAndScope(VaultCase):
         totals = report["totals"]
         self.assertEqual(totals["overdue"] + totals["upcoming"] + totals["undated"],
                          totals["open"])
+
+    def test_a_wait_on_someone_is_open_but_never_upcoming(self):
+        write(self.root, "projects/acme/actions.md", "# acme\n\n"
+              "- [ ] Waiting on Jan: the export (since 2026-09-18)\n"
+              "- [ ] Book the venue 📅 2026-09-30\n")
+        self.assertEqual(scan(self.root, TODAY)["totals"],
+                         {"open": 2, "overdue": 0, "upcoming": 1, "undated": 0})
 
     def test_a_dotted_name_scopes_the_whole_scan_to_one_project(self):
         build_vault(self.root)

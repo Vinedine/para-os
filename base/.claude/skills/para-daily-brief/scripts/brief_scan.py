@@ -984,8 +984,9 @@ def scan(vault, today, entity=None, paraos_home=None, review=None, model=None):
     report["entities"] = aggregate(scoped_tasks)
     report["totals"] = {
         "open": len(scoped_tasks),
-        "overdue": sum(1 for t in scoped_tasks if t["lane"] == "overdue"),
-        "upcoming": sum(1 for t in scoped_tasks if t["lane"] not in ("overdue", "undated")),
+        "overdue": sum(1 for t in scoped_tasks if "overdue" in (t["lane"], t["also_lane"])),
+        "upcoming": sum(1 for t in scoped_tasks if t["also_lane"] != "overdue"
+                        and t["lane"] not in ("overdue", "undated", "waiting_on")),
         "undated": sum(1 for t in scoped_tasks if t["lane"] == "undated"),
     }
     report["lanes"] = {}
