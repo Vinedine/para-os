@@ -916,7 +916,7 @@ def stage_line(path):
         stripped = text.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        m = re.match(r"^[*_]{0,2}(stage|status)[*_]{0,2}\s*:\s*(.+)$", stripped, re.IGNORECASE)
+        m = re.match(r"^>?\s*[*_]{0,2}(stage|status)[*_]{0,2}\s*:\s*(.+)$", stripped, re.IGNORECASE)
         if m:
             return re.sub(r"[*_]", "", m.group(2)).strip()
     in_status = False
