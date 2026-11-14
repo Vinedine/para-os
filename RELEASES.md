@@ -31,6 +31,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **Deep clean names the right owner for loose archive files and meeting records.** A file sitting directly in an archive folder now belongs to that folder, so its copies there are no longer reported as spread over several entities. A meeting record that links a contact card is no longer proposed for a move into the contacts folder.
 - **Deep clean reports fewer false findings.** Your own scripts no longer add to the audit count. A link inside a folder you declared as templates, a name in a note's properties block, a first name that is part of another contact's full name, and an address your own contact card already holds are no longer reported.
 - **A converted vault is no longer shown as behind.** After the move to two files, the daily brief and deep clean still looked for the revision in your `CLAUDE.md` and reported the vault as out of date. They now read it where it lives.
+- **An upgrade finds the old rules in a vault whose wording is older than its stamp.** The upgrade compared your `CLAUDE.md` with one past template only, so a vault that had not followed every rewording was offered nothing to remove and kept its old rules over the new ones. It now compares with every past template.
 
 ### Removed
 
