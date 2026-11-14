@@ -8,6 +8,7 @@
 set -e
 . "$(dirname "$0")/../_fixture/kit.sh"
 copy_base .
+mkdir -p triage  # the operator's own folder: the kit ships none
 
 day() { date -d "$1 days" +%F 2>/dev/null || { case $1 in -*) s=$1;; *) s=+$1;; esac; date -v"${s}"d +%F; }; }
 

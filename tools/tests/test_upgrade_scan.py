@@ -528,7 +528,9 @@ class CoreCase(CloneCase):
         vault = self.vault("stamped", marker="2026.10.01", header="**Modules:** sales\n")
         write(vault, "CLAUDE.md", vault_md("2026.10.01", "**Modules:** sales\n")
               + "Facts.\nDeals v2.\nOne checkbox per line.\n")
-        found = {r["text"]: r["in"] for r in self.report(vault)["own"]["repeats"]}
+        rows = self.report(vault)["own"]["repeats"]
+        self.assertEqual({r["text"] for r in rows if r.get("retired")}, {"Facts.", "Deals v2."})
+        found = {r["text"]: r["in"] for r in rows}
         self.assertEqual(found, {
             "Facts.": "base/CLAUDE.md.template at 2026.10.01",
             "Deals v2.": "addons/sales/CLAUDE.md.sections at 2026.10.01",

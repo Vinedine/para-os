@@ -48,7 +48,7 @@ try:
         vault_name)
     from paraos_vault import (  # noqa: E402
         QUIET_DAYS, TEMPLATE_BEHIND, TRIAGE_AGE_DAYS, TRIAGE_PILE, WAITS_PAST_FLAG,
-        find_clone, read_text, skill_reviews, template_marker, triage_proposals)
+        find_clone, read_text, skill_reviews, triage_proposals, vault_marker)
     from paraos_clone import (  # noqa: E402
         changelog_entries, clone_read, clone_session, entries_between, master_template)
     from paraos_mail import ingest_ledger  # noqa: E402
@@ -524,7 +524,7 @@ def template_behind(vault, paraos_home=None, ref="origin/stable"):
     master = master_template(clone, ref)["marker"] if clone else None
     if not master:
         return None
-    mine = template_marker(read_text(Path(vault) / "CLAUDE.md"))
+    mine = vault_marker(vault)
     raw = clone_read(clone, ref, "CHANGELOG.md")
     entries = changelog_entries(raw.decode("utf-8", errors="replace")) if raw else []
     return {"vault": mine, "master": master, "behind": len(entries_between(entries, mine, master))}

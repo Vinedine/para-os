@@ -1113,6 +1113,10 @@ class Health(VaultCase):
         got = self.card()["signals"]["template"]
         self.assertEqual((got["level"], got["vault"], got["master"], got["behind"]),
                          ("watch", "2026.10.01", "2026.10.03", 2))
+        write(self.vault, "CLAUDE.md", "# V" + chr(10))
+        write(self.vault, ".claude/para-os/core.md", "# C" + chr(10) + "<!-- para-os-template: 2026.10.03 -->" + chr(10))
+        on_two_files = self.card()["signals"]["template"]
+        self.assertEqual((on_two_files["vault"], on_two_files["behind"]), ("2026.10.03", 0))
 
     def test_waits_past_two_weeks_are_counted(self):
         since = (self.today - timedelta(days=30)).isoformat()

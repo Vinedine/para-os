@@ -45,7 +45,7 @@ try:
         log_entries, misplaced_checkboxes, norm, open_tasks, operator_card, other_checkbox_paths,
         over_grown_briefs, parse_date, read_lines, read_text, reference_shape, rel_posix,
         resolve_entity, resolve_link, snapshot, split_lines, strip_code, table_cells,
-        template_marker, triage_items, under_any, utf8_stdout, vault_paths,
+        triage_items, under_any, utf8_stdout, vault_marker, vault_paths,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
@@ -199,7 +199,7 @@ def marker_precondition(vault, clone, ref):
     the library's `master_template` as /para-upgrade reads it. `ref_missing` is a clone
     whose ref does not resolve: one made before releases moved to `stable`, where the ref
     is the default."""
-    vault_marker = template_marker(read_text(vault / "CLAUDE.md"))
+    mine = vault_marker(vault)
     master_marker = None
     clone, _ = find_clone(clone)
 
@@ -208,16 +208,16 @@ def marker_precondition(vault, clone, ref):
 
     if clone is None:
         verdict = "no_clone"
-    elif master_marker is None or vault_marker is None:
+    elif master_marker is None or mine is None:
         verdict = "unverified"
-    elif vault_marker == master_marker:
+    elif mine == master_marker:
         verdict = "equal"
-    elif vault_marker < master_marker:
+    elif mine < master_marker:
         verdict = "behind"
     else:
         verdict = "ahead"
 
-    return {"vault": vault_marker, "master": master_marker, "verdict": verdict,
+    return {"vault": mine, "master": master_marker, "verdict": verdict,
             "ref_missing": bool(clone) and clone_ref(clone, ref) is None}
 
 
