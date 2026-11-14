@@ -2,17 +2,17 @@
 # Fixture for shell-upgrade-applies-only-the-delta. Builds two directory trees side by side
 # under the run directory, neither nested inside the other (upgrade.sh says why):
 #
-#   vault/           a real vault root and a git repo with every file committed, stamped
-#                    2026.08.01, one revision behind the clone's origin/stable.
+#   vault/           a real vault root and a git repo with every file committed, its core
+#                    stamped 2026.08.01, one revision behind the clone's origin/stable.
 #   para-os-clone/   a throwaway git clone of a fake para-os, with a bare `origin` so
 #                    `origin/main` and `origin/stable` resolve offline, two commits deep.
 #
 # The case this fixture drives is an applied migration, not an audit. The one collected
 # entry, 2026.08.02, carries two items:
 #
-#   1. A template change on a file the vault has in its before state: the template's
-#      `## Actions` section gains one sentence, which the scan's contract diff carries to
-#      the vault's CLAUDE.md. It is CLAUDE.md, not a file under `.claude/`, on purpose: a
+#   1. A Reaction on a file the vault has in its before state: the entry asks for one
+#      sentence under `## Actions` of the vault's CLAUDE.md, which the scan's revision
+#      block carries. It is CLAUDE.md, not a file under `.claude/`, on purpose: a
 #      non-interactive run cannot Edit a `.claude/` file, which Claude Code refuses as
 #      sensitive with no operator to approve it, so a Reaction there would grade the
 #      harness rather than the skill.
@@ -37,14 +37,17 @@ mkdir -p vault/projects/shop-refit vault/areas/supplies vault/archive vault/tria
 mkdir -p vault/resources/scripts vault/.claude/rules
 
 touch vault/triage/.gitkeep
+mkdir -p vault/.claude/para-os
+printf '# Core\n\n<!-- para-os-template: %s -->\nThe fixed rules.\n' 2026.08.01 > vault/.claude/para-os/core.md
 
 cat > vault/CLAUDE.md <<'EOF'
 # Fixture Vault Conventions
 
-<!-- para-os-template: 2026.08.01 -->
 **Type:** vault
 
 A small fixture vault for the /para-upgrade apply eval.
+
+@.claude/para-os/core.md
 
 ## Actions
 
@@ -164,7 +167,8 @@ mkdir -p para-os-clone
   git remote add origin "$(cd ../.clone-origin.git && pwd)"
 
   # Commit 1: revision 2026.08.01, the revision the vault is stamped at.
-  mkdir -p base/.claude/rules base/triage integrations/logbook
+  mkdir -p base/.claude/rules base/.claude/para-os base/triage integrations/logbook
+  printf '# Core\n\n<!-- para-os-template: %s -->\nThe fixed rules.\n' 2026.08.01 > base/.claude/para-os/core.md
   touch base/triage/.gitkeep
 
   cat > CHANGELOG.md <<'EOF'
@@ -176,7 +180,6 @@ EOF
   cat > base/CLAUDE.md.template <<'EOF'
 # {{Vault Name}} Vault Conventions
 
-<!-- para-os-template: 2026.08.01 -->
 **Type:** {{vault-type}}
 
 {{One-line description of what this vault covers.}}
@@ -246,13 +249,16 @@ EOF
 
 ## 2026.08.02
 
+- Add this sentence under `## Actions`, "An area's `actions.md` is an action file too: it follows the same checkbox rule as a project's.": `CLAUDE.md`
+
 ## 2026.08.01
 EOF
+
+  printf '# Core\n\n<!-- para-os-template: %s -->\nThe fixed rules.\n' 2026.08.02 > base/.claude/para-os/core.md
 
   cat > base/CLAUDE.md.template <<'EOF'
 # {{Vault Name}} Vault Conventions
 
-<!-- para-os-template: 2026.08.02 -->
 **Type:** {{vault-type}}
 
 {{One-line description of what this vault covers.}}
@@ -260,8 +266,6 @@ EOF
 ## Actions
 
 A checkbox may live in `projects/` and `areas/` only, never in `resources/`. The rule file is `.claude/rules/actions.md`.
-
-An area's `actions.md` is an action file too: it follows the same checkbox rule as a project's.
 EOF
 
   cat > base/.claude/rules/actions.md <<'EOF'
