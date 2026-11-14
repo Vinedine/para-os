@@ -1555,6 +1555,15 @@ class Dangling(VaultCase):
         self.assertEqual(got[0]["line"], 4)
         self.assertEqual(got[0]["resolved"], "areas/network/no-one.md")
 
+    def test_a_link_to_a_section_its_target_lacks_is_reported_on_request(self):
+        write(self.root, "CLAUDE.md", "# V" + chr(10) + chr(10) + "## File formats" + chr(10) + chr(10) + "Text." + chr(10))
+        write(self.root, "projects/orchard-lane/brief.md",
+              "# O" + chr(10) + chr(10) + "See [formats](../../CLAUDE.md#file-formats) and [gone](../../CLAUDE.md#archive-hygiene)." + chr(10))
+        self.assertEqual(dangling_links(self.root), [])
+        got = dangling_links(self.root, anchors=True)
+        self.assertEqual([(g["href"], g["anchor"]) for g in got],
+                         [("../../CLAUDE.md", "archive-hygiene")])
+
     def test_an_encoded_target_that_exists_is_not_dangling(self):
         write(self.root, "resources/Orchard VAT (Notes).md", "# vat\n")
         write(self.root, "README.md", "[VAT](resources/Orchard%20VAT%20(Notes).md)\n")
@@ -1816,6 +1825,15 @@ class Move(VaultCase):
         self.assertEqual(out["mentions"], [{"file": "areas/network/piet.md", "line": 3}])
         self.assertIn("(../properties/orchard-lane/sources/20260418%20Acme%20-%20Statement.md)",
                       (self.root / "areas/network/piet.md").read_text("utf-8"))
+
+    def test_a_shared_file_name_is_a_mention_only_with_its_folder(self):
+        self.build()
+        write(self.root, "areas/properties/elm-road/README.md", "# Elm" + chr(10))
+        write(self.root, "areas/network/piet.md",
+              "# Piet" + chr(10) + chr(10) + "Every folder has a README.md." + chr(10) + "See `elm-road/README.md`." + chr(10))
+        code, out = self.run_move("areas/properties/elm-road/README.md",
+                                  "areas/properties/elm-road/brief.md", "--apply")
+        self.assertEqual(out["mentions"], [{"file": "areas/network/piet.md", "line": 4}])
 
     def test_an_existing_destination_is_refused_and_nothing_moves(self):
         self.build()

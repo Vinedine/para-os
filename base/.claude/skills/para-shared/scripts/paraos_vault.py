@@ -2004,20 +2004,38 @@ def link_files(vault, roots):
     return found
 
 
-def dangling_links(vault, roots=LINK_ROOTS):
-    """Every link in the vault's live buckets whose target does not exist.
+SHARED_NAMES = ("README.md", "brief.md", "actions.md", "CLAUDE.md", "index.md")
+ANCHOR_DROP_RE = re.compile(r"[^\w\- ]")
+
+
+def anchor_of(heading):
+    """A heading as a link names it: lower case, punctuation dropped, spaces as hyphens."""
+    return ANCHOR_DROP_RE.sub("", heading.strip().lower()).replace(" ", "-")
+
+
+def dangling_links(vault, roots=LINK_ROOTS, anchors=False):
+    """Every link in the vault's live buckets whose target does not exist, and with `anchors`
+    every link to a section its Markdown target does not hold, marked `anchor`.
 
     archive/ is out of the default scan: a historical mention inside a closed record points
     at what was true then, and a caller that wants it passes its own roots.
     """
     vault = Path(vault)
-    out = []
+    out, held = [], {}
     for path in link_files(vault, roots):
-        for line, href, _ in extract_links(strip_code(read_text(path))):
+        for line, href, raw in extract_links(strip_code(read_text(path))):
             target = resolve_link(path, href)
+            row = {"file": rel_posix(vault, path), "line": line, "href": href,
+                   "resolved": rel_posix(vault, target)}
             if not link_target_exists(target):
-                out.append({"file": rel_posix(vault, path), "line": line, "href": href,
-                            "resolved": rel_posix(vault, target)})
+                out.append(row)
+            elif anchors and "#" in raw and target.suffix.lower() == ".md" and target.is_file():
+                if target not in held:
+                    held[target] = {anchor_of(m.group(2)) for m in
+                                    (HEADING_RE.match(t) for _, t in live_lines(read_lines(target))) if m}
+                wanted = unquote(raw.rstrip(">").split("#", 1)[1]).strip().lower()
+                if wanted and wanted not in held[target]:
+                    out.append(dict(row, anchor=wanted))
     return out
 
 
@@ -2220,7 +2238,10 @@ def move(vault, src, dst):
     plan["missed"] = [r for f, rows in by_file.items() for r in rewrite_links(vault / f, rows)]
     plan["mentions"] = []
     if dst_path.is_file() and src_path.name != dst_path.name:
-        names = (src_path.name, quote(src_path.name))
+        # A name many files share says nothing alone: it is matched with its folder.
+        name = src_path.name if src_path.name not in SHARED_NAMES \
+            else f"{src_path.parent.name}/{src_path.name}"
+        names = (name, quote(name))
         for path in link_files(vault, LINK_ROOTS + ("archive",)):
             plan["mentions"] += [{"file": rel_posix(vault, path), "line": n}
                                  for n, line in enumerate(read_lines(path), start=1)
@@ -2503,6 +2524,8 @@ def main(argv=None):
     kinds = links.add_subparsers(dest="kind", required=True)
     dangling = kinds.add_parser("dangling", help="links whose target does not exist")
     dangling.add_argument("--archive", action="store_true", help="scan archive/ too")
+    dangling.add_argument("--anchors", action="store_true",
+                          help="also report a link to a section its target does not hold")
     plan = sub.add_parser("move", aliases=["move-plan"],
                           help="the links moving a folder or file has to rewrite")
     plan.add_argument("src", help="the folder or file as it stands")
@@ -2614,7 +2637,7 @@ def main(argv=None):
     try:
         answer = (move if args.apply else move_plan)(root, args.src, args.dst) \
             if args.command in ("move", "move-plan") else dangling_links(
-                root, LINK_ROOTS + (("archive",) if args.archive else ()))
+                root, LINK_ROOTS + (("archive",) if args.archive else ()), args.anchors)
     except (ValueError, OSError) as err:
         ap.error(str(err))
     emit(answer, 2)

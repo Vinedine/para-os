@@ -536,6 +536,17 @@ class CoreCase(CloneCase):
             "Deals v2.": "addons/sales/CLAUDE.md.sections at 2026.10.01",
             "One checkbox per line.": "base/.claude/para-os/core.md"})
 
+    def test_wording_older_than_the_stamp_is_read_against_every_earlier_tag(self):
+        git_in(self.kit, "tag", "2026.09.01", "main~3")
+        self.addCleanup(git_in, self.kit, "tag", "-d", "2026.09.01")
+        vault = self.vault("old-wording", marker="2026.10.01")
+        write(vault, "CLAUDE.md", vault_md("2026.10.01") + "Deals v1." + chr(10))
+        own = self.scan(vault, clone=self.kit)[0]["own"]
+        self.assertEqual(own["repeats"], [])
+        write(vault, "CLAUDE.md", vault_md("2026.10.01", "**Modules:** sales" + chr(10)) + "Deals v1." + chr(10))
+        found = {r["text"]: (r["in"], r.get("retired")) for r in self.scan(vault, clone=self.kit)[0]["own"]["repeats"]}
+        self.assertEqual(found["Deals v1."], ("addons/sales/CLAUDE.md.sections at 2026.09.01", True))
+
     def test_the_own_file_is_counted_with_the_fixed_files_it_imports(self):
         vault = self.on_two_files("counted")
         own = self.report(vault)["own"]
