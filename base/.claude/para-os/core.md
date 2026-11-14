@@ -1,8 +1,9 @@
 # para-os core
 
-The fixed para-os rules, the same in every vault. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` holds only what is true of that vault, and **wins wherever the two differ**. The lines that open it (title, marker, `**Type:**`, `**Flavor:**`, `**Modules:**`) are machine-read: keep them through every upgrade.
+<!-- para-os-template: 2026.11.01 -->
+The fixed para-os rules, the same in every vault. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` holds only what is true of that vault, and **wins wherever the two differ**. The lines that open it (title, `**Type:**`, `**Flavor:**`, `**Modules:**`) are machine-read: keep them.
 
-**A rule is written once.** The vault's `CLAUDE.md` repeats nothing from this file, a rule file or a skill: it holds what the vault adds and where it departs. Check before adding a line there, and a rule that would read the same in two vaults belongs here.
+**A rule is written once.** The vault's `CLAUDE.md` repeats nothing from this file, a rule file or a skill: it holds what the vault adds and where it departs. Check before adding a line there.
 
 ## PARA layout
 
@@ -10,16 +11,16 @@ The sorting test: **committed and dated → project. Maintained, no end date →
 
 - **triage/** - the inbox `/para-triage` empties; nothing lives here, not even a `README.md`.
 - **projects/** - time-bound work with a committed deliverable and deadline. One folder each, holding a `brief.md`, an `actions.md` and, where needed, `sources/`. A rolling backlog with no deadline is an area.
-- **areas/** - ongoing responsibilities. `network/` = one file per contact. One folder per maintained asset, with its own `brief.md` + `actions.md`; assets that gate each other form **one** area.
+- **areas/** - ongoing responsibilities. One folder per maintained asset, with its own `brief.md` + `actions.md`; assets that gate each other form **one** area.
 - **resources/** - reusable reference. `prompts/` = reusable specs and drafts. `ideas/` = one folder per idea: a `brief.md` of open questions with at most one "revisit when X" trigger, and a `sources/` where documents back it. `scripts/` = persistent tools. No loose file at its root beyond its `README.md` index.
-- **archive/** - inactive artifacts, always in a subfolder. `meetings/` = records spanning several entities or owned by none. `projects/` and `ideas/` = finished projects and retired ideas.
+- **archive/** - inactive artifacts, always in a subfolder. `projects/` and `ideas/` = finished projects and retired ideas.
 
 Root `README.md` is the single source of truth for identity, operating model and track record. Its first four `##` headings are exactly `Identity`, `Operating model`, `Track record`, `Vision`, and it holds no work state (a checkbox, a due date, a status list).
 
 ### Lifecycle
 
 - `/para-new` creates every project, area, idea and contact.
-- An idea **promotes** to a project when someone waits on a dated deliverable, money or a formal engagement is committed, or a go/no-go is on the calendar; it gets its `actions.md` then. Something on a lifecycle the vault declares moves by that lifecycle's stages instead. Retiring an idea is the operator's call: never started goes to `archive/ideas/`, started and stopped to `archive/projects/`.
+- An idea **promotes** to a project when someone waits on a dated deliverable, money or a formal engagement is committed, or a go/no-go is on the calendar; it gets its `actions.md` then. Something on a declared lifecycle moves by its stages instead. Retiring an idea is the operator's call: never started goes to `archive/ideas/`, started and stopped to `archive/projects/`.
 - Scheduled multi-step work is not an idea: it is a project, or an area where the thing is maintained.
 - A big dated push on a maintained asset is a **project alongside its area**; surviving work returns to the area when it archives.
 - An entity **archives whole** via `/para-archive`, its open items routed first to the owning area, a successor project or a contact file. Where the vault's `CLAUDE.md` names an archive destination for a kind of entity, that kind goes there.
@@ -64,9 +65,9 @@ A mailbox or calendar read through a connector is read-only: surface and draft, 
 
 ## Who is working
 
-The operator is the person in the session. Where the vault's `CLAUDE.md` has a `## Who writes this vault` table, their row gives their role: the keeper decides for the vault, a member works in their own areas, the steward keeps the conventions. The table says who owns what; which row is in the session comes from the machine and the account, not from a file everyone shares.
+The operator is the person in the session. Where the vault's `CLAUDE.md` has a `## Who writes this vault` table, their row gives their role: the keeper decides for the vault, a member works in their own areas, the steward keeps the conventions. The table says who owns what; the operator's row is the one whose contact card `~/.paraos/operator.json` names.
 
-Two people saving one file at once is the one real failure of a shared vault, and it is silent: say so before editing a file someone else is working in. A vault several people sync holds no `.git` folder; its history is the sync service's version history plus the vault's mirror.
+Two people saving one file at once is the one real failure of a shared vault, and it is silent: say so before editing a file in someone else's area. A vault several people sync holds no `.git` folder; its history is the sync service's version history plus the vault's mirror.
 
 ## Language
 
