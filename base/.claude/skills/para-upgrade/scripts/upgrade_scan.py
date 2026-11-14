@@ -12,17 +12,18 @@ untouched row's `own` lines, whole or not at all and creating its folder; where 
 cannot be read it changes nothing and exits 4.
 
 clone     `path`, `ref`, `commit` (the ref's commit, which a re-copy reads), `error` on exit 4-6.
-revision  The vault's template marker (`vault`) against the master's (`master`): `verdict`
-          equal, behind, ahead or no-marker. `entries`: each changelog revision after the
-          vault's, up to the master's, with its `- ` lines as `reactions`, the lead dropped.
-          `baseline`: the ref's commit where its template still carries the vault's marker, else
-          the marker's release tag, else the commit that added it; null where none.
+revision  The vault's revision (`vault`: the stamp of its core file, else of a `CLAUDE.md` not
+          yet on two files) against the master's (`master`): `verdict` equal, behind, ahead or
+          no-marker. `entries`: each changelog revision after the vault's, up to the master's,
+          with its `- ` lines as `reactions`, the lead dropped.
 files     Every vault file the kit owns that is not `current`: `path` (vault-relative,
           absolute outside the vault), `kind`, `master` (its path in the clone), `state`.
           kind   skill: a base or declared add-on skill in every home holding its SKILL.md and
                  beside its other kit skills, missing there even where the other home holds it
                  (the vault's bundled ones first; para-shared wherever one runs), a multi-vault
-                 skill where installed. rule, settings. integration: a file with a
+                 skill where installed. rule, settings. core: a fixed file under
+                 `.claude/para-os/`, base's and each declared add-on's, copied whole and never
+                 holding a line of the vault's own. integration: a file with a
                  `para-os-integration:` marker, or one at resources/scripts/[<name>/]<file> where
                  the ref ships a marked master of that name, under integrations/<name>/ or a
                  declared add-on's pipeline/. Null on any other retired file.
@@ -37,29 +38,14 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
                  file a changelog `Retired:` line names that the kit no longer ships, `master`
                  null.
           Bytes are compared as git blob ids, line endings and a byte-order mark normalised.
-contract  What CLAUDE.md takes from base/CLAUDE.md.template and each declared add-on's
-          CLAUDE.md.sections: one row per section (`file`, `heading`, "" above the first,
-          `state`, and a unified `diff`), the marker line left out.
-          state  changed: a `## ` section that changed from `baseline` to the ref, `diff` the
-                 change. With no baseline every section is new.
-                 drift: a `##` or `###` section of the kit at `baseline`, still in the ref, that
-                 the vault's section of that heading holds neither as at `baseline` nor as at
-                 the ref; `diff` from the kit at `baseline`, each line the vault holds shown as
-                 it wrote it, to the vault's. missing: one whose heading the vault lacks; `diff`
-                 to the vault's own section closest to it, else to nothing. None with no
-                 baseline. A vault section holding a `<!-- para-os-kept: <revision> -->`
-                 line is no drift while the kit's lines of it at that revision are those at
-                 the ref: the operator kept their own wording, and a change to the kit's
-                 brings the row back.
-          A vault heading holds the kit heading it equals, and a vault's `<noun> lifecycle`
-          that no kit file holds stands for a kit `<noun> lifecycle` it lacks, the noun being
-          the vault's to name as paraos_vault.lifecycles reads it; of several, the closest in
-          words. A drift row on a heading held that way names the vault's in `vault_heading`.
-          A vault line holds a kit line it equals, with each `{{...}}` matching any text, and a
-          table row holds one with the same first cell. The vault's own added lines, a kit line
-          that is only a placeholder or says "delete this line", and a heading no kit file
-          holds are the vault's, never drift; blank lines, trailing spaces and a heading's case
-          are ignored.
+own       The vault's own `CLAUDE.md`, which no upgrade edits. `repeats`: each line of it
+          (`line`, `text`) that a kit file holds word for word (`in`): the core, a declared
+          add-on's fixed file or a kit rule file at the ref, and, while the vault's `CLAUDE.md`
+          still carries a stamp, the template and add-on sections of that revision's tag. A
+          heading, a table's header row and a line with a placeholder are never one, and a
+          table's rows only where every row of it repeats. `lines` and `words` count the file;
+          `kit_words` the fixed files it imports, and `start_words` both, which is what a
+          session loads at its start.
 snapshot  {path: digest} of CLAUDE.md and every row, for `paraos_vault.py changed`.
 
 `Retired:` opens a line of a changelog entry and lists backticked vault-relative paths or
@@ -88,15 +74,14 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        CELL_MARKS_RE, H2_RE, HEADING_RE, INTEGRATION_MARKER_RE, REVISION_PATTERN,
-        TEMPLATE_MARKER_RE, declarations,
-        emit, fence_step, find_clone, git, git_bytes, integration_markers, is_separator_row,
-        normalised, paraos_home_dir, read_text, snapshot, split_lines, table_cells, template_marker,
-        utf8_stdout, vault_root,
+        INTEGRATION_MARKER_RE, declarations, emit, find_clone, git, git_bytes,
+        integration_markers, is_separator_row, kit_files, live_lines, normalised,
+        paraos_home_dir, read_lines, read_text, snapshot, split_lines, table_cells,
+        template_marker, utf8_stdout, vault_marker, vault_root,
     )
     from paraos_clone import (  # noqa: E402
         BASE_TEMPLATE, addon_root, changelog_entries, clone_read, clone_ref, clone_session,
-        entries_between,
+        entries_between, master_template,
     )
 except ImportError as missing:  # para-shared/scripts.md: the skill stops
     print(f"upgrade_scan: {missing}. Install para-shared beside this skill: "
@@ -109,11 +94,8 @@ DIFF_CAP = 200
 REACTION_RE = re.compile(r"^- (.+?)[ \t]*$", re.M)
 RETIRED_RE = re.compile(r"^Retired:(.*)$", re.M)
 BACKTICK_RE = re.compile(r"`([^`]+)`")
-PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}")
-LONE_PLACEHOLDER_RE = re.compile(r"^(?:[-*+]|\d+\.)?\s*\{\{.*\}\}\W*$")
-KEPT_RE = re.compile(r"<!--\s*para-os-kept:\s*(" + REVISION_PATTERN + r")\s*-->")
-NEAR_RATIO = 0.5   # a vault section this close in words to a missing kit one is its likely home
-LIFECYCLE = " lifecycle"
+WORDS_RE = re.compile(r"[^\W\d_]{2}")
+KIT_FIXED = "para-os"   # the folder of fixed files, in base/.claude/, an add-on and a vault's .claude/
 
 
 class Kit:
@@ -159,244 +141,89 @@ def open_clone(clone, ref_arg):
         return block, 5 if ref_arg is None else 4, None
     kit = Kit(clone, resolved["commit"])
     block["commit"] = kit.commit
-    template = kit.text(BASE_TEMPLATE)
-    if template is None or kit.text("CHANGELOG.md") is None:
-        block["error"] = f"not a para-os clone: {ref} holds no CHANGELOG.md and template"
+    stamp = master_template(clone, kit.commit)
+    if stamp["source"] is None or kit.text("CHANGELOG.md") is None:
+        block["error"] = f"not a para-os clone: {ref} holds no CHANGELOG.md and core"
         return block, 4, None
-    kit.master = template_marker(template)
+    kit.master = stamp["marker"]
     if kit.master is None:
-        block["error"] = f"{ref}:{BASE_TEMPLATE} carries no para-os-template marker"
+        block["error"] = f"{ref}:{stamp['path']} carries no para-os-template marker"
         return block, 4, None
     return block, 0, kit
 
 
-# ================================================================== revision and contract
+# ======================================================= the revision and the vault's own file
 
 def kit_entries(kit):
     return entries_between(changelog_entries(kit.text("CHANGELOG.md")), None, kit.master)
 
 
 def revision_block(vault, kit):
-    text = read_text(Path(vault) / "CLAUDE.md")
-    mine, raw = template_marker(text), template_marker(text, raw=True)
+    mine = vault_marker(vault)
     verdict = "no-marker" if mine is None else "equal" if mine == kit.master else \
         "ahead" if mine > kit.master else "behind"
     collected = [e for e in kit_entries(kit) if mine is None or e["revision"] > mine]
     return {"vault": mine, "master": kit.master, "verdict": verdict,
-            "baseline": baseline(kit, raw, mine),
             "entries": [{"revision": e["revision"], "reactions": REACTION_RE.findall(e["body"])}
                         for e in collected]}
 
 
-def baseline(kit, raw, mine):
-    if mine == kit.master:
-        return kit.commit
-    return revision_commit(kit, raw) if raw else None
+def rule_line(line):
+    """Whether a stripped line can repeat a rule: words, and no heading, import, comment,
+    placeholder or table separator."""
+    return bool(WORDS_RE.search(line)) and not line.startswith(("#", "@", "<!--")) \
+        and "{{" not in line and not (line.startswith("|") and is_separator_row(table_cells(line)))
 
 
-def revision_commit(kit, raw):
-    """The commit along the ref that stands for template revision `raw`: its release tag,
-    else the commit that added its marker; None where the ref never carried it."""
-    hits = (git(kit.clone, ["log", kit.commit, "--format=%H",
-                            f"-S<!-- para-os-template: {raw} -->", "--", BASE_TEMPLATE]) or "").split()
-    tag = git(kit.clone, ["rev-parse", "-q", "--verify", f"refs/tags/{raw}^{{commit}}"])
-    return (tag or hits[-1]).strip() if hits else None
-
-
-def sections(text):
-    """{heading: [line, ...]} for each `## ` section, "" for the lines above the first, the
-    marker line left out and trailing blank lines dropped."""
-    out, heading = {"": []}, ""
-    for line in text.splitlines(True):
-        if TEMPLATE_MARKER_RE.search(line):
-            continue
-        m = H2_RE.match(line.rstrip("\n"))
-        if m:
-            heading = m.group(1).strip()
-            out[heading] = []
-        out[heading].append(line if line.endswith("\n") else line + "\n")
-    for lines in out.values():
-        while lines and not lines[-1].strip():
-            lines.pop()
+def kit_lines(kit, decl, stamped):
+    """{line: the kit file holding it} over the fixed files and rule files of base and each
+    declared add-on at the ref, then the template and add-on sections at the tag of revision
+    `stamped`, the one a `CLAUDE.md` not yet on two files still carries."""
+    roots = [r for r in (addon_root(kit.clone, kit.commit, n) for n in addon_names(decl)) if r]
+    prefixes = [f"base/.claude/{KIT_FIXED}/", "base/.claude/rules/"] + \
+        [f"{r}/{folder}/" for r in roots for folder in (KIT_FIXED, ".claude/rules")]
+    texts = [(p, kit.text(p)) for prefix in prefixes for p in sorted(kit.tree)
+             if p.startswith(prefix)]
+    old = stamped and git(kit.clone, ["rev-parse", "-q", "--verify",
+                                      f"refs/tags/{stamped}^{{commit}}"])
+    if old:
+        old = old.strip()
+        then = [BASE_TEMPLATE] + [f"{r}/{SECTIONS}" for r in
+                                  (addon_root(kit.clone, old, n) for n in addon_names(decl)) if r]
+        texts += [(f"{p} at {stamped}", kit.text(p, old)) for p in then]
+    out = {}
+    for path, text in texts:
+        for line in split_lines(text or ""):
+            if rule_line(line.strip()):
+                out.setdefault(line.strip(), path)
     return out
 
 
-def contract_block(kit, base, decl):
-    rows = []
-    for name in [None] + addon_names(decl):
-        new_path, old_path = (sections_path(kit, c, name) for c in (kit.commit, base))
-        new = kit.text(new_path) if new_path else None
-        if new is None:
+def own_block(vault, kit, decl):
+    lines = read_lines(vault / "CLAUDE.md")
+    held = kit_lines(kit, decl, template_marker("\n".join(lines), raw=True))
+    repeats, table = [], []
+
+    def close():
+        rows = [r for r in table[1:] if not is_separator_row(table_cells(r[1]))]
+        if rows and all(text in held for _, text in rows):
+            repeats.extend(rows)
+        del table[:]
+
+    for n, raw in live_lines(lines):
+        text = raw.strip()
+        if text.startswith("|"):
+            table.append((n, text))
             continue
-        old, new = sections((kit.text(old_path, base) if old_path else None) or ""), sections(new)
-        for heading in list(new) + [h for h in old if h not in new]:
-            a, b = old.get(heading, []), new.get(heading, [])
-            if a != b:
-                rows.append(contract_row(new_path, heading, "changed", a, b))
-    return rows
-
-
-def contract_row(path, heading, state, a, b):
-    return {"file": path, "heading": heading, "state": state,
-            "diff": "".join(list(difflib.unified_diff(a, b))[2:])}
-
-
-def blocks(text, preamble=True):
-    """[(heading, heading line, [line, ...])] for each `##` or `###` section in order, "" for
-    the lines above the first (left out without `preamble`), a heading inside a fence not one;
-    blank lines and the marker line dropped, trailing whitespace stripped."""
-    out, fence = [("", None, [])], None
-    for line in split_lines(text or ""):
-        line = line.rstrip()
-        fence, marker = fence_step(fence, line)
-        m = None if fence or marker else HEADING_RE.match(line)
-        if m and len(m.group(1)) in (2, 3):
-            out.append((m.group(2), line, []))
-        elif line and not TEMPLATE_MARKER_RE.search(line):
-            out[-1][2].append(line)
-    return out if preamble else out[1:]
-
-
-def heading_key(heading):
-    return " ".join(heading.split()).casefold()
-
-
-def fill_pattern(text):
-    return re.compile(".*?".join(re.escape(p) for p in PLACEHOLDER_RE.split(text)), re.S)
-
-
-def first_cell(line):
-    return CELL_MARKS_RE.sub("", table_cells(line)[0]).strip().casefold()
-
-
-def matcher(line):
-    """(required, test) for one kit line: what a vault line must be to hold it. None for a
-    line that is only a placeholder, which is the vault's to write or drop."""
-    if line.lstrip().startswith("|"):
-        if is_separator_row(table_cells(line)):
-            return True, lambda v: v.lstrip().startswith("|") and is_separator_row(table_cells(v))
-        key = fill_pattern(first_cell(line))
-        return True, lambda v: v.lstrip().startswith("|") and \
-            not is_separator_row(table_cells(v)) and bool(key.fullmatch(first_cell(v)))
-    if LONE_PLACEHOLDER_RE.match(line.strip()):
-        return None
-    if PLACEHOLDER_RE.search(line):
-        fill = fill_pattern(line)
-        return "delete this line" not in line.lower(), lambda v: bool(fill.fullmatch(v))
-    return True, lambda v: v == line
-
-
-def held(kit, vault):
-    """{kit index: vault index} for the most kit lines the vault holds in order, and the
-    required kit lines it does not hold."""
-    tests = [matcher(line) for line in kit]
-    hit = [[bool(t) and t[1](v) for v in vault] for t in tests]
-    best = [[0] * (len(vault) + 1) for _ in range(len(kit) + 1)]
-    for i in range(len(kit) - 1, -1, -1):
-        for j in range(len(vault) - 1, -1, -1):
-            best[i][j] = best[i + 1][j + 1] + 1 if hit[i][j] else max(best[i + 1][j], best[i][j + 1])
-    pairs, i, j = {}, 0, 0
-    while i < len(kit) and j < len(vault):
-        if hit[i][j]:
-            pairs[i], i, j = j, i + 1, j + 1
-        elif best[i + 1][j] >= best[i][j + 1]:
-            i += 1
-        else:
-            j += 1
-    return pairs, [i for i, t in enumerate(tests) if t and t[0] and i not in pairs]
-
-
-def closest(lines, candidates, floor=NEAR_RATIO):
-    words = " ".join(lines).split()
-    ratio, i = max(((difflib.SequenceMatcher(None, words, " ".join(c[2]).split(),
-                                             autojunk=False).ratio(), -i)
-                    for i, c in enumerate(candidates)), default=(-1, 0))
-    return candidates[-i] if ratio >= floor else None
-
-
-def stands_for(key, theirs):
-    """Whether the vault heading `theirs`, one no kit file holds, stands for the kit heading
-    `key`: a lifecycle under the vault's own noun."""
-    return key.endswith(LIFECYCLE) and theirs.endswith(LIFECYCLE)
-
-
-def kit_blocks(kit, commit, decl):
-    """[(file, add-on name or None, block)] for base's template and each declared add-on's
-    sections at `commit`, an add-on's lead comment left out."""
-    out = []
-    for name in [None] + addon_names(decl):
-        path = sections_path(kit, commit, name)
-        text = kit.text(path, commit) if path else None
-        if text is not None:
-            out += [(path, name, b) for b in blocks(text, preamble=name is None)]
-    return out
-
-
-def drift_block(kit, base, decl, vault_text):
-    if base is None:
-        return []
-    then = kit_blocks(kit, base, decl)
-    now = {(name, heading_key(b[0])): b[2] for _, name, b in kit_blocks(kit, kit.commit, decl)}
-    mine = {}
-    for heading, line, lines in blocks(vault_text):
-        mine.setdefault(heading_key(heading), (heading, line, []))[2].extend(lines)
-    known = {heading_key(b[0]) for _, _, b in then}
-    own = {k: b for k, b in mine.items() if k not in known}
-    for _, name, (heading, _, lines) in then:
-        key = heading_key(heading)
-        named = [] if key in mine or (name, key) not in now else \
-            [b for k, b in own.items() if stands_for(key, k)]
-        if named:
-            mine[key] = closest(lines, named, 0)
-            del own[heading_key(mine[key][0])]
-    own = list(own.values())
-    at = {kit.master: now}
-
-    def kept(name, key, theirs):
-        for raw in (m.group(1) for m in map(KEPT_RE.fullmatch, theirs) if m):
-            if raw not in at:
-                commit = revision_commit(kit, raw)
-                at[raw] = {(n, heading_key(b[0])): b[2] for _, n, b in
-                           kit_blocks(kit, commit, decl)} if commit else {}
-            if at[raw].get((name, key)) == now[name, key]:
-                return True
-        return False
-
-    rows = []
-    for path, name, (heading, line, lines) in then:
-        key = heading_key(heading)
-        if (name, key) not in now:
-            continue
-        head = [line] if line else []
-        if key not in mine:
-            near = closest(lines, own)
-            rows.append(contract_row(path, heading, "missing", text_lines(head + lines),
-                                     text_lines(([near[1]] + near[2]) if near else [])))
-            continue
-        their_heading, their_line, theirs = mine[key]
-        pairs, lacking = held(lines, theirs)
-        if lacking and held(now[name, key], theirs)[1] and not kept(name, key, theirs):
-            shown_kit = [theirs[pairs[i]] if i in pairs else ln for i, ln in enumerate(lines)
-                         if i in pairs or i in lacking]
-            top = [their_line] if their_line else []
-            rows.append(contract_row(path, heading, "drift", text_lines(top + shown_kit),
-                                     text_lines(top + theirs)))
-            if heading_key(their_heading) != key:
-                rows[-1]["vault_heading"] = their_heading
-    return rows
-
-
-def text_lines(lines):
-    return [line + "\n" for line in lines]
-
-
-def sections_path(kit, commit, name):
-    if commit is None:
-        return None
-    if name is None:
-        return BASE_TEMPLATE
-    root = addon_root(kit.clone, commit, name)
-    return f"{root}/{SECTIONS}" if root else None
+        close()
+        if rule_line(text) and text in held:
+            repeats.append((n, text))
+    close()
+    words, kit_words = len(" ".join(lines).split()), \
+        sum(len(read_text(p).split()) for p in kit_files(vault))
+    return {"repeats": [{"line": n, "text": text, "in": held[text]} for n, text in sorted(repeats)],
+            "lines": len(lines), "words": words, "kit_words": kit_words,
+            "start_words": words + kit_words}
 
 
 def addon_names(decl):
@@ -437,6 +264,11 @@ def plan_files(vault, kit, decl, user_dir):
         for master in kit.tree:
             if master.startswith(prefix):
                 planned.setdefault(vault / ".claude" / "rules" / master[len(prefix):], ("rule", master))
+    for prefix in [f"base/.claude/{KIT_FIXED}/"] + [f"{r}/{KIT_FIXED}/" for r in roots]:
+        for master in kit.tree:
+            if master.startswith(prefix):
+                planned.setdefault(vault / ".claude" / KIT_FIXED / master[len(prefix):],
+                                   ("core", master))
     if "base/.claude/settings.json" in kit.tree:
         planned[vault / ".claude" / "settings.json"] = ("settings", "base/.claude/settings.json")
 
@@ -472,6 +304,8 @@ def state_of(path, kit, master):
         return "current"
     if ids & kit.shipped(master):
         return "untouched"
+    if whole(master):
+        return "edited"
     kit_bytes = clone_read(kit.clone, kit.commit, master)
     if master.endswith(".json"):
         try:
@@ -483,11 +317,16 @@ def state_of(path, kit, master):
     return "current" if all(op[0] in ("equal", "insert") for op in ops) else "edited"
 
 
+def whole(master):
+    """Whether a master is a fixed file: copied whole, never holding a line of the vault's."""
+    return f"/{KIT_FIXED}/" in f"/{master}"
+
+
 def with_own_lines(data, kit, master):
     """Where `data` is a text the kit shipped at `master` plus inserted lines only: (the ref's
     text with those lines placed between the neighbours they had, or None where the ref
     changed a neighbour, [the inserted lines]). None otherwise."""
-    if master.endswith(".json"):
+    if master.endswith(".json") or whole(master):
         return None
     copy, best = lines_of(data), None
     for blob in kit.shipped(master) - {kit.tree[master]}:
@@ -606,9 +445,7 @@ def build_report(vault, clone, ref, user_dir, default_clone=None):
     decl = declarations(vault)
     report["revision"] = revision_block(vault, kit)
     report["files"] = [r for r in files_block(vault, kit, decl, user_dir) if r["state"] != "current"]
-    base = report["revision"]["baseline"]
-    report["contract"] = contract_block(kit, base, decl) + \
-        drift_block(kit, base, decl, read_text(vault / "CLAUDE.md"))
+    report["own"] = own_block(vault, kit, decl)
     report["snapshot"] = snapshot([str(vault / "CLAUDE.md")] +
                                   [str(vault / r["path"]) for r in report["files"]])
     return report, 0

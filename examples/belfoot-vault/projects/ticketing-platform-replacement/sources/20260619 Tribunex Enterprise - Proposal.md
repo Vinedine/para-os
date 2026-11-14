@@ -2,7 +2,7 @@
 
 **Vendor:** Tribunex Enterprise
 **Submitted:** 2026-06-19 (one day before the deadline)
-**In response to:** `20260515 BelFoot Ticketing RFP.md`
+**In response to:** `20260515 BelFoot - Ticketing RFP.md`
 
 ## Summary
 

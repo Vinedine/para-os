@@ -15,7 +15,7 @@ Git tells you what changed in a vault. This tells you what someone **asked for**
 
 ## What it adds
 
-1. **A `CLAUDE.md` section** ([`CLAUDE.md.sections`](CLAUDE.md.sections)): `## Activity ledger`, stating that the vault records its use, where the ledger lives, and that it is pruned only through the skill.
+1. **A fixed file** ([`para-os/activity.md`](para-os/activity.md)): `## Activity ledger`, stating that the vault records its use, where the ledger lives, and that it is pruned only through the skill.
 2. **The ledger script** ([`pipeline/activity.py`](pipeline/activity.py)), copied into the vault's `resources/scripts/`. Its `para-os-integration: activity` marker puts it in `/para-upgrade`'s drift check like any integration.
 3. **The skill** ([`.claude/skills/para-activity-review/`](.claude/skills/para-activity-review/SKILL.md)), installed beside the base skills. It reads `para-shared/`.
 
@@ -35,7 +35,7 @@ It earns nothing on a vault nobody else touches and nobody is improving. Skip it
 
 ## Setup
 
-1. Add `**Modules:** activity` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one, and merge in `CLAUDE.md.sections`. Copy `.claude/skills/para-activity-review/` beside the base skills, and `pipeline/activity.py` into the vault at `resources/scripts/`. The vault root is derived from the script's own path, so there is nothing to configure and no machine-specific path in a file that syncs.
+1. Add `**Modules:** activity` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one. Copy `para-os/activity.md` to the vault's `.claude/para-os/` and add `@.claude/para-os/activity.md` under the core's import line. Copy `.claude/skills/para-activity-review/` beside the base skills, and `pipeline/activity.py` into the vault at `resources/scripts/`. The vault root is derived from the script's own path, so there is nothing to configure and no machine-specific path in a file that syncs.
 
 2. Wire the hooks in the vault's `.claude/settings.json`. Every command is anchored to `$CLAUDE_PROJECT_DIR`, the vault root, and the quotes around it are not optional - a vault path usually contains spaces:
 

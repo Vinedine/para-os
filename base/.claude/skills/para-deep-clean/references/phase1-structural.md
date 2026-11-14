@@ -27,7 +27,7 @@ Every finding below is a field of the `--phase 1` scan except four the agent jud
 
 ## Step 1.2b - Filing hygiene
 
-Against the vault's **Archive hygiene** rule and its checkbox table:
+Against the checkbox table:
 
 - **Loose files at the archive root** (`archive.loose_root_files`): move, or delete if thin and superseded.
 - **Undated names in `archive/meetings/`** (`archive.meetings_naming`).

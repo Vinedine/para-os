@@ -8,13 +8,13 @@ It sits beside any [flavor](../real-estate/), including none. A property develop
 
 ## What it adds
 
-1. **`CLAUDE.md` sections** ([`CLAUDE.md.sections`](CLAUDE.md.sections)): `## Deal lifecycle` (the seven stages and their homes, rows before folders, what promotes and moves back, Nurture and Lost, the weekly review, and the contact card's `**Kind:**` line) and an `## Entity structures` pointer. They are added beside the sections of base or a flavor, and never replace one.
+1. **A fixed file** ([`para-os/sales.md`](para-os/sales.md)): `## Deal lifecycle` (the seven stages and their homes, rows before folders, what promotes and moves back, Nurture and Lost, the weekly review, and the contact card's `**Kind:**` line) and an `## Entity structures` pointer. The vault imports it beside the core and never edits it.
 2. **A rule file** ([`.claude/rules/deal-brief.md`](.claude/rules/deal-brief.md)): the eight header lines of a deal brief, the lost-reason list, the rule that keeps the next step out of the header, how a proposal is priced and what stays out of it, and the columns of the lead register.
 3. **No skill, no skeleton files.** `/para-pipeline` renders the board from the declared lifecycle, and the register is one file the vault creates the first time it has a lead.
 
 ## What the vault supplies
 
-- **The register's path**, as the `{{areas/business/leads.md}}` placeholder in the lifecycle table. A vault with a sales area names `areas/sales/leads.md` instead; a one-operator business uses its business area.
+- **The register's path**, where it is not `areas/business/leads.md`: a vault with a sales area writes the stage table in its own `CLAUDE.md` under the same heading, naming `areas/sales/leads.md`, and that table replaces the module's.
 - **The target profile** the Qualified stage tests against, in the root `README.md`. The module names the test; what a good customer looks like is the vault's own answer.
 - **Its own stage names**, where the sales conversation already has them, and the value basis it quotes in (a cap, a range, a day rate).
 
@@ -22,7 +22,7 @@ It sits beside any [flavor](../real-estate/), including none. A property develop
 
 A new vault for a business gets the module from the bootstrap, which offers it and runs these steps itself. An existing vault adopts it with `/para-upgrade --add sales`, which runs them:
 
-1. Add `**Modules:** sales` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one, and merge in `CLAUDE.md.sections`. Replace the register placeholder with the real path.
+1. Add `**Modules:** sales` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one. Copy `para-os/sales.md` to the vault's `.claude/para-os/` and add `@.claude/para-os/sales.md` under the core's import line.
 2. Copy `.claude/rules/deal-brief.md` into the vault's `.claude/rules/`. Where the vault has a `brief-structure.md`, add a line to it: `deal-brief.md` takes over briefs whose Stage line names a deal stage.
 3. Create the register at the path you named, with its `## Open` and `## Closed` headings, and add the weekly review to the business area's actions file under `## Recurring`.
 4. Give every deal already in the vault, live or archived, the Stage line and header `deal-brief.md` declares: without a Stage line it never reaches the board.

@@ -709,12 +709,12 @@ def require_vault():
     """Refuse to run outside a vault. This copy resolves the vault from its own path, so run
     in place from the integrations folder that guess lands on the para-os repo, and the script
     would read a mailbox on behalf of a 'vault' that is really a source tree."""
-    claude_md = VAULT_ROOT / "CLAUDE.md"
-    marked = claude_md.exists() and "para-os-template:" in claude_md.read_text(
-        encoding="utf-8", errors="ignore")
+    stamped = (VAULT_ROOT / ".claude" / "para-os" / "core.md", VAULT_ROOT / "CLAUDE.md")
+    marked = any(f.exists() and "para-os-template:" in f.read_text(
+        encoding="utf-8", errors="ignore") for f in stamped)
     if not marked and not (VAULT_ROOT / "triage").is_dir():
-        sys.exit(f"{VAULT_ROOT} does not look like a vault (its CLAUDE.md carries no "
-                 f"para-os-template marker and there is no triage/). Copy this script to "
+        sys.exit(f"{VAULT_ROOT} does not look like a vault (neither its core nor its CLAUDE.md "
+                 f"carries a para-os-template marker and there is no triage/). Copy this script to "
                  f"<vault>/resources/scripts/ and run it from there.")
 
 

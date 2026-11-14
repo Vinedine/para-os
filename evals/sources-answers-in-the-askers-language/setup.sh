@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # A vault whose declared language is Dutch, with Dutch content, asked a question in English.
-# The Language paragraph is base/CLAUDE.md.template's word for word, its placeholder filled:
+# The Language paragraph is the core's word for word, and the line under it the vault's own:
 # a change to that paragraph changes this copy in the same commit.
 set -e
 day() { date -d "$1 days" "+$2" 2>/dev/null || { case $1 in -*) s=$1;; *) s=+$1;; esac; date -v"${s}"d "+$2"; }; }
@@ -12,7 +12,9 @@ cat > CLAUDE.md <<'EOF'
 
 ## Language
 
-Folders and structural files in English; content in its source's language, untranslated unless asked. The operator's language is Dutch, the default; answer a request in the language it is written in, whatever the source's language, quoting the original only where the exact wording matters.
+Folders and structural files in English; content in its source's language, untranslated unless asked. The operator's language is English unless the vault's `CLAUDE.md` names another, and is the default; answer a request in the language it is written in, whatever the source's language, quoting the original only where the exact wording matters.
+
+The operator's language is Dutch.
 EOF
 
 cat > README.md <<'EOF'

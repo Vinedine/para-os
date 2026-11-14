@@ -25,8 +25,8 @@ A vault is one folder tree per life context: a client engagement, a business, fa
 
 ```
 your-vault/
-├── CLAUDE.md      # the contract: local conventions, read by the agent at runtime
-├── README.md      # master document; derived outputs regenerate from it
+├── CLAUDE.md      # what is true of this vault only; it imports the fixed rules in .claude/para-os/core.md
+├── README.md      # master document: identity, operating model, track record, vision
 ├── triage/        # capture inbox; /para-triage empties it
 ├── projects/      # time-bound work; one folder per project: brief.md + actions.md + sources/
 ├── areas/         # ongoing responsibilities; contacts in areas/network/, one file per person

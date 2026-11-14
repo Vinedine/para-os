@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A real-estate vault for the property-* cases: the flavor's CLAUDE.md sections, its rule
+# A real-estate vault for the property-* cases: the flavor's fixed file, its rule
 # files and skeleton as this checkout has them (through kit/), a filled-in source register
 # and an analyst persona. Each case writes its own dossier. Dates are written relative to
 # the day of the run, same rule as vault.sh.
@@ -14,7 +14,7 @@
 # turns them into a bid zone and a walk-away.
 set -e
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/kit"
-if [ ! -f "$KIT/real-estate/CLAUDE.md.sections" ] || [ ! -f "$KIT/base/.claude/rules/filing.md" ]; then
+if [ ! -f "$KIT/real-estate/para-os/real-estate.md" ] || [ ! -f "$KIT/base/.claude/rules/filing.md" ]; then
   echo "evals/_fixture/kit holds no kit: this checkout has symlinks off." >&2
   echo "Enable git's core.symlinks and check out again, or run the case under WSL2." >&2
   exit 1
@@ -23,7 +23,7 @@ day() { date -d "$1 days" "+$2" 2>/dev/null || { case $1 in -*) s=$1;; *) s=+$1;
 
 {
   printf '# Harrow Lane Property Vault Conventions\n\n**Type:** vault\n**Flavor:** real-estate\n'
-  sed '/^<!--/,/-->$/d' "$KIT/real-estate/CLAUDE.md.sections" | grep -v '{{'
+  sed '1,4d' "$KIT/real-estate/para-os/real-estate.md"
 } > CLAUDE.md
 
 cat > README.md <<'EOF'

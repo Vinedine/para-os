@@ -30,7 +30,7 @@ Where git is not installed, download `https://github.com/Vinedine/para-os/archiv
 
 ## 3. Copy the skeleton in
 
-Copy everything inside the kit's `base/` folder into the vault root, **hidden items included**: the `.claude` folder (the `/para-*` skills, the rule files and the settings) and the `.gitignore` file. Leave out any `__pycache__` and `.pytest_cache` folders. Check that `.claude/skills/para-daily-brief/SKILL.md`, `.gitignore` and `bootstrap-prompt.md` arrived.
+Copy everything inside the kit's `base/` folder into the vault root, **hidden items included**: the `.claude` folder (the fixed core, the `/para-*` skills, the rule files and the settings) and the `.gitignore` file. Leave out any `__pycache__` and `.pytest_cache` folders. Check that `.claude/skills/para-daily-brief/SKILL.md`, `.gitignore` and `bootstrap-prompt.md` arrived.
 
 Copy `base/` alone. Nothing else in the repository is vault content: an add-on is adopted later, by name, when the vault needs one, and the example vault is there to be read, not copied.
 
@@ -50,4 +50,4 @@ Pull the kit (`git -C ~/.paraos/para-os pull`, after the one-time switch to `sta
 
 ## Uninstalling
 
-Delete the vault's `.claude/skills/para-*` folders and the rule files para-os put in `.claude/rules/` (`filing.md`, `figures.md`, `working-preferences.md` (copy its preferences out first if you want to keep them), and any an add-on added), and optionally `~/.paraos/`, which also holds every integration's state. The vault stays ordinary Markdown files.
+Delete the vault's `.claude/para-os/` folder with the lines of `CLAUDE.md` that import it, its `.claude/skills/para-*` folders and the rule files para-os put in `.claude/rules/` (`filing.md`, `figures.md`, `writing-actions.md`, `working-preferences.md` (copy its preferences out first if you want to keep them), and any an add-on added), and optionally `~/.paraos/`, which also holds every integration's state. The vault stays ordinary Markdown files.

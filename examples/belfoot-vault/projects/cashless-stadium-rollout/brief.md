@@ -39,7 +39,7 @@ Out:
 
 ## Vendor
 
-NovaPay (Antwerp). Contract signed 2026-04-18. SOW on file at `sources/20260418 NovaPay Statement of Work.md`.
+NovaPay (Antwerp). Contract signed 2026-04-18. SOW on file at `sources/20260418 NovaPay - Statement of Work.md`.
 
 ## Risks (live)
 

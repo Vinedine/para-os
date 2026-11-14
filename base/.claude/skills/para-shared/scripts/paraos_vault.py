@@ -1281,10 +1281,31 @@ def amount_of(text, loc):
             "currency": own if mark is None or mark in own_marks else mark}
 
 
+KIT_IMPORT_RE = re.compile(r"^@(\.claude/para-os/[\w.-]+\.md)\s*$")
+
+
+def kit_files(vault):
+    """The kit's fixed files a vault's CLAUDE.md imports (`@.claude/para-os/<name>.md`), in
+    its order. They hold the defaults; the vault's own file wins over them."""
+    vault = Path(vault)
+    found = (KIT_IMPORT_RE.match(text.strip())
+             for _, text in live_lines(read_lines(vault / "CLAUDE.md")))
+    return [vault / m.group(1) for m in found if m and (vault / m.group(1)).is_file()]
+
+
 def lifecycles(vault):
-    """Every lifecycle a vault's CLAUDE.md declares: the heading, the entity noun, and the
-    stages in table order with the PARA home each one lives in."""
-    lines = list(live_lines(read_lines(Path(vault) / "CLAUDE.md")))
+    """Every lifecycle a vault declares: the heading, the entity noun, and the stages in
+    table order with the PARA home each one lives in. A kit file the vault imports gives a
+    module's default table, which the vault's own table under the same heading replaces."""
+    own = declared_lifecycles(Path(vault) / "CLAUDE.md")
+    named = {lc["heading"].lower() for lc in own}
+    return [lc for path in kit_files(vault) for lc in declared_lifecycles(path)
+            if lc["heading"].lower() not in named] + own
+
+
+def declared_lifecycles(path):
+    """The lifecycles one file declares."""
+    lines = list(live_lines(read_lines(path)))
     out = []
     for i, (_, text) in enumerate(lines):
         m = HEADING_RE.match(text)
@@ -1535,12 +1556,21 @@ def checkbox_rows(text):
     return rows
 
 
+def vault_checkbox_rows(vault):
+    """The vault's checkbox table over the default one of a kit file it imports: a row the
+    vault writes replaces the default row of the same bucket."""
+    rows = {}
+    for path in kit_files(vault) + [Path(vault) / "CLAUDE.md"]:
+        rows.update(checkbox_rows(read_text(path)))
+    return rows
+
+
 def contact_card_level(vault):
     """What a contact card may hold: `yes`, `relationship only` or `never`, from the
     `areas/network/` row of the vault's checkbox table. With no row, a `## Who writes this
     vault` roster implies `never` and anything else is `yes`."""
     text = read_text(Path(vault) / "CLAUDE.md")
-    rows = checkbox_rows(text)
+    rows = vault_checkbox_rows(vault)
     cells = rows.get("areas/network/") or rows.get("areas/network")
     if cells:
         return next((lv for lv in ("never", "relationship only") if cells[0].startswith(lv)), "yes")
@@ -1555,8 +1585,7 @@ def _frozen(lines, first):
 
 def never_folders(vault):
     """Every folder the vault's checkbox table declares at `never`, without its slash."""
-    return [k.strip("/") for k, cells in
-            checkbox_rows(read_text(Path(vault) / "CLAUDE.md")).items()
+    return [k.strip("/") for k, cells in vault_checkbox_rows(vault).items()
             if cells[0].startswith("never") and "," not in k and k.endswith("/")]
 
 
@@ -2397,6 +2426,19 @@ def template_marker(text, raw=False):
     if not m:
         return None
     return m.group(1) if raw else LEGACY_REVISIONS.get(m.group(1), m.group(1))
+
+
+KIT_FOLDER = ".claude/para-os"
+
+
+def vault_marker(vault, raw=False):
+    """The revision a vault stands at: the stamp its core file carries, else, in a vault not
+    yet on two files, the one in its `CLAUDE.md`."""
+    for name in (KIT_FOLDER + "/core.md", "CLAUDE.md"):
+        mark = template_marker(read_text(Path(vault) / name), raw)
+        if mark:
+            return mark
+    return None
 
 
 def integration_markers(vault):

@@ -40,6 +40,7 @@ from paraos_vault import (
     triage_sources, unticked_tasks, vault_root, waiting_on, weekday_after, weekday_index,
     working_days, writer, year_end_of,
 )
+from paraos_vault import kit_files, never_folders, vault_checkbox_rows  # noqa: E402
 from paraos_clone import changelog_entries, entries_between  # noqa: E402
 
 SCRIPT = SCRIPTS / "paraos_vault.py"
@@ -1151,6 +1152,68 @@ class Lifecycles(VaultCase):
             "| Lead | `areas/business/leads.md` (row) |", "",
         ]) + "\n")
         self.assertEqual(lifecycles(self.root), [])
+
+
+KIT_CORE = "\n".join([
+    "# para-os core", "", "### Where a checkbox may live", "",
+    "| Bucket | `actions.md` | State |", "|---|---|---|",
+    "| `projects/`, `areas/` | yes | open + closed |",
+    "| `areas/network/` | yes | any action about the person |",
+    "| `resources/` | **never** | a checkbox here is a filing error |", ""])
+KIT_SALES = DEAL_LIFECYCLE.replace("# Orchard Vault", "# para-os sales module")
+KIT_IMPORTS = ["@.claude/para-os/core.md", "@.claude/para-os/sales.md"]
+CHECKBOX_HEAD = ["### Where a checkbox may live", "",
+                 "| Bucket | `actions.md` | State |", "|---|---|---|"]
+
+
+class KitDefaults(VaultCase):
+
+    def vault(self, *own):
+        write(self.root, ".claude/para-os/core.md", KIT_CORE)
+        write(self.root, ".claude/para-os/sales.md", KIT_SALES)
+        write(self.root, "CLAUDE.md", "\n".join(["# V", "", *KIT_IMPORTS, "", *own, ""]))
+
+    def test_imported_kit_files_come_back_in_order_and_a_missing_one_is_skipped(self):
+        self.vault()
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# V", "", "@.claude/para-os/gone.md", *KIT_IMPORTS,
+            "```", "@.claude/para-os/core.md", "```", ""]))
+        self.assertEqual([p.name for p in kit_files(self.root)], ["core.md", "sales.md"])
+
+    def test_a_vault_that_imports_nothing_reads_as_before(self):
+        write(self.root, ".claude/para-os/sales.md", KIT_SALES)
+        write(self.root, "CLAUDE.md", "# V\n")
+        self.assertEqual(kit_files(self.root), [])
+        self.assertEqual(lifecycles(self.root), [])
+        self.assertEqual(vault_checkbox_rows(self.root), {})
+
+    def test_a_module_default_lifecycle_applies_and_comes_before_the_vault_own(self):
+        self.vault("## Deal lifecycle", "", "- A rule this vault adds.", "",
+                   "## Partner lifecycle", "", "| Stage | PARA home |", "|---|---|",
+                   "| Talks | `areas/business/partners.md` (row) |")
+        got = lifecycles(self.root)
+        self.assertEqual([lc["heading"] for lc in got], ["Deal lifecycle", "Partner lifecycle"])
+        self.assertEqual(len(got[0]["stages"]), 4)
+
+    def test_the_vault_own_table_under_the_same_heading_replaces_the_default(self):
+        self.vault("## Deal lifecycle", "", "| Stage | PARA home |", "|---|---|",
+                   "| Booked | `projects/<client>/` |")
+        got = lifecycles(self.root)
+        self.assertEqual(len(got), 1)
+        self.assertEqual([s["name"] for s in got[0]["stages"]], ["Booked"])
+
+    def test_a_vault_row_replaces_the_default_row_of_its_bucket_and_the_rest_hold(self):
+        self.vault(*CHECKBOX_HEAD,
+                   "| `areas/network/` | **never** | cards hold no checkbox |",
+                   "| `areas/tracker/` | **never** | tracked elsewhere |")
+        self.assertEqual(contact_card_level(self.root), "never")
+        self.assertEqual(never_folders(self.root),
+                         ["areas/network", "resources", "areas/tracker"])
+
+    def test_with_no_table_of_its_own_the_vault_takes_the_default_rows(self):
+        self.vault()
+        self.assertEqual(contact_card_level(self.root), "yes")
+        self.assertEqual(never_folders(self.root), ["resources"])
 
 
 class StageOf(VaultCase):

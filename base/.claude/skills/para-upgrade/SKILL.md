@@ -1,6 +1,6 @@
 ---
 name: para-upgrade
-description: Bring a vault in line with a newer para-os template revision - compares every file the kit owns with a para-os clone at an explicit ref and re-copies on approval, takes the operator through the template's change to CLAUDE.md and its drift, hunk by hunk, proposes deleting the files the kit retired, applies the content changes the changelog asks for, restamps the marker, and adopts a named add-on. Use when the user wants the vault on a newer para-os revision or an add-on added ("upgrade the vault", "is this vault on the latest structure", "add the sales module"), or types /para-upgrade.
+description: Bring a vault in line with a newer para-os revision - compares every file the kit owns with a para-os clone at an explicit ref and re-copies on approval, the fixed core among them, lists what the vault's own CLAUDE.md repeats from the kit, proposes deleting the files the kit retired, applies the content changes the changelog asks for, and adopts a named add-on. Use when the user wants the vault on a newer para-os revision or an add-on added ("upgrade the vault", "is this vault on the latest structure", "add the sales module"), or types /para-upgrade.
 allowed-tools: Bash(python3 *), Bash(py *), Bash(git -C * fetch *), Bash(git rm *), Glob, Grep, Read, Edit, Write
 argument-hint: '[--ref <git-ref>] [--clone <path>] [--add <name>] [audit] [--test]'
 ---
@@ -8,7 +8,7 @@ argument-hint: '[--ref <git-ref>] [--clone <path>] [--add <name>] [audit] [--tes
 
 # Para upgrade
 
-Aligns one vault to a para-os template revision: it changes the vault's rules, where `/para-deep-clean` holds the vault to the rules it has. When both are due, run this one first.
+Aligns one vault to a para-os revision: it changes the kit's files in the vault, where `/para-deep-clean` holds the vault to the rules it has. When both are due, run this one first.
 
 ## Arguments
 
@@ -39,10 +39,10 @@ The script's docstring defines every field and exit code. On exit 3 with `CLAUDE
 By `revision.verdict`:
 
 - **behind** or **no-marker**: Steps 2 to 5.
-- **equal**: a kit file or a `CLAUDE.md` section drifts on its own, so `files` and `contract` still count. With nothing in either, say the vault is on revision X with nothing to do.
-- **ahead**: stop and ask; the ref is stale or the marker was edited by hand. Never downgrade a vault.
+- **equal**: a kit file changes on its own, so `files` and `own.repeats` still count. With nothing in either, say the vault is on revision X with nothing to do.
+- **ahead**: stop and ask; the ref is stale or the core was edited by hand. Never downgrade a vault.
 
-**Present the plan before touching anything**: the `files` rows by state, the `contract` rows, and the Reactions in `revision.entries`. With `audit`, report the plan and stop.
+**Present the plan before touching anything**: the `files` rows by state, `own.repeats`, and the Reactions in `revision.entries`. With `audit`, report the plan and stop.
 
 ## Step 2 - Kit files
 
@@ -54,16 +54,13 @@ Every `files` row, by `state`:
 - **retired**: each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
 - **no-master**: report it and leave it.
 
+A `core` row is a fixed file under `.claude/para-os/`: an edited one is re-copied, never kept or merged. `core.md` itself waits for Step 5, because it carries the revision.
+
 A `path` outside the vault is a user-level install, shared by every vault on the machine: say so when proposing it. Copy each with `upgrade_scan.py copy --vault <root> --clone <clone> --commit <clone.commit> <master> <path>`; exit 4 changed nothing.
 
-## Step 3 - The contract
+## Step 3 - The vault's own file
 
-Every `contract` row, by `state`:
-
-- **changed**: find where the vault states that rule and propose the edit in the vault's own wording and language; the operator rules on each hunk. With `revision.baseline` null, each section comes whole, to compare with the vault's. A hunk the vault already states is skipped, said in one line.
-- **drift** or **missing**: kit wording the vault's section lacks, or the whole section. As for an **edited** file, show the row's `diff` and say what it shows; the operator decides each section, or all on one answer: re-copy the kit's lines, keep, or carry the kit's wording into the vault's own. A **changed** row on the same heading goes with it, and the ref's wording is the one copied. Keeping a drift section writes `<!-- para-os-kept: <revision.master> -->` on the line under its heading (the row's `vault_heading` where it names one: the vault holds the kit's lifecycle under its own noun), replacing an older one: the scan stops showing it until the kit rewords that section.
-
-**The template is a floor.** Never remove the vault's own sections, rules, declaration lines or filled values; a re-copied `{{...}}` takes the vault's value, and where the template moves a section the vault extended, the vault's content moves with it. A rule the vault deliberately departs from is the operator's call.
+`CLAUDE.md` is the vault's, and this skill writes to it only what the operator approves line by line. Show each `own.repeats` row with the kit file that holds it and propose removing them all on one approval: the kit states that line, so the vault's copy says it twice. Report `own.words` and `own.start_words`, what a session loads at its start.
 
 ## Step 4 - Content changes
 
@@ -71,8 +68,8 @@ Each Reaction in `revision.entries` is its own item with its own approval; one w
 
 ## Step 5 - Stamp and verify
 
-1. **Re-run the scan.** A row the operator approved is gone from `files`, or from `contract` as drift; one still there names what did not land.
-2. **Write the master's marker** into the vault's `CLAUDE.md` once everything the operator approved has landed; a `files` or drift row left for the operator never holds it back.
+1. **Re-run the scan.** A row the operator approved is gone from `files`; one still there names what did not land.
+2. **Copy `.claude/para-os/core.md`** once everything the operator approved has landed; a `files` row left for the operator never holds it back.
 3. **Check the result**: `paraos_vault.py links dangling --vault <root>`, in `para-shared/scripts/`, finds no dangling link the run made, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
 4. **Report** what changed per step, what was proposed and declined, and what you did not verify.
 
@@ -80,7 +77,7 @@ Each Reaction in `revision.entries` is its own item with its own approval; one w
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** Specific to this skill:
 
-- **The plan is the scope.** Drift it does not name belongs to `/para-deep-clean`.
+- **The plan is the scope.** What it does not name belongs to `/para-deep-clean`.
 - **Never overwrite an edited file, or a user-level install, without the operator's yes for that file.**
-- **Never write the marker before the work it claims**, and hold the vault's existing marker until Step 5.
+- **Never copy the core before the work its revision claims.**
 - **A write that fails mid-pass** (a sync client holding the file) stops the run: list what landed, have the operator pause syncing, and resume from the failed step. There is no automatic rollback beyond Precondition 2's undo path.

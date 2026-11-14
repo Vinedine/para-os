@@ -1,5 +1,6 @@
-<!-- activity MODULE: the section this module adds to a vault's CLAUDE.md. Merge it in beside
-     the sections of base and of any flavor; it never replaces one. Add `**Modules:** activity` under the **Type:** line in the same pass. -->
+# para-os activity module
+
+The fixed rules of the activity module, the same in every vault that declares it. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` **wins wherever the two differ**.
 
 ## Activity ledger
 

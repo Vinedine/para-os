@@ -143,16 +143,19 @@ class Fragments(unittest.TestCase):
 
 
 class WordCaps(unittest.TestCase):
-    def failures_for(self, template_words, finished_words):
+    def failures_for(self, template_words, finished_words, core_words=50):
         """check_template_size()'s failures over a base template and one example vault
-        CLAUDE.md of the given lengths, under caps of 100 and 200 words."""
+        CLAUDE.md of the given lengths, under caps of 100 and 200 words, and a core under 50."""
         root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, root)
-        (root / "base").mkdir()
+        core = root / "base" / ".claude" / "para-os" / "core.md"
+        core.parent.mkdir(parents=True)
+        core.write_text("w " * core_words, encoding="utf-8")
         (root / "base" / "CLAUDE.md.template").write_text("w " * template_words, encoding="utf-8")
         (root / "examples" / "demo").mkdir(parents=True)
         (root / "examples" / "demo" / "CLAUDE.md").write_text("w " * finished_words, encoding="utf-8")
         with mock.patch.object(check, "ROOT", root), \
+                mock.patch.object(check, "CORE_MAX_WORDS", 50), \
                 mock.patch.object(check, "TEMPLATE_MAX_WORDS", 100), \
                 mock.patch.object(check, "FINISHED_MAX_WORDS", 200), \
                 mock.patch.object(check, "failures", []):
@@ -167,6 +170,11 @@ class WordCaps(unittest.TestCase):
         self.assertEqual(len(failures), 1, failures)
         self.assertIn("base/CLAUDE.md.template: 101 words, cap is 100", failures[0])
 
+    def test_a_core_over_its_cap_fails(self):
+        failures = self.failures_for(100, 200, core_words=51)
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("base/.claude/para-os/core.md: 51 words, cap is 50", failures[0])
+
     def test_a_finished_vault_over_its_cap_fails(self):
         failures = self.failures_for(100, 201)
         self.assertEqual(len(failures), 1, failures)
@@ -175,18 +183,18 @@ class WordCaps(unittest.TestCase):
 
 class TemplateRevisions(unittest.TestCase):
     def failures_for(self, changelog, stamp):
-        """check_template_revisions()'s failures over a CHANGELOG.md and a base template."""
+        """check_template_revisions()'s failures over a CHANGELOG.md and base's core."""
         root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, root)
-        (root / "base").mkdir()
+        (root / "base" / ".claude" / "para-os").mkdir(parents=True)
         (root / "examples").mkdir()
         (root / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
-        (root / "base" / "CLAUDE.md.template").write_text(stamp, encoding="utf-8")
+        (root / "base" / ".claude" / "para-os" / "core.md").write_text(stamp, encoding="utf-8")
         with mock.patch.object(check, "ROOT", root), mock.patch.object(check, "failures", []):
             check.check_template_revisions()
             return check.failures
 
-    def test_a_template_at_the_newest_revision_passes(self):
+    def test_a_core_at_the_newest_revision_passes(self):
         self.assertEqual(self.failures_for(
             "## 2026.02.01\n\n## 2026.01.01\n", "<!-- para-os-template: 2026.02.01 -->"), [])
 
@@ -200,12 +208,15 @@ class TemplateRevisions(unittest.TestCase):
 
 
 class RulesContract(unittest.TestCase):
-    def failures_for(self, pointer, rule, name="a.md"):
+    def failures_for(self, pointer, rule, name="a.md", core=None):
         """check_rules_contract()'s failures over a vault whose CLAUDE.md holds `pointer` and
-        whose one rule file, `name`, holds `rule`."""
+        whose one rule file, `name`, holds `rule`; `core` is the text of a fixed kit file."""
         root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, root)
         (root / ".claude" / "rules").mkdir(parents=True)
+        if core is not None:
+            (root / ".claude" / "para-os").mkdir()
+            (root / ".claude" / "para-os" / "core.md").write_text(core, encoding="utf-8")
         (root / "CLAUDE.md").write_text(pointer, encoding="utf-8")
         (root / ".claude" / "rules" / name).write_text(rule, encoding="utf-8")
         with mock.patch.object(check, "ROOT", root), mock.patch.object(check, "failures", []):
@@ -216,6 +227,14 @@ class RulesContract(unittest.TestCase):
         rule = "---\npaths:\n  - x/**\n---\nBody.\n"
         self.assertEqual(self.failures_for("See .claude/rules/a.md.", rule), [])
         self.assertEqual(self.failures_for("", rule, "voice-ada-peeters.md"), [])
+
+    def test_a_pointer_in_a_fixed_kit_file_counts_and_a_dangling_one_there_fails(self):
+        rule = "---\npaths:\n  - x/**\n---\nBody.\n"
+        self.assertEqual(self.failures_for("", rule, core="See .claude/rules/a.md."), [])
+        failures = self.failures_for("See .claude/rules/a.md.", rule,
+                                     core="See .claude/rules/b.md.")
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("points at .claude/rules/b.md, which does not exist", failures[0])
 
     def test_an_orphan_a_dangling_pointer_and_a_pathless_rule_fail(self):
         failures = self.failures_for("See .claude/rules/b.md.", "---\ndescription: x\n---\n")

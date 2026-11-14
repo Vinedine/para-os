@@ -4,7 +4,7 @@
 #
 # The harness loads no CLAUDE.md, so these cases test a rule of the template itself by
 # writing it here and having append_system_prompt tell the run to read the file. The
-# Authoritative sources paragraph below is base/CLAUDE.md.template's word for word: a change
+# Authoritative sources paragraph below is the core's word for word: a change
 # to that paragraph changes this copy in the same commit.
 #
 # The shape is deliberate. The home brief names a contents insurer and a policy number but
