@@ -79,7 +79,7 @@ Show the entry and the diff stat, and propose one commit, `Stamp revision <label
 `Fold changelog.d into revision <label>`. Commit only after approval. Never push or open a PR
 unless asked.
 
-Steps 7 and 8 run once the revision's milestone has merged into `main`.
+Steps 7 and 8 run once a month, on what has merged into `main`.
 
 ## 7. Validate `main` on real vaults
 
