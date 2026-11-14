@@ -56,6 +56,8 @@ LABEL_RE = re.compile(r"^\*\*\s*" + DO_NOT_RAISE + r"\s*:?\s*\*\*\s*:?\s*(.*)$",
 BULLET_RE = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$")
 SECTION_RE = re.compile(r"^[ \t]*#{2,6}\s", re.MULTILINE)
 NAME_SEP = r"[\s,.'-]+"
+ATTENDEE_LINE_RE = re.compile(r"^[\s>*_-]*(?:attendees|participants|present|from|to|cc)[\s*_]*:.*$",
+                              re.IGNORECASE | re.MULTILINE)
 
 
 # --------------------------------------------------------------------------------- names
@@ -420,18 +422,23 @@ def naming(files, who):
     return found
 
 
-def records(vault, found, today):
-    """The newest of the (file, by) records, dated by their file names."""
-    found = sorted(found, reverse=True,
-                   key=lambda fb: (fb[0]["date"] or date.min, fb[0]["path"].name))
+def records(vault, found, who, today):
+    """The newest of the (file, by) records, dated by their file names, those the person
+    attended first: named by the file name, or on an attendee line or a mail header, where
+    a short name counts."""
+    found = sorted(((by == "file name" or any(who.by(line, f["path"])
+                                              for line in ATTENDEE_LINE_RE.findall(f["text"])),
+                     f["date"] or date.min, f["path"].name, f, by) for f, by in found),
+                   reverse=True, key=lambda r: r[:3])
     return [{"path": rel_posix(vault, f["path"]), "date": f["date"] and f["date"].isoformat(),
-             "days_ago": (today - f["date"]).days if f["date"] else None, "by": by}
-            for f, by in found[:RECORDS_SHOWN]]
+             "days_ago": (today - f["date"]).days if f["date"] else None, "by": by,
+             "attended": attended}
+            for attended, _, _, f, by in found[:RECORDS_SHOWN]]
 
 
 def register_hits(vault, declared, who, today):
-    """Every row of a declared register that names the person, with its stage as the
-    lifecycle table states it."""
+    """Every row of a declared register that names the person, an open one with its stage
+    as the lifecycle table states it."""
     out = []
     for lc in declared:
         homes = []
@@ -449,13 +456,13 @@ def register_hits(vault, declared, who, today):
                     continue
                 stage_text = field_ci(row, "Stage") or ""
                 parts = stage_parts(re.sub(r"[*_]", "", stage_text).strip(), stage_text)
+                closed = (row["section"] or "").strip().lower() == "closed"
                 stage = next((s for s in lc["stages"]
                               if s["name"].lower() == parts["name"].lower()), None)
                 out.append({
                     "register": rel_posix(vault, path), "line": row["line"],
-                    "name": row["name"],
-                    "closed": (row["section"] or "").strip().lower() == "closed",
-                    "stage": stage_out(parts, stage, today) if stage else None,
+                    "name": row["name"], "closed": closed,
+                    "stage": stage_out(parts, stage, today) if stage and not closed else None,
                     "cells": {k: v for k, v in row.items()
                               if k not in ("name", "section", "line", "cells")},
                     "by": by})
@@ -500,7 +507,7 @@ def scan(vault, people, today):
                 person["entities"] = record_entities(vault, found)
             person["mentions"] = mentions(vault, tasks, who, card and card["path"],
                                           None if card else person["entities"])
-            person["records"] = records(vault, found, today)
+            person["records"] = records(vault, found, who, today)
             person["unfiled"] = [{"path": rel_posix(vault, f["path"]), "by": by}
                                  for f, by in naming(unfiled, who)]
             person["rows"] = register_hits(vault, declared, who, today)

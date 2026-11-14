@@ -1229,6 +1229,13 @@ class StageOf(VaultCase):
         self.assertEqual(got["dated_facts"], [("prices hold to 2026-02-01", "2026-02-01")])
         self.assertIn("**Stage:**", got["raw"])
 
+    def test_every_date_in_a_clause_but_the_since_date_is_a_dated_fact(self):
+        path = write(self.root, "brief.md", "# Orchard Labs\n\n**Stage:** Proposal "
+                     "(since 2026-01-01, prices hold to 2026-02-01; "
+                     "option to 2026-03-01, deposit due 2026-02-15)\n")
+        self.assertEqual([d for _, d in stage_of(path)["dated_facts"]],
+                         ["2026-02-01", "2026-03-01", "2026-02-15"])
+
     def test_a_trailing_clause_is_not_part_of_the_name(self):
         path = write(self.root, "brief.md", "# Orchard Labs\n\n_Stage: Acquiring - a key date_\n")
         got = stage_of(path)

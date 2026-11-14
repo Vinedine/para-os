@@ -964,12 +964,8 @@ def stage_parts(body, raw):
     since = since.group(1) if since and parse_date(since.group(1)) else None
     facts = []
     for clause in rest.split(";"):
-        found = DATE_RE.search(clause)
-        if not found or not parse_date(found.group(0)):
-            continue
-        if since and found.group(0) == since and SINCE_RE.search(clause):
-            continue
-        facts.append((clause.strip(), found.group(0)))
+        facts += [(clause.strip(), d) for d in DATE_RE.findall(clause) if parse_date(d)
+                  and not (d == since and SINCE_RE.search(clause))]
     return {"name": name, "qualifier": rest, "since": since,
             "dated_facts": facts, "raw": raw}
 

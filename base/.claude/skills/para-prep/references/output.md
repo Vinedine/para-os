@@ -53,11 +53,11 @@ Staged entities first: `?d` where `days_in_stage` is null, `Last touch` and `Sig
 
 ## Last time
 
-The newest record across the attendees, read in full; an `unfiled` triage item counts, dated by what it says, its heading saying it is not filed yet. Two to four lines of its decisions and what it left open. **Promised to bring**: its commitments still open, and the open items that deliver something to an attendee, each with its source; nothing the vault shows as done. No record names any attendee: leave the section out.
+The newest record across the attendees, an `attended` one first, read in full; an `unfiled` triage item counts, dated by what it says, its heading saying it is not filed yet. Two to four lines of its decisions and what it left open. **Promised to bring**: its commitments still open, and the open items that deliver something to an attendee, each with its source; nothing the vault shows as done.
 
 ## Not in the vault
 
-One question per line, in this order: an attendee with no card (who they are to this vault); each header field reading `unknown` (`Signer: unknown` becomes "Who signs?") and a staged entity with no `since`; no record of a last meeting ("When did you last meet, and what was agreed?").
+One question per line, in this order: an attendee with no card or record (who they are); each header field reading `unknown` (`Signer: unknown` becomes "Who signs?") and a staged entity with no `since`; no record of a last meeting ("When did you last meet, and what was agreed?").
 
 ## When the vault knows little
 
