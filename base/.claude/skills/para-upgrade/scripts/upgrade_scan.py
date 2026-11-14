@@ -41,7 +41,8 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
 own       The vault's own `CLAUDE.md`, which no upgrade edits. `repeats`: each line of it
           (`line`, `text`) that a kit file holds word for word (`in`): the core, a declared
           add-on's fixed file or a kit rule file at the ref, and, while the vault's `CLAUDE.md`
-          still carries a stamp, the template and add-on sections of that revision's tag,
+          still carries a stamp, the template and add-on sections at every revision tag up
+          to that one,
           `retired` marking a line only those hold: a rule the kit has dropped since. A
           heading, a table's header row and a line with a placeholder are never one, and a
           table's rows only where every row of it repeats. `lines` and `words` count the file;
@@ -96,6 +97,7 @@ REACTION_RE = re.compile(r"^- (.+?)[ \t]*$", re.M)
 RETIRED_RE = re.compile(r"^Retired:(.*)$", re.M)
 BACKTICK_RE = re.compile(r"`([^`]+)`")
 WORDS_RE = re.compile(r"[^\W\d_]{2}")
+REVISION_RE = re.compile(r"\d{4}\.\d{2}(?:\.\d{2})?")
 KIT_FIXED = "para-os"   # the folder of fixed files, in base/.claude/, an add-on and a vault's .claude/
 
 
@@ -178,20 +180,23 @@ def rule_line(line):
 
 def kit_lines(kit, decl, stamped):
     """{line: the kit file holding it} over the fixed files and rule files of base and each
-    declared add-on at the ref, then the template and add-on sections at the tag of revision
-    `stamped`, the one a `CLAUDE.md` not yet on two files still carries."""
+    declared add-on at the ref, then the template and add-on sections at every revision tag
+    up to `stamped`, the one a `CLAUDE.md` not yet on two files still carries, newest first:
+    a vault's wording is often older than its stamp."""
     roots = [r for r in (addon_root(kit.clone, kit.commit, n) for n in addon_names(decl)) if r]
     prefixes = [f"base/.claude/{KIT_FIXED}/", "base/.claude/rules/"] + \
         [f"{r}/{folder}/" for r in roots for folder in (KIT_FIXED, ".claude/rules")]
     texts = [(p, kit.text(p)) for prefix in prefixes for p in sorted(kit.tree)
              if p.startswith(prefix)]
-    old = stamped and git(kit.clone, ["rev-parse", "-q", "--verify",
-                                      f"refs/tags/{stamped}^{{commit}}"])
-    if old:
-        old = old.strip()
-        then = [BASE_TEMPLATE] + [f"{r}/{SECTIONS}" for r in
-                                  (addon_root(kit.clone, old, n) for n in addon_names(decl)) if r]
-        texts += [(f"{p} at {stamped}", kit.text(p, old)) for p in then]
+    tags = sorted((t for t in (git(kit.clone, ["tag", "--list"]) or "").split()
+                   if REVISION_RE.fullmatch(t) and t <= stamped), reverse=True) if stamped else []
+    for tag in tags:
+        old = (git(kit.clone, ["rev-parse", "-q", "--verify", f"refs/tags/{tag}^{{commit}}"])
+               or "").strip()
+        if old:
+            then = [BASE_TEMPLATE] + [f"{r}/{SECTIONS}" for r in
+                                      (addon_root(kit.clone, old, n) for n in addon_names(decl)) if r]
+            texts += [(f"{p} at {tag}", kit.text(p, old)) for p in then]
     out = {}
     for path, text in texts:
         for line in split_lines(text or ""):

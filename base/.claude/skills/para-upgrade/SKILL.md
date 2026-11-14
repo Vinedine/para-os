@@ -60,7 +60,7 @@ A `path` outside the vault is a user-level install, shared by every vault on the
 
 ## Step 3 - The vault's own file
 
-`CLAUDE.md` is the vault's, and this skill writes to it only what the operator approves line by line. Show each `own.repeats` row with the kit file that holds it and propose removing them all on one approval: the kit states that line, so the vault's copy says it twice. A `retired` row is asked apart: only the older template held it, the kit has dropped that rule, and the vault keeps it only as a rule of its own. Report `own.words` and `own.start_words`, what a session loads at its start.
+`CLAUDE.md` is the vault's, and this skill writes to it only what the operator approves line by line. Show each `own.repeats` row with the kit file that holds it and propose removing them all on one approval: the kit states that line, so the vault's copy says it twice. With no row and a stamp still in `CLAUDE.md`, the file's wording matches no template the kit ever shipped: read it against the core section by section and propose each line the core now states. A `retired` row is asked apart: only an older template held it in those words, the kit has since dropped or reworded that rule, and the vault keeps the line only as a rule of its own. Report `own.words` and `own.start_words`, what a session loads at its start.
 
 ## Step 4 - Content changes
 
@@ -70,7 +70,7 @@ Each Reaction in `revision.entries` is its own item with its own approval; one w
 
 1. **Re-run the scan.** A row the operator approved is gone from `files`; one still there names what did not land.
 2. **Copy `.claude/para-os/core.md`** once everything the operator approved has landed; a `files` row left for the operator never holds it back.
-3. **Check the result**: `paraos_vault.py links dangling --archive --vault <root>`, in `para-shared/scripts/`, finds no dangling link the run made, every `mentions` line a move returned is brought in line, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
+3. **Check the result**: `paraos_vault.py links dangling --archive --anchors --vault <root>`, in `para-shared/scripts/`, finds no dangling link the run made, every `mentions` line a move returned is brought in line, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
 4. **Report** what changed per step, what was proposed and declined, and what you did not verify.
 
 ## Strict rules
