@@ -30,6 +30,7 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 - **A meeting prep reads the last meeting, a closed lead and dated facts correctly.** "Last time" is now the newest meeting the person attended, not a newer one that only mentions them. A lead in the closed part of a register no longer shows a stage and days in stage as if it were open, a person with no card whom your records already name is no longer asked about, and every date on a stage line counts, not only the first in each part.
 - **Deep clean names the right owner for loose archive files and meeting records.** A file sitting directly in an archive folder now belongs to that folder, so its copies there are no longer reported as spread over several entities. A meeting record that links a contact card is no longer proposed for a move into the contacts folder.
 - **Deep clean reports fewer false findings.** Your own scripts no longer add to the audit count. A link inside a folder you declared as templates, a name in a note's properties block, a first name that is part of another contact's full name, and an address your own contact card already holds are no longer reported.
+- **A converted vault is no longer shown as behind.** After the move to two files, the daily brief and deep clean still looked for the revision in your `CLAUDE.md` and reported the vault as out of date. They now read it where it lives.
 
 ### Removed
 
@@ -40,7 +41,8 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 1. Run `/para-upgrade`.
 2. If a scheduled task's prompt ends by recording its run with `paraos_runs.py record`, delete that step and the command from the task's allowed list: the command is gone.
 3. Read what the upgrade proposes to remove from your `CLAUDE.md` before you approve it: a rule you reworded on purpose stays yours.
-4. The upgrade also proposes renames: an area's `README.md` to `brief.md`, a contact card to first name then last name, and dated documents to one naming pattern. Approve them in batches you have read, and in a vault several people write, tell the others first.
+4. The upgrade also proposes renames: an area's `README.md` to `brief.md` and a contact card to first name then last name. In a vault several people write, tell the others first.
+5. Renaming your existing dated documents to the one naming pattern is offered as a separate job. You can leave it for later: it needs a plan you have read, and new documents take the pattern either way.
 
 Full details: [CHANGELOG.md at this tag](https://github.com/Vinedine/para-os/blob/2026.11.02/CHANGELOG.md).
 
