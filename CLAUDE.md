@@ -68,8 +68,8 @@ nowhere else.
   and carries the issue's milestone, merged as a squash, so `main` reads one commit per issue
   and other work is cited by its number, never by the hash of a branch commit.
 - **`stable` is what users get**: the Quickstart, `INSTALL.md` and `/para-upgrade` read it.
-  `/release` moves it to a tagged revision on `main` when that revision's milestone closes, never
-  on a schedule. The one other change is a hotfix: fixed on `main`, cherry-picked onto `stable`,
+  `/release` moves it to a tagged revision on `main` once a month, carrying what merged: a
+  milestone is a month and is named for it. The one other change is a hotfix: fixed on `main`, cherry-picked onto `stable`,
   then `stable` merged back into `main` as a merge commit, so the next `/release` fast-forwards.
 - **Branch protection is versioned** in [`.github/rulesets/`](.github/rulesets/): `main.json`
   and `stable.json`. A ruleset changed on GitHub is re-exported in the same pull request
