@@ -41,7 +41,7 @@ Against the checkbox table:
 
 `own_rules` is what the vault's own `CLAUDE.md` holds beside the kit: suggestions, never findings, kept out of the issues table. With `kit_words` at 0 the vault imports no fixed file: say `/para-upgrade` comes first and skip the step. Otherwise read every line of the sections `script_read` does not mark, with `near` (a kit sentence reworded, shown beside it) and `departs` as the scan's leads, and propose one of two for each line:
 
-- **Drop**, the default: the kit already says it, or it is a general way of working, which belongs in the kit or nowhere. Where the operator wants it for every vault, name it in the report for the kit's maintainer.
+- **Drop**, the default: the kit already says it, or it is a general way of working, true of no vault in particular. It leaves this file: to `.claude/rules/working-preferences.md` where it is how the operator likes to work, else to nowhere, named in the report for the kit's maintainer where the operator wants it for every vault.
 - **Keep**: it is true of this vault only: its folders, its sources, its people, a lifecycle of its own.
 
 Report `words` and `start_words`. Nothing leaves the file without the operator's yes for that line.
