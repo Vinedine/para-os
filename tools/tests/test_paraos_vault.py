@@ -843,6 +843,15 @@ class EntityState(VaultCase):
         path = write(self.root, "brief.md", "# thing\n\n**Stage:** Taste\n\nProse.\n")
         self.assertEqual(stage_line(path), "Taste")
 
+    def test_a_blockquoted_stage_label_is_read_from_its_line(self):
+        path = write(self.root, "brief.md",
+                     "# thing\n\n> **Status:** Exploring, waiting on a quote.\n\nProse.\n")
+        self.assertEqual(stage_line(path), "Exploring, waiting on a quote.")
+
+    def test_a_blockquoted_label_with_its_value_inside_the_bold_is_read_bare(self):
+        path = write(self.root, "brief.md", "# thing\n\n> **Status: Exploring.**\n\nProse.\n")
+        self.assertEqual(stage_line(path), "Exploring.")
+
     def test_a_stage_in_a_status_table_is_read_from_its_row(self):
         path = write(self.root, "brief.md", "\n".join([
             "# thing", "", "## Status", "", "| Detail | Value |", "|---|---|",

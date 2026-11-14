@@ -409,6 +409,34 @@ class DoNotRaise(AcmeDeal):
     def test_a_brief_without_one_has_none(self):
         self.assertEqual(self.raised("## Scope\n\n- everything\n"), [])
 
+    def test_dont_raise_with_a_straight_apostrophe(self):
+        self.assertEqual(self.raised("**Don't raise:** the old invoice\n"), ["the old invoice"])
+
+    def test_dont_raise_with_a_curly_apostrophe(self):
+        self.assertEqual(self.raised("**Don\u2019t raise:** the old invoice\n"),
+                         ["the old invoice"])
+
+    def test_avoid_raising(self):
+        self.assertEqual(self.raised("## Avoid raising\n\n- pricing\n"), ["pricing"])
+
+    def test_do_not_bring_up(self):
+        self.assertEqual(self.raised("**Do not bring up:** the merger\n"), ["the merger"])
+
+    def test_dont_bring_up(self):
+        self.assertEqual(self.raised("- **Don't bring up:**\n  - the merger\n"), ["the merger"])
+
+    def test_the_wording_is_read_in_any_case(self):
+        self.assertEqual(self.raised("**DO NOT RAISE:** the old invoice\n"), ["the old invoice"])
+
+    def test_a_sentence_saying_it_is_listed_whole(self):
+        line = "Have ready, don't raise first: the delayed invoice."
+        self.assertEqual(self.raised("- everything\n\n" + line + "\n\n- not this\n"), [line])
+
+    def test_a_sentence_saying_the_opposite_is_not_listed(self):
+        self.assertEqual(self.raised("\n".join([
+            "Do raise the delayed invoice.", "", "**Do raise:** pricing", "",
+            "## Do raise", "", "- the merger", ""])), [])
+
 
 class Records(VaultCase):
 

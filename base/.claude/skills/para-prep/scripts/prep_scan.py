@@ -49,8 +49,10 @@ TEXT_SUFFIXES = {".md", ".txt", ".eml"}
 RECORDS_SHOWN = 5        # newest first
 SHORT_NAME_MIN = 3       # a shorter word is an initial or a particle, never a name
 DATE_PREFIX_RE = re.compile(r"^(\d{4})-?(\d{2})-?(\d{2})(?!\d)")
-DO_NOT_RAISE_RE = re.compile(r"\bdo\s+not\s+raise\b", re.IGNORECASE)
-LABEL_RE = re.compile(r"^\*\*\s*do\s+not\s+raise\s*:?\s*\*\*\s*:?\s*(.*)$", re.IGNORECASE)
+DO_NOT_RAISE = (r"(?:(?:do\s+not|don['\u2019]t)\s+(?:raise|bring\s+up)"
+                r"|avoid\s+(?:raising|bringing\s+up))")
+DO_NOT_RAISE_RE = re.compile(r"\b" + DO_NOT_RAISE + r"\b", re.IGNORECASE)
+LABEL_RE = re.compile(r"^\*\*\s*" + DO_NOT_RAISE + r"\s*:?\s*\*\*\s*:?\s*(.*)$", re.IGNORECASE)
 BULLET_RE = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$")
 SECTION_RE = re.compile(r"^[ \t]*#{2,6}\s", re.MULTILINE)
 NAME_SEP = r"[\s,.'-]+"
@@ -301,8 +303,9 @@ def entity_stage(doc, rel, declared, today):
 
 
 def do_not_raise(doc):
-    """What a brief keeps under a `Do not raise` label: the text after a bold-led label and
-    the list directly under it, or everything under a heading of that name. A bullet that
+    """What a brief keeps under a `Do not raise` label, in any wording DO_NOT_RAISE reads:
+    the text after a bold-led label and the list directly under it, everything under a
+    heading of that name, or a line saying it anywhere else, whole. A bullet that
     carries the label and its text keeps its sub-bullets alone, never the bullets after it;
     any other label's list ends at a bullet shallower than its first item."""
     out, mode, level, listed, floor = [], None, 0, 0, None
@@ -330,7 +333,7 @@ def do_not_raise(doc):
         if mode == "label" and (not bullet and stripped or not stripped and listed
                                 or bullet and depth < floor):
             mode = None
-        if mode and body:
+        if body and (mode or DO_NOT_RAISE_RE.search(body)):
             out.append(body)
             listed += 1
     return out
