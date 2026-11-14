@@ -49,18 +49,18 @@ By `revision.verdict`:
 Every `files` row, by `state`:
 
 - **untouched**: an older version the kit shipped: behind, with nothing local to lose. Re-copy them all on one approval.
-- **missing**: copy in on one approval. A rule file copied in takes over what the vault already states of its rule, each line moved on its own yes.
+- **missing**: copy in on one approval.
 - **edited**: bytes the kit never shipped: local work, a hand edit, or a copy taken from ahead of the ref. Show the row's `diff` and say what it shows; the operator decides each file: re-copy, keep, or carry the kit's change into the vault's wording.
 - **retired**: each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
 - **no-master**: report it and leave it.
 
-A `core` row is a fixed file under `.claude/para-os/`: an edited one is re-copied, never kept or merged. `core.md` itself waits for Step 5, because it carries the revision.
+A Reaction in `revision.entries` that names a row's file runs before that row is copied. A `core` row is a fixed file under `.claude/para-os/`: an edited one is re-copied, never kept or merged. `core.md` itself waits for Step 5, because it carries the revision.
 
 A `path` outside the vault is a user-level install, shared by every vault on the machine: say so when proposing it. Copy each with `upgrade_scan.py copy --vault <root> --clone <clone> --commit <clone.commit> <master> <path>`; exit 4 changed nothing.
 
 ## Step 3 - The vault's own file
 
-`CLAUDE.md` is the vault's, and this skill writes to it only what the operator approves line by line. Show each `own.repeats` row with the kit file that holds it and propose removing them all on one approval: the kit states that line, so the vault's copy says it twice. Report `own.words` and `own.start_words`, what a session loads at its start.
+`CLAUDE.md` is the vault's, and this skill writes to it only what the operator approves line by line. Show each `own.repeats` row with the kit file that holds it and propose removing them all on one approval: the kit states that line, so the vault's copy says it twice. A `retired` row is asked apart: only the older template held it, the kit has dropped that rule, and the vault keeps it only as a rule of its own. Report `own.words` and `own.start_words`, what a session loads at its start.
 
 ## Step 4 - Content changes
 
@@ -70,7 +70,7 @@ Each Reaction in `revision.entries` is its own item with its own approval; one w
 
 1. **Re-run the scan.** A row the operator approved is gone from `files`; one still there names what did not land.
 2. **Copy `.claude/para-os/core.md`** once everything the operator approved has landed; a `files` row left for the operator never holds it back.
-3. **Check the result**: `paraos_vault.py links dangling --vault <root>`, in `para-shared/scripts/`, finds no dangling link the run made, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
+3. **Check the result**: `paraos_vault.py links dangling --archive --vault <root>`, in `para-shared/scripts/`, finds no dangling link the run made, every `mentions` line a move returned is brought in line, and one skill runs end to end (`/para-daily-brief week` publishes nothing). An error is a regression this run fixes.
 4. **Report** what changed per step, what was proposed and declined, and what you did not verify.
 
 ## Strict rules

@@ -41,7 +41,8 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
 own       The vault's own `CLAUDE.md`, which no upgrade edits. `repeats`: each line of it
           (`line`, `text`) that a kit file holds word for word (`in`): the core, a declared
           add-on's fixed file or a kit rule file at the ref, and, while the vault's `CLAUDE.md`
-          still carries a stamp, the template and add-on sections of that revision's tag. A
+          still carries a stamp, the template and add-on sections of that revision's tag,
+          `retired` marking a line only those hold: a rule the kit has dropped since. A
           heading, a table's header row and a line with a placeholder are never one, and a
           table's rows only where every row of it repeats. `lines` and `words` count the file;
           `kit_words` the fixed files it imports, and `start_words` both, which is what a
@@ -221,7 +222,9 @@ def own_block(vault, kit, decl):
     close()
     words, kit_words = len(" ".join(lines).split()), \
         sum(len(read_text(p).split()) for p in kit_files(vault))
-    return {"repeats": [{"line": n, "text": text, "in": held[text]} for n, text in sorted(repeats)],
+    return {"repeats": [dict({"line": n, "text": text, "in": held[text]},
+                             **({"retired": True} if " at " in held[text] else {}))
+                        for n, text in sorted(repeats)],
             "lines": len(lines), "words": words, "kit_words": kit_words,
             "start_words": words + kit_words}
 

@@ -43,7 +43,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from difflib import SequenceMatcher
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 # --- what a vault's own rules state -------------------------------------------------------
 # One home for numbers that several skills quote. A skill that disagrees with one of these
@@ -2197,7 +2197,9 @@ def rewrite_links(path, rows):
 
 def move(vault, src, dst):
     """Move a folder or a file in one rename and apply its `move_plan`, returned with each
-    `inside` row at its new path, plus `missed`: rows it could not rewrite. Refuses (ValueError)
+    `inside` row at its new path, plus `missed`: rows it could not rewrite, and `mentions`:
+    each line that still names a renamed file, as a link's text or in plain words, for a
+    person to bring in line. Refuses (ValueError)
     a source that is not there and a destination that is, before anything moves.
     """
     vault = Path(vault)
@@ -2216,6 +2218,13 @@ def move(vault, src, dst):
     for row in plan["inside"] + plan["inbound"]:
         by_file.setdefault(row["file"], []).append(row)
     plan["missed"] = [r for f, rows in by_file.items() for r in rewrite_links(vault / f, rows)]
+    plan["mentions"] = []
+    if dst_path.is_file() and src_path.name != dst_path.name:
+        names = (src_path.name, quote(src_path.name))
+        for path in link_files(vault, LINK_ROOTS + ("archive",)):
+            plan["mentions"] += [{"file": rel_posix(vault, path), "line": n}
+                                 for n, line in enumerate(read_lines(path), start=1)
+                                 if any(name in line for name in names)]
     return plan
 
 
@@ -2493,6 +2502,7 @@ def main(argv=None):
     links = sub.add_parser("links", help="what points at what")
     kinds = links.add_subparsers(dest="kind", required=True)
     dangling = kinds.add_parser("dangling", help="links whose target does not exist")
+    dangling.add_argument("--archive", action="store_true", help="scan archive/ too")
     plan = sub.add_parser("move", aliases=["move-plan"],
                           help="the links moving a folder or file has to rewrite")
     plan.add_argument("src", help="the folder or file as it stands")
@@ -2603,7 +2613,8 @@ def main(argv=None):
         return 0
     try:
         answer = (move if args.apply else move_plan)(root, args.src, args.dst) \
-            if args.command in ("move", "move-plan") else dangling_links(root)
+            if args.command in ("move", "move-plan") else dangling_links(
+                root, LINK_ROOTS + (("archive",) if args.archive else ()))
     except (ValueError, OSError) as err:
         ap.error(str(err))
     emit(answer, 2)

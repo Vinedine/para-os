@@ -1803,6 +1803,20 @@ class Move(VaultCase):
         self.assertIn("[the notes](../../resources/orchard-lane/notes.md)",
                       (self.root / "areas/network/piet.md").read_text("utf-8"))
 
+    def test_a_rename_reports_the_lines_that_still_name_the_old_file(self):
+        self.build()
+        write(self.root, "areas/properties/orchard-lane/sources/20260418 Acme Statement.md", "# SoW" + chr(10))
+        write(self.root, "areas/network/piet.md",
+              "# Piet" + chr(10) + chr(10) + "See `20260418 Acme Statement.md` and "
+              "[20260418 Acme Statement.md](../properties/orchard-lane/sources/20260418%20Acme%20Statement.md)." + chr(10))
+        code, out = self.run_move("areas/properties/orchard-lane/sources/20260418 Acme Statement.md",
+                                  "areas/properties/orchard-lane/sources/20260418 Acme - Statement.md",
+                                  "--apply")
+        self.assertEqual(code, 0)
+        self.assertEqual(out["mentions"], [{"file": "areas/network/piet.md", "line": 3}])
+        self.assertIn("(../properties/orchard-lane/sources/20260418%20Acme%20-%20Statement.md)",
+                      (self.root / "areas/network/piet.md").read_text("utf-8"))
+
     def test_an_existing_destination_is_refused_and_nothing_moves(self):
         self.build()
         write(self.root, "archive/properties/orchard-lane/brief.md", "# Older\n")
