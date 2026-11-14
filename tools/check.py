@@ -262,11 +262,19 @@ def revision_headings(name):
     return re.findall(r"^##\s+(\d{4}\.\d{2}\.\d{2})\s*$", text, re.M)
 
 
-def template_files():
-    files = [ROOT / "base" / "CLAUDE.md.template"]
-    files += sorted(p / "CLAUDE.md" for p in (ROOT / "examples").iterdir()
-                    if (p / "CLAUDE.md").exists())
-    return files
+CORE = Path(".claude") / "para-os" / "core.md"
+
+
+def core_files():
+    """base's core, which carries the revision, and each example vault's copy of it."""
+    return [ROOT / "base" / CORE] + sorted(
+        p / CORE for p in (ROOT / "examples").iterdir() if (p / "CLAUDE.md").exists())
+
+
+def own_files():
+    """Each file a vault writes itself: base's template for one, and each example's."""
+    return [ROOT / "base" / "CLAUDE.md.template"] + sorted(
+        p / "CLAUDE.md" for p in (ROOT / "examples").iterdir() if (p / "CLAUDE.md").exists())
 
 
 def check_template_revisions():
@@ -277,9 +285,9 @@ def check_template_revisions():
     if revisions != sorted(set(revisions), reverse=True):
         bad(f"CHANGELOG.md: revisions are not unique and newest-first ({', '.join(revisions)})")
 
-    for f in template_files():
+    for f in core_files():
         m = re.search(r"<!--\s*para-os-template:\s*(\S+)\s*-->",
-                      f.read_text(encoding="utf-8", errors="ignore"))
+                      f.read_text(encoding="utf-8", errors="ignore") if f.is_file() else "")
         if not m:
             bad(f"{rel(f)}: no `<!-- para-os-template: -->` marker")
         elif m.group(1) != revisions[0]:
@@ -325,19 +333,40 @@ def check_fragments():
 # --- word caps -------------------------------------------------------------------------
 
 # Each a little above the largest real file of its kind, so the cap catches regrowth.
-TEMPLATE_MAX_WORDS = 1650   # base's CLAUDE.md.template: a vault starts here and adds its own
-FINISHED_MAX_WORDS = 2275   # a populated vault's own CLAUDE.md, which the example is
+CORE_MAX_WORDS = 1450       # base's core: every session of every vault loads it whole
+TEMPLATE_MAX_WORDS = 200    # base's CLAUDE.md.template: what a vault's own file starts from
+FINISHED_MAX_WORDS = 800    # a populated vault's own CLAUDE.md, which the example is
 SPINE_MAX_WORDS = 2300      # a SKILL.md: its body loads on every invoke
 
 
 def check_template_size():
-    for f in template_files():
-        cap = TEMPLATE_MAX_WORDS if f.suffix == ".template" else FINISHED_MAX_WORDS
+    sized = [(ROOT / "base" / CORE, CORE_MAX_WORDS)] + [
+        (f, TEMPLATE_MAX_WORDS if f.suffix == ".template" else FINISHED_MAX_WORDS)
+        for f in own_files()]
+    for f, cap in sized:
+        if not f.is_file():
+            continue
         n = len(f.read_text(encoding="utf-8", errors="ignore").split())
         if n > cap:
             bad(f"{rel(f)}: {n} words, cap is {cap}. Cut procedure and rationale, not rules.")
         else:
             ok(f"{rel(f)} at {n} words (cap {cap})")
+
+
+def check_fixed_copies():
+    """A fixed file an example vault holds under `.claude/para-os/` is its master's bytes:
+    base's core, or an add-on's file of the same name."""
+    masters = {p.name: p for p in [ROOT / "base" / CORE]
+               + sorted((ROOT / "addons").glob("*/para-os/*.md"))}
+    for copy in sorted((ROOT / "examples").glob("*/.claude/para-os/*.md")):
+        master = masters.get(copy.name)
+        if master is None:
+            bad(f"{rel(copy)}: no fixed file of that name in base or an add-on")
+        elif copy.read_bytes().replace(b"\r\n", b"\n") != \
+                master.read_bytes().replace(b"\r\n", b"\n"):
+            bad(f"{rel(copy)} is not a copy of {rel(master)}. Copy it again.")
+        else:
+            ok(f"{rel(copy)} matches {rel(master)}")
 
 
 # --- style -----------------------------------------------------------------------------
@@ -745,18 +774,23 @@ def check_launchers():
 RULES_FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.S)
 RULES_PATHS_LIST = re.compile(r"^paths:[ \t]*\n((?:^[ \t]*-[ \t]*\S.*\n?)+)", re.M)
 RULES_POINTER = re.compile(r"\.claude/rules/([A-Za-z0-9_.-]+\.md)")
+RULES_EVERYWHERE = re.compile(r'''\A---\npaths:[ \t]*\n[ \t]*-[ \t]*["']\*\*["'][ \t]*\n---\n''')
 
 
 def vault_roots_with_rules():
-    """Every CLAUDE.md, template or add-on sections file, paired with the `.claude/rules/` it
-    points into. Walked rather than listed, so a second example that grows a rules/ folder is
-    picked up with no edit here."""
+    """Every CLAUDE.md or template, and every add-on's folder of fixed files, paired with
+    the `.claude/rules/` it points into. Walked rather than listed, so a second example that
+    grows a rules/ folder is picked up with no edit here."""
     for dirpath, dirnames, filenames in os.walk(ROOT):
         dirnames[:] = [d for d in dirnames if d not in WALK_SKIP_DIRS]
         here = Path(dirpath)
-        for name in ("CLAUDE.md", "CLAUDE.md.template", "CLAUDE.md.sections"):
-            if name in filenames and (here / ".claude" / "rules").is_dir():
+        if not (here / ".claude" / "rules").is_dir():
+            continue
+        for name in ("CLAUDE.md", "CLAUDE.md.template"):
+            if name in filenames:
                 yield here / name, here / ".claude" / "rules"
+        if "para-os" in dirnames and not {"CLAUDE.md", "CLAUDE.md.template"} & set(filenames):
+            yield here / "para-os", here / ".claude" / "rules"
 
 
 def check_rules_contract():
@@ -765,14 +799,18 @@ def check_rules_contract():
     an unlinked reference doc, and a dangling pointer sends a reader to a file that is gone."""
     for claude_md, rules_dir in sorted(vault_roots_with_rules()):
         before = len(failures)
-        claude_text = claude_md.read_text(encoding="utf-8", errors="ignore")
         # A pointer may sit in a fixed kit file beside the rules: the core holds the kit's own.
-        for kit_file in sorted((claude_md.parent / ".claude" / "para-os").glob("*.md")):
-            claude_text += "\n" + kit_file.read_text(encoding="utf-8", errors="ignore")
+        fixed = sorted(claude_md.glob("*.md")) if claude_md.is_dir() else \
+            [claude_md] + sorted((claude_md.parent / ".claude" / "para-os").glob("*.md"))
+        claude_text = "\n".join(f.read_text(encoding="utf-8", errors="ignore") for f in fixed)
         on_disk = {p.name for p in rules_dir.glob("*.md")}
         linked = set(RULES_POINTER.findall(claude_text))
+        # A file scoped to every path loads in every session and needs no pointer.
+        everywhere = {n for n in on_disk if RULES_EVERYWHERE.search(
+            (rules_dir / n).read_text(encoding="utf-8", errors="ignore").replace("\r\n", "\n"))}
 
-        for orphan in sorted(n for n in on_disk - linked if not n.startswith("voice-")):
+        for orphan in sorted(n for n in on_disk - linked - everywhere
+                             if not n.startswith("voice-")):
             bad(f"{rel(rules_dir / orphan)}: on disk but not pointed at from {rel(claude_md)}, "
                 f"so a skill that reads CLAUDE.md alone will never find it")
         for dangling in sorted(linked - on_disk):
@@ -958,6 +996,7 @@ def main():
     verbose = "-v" in sys.argv or "--verbose" in sys.argv
     check_integrations()
     check_template_revisions()
+    check_fixed_copies()
     check_release_notes()
     check_fragments()
     check_template_size()
