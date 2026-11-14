@@ -8,6 +8,42 @@ The step-by-step instructions `/para-upgrade` follows live in [CHANGELOG.md](CHA
 
 ---
 
+## 2026.11.02
+
+### Highlights
+
+- **Your vault's rules now live in two files.** The fixed para-os rules are one file that an upgrade copies whole, and your `CLAUDE.md` holds only what is true of your vault. An upgrade no longer walks through your `CLAUDE.md` section by section, and never edits it without asking line by line.
+- **Deep clean suggests a return to the standard.** It reads the rules your vault added in its own `CLAUDE.md` and proposes, line by line, which can go because para-os already says them and which are truly yours. Nothing is removed without your yes.
+- **Meetings recorded after the morning ingest reach triage the same day.** Triage used to skip a meeting-notes import whenever the ingest had already run it, so a meeting held that afternoon waited for the next morning. It now runs the import every time, and its record of what was imported keeps it to what is new.
+
+### Fixes
+
+- **Scripts of a vault pulled on another machine now show in the Command Center.** When that vault's folder also syncs to your machine, its scripts are read and linked to it, each to the connection listed for that machine.
+- **"Proposal waiting" no longer sticks after triage.** The daily brief kept flagging an unattended triage proposal whose items had all been handled, and older proposals piled up unread. Triage now closes every proposal nothing is left waiting on, and the brief flags one only while an item it holds is still in triage.
+- **The Command Center shows how each scheduled run went.** Its Scheduled runs card read a run log no scheduled task wrote, so every run showed as unknown. It now reads each task's last run from the desktop app, which keeps them, and a paused task shows as paused. The ingest also names the tool for its work files, so an unattended run no longer skips that step for want of an approval.
+- **Archiving no longer flags a correct link as left behind.** When another archived folder linked into the one being archived, the check after the move read the updated link as a mention of the old location, so you had to approve keeping a link that was fine. A link that leads to the new location now passes.
+- **The restore command triage shows you now runs as pasted.** It used to leave out the Python launcher and the script's folder, and broke on a vault whose name has a space. It is now the whole command, with the name in quotes.
+- **`/para-prep` finds a "Do not raise" point however it is worded.** A brief that says "don't raise", "avoid raising" or "do not bring up" used to give a prep with no Do not raise section. Those wordings now count, as a label, a heading or a sentence, which is listed whole.
+- **An idea whose status sits in a quote block shows the right stage.** When an idea's brief opened on a quoted status line, the daily brief showed the idea's first paragraph or the raw markup as its stage. It now reads the status from the quoted line.
+- **The overdue total counts a late recurring item.** A recurring action past its date was listed under Overdue while the totals line said none were overdue. The total now counts it, and a line that waits on someone else is no longer counted as upcoming.
+- **A long list of pipeline flags is cut short.** Past fifteen flags the board shows ten and counts the rest, and a pipeline with no closing stage no longer prints a closed count of zero.
+- **A meeting prep reads the last meeting, a closed lead and dated facts correctly.** "Last time" is now the newest meeting the person attended, not a newer one that only mentions them. A lead in the closed part of a register no longer shows a stage and days in stage as if it were open, a person with no card whom your records already name is no longer asked about, and every date on a stage line counts, not only the first in each part.
+- **Deep clean names the right owner for loose archive files and meeting records.** A file sitting directly in an archive folder now belongs to that folder, so its copies there are no longer reported as spread over several entities. A meeting record that links a contact card is no longer proposed for a move into the contacts folder.
+- **Deep clean reports fewer false findings.** Your own scripts no longer add to the audit count. A link inside a folder you declared as templates, a name in a note's properties block, a first name that is part of another contact's full name, and an address your own contact card already holds are no longer reported.
+
+### Removed
+
+- **Three skills are gone.** `/para-audit`, `/para-brainstorm` and `/para-activity-review` leave the kit, and the upgrade offers to delete your copies. The Command Center still shows how each vault stands against the kit, and a vault that records its use keeps recording it.
+
+### What to do
+
+1. Run `/para-upgrade`.
+2. If a scheduled task's prompt ends by recording its run with `paraos_runs.py record`, delete that step and the command from the task's allowed list: the command is gone.
+3. Read what the upgrade proposes to remove from your `CLAUDE.md` before you approve it: a rule you reworded on purpose stays yours.
+4. The upgrade also proposes renames: an area's `README.md` to `brief.md`, a contact card to first name then last name, and dated documents to one naming pattern. Approve them in batches you have read, and in a vault several people write, tell the others first.
+
+Full details: [CHANGELOG.md at this tag](https://github.com/Vinedine/para-os/blob/2026.11.02/CHANGELOG.md).
+
 ## 2026.11.01
 
 ### Highlights

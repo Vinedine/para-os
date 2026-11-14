@@ -1,6 +1,6 @@
 # para-os core
 
-<!-- para-os-template: 2026.11.01 -->
+<!-- para-os-template: 2026.11.02 -->
 The fixed para-os rules, the same in every vault. `/para-upgrade` replaces this file whole: never edit it. The vault's own `CLAUDE.md` holds only what is true of that vault, and **wins wherever the two differ**. The lines that open it (title, `**Type:**`, `**Flavor:**`, `**Modules:**`) are machine-read: keep them.
 
 **A rule is written once.** The vault's `CLAUDE.md` repeats nothing from this file, a rule file or a skill: it holds what the vault adds and where it departs. Check before adding a line there.
