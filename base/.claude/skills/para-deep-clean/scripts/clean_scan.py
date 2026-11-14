@@ -42,7 +42,7 @@ try:
         find_clone, git, git_blame_line_date, hashes, header_fields, inbound_references_by_name,
         integration_markers, is_separator_row, iso, kit_files, lifecycles, link_files, link_spans,
         live_lines,
-        log_entries, misplaced_checkboxes, norm, open_tasks, other_checkbox_paths,
+        log_entries, misplaced_checkboxes, norm, open_tasks, operator_card, other_checkbox_paths,
         over_grown_briefs, parse_date, read_lines, read_text, reference_shape, rel_posix,
         resolve_entity, resolve_link, snapshot, split_lines, strip_code, table_cells,
         template_marker, triage_items, under_any, utf8_stdout, vault_paths,
@@ -133,6 +133,14 @@ def is_frozen_record(path):
     """The frozen-record marker phase1-structural.md Step 1.2b names, as plain text in the
     file's first fifteen live lines; an HTML comment carries it without rendering it."""
     return any(FROZEN_MARKER_RE.search(t) for _, t in live_lines(read_lines(path)[:15]))
+
+
+def frontmatter_end(path):
+    """The line a leading `---` block of properties closes on, 0 where the file opens on none."""
+    lines = read_lines(path)
+    if not lines or lines[0].strip() != "---":
+        return 0
+    return next((n for n, t in enumerate(lines[1:], start=2) if t.strip() == "---"), 0)
 
 
 def name_only_lines(path):
@@ -344,7 +352,8 @@ def uncited_contacts(vault, excluded_dirs=()):
     """Every carded person named in a live file with no link to their card, minus what
     phase1-structural.md exempts: resources/prompts/ and `excluded_dirs` (declared template
     and sync-output folders), a file carrying the frozen-record marker, and a Contact cell
-    in a register a declared lifecycle keeps its rows in. Returns (cards, exempt): `cards` is
+    in a register a declared lifecycle keeps its rows in. A name in a file's leading `---`
+    block, or inside another card's longer name, is no mention. Returns (cards, exempt): `cards` is
     the finding, one entry per card with the files that named it uncited; `exempt` is every
     file a mention was found in but dropped as a ledger record, so the skill can override
     the proxy."""
@@ -354,7 +363,7 @@ def uncited_contacts(vault, excluded_dirs=()):
     excluded = ("resources/prompts", *excluded_dirs)
     registers = {s["home"].strip("/") for lc in lifecycles(vault) for s in lc["stages"] if s["row"]}
     blanked = {rel: name_only_lines(vault / rel) for rel in registers if (vault / rel).is_file()}
-    frozen, targets = {}, {}
+    frozen, targets, properties = {}, {}, {}
     out, exempt = [], set()
     named_on_card = {card: contact_names(card) for card in cards}
     hits_by_name = inbound_references_by_name(vault, {n for ns in named_on_card.values() for n in ns})
@@ -369,6 +378,8 @@ def uncited_contacts(vault, excluded_dirs=()):
         named = set()
         for name in names:
             pattern = whole_word(name)
+            longer = [whole_word(n) for ns in named_on_card.values() for n in ns
+                      if n != name and pattern.search(n)]
             for hit in hits_by_name[name]:
                 if hit["file"] == card_rel or hit["in_sources"] or not in_live_scope(hit["file"]) \
                         or under_any(hit["file"], excluded):
@@ -376,6 +387,10 @@ def uncited_contacts(vault, excluded_dirs=()):
                 if hit["file"] not in frozen:
                     frozen[hit["file"]] = is_frozen_record(vault / hit["file"])
                 if frozen[hit["file"]]:
+                    continue
+                if hit["file"] not in properties:
+                    properties[hit["file"]] = frontmatter_end(vault / hit["file"])
+                if hit["line"] <= properties[hit["file"]]:
                     continue
                 text = blanked.get(hit["file"], {}).get(hit["line"], hit["text"])
                 # inbound_references() without a parent is a bare substring find, so the
@@ -389,6 +404,8 @@ def uncited_contacts(vault, excluded_dirs=()):
                 # a used syntax", and neither is one inside a link's text or target (a
                 # linked source filename, a percent-decoded href).
                 prose = links_stripped(text)
+                for other in longer:
+                    prose = other.sub(lambda m: " " * len(m.group()), prose)
                 mentioned = any(reference_shape(prose, m.start(), m.end()) == "prose"
                                 for m in pattern.finditer(prose))
                 if is_ledger_exempt(hit["file"]):
@@ -414,10 +431,13 @@ def inline_contact_details(vault):
     reported once per detail with every carded name on the line: phase1-structural.md
     forbids assigning a detail to whoever shares its line, so this reports `names_on_line`
     and leaves the assignment to the skill. Matched on the line with inline code spans blanked and every link target
-    stripped and percent-decoded, so a path or a code sample never reads as a detail."""
+    stripped and percent-decoded, so a path or a code sample never reads as a detail. A
+    detail the operator's own card holds is theirs, and is left out."""
     cards = contact_cards(vault)
     if not cards:
         return []
+    me = operator_card()
+    own = next((read_text(c).lower() for c in cards if norm(c.stem) == me), "")
     names_by_card, patterns = {}, {}
     for card in cards:
         card_rel = card.relative_to(vault).as_posix()
@@ -435,7 +455,8 @@ def inline_contact_details(vault):
         for lineno, text in live_lines(split_lines(body)):
             uncoded = code_stripped[lineno - 1] if lineno - 1 < len(code_stripped) else text
             clean = link_targets_stripped(uncoded)
-            details = [m.group(0) for m in EMAIL_RE.finditer(clean)] + phone_matches(clean)
+            details = [d for d in [m.group(0) for m in EMAIL_RE.finditer(clean)]
+                       + phone_matches(clean) if d.lower() not in own]
             names_on_line = details and sorted({n for n, c in names_by_card.items()
                                                 if c != rel and patterns[n].search(clean)})
             for detail in details if names_on_line else ():
@@ -803,7 +824,8 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=()):
     placeholders = find_placeholders_in(ph_files, vault)
     touched |= set(ph_files)
 
-    dangling = dangling_links(vault, DANGLING_ROOTS)
+    dangling = [d for d in dangling_links(vault, DANGLING_ROOTS)
+                if not under_any(d["file"], templates_dirs)]
     touched |= {vault / d["file"] for d in dangling}
 
     wikilinks = find_wikilinks(vault)
@@ -1069,7 +1091,8 @@ def phase4(vault, templates_dirs, dated_pattern, today, generated_dirs=()):
     touched |= {vault / f for f in res_loose}
     rows.append({"check": "resources_clean", "pass": not res_loose, "detail": res_loose})
 
-    dangling = dangling_links(vault, DANGLING_ROOTS)
+    dangling = [d for d in dangling_links(vault, DANGLING_ROOTS)
+                if not under_any(d["file"], templates_dirs)]
     touched |= {vault / d["file"] for d in dangling}
     rows.append({"check": "dangling_links", "pass": not dangling, "detail": dangling})
 
@@ -1133,7 +1156,8 @@ def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, heading
     return report, 0
 
 
-INVENTORY = ("map/top_level", "uncited_exempt", "duplicates/skipped", "scripts/marked", "own_rules")
+INVENTORY = ("map/top_level", "uncited_exempt", "duplicates/skipped", "scripts/marked",
+             "scripts/unmarked", "own_rules")
 
 
 def item_count(value, path=""):
@@ -1180,7 +1204,7 @@ def main(argv=None):
                                      "precondition (default: $PARAOS_HOME/para-os)")
     ap.add_argument("--templates-dir", action="append", default=[], metavar="DIR",
                     help="a folder the vault names as holding templates, excluded from the "
-                         "placeholder and uncited-contact scans (repeatable)")
+                         "dangling-link and uncited-contact scans (repeatable)")
     ap.add_argument("--generated-dir", action="append", default=[], metavar="DIR",
                     help="a folder the vault names as a sync script's output, excluded from "
                          "the uncited-contact scan (repeatable)")

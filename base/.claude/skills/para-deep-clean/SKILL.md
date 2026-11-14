@@ -64,7 +64,6 @@ Read-only, and the second half of `audit`. A scan row with `pass: false` is a re
 - The root README passes the Step 1.1 shape check, every README follows the structure `CLAUDE.md` documents, and active entities' Open items hold only real work.
 - Every contradiction between live files is corrected in the copies or carried as an open item on the owning entity.
 - Status tables ("where do we stand": cost basis, stage, key numbers) are present and current, where the vault uses them.
-- Content grooming was proposed and ruled on, each removal approved with its text shown, and the summary names the briefs Step 3.5 read and skipped.
 - **`/para-daily-brief` runs** against the cleaned vault, terminal only, and its counts look right.
 
 Report a clean state, or the residual issues with proposed fixes.

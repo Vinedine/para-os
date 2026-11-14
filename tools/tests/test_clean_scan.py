@@ -173,7 +173,7 @@ class AuditRecord(VaultCase):
             "uncited_exempt": ["a.md"], "duplicates": {"groups": [], "skipped": ["big.pdf"]},
             "scripts": {"marked": ["s.py"], "unmarked": ["t.py"]},
             "archive": {"misplaced_checkboxes": {"projects": [1], "closed": {"areas": [1, 2]}}}}),
-            {"map": 1, "scripts": 1, "archive": 3})
+            {"map": 1, "archive": 3})
 
     def test_phase_four_counts_its_failed_checks_only(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -366,6 +366,15 @@ class DanglingLinks(VaultCase):
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0]["href"], "missing.md")
 
+    def test_a_link_inside_a_declared_templates_folder_is_not_reported(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/templates/brief.md", "# Name\n\n[offer](sources/offer.pdf)\n")
+        declared = {"templates_dirs": ["resources/templates"]}
+        self.assertEqual(self.run_scan("1", **declared)["phase1"]["dangling"], [])
+        rows = {r["check"]: r for r in self.run_scan("4", **declared)["phase4"]["rows"]}
+        self.assertTrue(rows["dangling_links"]["pass"])
+        self.assertEqual(len(self.run_scan("1")["phase1"]["dangling"]), 1)
+
     def test_a_rule_file_s_links_resolve_from_two_folders_down(self):
         # A repo list moved into .claude/rules/ carries ../../ links.
         write(self.root, "CLAUDE.md", "# Vault\n")
@@ -554,6 +563,23 @@ class UncitedContacts(VaultCase):
         found = {c["card"]: c for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
         self.assertEqual(found["areas/network/mark.md"]["files"], ["projects/beta/brief.md"])
 
+    def test_a_first_name_card_is_not_named_by_another_card_s_longer_name(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/sam.md", "# Sam\n")
+        write(self.root, "areas/network/sam-hart.md", "# Sam Hart\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n\nSam Hart called.\n")
+        write(self.root, "projects/beta/brief.md", "# Beta\n\nSam called, then Sam Hart.\n")
+        got = {c["card"]: c["files"] for c in self.run_scan("1")["phase1"]["uncited_contacts"]}
+        self.assertEqual(got["areas/network/sam.md"], ["projects/beta/brief.md"])
+
+    def test_a_name_in_yaml_frontmatter_is_not_a_mention(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "projects/acme/brief.md", "---\nowner: Jan Claes\n---\n# Acme\n")
+        write(self.root, "projects/beta/brief.md", "# Beta\n\n---\nJan Claes\n---\n")
+        got = self.run_scan("1")["phase1"]["uncited_contacts"]
+        self.assertEqual([c["files"] for c in got], [["projects/beta/brief.md"]])
+
     def test_a_ledger_record_is_exempt_but_named_for_override(self):
         # Finding 3: the mechanical proxy for "analytical and ledger records that are
         # evidence in all but folder name" - the file is dropped from the finding but
@@ -708,6 +734,17 @@ class InlineContactDetails(VaultCase):
         self.assertEqual(hits[0]["names_on_line"], ["Jan Claes"])
         self.assertEqual(hits[0]["detail"], "jan.claes@example.com")
         self.assertNotIn("card", hits[0])
+
+    def test_a_detail_on_the_operator_s_own_card_is_not_one_to_move(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "areas/network/jan-claes.md", "# Jan Claes\n")
+        write(self.root, "areas/network/ann-smet.md", "# Ann Smet\n\nann.smet@example.com\n")
+        write(self.root, "projects/acme/brief.md",
+              "# Acme\n\nJan Claes invoices Ann.Smet@example.com, copy jan.claes@example.com.\n")
+        self.assertEqual(len(self.run_scan("1")["phase1"]["inline_contact_details"]), 2)
+        write(self.home, "operator.json", '{"card": "ann-smet"}')
+        hits = self.run_scan("1")["phase1"]["inline_contact_details"]
+        self.assertEqual([h["detail"] for h in hits], ["jan.claes@example.com"])
 
     def test_a_form_feed_above_a_detail_shifts_no_line(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
