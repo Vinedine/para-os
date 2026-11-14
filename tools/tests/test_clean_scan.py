@@ -853,6 +853,15 @@ class Duplicates(VaultCase):
         groups = self.run_scan("1")["phase1"]["duplicates"]["groups"]
         self.assertEqual([g["cross_entity"] for g in groups], [False])
 
+    def test_a_file_loose_in_an_archive_folder_belongs_to_that_folder(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "archive/projects-2025/scan.md", "a" * 250)
+        write(self.root, "archive/projects-2025/scan copy.md", "a" * 250)
+        write(self.root, "archive/meetings/20250101 Call.md", "b" * 250)
+        write(self.root, "archive/meetings/20250101 Call again.md", "b" * 250)
+        groups = self.run_scan("1")["phase1"]["duplicates"]["groups"]
+        self.assertEqual([g["cross_entity"] for g in groups], [False, False])
+
     def test_an_archived_entity_is_the_folder_two_levels_below_archive(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
         write(self.root, "archive/projects/acme/sources/a.md", "a" * 250)
@@ -1104,6 +1113,18 @@ class Archive(VaultCase):
             {"file": "archive/meetings/20260902 Sync.md", "entity": "projects/acme"},
             {"file": "archive/meetings/20260904 Call.md", "entity": "projects/acme"},
         ])
+
+    def test_a_contact_card_never_owns_a_meeting_record(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n")
+        write(self.root, "areas/network/dana-reyes.md", "# Dana Reyes\n")
+        write(self.root, "archive/meetings/20260901 Kickoff.md",
+              "# Kickoff\n\nWith [Dana](../../areas/network/dana-reyes.md), on Acme and Beta.\n")
+        write(self.root, "archive/meetings/20260902 Sync.md",
+              "# Sync\n\n[Dana](../../areas/network/dana-reyes.md) on "
+              "[acme](../../projects/acme/brief.md).\n")
+        self.assertEqual(self.run_scan("1")["phase1"]["archive"]["single_owner"], [
+            {"file": "archive/meetings/20260902 Sync.md", "entity": "projects/acme"}])
 
     def test_a_checkbox_in_a_meeting_record_or_under_sources_is_the_records(self):
         write(self.root, "CLAUDE.md", "# Vault\n")

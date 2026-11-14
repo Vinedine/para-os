@@ -463,12 +463,13 @@ def archive_entities(vault):
 
 
 def entity_of_path(rel, whole=()):
-    """`whole` names the folders straight under `archive/` that are one entity each."""
+    """`whole` names the folders straight under `archive/` that are one entity each; a file
+    loose in any other belongs to that folder."""
     parts = Path(rel).parts
     if not parts:
         return rel
     if parts[0] == "archive" and len(parts) >= 3:
-        return "/".join(parts[:2 if parts[1] in whole else 3])
+        return "/".join(parts[:2 if parts[1] in whole or len(parts) == 3 else 3])
     if parts[0] == "resources" and len(parts) >= 3 and parts[1] == "ideas":
         return "/".join(parts[:3])
     if parts[0] in ("projects", "areas") and len(parts) >= 2:
@@ -561,7 +562,8 @@ def figure_pairs(vault):
 
 def owning_entity(vault, path):
     """The one live entity a meeting record belongs to: its `**Project:**` line, else every
-    link into an entity folder naming the same one. None for several or none."""
+    link into an entity folder naming the same one, a contact card never counting. None for
+    several or none."""
     project = field_ci(header_fields(path), "project")
     if project and not extract_links(project):
         found = resolve_entity(vault, project)
@@ -570,7 +572,7 @@ def owning_entity(vault, path):
     for _, href, _ in extract_links(project or read_text(path)):
         entity = entity_of_path(rel_posix(vault, resolve_link(path, href)))
         if entity.startswith(("projects/", "areas/", "resources/ideas/")) \
-                and (vault / entity).is_dir():
+                and entity != "areas/network" and (vault / entity).is_dir():
             owners.add(entity)
     return owners.pop() if len(owners) == 1 else None
 
