@@ -457,10 +457,32 @@ class Records(VaultCase):
         write(self.root, "resources/ideas/beta/sources/20260801 Intro.txt", "Nobody here.\n")
         write(self.root, "archive/projects/old/sources/20260915 Jan Janssen.md", "Archived.\n")
         self.assertEqual(self.found(), [
-            ("archive/meetings/20260912 Review.md", "name"),
             ("areas/business/sources/20260910 Thread.eml", "email"),
             ("projects/acme/sources/20260905 Steering.md", "link"),
-            ("projects/acme/sources/20260901 Jan Janssen kickoff.pdf", "file name")])
+            ("projects/acme/sources/20260901 Jan Janssen kickoff.pdf", "file name"),
+            ("archive/meetings/20260912 Review.md", "name")])
+
+    def attended(self):
+        return [(r["path"], r["attended"]) for r in self.person("Jan Janssen")["records"]]
+
+    def test_a_record_the_person_attended_outranks_a_newer_one_that_only_mentions_them(self):
+        write(self.root, "archive/meetings/20260915 Budget.md",
+              "**Attendees:** Ann Peeters, Bram.\n\nAsk Jan Janssen about the budget.\n")
+        write(self.root, "projects/acme/sources/20260901 Kickoff.md",
+              "**Attendees:** Jan Janssen, Ann.\n")
+        self.assertEqual(self.attended(), [
+            ("projects/acme/sources/20260901 Kickoff.md", True),
+            ("archive/meetings/20260915 Budget.md", False)])
+
+    def test_attended_is_an_attendee_line_a_mail_header_or_the_file_name(self):
+        write(self.root, "archive/meetings/20260905 Call.md",
+              '---\nattendees: "Jan, ann@acme.example"\n---\n\nJan Janssen will send it.\n')
+        write(self.root, "archive/meetings/20260904 Board.md", "- Present: Janssen, Jan\n")
+        write(self.root, "archive/meetings/20260903 Thread.eml", "Cc: jan@acme.example\n")
+        write(self.root, "archive/meetings/20260902 Jan Janssen.pdf", "%PDF")
+        write(self.root, "archive/meetings/20260901 Notes.md",
+              "Attendees were few. Jan Janssen was missed.\n")
+        self.assertEqual([a for _, a in self.attended()], [True, True, True, True, False])
 
     def test_a_record_carries_its_date_and_age_and_an_undated_one_sorts_last(self):
         write(self.root, "projects/acme/sources/notes.md", "Jan Janssen\n")
@@ -590,6 +612,15 @@ class RegisterRows(VaultCase):
                          "A first conversation has been held")
         self.assertEqual(rows[0]["cells"]["Next step"], "Call back, 2026-09-25")
         self.assertIsNone(rows[1]["stage"])
+
+    def test_a_closed_row_carries_no_stage_even_where_its_cell_names_one(self):
+        write(self.root, "areas/business/leads.md", "\n".join([
+            "# Leads", "", "## Closed", "",
+            "| Company | Contact | Stage | Outcome |", "|---|---|---|---|",
+            "| Gamma | Lotte Maes | Lead (since 2026-08-01) | No fit |", ""]))
+        row = self.person("Lotte Maes")["rows"][0]
+        self.assertEqual((row["closed"], row["stage"]), (True, None))
+        self.assertEqual(row["cells"]["Stage"], "Lead (since 2026-08-01)")
 
     def test_a_declared_register_not_yet_created_holds_no_rows(self):
         self.assertEqual(self.person("Lotte Maes")["rows"], [])
