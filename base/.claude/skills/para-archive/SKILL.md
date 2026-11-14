@@ -10,7 +10,7 @@ argument-hint: '<name> [preview|table] [--test]'
 
 Closes out **one finished project, retired idea, or ended area**, leaving no dangling links: a project moves from `projects/<name>/` to `archive/projects/<name>/`, an idea from `resources/ideas/<name>/` to `archive/ideas/<name>/`, and where the vault's `CLAUDE.md` names another archive destination for its kind, there instead. An area archives only where one is named for its kind.
 
-Do NOT invoke for a contact, an area with no named destination, or an idea becoming a project: that is a promotion, `/para-new promote <name>`.
+Not for a contact, an area with no named destination, or an idea becoming a project: that is a promotion, `/para-new promote <name>`.
 
 ## Arguments
 
