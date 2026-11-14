@@ -333,7 +333,8 @@ def field_test(args):
 
     columns = [*VAULT_SCANS, *LAST_SCANS, *REGISTRY_SCANS]
     run_at = datetime.now()
-    templates = [git("show", f"{shas[side]}:base/CLAUDE.md.template").stdout for side in shas]
+    templates = [git("show", f"{shas[side]}:base/.claude/para-os/core.md").stdout
+                 or git("show", f"{shas[side]}:base/CLAUDE.md.template").stdout for side in shas]
     meta = {"base": args.base, "head": args.head, "base_sha": shas["base"][:7],
             "head_sha": shas["head"][:7], "today": today, "skipped": skipped,
             "run": run_at.strftime("%Y-%m-%d %H:%M"), "unstamped": unstamped(*templates)}

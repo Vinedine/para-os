@@ -30,7 +30,7 @@ A vault that declares no `**Flavor:** real-estate` and has no dossier rule is no
 
 Track the phases in the harness's task list where it offers one, else in a short progress message at each phase boundary.
 
-1. **Locate.** Resolve the vault root once and hold it (`operating-discipline.md`). Resolve the property to exactly one folder and its dossier: `brief.md` in `projects/` or `resources/ideas/`, `README.md` in `areas/properties/`. None or several: stop and ask. List every file in `sources/`; with none, continue on the books alone if the vault names them, otherwise stop. Summarise and get the go-ahead.
+1. **Locate.** Resolve the vault root once and hold it (`operating-discipline.md`). Resolve the property to exactly one folder and its dossier, the `brief.md` there. None or several: stop and ask. List every file in `sources/`; with none, continue on the books alone if the vault names them, otherwise stop. Summarise and get the go-ahead.
 2. **Extract, in parallel.** One agent per group of source documents plus one for the books, each returning quoted facts only. **Procedure: [references/extraction.md](references/extraction.md).**
 3. **Reconcile claim by claim**, then the books pass on stage and cost. **Procedure: [references/reconcile.md](references/reconcile.md).**
 4. **Apply after approval, and report.** **Procedure: [references/reconcile.md](references/reconcile.md).**

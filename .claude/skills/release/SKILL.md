@@ -55,8 +55,8 @@ holds is in [changelog.d/README.md](../../../changelog.d/README.md).
 
 ## 4. Restamp
 
-- `<!-- para-os-template: <label> -->` in `base/CLAUDE.md.template` and every
-  `examples/*/CLAUDE.md`.
+- `<!-- para-os-template: <label> -->` in `base/.claude/para-os/core.md`, then that file
+  copied over every `examples/*/.claude/para-os/core.md`.
 - For each integration whose script changed since its last stamp: the
   `para-os-integration: <name> <label>` marker in every script in its folder, and its row in
   the Available table in `integrations/README.md`. An unchanged integration keeps its label.
@@ -107,7 +107,7 @@ findings as one list; only those named as blocking get an issue and a pull reque
 ## 8. Ship
 
 Ship `<sha>`, the commit step 7 validated, never `main`'s head: a pull request merged since
-then goes out in the next revision. Stop if `git show <sha>:base/CLAUDE.md.template` does not
+then goes out in the next revision. Stop if `git show <sha>:base/.claude/para-os/core.md` does not
 carry `<!-- para-os-template: <label> -->`. Otherwise propose these commands, and run them only
 on the maintainer's approval:
 

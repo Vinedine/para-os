@@ -2,18 +2,16 @@
 paths:
   - "resources/ideas/*/brief.md"
   - "projects/*/brief.md"
-  - "areas/properties/*/README.md"
+  - "areas/properties/*/brief.md"
   - "archive/properties/*/brief.md"
-  - "archive/properties/*/README.md"
   - "archive/researched-deals/*/brief.md"
-  - "archive/researched-deals/*/README.md"
 ---
 
 # Property dossier
 
 **Order:** fixed. A section that does not apply stays, marked as in [Placeholders](#placeholders).
 
-One document per property. From Acquiring on it carries the sixteen sections below: a flip and a rental differ only in which sections carry content, never in the order or the names. Prospecting, Sold and Dropped vary as [What each stage carries](#what-each-stage-carries) says, and the stage names are those of `## Property lifecycle` in the vault's `CLAUDE.md`. The filename follows the bucket: `brief.md` in `resources/ideas/` and `projects/`, `README.md` in `areas/properties/`; an archived property keeps the filename it had. These paths also match other projects and ideas, which follow `brief-structure.md`: a non-property one, and a works project on a held property, whose dossier is the area's `README.md`.
+One document per property. From Acquiring on it carries the sixteen sections below: a flip and a rental differ only in which sections carry content, never in the order or the names. Prospecting, Sold and Dropped vary as [What each stage carries](#what-each-stage-carries) says, and the stage names are those of `## Property lifecycle`. The file is `brief.md` in every bucket. These paths also match other projects and ideas, which are shaped by their work: a non-property one, and a works project on a held property, whose dossier is the area's `brief.md`.
 
 ## The shape
 

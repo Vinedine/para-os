@@ -7,8 +7,8 @@
      TEMPLATE: {{COMPANY}} property deal sheet.
 
      A deal sheet is the DESIGNED, presentation-grade rendering of a property's
-     dossier (resources/ideas/<property>/brief.md, projects/<property>/brief.md,
-     or areas/properties/<property>/README.md). The dossier is the source of
+     dossier, the brief.md in its folder (resources/ideas/<property>/,
+     projects/<property>/ or areas/properties/<property>/). The dossier is the source of
      truth; this file is a DERIVED output and its footer says so. When the
      dossier changes, regenerate the sheet.
 
@@ -384,7 +384,7 @@
 
   <footer>
     <b>{{COMPANY}}</b><br>
-    Internal deal sheet &middot; {{buy-side evaluation | hold review}} as of {{AS_OF_DATE}} &middot; figures are estimates &middot; source of truth: <b>{{brief.md | README.md}}</b>
+    Internal deal sheet &middot; {{buy-side evaluation | hold review}} as of {{AS_OF_DATE}} &middot; figures are estimates &middot; source of truth: <b>brief.md</b>
   </footer>
 
 </div>
