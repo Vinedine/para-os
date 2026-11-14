@@ -1,6 +1,6 @@
 # Render the board (Step 2)
 
-A section with nothing to show is left out, except the counts line and the metrics, which state a zero; a null `terminal_this_quarter` is left out.
+One block per lifecycle, then the close. A section with nothing to show is left out, except the counts line and the metrics, which state a zero; a null `terminal_this_quarter` is left out.
 
 ````
 # Pipeline - <YYYY-MM-DD> - <vault name>
@@ -40,7 +40,7 @@ By value: <entity> €9,000 · <entity> €4,500 · <entity> USD 1,250 · unknow
 
 ## The flags
 
-One line each, never what to decide about the entity itself; over fifteen show ten, then `(+N more)`:
+One line each, naming the entity and the edit that clears it, never what to decide about the entity itself; over fifteen show ten, then `(+N more)`:
 
 - **`no_next_step`.**
 - **`stale`**, saying which `basis` it was measured by.
