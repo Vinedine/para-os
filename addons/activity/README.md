@@ -1,12 +1,9 @@
 # Module: activity
 
-Record how a vault is actually used, so the vault can be improved against evidence instead of impressions. A module is a **function a vault adds beside whatever it is about**, and this one is a single decision that turns on both halves: the ledger a hook writes, and `/para-activity-review`, the skill that reads it.
+Record how a vault is actually used, so the vault can be improved against evidence instead of impressions. A module is a **function a vault adds beside whatever it is about**, and this one is a ledger a hook writes. Nothing in the kit reads it: it is the vault's own record.
 
 ```
 Claude Code session  ──▶  hook: activity.py  ──▶  <vault>/resources/logs/sessions/*.jsonl
-                                                          │
-                                                          ▼
-                                            /para-activity-review reads it and reports
 ```
 
 Git tells you what changed in a vault. This tells you what someone **asked for**, which skills they reached for, where a session failed, and what they never touched at all. Those are different questions, and only the second one improves the product: a skill nobody invokes and a `triage/` that fills while `/para-triage` is never run are both invisible to a commit log.
@@ -15,15 +12,14 @@ Git tells you what changed in a vault. This tells you what someone **asked for**
 
 ## What it adds
 
-1. **A fixed file** ([`para-os/activity.md`](para-os/activity.md)): `## Activity ledger`, stating that the vault records its use, where the ledger lives, and that it is pruned only through the skill.
+1. **A fixed file** ([`para-os/activity.md`](para-os/activity.md)): `## Activity ledger`, stating that the vault records its use, where the ledger lives, and that nothing moves, rewrites or deletes a ledger file.
 2. **The ledger script** ([`pipeline/activity.py`](pipeline/activity.py)), copied into the vault's `resources/scripts/`. Its `para-os-integration: activity` marker puts it in `/para-upgrade`'s drift check like any integration.
-3. **The skill** ([`.claude/skills/para-activity-review/`](.claude/skills/para-activity-review/SKILL.md)), installed beside the base skills. It reads `para-shared/`.
 
 ## When it earns its place
 
-- A **team** shares a vault and you maintain it for them. The single most valuable output is the list of capabilities nobody used once.
+- A **team** shares a vault and you maintain it for them. The most valuable thing in the ledger is the capabilities nobody used once.
 - You are **rolling para-os out** to people who did not build it, and the first weeks are the only chance to see the unlearned version of the system.
-- You maintain a vault **for yourself** and want the same answer about your own habits. It works unchanged; the report is just shorter.
+- You maintain a vault **for yourself** and want the same answer about your own habits. It works unchanged.
 
 It earns nothing on a vault nobody else touches and nobody is improving. Skip it there.
 
@@ -35,7 +31,7 @@ It earns nothing on a vault nobody else touches and nobody is improving. Skip it
 
 ## Setup
 
-1. Add `**Modules:** activity` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one. Copy `para-os/activity.md` to the vault's `.claude/para-os/` and add `@.claude/para-os/activity.md` under the core's import line. Copy `.claude/skills/para-activity-review/` beside the base skills, and `pipeline/activity.py` into the vault at `resources/scripts/`. The vault root is derived from the script's own path, so there is nothing to configure and no machine-specific path in a file that syncs.
+1. Add `**Modules:** activity` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one. Copy `para-os/activity.md` to the vault's `.claude/para-os/` and add `@.claude/para-os/activity.md` under the core's import line. Copy `pipeline/activity.py` into the vault at `resources/scripts/`. The vault root is derived from the script's own path, so there is nothing to configure and no machine-specific path in a file that syncs.
 
 2. Wire the hooks in the vault's `.claude/settings.json`. Every command is anchored to `$CLAUDE_PROJECT_DIR`, the vault root, and the quotes around it are not optional - a vault path usually contains spaces:
 
@@ -53,7 +49,7 @@ It earns nothing on a vault nobody else touches and nobody is improving. Skip it
    }
    ```
 
-   **Not a bare relative path.** A hook inherits the calling session's working directory, not the vault root, and that directory moves: `cd` inside a Bash tool call persists for the rest of the session, so the moment a session steps into a subfolder every later hook fails to locate the script - `can't open file ... No such file or directory` - until something `cd`s back. Nothing surfaces the gap; the ledger simply stops recording, and a usage review reads the silence as an idle session rather than a broken hook.
+   **Not a bare relative path.** A hook inherits the calling session's working directory, not the vault root, and that directory moves: `cd` inside a Bash tool call persists for the rest of the session, so the moment a session steps into a subfolder every later hook fails to locate the script - `can't open file ... No such file or directory` - until something `cd`s back. Nothing surfaces the gap; the ledger simply stops recording, and the silence reads as an idle session rather than a broken hook.
 
    One command serves one platform. A mixed Windows and macOS team needs `py` on one and `python3` on the other, and settings.json has no branch for that: pick the majority platform and install the minority's copy at user level.
 
@@ -71,7 +67,7 @@ Optional `resources/scripts/activity.config.json`, beside the script:
 
 | Key | Default | Effect |
 |---|---|---|
-| `record_prompts` | `true` | Record what people typed. Setting it `false` keeps the structural signal - which skills, which files, what failed - and drops the words: a prompt that opens with a slash command still records that command alone, since `/para-triage` is an invocation rather than something someone said. The report gets thinner but stays useful |
+| `record_prompts` | `true` | Record what people typed. Setting it `false` keeps the structural signal - which skills, which files, what failed - and drops the words: a prompt that opens with a slash command still records that command alone, since `/para-triage` is an invocation rather than something someone said |
 | `prompt_max_chars` | `500` | Truncation. A prompt's first lines carry the intent |
 | `record_touched` | `true` | The `touched` scan below. Set `false` to drop it and get the un-scanned behaviour |
 | `touched_max_files` | `40` | Cap on paths listed in one line. The uncapped count survives as `touched_total` |
@@ -82,11 +78,11 @@ Each person can also keep their own words out of a shared ledger with `{"record_
 
 ## What it records, and what it refuses to
 
-One JSONL line per event: timestamp, event name, session id, prompt id, the prompt, the tool name, what the tool was pointed at, duration, permission mode, and how the session ended. For a skill or a subagent, "what it was pointed at" is the skill or agent **name** - the signal `/para-activity-review` builds adoption from, since `Skill` alone says a skill ran but never which.
+One JSONL line per event: timestamp, event name, session id, prompt id, the prompt, the tool name, what the tool was pointed at, duration, permission mode, and how the session ended. For a skill or a subagent, "what it was pointed at" is the skill or agent **name**, since `Skill` alone says a skill ran but never which.
 
 ### `touched`: the files a script wrote
 
-Keeping only a command's first token leaves a wide gap. A script run through Bash writes files the hook never sees, so a run that wrote sixty files is recorded as `py`, and a review then reports those files as never having been written.
+Keeping only a command's first token leaves a wide gap. A script run through Bash writes files the hook never sees, so a run that wrote sixty files is recorded as `py`, and those files look never written.
 
 So on any completed tool call that does not already name its own path, the hook asks the filesystem which vault files moved while the tool was running, and records them as `touched` (with `touched_total` when the list is capped). The tools in `PATH_NAMING_TOOLS` are skipped: they already name their file, and scanning them would make one edit look like two.
 
@@ -96,7 +92,7 @@ This stays inside the privacy rule - a path, never content, and only inside the 
 
 ### `summary`: what the session did, because `reason` cannot say
 
-`SessionEnd` carries a `reason`, and it belongs to the harness, not to this script. Its documented values are `clear`, `resume`, `logout`, `prompt_input_exit` and `other`, and **a client is free to report `other` for every ending** - one did, for every session in a real ledger, which left the "how did sessions end" signal `/para-activity-review` is specified to compute simply nonexistent.
+`SessionEnd` carries a `reason`, and it belongs to the harness, not to this script. Its documented values are `clear`, `resume`, `logout`, `prompt_input_exit` and `other`, and **a client is free to report `other` for every ending** - one did, for every session in a real ledger, which left "how did sessions end" unanswerable from it.
 
 No amount of care here makes that field vary, and inventing a livelier value would be fabricating data. So `reason` is still recorded exactly as received, and alongside it the `SessionEnd` line now carries a `summary` counted from the session's own ledger file:
 
@@ -109,9 +105,9 @@ No amount of care here makes that field vary, and inventing a livelier value wou
 | `duration_s` | First event to session end |
 | `last_prompt_tools` | Tool calls after the final prompt |
 
-`prompts: 0` is the one that matters most in practice: a client opens a session per window or tile, so a session count computed from file names is a multiple of the sessions anyone worked in. Stated as a field, a review can exclude them by reading one number instead of inferring it.
+`prompts: 0` is the one that matters most in practice: a client opens a session per window or tile, so a session count computed from file names is a multiple of the sessions anyone worked in. Stated as a field, a reader excludes them by one number instead of inferring it.
 
-`last_prompt_tools: 0` says the final request produced no tool call. That is a fact and not a verdict: a question answered in prose looks identical here to one abandoned, and the review is told to read it that way.
+`last_prompt_tools: 0` says the final request produced no tool call. That is a fact and not a verdict: a question answered in prose looks identical here to one abandoned.
 
 A prompt is recorded as typed, except that a path in it outside the vault becomes `<outside the vault>`. A credential pasted into one is recorded too: the Bash redaction below does not cover that, and nothing can, so switch `record_prompts` off in a vault where that is a real risk.
 
@@ -127,7 +123,7 @@ The **full session transcript is not read**, though every hook event names its p
 
 `<vault>/resources/logs/sessions/YYYYMMDD-<user>-<session>.jsonl`, one file per session per person per day. Several people syncing one folder cannot share one append target: that produces conflict copies, not a log.
 
-This is machine output living inside a human vault, which the [scripts convention](../../base/resources/scripts/README.md) otherwise avoids by putting runtime state under `~/.paraos/`. It is deliberate and it is the only choice that works: state outside the vault never reaches the person maintaining it. Two things keep it honest - the files are small and machine-readable rather than something a reader must skim, and `/para-activity-review` prunes what it has already reported.
+This is machine output living inside a human vault, which the [scripts convention](../../base/resources/scripts/README.md) otherwise avoids by putting runtime state under `~/.paraos/`. It is deliberate and it is the only choice that works: state outside the vault never reaches the person maintaining it. What keeps it honest: the files are small and machine-readable rather than something a reader must skim.
 
 If the vault has a git mirror, exclude `resources/logs/` from it. The files arrive through the sync anyway, and vault history should record decisions, not keystrokes.
 

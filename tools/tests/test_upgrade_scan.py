@@ -84,7 +84,7 @@ REV_A = {
     "addons/sales/.claude/skills/deal-skill/SKILL.md": "# Deal skill\n",
     "addons/sales/skeleton/resources/deals/README.md": "# Deals\n",
     "addons/sales/pipeline/tally.py": "# para-os-integration: sales 2026.09.01\n",
-    "multi-vault/para-audit/SKILL.md": "# Audit\n",
+    "multi-vault/para-ingest/SKILL.md": "# Ingest\n",
     "multi-vault/vaults.json.template": "[]\n",
     "examples/shop/.claude/rules/filing.md": RULE.format("ours"),
 }
@@ -167,7 +167,7 @@ class BehindCase(CloneCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = cls.tmp / "user-skills"
-        write(cls.user, "para-audit/SKILL.md", "# Audit, mine\n")
+        write(cls.user, "para-ingest/SKILL.md", "# Ingest, mine\n")
         write(cls.user, "para-notes/old.md", "Old.\n")
         cls.v = cls.vault("behind", header="**Modules:** sales\n", files={
             ".claude/skills/para-notes/SKILL.md": "# Notes v1\n",
@@ -213,7 +213,7 @@ class BehindCase(CloneCase):
             "resources/scripts/other.py": "no-master",
             "resources/scripts/tally.py": "edited",
             "triage/README.md": "retired",
-            str(Path(user, "para-audit", "SKILL.md")): "edited",
+            str(Path(user, "para-ingest", "SKILL.md")): "edited",
             str(Path(user, "para-notes", "old.md")): "retired",
             str(Path(user, "para-shared", "scripts", "lib.py")): "missing",
         })
@@ -306,9 +306,9 @@ class StatesCase(CloneCase):
     def test_a_vault_bundling_no_kit_skill_takes_none_beside_the_user_level_ones(self):
         user = self.tmp / "user-runs-all"
         write(user, "para-notes/SKILL.md", "# Notes v2\n")
-        write(user, "para-audit/SKILL.md", "# Audit\n")
+        write(user, "para-ingest/SKILL.md", "# Ingest\n")
         v = self.vault("vault-no-skill", files={".claude/skills/para-shared/scripts/lib.py": "LIB = 1\n",
-                                               ".claude/skills/para-audit/SKILL.md": "# Audit\n"})
+                                               ".claude/skills/para-ingest/SKILL.md": "# Ingest\n"})
         paths = [r["path"] for r in self.scan(v, user=user)[0]["files"]]
         self.assertIn(str((user / "para-prep" / "SKILL.md").resolve()), paths)
         self.assertFalse(any(p.startswith(".claude/skills/para-") and "para-shared" not in p

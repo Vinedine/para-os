@@ -15,8 +15,7 @@ Both ship one fixed file, `para-os/<name>.md`, copied whole to the vault's `.cla
 
 - [`real-estate/`](real-estate/), a flavor for buying, renovating, selling and holding property.
 - [`sales/`](sales/), a module for prospects, demos and deals.
-- [`activity/`](activity/), a module that adds a usage review.
-- [`brainstorm/`](brainstorm/), a module that adds a guided brainstorm.
+- [`activity/`](activity/), a module that records how a vault is used.
 
 ## What a folder may ship
 

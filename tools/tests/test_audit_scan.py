@@ -1,35 +1,30 @@
 #!/usr/bin/env python3
-"""Tests for audit_scan.py. Each pins a rule the script's docstring states: which registry entries are audited, the four revision outcomes, the declaration and
-add-on checks, shipped rule files and the rule-file contract, integration and skill copies
-read at a committed ref, CLAUDE.md sections, the size target, the drive, and the vault named
-first.
+"""Tests for audit_scan.py. Each pins a rule the script's docstring states: which registry
+entries are read, the revision outcomes, the declaration and add-on checks, shipped rule files
+and the rule-file contract, and integration and skill copies read at a committed ref.
 
     python3 test_audit_scan.py
     py -3 test_audit_scan.py
 
-Standard library only. Every vault, registry and para-os clone here is synthetic, built in a
-temporary folder: one throwaway git clone per test class, three revisions deep, with
-`origin/stable` set by `update-ref` so no remote is needed.
+Standard library only. Every vault and para-os clone here is synthetic, built in a temporary
+folder: one throwaway git clone per test class, three revisions deep, with `origin/stable` set
+by `update-ref` so no remote is needed.
 """
 
-import contextlib
-import io
-import json
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPTS = ROOT / "multi-vault" / "para-audit" / "scripts"
+SCRIPTS = ROOT / "multi-vault" / "para-command-center" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 import audit_scan  # noqa: E402
-import paraos_clone  # noqa: E402
-from audit_scan import build_report, main  # noqa: E402
+from paraos_clone import master_template  # noqa: E402
+from upgrade_scan import open_clone  # noqa: E402
 
 SCRIPT = SCRIPTS / "audit_scan.py"
 
@@ -163,37 +158,21 @@ class CloneCase(unittest.TestCase):
         return self.entry_at(self.work, name, **extra)
 
     @classmethod
-    def audit_at(cls, work, entries, ref=None):
-        with mock.patch.dict("os.environ", {"CLAUDE_CONFIG_DIR": str(cls.tmp / "claude")}):
-            return build_report(work / "vaults.json", entries, cls.clone, ref, "explicit",
-                                cls.tmp / "no-home" / "para-os")
+    def audit_at(cls, work, name, ref=None, **extra):
+        block, code, kit = open_clone(cls.clone, ref)
+        assert not code, block
+        developing = master_template(kit.clone, block["ref"], worktree=True)["marker"]
+        return audit_scan.audit_vault(cls.entry_at(work, name, **extra), kit, block["ref"],
+                                      developing if developing > kit.master else None)
 
-    def run_audit(self, entries, ref=None):
-        return self.audit_at(self.work, entries, ref)
-
-    def vault_row(self, report, name):
-        return next(v for v in report["vaults"] if v["name"] == name)
+    def audit(self, name="v", ref=None, **extra):
+        return self.audit_at(self.work, name, ref, **extra)
 
     def findings(self, row, check):
         return [f for f in row["findings"] if f["check"] == check]
 
 
 # ======================================================== which entries are excluded
-
-class CloneSession(CloneCase):
-    def test_the_whole_audit_reads_the_clone_in_one_session(self):
-        build_vault(self.work / "alpha")
-        sessions = []
-        real = audit_scan.audit_vault
-
-        def audit(*args):
-            sessions.append(paraos_clone._SESSION)
-            return real(*args)
-
-        with mock.patch.object(audit_scan, "audit_vault", side_effect=audit):
-            self.run_audit([self.entry("alpha")])
-        self.assertIsNotNone(sessions[0])
-
 
 class ExcludedStatus(unittest.TestCase):
     THEIRS = {"name": "theirs", "machine": "the studio laptop"}
@@ -203,17 +182,24 @@ class ExcludedStatus(unittest.TestCase):
         self.assertEqual(status, "UNREACHABLE")
         self.assertIn("pulled on the studio laptop", reason)
 
-    def test_a_reachable_vault_another_machine_pulls_is_audited(self):
+    def test_a_reachable_vault_is_read_whoever_pulls_it_and_active_or_not(self):
         with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(audit_scan.excluded_status({"name": "bare", "path": tmp}),
+                             ("UNREACHABLE", "the path holds no CLAUDE.md"))
             (Path(tmp) / "CLAUDE.md").write_text("# Theirs\n", encoding="utf-8")
             self.assertIsNone(audit_scan.excluded_status(dict(self.THEIRS, path=tmp)))
+            self.assertIsNone(audit_scan.excluded_status(
+                {"name": "quiet", "path": tmp, "active": False}))
+
+    def test_an_entry_missing_its_name_or_path_is_invalid(self):
+        for entry in ({"name": "nameless-path"}, "not an entry", {"name": "numbered", "path": 7}):
+            self.assertEqual(audit_scan.excluded_status(entry)[0], "INVALID")
 
 
 # ======================================================== the fixture fleet (Done when)
 
 class FleetCase(CloneCase):
-    """Three registered vaults: aligned, behind with a stale integration copy, unreachable.
-    Audited once for the class."""
+    """Two vaults: aligned, and behind with a stale integration and skill copy."""
 
     @classmethod
     def setUpClass(cls):
@@ -222,35 +208,23 @@ class FleetCase(CloneCase):
         build_vault(work / "aligned")
         build_vault(work / "behind", marker="2026.09.01", skill_version=1,
                     logbook_rev="2026.09.01", logbook_body="v1")
-        entries = [cls.entry_at(work, "aligned"), cls.entry_at(work, "behind"),
-                   cls.entry_at(work, "unreachable")]
         cls.before = {n: tree_bytes(work / n) for n in ("aligned", "behind")}
-        cls.report, cls.code = cls.audit_at(work, entries)
+        cls.rows = {n: cls.audit_at(work, n) for n in cls.before}
 
-    def test_answers(self):
-        self.assertEqual(self.code, 0)
-        self.assertEqual(self.report["master"]["revision"], "2026.10.01")
-        self.assertEqual(self.report["tasks"]["findings"], [])
-        self.assertFalse(self.report["connections"]["exists"])
-        self.assertEqual([v["name"] for v in self.report["vaults"]], ["aligned", "behind"])
-
-    def test_the_aligned_vault_has_no_finding(self):
-        row = self.vault_row(self.report, "aligned")
-        self.assertEqual(row["revision"]["verdict"], "equal")
+    def test_the_aligned_vault_has_no_finding_and_the_working_tree_is_never_the_bar(self):
+        row = self.rows["aligned"]
+        self.assertEqual((row["revision"]["verdict"], row["revision"]["master"]),
+                         ("equal", "2026.10.01"))
         self.assertEqual(row["findings"], [])
-        self.assertEqual(row["cells"]["revision"], "aligned")
 
     def test_the_behind_vault_lists_the_intervening_entries(self):
-        row = self.vault_row(self.report, "behind")
+        row = self.rows["behind"]
         self.assertEqual(row["revision"]["verdict"], "behind")
         self.assertEqual(row["revision"]["entries"], ["2026.09.05", "2026.10.01"])
-        self.assertEqual(row["revision"]["behind"], 2)
-        self.assertEqual(row["cells"]["revision"], "behind 2")
         self.assertIn("/para-upgrade", self.findings(row, "revision")[0]["fix"])
 
     def test_the_stale_integration_copy_is_behind_its_master(self):
-        row = self.vault_row(self.report, "behind")
-        found = self.findings(row, "integrations")
+        found = self.findings(self.rows["behind"], "integrations")
         self.assertEqual(len(found), 1)
         self.assertIn("resources/scripts/logbook.py", found[0]["detail"])
         self.assertIn("behind", found[0]["detail"])
@@ -258,23 +232,9 @@ class FleetCase(CloneCase):
         self.assertEqual(found[0]["route"], "upgrade")
 
     def test_the_stale_skill_copy_is_behind_its_master(self):
-        row = self.vault_row(self.report, "behind")
-        found = self.findings(row, "skills")
+        found = self.findings(self.rows["behind"], "skills")
         self.assertEqual(len(found), 1)
         self.assertIn("para-notes", found[0]["detail"])
-
-    def test_unreachable_is_stated(self):
-        excluded = {e["name"]: e for e in self.report["excluded"]}
-        self.assertEqual(excluded["unreachable"]["status"], "UNREACHABLE")
-
-    def test_the_vault_furthest_behind_goes_first(self):
-        self.assertEqual(self.report["upgrade_first"]["name"], "behind")
-        self.assertEqual(self.report["upgrade_first"]["revisions_behind"], 2)
-
-    def test_the_working_tree_revision_is_reported_once_and_is_never_the_bar(self):
-        self.assertEqual(self.report["master"]["in_development"], "2026.10.02")
-        row = self.vault_row(self.report, "aligned")
-        self.assertEqual(row["revision"]["master"], "2026.10.01")
 
     def test_nothing_in_any_vault_is_written(self):
         for name, before in self.before.items():
@@ -286,9 +246,7 @@ class FleetCase(CloneCase):
 class RevisionCase(CloneCase):
     def one(self, **vault):
         build_vault(self.work / "v", **vault)
-        report, code = self.run_audit([self.entry("v")])
-        self.assertEqual(code, 0)
-        return self.vault_row(report, "v")
+        return self.audit()
 
     def test_equal(self):
         row = self.one()
@@ -298,16 +256,13 @@ class RevisionCase(CloneCase):
     def test_behind(self):
         row = self.one(marker="2026.09.05")
         self.assertEqual(row["revision"]["entries"], ["2026.10.01"])
-        self.assertEqual(row["cells"]["revision"], "behind 1")
 
     def test_ahead_judges_nothing_against_the_older_master(self):
         row = self.one(marker="2026.10.02", rules=(), skill_version=1,
                        logbook_rev="2026.09.01", logbook_body="v1",
                        extra_header="**Modules:** nonesuch\n")
         self.assertEqual(row["revision"]["verdict"], "ahead")
-        self.assertEqual(row["cells"]["revision"], "ahead 2026.10.02")
         for check in ("rules", "integrations", "skills"):
-            self.assertEqual(row["cells"][check], "not judged", check)
             self.assertEqual(self.findings(row, check), [], check)
         self.assertFalse(any("nonesuch" in f["detail"] for f in row["findings"]))
         self.assertIn("in development", self.findings(row, "revision")[0]["detail"])
@@ -315,8 +270,7 @@ class RevisionCase(CloneCase):
     def test_unstamped(self):
         row = self.one(marker=None)
         self.assertEqual(row["revision"]["verdict"], "no-marker")
-        self.assertEqual(row["cells"]["revision"], "UNSTAMPED")
-        self.assertEqual(row["revision"]["behind"], 3)
+        self.assertEqual(len(row["revision"]["entries"]), 3)
         self.assertIn("/para-upgrade", self.findings(row, "revision")[0]["fix"])
 
     def test_a_malformed_marker_is_unstamped_and_named(self):
@@ -324,8 +278,7 @@ class RevisionCase(CloneCase):
         write(self.work / "v", "CLAUDE.md",
               claude_md(marker=None).replace("**Type:**",
                                              "<!-- para-os-template: 2026.10.1 -->\n**Type:**"))
-        report, _ = self.run_audit([self.entry("v")])
-        row = self.vault_row(report, "v")
+        row = self.audit()
         self.assertEqual(row["revision"]["verdict"], "no-marker")
         self.assertTrue(any("2026.10.1" in f["detail"] for f in self.findings(row, "declarations")))
 
@@ -333,8 +286,26 @@ class RevisionCase(CloneCase):
         build_vault(self.work / "v")
         write(self.work / "v", "CLAUDE.md",
               claude_md() + "\nThe `<!-- para-os-template: YYYY.MM.NN -->` comment is read.\n")
-        report, _ = self.run_audit([self.entry("v")])
-        self.assertEqual(self.findings(self.vault_row(report, "v"), "declarations"), [])
+        self.assertEqual(self.findings(self.audit(), "declarations"), [])
+
+    def test_a_named_ref_is_read(self):
+        build_vault(self.work / "v", marker="2026.09.05")
+        self.assertEqual(self.audit(ref="main~1")["revision"]["verdict"], "equal")
+
+    def test_without_a_clone_only_the_vault_s_own_lines_are_judged(self):
+        build_vault(self.work / "v", marker="2026.09.05", rules=(),
+                    extra_header="**Delivery:** readonly-ipad\n")
+        row = audit_scan.audit_vault(self.entry("v"), None, None, None)
+        self.assertEqual((row["revision"]["verdict"], row["revision"]["vault"]),
+                         ("unverified", "2026.09.05"))
+        self.assertEqual([f["check"] for f in row["findings"]], ["declarations"])
+
+    def test_a_vault_ahead_is_never_sent_to_upgrade(self):
+        build_vault(self.work / "v", marker="2026.10.02",
+                    extra_header="**Delivery:** readonly-ipad\n")
+        row = self.audit()
+        self.assertTrue(any("**Delivery:**" in f["detail"] for f in row["findings"]))
+        self.assertEqual({f["route"] for f in row["findings"]}, {"operator"})
 
 
 # ================================================================ type and declarations
@@ -346,19 +317,14 @@ class DeclarationCase(CloneCase):
             with (root / "CLAUDE.md").open("a", encoding="utf-8") as f:
                 f.write("\n## Who writes this vault\n\n| Person | Role | Lane |\n|---|---|---|\n"
                         + "".join(f"| {p} | {r} | - |\n" for p, r in roster_rows))
-        report, _ = self.run_audit([self.entry("v")])
-        return self.vault_row(report, "v")
+        return self.audit()
 
     def test_the_type_is_the_vault_s_own_label_never_judged(self):
-        row = self.row(type_line="**Type:** personal-vault")
-        self.assertEqual(row["cells"]["type"], "personal-vault")
-        self.assertEqual(self.findings(row, "type"), [])
+        self.assertEqual(self.row(type_line="**Type:** personal-vault")["findings"], [])
 
     def test_a_registry_kind_is_not_read(self):
         build_vault(self.work / "v")
-        report, _ = self.run_audit([self.entry("v", kind="something-else")])
-        row = self.vault_row(report, "v")
-        self.assertEqual((row["cells"]["type"], row["findings"]), ("client-vault", []))
+        self.assertEqual(self.audit(kind="something-else")["findings"], [])
 
     def test_a_roster_with_no_roles_is_one_finding(self):
         found = self.findings(self.row(roster_rows=[("Ada", ""), ("Bram", "")]),
@@ -394,7 +360,6 @@ class DeclarationCase(CloneCase):
     def test_a_missing_type_line(self):
         row = self.row(type_line=None)
         self.assertTrue(any("**Type:**" in f["detail"] for f in self.findings(row, "declarations")))
-        self.assertEqual(row["cells"]["type"], "-")
 
     def test_the_template_placeholder_is_not_a_type(self):
         row = self.row(type_line="**Type:** {{vault-type}}")
@@ -410,8 +375,7 @@ class DeclarationCase(CloneCase):
         build_vault(self.work / "v")
         text = claude_md() + "\n**Modules:** sales\n"
         write(self.work / "v", "CLAUDE.md", text)
-        report, _ = self.run_audit([self.entry("v")])
-        row = self.vault_row(report, "v")
+        row = self.audit()
         self.assertTrue(any("not under the title" in f["detail"]
                             for f in self.findings(row, "declarations")))
 
@@ -426,70 +390,49 @@ class DeclarationCase(CloneCase):
         self.assertIn("**Delivery:**", found[0]["detail"])
 
 
-# =============================================================== rules, skills, size
+# ===================================================================== rules, skills
 
 class CopiesCase(CloneCase):
     def test_a_crlf_skill_copy_reads_identical(self):
         build_vault(self.work / "v", skill_newline="\r\n")
         self.assertIn(b"\r\n", (self.work / "v/.claude/skills/para-notes/SKILL.md").read_bytes())
-        report, _ = self.run_audit([self.entry("v")])
-        row = self.vault_row(report, "v")
-        self.assertEqual(self.findings(row, "skills"), [])
-        self.assertEqual(row["cells"]["skills"], "ok")
+        self.assertEqual(self.findings(self.audit(), "skills"), [])
 
     def test_a_vault_s_own_skill_is_not_a_copy(self):
         build_vault(self.work / "v")
         write(self.work / "v", ".claude/skills/house-style/SKILL.md", "---\nname: house-style\n---\n")
-        report, _ = self.run_audit([self.entry("v")])
-        self.assertEqual(self.findings(self.vault_row(report, "v"), "skills"), [])
+        self.assertEqual(self.findings(self.audit(), "skills"), [])
 
     def test_a_para_copy_nothing_ships_is_a_finding(self):
         build_vault(self.work / "v")
         write(self.work / "v", ".claude/skills/para-gone/SKILL.md", "---\nname: para-gone\n---\n")
-        report, _ = self.run_audit([self.entry("v")])
-        found = self.findings(self.vault_row(report, "v"), "skills")
+        found = self.findings(self.audit(), "skills")
         self.assertEqual(len(found), 1)
         self.assertIn("para-gone", found[0]["detail"])
 
-    def test_no_copies_reads_none(self):
+    def test_no_copies_is_no_finding(self):
         build_vault(self.work / "v", skill_version=None, logbook_rev=None)
-        report, _ = self.run_audit([self.entry("v")])
-        row = self.vault_row(report, "v")
-        self.assertEqual(row["cells"]["skills"], "none")
-        self.assertEqual(row["cells"]["integrations"], "none")
+        self.assertEqual(self.audit()["findings"], [])
 
     def test_a_missing_shipped_rule_file(self):
         build_vault(self.work / "v", rules=())
-        report, _ = self.run_audit([self.entry("v")])
-        row = self.vault_row(report, "v")
-        self.assertEqual(row["cells"]["rules"], "1 missing")
-        self.assertIn(".claude/rules/filing.md", self.findings(row, "rules")[0]["detail"])
+        found = self.findings(self.audit(), "rules")
+        self.assertEqual(len(found), 1)
+        self.assertIn("`.claude/rules/filing.md` is missing", found[0]["detail"])
 
     def test_an_integration_naming_no_master(self):
         build_vault(self.work / "v")
         write(self.work / "v", "resources/scripts/other.py",
               "# para-os-integration: nonesuch 2026.10.01\n")
-        report, _ = self.run_audit([self.entry("v")])
-        found = self.findings(self.vault_row(report, "v"), "integrations")
+        found = self.findings(self.audit(), "integrations")
         self.assertEqual(len(found), 1)
         self.assertIn("other.py", found[0]["detail"])
         self.assertEqual(found[0]["route"], "operator")
 
-    def test_size_is_the_own_file_s_lines_and_the_words_loaded_at_the_start(self):
-        vault = build_vault(self.work / "v", body_lines=3)
-        write(vault, ".claude/para-os/core.md", "# Core" + chr(10) * 2 + "one two three" + chr(10))
-        own = (vault / "CLAUDE.md").read_text(encoding="utf-8") + chr(10) + "@.claude/para-os/core.md" + chr(10)
-        write(vault, "CLAUDE.md", own)
-        report, _ = self.run_audit([self.entry("v")])
-        row = self.vault_row(report, "v")
-        self.assertEqual(self.findings(row, "size"), [])
-        self.assertEqual(row["cells"]["size"],
-                         f"{own.count(chr(10))} lines, {len(own.split()) + 5} words at start")
-
 
 class StateWordingCase(unittest.TestCase):
     """upgrade_scan classifies every file and its suite pins the states; these pin only what
-    the audit says about each and where it routes it."""
+    this script says about each and where it routes it."""
 
     def test_integration_states(self):
         found = audit_scan.integration_check(
@@ -498,40 +441,9 @@ class StateWordingCase(unittest.TestCase):
         self.assertIn("edited against `integrations/x/x.py`", found[0]["detail"])
         self.assertEqual([f["route"] for f in found], ["upgrade", "operator"])
 
-    def test_a_cell_counts_each_state(self):
+    def test_each_state_is_counted(self):
         rows = [{"state": s} for s in ("untouched", "untouched", "missing")]
-        self.assertEqual(audit_scan.state_cell(rows), "2 behind, 1 missing")
-        self.assertEqual(audit_scan.state_cell([]), "ok")
-
-    def test_a_folder_with_no_claude_md_has_no_size(self):
-        with tempfile.TemporaryDirectory() as empty:
-            self.assertEqual(audit_scan.size_check(Path(empty)), "-")
-
-
-class TopicFileCase(CloneCase):
-    def fleet(self, sibling_rules, sibling_type="client-vault"):
-        build_vault(self.work / "a", rules=("filing.md", "house.md"))
-        build_vault(self.work / "b", rules=sibling_rules, type_line=f"**Type:** {sibling_type}")
-        report, _ = self.run_audit([self.entry("a"), self.entry("b")])
-        return self.vault_row(report, "a")
-
-    def test_a_topic_file_no_sibling_carries_is_an_observation(self):
-        row = self.fleet(("filing.md",))
-        self.assertEqual([o["check"] for o in row["observations"]], ["rules"])
-        self.assertIn("house.md", row["observations"][0]["detail"])
-        self.assertEqual(self.findings(row, "rules"), [])
-
-    def test_a_topic_file_a_sibling_carries_is_not(self):
-        self.assertEqual(self.fleet(("filing.md", "house.md"))["observations"], [])
-
-    def test_with_no_sibling_of_the_same_type_there_is_nothing_to_compare(self):
-        self.assertEqual(self.fleet(("filing.md",), sibling_type="other")["observations"], [])
-
-    def test_a_voice_profile_is_one_person_s_and_never_a_topic(self):
-        build_vault(self.work / "a", rules=("filing.md", "voice-ada-peeters.md"))
-        build_vault(self.work / "b", rules=("filing.md",))
-        report, _ = self.run_audit([self.entry("a"), self.entry("b")])
-        self.assertEqual(self.vault_row(report, "a")["observations"], [])
+        self.assertEqual(audit_scan.state_counts(rows), "2 behind, 1 missing")
 
 
 SHAPE = ("---\npaths:\n  - \"**/brief.md\"\n---\n\n# Brief structure\n\n**Order:** fixed.\n\n"
@@ -547,8 +459,7 @@ class ContractCase(CloneCase):
         root = build_vault(self.work / name, **vault)
         for file, text in files.items():
             write(root, f".claude/rules/{file}", text, newline)
-        report, _ = self.run_audit([self.entry(name)])
-        return self.vault_row(report, name)
+        return self.audit(name)
 
     def test_a_rule_file_with_no_frontmatter_loads_in_every_session(self):
         row = self.row({"house.md": UNSCOPED})
@@ -559,7 +470,6 @@ class ContractCase(CloneCase):
         self.assertIn("`paths:`", found[0]["fix"])
         self.assertIn("rule-files.md", found[0]["fix"])
         self.assertEqual(found[0]["route"], "operator")
-        self.assertEqual(row["cells"]["rules"], "1 off contract")
 
     def test_frontmatter_with_no_paths_list_is_the_same_finding(self):
         for n, head in enumerate(("description: A rule.", "paths:", "paths: []",
@@ -590,7 +500,6 @@ class ContractCase(CloneCase):
     def test_a_shape_file_closing_on_placeholders_is_clean(self):
         row = self.row({"brief-structure.md": CLOSED_SHAPE})
         self.assertEqual(self.findings(row, "rules"), [])
-        self.assertEqual(row["cells"]["rules"], "ok")
 
     def test_either_opening_marks_a_shape_file(self):
         for n, text in enumerate((SHAPE.replace("**Order:** fixed.\n\n", ""),
@@ -615,257 +524,49 @@ class ContractCase(CloneCase):
     def test_both_breaks_in_one_file_are_two_findings(self):
         row = self.row({"brief-structure.md": SHAPE.split("---\n", 2)[2]})
         self.assertEqual(len(self.findings(row, "rules")), 2)
-        self.assertEqual(row["cells"]["rules"], "2 off contract")
 
     def test_counted_beside_the_shipped_files_states(self):
         row = self.row({"house.md": UNSCOPED}, rules=())
-        self.assertEqual(row["cells"]["rules"], "1 missing, 1 off contract")
         self.assertEqual([f["route"] for f in self.findings(row, "rules")],
                          ["upgrade", "operator"])
 
-    def test_a_vault_the_audit_does_not_judge_gets_none(self):
+    def test_a_vault_that_is_not_judged_gets_none(self):
         row = self.row({"house.md": UNSCOPED, "brief-structure.md": SHAPE},
                        marker="2026.10.02")
-        self.assertEqual(row["cells"]["rules"], "not judged")
         self.assertEqual(self.findings(row, "rules"), [])
 
 
-# ======================================================================= the registry
+# ====================================================================== the libraries
 
-class RegistryCase(CloneCase):
-    def test_an_inactive_vault_is_still_audited(self):
-        build_vault(self.work / "quiet")
-        report, _ = self.run_audit([self.entry("quiet", active=False)])
-        self.assertEqual(self.vault_row(report, "quiet")["active"], False)
-        self.assertEqual(report["excluded"], [])
+class LibrariesCase(CloneCase):
+    def installed(self):
+        target = self.work / "skills" / "para-command-center" / "scripts" / SCRIPT.name
+        target.parent.mkdir(parents=True)
+        shutil.copy(SCRIPT, target)
+        return subprocess.run([sys.executable, str(target)], capture_output=True, text=True)
 
-    def test_a_folder_with_no_claude_md_is_unreachable(self):
-        (self.work / "bare").mkdir()
-        report, _ = self.run_audit([self.entry("bare")])
-        self.assertEqual(report["excluded"][0]["status"], "UNREACHABLE")
-        self.assertIn("CLAUDE.md", report["excluded"][0]["reason"])
-
-    def test_an_entry_missing_its_path_is_stated_not_dropped(self):
-        report, _ = self.run_audit([{"name": "nameless-path"}, "not an entry",
-                                    {"name": "numbered", "path": 7}])
-        self.assertEqual([e["status"] for e in report["excluded"]], ["INVALID"] * 3)
-
-    def test_no_registry_is_exit_3(self):
-        report, code = self.run_audit(None)
-        self.assertEqual(code, 3)
-        self.assertIn("vaults.json", report["error"])
-
-    def test_an_empty_registry_is_exit_3(self):
-        _, code = self.run_audit([])
-        self.assertEqual(code, 3)
-
-    def test_the_vault_with_most_findings_goes_first_when_none_is_behind(self):
-        build_vault(self.work / "one", rules=())
-        build_vault(self.work / "two", rules=(), skill_version=1)
-        report, _ = self.run_audit([self.entry("one"), self.entry("two")])
-        self.assertEqual(report["upgrade_first"]["name"], "two")
-
-    def test_an_operator_only_finding_never_names_a_vault_to_upgrade(self):
-        build_vault(self.work / "v", type_line="**Type:** {{vault-type}}")
-        report, _ = self.run_audit([self.entry("v")])
-        self.assertTrue(self.vault_row(report, "v")["findings"])
-        self.assertIsNone(report["upgrade_first"])
-
-    def test_a_vault_ahead_is_never_sent_to_upgrade(self):
-        build_vault(self.work / "ahead", marker="2026.10.02",
-                    extra_header="**Delivery:** readonly-ipad\n")
-        report, _ = self.run_audit([self.entry("ahead")])
-        row = self.vault_row(report, "ahead")
-        self.assertTrue(any("**Delivery:**" in f["detail"] for f in row["findings"]))
-        self.assertEqual({f["route"] for f in row["findings"]}, {"operator"})
-        self.assertIsNone(report["upgrade_first"])
-
-
-class DriveCase(CloneCase):
-    def test_every_vault_on_one_drive_unreachable_is_the_drive(self):
-        build_vault(self.work / "here")
-        entries = [self.entry("here"),
-                   dict(self.entry("x"), path="Q:/gone/x"),
-                   dict(self.entry("y"), path="Q:/gone/y")]
-        report, _ = self.run_audit(entries)
-        self.assertEqual(report["drives"], [{"drive": "Q:", "vaults": ["x", "y"]}])
-
-    def test_one_reachable_vault_on_the_drive_means_it_is_not_the_drive(self):
-        build_vault(self.work / "here")
-        entries = [self.entry("here"), self.entry("gone-1"), self.entry("gone-2")]
-        report, _ = self.run_audit(entries)
-        self.assertEqual(report["drives"], [])
-
-
-# =========================================================================== the clone
-
-class CloneErrorCase(CloneCase):
-    def test_without_a_clone_every_vault_is_still_audited(self):
-        build_vault(self.work / "v", marker="2026.09.05")
-        report, code = build_report(self.work / "vaults.json", [self.entry("v")], None, None,
-                                    None, self.tmp / "no-home" / "para-os")
-        self.assertEqual(code, 0)
-        self.assertIn("no para-os clone", report["clone"]["error"])
-        row = self.vault_row(report, "v")
-        self.assertEqual(row["revision"]["verdict"], "unverified")
-        self.assertEqual(row["revision"]["vault"], "2026.09.05")
-        for column in ("revision", "rules", "integrations", "skills"):
-            self.assertEqual(row["cells"][column], "not judged")
-        self.assertNotEqual(row["cells"]["size"], "not judged")
-        self.assertIsNone(report["upgrade_first"])
-
-    def test_a_ref_that_does_not_resolve_is_exit_4(self):
-        _, code = self.run_audit([self.entry("v")], ref="no-such-ref")
-        self.assertEqual(code, 4)
-
-    def test_a_named_ref_is_read(self):
-        build_vault(self.work / "v", marker="2026.09.05")
-        report, code = self.run_audit([self.entry("v")], ref="main~1")
-        self.assertEqual(code, 0)
-        self.assertEqual(self.vault_row(report, "v")["revision"]["verdict"], "equal")
-
-    def test_a_clone_without_origin_stable_is_exit_5(self):
-        bare = self.tmp / "no-stable"
-        bare.mkdir(exist_ok=True)
-        fixture_git(bare, "init", "-q", "-b", "main")
-        write(bare, "CHANGELOG.md", changelog("2026.10.01"))
-        write(bare, "base/CLAUDE.md.template", template("2026.10.01"))
-        fixture_git(bare, "add", "-A")
-        fixture_git(bare, "commit", "-q", "-m", "one")
-        report, code = build_report(self.work / "vaults.json", [self.entry("v")], bare, None,
-                                    "explicit", self.tmp / "no-home" / "para-os")
-        self.assertEqual(code, 5)
-        self.assertIn("origin/stable", report["clone"]["error"])
-
-    def test_a_master_with_no_marker_is_exit_4(self):
-        plain = self.tmp / "unmarked"
-        plain.mkdir(exist_ok=True)
-        fixture_git(plain, "init", "-q", "-b", "main")
-        write(plain, "CHANGELOG.md", changelog("2026.10.01"))
-        write(plain, "base/CLAUDE.md.template", "# Template\n")
-        fixture_git(plain, "add", "-A")
-        fixture_git(plain, "commit", "-q", "-m", "one")
-        report, code = build_report(self.work / "vaults.json", [self.entry("v")], plain, "main",
-                                    "explicit", self.tmp / "no-home" / "para-os")
-        self.assertEqual(code, 4)
-        self.assertIn("marker", report["clone"]["error"])
-
-
-# ============================================================================ the CLI
-
-class CliCase(CloneCase):
-    def test_main_prints_one_json_document(self):
-        home = self.work / "home"
-        build_vault(self.work / "v")
-        write(home, "vaults.json", json.dumps([self.entry("v")]))
-        out = io.StringIO()
-        with contextlib.redirect_stdout(out):
-            code = main(["--paraos-home", str(home), "--clone", str(self.clone)])
-        self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out.getvalue())["vaults"][0]["name"], "v")
-
-    def test_main_with_no_registry_says_so_on_stderr(self):
-        out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = main(["--paraos-home", str(self.work / "empty"), "--clone", str(self.clone)])
-        self.assertEqual(code, 3)
-        self.assertIn("audit_scan:", err.getvalue())
-
-    def test_without_the_libraries_beside_it_the_scan_exits_2(self):
-        alone = self.work / "skills" / "para-audit" / "scripts"
-        alone.mkdir(parents=True)
-        shutil.copy(SCRIPT, alone / SCRIPT.name)
-        done = subprocess.run([sys.executable, str(alone / SCRIPT.name)],
-                              capture_output=True, text=True)
+    def test_without_the_libraries_beside_it_the_import_exits_2(self):
+        done = self.installed()
         self.assertEqual(done.returncode, 2)
         self.assertIn("Install them", done.stderr)
-        self.assertNotIn("by hand", done.stderr)
 
     def test_libraries_that_do_not_import_exit_2(self):
-        skills = self.work / "skills"
-        write(skills, "para-shared/scripts/paraos_vault.py", "")
-        write(skills, "para-upgrade/scripts/upgrade_scan.py", "")
-        (skills / "para-audit" / "scripts").mkdir(parents=True)
-        shutil.copy(SCRIPT, skills / "para-audit" / "scripts" / SCRIPT.name)
-        done = subprocess.run([sys.executable, str(skills / "para-audit" / "scripts" / SCRIPT.name)],
-                              capture_output=True, text=True)
+        write(self.work / "skills", "para-shared/scripts/paraos_vault.py", "")
+        write(self.work / "skills", "para-upgrade/scripts/upgrade_scan.py", "")
+        done = self.installed()
         self.assertEqual(done.returncode, 2)
         self.assertIn("install para-shared", done.stderr)
-        self.assertNotIn("by hand", done.stderr)
 
     def test_in_a_checkout_the_libraries_resolve_from_base(self):
         self.assertEqual(audit_scan.SKILLS_ROOT.parts[-3:], ("base", ".claude", "skills"))
 
     def test_installed_beside_them_the_libraries_resolve_from_there(self):
-        skills = self.work / "skills"
         for lib in ("para-shared", "para-upgrade"):
-            shutil.copytree(audit_scan.SKILLS_ROOT / lib / "scripts", skills / lib / "scripts",
+            shutil.copytree(audit_scan.SKILLS_ROOT / lib / "scripts",
+                            self.work / "skills" / lib / "scripts",
                             ignore=shutil.ignore_patterns("__pycache__"))
-        (skills / "para-audit" / "scripts").mkdir(parents=True)
-        shutil.copy(SCRIPT, skills / "para-audit" / "scripts" / SCRIPT.name)
-        done = subprocess.run([sys.executable, str(skills / "para-audit" / "scripts" / SCRIPT.name),
-                               "--paraos-home", str(self.work / "empty"),
-                               "--clone", str(self.clone)], capture_output=True, text=True)
-        self.assertEqual(done.returncode, 3, done.stderr)
-
-
-# ======================================================== scheduled runs
-
-class TasksCase(unittest.TestCase):
-    """The task registry's drift, from paraos_runs.check, with an unreadable app list
-    reported rather than fatal."""
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.home = Path(self.tmp.name)
-        write(self.home, "tasks.json", json.dumps([{"id": "ingest", "cron": "0 6 * * *"}]))
-        write(self.home, "claude/scheduled-tasks/ingest/SKILL.md", "---\nname: ingest\n---\n")
-        write(self.home, "claude/scheduled-tasks/watch/SKILL.md", "---\nname: watch\n---\n")
-        env = mock.patch.dict("os.environ", {"CLAUDE_CONFIG_DIR": str(self.home / "claude")})
-        env.start()
-        self.addCleanup(env.stop)
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def test_the_folders_are_compared_when_no_app_list_is_given(self):
-        block = audit_scan.tasks_block(self.home)
-        self.assertFalse(block["app_compared"])
-        self.assertEqual([(f["task"], f["kind"]) for f in block["findings"]],
-                         [("watch", "unregistered")])
-
-    def test_the_app_list_is_compared_when_given(self):
-        write(self.home, "app.json", json.dumps([{"taskId": "ingest", "cron": "0 7 * * *"}]))
-        block = audit_scan.tasks_block(self.home, self.home / "app.json")
-        self.assertTrue(block["app_compared"])
-        self.assertEqual([(f["task"], f["kind"]) for f in block["findings"]],
-                         [("ingest", "schedule_differs"), ("watch", "stale_folder")])
-
-    def test_an_unreadable_app_list_is_reported_and_the_folders_compared(self):
-        block = audit_scan.tasks_block(self.home, self.home / "missing.json")
-        self.assertIn("missing.json", block["app_error"])
-        self.assertFalse(block["app_compared"])
-
-
-class ConnectionsCase(unittest.TestCase):
-    """The connections registry's drift, from paraos_connections.check, in the report."""
-
-    def test_the_report_carries_the_connections_check(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            home = Path(tmp)
-            vault = home / "v"
-            build_vault(vault)
-            write(vault, "CLAUDE.md", (vault / "CLAUDE.md").read_text(encoding="utf-8")
-                  + "\n## Triage sources\n\n| Source | Type | Endpoint | Relevant when |\n"
-                    "|---|---|---|---|\n| mail | connector: mailer | a@example.com | All. |\n")
-            write(home, "connections.json", json.dumps({"connections": [], "mailboxes": [
-                {"address": "a@example.com", "owner": "A", "label": "A"}]}))
-            entries = [{"name": "v", "path": str(vault)}]
-            write(home, "vaults.json", json.dumps(entries))
-            report, _ = audit_scan.build_report(home / "vaults.json", entries, None, None, None, None)
-        self.assertTrue(report["connections"]["exists"])
-        self.assertEqual([(f["connection"], f["kind"]) for f in report["connections"]["findings"]],
-                         [("mailer", "undeclared")])
+        done = self.installed()
+        self.assertEqual(done.returncode, 0, done.stderr)
 
 
 if __name__ == "__main__":

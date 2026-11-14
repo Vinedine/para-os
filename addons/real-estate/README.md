@@ -8,7 +8,7 @@ For a vault whose business is property: buying, renovating, selling, or holding 
 
 1. **A fixed file** ([`para-os/real-estate.md`](para-os/real-estate.md)): `## Property lifecycle` (stages, promotion, archive destinations), `## Entity structures` with the rule pointer, and `## Deal sheets` (the pipeline and what it reads). The vault imports it beside the core and never edits it. **`## Property lifecycle` is a lifecycle declaration in base's sense** ([`para-shared/lifecycles.md`](../../base/.claude/skills/para-shared/lifecycles.md)), so `/para-pipeline` renders the property board, and `/para-daily-brief` the counts by stage, from the table already there: nothing to add, provided each dossier carries the header `property-dossier.md` gives it, its Stage line naming a stage of the table.
 2. **Rule files** ([`.claude/rules/`](.claude/rules/)): `property-dossier.md` (the shape of a property's `brief.md` at every stage), `property-sources.md` (the naming convention inside a property's `sources/`, extending `filing.md`).
-3. **Skills** ([`.claude/skills/`](.claude/skills/)): `/property-reconcile`, `/property-underwrite`, `/property-dealsheet`. They read `para-shared/` and install beside the base skills.
+3. **Skills** ([`.claude/skills/`](.claude/skills/)): `/property-reconcile`, `/property-underwrite`, `/property-dealsheet`. They read `para-shared/` and install beside the base skills. They are frozen: they stay installed as they are and take no changes.
 4. **Skeleton files** ([`skeleton/`](skeleton/)): `resources/property-evaluation/property-data-sources.md`, the source register to fill in, and `resources/prompts/dealsheet-template.html`.
 
 ## What the vault supplies

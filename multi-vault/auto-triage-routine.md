@@ -2,7 +2,7 @@
 
 The prompt a scheduled task runs, after `/para-ingest`, for the vaults an operator has switched an action type on in. It skips a vault with nothing switched on, so it can be set up with the vault; read the first run after a switch end to end, report and quarantine manifest.
 
-List the task in `${PARAOS_HOME:-~/.paraos}/tasks.json`, from [tasks.json.template](tasks.json.template): its schedule, and anything it reads beyond the sources the vaults declare, with the connection it goes through. The fields are in `para-shared/scripts/paraos_runs.py`, and `/para-audit` reports a scheduled task the file misses or whose schedule differs.
+List the task in `${PARAOS_HOME:-~/.paraos}/tasks.json`, from [tasks.json.template](tasks.json.template): its schedule, and anything it reads beyond the sources the vaults declare, with the connection it goes through. The fields are in `para-shared/scripts/paraos_runs.py`, and its `check` reports a scheduled task the file misses or whose schedule differs.
 
 ## Always allow, and nothing else
 

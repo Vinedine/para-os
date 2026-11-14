@@ -4,8 +4,7 @@
 para-os-integration: activity 2026.11.01
 
 A Claude Code hook. Reads one event as JSON on stdin, writes one JSONL line into
-`<vault>/resources/logs/sessions/`, exits 0 no matter what. `/para-activity-review`
-reads the result; nothing else does.
+`<vault>/resources/logs/sessions/`, exits 0 no matter what.
 
 Three properties are load-bearing and none of them is an optimization:
 
@@ -62,9 +61,9 @@ PATH_KEYS = ("file_path", "notebook_path", "path")
 PATTERN_TOOLS = ("Grep", "Glob")
 
 # Tools whose input names a CAPABILITY rather than content. A skill name is metadata of
-# exactly the kind `tool` already is, and it is the one signal /para-activity-review is built
-# on: "Skill" alone says a skill ran, never which, so the capabilities nobody reached for
-# could not be found. The value is a name in both cases, never a prompt or an argument.
+# exactly the kind `tool` already is: "Skill" alone says a skill ran, never which, so the
+# capabilities nobody reached for could not be found. The value is a name in both cases,
+# never a prompt or an argument.
 NAME_KEYS = {"Skill": "skill", "Task": "subagent_type", "Agent": "subagent_type"}
 
 # Tools that already name the file they wrote. Scanning these would record the same path
@@ -328,7 +327,7 @@ def summarise_session(records, now_iso):
         "denials": denials,
         # Tool calls after the final prompt. Zero on a session whose last request produced
         # no tool call at all - which is a fact, not a verdict: a question answered in prose
-        # looks the same here as one abandoned. The review reads it, it does not judge it.
+        # looks the same here as one abandoned.
         "last_prompt_tools": sum(
             1 for r in records[last_prompt_at + 1:]
             if (r.get("event") or "").startswith("PostToolUse")),

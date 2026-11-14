@@ -6,8 +6,8 @@ own /para-daily-brief scans it, as one JSON document on stdout.
 
 Read-only: never writes a file. Each vault's numbers come from para-daily-brief's
 `brief_scan.scan()`, so they cannot disagree with that vault's own brief; which entries are
-read, and what a malformed or missing one becomes, is para-audit's
-`excluded_status()`. Both are found beside this skill, or in a para-os checkout.
+read, and what a malformed or missing one becomes, is `excluded_status()` in audit_scan.py,
+beside this file. para-daily-brief is found beside this skill, or in a para-os checkout.
 
 How a vault is shown follows the operator's role in it: `paraos_vault.writer()` against the
 card `operator.json` names. A vault they keep is `full`, or `summary` where its registry entry
@@ -45,25 +45,23 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parents[1] / "para-audit" / "scripts"))
-
 try:
     import audit_scan  # noqa: E402
     from audit_scan import SKILLS_ROOT, excluded_status  # noqa: E402
     sys.path.insert(0, str(SKILLS_ROOT / "para-daily-brief" / "scripts"))
     from brief_scan import scan  # noqa: E402
-    from paraos_clone import clone_session  # noqa: E402
+    from paraos_clone import clone_session, master_template  # noqa: E402
     from paraos_vault import (  # noqa: E402
         read_json,
         date_arg,
         utf8_stdout,
-        cadence_days, deep_clean_stamp, iso, live_lines, operator_card,
+        cadence_days, deep_clean_stamp, find_clone, iso, live_lines, operator_card,
         paraos_home_dir, parse_date, read_lines, register_rows, registry, vault_paths,
         weekday_index, writer)
     from render_dashboard import now_key  # noqa: E402
+    from upgrade_scan import open_clone  # noqa: E402
 except ImportError as missing:
-    print(f"global_scan: {missing}. install para-audit, para-daily-brief and para-shared "
+    print(f"global_scan: {missing}. install para-daily-brief, para-shared and para-upgrade "
           "beside this skill", file=sys.stderr)
     sys.exit(2)
 
@@ -83,39 +81,38 @@ def treatment(entry, role):
 
 
 def open_kit(paraos_home=None):
-    """The para-os clone the audit measures against, opened once for every vault: `(kit, ref,
+    """The para-os clone a vault is measured against, opened once for every vault: `(kit, ref,
     in_development)`, or `(None, None, None)` with no clone, a clone that cannot be read, or
     a ref that does not resolve; the Kit signal then reads unknown."""
     try:
-        clone, _ = audit_scan.find_clone(None, paraos_home)
+        clone, _ = find_clone(None, paraos_home)
         if clone is None:
             return None, None, None
-        block, code, kit = audit_scan.open_clone(Path(clone).resolve(), None)
+        block, code, kit = open_clone(Path(clone).resolve(), None)
         if code or kit is None:
             return None, None, None
         ref = block["ref"]
-        developing = audit_scan.master_template(kit.clone, ref, worktree=True)["marker"]
+        developing = master_template(kit.clone, ref, worktree=True)["marker"]
         in_development = developing if developing and developing > kit.master else None
         return kit, ref, in_development
-    except Exception:  # noqa: BLE001  a clone the audit cannot open is unknown, not a crash
+    except Exception:  # noqa: BLE001  a clone that cannot be opened is unknown, not a crash
         return None, None, None
 
 
 def kit_signal(entry, kit, ref, in_development):
-    """The audit's per-vault check as one health signal: the findings count, how many of them
-    /para-upgrade applies, and the revision verdict. Unknown where the audit does not judge."""
+    """audit_scan.py's check as one health signal: the findings count, how many of them
+    /para-upgrade applies, and the revision verdict. Unknown where it does not judge."""
     if kit is None:
         return {"level": "unknown", "verdict": None, "findings": None, "upgrade": None,
                 "behind": None}
     try:
-        row, _ = audit_scan.audit_vault(entry, kit, ref, in_development)
+        row = audit_scan.audit_vault(entry, kit, ref, in_development)
     except Exception:  # noqa: BLE001
         return {"level": "unknown", "verdict": None, "findings": None, "upgrade": None,
                 "behind": None}
-    verdict = row["revision"].get("verdict")
-    findings = row["findings"]
-    upgrade = sum(1 for f in findings if f.get("route") == "upgrade")
-    behind = len(row["revision"].get("entries") or []) if verdict == "behind" else 0
+    verdict, findings = row["revision"]["verdict"], row["findings"]
+    upgrade = sum(1 for f in findings if f["route"] == "upgrade")
+    behind = len(row["revision"]["entries"]) if verdict == "behind" else 0
     if verdict in ("ahead", "unverified"):
         level = "unknown"
     elif behind >= 2:

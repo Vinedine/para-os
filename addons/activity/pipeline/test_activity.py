@@ -42,7 +42,7 @@ class TestRedaction(unittest.TestCase):
 
     def test_path_outside_the_vault_is_kept_verbatim(self):
         # Not silently dropped: reading outside the vault is a real signal about how
-        # someone works, and hiding it would make the review skill quietly wrong.
+        # someone works, and hiding it would make the ledger quietly wrong.
         got = ledger.redact_tool_input("Read", {"file_path": "/elsewhere/notes.md"}, ROOT)
         self.assertIn("elsewhere", got)
 
@@ -94,7 +94,7 @@ class TestRedaction(unittest.TestCase):
         self.assertEqual(got, "invoice")
 
     def test_skill_records_the_skill_name(self):
-        # The one signal the review skill is built on: "Skill" alone says a skill ran,
+        # "Skill" alone says a skill ran,
         # never which, so the capabilities nobody used could not be found.
         got = ledger.redact_tool_input("Skill", {"skill": "para-triage", "args": "apply"}, ROOT)
         self.assertEqual(got, "para-triage")
@@ -226,7 +226,7 @@ class TestConfig(unittest.TestCase):
     def test_a_setting_of_the_wrong_type_falls_back_to_its_default(self):
         # A string where a number belongs reaches arithmetic before the line is written,
         # and the catch-all in __main__ would swallow the whole record. The ledger would
-        # stop, silently, and the review would report a vault nobody uses.
+        # stop, silently, and read as a vault nobody uses.
         with tempfile.TemporaryDirectory() as tmp:
             script = Path(tmp) / "activity.py"
             script.touch()
@@ -601,7 +601,7 @@ class TestSessionSummary(unittest.TestCase):
         self.assertEqual(s["writes"], 1)
 
     def test_a_failed_write_is_not_counted_as_a_write(self):
-        # `writes: 0` is how the review finds a session that produced nothing. A session
+        # `writes: 0` is how a reader finds a session that produced nothing. A session
         # whose every Write failed is exactly that session, and must not report otherwise.
         records = [
             self._rec("SessionStart", "2026-09-04T10:00:00"),
@@ -625,7 +625,7 @@ class TestSessionSummary(unittest.TestCase):
 
     def test_a_session_nobody_typed_into_is_explicit_rather_than_inferred(self):
         # Most sessions in a real ledger can look like this. Left implicit, every count downstream
-        # is wrong; stated here, the review can exclude them by reading one field.
+        # is wrong; stated here, a reader can exclude them by reading one field.
         records = [self._rec("SessionStart", "2026-09-04T10:00:00")]
         s = ledger.summarise_session(records, "2026-09-04T10:00:01")
         self.assertEqual(s["prompts"], 0)

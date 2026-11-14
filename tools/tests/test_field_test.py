@@ -125,7 +125,7 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(set(out["statuses"]), {"north", "gone", "(registry)"})
         self.assertEqual(set(out["statuses"]["north"].values()), {"same"})
         self.assertEqual(set(out["statuses"]["gone"].values()), {"not mounted"})
-        self.assertEqual(set(out["statuses"]["(registry)"]), {"global", "audit"})
+        self.assertEqual(set(out["statuses"]["(registry)"]), {"global"})
         report = Path(out["report"])
         self.assertEqual(report.parent, self.home / "data" / "test-runs")
         self.assertIn("| north |", report.read_text(encoding="utf-8"))

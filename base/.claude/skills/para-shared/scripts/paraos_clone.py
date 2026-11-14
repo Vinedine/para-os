@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reading the para-os clone a vault is measured against.
 
-Imported by the skills that compare a vault to the kit: `/para-upgrade`, `/para-audit` and
+Imported by the skills that compare a vault to the kit: `/para-upgrade`, `/para-command-center` and
 `/para-deep-clean`'s revision check. Nothing here reads the vault; that is `paraos_vault.py`,
 beside this file, which also holds `template_marker` and the git primitives this builds on.
 

@@ -381,7 +381,7 @@ def retired_paths(vault, kit, user_dir):
 
 
 def files_block(vault, kit, decl, user_dir=None):
-    """Every row, `current` ones included: /para-audit counts them."""
+    """Every row, `current` ones included: audit_scan.py counts them."""
     vault = Path(vault).resolve()
     user_dir = Path(user_dir).resolve() if user_dir else None
     planned = plan_files(vault, kit, decl, user_dir)

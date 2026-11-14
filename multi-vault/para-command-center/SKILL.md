@@ -10,7 +10,7 @@ argument-hint: '[--offline] [--test]'
 
 One page across every registered vault, built by a script from files on disk, so the same files always give the same page. **The skill adds no judgment to it: it reads the calendars and the app's scheduled runs, runs the script and publishes.** It writes nothing in a vault; elsewhere, only the events and task files, the page, the page's data in `${PARAOS_HOME:-~/.paraos}/cache/command-center/data.json`, the link publishing records, and `vaults.json` when the operator asks.
 
-- **It needs `para-audit/`, `para-daily-brief/`, `para-ingest/` and `para-shared/` beside it.**
+- **It needs `para-daily-brief/`, `para-ingest/`, `para-shared/` and `para-upgrade/` beside it.**
 - **Run it from anywhere.** The registry, `${PARAOS_HOME:-~/.paraos}/vaults.json`, is the only list of vaults. A para-os home the operator names in prose replaces it for the run.
 
 ## Arguments
@@ -86,4 +86,3 @@ A morning routine runs this skill, and `/para-ingest` rebuilds the page as its l
 
 - `/para-daily-brief` - one vault's own brief and dashboard.
 - `/para-ingest` - fills the triage folders this page counts, and rebuilds the page after each run.
-- `/para-audit` - how each vault stands against the kit, in full; the page shows its count on each health card.
