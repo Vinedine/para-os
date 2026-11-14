@@ -238,6 +238,13 @@ class Preconditions(VaultCase):
         m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
         self.assertEqual(m["verdict"], "ahead")
 
+    def test_a_vault_on_two_files_is_read_from_its_core_s_stamp(self):
+        clone = self.clone(base_marker="2026.09.05")
+        write(self.root, "CLAUDE.md", "# Vault" + chr(10) + chr(10) + "**Type:** x" + chr(10))
+        write(self.root, ".claude/para-os/core.md", marker_claude_md("2026.09.05"))
+        m = self.run_scan("1", clone=clone)["preconditions"]["template_marker"]
+        self.assertEqual((m["verdict"], m["vault"]), ("equal", "2026.09.05"))
+
     def test_unverified_when_vault_carries_no_marker(self):
         clone = self.clone(base_marker="2026.09.05")
         write(self.root, "CLAUDE.md", "# Vault\n\n**Type:** x\n")

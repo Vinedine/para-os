@@ -14,7 +14,7 @@ How a document is named inside a property's `sources/`, the same at every stage.
 ## Naming
 
 ```
-YYYYMMDD <Who> <Description>[ <Unit scope>].<ext>
+YYYYMMDD <Who> - <Description>[ <Unit scope>].<ext>
 ```
 
 - **`<Who>`** by document type:
