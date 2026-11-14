@@ -113,6 +113,7 @@ ENTITY_BUCKETS = ("projects", "areas", "resources/ideas")
 ROSTER_RE = re.compile(r"^## Who writes this vault\s*$", re.MULTILINE)
 OFFER_WINDOW, OFFER_SHARE = 50, 0.95
 NOISE, SENDER = "Dismiss (noise)", ("from", "mailbox")
+LAUNCHER = "py -3" if sys.platform == "win32" else "python3"
 
 
 class Refused(Exception):
@@ -525,7 +526,8 @@ def status(args):
             for i in m["items"]:
                 counts[i["action"]] = counts.get(i["action"], 0) + 1
             runs.append({"run": r, "acted": counts, "restore":
-                         f"auto_execute.py restore --vault-name {state.vault} --run {r}"})
+                         f'{LAUNCHER} "{Path(__file__).resolve().as_posix()}" restore '
+                         f'--vault-name "{state.vault}" --run {r}'})
     proposal = (triage_proposals(state.proposals, state.vault) or [None])[-1]
     nothing_new = None
     if args.vault:

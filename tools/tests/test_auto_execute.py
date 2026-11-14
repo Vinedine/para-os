@@ -14,6 +14,7 @@ import contextlib
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -229,6 +230,20 @@ class Executor(unittest.TestCase):
         code, _ = call("restore", "--vault-name", "north", "--run", out["run"],
                        "--item", "dup.pdf", "--paraos-home", self.home)
         self.assertEqual(code, 3)
+
+    def test_the_printed_restore_command_runs_for_a_vault_name_with_a_space(self):
+        self.vault = self.vault.rename(self.tmp / "Home Admin")
+        call("switch", "--vault-name", "Home Admin", "--on", "Dismiss (noise)",
+             "--paraos-home", self.home)
+        self.run_all(self.ROWS[1:2])
+        _, status = call("status", "--vault-name", "Home Admin", "--paraos-home", self.home)
+        printed = status["runs"][0]["restore"]
+        self.assertNotIn("\\", printed)
+        *launcher, script, command = shlex.split(printed)[:-4]
+        self.assertEqual(launcher, ["py", "-3"] if os.name == "nt" else ["python3"])
+        self.assertTrue(Path(script).samefile(auto_execute.__file__))
+        code, back = call(command, *shlex.split(printed)[-4:], "--paraos-home", self.home)
+        self.assertEqual((code, back["restored"][0]["item"]), (0, "noise.md"))
 
     def test_a_restored_file_whose_bytes_differ_fails(self):
         self.switch_on("Delete (duplicate)")
