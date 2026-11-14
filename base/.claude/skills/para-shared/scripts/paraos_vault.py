@@ -2428,6 +2428,19 @@ def template_marker(text, raw=False):
     return m.group(1) if raw else LEGACY_REVISIONS.get(m.group(1), m.group(1))
 
 
+KIT_FOLDER = ".claude/para-os"
+
+
+def vault_marker(vault, raw=False):
+    """The revision a vault stands at: the stamp its core file carries, else, in a vault not
+    yet on two files, the one in its `CLAUDE.md`."""
+    for name in (KIT_FOLDER + "/core.md", "CLAUDE.md"):
+        mark = template_marker(read_text(Path(vault) / name), raw)
+        if mark:
+            return mark
+    return None
+
+
 def integration_markers(vault):
     """Every installed integration script in the vault, as {file, name, revision}.
 

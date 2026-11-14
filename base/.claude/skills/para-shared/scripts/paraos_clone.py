@@ -69,6 +69,7 @@ def entries_between(entries, after, upto=None):
 # it names the checked-out branch.
 
 BASE_TEMPLATE = "base/CLAUDE.md.template"
+CORE = "base/.claude/para-os/core.md"
 ADDONS_DIR = "addons"
 OLDER_ADDON_DIRS = ("flavors",)                     # where a flavor lived before addons/
 
@@ -270,14 +271,16 @@ def addon_root(clone, ref, name):
 
 
 def master_template(clone, ref, worktree=False):
-    """The `CLAUDE.md` template a vault is measured against at a ref,
-    `base/CLAUDE.md.template`, as {path, marker, raw_marker, source}. `marker` is the
-    revision as `template_marker` reads it and `raw_marker` the label the comment writes,
-    so a legacy label is told apart from the revision it became. `source` is "base", or
-    None where the ref holds no template.
+    """The file that carries a ref's revision stamp, as {path, marker, raw_marker, source}:
+    the core, `base/.claude/para-os/core.md`, or the `CLAUDE.md` template at a ref from before
+    the core. `marker` is the revision as `template_marker` reads it and `raw_marker` the
+    label the comment writes, so a legacy label is told apart from the revision it became.
+    `source` is "base", or None where the ref holds neither file.
     """
-    data = clone_read(clone, ref, BASE_TEMPLATE, worktree)
-    text = data.decode("utf-8", errors="replace") if data is not None else ""
-    return {"path": BASE_TEMPLATE, "marker": template_marker(text),
+    found = [(path, data.decode("utf-8", errors="replace")) for path, data in
+             ((path, clone_read(clone, ref, path, worktree)) for path in (CORE, BASE_TEMPLATE))
+             if data is not None]
+    path, text = next((f for f in found if template_marker(f[1])), (found or [(CORE, "")])[0])
+    return {"path": path, "marker": template_marker(text),
             "raw_marker": template_marker(text, raw=True),
-            "source": "base" if data is not None else None}
+            "source": "base" if found else None}

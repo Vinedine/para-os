@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Tests for upgrade_scan.py, whose docstring is the specification: the revision and its
-baseline, the file table and its states, the contract diff, the retired list, exit codes.
+"""Tests for upgrade_scan.py, whose docstring is the specification: the revision, the file
+table and its states, the vault's own file, the retired list, exit codes.
 
     python3 test_upgrade_scan.py
     py -3 test_upgrade_scan.py
 
 Standard library only. Every vault and clone is synthetic: one throwaway git clone per class,
-two revisions deep, `origin/stable` set by `update-ref`, a feature branch beside it. The one
-exception, ExampleCase, scans the real example vault against a clone of this checkout's template.
+two revisions deep, `origin/stable` set by `update-ref`, a feature branch beside it.
 """
 
 import contextlib
@@ -194,7 +193,6 @@ class BehindCase(CloneCase):
         rev = self.report["revision"]
         self.assertEqual((rev["vault"], rev["master"], rev["verdict"]),
                          ("2026.09.01", "2026.10.01", "behind"))
-        self.assertEqual(rev["baseline"], self.rev_a)
         self.assertEqual(rev["entries"], [{"revision": "2026.10.01", "reactions": [
             "Move each deal note to its deal folder: `notes/`",
             "In a sales vault, add a `**Stage:**` line: each deal brief"]}])
@@ -234,17 +232,6 @@ class BehindCase(CloneCase):
         row = next(r for r in self.report["files"] if r["path"] == ".claude/rules/deal.md")
         self.assertIn("+# Our deals", row["diff"])
         self.assertNotIn("diff", next(r for r in self.report["files"] if r["state"] != "edited"))
-
-    def test_the_contract_is_the_template_s_change_section_by_section(self):
-        rows = {(r["file"], r["heading"]): r["diff"] for r in self.report["contract"]
-                if r["state"] == "changed"}
-        self.assertEqual(sorted(rows), [("addons/sales/CLAUDE.md.sections", "Deals"),
-                                        ("base/CLAUDE.md.template", "Actions"),
-                                        ("base/CLAUDE.md.template", "Language")])
-        self.assertIn("+Areas too.", rows[("base/CLAUDE.md.template", "Actions")])
-        self.assertIn("+## Language", rows[("base/CLAUDE.md.template", "Language")])
-        self.assertIn("-Deals v1.", rows[("addons/sales/CLAUDE.md.sections", "Deals")])
-        self.assertFalse(any("para-os-template" in d for d in rows.values()))
 
     def test_the_snapshot_covers_claude_md_and_every_listed_file(self):
         snap = self.report["snapshot"]
@@ -412,437 +399,148 @@ class StatesCase(CloneCase):
 
 
 class RevisionCase(CloneCase):
-    def test_equal_has_no_entries_and_no_change(self):
+    def test_equal_has_no_entries(self):
         report, _ = self.scan(self.vault("equal", marker="2026.10.01",
                                          header="**Modules:** nonesuch\n"))
         self.assertEqual(report["revision"]["verdict"], "equal")
-        self.assertEqual(report["revision"]["baseline"], self.rev_b)
         self.assertEqual(report["revision"]["entries"], [])
-        self.assertEqual({r["state"] for r in report["contract"]}, {"drift", "missing"})
 
-    def test_ahead_has_no_baseline(self):
+    def test_ahead_is_named(self):
         report, _ = self.scan(self.vault("ahead", marker="2026.11.01"))
         self.assertEqual(report["revision"]["verdict"], "ahead")
-        self.assertIsNone(report["revision"]["baseline"])
 
-    def test_no_marker_collects_every_entry_and_every_section_is_new(self):
+    def test_no_marker_collects_every_entry(self):
         report, _ = self.scan(self.vault("unstamped", marker=None))
         self.assertEqual(report["revision"]["verdict"], "no-marker")
         self.assertEqual([e["revision"] for e in report["revision"]["entries"]],
                          ["2026.10.01", "2026.09.01"])
-        memory = next(r for r in report["contract"] if r["heading"] == "Memory")
-        self.assertIn("+Facts.", memory["diff"])
-
-    def test_a_marker_no_commit_carried_has_no_baseline(self):
-        report, _ = self.scan(self.vault("odd", marker="2026.09.05"))
-        self.assertIsNone(report["revision"]["baseline"])
 
     def test_a_named_ref_is_read(self):
         report, code = self.scan(self.vault("named"), ref="main~1")
         self.assertEqual((code, report["revision"]["verdict"]), (0, "equal"))
 
 
-class BetweenBumpsCase(CloneCase):
-    """Two template changes merge on 2026.10.01, then a fold bumps the marker and nothing
-    else, as a revision's pull requests land before its fold."""
+CORE_OLD = "# Core\n\n<!-- para-os-template: 2026.10.01 -->\nFixed rules.\n"
+CORE = ("# Core\n\n<!-- para-os-template: 2026.11.01 -->\nFixed rules.\n\nOne checkbox per line.\n\n"
+        "| Bucket | State |\n|---|---|\n| `projects/` | open |\n| `archive/` | closed |\n")
+SALES = "# Sales\n\nA deal is won on money.\n"
+OWN = """# Shop Vault Conventions
 
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        cls.later = cls.tmp / "later"
-        shutil.copytree(cls.clone, cls.later)
-        text = REV_B["base/CLAUDE.md.template"]
-        for old, new in (("Facts.", "Facts, dated."), ("English.", "English or the vault's own."),
-                         ("2026.10.01", "2026.11.01")):
-            text = text.replace(old, new)
-            write(cls.later, "base/CLAUDE.md.template", text)
-            git_in(cls.later, "commit", "-q", "-am", new)
-        cls.released = git_in(cls.later, "rev-parse", "main~2")
-        cls.tagged = cls.tmp / "tagged"
-        shutil.copytree(cls.later, cls.tagged)
-        git_in(cls.tagged, "tag", "-a", "-m", "2026.10.01", "2026.10.01", cls.released)
-        git_in(cls.tagged, "tag", "2026.11.01", "main")
-
-    def contract(self, name, marker, ref, clone):
-        report, _ = self.scan(self.vault(name, marker=marker), ref=ref, clone=clone)
-        return report["revision"], {r["heading"]: r["diff"] for r in report["contract"]
-                                    if r["state"] == "changed"}
-
-    def test_a_change_merged_before_the_bump_is_in_the_contract(self):
-        rev, rows = self.contract("between", "2026.10.01", "main", self.later)
-        self.assertEqual(rev["baseline"], self.rev_b)
-        self.assertEqual(sorted(rows), ["Language", "Memory"])
-        self.assertIn("+Facts, dated.", rows["Memory"])
-
-    def test_the_release_tag_the_marker_names_is_the_baseline(self):
-        rev, rows = self.contract("released", "2026.10.01", "main", self.tagged)
-        self.assertEqual(rev["baseline"], self.released)
-        self.assertEqual(list(rows), ["Language"])
-
-    def test_a_tag_the_ref_never_carried_is_no_baseline(self):
-        rev, _ = self.contract("ahead-tagged", "2026.11.01", "main~1", self.tagged)
-        self.assertEqual((rev["verdict"], rev["baseline"]), ("ahead", None))
-
-
-def kit_template(rev):
-    hygiene, retiring = ("No loose files.", "\n## Retiring\n\nThe old rule.\n") \
-        if rev == "2026.10.01" else ("No loose files at the root.", "")
-    return f"""# {{{{Vault Name}}}} Vault Conventions
-
-<!-- para-os-template: {rev} -->
-**Type:** {{{{vault-type}}}}
-
-{{{{One-line description of what this vault covers.}}}}
-
-The lines above are machine-read.
-
-## Layout
-
-- **projects/** - {{{{what a project means here.}}}} One folder each, with a `brief.md`.
-- **archive/** - inactive artifacts.{{{{ Add `ideas/` if this vault archives ideas.}}}}
-
-### Hygiene
-
-- No live work.
-- {hygiene}
-
-## Checkboxes
-
-| Bucket | `actions.md` | State |
-|---|---|---|
-| `projects/` | yes | open + closed |
-| `areas/network/` | yes | any action about the person |
-
-## Sources
-
-Name the owning file before answering.
-
-{{{{OPTIONAL: a short `Question | Source` table; delete this line otherwise.}}}}
-
-- **Capital** is stated on {{{{the page holding it, or delete this line}}}}.
-{retiring}
-## Do not add
-
-- **Templates** before a second instance.
-- {{{{What belongs in another vault.}}}}
-"""
-
-
-DEALS = "<!-- sales MODULE: merge it in. -->\n\n## Deal lifecycle\n\nA deal is won on a paid phase.\n"
-
-ALIGNED = """# Shop Vault Conventions
-
-<!-- para-os-template: 2026.10.02 -->
 **Type:** vault
 **Modules:** sales
 
-A bike shop.
+@.claude/para-os/core.md
+@.claude/para-os/sales.md
 
-The lines above are machine-read.
+## Actions
 
-## Who writes this vault
+One checkbox per line.
+Ours alone.
+A deal is won on money.
+Facts.
+{{One checkbox per line.}}
 
-Only me.
-
-## Layout
-
-- **projects/** - a refit with a date. One folder each, with a `brief.md`.
-- **archive/** - inactive artifacts. `ideas/` = shelved ideas.
-
-### Hygiene
-
-- No live work.
-- No loose files at the root.
-- Our own rule.
-
-## checkboxes
-
-| Bucket | `actions.md` | State |
-| --- | --- | --- |
-| `projects/` | yes | open + closed |
-| **areas/network/** | never | contact files carry none |
-| `suppliers/` | never | tracked in their portal |
-
-## Sources
-
-```text
-## Not a heading
+```
+One checkbox per line.
 ```
 
-Name the owning file before answering.
-
-| Question | Source |
+| Bucket | State |
 |---|---|
-| Prices | the supplier list |
+| `projects/` | open |
+| `archive/` | closed |
 
-## Deal lifecycle
-
-A deal is won on a paid phase.
-
-## Do not add
-
-- **Templates** before a second instance.
-- Accounting: another vault.
-- Payroll: another system.
-"""
-
-DRIFTED = """# Shop Vault Conventions
-
-<!-- para-os-template: 2026.10.02 -->
-**Type:** vault
-
-A bike shop.
-
-## Layout
-
-- **projects/** - a refit with a date. One folder each, holding a brief.
-- **archive/** - inactive artifacts.
-
-### Hygiene
-
-- No live work, ever.
-- No loose files at the root.
-
-## Checkboxes
-
-| Bucket | `actions.md` | State |
-|---|---|---|
-| `areas/network/` | never | none |
-
-## Sources
-
-Name the owning file before answering.
-
-## Never add (ours)
-
-- **Templates** before a second instance.
-- Accounting: another vault.
+| Bucket | State |
+|---|---|
+| `projects/` | open |
+| `archive/` | ours |
 """
 
 
-class DriftCase(CloneCase):
-    """A kit whose template fills, declares and drops lines, at two revisions; the second
-    rewords one `###` section and drops a `##` one."""
+class CoreCase(CloneCase):
+    """The kit two commits on: a core stamped 2026.10.01, then the one stamped 2026.11.01
+    with the sales module's fixed file beside it, the earlier revision tagged."""
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.kit = cls.tmp / "drift-kit"
-        cls.kit.mkdir()
-        git_in(cls.kit, "init", "-q", "-b", "main")
-        for rev in ("2026.10.01", "2026.10.02"):
-            write(cls.kit, "CHANGELOG.md", f"# Changelog\n\n## {rev}\n")
-            write(cls.kit, "base/CLAUDE.md.template", kit_template(rev))
-            write(cls.kit, "addons/sales/CLAUDE.md.sections", DEALS)
-            git_in(cls.kit, "add", "-A")
-            git_in(cls.kit, "commit", "-q", "-m", rev)
-        git_in(cls.kit, "update-ref", "refs/remotes/origin/stable", "HEAD")
-
-    def rows(self, name, text):
-        report, code = self.scan(self.vault(name, files={"CLAUDE.md": text}), clone=self.kit)
-        self.assertEqual(code, 0)
-        return {r["heading"]: r for r in report["contract"] if r["state"] != "changed"}
-
-    def test_a_vault_holding_every_kit_line_has_no_drift(self):
-        # Fills, own lines and sections, a declared row, dropped optional lines, a heading's
-        # case, a fenced heading, and the add-on's lead comment left out.
-        self.assertEqual(self.rows("aligned", ALIGNED), {})
-
-    def test_a_line_that_is_only_a_placeholder_may_be_dropped(self):
-        text = ALIGNED.replace("- Accounting: another vault.\n- Payroll: another system.\n", "")
-        self.assertEqual(self.rows("dropped", text), {})
-
-    def test_the_template_itself_holds_at_each_revision(self):
-        for rev in ("2026.10.01", "2026.10.02"):
-            self.assertEqual(self.rows(f"bare-{rev}", kit_template(rev)), {})
-
-    def test_each_section_missing_a_kit_line_is_a_row_down_to_level_3(self):
-        rows = self.rows("drifted", DRIFTED)
-        self.assertEqual({h: r["state"] for h, r in rows.items()}, {
-            "": "drift", "Layout": "drift", "Hygiene": "drift", "Checkboxes": "drift",
-            "Do not add": "missing"})
-        self.assertEqual({r["file"] for r in rows.values()}, {"base/CLAUDE.md.template"})
-
-    def test_a_drift_diff_shows_what_the_vault_lacks_its_fills_as_written(self):
-        rows = self.rows("drifted", DRIFTED)
-        self.assertIn("-- No live work.\n+- No live work, ever.\n", rows["Hygiene"]["diff"])
-        self.assertIn(" ### Hygiene\n", rows["Hygiene"]["diff"])
-        layout = rows["Layout"]["diff"]
-        self.assertIn("-- **projects/** - {{what a project means here.}} One folder each", layout)
-        self.assertIn(" - **archive/** - inactive artifacts.\n", layout)
-        self.assertIn("-| `projects/` | yes | open + closed |", rows["Checkboxes"]["diff"])
-        self.assertIn(" | `areas/network/` | never | none |", rows["Checkboxes"]["diff"])
-        self.assertIn("-The lines above are machine-read.", rows[""]["diff"])
-
-    def test_a_missing_heading_diffs_to_the_vault_s_closest_own_section(self):
-        diff = self.rows("drifted", DRIFTED)["Do not add"]["diff"]
-        self.assertIn("-## Do not add\n", diff)
-        self.assertIn("+## Never add (ours)\n", diff)
-        alone = self.rows("alone", DRIFTED.replace("Templates** before a second instance",
-                                                   "Nothing alike here at all"))
-        self.assertNotIn("\n+", alone["Do not add"]["diff"])
-
-    def test_a_behind_vault_holding_the_ref_s_wording_or_its_own_has_no_drift(self):
-        old = kit_template("2026.10.01")
-        ahead = old.replace("No loose files.", "No loose files at the root.") \
-                   .replace("\n## Retiring\n\nThe old rule.\n", "")
-        for name, text in (("behind", old), ("behind-ahead", ahead)):
-            self.assertEqual(self.rows(name, text), {}, name)
-
-    def test_no_marker_has_no_drift(self):
-        self.assertEqual(self.rows("unmarked", DRIFTED.replace(
-            "<!-- para-os-template: 2026.10.02 -->\n", "")), {})
-
-    @staticmethod
-    def kept(text, heading, rev):
-        return text.replace(f"{heading}\n", f"{heading}\n<!-- para-os-kept: {rev} -->\n", 1)
-
-    def test_a_section_kept_at_the_ref_s_revision_is_no_drift(self):
-        text = self.kept(self.kept(DRIFTED, "## Layout", "2026.10.02"), "### Hygiene", "2026.10.02")
-        self.assertEqual(set(self.rows("kept", text)), {"", "Checkboxes", "Do not add"})
-
-    def test_a_section_kept_at_an_older_revision_holds_while_the_kit_s_wording_is_unchanged(self):
-        # Layout reads the same at both revisions; Hygiene was reworded at the second.
-        text = self.kept(self.kept(DRIFTED, "## Layout", "2026.10.01"), "### Hygiene", "2026.10.01")
-        rows = self.rows("kept-old", text)
-        self.assertNotIn("Layout", rows)
-        self.assertEqual(rows["Hygiene"]["state"], "drift")
-        self.assertIn("+<!-- para-os-kept: 2026.10.01 -->\n", rows["Hygiene"]["diff"])
-
-    def test_a_behind_vault_keeping_the_ref_s_wording_has_no_drift_before_its_stamp(self):
-        # What /para-upgrade's re-run sees after "keep" and before the marker moves.
-        text = kit_template("2026.10.01").replace("- No live work.\n", "- No live work, ever.\n")
-        self.assertEqual(set(self.rows("behind-drift", text)), {"Hygiene"})
-        self.assertEqual(self.rows("behind-kept", self.kept(text, "### Hygiene", "2026.10.02")), {})
-
-    def test_a_kept_revision_the_ref_never_carried_or_a_kept_line_elsewhere_holds_nothing(self):
-        for name, text in (("kept-unknown", self.kept(DRIFTED, "### Hygiene", "2026.09.09")),
-                           ("kept-other", self.kept(DRIFTED, "## Sources", "2026.10.02"))):
-            self.assertEqual(self.rows(name, text)["Hygiene"]["state"], "drift", name)
-
-    def test_a_lifecycle_under_the_vault_s_own_noun_holds_the_kit_s(self):
-        self.assertEqual(self.rows("booking", ALIGNED.replace("## Deal lifecycle",
-                                                              "## Booking lifecycle")), {})
-        text = ALIGNED.replace(
-            "## Deal lifecycle\n\nA deal is won on a paid phase.\n",
-            "## Supplier lifecycle\n\nSuppliers are reviewed every year.\n\n"
-            "## Booking lifecycle\n\nA booking is won on a paid deposit.\n")
-        rows = self.rows("booking-drift", text.replace("### Hygiene\n", "### Hygiene (ours)\n"))
-        row = rows.pop("Deal lifecycle")
-        self.assertEqual((rows["Hygiene"]["state"], row["state"], row["file"], row["vault_heading"]),
-                         ("missing", "drift", "addons/sales/CLAUDE.md.sections", "Booking lifecycle"))
-        self.assertEqual(set(rows), {"Hygiene"})
-        self.assertNotIn("vault_heading", rows["Hygiene"])
-        self.assertIn(" ## Booking lifecycle\n-A deal is won on a paid phase.\n"
-                      "+A booking is won on a paid deposit.\n", row["diff"])
-        self.assertEqual(self.rows("booking-kept", self.kept(text, "## Booking lifecycle",
-                                                             "2026.10.02")), {})
-
-    def test_another_heading_holds_only_the_kit_s_own(self):
-        rows = self.rows("renamed", DRIFTED.replace("## Sources\n", "## Sources (ours)\n")
-                         .replace("## Layout\n", "## Layout lifecycle\n"))
-        self.assertEqual((rows["Sources"]["state"], rows["Layout"]["state"]),
-                         ("missing", "missing"))
-        self.assertEqual(rows["Do not add"]["state"], "missing")
-
-
-class ExampleCase(unittest.TestCase):
-    """examples/belfoot-vault against a clone of this checkout's template and add-on sections:
-    everything base ships has a working instance there, its fixed wording included."""
-
-    EXAMPLE = ROOT / "examples" / "belfoot-vault"
-
-    @classmethod
-    def setUpClass(cls):
-        cls.tmp = Path(tempfile.mkdtemp(prefix="upgrade-scan-example-")).resolve()
-        cls.kit = cls.tmp / "para-os"
-        for rel in ["CHANGELOG.md", "base/CLAUDE.md.template"] + sorted(
-                p.relative_to(ROOT).as_posix() for p in ROOT.glob("addons/*/CLAUDE.md.sections")):
-            write(cls.kit, rel, (ROOT / rel).read_text(encoding="utf-8"))
-        git_in(cls.kit, "init", "-q", "-b", "main")
+        cls.kit = cls.tmp / "with-core"
+        shutil.copytree(cls.clone, cls.kit)
+        git_in(cls.kit, "tag", "2026.10.01", "main")
+        write(cls.kit, "base/.claude/para-os/core.md", CORE_OLD)
         git_in(cls.kit, "add", "-A")
-        git_in(cls.kit, "commit", "-q", "-m", "kit")
+        git_in(cls.kit, "commit", "-q", "-m", "core")
+        write(cls.kit, "base/.claude/para-os/core.md", CORE)
+        write(cls.kit, "addons/sales/para-os/sales.md", SALES)
+        write(cls.kit, "CHANGELOG.md", "# Changelog\n\n## 2026.11.01\n\n- Convert: `CLAUDE.md`\n\n"
+              + NEW_ENTRY + OLD_ENTRY)
+        git_in(cls.kit, "add", "-A")
+        git_in(cls.kit, "commit", "-q", "-m", "2026.11.01")
         git_in(cls.kit, "update-ref", "refs/remotes/origin/stable", "HEAD")
 
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(cls.tmp, ignore_errors=True)
+    def on_two_files(self, name, core=CORE, own=OWN):
+        root = self.vault(name, marker=None, files={
+            ".claude/para-os/core.md": core, ".claude/para-os/sales.md": SALES})
+        write(root, "CLAUDE.md", own)
+        return root
 
-    def drift(self, vault):
-        report, code = build_report(vault, self.kit, None, self.tmp / "no-user",
-                                    self.tmp / "no-home" / "para-os")
-        self.assertEqual(code, 0)
-        self.assertIsNotNone(report["revision"]["baseline"])
-        return {r["heading"]: r["state"] for r in report["contract"] if r["state"] != "changed"}
+    def report(self, vault):
+        return self.scan(vault, clone=self.kit)[0]
 
-    def test_the_example_vault_holds_every_kit_line(self):
-        self.assertEqual(self.drift(self.EXAMPLE), {})
+    def test_the_master_s_revision_is_the_core_s_stamp_and_a_vault_without_one_takes_it(self):
+        report = self.report(self.vault("not-yet", marker="2026.10.01", header="**Modules:** sales\n"))
+        rev = report["revision"]
+        self.assertEqual((rev["vault"], rev["master"], rev["verdict"]),
+                         ("2026.10.01", "2026.11.01", "behind"))
+        rows = {r["path"]: (r["kind"], r["master"], r["state"]) for r in report["files"]}
+        self.assertEqual(rows[".claude/para-os/core.md"],
+                         ("core", "base/.claude/para-os/core.md", "missing"))
+        self.assertEqual(rows[".claude/para-os/sales.md"],
+                         ("core", "addons/sales/para-os/sales.md", "missing"))
 
-    def test_a_kit_line_the_example_rewords_is_drift(self):
-        vault = self.tmp / "belfoot"
-        shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
-        md = vault / "CLAUDE.md"
-        md.write_text(md.read_text(encoding="utf-8").replace(
-            "creates every project,", "creates every workstream,"), encoding="utf-8")
-        self.assertEqual(self.drift(vault), {"Lifecycle": "drift"})
+    def test_a_vault_on_two_files_reads_its_revision_from_its_core(self):
+        report = self.report(self.on_two_files("current"))
+        self.assertEqual(report["revision"]["verdict"], "equal")
+        self.assertFalse([r for r in report["files"] if r["kind"] == "core"])
+        behind = self.report(self.on_two_files("older", core=CORE_OLD))
+        self.assertEqual((behind["revision"]["vault"], behind["revision"]["verdict"]),
+                         ("2026.10.01", "behind"))
+        self.assertEqual(self.states(behind)[".claude/para-os/core.md"], "untouched")
 
-    def test_a_vault_naming_its_own_cross_cutting_area_and_entity_file_holds(self):
-        vault = self.tmp / "own-area"
-        shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
-        md = vault / "CLAUDE.md"
-        md.write_text(md.read_text(encoding="utf-8")
-                      .replace("`business/` = running", "`wealth/` = running")
-                      .replace("its own `brief.md` + `actions.md`", "its own `README.md` + `actions.md`")
-                      .replace("in `areas/business/actions.md`", "in `areas/wealth/actions.md`"),
-                      encoding="utf-8")
-        self.assertEqual(self.drift(vault), {})
+    def test_a_core_holding_a_line_of_the_vault_s_own_is_edited_and_copied_whole(self):
+        vault = self.on_two_files("written-in", core=CORE + "\nOur own rule.\n")
+        row = next(r for r in self.report(vault)["files"] if r["kind"] == "core")
+        self.assertEqual(row["state"], "edited")
+        self.assertNotIn("own", row)
+        commit = git_in(self.kit, "rev-parse", "main")
+        self.assertIsNone(upgrade_scan.copy(self.kit, commit, row["master"], vault / row["path"]))
+        self.assertEqual((vault / row["path"]).read_text(encoding="utf-8"), CORE)
 
-    def own_lines(self, name, areas, routing):
-        vault = self.tmp / name
-        shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
-        md = vault / "CLAUDE.md"
-        lines = md.read_text(encoding="utf-8").split("\n")
-        lines = [areas if ln.startswith("- **areas/** - ") else
-                 routing if ln.startswith("An action goes in the `actions.md`") else ln
-                 for ln in lines]
-        md.write_text("\n".join(lines), encoding="utf-8")
-        return vault
+    def test_a_line_a_kit_file_holds_word_for_word_is_a_repeat(self):
+        own = self.report(self.on_two_files("repeats"))["own"]
+        self.assertEqual([(r["text"], r["in"]) for r in own["repeats"]], [
+            ("One checkbox per line.", "base/.claude/para-os/core.md"),
+            ("A deal is won on money.", "addons/sales/para-os/sales.md"),
+            ("| `projects/` | open |", "base/.claude/para-os/core.md"),
+            ("| `archive/` | closed |", "base/.claude/para-os/core.md")])
+        self.assertEqual([r["line"] for r in own["repeats"]][:2], [11, 13])
 
-    def test_a_vault_restructuring_its_areas_bullet_and_routing_sentence_holds(self):
-        vault = self.own_lines(
-            "restructured",
-            "- **areas/** - ongoing responsibilities. Per-entity folders (`properties/x/`, "
-            "`banking/y/`) each with `README.md` + `sources/` and an `actions.md`; `network/` = "
-            "one file per person. `wealth/` = the cross-cutting area: household strategy. "
-            "Entities that gate each other form **one** area.",
-            "An action goes in the `actions.md` of the project or area it belongs to; one about "
-            "a person in their contact file (`areas/network/<person>.md`) under `## Next actions`, "
-            "else with the entity it serves; strategic household work tied to no single entity in "
-            "`areas/wealth/actions.md`. Scheduled multi-step work means the thing is a project, "
-            "not an idea. Never a root `actions.md`; an `actions.md` archives *with its entity*, "
-            "fully closed.")
-        self.assertEqual(self.drift(vault), {})
+    def test_a_file_still_carrying_its_stamp_is_also_read_against_that_revision_s_template(self):
+        vault = self.vault("stamped", marker="2026.10.01", header="**Modules:** sales\n")
+        write(vault, "CLAUDE.md", vault_md("2026.10.01", "**Modules:** sales\n")
+              + "Facts.\nDeals v2.\nOne checkbox per line.\n")
+        found = {r["text"]: r["in"] for r in self.report(vault)["own"]["repeats"]}
+        self.assertEqual(found, {
+            "Facts.": "base/CLAUDE.md.template at 2026.10.01",
+            "Deals v2.": "addons/sales/CLAUDE.md.sections at 2026.10.01",
+            "One checkbox per line.": "base/.claude/para-os/core.md"})
 
-    def test_a_routing_sentence_dropping_the_root_actions_ban_is_drift(self):
-        vault = self.own_lines(
-            "no-ban",
-            "- **areas/** - ongoing responsibilities: anything live that is maintained.",
-            "A dated go/no-go on an idea is a strategic action in the owning area's `actions.md`.")
-        self.assertEqual(self.drift(vault), {"Where a checkbox may live": "drift"})
-
-    def test_a_rule_file_pointer_names_the_paths_its_rule_file_covers_in_the_vault(self):
-        vault = self.tmp / "own-paths"
-        shutil.copytree(self.EXAMPLE, vault, ignore=shutil.ignore_patterns("skills"))
-        md = vault / "CLAUDE.md"
-        text, pointers = re.subn(r"(loads on its own when ).+?( is read)",
-                                 r"\1a brief or an area's `overview.md`\2",
-                                 md.read_text(encoding="utf-8"))
-        self.assertGreaterEqual(pointers, 3)
-        md.write_text(text, encoding="utf-8")
-        self.assertEqual(self.drift(vault), {})
-        md.write_text(text.replace("elsewhere it is a link.", "elsewhere it is a link, never a copy."),
-                      encoding="utf-8")
-        self.assertEqual(self.drift(vault), {"The content frontier": "drift"})
+    def test_the_own_file_is_counted_with_the_fixed_files_it_imports(self):
+        vault = self.on_two_files("counted")
+        own = self.report(vault)["own"]
+        words = len(OWN.split())
+        self.assertEqual((own["lines"], own["words"]), (len(OWN.splitlines()), words))
+        self.assertEqual(own["kit_words"], len(CORE.split()) + len(SALES.split()))
+        self.assertEqual(own["start_words"], words + own["kit_words"])
 
 
 class ExitCase(CloneCase):
