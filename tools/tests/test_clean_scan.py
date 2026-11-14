@@ -249,6 +249,90 @@ class Preconditions(VaultCase):
 
 # ------------------------------------------------------------------------------------- Phase 1
 
+OWN_CORE = ("# Core\n\nAn idea promotes to a project when money or a formal engagement is committed.\n\n"
+            "| Bucket | State |\n|---|---|\n| `projects/` | open |\n| `archive/` | closed |\n")
+OWN_RULE = ('---\npaths:\n  - "**/sources/**"\n---\n\n# Filing\n\n'
+            "A document is filed by function and never by the name of its issuer.\n")
+OWN_FILE = """# Vault
+
+**Type:** vault
+
+@.claude/para-os/core.md
+
+## Working here
+
+An idea is promoted to a project once money or a formal engagement has been committed.
+Invoices from the paper supplier are filed in `areas/supplies/` under the month they cover.
+Always answer in short sentences and lead with the decision taken.
+A document is filed by function and never by the name of its issuer.
+
+| Bucket | State |
+|---|---|
+| `projects/` | open |
+| `archive/` | open |
+| `areas/supplies/` | never |
+
+## Supplier lifecycle
+
+| Bucket | State |
+|---|---|
+| Quoted | first |
+
+## Triage sources
+
+An idea promotes to a project when money or a formal engagement is committed.
+"""
+
+
+class OwnRules(VaultCase):
+    """What the vault's own CLAUDE.md holds beside the kit files installed in it."""
+
+    def own(self, text=OWN_FILE):
+        write(self.root, "CLAUDE.md", text)
+        write(self.root, ".claude/para-os/core.md", OWN_CORE)
+        write(self.root, ".claude/rules/filing.md", OWN_RULE)
+        return self.run_scan("1")["phase1"]
+
+    def test_a_kit_sentence_reworded_or_repeated_is_near_and_names_its_file(self):
+        near = self.own()["own_rules"]["near"]
+        self.assertEqual([(n["line"], n["in"]) for n in near],
+                         [(9, ".claude/para-os/core.md"), (12, ".claude/rules/filing.md")])
+        self.assertEqual(near[0]["kit"],
+                         "An idea promotes to a project when money or a formal engagement is committed.")
+        self.assertGreaterEqual(near[0]["ratio"], clean_scan.NEAR_RATIO)
+        self.assertEqual(near[1]["ratio"], 1.0)
+
+    def test_a_local_fact_a_general_rule_and_a_script_read_section_are_never_near(self):
+        texts = " ".join(n["text"] for n in self.own()["own_rules"]["near"])
+        self.assertNotIn("paper supplier", texts)
+        self.assertNotIn("short sentences", texts)
+        self.assertEqual(texts.count("promote"), 1)
+
+    def test_a_table_sharing_a_kit_table_s_header_and_a_row_departs(self):
+        self.assertEqual(self.own()["own_rules"]["departs"], [
+            {"line": 14, "heading": "Working here", "in": ".claude/para-os/core.md",
+             "differ": ["`archive/`"], "new": ["`areas/supplies/`"]}])
+
+    def test_sections_are_sized_and_the_script_read_ones_marked(self):
+        own = self.own()["own_rules"]
+        self.assertEqual([(s["heading"], s["script_read"]) for s in own["sections"]],
+                         [("Working here", False), ("Supplier lifecycle", False),
+                          ("Triage sources", True)])
+        self.assertEqual(own["words"], len(OWN_FILE.split()))
+        self.assertEqual(own["kit_words"], len(OWN_CORE.split()))
+        self.assertEqual(own["start_words"], own["words"] + own["kit_words"])
+
+    def test_it_is_a_suggestion_and_never_counted_as_a_finding(self):
+        report = self.own()
+        self.assertTrue(report["own_rules"]["near"])
+        self.assertNotIn("own_rules", clean_scan.finding_counts(report))
+
+    def test_a_vault_importing_no_fixed_file_has_nothing_to_compare(self):
+        write(self.root, "CLAUDE.md", "# Vault\n\n## Working here\n\nA rule of six words or more.\n")
+        own = self.run_scan("1")["phase1"]["own_rules"]
+        self.assertEqual((own["kit_words"], own["near"], own["departs"]), (0, [], []))
+
+
 class Phase1Map(VaultCase):
 
     def test_map_counts_entities_and_empty_leaf_dirs(self):
