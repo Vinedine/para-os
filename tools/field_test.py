@@ -14,7 +14,7 @@ side gets its own scratch para-os home holding the COPIED files and a registry o
 vaults scanned, so a scan's own writes land nowhere real. A vault is only read.
 
 The scans, all on `--today` (default the system date), are VAULT_SCANS per vault and
-REGISTRY_SCANS once; upgrade, audit and clean read the kit from this repo at the side's own
+REGISTRY_SCANS once; upgrade and clean read the kit from this repo at the side's own
 ref, and upgrade measures what the vault holds, not this machine's user-level skills, which
 would repeat under every vault. clean phase 3 runs last, since the brief and the Command
 Center's vault scan read the stamp it writes.
@@ -22,7 +22,7 @@ Left out: ingest's prepare, which runs each vault's sync and fetch scripts again
 services, archive, which needs an entity, and prep, which needs a person.
 
 Test a stamped candidate (/release steps 2 to 6): where head still carries base's template
-marker over a changed template, upgrade and audit read head's template as each vault's own
+marker over a changed template, upgrade reads head's template as each vault's own
 revision, and the report says so.
 
 Each output has the scratch paths replaced, then the two are diffed, a list as a multiset of
@@ -77,14 +77,10 @@ VAULT_SCANS = {
     "upgrade": (f"{SKILLS}/para-upgrade/scripts/upgrade_scan.py",
                 ["--vault", "{vault}", "--clone", "{repo}", "--ref", "{ref}", "--paraos-home",
                  "{home}", "--user-skills", "{home}/no-user-skills"]),
-    "activity": ("addons/activity/.claude/skills/para-activity-review/scripts/review_scan.py",
-                 ["--vault", "{vault}", "--today", "{today}"]),
 }
 REGISTRY_SCANS = {
     "global": ("multi-vault/para-command-center/scripts/global_scan.py",
                ["--today", "{today}", "--paraos-home", "{home}"]),
-    "audit": ("multi-vault/para-audit/scripts/audit_scan.py",
-              ["--clone", "{repo}", "--ref", "{ref}", "--paraos-home", "{home}"]),
 }
 LAST_SCANS = {
     "clean-3": (f"{SKILLS}/para-deep-clean/scripts/clean_scan.py",
@@ -246,8 +242,8 @@ def report(meta, results, columns):
              f"`{meta['head_sha']}`. Not scanned: {', '.join(meta['skipped']) or 'none'}.", ""]
     if meta["unstamped"]:
         lines += [f"Head still carries base's marker `{meta['unstamped']}` over a changed template, "
-                  "so upgrade and audit take head's own template as each vault's baseline and "
-                  "report this cycle's template changes as drift. Test a stamped candidate.", ""]
+                  "so upgrade takes head's own template as each vault's baseline and reports "
+                  "this cycle's template changes as drift. Test a stamped candidate.", ""]
     lines += ["| Vault | " + " | ".join(columns) + " |", "|---|" + "---|" * len(columns)]
     for vault, scans in results.items():
         lines.append(f"| {vault} | " + " | ".join(scans.get(c, ("-", []))[0].split(":")[0]

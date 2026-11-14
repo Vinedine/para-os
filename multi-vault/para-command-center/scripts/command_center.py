@@ -86,7 +86,6 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE.parents[1] / "para-audit" / "scripts"))
 sys.path.insert(0, str(HERE.parents[1] / "para-ingest" / "scripts"))
 
 try:
@@ -105,8 +104,8 @@ try:
     )
     from render_dashboard import cut, health_card, plain  # noqa: E402
 except ImportError as missing:
-    print(f"command_center: {missing}. install para-audit, para-daily-brief, para-ingest and "
-          "para-shared beside this skill", file=sys.stderr)
+    print(f"command_center: {missing}. install para-daily-brief, para-ingest, para-shared "
+          "and para-upgrade beside this skill", file=sys.stderr)
     sys.exit(2)
 
 TEMPLATE = HERE / "command-center.html"
@@ -120,7 +119,7 @@ GRACE = timedelta(minutes=20)
 LATE = timedelta(hours=1)
 OWN, KEPT = "Your vaults", "Vaults you look after"
 DAY_NAMES = ("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-KIT_SIGNAL = ("kit", "Kit", "Kit files that differ from the para-os clone at stable, as /para-audit counts them.",
+KIT_SIGNAL = ("kit", "Kit", "Kit files that differ from the para-os clone at stable.",
               "Run /para-upgrade for what it applies; the rest is yours to decide.")
 SEVERITY = {"ci": 3, "diverged": 3, "unpushed": 2, "dirty": 2, "behind": 2, "missing": 1,
             "quiet": 0, "clean": 0}
