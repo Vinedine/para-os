@@ -14,6 +14,23 @@ Revisions are `YYYY.MM.NN`: the year and month a revision shipped, then its zero
 
 **One legacy label.** The first revision shipped as `2026.08` and was renumbered `2026.08.01`: a vault stamped `2026.08` is already on `2026.08.01`, collects only the entries after it, and is restamped.
 
+## 2026.11.02
+
+- Add the paragraph and the import line `@.claude/para-os/core.md` that open `base/CLAUDE.md.template`, under the vault's description: `CLAUDE.md` (#993)
+- Add one import line under the core's for each add-on the vault declares, `@.claude/para-os/<name>.md`: `CLAUDE.md` (#993)
+- Remove every line the scan lists under `own.repeats`, a `retired` one on its own approval, and each heading, list parent or table header left with nothing under it; a line the vault reworded stays, as its departure from the core: `CLAUDE.md` (#993)
+- Keep what a script reads, whatever repeats: the title, the `**Type:**`, `**Flavor:**`, `**Modules:**` and `**Locale:**` lines, `## Who writes this vault`, `## Triage sources`, `## Agenda sources`, `## Pages`, a stage table of the vault's own and a checkbox row that differs from the core's: `CLAUDE.md` (#993)
+- Name the area for work tied to no single entity, where the vault has one, in one line: `CLAUDE.md` (#993)
+- Remove the `<!-- para-os-template: -->` line last, once `.claude/para-os/core.md` is in place: `CLAUDE.md` (#993)
+- Move the lines the vault added to its copy of a kit rule file into a rule file of its own, then re-copy the kit's: `.claude/rules/filing.md`, `.claude/rules/figures.md` (#993)
+- Where the vault's own `brief-structure.md` fixes a shape, rename it and its pointer before the kit's file of that name is copied in: `.claude/rules/brief-structure.md` (#993)
+- Rename the `README.md` that documents an area or any other entity to `brief.md` and repoint its inbound links, a property's dossier included; a bucket's own index stays: `areas/`, `archive/` (#993)
+- Rename a contact card that is not `<firstname-lastname>.md`, or an organisation's own name, and repoint its inbound links: `areas/network/` (#993)
+- Offer, as a job of its own the operator may leave for later, a rename plan for the dated documents not named `YYYYMMDD <Who> - <Description>.<ext>`: the old name, the new one and where the date and the party were read. Rename only what the operator approves after reading the plan, links repointed and no date or party guessed; new documents take the pattern either way: `sources/`, `archive/meetings/` (#993)
+Retired: `triage/.gitkeep`, `projects/.gitkeep`, `.claude/rules/readme-structure.md`
+- In a vault that declares the brainstorm module, remove `brainstorm` from the `**Modules:**` line, the line itself where it names nothing else, and the `## Brainstorms` section: `CLAUDE.md` (#994)
+Retired: `.claude/skills/para-audit/`, `.claude/skills/para-brainstorm/`, `.claude/skills/para-activity-review/`
+
 ## 2026.11.01
 
 - In a vault with a `## Who writes this vault` roster, add a Role column after Person, asking the operator for each row whether that person is the keeper (runs the vault and its upkeep), a member (a lane, no upkeep) or a steward (keeps its conventions, scripts and template current, with no lane): CLAUDE.md (#756)
