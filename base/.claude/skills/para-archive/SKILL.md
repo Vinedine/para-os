@@ -39,7 +39,7 @@ python3 "<this skill's base directory>/scripts/archive_scan.py" --vault . --enti
 ### Step 1 - Confirm context and locate the entity
 
 1. **The vault root is the `vault` block.** Where `root` is false (exit 3), stop, naming the path checked and, from `hint`, the registered vault that holds it.
-2. From the vault's `CLAUDE.md`, take its archive subfolders, any destination it names per kind, its Archive hygiene conventions and its "do not add" rules.
+2. From the vault's `CLAUDE.md` and the core it imports, take the archive subfolders, any destination named per kind and the "do not add" rules.
 3. **`entity.status`**: `resolved`; `ambiguous`, ask which of `candidates`; `elsewhere`, already archived at `already_archived`, so run Steps 6 to 8 only, repairing its links; `unresolved`, list `this_vault`'s folders and which of `other_vaults` holds the name, and ask, never running against another vault until the operator names it. For an area, `destination.needs_vault_rule: true` means read the vault's destination for its kind and re-run with `--destination`. A non-null `lifecycle` is a staged entity: it archives into a home from `lifecycle.terminal_stages`, and Step 3 gates the move. The **kind** sets the source, the destination and whether Step 5 runs.
 4. **Confirm it is done**: a project's deliverable shipped, an idea genuinely shelved, never live work. Where `gate` disagrees (an `open_dated` action, a `future_dated_lines` entry), say so in one line and ask **proceed or stop**, nothing else: a question of fact, with no recommendation. `status_line` alone is never the evidence. **Never offer a blanket disposition** such as "drop what's left": each open item is Step 2's question, once the gate says proceed.
 

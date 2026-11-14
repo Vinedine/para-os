@@ -34,15 +34,15 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        ANY_DATE_RE, CLOSED_TASK_RE, DORMANT_ENTITY_DAYS, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE,
+        FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE,
         HEADING_RE, LINK_ROOTS, MARKED_SUFFIXES, NOT_CARDS, OPEN_ITEM_CAP, STALE_UNDATED_DAYS,
-        TASK_RE, abspath, action_files, cap_count, contact_names, dangling_links, date_arg,
+        abspath, action_files, cap_count, contact_names, dangling_links, date_arg,
         deep_clean_stamp, duplicates, emit, entity_candidates, entity_doc, extract_links, field_ci,
         find_clone, git, git_blame_line_date, hashes, header_fields, inbound_references_by_name,
         integration_markers, is_separator_row, iso, lifecycles, link_files, link_spans, live_lines,
         log_entries, misplaced_checkboxes, norm, open_tasks, other_checkbox_paths,
         over_grown_briefs, parse_date, read_lines, read_text, reference_shape, rel_posix,
-        resolve_entity, resolve_link, snapshot, split_lines, stage_of, strip_code, table_cells,
+        resolve_entity, resolve_link, snapshot, split_lines, strip_code, table_cells,
         template_marker, triage_items, under_any, utf8_stdout, vault_paths,
     )
     from paraos_clone import clone_ref, master_template  # noqa: E402
@@ -913,43 +913,6 @@ def prose_next_steps(vault, headings):
     return {"applicable": True, "items": items}
 
 
-def newest_dated_action(folder):
-    """The newest date any checkbox in an entity's folder carries, open or ticked, on any
-    marker: a closed item dated last spring is still the last commitment the project made.
-    `sources/` is other people's documents, never the project's own commitments."""
-    newest = None
-    for path in sorted(folder.rglob("*.md")):
-        if "sources" in path.relative_to(folder).parts:
-            continue
-        for _, text in live_lines(read_lines(path)):
-            if not (TASK_RE.match(text) or CLOSED_TASK_RE.match(text)):
-                continue
-            for raw in ANY_DATE_RE.findall(text):
-                d = parse_date(raw)
-                if d and (newest is None or d > newest):
-                    newest = d
-    return newest
-
-
-def demotion_candidates(vault, today):
-    """Projects whose newest dated action is DORMANT_ENTITY_DAYS or more old: the Lifecycle
-    rule's "no dated commitment left for six months". A project with no dated action at all
-    is the sorting test's problem, not this one's, and a staged entity (a deal, a property)
-    moves through its lifecycle, never to an area, so neither is listed."""
-    declared = {s["name"].lower() for lc in lifecycles(vault) for s in lc["stages"]}
-    out = []
-    for folder in sorted(p for p in (vault / "projects").glob("*") if p.is_dir()):
-        brief = next((folder / n for n in ("brief.md", "README.md") if (folder / n).is_file()), None)
-        stage = stage_of(brief) if brief else None
-        if stage and stage["name"].lower() in declared:
-            continue
-        newest = newest_dated_action(folder)
-        if newest and (today - newest).days >= DORMANT_ENTITY_DAYS:
-            out.append({"project": folder.relative_to(vault).as_posix(),
-                        "newest_date": iso(newest)})
-    return out
-
-
 def phase3(vault, today, headings):
     files = action_files(vault)
     other_paths = other_checkbox_paths(vault)
@@ -969,8 +932,6 @@ def phase3(vault, today, headings):
             "stale_undated": stale_undated, "aspirational": aspirational,
             "prose_next_steps": prose, "briefs_to_read": briefs_to_read,
             "briefs_skipped": briefs_skipped, "growth": growth, "orphans": orphans(vault),
-            "demotion_candidates": demotion_candidates(vault, today)
-            if (vault / "projects").is_dir() else [],
             "snapshot": snapshot(sorted(touched, key=str))}
 
 

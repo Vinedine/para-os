@@ -56,6 +56,7 @@ How an action is written (what is actionable, how many a file holds, the markers
 - **Source documents and dated records**: `YYYYMMDD <Who> - <Description>.<ext>` in every vault. The date is the document's own, and who is its most identifying party, or the subject for the operator's own notes. The rest of the convention is in `.claude/rules/filing.md`; read it explicitly before filing one.
 - **A dated conversation record** lives in the owning project's or area's `sources/`; in `archive/meetings/` when it spans several entities or none owns it.
 - **A contact file and a project brief cross-link** both ways.
+- **A brief** is shaped by what it documents. How one opens is in `.claude/rules/brief-structure.md`; read it explicitly before creating one.
 
 ## Authoritative sources
 

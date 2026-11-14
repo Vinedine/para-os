@@ -21,7 +21,7 @@ BelFoot internal data (financials, employee records, contracts) is confidential 
 
 ## Entity structures
 
-- **Briefs** - a workstream brief fixes its section order (`Why now` / `Scope` / `Stakeholders` / `Deadline` / optional `Vendor` / optional `Risks (live)` / optional `Development log` / `Status`); an idea brief follows its own fixed shape with a required `**Stage:**` line. Read [.claude/rules/brief-structure.md](.claude/rules/brief-structure.md) before creating one.
+- **Briefs** - a workstream brief fixes its section order (`Why now` / `Scope` / `Stakeholders` / `Deadline` / optional `Vendor` / optional `Risks (live)` / optional `Development log` / `Status`); an idea brief follows its own fixed shape with a required `**Stage:**` line. Read [.claude/rules/workstream-brief.md](.claude/rules/workstream-brief.md) before creating one.
 
 ## Vendor lifecycle
 
