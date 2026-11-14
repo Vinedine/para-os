@@ -45,4 +45,4 @@ Without a lifecycle argument, and only where the vault declares a page for `para
 
 - **Never invent a stage, a date or a next step.** Unknown stays unknown, and a missing step is flagged.
 - **Never score, weight or forecast.** The one ordering beyond stage and days is the By value line, by stated Value, unweighted. No probability, conversion rate or funnel percentage.
-- **A value figure is internal.** It renders in the terminal, never into a file, a page or anything shared outside the vault.
+- **A value figure is internal.** It renders in the terminal, never into a page or anything shared outside the vault.

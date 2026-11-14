@@ -50,7 +50,7 @@ The first job is **classification, not scaffolding**: most requests to "start a 
 
 ### Steps 2 and 3 - Classify, then interview
 
-Settle the shape, then ask only what it needs: three questions for a project, two for an area, an idea or a contact, in prose, not an `AskUserQuestion`, except an answer the request suggests without settling it ([asking.md](../para-shared/asking.md#a-question-with-a-suggested-answer)). **[references/interview.md](references/interview.md).**
+Settle the shape, then ask only what it needs: three questions for a project, two for an area, an idea or a contact, in prose, except one with a [suggested answer](../para-shared/asking.md#a-question-with-a-suggested-answer). **[references/interview.md](references/interview.md).**
 
 ### Step 4 - Propose and scaffold
 

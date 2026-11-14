@@ -654,7 +654,7 @@ def compute_metrics(vault, today, lc, entities, year_end_text=None):
         terminal[s["name"]] = {"this_quarter": this_q, "reasons_this_quarter": reasons_q,
                                "all_time_reasons": reasons_all, "missing_reason": missing}
 
-    terminal_this_quarter = sum(v["this_quarter"] for v in terminal.values())
+    terminal_this_quarter = sum(v["this_quarter"] for v in terminal.values()) if terminal else None
     metrics = {
         "quarter": quarter["name"],
         "year_end_unread": year_end_text if year_end_text and not year_end else None,

@@ -1,6 +1,6 @@
 # Render the board (Step 2)
 
-One block per lifecycle, then the close. A section with nothing to show is left out, except the counts line and the metrics, which state a zero.
+One block per lifecycle, then the close. A section with nothing to show is left out, except the counts line and the metrics, which state a zero; a null `terminal_this_quarter` is left out.
 
 ````
 # Pipeline - <YYYY-MM-DD> - <vault name>
@@ -40,7 +40,7 @@ By value: <entity> €9,000 · <entity> €4,500 · <entity> USD 1,250 · unknow
 
 ## The flags
 
-One line each, naming the entity and the edit that clears it, never what to decide about the entity itself:
+One line each, naming the entity and the edit that clears it, never what to decide about the entity itself; over fifteen show ten, then `(+N more)`:
 
 - **`no_next_step`.**
 - **`stale`**, saying which `basis` it was measured by.
@@ -48,7 +48,7 @@ One line each, naming the entity and the edit that clears it, never what to deci
 - **`signer_unknown`**: the `Signer` field reads `unknown`.
 - **`home_mismatch`**, naming both paths; **`name_collision`**, each with its path; **`row_missing_columns`**, the row rendered with what it has.
 
-Then one line naming the `empty_homes` once, and one closing line listing `no_stage` and `unknown_stage` by path. A lifecycle with nothing live says so in one line.
+Then one line naming the `empty_homes`, and one closing line listing `no_stage` and `unknown_stage` by path. A lifecycle with nothing live says so in one line.
 
 ## Due a revisit
 

@@ -750,6 +750,15 @@ class Metrics(VaultCase):
         self.assertIsNone(m["promoting_stage"])
         self.assertIsNone(m["reached_promoting"])
 
+    def test_the_terminal_count_is_null_without_a_terminal_stage(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "## Deal lifecycle", "",
+            "| Stage | PARA home |", "|---|---|",
+            "| Lead | `areas/business/leads.md` (row) |",
+            "| Goal | `projects/<company>/` |", "",
+        ]) + "\n")
+        self.assertIsNone(self.deal()["terminal_this_quarter"])
+
     def test_reached_promoting_counts_an_entity_at_the_stage_this_quarter(self):
         write(self.root, "projects/nova/brief.md",
               "# Nova\n\n**Stage:** Goal (since 2026-08-01)\n**Opened:** 2026-07-01\n")
