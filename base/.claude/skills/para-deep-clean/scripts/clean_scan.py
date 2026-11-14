@@ -21,6 +21,7 @@ reads. Every list here is candidates for the skill to judge.
 """
 
 import argparse
+import difflib
 import json
 import re
 import sys
@@ -39,7 +40,8 @@ try:
         abspath, action_files, cap_count, contact_names, dangling_links, date_arg,
         deep_clean_stamp, duplicates, emit, entity_candidates, entity_doc, extract_links, field_ci,
         find_clone, git, git_blame_line_date, hashes, header_fields, inbound_references_by_name,
-        integration_markers, is_separator_row, iso, lifecycles, link_files, link_spans, live_lines,
+        integration_markers, is_separator_row, iso, kit_files, lifecycles, link_files, link_spans,
+        live_lines,
         log_entries, misplaced_checkboxes, norm, open_tasks, other_checkbox_paths,
         over_grown_briefs, parse_date, read_lines, read_text, reference_shape, rel_posix,
         resolve_entity, resolve_link, snapshot, split_lines, strip_code, table_cells,
@@ -685,6 +687,111 @@ def unmarked_scripts(vault):
             "unmarked": unmarked}
 
 
+NEAR_RATIO = 0.6      # a sentence this close in words to a kit sentence is a reworded copy
+SENTENCE_MIN = 6      # a shorter one matches by accident
+SENTENCE_RE = re.compile(r"(?<=[.;:])\s+")
+RULE_WORD_RE = re.compile(r"[^\W_]+(?:['/.-][^\W_]+)*")
+SCRIPT_READ = ("who writes this vault", "triage sources", "agenda sources", "pages")
+
+
+def rule_sentences(lines):
+    """(line number, sentence, its words) for each sentence of at least SENTENCE_MIN words on
+    a live line that is no heading, table row, import or comment."""
+    for n, raw in live_lines(lines):
+        text = raw.strip()
+        if text.startswith(("#", "|", "@", "<!--", "---")) or ":" in text[:8] and text.startswith("paths"):
+            continue
+        for sentence in SENTENCE_RE.split(text):
+            words = RULE_WORD_RE.findall(sentence.lower())
+            if len(words) >= SENTENCE_MIN:
+                yield n, sentence.strip(), words
+
+
+def tables_of(lines):
+    """[(heading, line number, [row cells, ...])] for each table outside a fence, its
+    separator row left out and the nearest `##` or `###` heading above it named."""
+    out, heading, rows, start = [], "", [], None
+    for n, raw in list(live_lines(lines)) + [(None, "")]:
+        text = raw.strip()
+        if text.startswith("|"):
+            start = start or n
+            cells = table_cells(text)
+            if not is_separator_row(cells):
+                rows.append(cells)
+            continue
+        if rows:
+            out.append((heading, start, rows))
+        rows, start = [], None
+        m = HEADING_RE.match(text)
+        if m and len(m.group(1)) in (2, 3):
+            heading = m.group(2).strip()
+    return out
+
+
+def own_rules(vault):
+    """What the vault's own `CLAUDE.md` holds beside the kit files it has installed, the
+    fixed files it imports and its rule files: candidates for a return to the standard, never
+    findings. `words`, `kit_words` (the imported fixed files) and `start_words`, their sum.
+    `sections`: each `##` section's `heading`, `line`, `words`, and `script_read` where a
+    script reads it. `near`: each sentence outside those sections that is a kit sentence
+    reworded or repeated (`line`, `text`, the `kit` sentence, the file it is `in`, `ratio`).
+    `departs`: each table sharing its header row and at least one row's first cell with a kit
+    table (`line`, `heading`, `in`), with the first cells of the rows that `differ` from the
+    kit's and of the `new` ones."""
+    own_path = vault / "CLAUDE.md"
+    lines = read_lines(own_path)
+    fixed = kit_files(vault)
+    rules = vault / ".claude" / "rules"
+    kit = fixed + (sorted(rules.glob("*.md")) if rules.is_dir() else [])
+    kit_lines = {path: read_lines(path) for path in kit}
+
+    sections, heading, scripted = [], None, set()
+    for n, raw in live_lines(lines):
+        m = HEADING_RE.match(raw.strip())
+        if m and len(m.group(1)) == 2:
+            heading = {"heading": m.group(2).strip(), "line": n, "words": 0,
+                       "script_read": m.group(2).strip().lower() in SCRIPT_READ}
+            sections.append(heading)
+        elif heading:
+            heading["words"] += len(raw.split())
+            if heading["script_read"]:
+                scripted.add(n)
+
+    theirs = [(sentence, words, rel_posix(vault, path))
+              for path, held in kit_lines.items() for _, sentence, words in rule_sentences(held)]
+    near = []
+    for n, sentence, words in rule_sentences(lines):
+        if n in scripted or not sections or n < sections[0]["line"]:
+            continue
+        best = (0.0, None)
+        for kit_sentence, kit_words, rel in theirs:
+            match = difflib.SequenceMatcher(None, words, kit_words, autojunk=False)
+            if match.quick_ratio() >= NEAR_RATIO and match.ratio() > best[0]:
+                best = (match.ratio(), (kit_sentence, rel))
+        if best[0] >= NEAR_RATIO:
+            near.append({"line": n, "text": sentence, "kit": best[1][0], "in": best[1][1],
+                         "ratio": round(best[0], 2)})
+
+    kit_tables = [(rel_posix(vault, path), rows) for path, held in kit_lines.items()
+                  for _, _, rows in tables_of(held)]
+    departs = []
+    for head, n, rows in tables_of(lines):
+        if head.lower() in SCRIPT_READ:
+            continue
+        for rel, kit_rows in kit_tables:
+            default = {r[0]: r for r in kit_rows[1:]}
+            if kit_rows[0] == rows[0] and any(r[0] in default for r in rows[1:]):
+                departs.append({"line": n, "heading": head, "in": rel,
+                                "differ": [r[0] for r in rows[1:] if r[0] in default and default[r[0]] != r],
+                                "new": [r[0] for r in rows[1:] if r[0] not in default]})
+                break
+
+    words = len(read_text(own_path).split())
+    kit_words = sum(len(read_text(path).split()) for path in fixed)
+    return {"words": words, "kit_words": kit_words, "start_words": words + kit_words,
+            "sections": sections, "near": near, "departs": departs}
+
+
 def phase1(vault, templates_dirs, dated_pattern, generated_dirs=()):
     touched = set()
 
@@ -738,8 +845,8 @@ def phase1(vault, templates_dirs, dated_pattern, generated_dirs=()):
             "uncited_exempt": uncited_exempt, "inline_contact_details": inline_details,
             "duplicates": dup, "figure_pairs": figs, "archive": archive,
             "resources_loose": res_loose, "stale_drafts": drafts,
-            "conflict_copies": conflicts, "scripts": scripts,
-            "snapshot": snapshot(sorted(touched, key=str))}
+            "conflict_copies": conflicts, "scripts": scripts, "own_rules": own_rules(vault),
+            "snapshot": snapshot(sorted(touched | {vault / "CLAUDE.md"}, key=str))}
 
 
 # ----------------------------------------------------------------------------------- phase 3
@@ -1024,7 +1131,7 @@ def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, heading
     return report, 0
 
 
-INVENTORY = ("map/top_level", "uncited_exempt", "duplicates/skipped", "scripts/marked")
+INVENTORY = ("map/top_level", "uncited_exempt", "duplicates/skipped", "scripts/marked", "own_rules")
 
 
 def item_count(value, path=""):
