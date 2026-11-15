@@ -1563,14 +1563,22 @@ def vault_checkbox_rows(vault):
 
 def contact_card_level(vault):
     """What a contact card may hold: `yes`, `relationship only` or `never`, from the
-    `areas/network/` row of the vault's checkbox table. With no row, a `## Who writes this
-    vault` roster implies `never` and anything else is `yes`."""
+    `areas/network/` row of the vault's checkbox table, its `actions.md` column or, where that
+    says `yes`, its State column. With no row of the vault's own, a `## Who writes this
+    vault` roster implies `never` and anything else is the kit's row, else `yes`."""
     text = read_text(Path(vault) / "CLAUDE.md")
-    rows = vault_checkbox_rows(vault)
-    cells = rows.get("areas/network/") or rows.get("areas/network")
-    if cells:
-        return next((lv for lv in ("never", "relationship only") if cells[0].startswith(lv)), "yes")
-    return "never" if re.search(r"^## Who writes this vault\s*$", text, re.MULTILINE) else "yes"
+    own = checkbox_rows(text)
+    cells = own.get("areas/network/") or own.get("areas/network")
+    if not cells:
+        if re.search(r"^## Who writes this vault\s*$", text, re.MULTILINE):
+            return "never"
+        rows = vault_checkbox_rows(vault)
+        cells = rows.get("areas/network/") or rows.get("areas/network")
+    for cell in (cells or [])[:2]:
+        level = next((lv for lv in ("never", "relationship only") if cell.startswith(lv)), None)
+        if level:
+            return level
+    return "yes"
 
 
 def _frozen(lines, first):
