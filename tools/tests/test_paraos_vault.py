@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Tests for paraos_vault.py, the shared vault library.
+"""Standard-library tests for paraos_vault.py.
 
-    python3 test_paraos_vault.py
-    py -3 test_paraos_vault.py
-
-Standard library only. Every fixture is a throwaway vault in a temporary directory: nothing
-reads or writes a real vault, and nothing calls a model.
+Run with python3 test_paraos_vault.py (py -3 on Windows).
+Fixtures are temporary vaults; no real vault or model is used.
 """
 
 import contextlib
@@ -61,9 +58,7 @@ class VaultCase(unittest.TestCase):
         self.root = Path(tmp.name)
 
     def aliased_vault(self):
-        """(vault, link): a real vault folder and a symlink to it, the two spellings macOS's
-        /var and a Windows short name give one folder. Skips where no symlink can be made
-        (Windows without Developer Mode)."""
+        """Return (vault, symlink), or skip if symlinks are unavailable."""
         vault = self.root / "vault"
         vault.mkdir()
         link = self.root / "vault-link"
@@ -563,31 +558,34 @@ class WhereThingsLive(VaultCase):
 
 class VaultRootCheck(VaultCase):
 
-    def test_a_full_vault_root_passes_with_nothing_missing(self):
-        write(self.root, "CLAUDE.md", "# v\n")
-        (self.root / "projects").mkdir()
+    def test_vault_roots(self):
+        cases = (
+            (("projects", "areas"), "# v", []),
+            (("projects", "archive"), "# v", []),
+            (("areas",), "# v\n\n**Type:** Business", []),
+            (("archive",), "@.claude/para-os/core.md", []),
+            (("areas",), "# v", ["projects/"]),
+            (("projects",), "# v", ["areas/ or archive/"]),
+            ((), None, ["projects/", "areas/ or archive/", "CLAUDE.md"]),
+            (("projects", "areas"), None, ["CLAUDE.md"]),
+        )
+        for i, (folders, text, missing) in enumerate(cases):
+            with self.subTest(folders=folders, text=text):
+                root = self.root / str(i)
+                root.mkdir()
+                for folder in folders:
+                    (root / folder).mkdir()
+                if text is not None:
+                    write(root, "CLAUDE.md", text)
+                self.assertEqual(vault_root(root), {"root": not missing, "missing": missing})
+
+    def test_dangling_projects_is_rejected(self):
+        vault, link = self.aliased_vault()
+        link.rename(self.root / "projects")
+        vault.rmdir()
+        write(self.root, "CLAUDE.md", "# v\n\n**Type:** Business")
         (self.root / "areas").mkdir()
-        self.assertEqual(vault_root(self.root), {"root": True, "missing": []})
-
-    def test_archive_alone_satisfies_the_areas_or_archive_half(self):
-        write(self.root, "CLAUDE.md", "# v\n")
-        (self.root / "projects").mkdir()
-        (self.root / "archive").mkdir()
-        self.assertTrue(vault_root(self.root)["root"])
-
-    def test_a_bare_folder_reports_everything_it_lacks(self):
-        got = vault_root(self.root)
-        self.assertFalse(got["root"])
-        self.assertEqual(set(got["missing"]),
-                         {"projects/", "areas/ or archive/", "CLAUDE.md"})
-
-    def test_projects_with_no_areas_or_archive_is_not_a_root(self):
-        (self.root / "projects").mkdir()
-        write(self.root, "CLAUDE.md", "# v\n")
-        got = vault_root(self.root)
-        self.assertFalse(got["root"])
-        self.assertEqual(got["missing"], ["areas/ or archive/"])
-
+        self.assertEqual(vault_root(self.root), {"root": False, "missing": ["projects/"]})
 
 class Registry(VaultCase):
 
