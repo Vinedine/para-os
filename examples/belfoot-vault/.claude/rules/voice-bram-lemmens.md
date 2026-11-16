@@ -32,6 +32,7 @@ How Bram writes, for any draft that goes out from the account above. Built and c
 - "Please do not hesitate to contact me" _inferred (0/23 samples)_
 - "Kind regards", "Met vriendelijke groeten" _inferred (0/23 samples)_
 - "Circling back" _inferred (0/23 samples)_
+- "Just a quick note" _edited (3 sends, last 2026-06-19)_
 - An exclamation mark in anything to a vendor _operator (2026-04-02, "no exclamation marks to vendors, ever")_
 
 ## Sample
@@ -48,3 +49,7 @@ Two smaller points, no rush:
 Thanks,
 Bram
 ```
+
+## Seen in edits
+
+- Drops the closing "Let me know if anything is unclear" _seen 2 (2026-05-28, 2026-06-11)_
