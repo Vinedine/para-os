@@ -33,23 +33,23 @@ It earns nothing on a vault nobody else touches and nobody is improving. Skip it
 
 1. Add `**Modules:** activity` under the `**Type:**` line of the vault's `CLAUDE.md`, comma-separated where the vault already declares one. Copy `para-os/activity.md` to the vault's `.claude/para-os/` and add `@.claude/para-os/activity.md` under the core's import line. Copy `pipeline/activity.py` into the vault at `resources/scripts/`. The vault root is derived from the script's own path, so there is nothing to configure and no machine-specific path in a file that syncs.
 
-2. Wire the hooks in the vault's `.claude/settings.json`. Every command is anchored to `$CLAUDE_PROJECT_DIR`, the vault root, and the quotes around it are not optional - a vault path usually contains spaces:
+2. Wire the hooks in the vault's `.claude/settings.json`, the program in `command` and the script in `args`, so that no shell runs between them: on Windows without Git Bash a shell command runs in PowerShell, which reads `$CLAUDE_PROJECT_DIR` as empty and records nothing.
 
    ```json
    {
      "hooks": {
-       "SessionStart":      [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
-       "UserPromptSubmit":  [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
-       "UserPromptExpansion": [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
-       "PostToolUse":       [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
-       "PostToolUseFailure":[{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
-       "PermissionDenied":  [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }],
-       "SessionEnd":        [{ "hooks": [{ "type": "command", "command": "py \"$CLAUDE_PROJECT_DIR/resources/scripts/activity.py\"" }] }]
+       "SessionStart":        [{ "hooks": [{ "type": "command", "command": "py", "args": ["${CLAUDE_PROJECT_DIR}/resources/scripts/activity.py"] }] }],
+       "UserPromptSubmit":    [{ "hooks": [{ "type": "command", "command": "py", "args": ["${CLAUDE_PROJECT_DIR}/resources/scripts/activity.py"] }] }],
+       "UserPromptExpansion": [{ "hooks": [{ "type": "command", "command": "py", "args": ["${CLAUDE_PROJECT_DIR}/resources/scripts/activity.py"] }] }],
+       "PostToolUse":         [{ "hooks": [{ "type": "command", "command": "py", "args": ["${CLAUDE_PROJECT_DIR}/resources/scripts/activity.py"] }] }],
+       "PostToolUseFailure":  [{ "hooks": [{ "type": "command", "command": "py", "args": ["${CLAUDE_PROJECT_DIR}/resources/scripts/activity.py"] }] }],
+       "PermissionDenied":    [{ "hooks": [{ "type": "command", "command": "py", "args": ["${CLAUDE_PROJECT_DIR}/resources/scripts/activity.py"] }] }],
+       "SessionEnd":          [{ "hooks": [{ "type": "command", "command": "py", "args": ["${CLAUDE_PROJECT_DIR}/resources/scripts/activity.py"] }] }]
      }
    }
    ```
 
-   **Not a bare relative path.** A hook inherits the calling session's working directory, not the vault root, and that directory moves: `cd` inside a Bash tool call persists for the rest of the session, so the moment a session steps into a subfolder every later hook fails to locate the script - `can't open file ... No such file or directory` - until something `cd`s back. Nothing surfaces the gap; the ledger simply stops recording, and the silence reads as an idle session rather than a broken hook.
+   **Not a bare relative path.** A hook inherits the session's working directory, which moves whenever a Bash call `cd`s into a subfolder, and from then on a relative path finds no script. Nothing surfaces it: the ledger stops, and reads as an idle session. `${CLAUDE_PROJECT_DIR}` is the vault root.
 
    One command serves one platform. A mixed Windows and macOS team needs `py` on one and `python3` on the other, and settings.json has no branch for that: pick the majority platform and install the minority's copy at user level.
 
