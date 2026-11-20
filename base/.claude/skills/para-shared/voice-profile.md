@@ -1,6 +1,6 @@
 # Voice profile (shared across skills)
 
-How a vault keeps the way one person writes, so a draft in their name reads as theirs. Build, rebuild or correct one only on that person's ask, or [from what they sent](#corrections).
+How a vault keeps the way one person writes, so a draft in their name reads as theirs. Build, rebuild or correct one only on that person's ask.
 
 ## Where it lives
 
@@ -17,7 +17,7 @@ A draft uses the profile whose `**Accounts:**` line names the account it goes ou
 
 ## What it holds
 
-A `# <Name>'s voice` title, the `**Accounts:**` line, one line saying it is built per `para-shared/voice-profile.md` with <Name>'s approval from N samples over which dates, then `## Fixed traits` per language where they differ (greeting, sign-off, sentence length, contractions, where the ask lands, what they call their own company), `## Tone by recipient` (one line per case the vault can tell apart: a card's `**Kind:**`, the entity's stage, the thread's language), `## Never uses` (phrases a generic draft reaches for that no sample contains), `## Sample` (one mail verbatim in a fence, every other person's name, address and figure replaced by a bracketed role) and, once a sent mail has corrected a draft, `## Seen in edits`. Every line ends in its evidence, `_inferred (n/N samples)_`, `_operator (YYYY-MM-DD, "the correction, quoted")_` or `_edited (n sends, last YYYY-MM-DD)_`: an inferred trait needs three samples showing it, a never-uses entry is absent from all N, and a split is no trait. Positioning, scores and strictness settings are out of scope.
+A `# <Name>'s voice` title, the `**Accounts:**` line, one line saying it is built per `para-shared/voice-profile.md` with <Name>'s approval from N samples over which dates, then `## Fixed traits` per language where they differ (greeting, sign-off, sentence length, contractions, where the ask lands, what they call their own company), `## Tone by recipient` (one line per case the vault can tell apart: a card's `**Kind:**`, the entity's stage, the thread's language), `## Never uses` (phrases a generic draft reaches for that no sample contains) and `## Sample` (one mail verbatim in a fence, every other person's name, address and figure replaced by a bracketed role). Every line ends in its evidence, `_inferred (n/N samples)_` or `_operator (YYYY-MM-DD, "the correction, quoted")_`: an inferred trait needs three samples showing it, a never-uses entry is absent from all N, and a split is no trait. Positioning, scores and strictness settings are out of scope.
 
 ## Building it
 
@@ -25,10 +25,10 @@ A `# <Name>'s voice` title, the `**Accounts:**` line, one line saying it is buil
 2. **Keep only their words**: drop the auto-signature, legal footers and quoted or forwarded text.
 3. **Count, then write**, each trait with its count per language, and report the file, N and the dates, and each trait left out for want of three samples.
 
-A rebuild replaces inferred lines only; an `operator` or `edited` line stays, and an inferred line contradicting it is dropped.
+A rebuild replaces inferred lines only; an `operator` line stays, and an inferred line contradicting it is dropped.
 
 ## Corrections
 
 A correction stating a standing trait ("I never write Dear") is proposed as a profile line the first time, quoting it, and added on a yes; a one-off ("formal, this is for the notary") is not. A line contradicting an existing one replaces it once the person confirms which holds; one contradicting a working preference is put to them with both quoted.
 
-**A mail sent in place of a saved draft is a correction.** Before the draft is deleted, compare the two, the person's words only. A difference that would hold for any mail (length, greeting, sign-off, where the ask lands, a phrase cut or added) is one sighting; a change of content, figures or recipients is none. Each goes on a `## Seen in edits` line, `- <the change> _seen n (YYYY-MM-DD, ...)_`. The third sighting moves it into its section as `_edited (3 sends, last YYYY-MM-DD)_`, replacing an inferred line it contradicts, and the summary says so. Only a session with the person present does this.
+**A mail sent in place of a draft is a correction too.** Compare the two, the person's words only. Each difference that would hold for any mail (length, greeting, sign-off, where the ask lands, a phrase cut or added) is proposed as a profile line quoting both, and added on a yes as `_operator (YYYY-MM-DD, drafted "...", sent "...")_`; a change of content, figures or recipients is not.
