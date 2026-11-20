@@ -76,17 +76,14 @@ def _entry_by_name(entries, name):
 
 
 def vault_block(vault, entries):
-    """The library's root rule plus a `triage/` folder present. `hint`, where this is not a
+    """The library's root rule. `hint`, where this is not a
     root, is the registry entry holding the path (`registered_vault`), else an entry whose
     name folds to the checked folder's own name, as when a vault has moved and the session
     started at its old location. `name` is the registry name of the entry whose
     path is exactly this root, else the folder name; it keys the seen-ledger file."""
     info = vault_root(vault)
     missing = list(info["missing"])
-    has_triage = (vault / "triage").is_dir()
-    if not has_triage:
-        missing.append("triage/")
-    root = info["root"] and has_triage
+    root = info["root"]
 
     hint = None
     if not root:

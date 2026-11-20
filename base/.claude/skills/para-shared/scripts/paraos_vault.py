@@ -120,14 +120,13 @@ def norm(name):
 # --- the vault itself, and the machine's registry of vaults ------------------------------
 
 def vault_root(path):
-    """Whether a folder is a PARA vault root, by the rule every skill states in its own Step
-    1: `projects/` plus at least one of `areas/` or `archive/`, and a `CLAUDE.md`. Returns
-    what was actually checked, so a caller can say why a folder failed rather than just that
-    it did.
-    """
+    """Root status and missing anchors."""
     path = Path(path)
     missing = []
-    if not (path / "projects").is_dir():
+    projects = path / "projects"
+    if not (projects.is_dir() or (not projects.exists() and not projects.is_symlink() and (
+            declarations(path)["type"] or any(line.strip() == "@.claude/para-os/core.md"
+                for _, line in live_lines(read_lines(path / "CLAUDE.md")))))):
         missing.append("projects/")
     if not ((path / "areas").is_dir() or (path / "archive").is_dir()):
         missing.append("areas/ or archive/")
