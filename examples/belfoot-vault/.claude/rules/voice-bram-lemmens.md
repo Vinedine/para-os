@@ -32,6 +32,7 @@ How Bram writes, for any draft that goes out from the account above. Built and c
 - "Please do not hesitate to contact me" _inferred (0/23 samples)_
 - "Kind regards", "Met vriendelijke groeten" _inferred (0/23 samples)_
 - "Circling back" _inferred (0/23 samples)_
+- "Just a quick note" _operator (2026-06-19, drafted "Just a quick note on the reader firmware", sent "On the reader firmware")_
 - An exclamation mark in anything to a vendor _operator (2026-04-02, "no exclamation marks to vendors, ever")_
 
 ## Sample

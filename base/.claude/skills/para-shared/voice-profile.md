@@ -30,3 +30,5 @@ A rebuild replaces inferred lines only; an `operator` line stays, and an inferre
 ## Corrections
 
 A correction stating a standing trait ("I never write Dear") is proposed as a profile line the first time, quoting it, and added on a yes; a one-off ("formal, this is for the notary") is not. A line contradicting an existing one replaces it once the person confirms which holds; one contradicting a working preference is put to them with both quoted.
+
+**A mail sent in place of a draft is a correction too.** Compare the two, the person's words only. Each difference that would hold for any mail (length, greeting, sign-off, where the ask lands, a phrase cut or added) is proposed as a profile line quoting both, and added on a yes as `_operator (YYYY-MM-DD, drafted "...", sent "...")_`; a change of content, figures or recipients is not.
