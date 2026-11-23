@@ -257,7 +257,31 @@ function localTime(iso) {
   const t = new Date(iso);
   const p = n => String(n).padStart(2, "0");
   const date = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}`;
-  return { date, stamp: `${date} ${p(t.getHours())}:${p(t.getMinutes())}` };
+  return { date, stamp: `${date} ${p(t.getHours())}:${p(t.getMinutes())}`,
+           clock: `${p(t.getHours())}:${p(t.getMinutes())}:${p(t.getSeconds())}` };
+}
+
+// The images among a meeting's attachments (the screen captures Granola takes while a screen is
+// shared), in the order they were taken: local time as a heading, Granola's description of the
+// screen as text, and the picture embedded from its link. Linked, not downloaded: a long screen
+// share carries a couple of hundred frames of about 1 MB each. The link is a content hash, so a
+// repeated frame is listed once.
+const capturedAt = a => Date.parse((a.screen_share_context || {}).captured_at) || Infinity;
+function screenshotsOf(attachments) {
+  if (!Array.isArray(attachments)) return [];
+  const seen = new Set();
+  return attachments.filter(a => a && a.type === "image" && typeof a.url === "string"
+    && /^https:\/\/\S+$/.test(a.url) && !seen.has(a.url) && seen.add(a.url))
+    .sort((a, b) => (capturedAt(a) - capturedAt(b)) || 0); // stable: one with no capture time keeps its place, last
+}
+function screenshotsMd(shots) {
+  return shots.map((a, i) => {
+    const ctx = a.screen_share_context || {};
+    const label = Number.isFinite(capturedAt(a)) ? localTime(ctx.captured_at).clock : `Image ${i + 1}`;
+    const desc = String(ctx.description || "").replace(/\s+/g, " ").trim();
+    const url = a.url.replace(/\(/g, "%28").replace(/\)/g, "%29");
+    return [`### ${label}`, desc, `![Screenshot ${label}](${url})`].filter(Boolean).join("\n\n");
+  }).join("\n\n");
 }
 
 // The granola_id in a note's front-matter, or null when the file has none or cannot be read.
@@ -364,6 +388,8 @@ async function main() {
     if (!tr.ok) { console.log(`  xx  ${label}FAILED (transcript: HTTP ${tr.s}) - retried next run`); failed++; continue; }
     const segs = Array.isArray(tr.j) ? tr.j : (tr.j && tr.j.transcript) || [];
     const transcript = transcriptMd(segs);
+    const shots = screenshotsOf(d.attachments);
+    const screenshots = screenshotsMd(shots);
 
     const peopleArr = Array.isArray(d.people) ? d.people : (d.people && typeof d.people === "object" ? Object.values(d.people) : []);
     const people = peopleArr.map(p => (p && (p.name || p.email)) || null).filter(Boolean).join(", ");
@@ -383,12 +409,13 @@ async function main() {
       "## Summary",
       minutes || "_(no enhanced notes available)_",
       "",
+      ...(screenshots ? ["## Screenshots", screenshots, ""] : []),
       "## Transcript",
       transcript || "_(no transcript available)_",
       "",
     ].filter(x => x !== null).join("\n");
 
-    console.log(`  ${WRITE ? "->" : "+ "}  ${label}-> ${r.vault}/${MEETINGS_SUBDIR}/${fname}  [min ${minutes.length}c · tr ${transcript.length}c]`);
+    console.log(`  ${WRITE ? "->" : "+ "}  ${label}-> ${r.vault}/${MEETINGS_SUBDIR}/${fname}  [min ${minutes.length}c · tr ${transcript.length}c${shots.length ? ` · shots ${shots.length}` : ""}]`);
     if (WRITE) {
       writeAtomic(dest, md);
       record(d.id, dest, r.vault);
@@ -404,4 +431,4 @@ async function main() {
 // A failed run exits non-zero, so a scheduled run that synced nothing cannot pass for one that had nothing to do.
 if (require.main === module) main().catch(e => { console.error("[x]", e.message); process.exitCode = 1; });
 
-module.exports = { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest, readJson };
+module.exports = { marks, inline, pmToMd, transcriptMd, screenshotsOf, screenshotsMd, sanitize, demote, resolveDest, readJson };

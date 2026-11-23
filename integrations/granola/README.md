@@ -47,7 +47,7 @@ node granola.js --days 14  # override the look-back window
 
 Re-runs skip a meeting that is in the dedup ledger (`resources/scripts/granola.synced.json` in the vault the note went to, so a second machine reads it through the vault's sync) or whose note is still in `triage/`; once `/para-triage` has filed a note elsewhere the ledger is the only record of it, so a cleared ledger re-imports every meeting in the look-back window. Delete a synced note and it will not come back unless you also clear it from the ledger.
 
-Two different meetings with the same date and title both land: the second gets the first six characters of its id appended. Each note carries YAML front-matter (`title`, `date`, `granola_id`, `source: granola`, `attendees`), a `## Summary` (Granola's enhanced notes), and a `## Transcript` (speaker-attributed).
+Two different meetings with the same date and title both land: the second gets the first six characters of its id appended. Each note carries YAML front-matter (`title`, `date`, `granola_id`, `source: granola`, `attendees`), a `## Summary` (Granola's enhanced notes), and a `## Transcript` (speaker-attributed). When Granola captured a shared screen, a `## Screenshots` sits between them: each capture's time, Granola's description of what was on screen, and the image shown from Granola's link. The images are linked, not downloaded, since one long screen share runs to hundreds of frames.
 
 ## The `~/.paraos` contract
 

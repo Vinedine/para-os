@@ -4,7 +4,7 @@
 //
 //   node --test integrations/granola/granola.test.js
 //
-// Scope: the ProseMirror-to-Markdown conversion, transcript grouping, filename shaping, the config
+// Scope: the ProseMirror-to-Markdown conversion, transcript grouping, screenshots, filename shaping, the config
 // file, routing, token refresh, and the notes a sync writes. The Granola API's own behaviour is
 // deliberately not covered - mocking it would assert that the mock behaves. Extracting the token
 // from the app is granola-auth-init.test.js's concern.
@@ -18,7 +18,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { spawnSync } = require("child_process");
-const { marks, inline, pmToMd, transcriptMd, sanitize, demote, resolveDest, readJson } = require("./granola.js");
+const { marks, inline, pmToMd, transcriptMd, screenshotsOf, screenshotsMd, sanitize, demote, resolveDest, readJson } = require("./granola.js");
 
 // The vault convention, from base/CLAUDE.md.template: `YYYYMMDD Description.ext`. Both shipped
 // integrations write into the same triage/ folder, so both must satisfy this. The outlook suite
@@ -189,6 +189,38 @@ test("transcriptMd: segments with no text do not emit an empty line", () => {
     { detected_speaker_name: "Jan", text: "two" },
   ]);
   assert.equal(out, "**Jan:** one two");
+});
+
+// --- screenshots ------------------------------------------------------------------------
+
+const shot = (n, at, description, extra = {}) => ({ id: `s${n}`, type: "image", source: "screen_capture",
+  url: `https://cdn.example.com/${"ab".repeat(4)}${n}`, width: 1600, height: 1000,
+  screen_share_context: at === undefined ? undefined : { captured_at: at, description }, ...extra });
+
+test("screenshotsOf: no attachments, or none that is a linked image, yields none", () => {
+  for (const v of [undefined, null, "x", {}, []]) assert.deepStrictEqual(screenshotsOf(v), []);
+  assert.deepStrictEqual(screenshotsOf([null, { type: "file", url: "https://cdn.example.com/a" },
+    { type: "image" }, { type: "image", url: 42 }, { type: "image", url: "http://cdn.example.com/a" },
+    { type: "image", url: "https://cdn.example.com/a b" }]), []);
+});
+
+test("screenshotsOf: captures come in the order taken, a repeated frame once, one with no time last", () => {
+  const late = shot(1, "2026-01-15T10:00:20.000Z", "late");
+  const early = shot(2, "2026-01-15T10:00:10.000Z", "early");
+  const untimed = shot(3, undefined);
+  assert.deepStrictEqual(screenshotsOf([untimed, late, early, { ...early, id: "again" }]).map(s => s.id),
+                         ["s2", "s1", "s3"]);
+});
+
+test("screenshotsMd: each capture is its local time, its description on one line, and the linked image", () => {
+  const md = screenshotsMd([shot(1, "2026-01-15T10:16:53.400Z", "A pull request\n  on its   Files tab.")]);
+  assert.equal(md, "### 10:16:53\n\nA pull request on its Files tab.\n\n![Screenshot 10:16:53](https://cdn.example.com/abababab1)");
+});
+
+test("screenshotsMd: no description leaves no blank paragraph, and no capture time numbers the image", () => {
+  const md = screenshotsMd([shot(1, undefined, undefined, { url: "https://cdn.example.com/a(1)" })]);
+  assert.equal(md, "### Image 1\n\n![Screenshot Image 1](https://cdn.example.com/a%281%29)");
+  assert.equal(screenshotsMd([]), "");
 });
 
 test("sanitize: replaces characters a filesystem rejects", () => {
@@ -923,6 +955,24 @@ test("a transcript wrapped in an object is rendered speaker by speaker", () => {
     { detected_speaker_name: "Ann", text: "Yes." },
   ] } } } });
   assert.match(sync.read(sync.files[0]), /^## Transcript\n\*\*Me:\*\* Shall we start\?\n\n\*\*Ann:\*\* Yes\.$/m);
+});
+
+test("a meeting's screen captures go under ## Screenshots, between the summary and the transcript", () => {
+  const sync = syncInVault([{ ...OLD_MEETING[0], attachments: [
+    shot(1, `${DAY}T09:05:10.000Z`, "Second screen."), shot(2, `${DAY}T09:05:00.000Z`, "First screen."),
+  ] }], { responses: { "/get-document-panels": { body: [{ title: "Summary", content: "Agreed." }] },
+                       "/get-document-transcript": { body: [{ source: "microphone", text: "Hello." }] } } });
+  const note = sync.read(sync.files[0]);
+  assert.ok(note.includes("## Summary\nAgreed.\n\n## Screenshots\n### 09:05:00\n\nFirst screen.\n\n"
+    + "![Screenshot 09:05:00](https://cdn.example.com/abababab2)\n\n### 09:05:10\n\nSecond screen.\n\n"
+    + "![Screenshot 09:05:10](https://cdn.example.com/abababab1)\n\n## Transcript\n**Me:** Hello."), note);
+  assert.match(sync.stdout, /shots 2\]/);
+});
+
+test("a meeting with no screen capture has no Screenshots section", () => {
+  const sync = syncInVault([{ ...OLD_MEETING[0], attachments: [] }]);
+  assert.doesNotMatch(sync.read(sync.files[0]), /## Screenshots/);
+  assert.doesNotMatch(sync.stdout, /shots/);
 });
 
 test("attendees are listed by name or email, and a meeting with none has no attendees line", () => {
