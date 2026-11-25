@@ -42,8 +42,12 @@ ul.tasks li:last-child{border-bottom:0}
 .meta{font-size:.72rem;color:var(--muted)}
 .late{color:var(--alert);font-weight:600}.amber{color:var(--amber)}
 .chip{display:inline-block;font-size:.68rem;color:var(--muted);background:var(--chip);border-radius:3px;padding:0 .35rem}
+.acts{display:inline-flex;flex-wrap:wrap;align-items:baseline;gap:.2rem .55rem;margin-left:auto}
 .work{font-size:.72rem;color:var(--accent);text-decoration:none;white-space:nowrap}
 .work:hover{text-decoration:underline}
+.copy{font:inherit;font-size:.72rem;color:var(--accent);background:none;border:1px solid var(--line);border-radius:4px;padding:0 .4rem;cursor:pointer;white-space:nowrap}
+.copy:hover{border-color:var(--accent)}.copy:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.copy-text{font:inherit;font-size:.72rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:.1rem .3rem;width:100%;min-width:0}
 .empty{font-size:.85rem;color:var(--muted);margin:.2rem 0}
 .week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.4rem}
 .day{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:.4rem .5rem;min-height:4.2rem;font-size:.78rem}
@@ -134,11 +138,31 @@ footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
   var byId = {};
   D.tasks.forEach(function (t) { byId[t.id] = t; });
 
+  // a prompt for a new Claude Code session: copied on every page, opened by a link only on a
+  // local one, since the artifact viewer refuses the link
+  function copyButton(prompt) {
+    var b = el("button", "copy", "Copy prompt"), shown = null;
+    b.type = "button"; b.title = prompt;
+    function say(word) { b.textContent = word; setTimeout(function () { b.textContent = "Copy prompt"; }, 1800); }
+    function select() {
+      if (!shown) { shown = el("input", "copy-text"); shown.readOnly = true; shown.value = prompt; b.parentNode.append(shown); }
+      shown.focus(); shown.select(); say("Selected: copy it");
+    }
+    b.addEventListener("click", function () {
+      try { navigator.clipboard.writeText(prompt).then(function () { say("Copied"); }, select); }
+      catch (e) { select(); }
+    });
+    return b;
+  }
   function work(prompt) {
-    if (!D.local) return null;
-    var a = el("a", "work", "Work on this ↗");
-    a.href = "claude-cli://open?cwd=" + encodeURIComponent(D.vault) + "&q=" + encodeURIComponent(prompt);
-    return a;
+    var box = el("span", "acts");
+    box.append(copyButton(prompt));
+    if (D.local) {
+      var a = el("a", "work", "Work on this ↗");
+      a.href = "claude-cli://open?cwd=" + encodeURIComponent(D.vault) + "&q=" + encodeURIComponent(prompt);
+      box.append(a);
+    }
+    return box;
   }
   function dueBadge(t) {
     if (!t.due) return null;
@@ -153,8 +177,7 @@ footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
     li.append(el("span", null, (t.priority ? t.priority + " " : "") + t.headline));
     var b = opts.noDue ? null : dueBadge(t); if (b) li.append(b);
     li.append(el("span", "meta", t.where + (t.person_name && !opts.noWho ? " · " + t.person_name : "")));
-    var w = work("Work on this action: " + t.file + ":" + t.line + " (" + t.headline + ")");
-    if (w) li.append(w);
+    li.append(work(t.prompt));
     return li;
   }
   function list(tasks, empty, opts) {
@@ -177,7 +200,7 @@ footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
   nx.append(el("strong", null, "Next action"));
   var txt = el("span"); txt.innerHTML = D.next_action.html; nx.append(txt);
   if (D.next_action.where) nx.append(document.createTextNode(" "), el("span", "meta", D.next_action.where));
-  var nw = work("Next action: " + D.next_action.text); if (nw) { nx.append(document.createTextNode(" ")); nx.append(nw); }
+  if (D.next_action.prompt) nx.append(document.createTextNode(" "), work(D.next_action.prompt));
   if (D.next_action.note) nx.append(el("div", "meta", D.next_action.note));
 
   // tiles, one panel open at a time, in place
@@ -261,7 +284,7 @@ footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
       ul.append(li);
     });
     if (D.triage_codes) ul.append(el("li", "meta", "sign-in and security codes: " + D.triage_codes));
-    var w = work("/para-triage"); if (w) { var li = el("li"); li.append(w); ul.append(li); }
+    var li = el("li"); li.append(work("/para-triage")); ul.append(li);
     return ul;
   }
 
@@ -280,7 +303,7 @@ footer{margin-top:1.4rem;font-size:.72rem;color:var(--muted)}
     if (days !== null) li.append(el("span", days >= D.chase_days ? "meta late" : "meta",
       days + " days" + (days >= D.chase_days ? " · chase or drop" : "")));
     li.append(el("span", "meta", t.where));
-    var w = work("Chase or drop: " + t.file + ":" + t.line); if (w) li.append(w);
+    li.append(work(t.prompt));
     chase.append(li);
   });
 

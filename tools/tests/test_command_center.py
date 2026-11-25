@@ -64,6 +64,15 @@ class Pieces(unittest.TestCase):
                          [("t1", "a", "late", 2, "🔺"), ("t2", "b", "week", 0, "")])
         self.assertEqual(rows[0]["text"], "Do it")
 
+    def test_a_tasks_prompt_names_its_vaults_folder_from_the_registry(self):
+        scan = {"tasks": [{"vault": "a", "text": "Do it", "effective_date": "2026-03-08", "file": "f.md",
+                           "line": 3}],
+                "summaries": [{"top": [{"vault": "b", "text": "Top", "effective_date": "2026-03-12"}]}]}
+        rows = cc.task_rows(scan, TODAY, [{"name": "a", "path": "/vaults/a"}, {"name": "b"}, "junk"])
+        self.assertEqual([r["prompt"] for r in rows],
+                         ["Work on this action in the a vault at /vaults/a, f.md line 3: Do it",
+                          "Work on this action in the b vault: Top"])
+
     def test_an_event_matching_a_meeting_shows_once_and_a_broken_one_is_counted(self):
         scan = {"meetings": [{"date": "2026-03-10", "start": "09:00", "end": None, "title": "Stand  up", "vault": "a"}]}
         fetched = [{"date": "2026-03-10", "start": "09:00", "title": "stand up", "source": "cal"},
