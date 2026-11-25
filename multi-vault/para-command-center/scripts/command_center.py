@@ -43,7 +43,8 @@ What the data holds, and where each part comes from:
 
 - `tasks`, `agenda`, `health` and the counts of `vaults`: `global_scan.py` beside this script,
   which scans each vault the way its own `/para-daily-brief` does. A dated item's `band` is
-  `late`, `today`, `week` (to Sunday), `next2` (the two weeks after) or `later`.
+  `late`, `today`, `week` (to Sunday), `next2` (the two weeks after) or `later`, and its
+  `prompt` is what its Copy prompt button hands a new Claude Code session.
 - `vaults` also carries where a vault stands on the page: the `neighbourhood` and `street` of
   its registry entry. An entry with neither stands in "Your vaults" where the operator keeps
   it, else in "Vaults you look after". `<para-os home>/past-vaults.json`, a list of `name`,
@@ -102,7 +103,7 @@ try:
         date_arg, iso, paraos_home_dir, parse_date, read_json, registry, triage_sources,
         utf8_stdout,
     )
-    from render_dashboard import cut, health_card, plain  # noqa: E402
+    from render_dashboard import cut, health_card, plain, work_prompt  # noqa: E402
 except ImportError as missing:
     print(f"command_center: {missing}. install para-daily-brief, para-ingest, para-shared "
           "and para-upgrade beside this skill", file=sys.stderr)
@@ -142,18 +143,25 @@ def band(day, today):
     return "next2" if day <= week_end + timedelta(days=14) else "later"
 
 
-def task_rows(scan, today):
-    """Every dated open task the scan lists, and each summed vault's top items."""
+def task_rows(scan, today, entries=()):
+    """Every dated open task the scan lists, and each summed vault's top items, each with the
+    prompt its Copy prompt button hands a new session, naming the vault's folder from the
+    registry `entries`."""
+    paths = {e["name"]: e["path"] for e in entries
+             if isinstance(e, dict) and e.get("name") and e.get("path")}
     rows = []
     for t in scan["tasks"] + [t for s in scan["summaries"] for t in s["top"]]:
         day = parse_date(t.get("effective_date"))
         if not day:
             continue
-        rows.append({"id": f"t{len(rows) + 1}", "vault": t["vault"], "text": cut(t["text"]),
+        text = cut(t["text"])
+        rows.append({"id": f"t{len(rows) + 1}", "vault": t["vault"], "text": text,
                      "date": iso(day), "days_late": max(0, (today - day).days),
                      "band": band(day, today), "priority": t.get("priority") or "",
                      "recurring": t.get("recurring") or "", "file": t.get("file"),
-                     "line": t.get("line")})
+                     "line": t.get("line"),
+                     "prompt": work_prompt(paths.get(t["vault"]), t["vault"], text,
+                                           t.get("file"), t.get("line"))})
     return rows
 
 
@@ -776,7 +784,7 @@ def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS
                                 load_index(paraos_home), days, runs_at or now)
     return {"meta": {"today": iso(today), "generated_at": now.isoformat(timespec="seconds"),
                      "days": days, "hub": hub, "notes": notes},
-            "tasks": task_rows(scan, today), "agenda": agenda, "vaults": vaults, "health": health,
+            "tasks": task_rows(scan, today, entries), "agenda": agenda, "vaults": vaults, "health": health,
             "funnel": feed["funnel"], "flows": feed["flows"], "repos": repos, "sites": sites,
             "nodes": nodes, "edges": edges}
 
