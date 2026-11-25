@@ -505,13 +505,14 @@ function isoBox(g, pr, x, y, z, a, b, h, fill) {
   isoFace(g, [pr(x, y, z + h), pr(x + a, y, z + h), pr(x + a, y + b, z + h), pr(x, y + b, z + h)], fill, 0.26);
 }
 
-function buildPortfolio(el, made, data, under) {
+function buildPortfolio(el, made, data, under, fit) {
   el.replaceChildren();
   const {nodes, edges, flows, vaults, health, repos, sites} = data;
   const A = adjacency(nodes, edges);
   const wrap = make('div', 'cc-mapwrap'), panel = make('div', 'cc-panel');
   el.append(wrap, panel);
-  const cw = wrap.clientWidth || 960;
+  // `fit`, from a first drawing too tall for its view: the width to draw it at, and the plan's scale to keep
+  const cw = (fit && fit.w) || wrap.clientWidth || 960;
   const root = svgEl('svg', {class: 'cc-scene', role: 'img', 'aria-label': 'What came in this week by type, the sorting centre, and every vault as a building with its grade, triage items, held items and late actions'}, wrap);
   root.setAttribute('viewBox', `0 0 ${Math.round(cw)} 100`);
   const gGround = svgEl('g', {}, root), gLane = svgEl('g', {}, root), gPipe = svgEl('g', {}, root), gP = svgEl('g', {}, root), gObj = svgEl('g', {}, root), gTag = svgEl('g', {}, root), gCard = svgEl('g', {}, root);
@@ -795,12 +796,14 @@ function buildPortfolio(el, made, data, under) {
   const planL = Math.min(...ends), planR = Math.max(...ends);
   const tagScale = (s) => Math.max(0.8, Math.min(1, s / 0.8)), tagEdge = (s) => Math.min(28, 37 * s - 8);
   const startX = (s) => Math.max(colW + 30 - planL * s, ...lots.map((p) => colW + 12 - flatX(p.lx + 24, p.ly + 39) * s - tagEdge(s) + tagOf(p.v).w * tagScale(s)));
-  let gs = 1.25;
+  let gs = fit ? fit.gs : 1.25;
   while (gs >= 0.6 && startX(gs) + planR * gs + 6 > cw) gs -= 0.02;
   const wide = bands.length > 0 && gs >= 0.6;
   if (!wide) gs = 1;
+  made.gs = gs;
   const ts = wide ? tagScale(gs) : 1;
-  const DW = wide ? Math.round(Math.min(cw, startX(gs) + planR * gs + 6)) : Math.max(300, Math.round(cw));
+  // the drawing spans its whole width: the cards against the left edge, the scheduled runs against the right, and the room the plan does not need split on both sides of it
+  const DW = Math.max(300, Math.round(cw)), slack = wide ? Math.max(0, DW - (startX(gs) + planR * gs + 6)) : 0;
   root.style.maxWidth = DW + 'px';
   function drawLot(pr, lx, ly, v, tagRight) {
     const away = !!v.machine && !v.state, gone = !!v.state;
@@ -916,7 +919,7 @@ function buildPortfolio(el, made, data, under) {
   let H = 0;
   if (wide) {
     // the top row is the sorting centre's card and the scheduled runs; the lanes run under it, and the plan starts below them
-    const runsPitch = ups.length ? 17 : 19, runsH = 28 + runs.length * runsPitch + 8, yTop = 82, OX = startX(gs);
+    const runsPitch = ups.length ? 17 : 19, runsH = 28 + runs.length * runsPitch + 8, yTop = 82, OX = startX(gs) + slack / 2;
     // a label that would sit under the scheduled runs pushes the plan down: each roof as [how far right its label reaches, how high it is]
     const roofs = [...lots.map((p) => [flatX(p.lx + 24, p.ly + 39) * gs + 28, roofY(p)]), [flatX(ex + 39, ey + 33) * gs + 100 * ts, (ex + ey + 72) * 0.5 - 38]];
     const OY = Math.max(yTop + 11 + 159 * gs, ...roofs.filter(([x]) => OX + x > DW - 220).map(([, ry]) => runsH + 22 + (13 + HT) * ts - ry * gs));
@@ -1070,10 +1073,15 @@ dash.draw('cmap', {
     if (ds.some((d) => d.status !== 'ok')) { stopMap(made); el.replaceChildren(); made.sig = ''; return; }
     const data = {}; MAP_SOURCES.forEach((id, i) => { data[id] = ds[i].data; });
     const view = cmap.view === 'wiring' ? 'wiring' : 'portfolio';
-    const sig = JSON.stringify([view, Math.round(el.clientWidth / 40), data.nodes.map((n) => [n.id, n.status, n.sub]), data.edges.map((e) => [e.id, e.count]), data.flows.length]);
+    const fitted = window.matchMedia('(min-width:900px) and (min-height:560px)').matches;
+    const sig = JSON.stringify([view, Math.round(el.clientWidth / 40), fitted ? Math.round(el.clientHeight / 40) : 0, data.nodes.map((n) => [n.id, n.status, n.sub]), data.edges.map((e) => [e.id, e.count]), data.flows.length]);
     if (sig === made.sig && el.firstChild) return;
     made.sig = sig;
     buildPortfolio(el, made, data, view === 'wiring');
+    // fitted to the window, a drawing taller than its room is drawn again wider, so that scaled to the height it still spans the width
+    const wrap = el.querySelector('.cc-mapwrap'), svg = wrap && wrap.querySelector('svg'), vb = svg && svg.viewBox.baseVal;
+    const s = fitted && vb && vb.height ? wrap.clientHeight / vb.height : 1;
+    if (s < 1 && s >= 2 / 3) buildPortfolio(el, made, data, view === 'wiring', {w: Math.round(wrap.clientWidth / s), gs: made.gs});
     cmap.replay = () => startMap(made);
     startMap(made);
   },
@@ -1111,7 +1119,7 @@ const fitMap = () => {
     wrap.classList.toggle('cc-mapscroll', Math.min(wrap.clientWidth / vb.width, wrap.clientHeight / vb.height) < 2 / 3);
   }
 };
-window.addEventListener('resize', fitMap);
+window.addEventListener('resize', () => { if (!document.getElementById('view-portfolio').hidden) dash.draw('cmap'); fitMap(); });
 for (const b of document.querySelectorAll('.cc-view-p, .cc-view-w')) b.addEventListener('click', fitMap);
 // the menu shows one view at a time, named in the address so a link opens it; the map is drawn again once its view has a size
 const VIEWS = ['today', 'portfolio'];
