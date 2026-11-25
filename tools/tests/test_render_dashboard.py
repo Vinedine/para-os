@@ -126,6 +126,19 @@ class Tasks(DashboardCase):
         self.assertEqual((t["due"], t["priority"], t["where"], t["entity_key"]),
                          ("2026-09-21", "🔺", "acme-website:5", "P:acme-website"))
 
+    def test_each_task_carries_the_prompt_its_copy_button_hands_a_session(self):
+        report = self.report()
+        t = next(t for t in self.page(self.judgment(report), report)["tasks"]
+                 if t["headline"] == "Due today")
+        self.assertEqual(t["prompt"], f"Work on this action in the BelFoot vault at "
+                                      f"{report['vault']}, {t['file']} line {t['line']}: Due today")
+
+    def test_a_waits_prompt_asks_to_chase_or_drop_it(self):
+        write(self.root, "areas/business/actions.md", "# b\n\n"
+              "- [ ] Waiting on [Ann](../network/ann.md): the signed deed (since 2026-09-01)\n")
+        t = next(t for t in self.page(self.judgment(self.report()))["tasks"] if t["waiting"])
+        self.assertTrue(t["prompt"].startswith("Chase or drop this wait in the BelFoot vault at "))
+
     def test_a_time_is_read_only_off_a_dated_line(self):
         write(self.root, "areas/business/actions.md", "# b\n\n"
               "- [ ] Call Ann at 9:30 📅 2026-09-16\n- [ ] Ask about the 11:00 slot\n"
@@ -238,6 +251,16 @@ class Judgment(DashboardCase):
         got = self.page(self.judgment(self.report()))["next_action"]
         self.assertEqual((got["html"], got["where"], got["note"]),
                          ("Open the file", "business:4", None))
+
+    def test_the_next_action_carries_a_prompt_with_its_file_and_line_where_it_names_them(self):
+        report = self.report()
+        at = self.first_task(report)
+        named = self.page(self.judgment(report), report)["next_action"]["prompt"]
+        bare = self.page(self.judgment(report, next_action={"text": "**Rest**"}), report)
+        self.assertEqual((named, bare["next_action"]["prompt"]),
+                         (f"Work on this action in the BelFoot vault at {report['vault']}, "
+                          f"{at['file']} line {at['line']}: Open the file",
+                          f"Work on this action in the BelFoot vault at {report['vault']}: Rest"))
 
     def test_the_agenda_is_the_judgments_and_an_empty_day_is_dropped(self):
         report = self.report()

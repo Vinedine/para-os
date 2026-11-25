@@ -11,8 +11,9 @@ day it is opened, so a page read two days after its data still reads right.
 
 Where it goes, and the artifact it was last published to, is para-shared's
 `paraos_pages.py`, under the page name `daily-brief`; `--publish` records the choice there.
-A local page, the one scripts/refresh_dashboard.py keeps current, carries "Work on this"
-links that open a Claude Code session in the vault, which the artifact viewer would block;
+Every action carries a Copy prompt button, `work_prompt`'s text for a new Claude Code
+session. A local page, the one scripts/refresh_dashboard.py keeps current, also carries "Work
+on this" links that open that session in the vault, which the artifact viewer refuses;
 `--out` is then not needed. Render prints one JSON line: `out`, `page`, `publish`, the
 page's `title` and `description`, and `url`, the artifact this vault's dashboard was last
 published to (null when none is remembered).
@@ -146,14 +147,25 @@ def tasks_at(scan, refs):
     return [t for t in scan["tasks"] if (t["file"], t["line"]) in keys]
 
 
-def task_row(t, names):
+def work_prompt(vault, name, text, file=None, line=None, lead="Work on this action"):
+    """What a page hands a new Claude Code session for one item: the ask, the vault by name
+    and folder, the file and line the item sits on, and its own words."""
+    at = f" at {vault}" if vault else ""
+    where = f", {file}" + (f" line {line}" if line else "") if file else ""
+    return f"{lead} in the {name} vault{at}{where}: {text}"
+
+
+def task_row(t, names, vault, name):
     """One task as the page reads it. A wait on someone else carries its own fields and no
     date; a time is read off the line only where the line is dated."""
     clock = TIME_RE.search(t["text"]) if t["effective_date"] else None
     wait = t.get("waiting_on")
+    headline = cut(t["text"])
     return {"id": task_id(t), "file": t["file"], "line": t["line"],
             "entity_key": f"{t['bucket']}:{t['scope']}", "where": task_label(t),
-            "headline": cut(t["text"]), "due": None if wait else t["effective_date"],
+            "prompt": work_prompt(vault, name, headline, t["file"], t["line"],
+                                  "Chase or drop this wait" if wait else "Work on this action"),
+            "headline": headline, "due": None if wait else t["effective_date"],
             "time": f"{int(clock.group(1)):02d}:{clock.group(2)}" if clock else None,
             "priority": t["priority"], "recurring": t["recurring"],
             "waiting": wait and {"person": wait["person"], "what": wait["what"],
@@ -209,21 +221,26 @@ def flag_rows(scan, items):
     return out
 
 
-def next_action(scan, judgment, mechanical):
+def next_action(scan, judgment, mechanical, name):
     if mechanical:
         picks = mechanical_now(scan)
         if not picks:
             return {"html": "Nothing is overdue or due this week.", "text": "", "where": None,
-                    "note": None}
+                    "prompt": None, "note": None}
         t = find_task(scan, picks[0], "now")
         return {"html": html.escape(cut(t["text"])), "text": cut(t["text"]),
-                "where": task_label(t), "note": "Picked by the brief's own sort; the next "
-                                                "/para-daily-brief run chooses with judgment."}
+                "where": task_label(t),
+                "prompt": work_prompt(scan["vault"], name, cut(t["text"]), t["file"], t["line"]),
+                "note": "Picked by the brief's own sort; the next "
+                        "/para-daily-brief run chooses with judgment."}
     na = judgment.get("next_action")
     if not na or not na.get("text"):
         raise JudgmentError("next_action.text is required")
     where = task_label(find_task(scan, na, "next_action")) if na.get("file") else None
-    return {"html": inline(na["text"]), "text": plain(na["text"]), "where": where, "note": None}
+    return {"html": inline(na["text"]), "text": plain(na["text"]), "where": where,
+            "prompt": work_prompt(scan["vault"], name, plain(na["text"]), na.get("file"),
+                                  na.get("line")),
+            "note": None}
 
 
 def agenda(judgment):
@@ -324,11 +341,12 @@ def page_data(scan, judgment, mechanical, local):
     tri, codes = triage(scan)
     items = [dict(i, contact_name=names.get(i["contact"]) or i["contact_text"] or None)
              for i in scan.get("pipeline_items") or []]
-    return {"vault": scan["vault"], "name": display_name(scan["vault"]), "today": scan["today"],
+    name = display_name(scan["vault"])
+    return {"vault": scan["vault"], "name": name, "today": scan["today"],
             "local": local, "chase_days": WAITING_FLAG_DAYS,
             "generated_by": "from the scan alone" if mechanical else "by /para-daily-brief",
-            "next_action": next_action(scan, judgment, mechanical),
-            "tasks": [task_row(t, names) for t in scan["tasks"]],
+            "next_action": next_action(scan, judgment, mechanical, name),
+            "tasks": [task_row(t, names, scan["vault"], name) for t in scan["tasks"]],
             "entities": [dict(r, key=f"{r['bucket']}:{r['label']}") for r in scan["entities"]],
             "flags": flag_rows(scan, judgment.get("flags")),
             "agenda": [] if mechanical else agenda(judgment),
