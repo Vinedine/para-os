@@ -121,17 +121,50 @@ body{padding:16px clamp(16px,3vw,40px)}
 [data-dash-source-state=empty]{color:transparent}
 @media (max-width:1100px){.cc-map{grid-template-columns:minmax(0,1fr)}.cc-panel{position:static;max-height:none}}
 @media (max-width:640px){.cc-list li{grid-template-columns:4rem minmax(0,1fr)}}
+.cc-headrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--gap-sm) var(--gap-md)}
+.cc-tabs{display:flex;flex-wrap:wrap;gap:var(--gap-xs)}
+.cc-tab{font:inherit;font-size:var(--font-size-body);color:var(--color-fg-muted);background:transparent;border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-xs) var(--pad-md);cursor:pointer}
+.cc-tab:hover{color:var(--color-fg);border-color:var(--color-fg-muted)}
+.cc-tab[aria-selected="true"]{color:var(--color-fg);border-color:var(--color-fg);font-weight:var(--font-weight-medium)}
+.cc-tab:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.cc-view{min-width:0}
+/* a desktop window shows one view at a time, fitted to it: the page never scrolls, a view that overflows scrolls inside, and the map scales to the room it has */
+@media (min-width:900px) and (min-height:560px){
+html,body{height:100%}
+body{box-sizing:border-box;overflow:hidden}
+.cc{height:100%;grid-template-rows:auto minmax(0,1fr);gap:var(--gap-md)}
+.cc-view{min-height:0;overflow:auto}
+#view-portfolio{overflow:hidden}
+#map{height:100%;box-sizing:border-box;grid-template-rows:auto minmax(0,1fr) auto}
+.cc-map{min-height:0;height:100%;grid-template-columns:minmax(0,1fr) 260px;align-items:stretch}
+.cc-mapwrap{min-height:0;height:100%;overflow:hidden}
+.cc-map svg{width:100%;height:100%}
+.cc-panel{position:static;max-height:none;height:100%;box-sizing:border-box;align-content:start}
+.cc-mapwrap.cc-mapscroll{overflow-y:auto}
+.cc-mapwrap.cc-mapscroll svg{height:auto}
+#week{height:100%;box-sizing:border-box;grid-template-rows:auto auto minmax(0,1fr)}
+.cc-days{min-height:0;grid-auto-rows:minmax(0,1fr)}
+.cc-day{min-height:0;overflow-y:auto}
+}
 </style>
 
 <div class="cc">
   <header class="cc-head">
-    <h1 class="cc-title">Command center</h1>
+    <div class="cc-headrow">
+      <h1 class="cc-title">Command center</h1>
+      <nav class="cc-tabs" role="tablist" aria-label="Views">
+        <button type="button" class="cc-tab" role="tab" id="tab-today" aria-controls="view-today" data-view="today">Today</button>
+        <button type="button" class="cc-tab" role="tab" id="tab-portfolio" aria-controls="view-portfolio" data-view="portfolio">Portfolio</button>
+        <button type="button" class="cc-tab" role="tab" id="tab-weeks" aria-controls="view-weeks" data-view="weeks">Weeks ahead</button>
+      </nav>
+    </div>
     <p class="cc-take"><b class="dash-skeleton" data-draw="n-late" data-source="summary" data-field="n" data-where="key=late">·</b> late, <b class="dash-skeleton" data-draw="n-today" data-source="summary" data-field="n" data-where="key=today">·</b> due today, <b class="dash-skeleton" data-draw="n-held" data-source="summary" data-field="n" data-where="key=held">·</b> triage items held for your decision, and <b class="dash-skeleton" data-draw="n-repos" data-source="summary" data-field="n" data-where="key=repos">·</b> repos with something to look at.</p>
     <p class="cc-note" data-draw="built"></p>
   </header>
 
+  <div class="cc-view" id="view-today" role="tabpanel" aria-labelledby="tab-today">
   <div class="cc-grid">
-    <section class="cc-card" id="today">
+    <section class="cc-card" id="meetings">
       <h2>Today's meetings</h2>
       <p class="cc-note">Both calendars and the vaults' meeting lists</p>
       <ul class="cc-list" data-draw="today-events" data-source="agenda"></ul>
@@ -142,7 +175,9 @@ body{padding:16px clamp(16px,3vw,40px)}
       <ul class="cc-list" data-draw="due-list" data-source="tasks"></ul>
     </section>
   </div>
+  </div>
 
+  <div class="cc-view" id="view-portfolio" role="tabpanel" aria-labelledby="tab-portfolio" hidden>
   <section class="cc-card" id="map">
     <div class="cc-maphead">
       <div>
@@ -178,12 +213,15 @@ body{padding:16px clamp(16px,3vw,40px)}
       <span><i class="lg-mute"></i>Click a vault to see only what feeds it, or a line in a card to see only where it goes</span>
     </div>
   </section>
+  </div>
 
+  <div class="cc-view" id="view-weeks" role="tabpanel" aria-labelledby="tab-weeks" hidden>
   <section class="cc-card" id="week">
     <h2>The rest of this week and the next two</h2>
     <p class="cc-note">Meetings and dated actions, day by day. An action for a meeting is folded into that meeting.</p>
     <div class="cc-days" data-draw="week" data-source="agenda tasks"></div>
   </section>
+  </div>
 </div>
 
 <script id="data" type="application/json">__PARAOS_DATA__</script>
@@ -282,9 +320,12 @@ dash.draw('week', (box) => {
     for (const it of byDay.get(date).sort((p, q) => String(p.sort).localeCompare(String(q.sort)))) {
       const p = make('p', it.kind === 'task' ? 'cc-task' : null);
       if (it.time) p.append(make('span', 'cc-time', it.time));
-      p.append(document.createTextNode(it.text));
+      // a long title is cut so the days fit the window, the whole of it on hover
+      const full = String(it.text), short = full.length > 90 ? full.slice(0, 89).trimEnd() + '…' : full;
+      p.append(document.createTextNode(short));
       for (const tag of it.tags) if (tag) p.append(make('span', 'cc-chip', tag));
-      if (it.also.length) p.title = it.also.join('\n');
+      const tip = [full === short ? '' : full, ...it.also].filter(Boolean);
+      if (tip.length) p.title = tip.join('\n');
       day.append(p);
     }
     box.append(day);
@@ -1045,6 +1086,30 @@ for (const i of document.querySelectorAll('.cc-legend .lg-mail')) i.style.border
 for (const i of document.querySelectorAll('.cc-legend .lg-sign')) i.style.background = dash.colors[6];
 for (const i of document.querySelectorAll('.cc-legend .lg-tool')) i.style.borderTopColor = dash.colors[3];
 for (const i of document.querySelectorAll('.cc-legend .lg-meet')) i.style.borderTopColor = dash.colors[4];
+// the map scales to fit its view, but not below two thirds of its size: smaller, its text cannot be read, so the view scrolls instead
+const fitMap = () => {
+  for (const wrap of document.querySelectorAll('.cc-mapwrap')) {
+    const svg = wrap.querySelector('svg'), vb = svg && svg.viewBox && svg.viewBox.baseVal;
+    if (!vb || !vb.width || !vb.height) continue;
+    wrap.classList.remove('cc-mapscroll');
+    wrap.classList.toggle('cc-mapscroll', Math.min(wrap.clientWidth / vb.width, wrap.clientHeight / vb.height) < 2 / 3);
+  }
+};
+window.addEventListener('resize', fitMap);
+for (const b of document.querySelectorAll('.cc-view-p, .cc-view-w')) b.addEventListener('click', fitMap);
+// the menu shows one view at a time, named in the address so a link opens it; the map is drawn again once its view has a size
+const VIEWS = ['today', 'portfolio', 'weeks'];
+const showView = (name) => {
+  const v = VIEWS.includes(name) ? name : 'today';
+  for (const t of document.querySelectorAll('.cc-tab')) t.setAttribute('aria-selected', String(t.dataset.view === v));
+  for (const id of VIEWS) document.getElementById('view-' + id).hidden = id !== v;
+  if (v === 'portfolio') { dash.draw('cmap'); fitMap(); }
+};
+for (const t of document.querySelectorAll('.cc-tab')) t.addEventListener('click', () => {
+  if (location.hash === '#' + t.dataset.view) showView(t.dataset.view); else location.hash = t.dataset.view;
+});
+window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+showView(location.hash.slice(1));
 </script>
 </body>
 </html>
