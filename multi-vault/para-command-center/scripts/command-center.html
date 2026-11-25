@@ -129,6 +129,12 @@ body{padding:16px clamp(16px,3vw,40px)}
 .cc-tab:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
 .cc-view{min-width:0}
 #view-today{display:grid;gap:var(--gap-md);align-content:start}
+.cc-days{grid-template-columns:repeat(7,minmax(0,1fr))}
+.cc-day.cc-weekend{background:var(--color-bg)}
+.cc-day.cc-past{opacity:.45}
+.cc-day.cc-today{border-color:var(--color-fg-muted)}
+.cc-day.cc-today h3{color:var(--color-fg)}
+@media (max-width:899px){.cc-days{grid-template-columns:repeat(auto-fill,minmax(min(100%,11rem),1fr))}.cc-day.cc-past{display:none}}
 /* a desktop window shows one view at a time, fitted to it: the page never scrolls, a view that overflows scrolls inside, and the map scales to the room it has */
 @media (min-width:900px) and (min-height:560px){
 html,body{height:100%}
@@ -183,7 +189,7 @@ body{box-sizing:border-box;overflow:hidden}
     </section>
   </div>
   <section class="cc-card" id="week">
-    <h2>The rest of this week and the next two</h2>
+    <h2>This week and the next two</h2>
     <p class="cc-note">Meetings and dated actions, day by day. An action for a meeting is folded into that meeting.</p>
     <div class="cc-days" data-draw="week" data-source="agenda tasks"></div>
   </section>
@@ -307,21 +313,27 @@ dash.draw('week', (box) => {
   const a = dash.data('agenda'), t = dash.data('tasks');
   box.replaceChildren();
   if (a.status !== 'ok' || t.status !== 'ok') return;
+  const SHOWN = ['today', 'week', 'next2'];
   const byDay = new Map();
   const add = (date, item) => { if (!byDay.has(date)) byDay.set(date, []); byDay.get(date).push(item); };
-  for (const e of a.data) if (e.band === 'week' || e.band === 'next2') add(e.date, {kind: 'event', sort: e.start || '99', time: e.start, text: e.title, tags: [e.source], also: []});
+  for (const e of a.data) if (SHOWN.includes(e.band)) add(e.date, {kind: 'event', sort: e.start || '99', time: e.start, text: e.title, tags: [e.source], also: []});
   // an action that names a meeting of the same day, by its title or its start time, is that meeting: it is shown once
   for (const x of t.data) {
-    if (x.band !== 'week' && x.band !== 'next2') continue;
+    if (!SHOWN.includes(x.band)) continue;
     const low = String(x.text).toLowerCase();
     const same = (byDay.get(x.date) || []).find((it) => it.kind === 'event' && it.text && (low.includes(String(it.text).toLowerCase()) || (it.time && String(x.text).includes(it.time))));
     if (same) { if (!same.tags.includes(x.vault)) same.tags.push(x.vault); same.also.push(x.text); }
     else add(x.date, {kind: 'task', sort: '98', time: '', text: x.text, tags: [x.vault], also: []});
   }
-  for (const date of [...byDay.keys()].sort()) {
-    const day = make('div', 'cc-day');
-    day.append(make('h3', null, dayFmt(asDay(date))));
-    for (const it of byDay.get(date).sort((p, q) => String(p.sort).localeCompare(String(q.sort)))) {
+  // three weeks of seven days, Monday first, every day drawn even when nothing is on it
+  const today = asDay(META.today), start = new Date(today);
+  start.setUTCDate(start.getUTCDate() - (today.getUTCDay() + 6) % 7);
+  for (let i = 0; i < 21; i++) {
+    const d = new Date(start); d.setUTCDate(start.getUTCDate() + i);
+    const date = d.toISOString().slice(0, 10), dow = d.getUTCDay();
+    const day = make('div', 'cc-day' + (date < META.today ? ' cc-past' : '') + (date === META.today ? ' cc-today' : '') + (dow === 0 || dow === 6 ? ' cc-weekend' : ''));
+    day.append(make('h3', null, (date === META.today ? 'Today · ' : '') + dayFmt(d)));
+    for (const it of (byDay.get(date) || []).sort((p, q) => String(p.sort).localeCompare(String(q.sort)))) {
       const p = make('p', it.kind === 'task' ? 'cc-task' : null);
       if (it.time) p.append(make('span', 'cc-time', it.time));
       // a long title is cut so the days fit the window, the whole of it on hover
