@@ -36,8 +36,9 @@ body{padding:16px clamp(16px,3vw,40px)}
 .cc-list li:last-child{border-bottom:0}
 .cc-when{font-variant-numeric:tabular-nums;color:var(--color-fg-muted);font-size:var(--font-size-caption);padding-top:2px}
 .cc-when.cc-late,.cc-note.cc-late{color:var(--color-bad)}
-.cc-copy{font:inherit;font-size:var(--font-size-caption);color:var(--series-0);background:none;border:1px solid var(--color-border-line);border-radius:var(--radius);padding:0 var(--pad-xs);margin-left:var(--gap-xs);cursor:pointer;white-space:nowrap;align-self:start}
-.cc-copy:hover{border-color:var(--series-0)}.cc-copy:focus-visible{outline:2px solid var(--series-0);outline-offset:2px}
+.cc-copy{display:inline-flex;align-items:center;vertical-align:-3px;color:var(--color-fg-muted);background:none;border:0;border-radius:4px;padding:2px;margin-left:var(--gap-xs);cursor:pointer;line-height:0;align-self:start}
+.cc-copy svg{width:14px;height:14px}
+.cc-copy:hover,.cc-copy.done{color:var(--series-0)}.cc-copy:hover{background:var(--color-border-line)}.cc-copy:focus-visible{outline:2px solid var(--series-0);outline-offset:2px}
 .cc-copy-text{grid-column:1/-1;display:block;box-sizing:border-box;width:100%;font:inherit;font-size:var(--font-size-caption);color:var(--color-fg);background:var(--color-bg);border:1px solid var(--color-border-line);border-radius:var(--radius);padding:2px var(--pad-xs);margin-top:var(--gap-xs)}
 .cc-maphead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:start;gap:var(--gap-sm)}
 .cc-maphead>div:first-child{display:grid;gap:var(--gap-xs);max-width:48rem}
@@ -225,17 +226,23 @@ const dayFmt = (d) => d.toLocaleDateString('en-GB', {weekday: 'short', day: 'num
 const asDay = (s) => new Date(s + 'T00:00:00Z');
 const make = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
 // a task's prompt for a new Claude Code session, copied: the artifact viewer refuses a link that would open one
+const ICON_COPY = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2A1.5 1.5 0 0 0 9 2H3.5A1.5 1.5 0 0 0 2 3.5V9a1.5 1.5 0 0 0 1.5 1.5h2"/></svg>';
+const ICON_DONE = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3 3 7-7"/></svg>';
 const copyButton = (prompt) => {
-  const b = make('button', 'cc-copy', 'Copy prompt');
+  const b = make('button', 'cc-copy');
   let shown = null;
-  b.type = 'button'; b.title = prompt;
-  const say = (word) => { b.textContent = word; setTimeout(() => { b.textContent = 'Copy prompt'; }, 1800); };
+  b.type = 'button'; b.title = 'Copy prompt: ' + prompt; b.setAttribute('aria-label', 'Copy prompt');
+  b.innerHTML = ICON_COPY;
+  const done = () => {
+    b.innerHTML = ICON_DONE; b.classList.add('done');
+    setTimeout(() => { b.innerHTML = ICON_COPY; b.classList.remove('done'); }, 1800);
+  };
   const select = () => {
     if (!shown) { shown = make('input', 'cc-copy-text'); shown.readOnly = true; shown.value = prompt; b.parentNode.append(shown); }
-    shown.focus(); shown.select(); say('Selected: copy it');
+    shown.focus(); shown.select();
   };
   b.addEventListener('click', () => {
-    try { navigator.clipboard.writeText(prompt).then(() => say('Copied'), select); } catch (e) { select(); }
+    try { navigator.clipboard.writeText(prompt).then(done, select); } catch (e) { select(); }
   });
   return b;
 };
