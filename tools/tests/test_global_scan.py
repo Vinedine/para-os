@@ -120,6 +120,14 @@ class GlobalScan(unittest.TestCase):
         self.assertEqual(dict(south["by_area"]), {"site": 1, "ops": 1})
         self.assertFalse([t for t in report["tasks"] if t["vault"] == "south"])
 
+    def test_the_whole_scans_are_kept_only_when_asked_and_only_for_a_vault_you_keep(self):
+        self.assertNotIn("scans", self.report())
+        self.entries[1]["brief"] = "summary"
+        self.roster(me="bo-peeters")
+        kept = build_report(self.entries, TODAY, str(self.home), keep_scans=True)["scans"]
+        self.assertEqual(sorted(kept), ["south"])
+        self.assertEqual(kept["south"]["totals"]["open"], 1)
+
     def roster(self, me=None):
         write(self.tmp / "north", "CLAUDE.md", "# North\n\n**Type:** client-vault\n\n"
               "## Who writes this vault\n\n| Person | Role | Lane |\n|---|---|---|\n"

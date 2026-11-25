@@ -336,12 +336,14 @@ def health_card(scan):
                      for key, label, what, why, fix in HEALTH_SIGNALS]}
 
 
-def page_data(scan, judgment, mechanical, local):
+def page_data(scan, judgment, mechanical, local, name=None):
+    """What the page's script is handed. `name` is the vault's, where a caller holding its
+    registry entry already knows it; else it is looked up."""
     names = {p["person"]: p["name"] for p in scan.get("people") or []}
     tri, codes = triage(scan)
     items = [dict(i, contact_name=names.get(i["contact"]) or i["contact_text"] or None)
              for i in scan.get("pipeline_items") or []]
-    name = display_name(scan["vault"])
+    name = name or display_name(scan["vault"])
     return {"vault": scan["vault"], "name": name, "today": scan["today"],
             "local": local, "chase_days": WAITING_FLAG_DAYS,
             "generated_by": "from the scan alone" if mechanical else "by /para-daily-brief",

@@ -407,8 +407,8 @@ class WholePage(unittest.TestCase):
 
     def test_every_part_is_built_from_the_files(self):
         data = self.build()
-        self.assertEqual(sorted(data), ["agenda", "edges", "flows", "funnel", "health", "meta", "nodes", "repos",
-                                        "sites", "tasks", "vaults"])
+        self.assertEqual(sorted(data), ["agenda", "details", "edges", "flows", "funnel", "health", "meta", "nodes",
+                                        "repos", "sites", "tasks", "vaults"])
         self.assertEqual(data["meta"]["hub"], "run:ingest")
         self.assertEqual(data["meta"]["today"], "2026-03-10")
         self.assertEqual([(t["vault"], t["band"]) for t in data["tasks"]], [("alpha", "late"), ("alpha", "today"), ("beta", "week")])
@@ -530,6 +530,22 @@ class WholePage(unittest.TestCase):
         self.assertIn("conn:mailer>vault:alpha", {e["id"] for e in data["edges"]})
         self.assertIn("2 calendar events had no date or no title and were left out.",
                       self.build(events=[{}, {}])["meta"]["notes"])
+
+    def test_the_vaults_tab_holds_each_kept_vaults_own_dashboard(self):
+        details = {d["vault"]: d for d in self.build()["details"]}
+        self.assertEqual(sorted(details), ["alpha", "beta", "gamma"])
+        alpha = details["alpha"]
+        self.assertEqual([t["headline"] for t in alpha["tasks"]], ["Renew the domain", "Send the launch note"])
+        self.assertTrue(all(t["prompt"].startswith("Work on this action in the alpha vault at ") for t in alpha["tasks"]))
+        self.assertEqual(alpha["next_action"]["text"], "Send the launch note")
+        self.assertEqual((len(alpha["triage"]), alpha["chase_days"]), (1, 14))
+
+    def test_a_summary_vault_shows_in_full_on_its_own_panel_only(self):
+        self.entries[1]["brief"] = "summary"
+        data = self.build()
+        beta = next(d for d in data["details"] if d["vault"] == "beta")
+        self.assertEqual([t["headline"] for t in beta["tasks"]], ["Pay the host invoice"])
+        self.assertFalse([t for t in data["tasks"] if t["vault"] == "beta"])
 
     def test_the_build_time_stands_in_the_header(self):
         self.assertIn('data-draw="built"', cc.page({"meta": {}}).split("</header>")[0])
