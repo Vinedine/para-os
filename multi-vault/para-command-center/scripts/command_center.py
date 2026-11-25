@@ -69,6 +69,10 @@ What the data holds, and where each part comes from:
   `ok`, `watch` (its newest run was last active before its last due time), `warn` (partial),
   `bad` (failed) or `none` (paused, or no run in the app's list). `meta.hub` is the run whose
   skill is `para-ingest`.
+- `details`: the Vaults tab, one entry per vault the operator keeps (`full` or `summary`): the
+  `next_action`, `tasks`, `entities`, `ideas`, `triage`, `triage_codes` and `people` its own
+  dashboard holds, by `vault_details()`. A `summary` vault shows in full here; the setting
+  keeps its actions off the Today lists only.
 - `meta`: `today`, `generated_at`, `days`, `hub` and `notes`, what was missing or left out.
 
 Exit codes: 0 answered; 2 the libraries are missing or an argument is wrong; 3 no registry, or
@@ -103,7 +107,7 @@ try:
         date_arg, iso, paraos_home_dir, parse_date, read_json, registry, triage_sources,
         utf8_stdout,
     )
-    from render_dashboard import cut, health_card, plain, work_prompt  # noqa: E402
+    from render_dashboard import cut, health_card, page_data, plain, work_prompt  # noqa: E402
 except ImportError as missing:
     print(f"command_center: {missing}. install para-daily-brief, para-ingest, para-shared "
           "and para-upgrade beside this skill", file=sys.stderr)
@@ -757,7 +761,8 @@ def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS
     """Everything the page shows, as one dict."""
     home = paraos_home_dir(paraos_home)
     notes = [note] if note else []
-    scan = build_report(entries, today, paraos_home, model)
+    scan = build_report(entries, today, paraos_home, model, keep_scans=True)
+    details = vault_details(scan.pop("scans", {}))
     listed, _, _ = connections_gather(paraos_home)
     if not listed["exists"]:
         notes.append("No connections registry: connections are named as the vaults write them.")
@@ -786,7 +791,19 @@ def build(entries, today, now, paraos_home=None, events=None, note="", days=DAYS
                      "days": days, "hub": hub, "notes": notes},
             "tasks": task_rows(scan, today, entries), "agenda": agenda, "vaults": vaults, "health": health,
             "funnel": feed["funnel"], "flows": feed["flows"], "repos": repos, "sites": sites,
-            "nodes": nodes, "edges": edges}
+            "nodes": nodes, "edges": edges, "details": details}
+
+
+DETAIL_KEYS = ("next_action", "tasks", "entities", "ideas", "triage", "triage_codes", "people",
+               "chase_days")
+
+
+def vault_details(scans):
+    """Per vault the operator keeps, what its own dashboard holds, built by the dashboard's own
+    `page_data()` from the same brief scan, so the two cannot disagree; with no judgment file,
+    the brief's own sort picks the next action, as its end-of-turn refresh does."""
+    return [{"vault": name, **{k: data[k] for k in DETAIL_KEYS}}
+            for name, data in ((n, page_data(s, {"flags": []}, True, False, name=n)) for n, s in scans.items())]
 
 
 def page(data):

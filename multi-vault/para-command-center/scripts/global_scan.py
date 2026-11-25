@@ -33,6 +33,9 @@ every `meetings.md` line of those vaults (outside `archive/`) from today to `hor
 `🔁 every <cadence>` line repeated from its date, rolled forward past today where it was
 never moved.
 
+`scans`, only where `build_report()` is asked to keep them (the command line never does): each
+`full` or `summary` vault's whole brief scan, by name, for the Command Center's Vaults tab.
+
 `excluded`: every entry not read, with `status` (`INVALID`, `UNREACHABLE`) and `reason`; a vault whose scan fails is `UNREACHABLE` too, never dropped.
 
 Exit codes: 0 answered; 2 the libraries are missing; 3 no registry, or one listing no entry.
@@ -234,7 +237,7 @@ def calendars_only(entries, today, paraos_home=None):
 
 
 @clone_session()
-def build_report(entries, today, paraos_home=None, model=None):
+def build_report(entries, today, paraos_home=None, model=None, keep_scans=False):
     home = paraos_home_dir(paraos_home)
     me = operator_card(paraos_home)
     until = today + timedelta(days=HORIZON_DAYS)
@@ -265,6 +268,8 @@ def build_report(entries, today, paraos_home=None, model=None):
         if shown != "health":
             add_calendars(calendars, entry["path"], name)
             out["meetings"] += meetings(entry["path"], name, today, until)
+            if keep_scans:
+                out.setdefault("scans", {})[name] = report
     out["calendars"] = list(calendars.values())
     out["meetings"].sort(key=lambda e: (e["date"], e["start"] or "", e["title"]))
     return out

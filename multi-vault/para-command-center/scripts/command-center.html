@@ -139,6 +139,48 @@ body{padding:16px clamp(16px,3vw,40px)}
 .cc-day.cc-today{border-color:var(--color-fg-muted)}
 .cc-day.cc-today h3{color:var(--color-fg)}
 @media (max-width:899px){.cc-days{grid-template-columns:repeat(auto-fill,minmax(min(100%,11rem),1fr))}.cc-day.cc-past{display:none}}
+.cc-vaults{display:grid;grid-template-columns:minmax(0,13rem) minmax(0,1fr);gap:var(--gap-md);align-items:start}
+.cc-vlist{display:grid;gap:var(--gap-xs);align-content:start}
+.cc-vbtn{font:inherit;text-align:left;color:var(--color-fg);background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-sm) var(--pad-md);cursor:pointer;display:grid;gap:2px}
+.cc-vbtn b{font-weight:var(--font-weight-medium)}
+.cc-vbtn span{font-size:var(--font-size-caption);color:var(--color-fg-muted)}
+.cc-vbtn em{font-style:normal;color:var(--color-bad)}
+.cc-vbtn:hover{border-color:var(--color-fg-muted)}
+.cc-vbtn[aria-pressed="true"]{border-color:var(--color-fg)}
+.cc-vbtn:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.cc-vdetail{display:grid;gap:var(--gap-md);min-width:0;align-content:start}
+.cc-vdetail h2{margin:0;font-size:20px;font-weight:var(--font-weight-medium)}
+.cc-vdetail h3{margin:0;font-size:var(--font-size-heading);font-weight:var(--font-weight-medium)}
+.cc-vnext{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;background:var(--color-panel);border:1px solid var(--color-border-line);border-left:3px solid var(--series-2);border-radius:var(--radius);padding:var(--pad-sm) var(--pad-md)}
+.cc-vnext strong{font-size:var(--font-size-caption);font-weight:var(--font-weight-medium);text-transform:uppercase;letter-spacing:.06em;color:var(--color-fg-muted)}
+.cc-vnext .cc-copy{margin-left:auto}
+.cc-vtiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:var(--gap-sm)}
+.cc-vtile{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--radius);padding:var(--pad-sm) var(--pad-md)}
+.cc-vtile b{display:block;font-size:20px;font-weight:var(--font-weight-medium);font-variant-numeric:tabular-nums}
+.cc-vtile span{font-size:var(--font-size-caption);color:var(--color-fg-muted)}
+.cc-vtile.cc-alert b{color:var(--color-bad)}
+.cc-vcols{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:var(--gap-md);align-items:start}
+.cc-vside{display:grid;gap:var(--gap-md);min-width:0}
+.cc-ent{border-bottom:1px solid var(--color-border-line)}
+.cc-ent:last-child{border-bottom:0}
+.cc-ent summary{display:grid;grid-template-columns:minmax(0,15rem) minmax(3rem,1fr) auto;gap:var(--gap-sm);align-items:center;padding:6px 0;cursor:pointer;list-style:none}
+.cc-ent summary::-webkit-details-marker{display:none}
+.cc-ent summary:focus-visible{outline:2px solid var(--color-fg);outline-offset:2px}
+.cc-ent .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--font-size-body)}
+.cc-ent .nm::before{content:"\25B8";display:inline-block;width:.9rem;color:var(--color-fg-muted);transition:transform .15s}
+.cc-ent[open] .nm::before{transform:rotate(90deg)}
+.cc-ent .nm .cc-chip{margin:0 var(--gap-xs) 0 0}
+.cc-bar{display:flex;height:10px;border-radius:3px;overflow:hidden}
+.cc-bar i{display:block;height:100%}
+.cc-vn{font-size:var(--font-size-caption);color:var(--color-fg-muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cc-vtasks{list-style:none;margin:0 0 8px .9rem;padding:0 0 0 .7rem;border-left:2px solid var(--color-border-line);display:grid}
+.cc-vtasks.cc-flat{margin:0;padding:0;border-left:0}
+.cc-vtask{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding:5px 0;border-bottom:1px solid var(--color-border-line);font-size:var(--font-size-body)}
+.cc-vtask:last-child{border-bottom:0}
+.cc-vtask .cc-copy{margin-left:auto}
+.cc-vmeta{font-size:var(--font-size-caption);color:var(--color-fg-muted)}
+.cc-vmeta.cc-late{color:var(--color-bad)}
+@media (max-width:899px){.cc-vaults{grid-template-columns:1fr}.cc-vlist{grid-template-columns:repeat(auto-fill,minmax(9rem,1fr))}.cc-vcols{grid-template-columns:1fr}}
 /* a desktop window shows one view at a time, fitted to it: the page never scrolls, a view that overflows scrolls inside, and the map scales to the room it has */
 @media (min-width:900px) and (min-height:560px){
 html,body{height:100%}
@@ -146,6 +188,10 @@ body{box-sizing:border-box;overflow:hidden}
 .cc{height:100%;grid-template-rows:auto minmax(0,1fr);gap:var(--gap-md)}
 .cc-view{min-height:0;overflow:auto}
 #view-portfolio{overflow:hidden}
+#view-vaults{overflow:hidden}
+.cc-vaults{height:100%;align-items:stretch}
+.cc-vlist,.cc-vdetail{min-height:0;overflow-y:auto}
+.cc-vdetail{padding-right:4px}
 #view-today{grid-template-rows:auto minmax(0,1fr);align-content:stretch}
 #map{height:100%;box-sizing:border-box;grid-template-rows:auto minmax(0,1fr) auto}
 .cc-map{min-height:0;height:100%;grid-template-columns:minmax(0,1fr) 260px;align-items:stretch}
@@ -172,6 +218,7 @@ body{box-sizing:border-box;overflow:hidden}
       <h1 class="cc-title">Command center</h1>
       <nav class="cc-tabs" role="tablist" aria-label="Views">
         <button type="button" class="cc-tab" role="tab" id="tab-today" aria-controls="view-today" data-view="today">Today</button>
+        <button type="button" class="cc-tab" role="tab" id="tab-vaults" aria-controls="view-vaults" data-view="vaults">Vaults</button>
         <button type="button" class="cc-tab" role="tab" id="tab-portfolio" aria-controls="view-portfolio" data-view="portfolio">Portfolio</button>
       </nav>
     </div>
@@ -197,6 +244,10 @@ body{box-sizing:border-box;overflow:hidden}
     <p class="cc-note">Meetings and dated actions, day by day. An action for a meeting is folded into that meeting.</p>
     <div class="cc-days" data-draw="week" data-source="agenda tasks"></div>
   </section>
+  </div>
+
+  <div class="cc-view" id="view-vaults" role="tabpanel" aria-labelledby="tab-vaults" hidden>
+    <div class="cc-vaults" data-draw="vaults" data-source="details"></div>
   </div>
 
   <div class="cc-view" id="view-portfolio" role="tabpanel" aria-labelledby="tab-portfolio" hidden>
@@ -374,6 +425,120 @@ dash.draw('week', (box) => {
     }
     box.append(day);
   }
+});
+
+// the Vaults tab: one vault the operator keeps at a time, holding what its own dashboard shows
+let vaultPick = null;
+const dayDiff = (a, b) => Math.round((asDay(a) - asDay(b)) / 864e5);
+const cutText = (s, n) => (s && s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s || '');
+const byDue = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || rank(a) - rank(b);
+const vaultCounts = (v) => {
+  const open = v.tasks.filter((t) => !t.waiting);
+  return {open: open.length, late: open.filter((t) => t.due && t.due < META.today).length,
+    week: open.filter((t) => t.due && t.due >= META.today && dayDiff(t.due, META.today) <= 7).length,
+    undated: open.filter((t) => !t.due).length, waits: v.tasks.length - open.length};
+};
+const vaultTask = (t) => {
+  const li = make('li', 'cc-vtask');
+  li.append(make('span', null, (t.priority ? t.priority + ' ' : '') + t.headline));
+  if (t.due) {
+    const n = dayDiff(t.due, META.today);
+    li.append(make('span', 'cc-vmeta' + (n <= 0 ? ' cc-late' : ''), (t.recurring ? '\u{1F501} ' : '') + dayFmt(asDay(t.due)) + (t.time ? ' ' + t.time : '') + ' · ' + (n < 0 ? (-n) + 'd late' : n === 0 ? 'today' : 'in ' + n + 'd')));
+  }
+  li.append(make('span', 'cc-vmeta', t.where));
+  if (t.prompt) li.append(copyButton(t.prompt));
+  return li;
+};
+const vaultCard = (title, body) => { const c = make('section', 'cc-card'); c.append(make('h3', null, title), body); return c; };
+dash.draw('vaults', (box) => {
+  const d = dash.data('details');
+  box.replaceChildren();
+  if (d.status !== 'ok' || !d.data.length) { box.append(make('p', 'cc-note', 'No vault you keep was read.')); return; }
+  if (!d.data.some((v) => v.vault === vaultPick)) vaultPick = d.data[0].vault;
+  const list = make('nav', 'cc-vlist'), detail = make('div', 'cc-vdetail');
+  list.setAttribute('aria-label', 'Your vaults');
+  for (const v of d.data) {
+    const n = vaultCounts(v), b = make('button', 'cc-vbtn'), line = make('span', null, n.open + ' open');
+    b.type = 'button'; b.setAttribute('aria-pressed', String(v.vault === vaultPick));
+    if (n.late) { line.append(' · '); line.append(make('em', null, n.late + ' late')); }
+    if (v.triage.length) line.append(' · ' + v.triage.length + ' in triage');
+    b.append(make('b', null, v.vault), line);
+    b.addEventListener('click', () => { vaultPick = v.vault; dash.draw('vaults'); });
+    list.append(b);
+  }
+  box.append(list, detail);
+  const v = d.data.find((x) => x.vault === vaultPick), n = vaultCounts(v), na = v.next_action || {};
+  detail.append(make('h2', null, v.vault));
+  const nx = make('div', 'cc-vnext');
+  nx.append(make('strong', null, 'Next action'), make('span', null, na.text || 'Nothing is overdue or due this week.'));
+  if (na.where) nx.append(make('span', 'cc-vmeta', na.where));
+  if (na.prompt) nx.append(copyButton(na.prompt));
+  detail.append(nx);
+  const tiles = make('div', 'cc-vtiles');
+  for (const [num, label, alert] of [[n.open, 'open'], [n.late, 'late', n.late > 0], [n.week, 'due in 7 days'], [n.undated, 'undated'], [n.waits, 'waiting on others'], [v.triage.length, 'in triage'], [v.ideas.length, 'ideas']]) {
+    const tile = make('div', 'cc-vtile' + (alert ? ' cc-alert' : ''));
+    tile.append(make('b', null, String(num)), make('span', null, label));
+    tiles.append(tile);
+  }
+  detail.append(tiles);
+  // projects and areas, each opening on its own actions; one with something late or due within a week opens by itself
+  const ents = make('div');
+  const rows = v.entities.map((e) => ({e, mine: v.tasks.filter((t) => t.entity_key === e.key && !t.waiting).sort(byDue)})).filter((r) => r.mine.length);
+  const peak = Math.max(1, ...rows.map((r) => r.mine.length));
+  for (const {e, mine} of rows) {
+    const det = make('details', 'cc-ent'), sum = make('summary'), nm = make('span', 'nm');
+    const late = mine.filter((t) => t.due && t.due < META.today).length, up = mine.filter((t) => t.due && t.due >= META.today).length;
+    nm.append(make('span', 'cc-chip', e.bucket), document.createTextNode(e.label));
+    const track = make('div'), bar = make('div', 'cc-bar');
+    bar.style.width = (100 * mine.length / peak).toFixed(1) + '%';
+    for (const [k, c] of [[late, 'var(--color-bad)'], [up, 'var(--series-0)'], [mine.length - late - up, 'var(--chart-muted)']]) {
+      if (!k) continue;
+      const i = make('i'); i.style.width = (100 * k / mine.length).toFixed(2) + '%'; i.style.background = c; bar.append(i);
+    }
+    track.append(bar);
+    sum.append(nm, track, make('span', 'cc-vn', mine.length + ' open' + (late ? ' · ' + late + ' late' : '')));
+    const ul = make('ul', 'cc-vtasks');
+    for (const t of mine) ul.append(vaultTask(t));
+    det.append(sum, ul);
+    det.open = mine.some((t) => t.due && dayDiff(t.due, META.today) <= 7);
+    ents.append(det);
+  }
+  if (!rows.length) ents.append(make('p', 'cc-note', 'No open actions.'));
+  const cols = make('div', 'cc-vcols'), side = make('div', 'cc-vside');
+  cols.append(vaultCard('Projects and areas', ents), side);
+  // chase or drop: every wait on someone else, the oldest first
+  const waits = v.tasks.filter((t) => t.waiting).sort((a, b) => (a.waiting.since || '9999').localeCompare(b.waiting.since || '9999'));
+  const wl = make('ul', 'cc-vtasks cc-flat');
+  for (const t of waits) {
+    const li = make('li', 'cc-vtask');
+    li.append(make('span', null, (t.waiting.person || 'Someone') + ': ' + cutText(t.waiting.what || 'a reply', 140)));
+    if (t.waiting.since) { const days = dayDiff(META.today, t.waiting.since); li.append(make('span', 'cc-vmeta' + (days >= (v.chase_days || 14) ? ' cc-late' : ''), days + ' days')); }
+    li.append(make('span', 'cc-vmeta', t.where));
+    if (t.prompt) li.append(copyButton(t.prompt));
+    wl.append(li);
+  }
+  if (!waits.length) wl.append(make('li', 'cc-note', 'Nobody owes you anything on file.'));
+  side.append(vaultCard('Chase or drop', wl));
+  const il = make('ul', 'cc-vtasks cc-flat');
+  for (const i of v.ideas) {
+    const li = make('li', 'cc-vtask');
+    li.append(make('span', null, i.name), make('span', 'cc-vmeta', cutText(i.stage || '', 90)));
+    if (i.touched) li.append(make('span', 'cc-vmeta', 'touched ' + dayFmt(asDay(i.touched))));
+    il.append(li);
+  }
+  if (!v.ideas.length) il.append(make('li', 'cc-note', 'No ideas.'));
+  side.append(vaultCard('Ideas', il));
+  const tl = make('ul', 'cc-vtasks cc-flat');
+  for (const x of v.triage) {
+    const li = make('li', 'cc-vtask');
+    li.append(make('span', null, x.subject || x.name));
+    if (x.from) li.append(make('span', 'cc-vmeta', x.from));
+    tl.append(li);
+  }
+  if (v.triage_codes) tl.append(make('li', 'cc-vmeta', 'sign-in and security codes: ' + v.triage_codes));
+  if (!v.triage.length) tl.append(make('li', 'cc-note', 'Triage is empty.'));
+  side.append(vaultCard('In triage', tl));
+  detail.append(cols);
 });
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -1194,7 +1359,7 @@ const fitMap = () => {
 window.addEventListener('resize', () => { if (!document.getElementById('view-portfolio').hidden) dash.draw('cmap'); fitMap(); });
 for (const b of document.querySelectorAll('.cc-view-p, .cc-view-w')) b.addEventListener('click', fitMap);
 // the menu shows one view at a time, named in the address so a link opens it; the map is drawn again once its view has a size
-const VIEWS = ['today', 'portfolio'];
+const VIEWS = ['today', 'vaults', 'portfolio'];
 const showView = (name) => {
   const v = VIEWS.includes(name) ? name : 'today';
   for (const t of document.querySelectorAll('.cc-tab')) t.setAttribute('aria-selected', String(t.dataset.view === v));
