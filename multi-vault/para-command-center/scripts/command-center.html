@@ -520,17 +520,35 @@ function epcOf(vault, health) {
 const CRATE = '#C9A06A', HELD = '#F0A82A', LIT = '#F5D58A', HUB = '#4C5F8A', FLAG = '#E03A2E', SHED = {ok: '#3F9E5A', warn: '#E0A030', bad: '#E03A2E'};
 const ptsOf = (a) => a.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
 const lin = (a, b) => [a[0], a[1], a[0], a[1], b[0], b[1], b[0], b[1]];
+// a shade is a wash of light or dark over a face: a strength, or one of the scene's gradients
 function isoFace(g, P, fill, shade) {
   const e = svgEl('polygon', {points: ptsOf(P)}, g);
   e.style.fill = fill; e.style.stroke = fill; e.style.strokeWidth = 0.7; e.style.strokeLinejoin = 'round';
-  if (shade) { const o = svgEl('polygon', {points: ptsOf(P)}, g); o.style.fill = shade > 0 ? '#fff' : '#000'; o.style.fillOpacity = Math.abs(shade); o.style.pointerEvents = 'none'; }
+  if (shade) {
+    const o = svgEl('polygon', {points: ptsOf(P)}, g);
+    if (typeof shade === 'string') o.style.fill = shade;
+    else { o.style.fill = shade > 0 ? '#fff' : '#000'; o.style.fillOpacity = Math.abs(shade); }
+    o.style.pointerEvents = 'none';
+  }
   return e;
 }
-// A box seen from the front corner: the left face (y side), the right face (x side, where the street is) and the top.
+// A box seen from the front corner: the left face (y side), the right face (x side, where the street is) and the top, lit
+// from above the street: the top catches the light, the street side darkens toward its base, the far side is in shade,
+// and a building tall enough keeps a rim of light along its roof
 function isoBox(g, pr, x, y, z, a, b, h, fill) {
-  isoFace(g, [pr(x, y + b, z), pr(x + a, y + b, z), pr(x + a, y + b, z + h), pr(x, y + b, z + h)], fill, -0.22);
-  isoFace(g, [pr(x + a, y, z), pr(x + a, y + b, z), pr(x + a, y + b, z + h), pr(x + a, y, z + h)], fill, 0);
-  isoFace(g, [pr(x, y, z + h), pr(x + a, y, z + h), pr(x + a, y + b, z + h), pr(x, y + b, z + h)], fill, 0.26);
+  isoFace(g, [pr(x, y + b, z), pr(x + a, y + b, z), pr(x + a, y + b, z + h), pr(x, y + b, z + h)], fill, 'url(#cc-left)');
+  isoFace(g, [pr(x + a, y, z), pr(x + a, y + b, z), pr(x + a, y + b, z + h), pr(x + a, y, z + h)], fill, 'url(#cc-right)');
+  isoFace(g, [pr(x, y, z + h), pr(x + a, y, z + h), pr(x + a, y + b, z + h), pr(x, y + b, z + h)], fill, 'url(#cc-top)');
+  if (h < 20) return;
+  const rim = svgEl('polyline', {points: ptsOf([pr(x, y + b, z + h), pr(x + a, y + b, z + h), pr(x + a, y, z + h)])}, g);
+  rim.style.fill = 'none'; rim.style.stroke = '#fff'; rim.style.strokeOpacity = 0.4; rim.style.strokeWidth = 0.9; rim.style.strokeLinejoin = 'round'; rim.style.pointerEvents = 'none';
+}
+// the convex hull of plan points, for a shadow's outline
+function hullOf(pts) {
+  const p = pts.slice().sort((u, v) => u[0] - v[0] || u[1] - v[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (list) => { const h = []; for (const q of list) { while (h.length >= 2 && cross(h[h.length - 2], h[h.length - 1], q) <= 0) h.pop(); h.push(q); } h.pop(); return h; };
+  return half(p).concat(half(p.slice().reverse()));
 }
 
 function buildPortfolio(el, made, data, under, fit) {
@@ -543,7 +561,25 @@ function buildPortfolio(el, made, data, under, fit) {
   const cw = (fit && fit.w) || wrap.clientWidth || 960;
   const root = svgEl('svg', {class: 'cc-scene', role: 'img', 'aria-label': 'What came in this week by type, the sorting centre, and every vault as a building with its grade, triage items, held items and late actions'}, wrap);
   root.setAttribute('viewBox', `0 0 ${Math.round(cw)} 100`);
-  const gGround = svgEl('g', {}, root), gLane = svgEl('g', {}, root), gPipe = svgEl('g', {}, root), gP = svgEl('g', {}, root), gObj = svgEl('g', {}, root), gTag = svgEl('g', {}, root), gCard = svgEl('g', {}, root);
+  // the scene's light: washes for the faces, a sheen for the roads, a soft blur for shadows and spilled light, a tighter one for glowing windows
+  const defs = svgEl('defs', {}, root);
+  const grad = (id, x2, y2, stops) => {
+    const lg = svgEl('linearGradient', {id, x1: 0, y1: 0, x2, y2}, defs);
+    for (const [o, c, a] of stops) { const s = svgEl('stop', {offset: o}, lg); s.style.stopColor = c; s.style.stopOpacity = a; }
+  };
+  grad('cc-top', 1, 1, [[0, '#fff', 0.34], [1, '#fff', 0.14]]);
+  grad('cc-right', 0, 1, [[0, '#fff', 0.06], [1, '#000', 0.18]]);
+  grad('cc-left', 0, 1, [[0, '#000', 0.16], [1, '#000', 0.36]]);
+  grad('cc-sheen', 1, 0, [[0, '#fff', 0], [0.5, '#fff', 0.07], [1, '#fff', 0]]);
+  const blur = (id, sd) => { const f = svgEl('filter', {id, x: '-50%', y: '-50%', width: '200%', height: '200%'}, defs); svgEl('feGaussianBlur', {stdDeviation: sd}, f); };
+  blur('cc-soft', 4); blur('cc-glow', 2);
+  const gGround = svgEl('g', {}, root), gShade = svgEl('g', {filter: 'url(#cc-soft)', opacity: under ? 0.12 : 0.34}, root), gLight = svgEl('g', {filter: 'url(#cc-soft)', opacity: under ? 0.1 : 0.55}, root), gLane = svgEl('g', {}, root), gPipe = svgEl('g', {}, root), gP = svgEl('g', {}, root), gObj = svgEl('g', {}, root), gTag = svgEl('g', {}, root), gCard = svgEl('g', {}, root);
+  // a building's shadow on the ground, its footprint swept away from the light; a lit window's light spilled on the street in front of it
+  const castShadow = (pr, x, y, a, b, h) => {
+    const d = h * 0.3, P = [[x, y], [x + a, y], [x + a, y + b], [x, y + b]];
+    svgEl('polygon', {points: ptsOf(hullOf(P.concat(P.map(([px, py]) => [px - d, py + d]))).map(([px, py]) => pr(px, py)))}, gShade).style.fill = '#000';
+  };
+  const spill = (pr, x, y0, y1) => { svgEl('polygon', {points: ptsOf([pr(x, y0), pr(x + 12, y0), pr(x + 12, y1), pr(x, y1)])}, gLight).style.fill = LIT; };
   const pipes = [], anchors = new Map();
   if (under) { root.classList.add('under'); gObj.setAttribute('opacity', 0.28); }
   // the drawing is one unit to the pixel, so these are real sizes: the page's small text, and one step down for a second line
@@ -842,13 +878,16 @@ function buildPortfolio(el, made, data, under, fit) {
     clickable([tg, g, tile], 'vault:' + v.vault);
     const bx = lx + 5, by = ly + 9, ba = 38, bb = L - 18, bh = 40;
     const body = svgEl('g', {opacity: away ? 0.5 : gone ? 0.65 : null}, g);
+    castShadow(pr, bx, by, ba, bb, bh);
     isoBox(body, pr, bx, by, 0, ba, bb, bh, col);
     const days = parseInt(String(v.last_edit || ''), 10), lit = !gone && Number.isFinite(days) && days <= 2, fx = bx + ba + 0.3, ww = (bb - 12) / 3;
     for (let i = 0; i < 3; i++) {
-      const y0 = by + 8 + i * ww, y1 = y0 + ww - 6;
-      const wnd = svgEl('polygon', {points: ptsOf([pr(fx, y0, 17), pr(fx, y1, 17), pr(fx, y1, 30), pr(fx, y0, 30)])}, body);
+      const y0 = by + 8 + i * ww, y1 = y0 + ww - 6, pts = ptsOf([pr(fx, y0, 17), pr(fx, y1, 17), pr(fx, y1, 30), pr(fx, y0, 30)]);
+      if (lit) { const halo = svgEl('polygon', {points: pts, filter: 'url(#cc-glow)'}, body); halo.style.fill = LIT; halo.style.opacity = 0.85; }
+      const wnd = svgEl('polygon', {points: pts}, body);
       wnd.style.fill = lit ? LIT : '#1c1c1a'; wnd.style.fillOpacity = lit ? 0.95 : 0.45;
     }
+    if (lit) spill(pr, fx, by + 6, by + bb - 6);
     const vs = sites.filter((st) => st.serves === v.vault);
     if (vs.length) {
       const sg = svgEl('g', {'aria-label': vs[0].site}, g), sx = bx + ba * 0.55;
@@ -883,6 +922,7 @@ function buildPortfolio(el, made, data, under, fit) {
     const g = svgEl('g', {'aria-label': 'Sorting centre'}, gObj);
     clickable([g], HUB_ID);
     const bx = hx + 8, by = hy + 8, ba = HA - 30, bb = HB - 32, bh = 48;
+    castShadow(pr, bx, by, ba, bb, bh);
     isoBox(g, pr, bx, by, 0, ba, bb, bh, HUB);
     for (let i = 0; i < 3; i++) {
       const x0 = bx + 8 + i * (ba - 10) / 3, x1 = x0 + (ba - 10) / 3 - 8, fy = by + bb + 0.3;
@@ -898,6 +938,7 @@ function buildPortfolio(el, made, data, under, fit) {
     svgEl('polygon', {class: 'gl', points: ptsOf([pr(ex, ey), pr(ex + EA, ey), pr(ex + EA, ey + EB), pr(ex, ey + EB)])}, gGround);
     const g = svgEl('g', {'aria-label': 'API centre', class: 'ck', tabindex: 0, role: 'button'}, gObj), tg = svgEl('g', {class: 'tg ck'}, gTag);
     const bx = ex + 8, by = ey + 8, ba = EA - 30, bb = EB - 30, bh = 38;
+    castShadow(pr, bx, by, ba, bb, bh);
     isoBox(g, pr, bx, by, 0, ba, bb, bh, HUB);
     for (let i = 0; i < 2; i++) {
       const x0 = bx + 8 + i * (ba - 10) / 2, x1 = x0 + (ba - 10) / 2 - 8, fy = by + bb + 0.3;
@@ -952,7 +993,10 @@ function buildPortfolio(el, made, data, under, fit) {
     const roofs = [...lots.map((p) => [flatX(p.lx + 24, p.ly + 39) * gs + 28, roofY(p)]), [flatX(ex + 39, ey + 33) * gs + 100 * ts, (ex + ey + 72) * 0.5 - 38]];
     const OY = Math.max(yTop + 11 + 159 * gs, ...roofs.filter(([x]) => OX + x > DW - 220).map(([, ry]) => runsH + 22 + (13 + HT) * ts - ry * gs));
     const pr = (x, y, z = 0) => [OX + (x - y) * 0.866 * gs, OY + ((x + y) * 0.5 - z) * gs];
-    const road = (P) => svgEl('polygon', {class: 'rd', points: ptsOf(P)}, gGround);
+    const road = (P) => {
+      svgEl('polygon', {class: 'rd', points: ptsOf(P)}, gGround);
+      const sheen = svgEl('polygon', {points: ptsOf(P)}, gGround); sheen.style.fill = 'url(#cc-sheen)'; sheen.style.pointerEvents = 'none';
+    };
     const dashes = (p, q) => { const c = svgEl('line', {x1: p[0], y1: p[1], x2: q[0], y2: q[1], 'stroke-dasharray': '7 6', 'stroke-width': 1.2}, gGround); c.style.stroke = 'var(--color-bg)'; };
     for (const u of ups) {
       const pl = svgEl('polygon', {class: 'nb', points: ptsOf([pr(u.X - 14, u.top + 2), pr(u.X + L + G + 2, u.top + 2), pr(u.X + L + G + 2, -G - 6), pr(u.X - 14, -G - 6)])}, gGround);
