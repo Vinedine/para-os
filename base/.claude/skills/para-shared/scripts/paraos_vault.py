@@ -1839,12 +1839,13 @@ def over_grown_briefs(vault):
 
 
 def triage_items(vault):
-    """The direct file children of triage/. A `.gitkeep` is not an item, and a PDF and its
-    extracted markdown twin are one."""
+    """The direct file children of triage/. A hidden or system file is not an item, and a PDF
+    and its extracted markdown twin are one."""
     base = Path(vault) / "triage"
     if not base.is_dir():
         return []
-    files = [p for p in sorted(base.iterdir()) if p.is_file() and p.name != ".gitkeep"]
+    files = [p for p in sorted(base.iterdir()) if p.is_file() and not p.name.startswith(".")
+             and p.name.lower() not in ("desktop.ini", "thumbs.db")]
     pdfs = {p.stem for p in files if p.suffix.lower() == ".pdf"}
     return [p.name for p in files if not (p.suffix.lower() == ".md" and p.stem in pdfs)]
 
