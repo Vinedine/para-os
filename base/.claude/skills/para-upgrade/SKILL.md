@@ -52,7 +52,7 @@ Every `files` row, by `state`:
 - **missing**: copy in on one approval.
 - **edited**: bytes the kit never shipped: local work, a hand edit, or a copy taken from ahead of the ref. Show the row's `diff` and say what it shows; the operator decides each file: re-copy, keep, or carry the kit's change into the vault's wording.
 - **retired**: each deletion is its own question, per [operating-discipline.md](../para-shared/operating-discipline.md#deleting-a-file).
-- **no-master** or **own**: report it and leave it.
+- **no-master**, **own** or **ahead**: report it and leave it.
 
 A Reaction in `revision.entries` that names a row's file runs before that row is copied. A `core` row is a fixed file under `.claude/para-os/`: an edited one is re-copied, never kept or merged. `core.md` itself waits for Step 5, because it carries the revision.
 

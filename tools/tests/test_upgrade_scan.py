@@ -417,6 +417,39 @@ class StatesCase(CloneCase):
         self.assertFalse(any("escape" in path for path in states))
 
 
+class AheadCase(CloneCase):
+    """origin/main two commits past stable, each rewriting a skill file."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.main = cls.tmp / "with-main"
+        shutil.copytree(cls.clone, cls.main)
+        for text in ("# Notes v2.1\n", "# Notes v2.2\n"):
+            write(cls.main, "base/.claude/skills/para-notes/SKILL.md", text)
+            git_in(cls.main, "commit", "-q", "-am", text)
+        git_in(cls.main, "update-ref", "refs/remotes/origin/main", "HEAD")
+
+    def row(self, name, text, clone=None, newline="\n"):
+        v = self.vault(name)
+        write(v, ".claude/skills/para-notes/SKILL.md", text, newline)
+        return next(r for r in self.scan(v, clone=clone or self.main)[0]["files"]
+                    if r["path"] == ".claude/skills/para-notes/SKILL.md")
+
+    def test_bytes_main_holds_or_held_beyond_the_ref_are_ahead_with_no_diff(self):
+        for name, text, newline in (("main-now", "# Notes v2.2\n", "\n"),
+                                    ("main-then", "# Notes v2.1\n", "\r\n")):
+            row = self.row(name, text, newline=newline)
+            self.assertEqual(row["state"], "ahead", name)
+            self.assertNotIn("diff", row)
+
+    def test_bytes_main_never_held_stay_edited(self):
+        self.assertEqual(self.row("main-never", "# Notes v3\n")["state"], "edited")
+
+    def test_without_origin_main_a_copy_from_main_is_edited(self):
+        self.assertEqual(self.row("no-main", "# Notes v2.2\n", clone=self.clone)["state"], "edited")
+
+
 class RevisionCase(CloneCase):
     def test_equal_has_no_entries(self):
         report, _ = self.scan(self.vault("equal", marker="2026.10.01",
