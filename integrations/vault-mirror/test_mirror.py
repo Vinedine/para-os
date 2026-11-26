@@ -425,6 +425,14 @@ class Failures(MirrorCase):
         self.assertEqual((self.mirror / "shared.md").read_text(), "edited by someone else")
         self.assertIn("~ shared.md", self.message())
 
+    @unittest.skipUnless(os.name == "nt", "hidden and system are Windows file attributes")
+    def test_a_hidden_system_copy_in_the_mirror_is_still_overwritten(self):
+        self.commit_in_mirror({"shared.md": "old"})
+        write(self.vault / "shared.md", "edited by the drive")
+        subprocess.run(["attrib", "+h", "+s", str(self.mirror / "shared.md")], check=True)
+        self.run_mirror()
+        self.assertEqual((self.mirror / "shared.md").read_text(), "edited by the drive")
+
     def test_a_file_the_vault_will_not_let_be_read_still_stops_the_run(self):
         with mock.patch.object(mirror.shutil, "copy2", side_effect=PermissionError(13, "denied")), \
                 self.assertRaises(PermissionError):

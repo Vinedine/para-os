@@ -128,15 +128,15 @@ def long_path(path):
 
 
 def copy(src, dst):
-    """copy2, clearing a read-only flag that refuses the overwrite. A sync client can mark a
-    file read-only, copy2 carries the flag into the mirror, and the next overwrite or delete
-    there then fails with access denied, even for the owner."""
+    """copy2, deleting a copy that refuses the overwrite first. A sync client can mark a file
+    read-only, hidden or system, copy2 carries the flags into the mirror, and Windows then
+    refuses to overwrite it, even for the owner, while it still lets it be deleted."""
     try:
         shutil.copy2(src, dst)
     except PermissionError:
         if not dst.exists():
             raise
-        os.chmod(dst, stat.S_IWRITE)
+        remove(dst)
         shutil.copy2(src, dst)
 
 
