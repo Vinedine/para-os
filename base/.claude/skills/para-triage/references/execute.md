@@ -4,7 +4,7 @@
 
 ## Loose files
 
-- **Each move**: the `changed` re-check ([scripts.md](../../para-shared/scripts.md)), then `test -e "<dst>" && echo EXISTS`, a hit stopping the batch since `mv` clobbers. Create only folders an approval named, and repoint inbound references in the same step.
+- **Each move**: the `changed` re-check ([scripts.md](../../para-shared/scripts.md)), then [`move`](../../para-shared/operating-discipline.md#moving-an-entity-folder) into a folder that exists or an approval named.
 - **Delete** per [operating-discipline.md](../../para-shared/operating-discipline.md#deleting-a-file), after the same re-check and repoint.
 - **Create entity**: `/para-new` runs first and settles the entity; the item then files or [folds](filing.md#choose-a-destination-and-a-name-step-4) into whatever entity it ends on, or stays.
 - **Extract** outside the vault; **Split** by copying pages, never re-rendering them (`pypdf`'s `PdfWriter.add_page`).
