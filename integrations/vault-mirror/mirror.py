@@ -182,6 +182,13 @@ def staged(mirror):
     return groups["A"], groups["M"], groups["D"]
 
 
+def has_rules(exclude):
+    if not exclude.is_file():
+        return False
+    lines = exclude.read_text(encoding="utf-8", errors="replace").splitlines()
+    return any(line.strip() and not line.startswith("#") for line in lines)
+
+
 def counts(added, modified, deleted):
     return f"{len(added)} added, {len(modified)} modified, {len(deleted)} deleted"
 
@@ -217,6 +224,13 @@ def main(argv=None):
                  f"lives outside the vault, and the vault outside the mirror.")
     if not (mirror / GIT_DIR).is_dir():
         sys.exit(f"Not a git repository: {mirror}. The integration's README covers the setup.")
+    exclude = mirror / GIT_DIR / "info" / "exclude"
+    if not has_rules(exclude):
+        warning = (f"No ignore rules in {exclude}, so a run stops rather than commit every file "
+                   f"it copies: copy integrations/vault-mirror/info-exclude.template there first.")
+        if not args.dry_run:
+            sys.exit(warning)
+        print(warning + "\n", file=sys.stderr)
 
     # A finished run leaves the mirror committed, so uncommitted changes with no COPYING mark
     # mean someone edited the mirror, and copying now would discard that work. A dry run writes
