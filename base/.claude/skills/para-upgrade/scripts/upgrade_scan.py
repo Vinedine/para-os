@@ -518,8 +518,8 @@ def main(argv=None):
                                 paraos_home_dir(args.paraos_home) / "para-os")
     emit(report, args.indent)
     if code == 3:
-        print(f"upgrade_scan: not a vault root: {args.vault} (projects/, areas/ or archive/, "
-              f"and CLAUDE.md)", file=sys.stderr)
+        print(f"upgrade_scan: not a vault root: {args.vault} (missing "
+              f"{', '.join(report['vault']['missing'])})", file=sys.stderr)
     elif code:
         print(f"upgrade_scan: {report['clone']['error']}", file=sys.stderr)
     return code

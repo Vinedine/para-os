@@ -136,7 +136,7 @@ class VaultRoot(unittest.TestCase):
         self.assertEqual(code, 3)
         out = json.loads(buf.getvalue())
         self.assertFalse(out["vault"]["root"])
-        self.assertIn("projects/", out["vault"]["missing"])
+        self.assertIn("CLAUDE.md", out["vault"]["missing"])
         self.assertEqual(out["vault"]["hint"], {"name": "BF", "path": str(vault)})
 
     def test_exit_3_names_no_hint_when_the_registry_holds_nothing(self):
@@ -165,8 +165,7 @@ class VaultRoot(unittest.TestCase):
         self.assertEqual(code, 3)
         out = json.loads(buf.getvalue())
         self.assertFalse(out["vault"]["root"])
-        self.assertEqual(set(out["vault"]["missing"]),
-                         {"projects/", "areas/ or archive/", "CLAUDE.md"})
+        self.assertEqual(set(out["vault"]["missing"]), {"projects/, areas/ or archive/", "CLAUDE.md"})
 
 
 # --------------------------------------------------------------------------------- entity
