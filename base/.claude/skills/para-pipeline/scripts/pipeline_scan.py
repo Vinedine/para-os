@@ -221,7 +221,7 @@ def next_step_for_row(vault, today, reg_path, row, header_cols, live_docs):
 
     next_key = next((k for k in header_cols if k.strip().lower() == "next step"), None)
     text = (row.get(next_key) or "").strip() if next_key else ""
-    if text in ("", "-") or text.lower().startswith("none planned"):
+    if text in ("", "-") or re.match(r"none\b", text, re.IGNORECASE):
         return None
     d = step_date(text)
     return {"text": text, "date": iso(d), "days": (d - today).days if d else None,
