@@ -56,6 +56,7 @@ def logbook(rev, body):
 
 MIRROR_OLD = "WALK = 'past errors'\n"
 MIRROR_NEW = "# para-os-integration: vault-mirror 2026.10.01\nWALK = 'stop'\n"
+FRESH = "# para-os-integration: fresh 2026.11.01\nNEW = 1\n"
 RULE = "---\npaths:\n  - \"**\"\n---\n# Filing {}\n"
 PREFS = "# Preferences\n\nHow {}.\n\n## Preferences\n\n"
 OLD_ENTRY = "## 2026.09.01\n\n- Start a notes log: `notes/`\n"
@@ -418,7 +419,7 @@ class StatesCase(CloneCase):
 
 
 class AheadCase(CloneCase):
-    """origin/main two commits past stable, each rewriting a skill file."""
+    """origin/main past stable: two commits rewriting a skill file, one adding an integration."""
 
     @classmethod
     def setUpClass(cls):
@@ -428,6 +429,9 @@ class AheadCase(CloneCase):
         for text in ("# Notes v2.1\n", "# Notes v2.2\n"):
             write(cls.main, "base/.claude/skills/para-notes/SKILL.md", text)
             git_in(cls.main, "commit", "-q", "-am", text)
+        write(cls.main, "integrations/fresh/fresh.py", FRESH)
+        git_in(cls.main, "add", "-A")
+        git_in(cls.main, "commit", "-q", "-m", "fresh")
         git_in(cls.main, "update-ref", "refs/remotes/origin/main", "HEAD")
 
     def row(self, name, text, clone=None, newline="\n"):
@@ -448,6 +452,12 @@ class AheadCase(CloneCase):
 
     def test_without_origin_main_a_copy_from_main_is_edited(self):
         self.assertEqual(self.row("no-main", "# Notes v2.2\n", clone=self.clone)["state"], "edited")
+
+    def test_an_integration_only_main_ships_is_ahead(self):
+        files = {"resources/scripts/fresh.py": FRESH}
+        for clone, state in ((self.main, "ahead"), (self.clone, "no-master")):
+            report, _ = self.scan(self.vault(f"fresh-{state}", files=files), clone=clone)
+            self.assertEqual(self.states(report)["resources/scripts/fresh.py"], state)
 
 
 class RevisionCase(CloneCase):
