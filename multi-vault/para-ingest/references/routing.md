@@ -2,7 +2,7 @@
 
 The only question: **which of its candidate vaults does this thread belong to?** Not what it means, not what to do about it, not how urgent it is. Those are `/para-triage`'s, in the vault the thread lands in, with the operator present.
 
-A thread's candidates are the vaults that declared the mailbox it came from. Declaring is the consent: a vault opts out of a mailbox by deleting that row from its `## Triage sources` block. `route` has already applied rule 1, a counterparty's address found in one vault's contacts or lifecycle homes, so what reaches you is undecided or narrowed: `contacts` names the vaults each known address was found in, and `boards` a sender's domain a candidate's lifecycle homes hold. A board domain is evidence, never a decision on its own, and a free-mail domain is none.
+A thread's candidates are the vaults that declared the mailbox it came from. Declaring is the consent: a vault opts out of a mailbox by deleting that row from its `## Triage sources` block. `route` has already applied rule 1, a counterparty's address found in one vault's contacts or lifecycle homes, so what reaches you is undecided or narrowed: `contacts` names the vaults each known address was found in.
 
 ## Judge subject and snippet
 

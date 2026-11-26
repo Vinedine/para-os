@@ -56,9 +56,8 @@ window), the plan's `undelivered`, `resolved` and `carry_over`, and a `source_pl
 the mailboxes planned, read and errored. A fetch script that failed is errored, and so is each
 connector mailbox passed as `--unread`, one the model could not read, which also lands in
 `errors`. stdout holds the counts, each undecided thread's subject, sender, snippet,
-candidates, `contacts` and `boards` (a domain a candidate's lifecycle homes hold an address
-at: evidence, never a decision), each candidate's purpose and `Relevant when` once, and the
-decided threads by subject and sender.
+candidates and `contacts`, each candidate's purpose and `Relevant when` once, and the decided
+threads by subject and sender.
 
 Refused with exit 2: no registry, a ledger that does not parse (by either command), a work
 folder with no plan, a connector thread for a mailbox the plan does not hold or missing what
@@ -463,7 +462,7 @@ def addresses_in(root, homes):
 
 
 class VaultIndex:
-    """Per vault, read once: the addresses rule 1 searches, its writers' and its boards'."""
+    """Per vault, read once: the addresses rule 1 searches, less its writers'."""
 
     def __init__(self, entries):
         self.entries, self.cache = entries, {}
@@ -471,14 +470,11 @@ class VaultIndex:
     def get(self, name):
         if name not in self.cache:
             root = Path(str(self.entries[name].get("path")))
-            known = addresses_in(root, home_paths(root))
-            boards = addresses_in(root, home_paths(root)[1:])
             writers = set()
             for row in roster(root) or []:
                 cards = sorted((root / "areas" / "network").rglob(f"{row['card']}.md"))
                 writers |= addresses_in(root, cards)
-            self.cache[name] = {"known": known - writers,
-                                "domains": {a.split("@", 1)[1] for a in boards - writers}}
+            self.cache[name] = addresses_in(root, home_paths(root)) - writers
         return self.cache[name]
 
 
@@ -561,7 +557,7 @@ def rule_one(thread, candidates, index):
             senders.append(sender)
     hits = {}
     for sender in senders:
-        vaults = [v for v in candidates if sender in index.get(v)["known"]]
+        vaults = [v for v in candidates if sender in index.get(v)]
         if vaults:
             hits[sender] = vaults
     single = {vaults[0] for vaults in hits.values() if len(vaults) == 1}
@@ -643,11 +639,6 @@ def route(work, connectors=None, paraos_home=None, unread=()):
                     candidates=thread["candidates"], resurfaced=thread["resurfaced"])
         if hits:
             item["contacts"] = hits
-        domains = {address(m.get("from")).partition("@")[2] for m in thread["messages"]}
-        boards = {d: [v for v in thread["candidates"] if d in index.get(v)["domains"]]
-                  for d in sorted(domains) if d}
-        if any(boards.values()):
-            item["boards"] = {d: vs for d, vs in boards.items() if vs}
         to_judge.append(item)
         for v in thread["candidates"]:
             vaults.setdefault(v, {
