@@ -109,7 +109,7 @@ No amount of care here makes that field vary, and inventing a livelier value wou
 
 `last_prompt_tools: 0` says the final request produced no tool call. That is a fact and not a verdict: a question answered in prose looks identical here to one abandoned.
 
-A prompt is recorded as typed, except that a path in it outside the vault becomes `<outside the vault>`. A credential pasted into one is recorded too: the Bash redaction below does not cover that, and nothing can, so switch `record_prompts` off in a vault where that is a real risk.
+A prompt is recorded as typed, except that a path outside the vault becomes `<outside the vault>`, a URL's query string `[redacted: query]` and an access key or other token `[redacted: token]`. A password typed as plain words is still recorded, so switch `record_prompts` off where that is a real risk.
 
 Three refusals, each closing a way this could quietly become surveillance:
 
