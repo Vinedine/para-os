@@ -1075,16 +1075,16 @@ class Health(VaultCase):
         return scan(self.vault, self.today, paraos_home=self.home, model=model)["health"]
 
     def arrived(self, rel, days):
-        """When `rel` arrived, patched: no call sets a creation or change time on every platform."""
+        """When `rel` arrived, patched: no call sets a change time on every platform."""
         stamp = datetime.combine(self.today - timedelta(days=days), time(12)).timestamp()
-        target, real = self.vault / rel, Path.stat
+        name, real = Path(rel).name, Path.stat
 
         def stat(path, *args, **kwargs):
             st = real(path, *args, **kwargs)
-            if path != target:
+            if Path(path).name != name:
                 return st
             fields = {k: getattr(st, k) for k in dir(st) if k.startswith("st_")}
-            return SimpleNamespace(**dict(fields, st_birthtime=stamp, st_ctime=stamp))
+            return SimpleNamespace(**dict(fields, st_ctime=stamp))
         return mock.patch.object(Path, "stat", stat)
 
     def test_an_old_triage_item_needs_care_and_a_new_one_is_ok(self):

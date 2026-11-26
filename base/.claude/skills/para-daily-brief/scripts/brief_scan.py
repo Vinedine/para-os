@@ -500,17 +500,17 @@ def deep_clean_due(vault, today, paraos_home=None):
 
 
 def triage_age(vault, names, today):
-    """Days the oldest loose item has sat in `triage/`, from when it arrived: its creation where
-    the filesystem records one, else its last status change, never its modified date, which a
-    copied file brings from wherever it was. None where `triage/` holds nothing."""
+    """Days the oldest loose item has sat in `triage/`, from when it arrived: `st_ctime`, its
+    creation on Windows and its last status change elsewhere. Never its modified date, which a
+    copied file brings from wherever it was, nor macOS's birth time, which follows an older
+    modified date back. None where `triage/` holds nothing."""
     days = []
     for name in names:
         try:
             st = (Path(vault) / "triage" / name).stat()
         except OSError:
             continue
-        stamp = getattr(st, "st_birthtime", None) or st.st_ctime
-        days.append((today - date.fromtimestamp(stamp)).days)
+        days.append((today - date.fromtimestamp(st.st_ctime)).days)
     return max(days) if days else None
 
 
