@@ -125,16 +125,24 @@ class VaultCase(unittest.TestCase):
 # ------------------------------------------------------------------------------ preconditions
 
 class DeepCleanStamp(VaultCase):
-    """Phase 3 dates its run outside the vault, for the daily brief; no other phase does."""
+    """`--stamp` dates a pass inside the vault, for the brief on every machine; no phase does."""
 
-    def test_only_phase_3_writes_its_date_under_the_vaults_name(self):
+    def test_only_stamp_writes_the_date_and_only_in_the_vault(self):
         write(self.root, "CLAUDE.md", "# Vault\n")
-        stamp = self.home / "data" / "deep-clean" / f"{self.root.name}.txt"
-        self.run_scan("1")
-        self.run_scan("4")
+        stamp = self.root / "resources" / "logs" / "deep-clean.txt"
+        for phase in ("1", "3", "4"):
+            self.run_scan(phase)
         self.assertFalse(stamp.exists())
-        self.run_scan("3")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["--vault", str(self.root), "--stamp", "--today", "2026-09-22"]), 0)
         self.assertEqual(stamp.read_text(encoding="utf-8"), "2026-09-22\n")
+        self.assertFalse((self.home / "data" / "deep-clean").exists())
+
+    def test_the_stamp_is_no_finding_of_any_phase(self):
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "resources/logs/deep-clean.txt", "2026-09-01\n")
+        for phase in ("1", "3", "4"):
+            self.assertNotIn("deep-clean.txt", json.dumps(self.run_scan(phase)), phase)
 
 
 class AuditRecord(VaultCase):
@@ -1343,6 +1351,20 @@ class BriefsToRead(VaultCase):
                          [{"file": "projects/acme/brief.md", "lines": 16, "reasons": ["grown"]}])
         self.assertEqual((got["briefs_skipped"], got["growth"]),
                          (["projects/calm/brief.md"], "measured"))
+
+    def test_growth_is_measured_from_the_newer_of_the_vault_and_machine_stamps(self):
+        git_init(self.root)
+        write(self.root, "CLAUDE.md", "# Vault\n")
+        write(self.root, "projects/acme/brief.md", "# Acme\n" + "line\n" * 9)
+        git_commit_at(self.root, "2026-09-01")
+        write(self.root, "projects/acme/brief.md", "# Acme\n" + "line\n" * 15)
+        git_commit_at(self.root, "2026-09-10")
+        grown = lambda: [b["file"] for b in self.run_scan("3")["phase3"]["briefs_to_read"]]
+        write(self.root, "resources/logs/deep-clean.txt", "2026-09-05\n")
+        self.assertEqual(grown(), ["projects/acme/brief.md"])
+        write(self.root, "resources/logs/deep-clean.txt", "2026-09-12\n")
+        write(self.home, f"data/deep-clean/{self.root.name}.txt", "2026-09-05\n")
+        self.assertEqual(grown(), [])
 
     def test_a_brief_holding_more_log_entries_than_open_actions_is_read(self):
         write(self.root, "CLAUDE.md", "# Vault\n")

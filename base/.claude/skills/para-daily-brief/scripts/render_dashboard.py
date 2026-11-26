@@ -287,7 +287,7 @@ HEALTH_SIGNALS = (
     ("auto_triage", "Auto-triage", "The last unattended triage run, and whether a proposal waits.",
      "It files the easy items, so a person decides only the rest.",
      "Read a waiting proposal in the next /para-triage."),
-    ("deep_clean", "Deep clean", "When /para-deep-clean last ran its full pass on this machine.",
+    ("deep_clean", "Deep clean", "When a /para-deep-clean pass last ran.",
      "It catches what a daily brief cannot: stale briefs, dangling links, overgrown files.",
      "Run /para-deep-clean once a month."),
     ("template", "Template", "Template revisions the vault has not had.",
@@ -462,7 +462,7 @@ def mechanical_flags(scan):
     due = raised.get("deep_clean_due")
     if due:
         out.append(f"**Last `/para-deep-clean` {due['last']}** ({due['days']} days ago)"
-                   if due["last"] else "**No `/para-deep-clean` recorded on this machine**")
+                   if due["last"] else "**No `/para-deep-clean` recorded**")
     for r in raised.get("silent_sources") or []:
         out.append({"text": f"**{r['source']}: ledger unreadable** - its silence is unknown"
                     if r.get("error") else

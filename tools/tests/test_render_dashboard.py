@@ -332,7 +332,7 @@ class Mechanical(DashboardCase):
         self.assertIn("<b>1 done item with its box open</b> (areas/busy/actions.md:15)", text)
 
     def test_a_deep_clean_due_is_worded_with_its_date_or_as_never_recorded(self):
-        self.assertIn("<b>No <code>/para-deep-clean</code> recorded on this machine</b>",
+        self.assertIn("<b>No <code>/para-deep-clean</code> recorded</b>",
                       " ".join(f["html"] for f in self.page()["flags"]))
         write(self.home, "data/deep-clean/vault.txt", "2026-08-01\n")
         self.assertIn("<b>Last <code>/para-deep-clean</code> 2026-08-01</b> (45 days ago)",
