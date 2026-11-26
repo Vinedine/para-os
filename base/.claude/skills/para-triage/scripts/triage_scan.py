@@ -217,9 +217,11 @@ def sources_block(vault, vault_name, ingest, newest_write, writers=None, me=None
 
     rows = []
     for row in src["rows"]:
-        other = reserved_for(row, writers, me)
-        if other:
-            plan, reason = "skip", f"pulled by {other} - skipped"
+        verdict, detail = reserved_for(row, writers, me)
+        if verdict == "skip":
+            plan, reason = "skip", f"pulled by {detail} - skipped"
+        elif verdict == "held":
+            plan, reason = "held", f"{detail} - held"
         else:
             plan, reason = row_plan(row, ingest["covered"], vault_name, declaring_vaults,
                                     errors_list, sync_runs, ingest["reason"])

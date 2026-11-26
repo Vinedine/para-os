@@ -33,8 +33,9 @@ Staged from an ingest_scan.py work folder, it then deletes the run file, `connec
 the `fetch-*.json` beside it, so no message text outlives the run.
 
 Refused with exit 2 before anything is written: a thread left with no routing decision, a
-decision for no thread in the run, on a thread already decided, or naming a vault outside its
-candidates, a route to a vault this machine does not ingest, a routed thread missing
+decision for no thread in the run, on a thread already decided, naming a vault outside its
+candidates, or whose reason's `rule:` or `purpose:` names a registered vault it is not routed
+to, a route to a vault this machine does not ingest, a routed thread missing
 what its note needs, a message no dedup key or received instant fits, an unparseable ledger
 or registry, or a run whose log already exists.
 
@@ -98,6 +99,7 @@ SUBJECT_CAP = 80
 HOSTILE_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 EDGES_RE = re.compile(r"^[ .]+|[ .]+$")
 MESSAGE_ID_RE = re.compile(r"^- \*\*Message id:\*\* (.*)$", re.MULTILINE)
+REASON_VAULT_RE = re.compile(r"\b(?:rule|purpose):([^;,]+)", re.IGNORECASE)
 
 
 def safe_subject(subject):
@@ -164,7 +166,13 @@ def checked(run, vaults):
     return threads
 
 
-def decided(run, decisions):
+def named_vault(text, names):
+    """The longest of `names` that `text` is, or opens followed by a space, any case."""
+    return max((n for n in names if text.lower() == n.lower()
+                or text.lower().startswith(n.lower() + " ")), key=len, default=None)
+
+
+def decided(run, decisions, registered):
     """The run with the model's decisions filled in: a route, within the thread's
     `candidates`, for a thread left `routed: null`, or a sign-in flag for any thread."""
     run = json.loads(json.dumps(run))
@@ -191,6 +199,11 @@ def decided(run, decisions):
             if name not in candidates:
                 raise ValueError(f"{where}: {name} is not among its candidates "
                                  f"({', '.join(candidates) or 'none'})")
+        for text in REASON_VAULT_RE.findall(str(decision["reason"])):
+            name = named_vault(text.strip(), registered)
+            if name and name not in routed:
+                raise ValueError(f"{where}: its reason names {name}, which it is not routed "
+                                 f"to ({', '.join(routed) or 'none'})")
         thread.update(routed=routed, reason=decision["reason"])
     return run
 
@@ -262,7 +275,7 @@ def stage(run, paraos_home=None, decisions=None):
     if not vaults:
         raise ValueError(f"no registry at {home / 'vaults.json'}, or it does not parse")
     if decisions is not None:
-        run = decided(run, decisions)
+        run = decided(run, decisions, [n for n in vaults if isinstance(n, str)])
     threads = checked(run, vaults)
     exclusions, exclusions_error = load_exclusions(home)
     kept, dropped, exclusion_counts = apply_exclusions(threads, exclusions)

@@ -8,9 +8,10 @@
 
 `prepare` reads the registry and the `## Triage sources` of each vault this machine ingests
 (`active: true`, no `machine`), skips a row a `pulled by` marker reserves for another roster
-writer, and groups the connector and fetch-script rows by mailbox. A vault with no readable
-`CLAUDE.md` is an error row that stays a candidate for the mailboxes the newest run log
-listed it under.
+writer, lists under `held` (vault, source, line, why) and pulls nothing of a row naming a
+puller it cannot confirm (`paraos_vault.reserved_for`), and groups the connector and
+fetch-script rows by mailbox. A vault with no readable `CLAUDE.md` is an error row that stays
+a candidate for the mailboxes the newest run log listed it under.
 
 It re-checks the newest earlier write log's `undelivered`: a record is `resolved` where the
 ingest ledger's watermark reaches its `received`, or where every owed vault holds the thread,
@@ -329,7 +330,7 @@ def prepare(mode, paraos_home=None, now=None, days=None):
     invocation = f"/para-ingest {mode}" + (f" --days {days}" if days else "")
     logs, ledger = ingest_logs(home), read_ledger(home)
     card = operator_card(home)
-    vaults, mailboxes, syncs, skipped, errors = [], {}, [], [], []
+    vaults, mailboxes, syncs, skipped, held_rows, errors = [], {}, [], [], [], []
 
     for entry in entries:
         if not ingested_here(entry):
@@ -347,10 +348,13 @@ def prepare(mode, paraos_home=None, now=None, days=None):
         writers = roster(root)
         me = writer(root, card) if writers else None
         for row in sources["rows"]:
-            other = reserved_for(row, writers, me)
-            if other or row["kind"] in SKIPPED_KIND:
+            verdict, detail = reserved_for(row, writers, me)
+            if verdict == "held":
+                held_rows.append({"vault": name, "source": row["source"], "line": row["line"],
+                                  "reason": detail})
+            elif verdict == "skip" or row["kind"] in SKIPPED_KIND:
                 skipped.append({"vault": name, "source": row["source"],
-                                "reason": f"pulled by {other}" if other
+                                "reason": f"pulled by {detail}" if verdict == "skip"
                                 else SKIPPED_KIND[row["kind"]]})
             elif row["kind"] == "sync-script":
                 syncs.append((name, root, row["path"]))
@@ -423,7 +427,7 @@ def prepare(mode, paraos_home=None, now=None, days=None):
                             "since": held["since"]}
                            for mb, held in mailboxes.items() if held["kind"] == "connector"],
             "fetch_scripts": fetch_runs, "sync_runs": sync_runs, "skipped": skipped,
-            "errors": errors,
+            "held": held_rows, "errors": errors,
             "drives": down_drives([(v["name"], v["path"], bool(v["error"])) for v in vaults])}
 
 

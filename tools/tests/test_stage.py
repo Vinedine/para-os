@@ -415,6 +415,33 @@ class Decisions(StageCase):
             self.decide([self.undecided(candidates=["alpha"])], [self.decision()])
         self.assertIn("beta is not among its candidates", str(refused.exception))
 
+    def test_a_reason_naming_a_vault_it_is_not_routed_to_is_refused(self):
+        for reason in ("rule: alpha Relevant when", "purpose: Alpha",
+                       "contact: anna@example.org (alpha, beta); rule: alpha Relevant when"):
+            with self.subTest(reason=reason), self.assertRaises(ValueError) as refused:
+                self.decide([self.undecided()], [self.decision(reason=reason)])
+            self.assertIn("its reason names alpha, which it is not routed to",
+                          str(refused.exception))
+
+    def test_a_reason_naming_only_vaults_it_is_routed_to_passes(self):
+        for n, reason in enumerate(("purpose: beta", "rule: misc Relevant when",
+                                    "contact: anna@example.org (alpha, beta); "
+                                    "rule: beta Relevant when")):
+            with self.subTest(reason=reason):
+                run = self.run_input("preview", threads=[self.undecided()],
+                                     started_at=f"2026-10-24T12:00:0{n}+00:00")
+                summary = stage(run, self.home, decisions=[self.decision(reason=reason)])
+                self.assertEqual(summary["counts"]["per_vault"]["beta"], 1)
+
+    def test_a_vault_whose_name_begins_another_is_not_read_into_it(self):
+        registry = json.loads((self.home / "vaults.json").read_text(encoding="utf-8"))
+        (self.home / "vaults.json").write_text(
+            json.dumps(registry + [dict(registry[1], name="beta team")]), encoding="utf-8")
+        summary = self.decide([self.undecided(candidates=["alpha", "beta team"])],
+                              [self.decision(routed=["beta team"],
+                                             reason="rule: beta team Relevant when")])
+        self.assertEqual(summary["counts"]["per_vault"]["beta team"], 1)
+
     def test_a_decision_on_a_decided_thread_is_refused(self):
         with self.assertRaises(ValueError) as refused:
             self.decide([self.thread()], [self.decision()])

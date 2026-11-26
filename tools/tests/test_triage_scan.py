@@ -1172,7 +1172,8 @@ class Writer(VaultCase):
 
 
 class PulledBy(VaultCase):
-    """A row a `pulled by <name>` reserves for one roster writer is pulled on their runs only."""
+    """A row a `pulled by <name>` reserves for one roster writer is pulled on their runs only,
+    and one naming a puller the vault cannot confirm on none."""
 
     ROWS = [
         "| sam-mail | connector: google-workspace | `sam@biz.example`, pulled by Sam Peeters "
@@ -1184,6 +1185,7 @@ class PulledBy(VaultCase):
         "| shared | connector: google-workspace | `info@biz.example` | Everything. |",
         "| stranger | connector: google-workspace | `x@biz.example`, pulled by Lee Wong "
         "| Other. |",
+        "| sam-phone | connector: google-workspace | `phone@biz.example` | Sam pulls it. |",
     ]
 
     def plans(self, card=None, roster=True):
@@ -1210,18 +1212,22 @@ class PulledBy(VaultCase):
         self.assertEqual([got[s][0] for s in ("sam-mail", "sam-home", "sam-notes", "shared")],
                          ["pull", "pull", "run", "pull"])
 
-    def test_a_name_the_roster_does_not_hold_skips_nothing(self):
-        self.assertEqual(self.plans("robin-maes")["stranger"][0], "pull")
+    def test_a_name_the_roster_does_not_hold_or_a_puller_named_in_words_is_held(self):
+        for card in ("robin-maes", "sam-peeters"):
+            got = self.plans(card)
+            self.assertEqual((got["stranger"][0], got["sam-phone"][0]), ("held", "held"))
+        self.assertEqual(got["stranger"][1],
+                         "pulled by Lee Wong, who is not on the roster - held")
 
-    def test_with_no_running_writer_every_reserved_row_is_skipped(self):
+    def test_with_no_running_writer_every_reserved_row_is_held(self):
         got = self.plans()
         self.assertEqual({s: got[s][0] for s in got},
-                         {"sam-mail": "skip", "sam-home": "skip", "sam-notes": "skip",
-                          "shared": "pull", "stranger": "pull"})
+                         {"sam-mail": "held", "sam-home": "held", "sam-notes": "held",
+                          "shared": "pull", "stranger": "held", "sam-phone": "held"})
 
-    def test_a_vault_with_no_roster_ignores_the_marker(self):
+    def test_a_vault_with_no_roster_holds_every_reserved_row(self):
         got = self.plans("robin-maes", roster=False)
-        self.assertNotIn("skip", {plan for plan, _ in got.values()})
+        self.assertEqual({s for s in got if got[s][0] == "held"}, set(got) - {"shared"})
 
 
 # -------------------------------------------------------------------------------- snapshot

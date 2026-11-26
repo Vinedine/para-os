@@ -139,6 +139,12 @@ def connector_row(mailbox, relevant="Client mail.", server="google-workspace"):
     return f"| work | connector: {server} | `{mailbox}` | {relevant} |"
 
 
+TEAM = ("# Team\n\n## Who writes this vault\n\n| Person | Role |\n|---|---|\n"
+        "| [Me](areas/network/me.md) | keeper |\n"
+        "| [Sam](areas/network/sam.md) | member |\n")
+SAM_ROW = f"| sam | connector: google-workspace | `{SHARED}`, pulled by Sam | Sam's mail. |"
+
+
 # A thread an earlier write run staged in alpha and still owed beta, as stage.py logs it.
 OWED = {"mailbox": WORK, "thread_id": "t9", "subject": "Lease renewal",
         "routed": ["alpha", "beta"], "delivered": ["alpha"], "owed": ["beta"],
@@ -218,19 +224,42 @@ class Plan(Case):
         self.assertEqual(sorted(s["source"] for s in got["skipped"]), ["calls", "docs"])
 
     def test_a_row_another_writer_pulls_is_skipped(self):
-        claude = ("# Team\n\n## Who writes this vault\n\n| Person | Role |\n|---|---|\n"
-                  "| [Me](areas/network/me.md) | keeper |\n"
-                  "| [Sam](areas/network/sam.md) | member |\n")
-        self.vault("team", [connector_row(WORK),
-                            f"| sam | connector: google-workspace | `{SHARED}`, pulled by Sam "
-                            "| Sam's mail. |"], claude=claude)
+        self.vault("team", [connector_row(WORK), SAM_ROW], claude=TEAM)
         write(self.home, "operator.json", json.dumps({"card": "me"}))
         got = self.prepare()
         self.assertEqual([c["mailbox"] for c in got["connectors"]], [WORK])
-        self.assertEqual(got["skipped"][0]["reason"], "pulled by Sam")
-        (self.home / "operator.json").unlink()
+        self.assertEqual((got["skipped"][0]["reason"], got["held"]), ("pulled by Sam", []))
+
+    def test_a_row_reserved_for_the_operator_is_pulled(self):
+        self.vault("team", [SAM_ROW.replace("by Sam", "by Me")], claude=TEAM)
+        write(self.home, "operator.json", json.dumps({"card": "me"}))
+        got = self.prepare()
+        self.assertEqual([c["mailbox"] for c in got["connectors"]], [SHARED])
+        self.assertEqual((got["skipped"], got["held"]), ([], []))
+
+    def held(self, row, claude=TEAM, card="me"):
+        path = self.vault("team", [connector_row(WORK), row], claude=claude)
+        if card:
+            write(self.home, "operator.json", json.dumps({"card": card}))
         got = self.prepare()
         self.assertEqual([c["mailbox"] for c in got["connectors"]], [WORK])
+        line = (path / "CLAUDE.md").read_text(encoding="utf-8").splitlines().index(row) + 1
+        self.assertEqual([(h["vault"], h["source"], h["line"]) for h in got["held"]],
+                         [("team", "sam", line)])
+        return got["held"][0]["reason"]
+
+    def test_a_reserved_row_in_a_vault_with_no_roster_is_held(self):
+        self.assertIn("roster", self.held(SAM_ROW, claude="# Team\n"))
+
+    def test_a_row_reserved_for_a_name_the_roster_does_not_hold_is_held(self):
+        self.assertIn("Lee", self.held(SAM_ROW.replace("by Sam", "by Lee")))
+
+    def test_a_reserved_row_is_held_while_the_operator_is_unknown(self):
+        self.assertIn("operator.json", self.held(SAM_ROW, card=None))
+
+    def test_a_puller_named_in_words_is_held(self):
+        self.assertIn("pulled by <name>", self.held(
+            f"| sam | connector: google-workspace | `{SHARED}` | Sam pulls it at home. |"))
 
     def test_the_plan_is_kept_in_the_work_folder(self):
         self.vault("alpha", [connector_row(WORK, "Client threads.")])
