@@ -33,13 +33,13 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
                  untouched: bytes the master held at some commit along the ref, or those with
                  inserted lines (`own`) whose neighbours the ref still holds, so a re-copy
                  loses nothing local. ahead: bytes the master held only along `origin/main`,
-                 where the clone has it: a copy taken from main before a release. edited: any
-                 other bytes, with `diff` from the master to the copy, and `own` where only
-                 the ref's change to a neighbour stopped them. missing. no-master: an
-                 integration the ref ships no master for. retired: a file a changelog
-                 `Retired:` line names that the kit no longer ships, holding bytes the kit
-                 shipped at any path, `master` null. own: such a file holding bytes the kit
-                 never shipped, which the vault rewrote as its own.
+                 or an integration only main ships, where the clone has it: a copy taken from
+                 main before a release. edited: any other bytes, with `diff` from the master
+                 to the copy, and `own` where only the ref's change to a neighbour stopped
+                 them. missing. no-master: an integration neither the ref nor main ships.
+                 retired: a file a changelog `Retired:` line names that the kit no longer
+                 ships, holding bytes the kit shipped at any path, `master` null. own: such a
+                 file holding bytes the kit never shipped, which the vault rewrote as its own.
           Bytes are compared as git blob ids, line endings and a byte-order mark normalised.
 own       The vault's own `CLAUDE.md`, which no upgrade edits. `repeats`: each line of it
           (`line`, `text`) that a kit file holds word for word (`in`): the core, a declared
@@ -296,9 +296,9 @@ def plan_files(vault, kit, decl, user_dir):
     for marker in integration_markers(vault):
         name, filename = marker["name"], Path(marker["file"]).name
         root = addon_root(kit.clone, kit.commit, name)
-        master = next((m for m in (f"integrations/{name}/{filename}",
-                                   f"{root}/pipeline/{filename}" if root else None)
-                       if m in kit.tree), None)
+        masters = (f"integrations/{name}/{filename}",
+                   f"{root}/pipeline/{filename}" if root else None)
+        master = next((m for k in (kit, kit.main) if k for m in masters if m in k.tree), None)
         planned.setdefault(vault / marker["file"], ("integration", master))
 
     scripts = vault / "resources" / "scripts"
@@ -319,6 +319,8 @@ def state_of(path, kit, master):
         return "no-master"
     if not path.is_file():
         return "missing"
+    if master not in kit.tree:
+        return "ahead"
     data = path.read_bytes()
     ids = blob_ids(data)
     if kit.tree[master] in ids:
