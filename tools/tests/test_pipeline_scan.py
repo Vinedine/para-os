@@ -555,7 +555,9 @@ class NextStep(VaultCase):
     def test_a_no_step_wording_is_no_next_step(self):
         # Issue #34, finding 2: "None planned" suppressed the no_next_step flag.
         for cell in ("None planned: raised at the partners meeting on 2026-09-10", "none planned",
-                     "-"):
+                     "-", "None dated: closed as a dead end on 2026-11-09",
+                     "None dated. On 2026-11-09 their buyer asked for references",
+                     "None dated: no reply had reached the mailbox by 2026-11-09"):
             with self.subTest(cell=cell):
                 e = self.row_entity(cell)
                 self.assertIsNone(e["next_step"])
