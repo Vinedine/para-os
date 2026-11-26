@@ -1123,6 +1123,28 @@ class ContactCards(VaultCase):
     def test_a_vault_with_no_network_row_and_no_roster_is_yes(self):
         self.assertEqual(self.plan()["contact_card_level"], "yes")
 
+    def kit_vault(self, *lines):
+        core = ROOT / "base" / ".claude" / "para-os" / "core.md"
+        write(self.root, ".claude/para-os/core.md", core.read_text(encoding="utf-8"))
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "**Type:** vault", "", "@.claude/para-os/core.md", "", *lines]) + "\n")
+
+    def test_a_roster_with_no_network_row_of_its_own_is_never(self):
+        self.kit_vault("## Who writes this vault", "", "| Person | Role | Lane |", "|---|---|---|",
+                       "| [Sam Peeters](areas/network/sam-peeters.md) | keeper | Business |")
+        self.assertEqual(self.plan()["contact_card_level"], "never")
+
+    def test_the_kit_row_alone_is_yes(self):
+        self.kit_vault()
+        self.assertEqual(self.plan()["contact_card_level"], "yes")
+
+    def test_a_level_in_the_state_column_of_a_yes_row_is_read(self):
+        for level in ("relationship only", "never"):
+            self.kit_vault("### Where a checkbox may live", "",
+                           "| Bucket | `actions.md` | State |", "|---|---|---|",
+                           f"| `areas/network/` | yes | {level} |")
+            self.assertEqual(self.plan()["contact_card_level"], level, level)
+
 
 class Writer(VaultCase):
     """Which roster row is running (SKILL.md Step 1), from the operator's identity file."""
