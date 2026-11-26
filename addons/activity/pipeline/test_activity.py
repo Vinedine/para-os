@@ -52,6 +52,16 @@ class TestRedaction(unittest.TestCase):
         )
         self.assertEqual(got, "curl")
 
+    def test_powershell_keeps_only_the_first_token_and_never_a_secret(self):
+        for command, want in (
+                ("Invoke-WebRequest -Headers @{Authorization='Bearer sk-secret'} https://x",
+                 "Invoke-WebRequest"),
+                ("cd 'C:/My Vault'; py resources/scripts/export.py --write", "py"),
+                ("$env:TOKEN='sk-live-123'; py run.py", None)):
+            with self.subTest(command=command):
+                got = ledger.redact_tool_input("PowerShell", {"command": command}, ROOT)
+                self.assertEqual(got, want)
+
     def test_bash_skips_leading_environment_assignments(self):
         got = ledger.redact_tool_input(
             "Bash", {"command": "OPENAI_API_KEY=sk-live-123 DEBUG=1 python run.py"}, ROOT)

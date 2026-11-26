@@ -114,7 +114,7 @@ A prompt is recorded as typed, except that a path in it outside the vault become
 Three refusals, each closing a way this could quietly become surveillance:
 
 - **`tool_response` is never written.** It carries file contents. The ledger records that someone read `areas/network/x.md`, never what the file said.
-- **A Bash command keeps its first token and loses the rest.** `curl` survives; the URL and the bearer token in it do not. A command line is exactly where a credential gets pasted by accident.
+- **A Bash or PowerShell command keeps its first token and loses the rest.** `curl` survives; the URL and the bearer token in it do not. A command line is exactly where a credential gets pasted by accident.
 - **An unrecognised tool records its name only.** An MCP call's arguments can hold a mail body, and a list of keys that look safe today is a list that rots. Silence is the default; file tools are the exception.
 
 The **full session transcript is not read**, though every hook event names its path. Doing so would be the richest source available and a different bargain entirely: "what you asked the vault to do" is not "everything you said". If you ever want it, ask the people first.
