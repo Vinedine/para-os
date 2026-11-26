@@ -207,6 +207,49 @@ class TestRecord(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(self.prompt_of(text), text)
 
+    def test_a_secret_in_a_prompt_is_masked(self):
+        cases = {
+            "use sk-fake-0123456789abcdefFAKE to call it": "use [redacted: token] to call it",
+            "shpat_0000fake0000fake0000fake0000fake": "[redacted: token]",
+            "token=xox" + "b-0000000000-fakefakefakefake": "token=[redacted: token]",
+            "ghp_FAKE0000fake0000FAKE0000fake0000FAKE": "[redacted: token]",
+            "github_pat_FAKE0000fake0000FAKE": "[redacted: token]",
+            "key AKIAIOSFODNN7EXAMPLE": "key [redacted: token]",
+            "secret wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY ok": "secret [redacted: token] ok",
+            "hash 0123456789abcdef0123456789abcdef01234567": "hash [redacted: token]",
+            "open https://app.example.com/portal/home?ses=Zx9fake&lang=en please":
+                "open https://app.example.com/portal/home[redacted: query] please",
+            "see https://app.example.com/#/login?ses=Zx9fake":
+                "see https://app.example.com/#/login[redacted: query]",
+        }
+        for text, want in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(self.prompt_of(text), want)
+
+    def test_plain_text_in_a_prompt_is_not_masked(self):
+        for text in ("what is overdue in projects/acme this week",
+                     "move the meeting of 2026-11-26 to next Tuesday",
+                     "/para-archive acme-website-redesign-2026-phase-2",
+                     "file it under archive/meetings/20261102-acme-kickoff-notes",
+                     "pneumonoultramicroscopicsilicovolcanoconiosis is a word",
+                     "is https://example.com/status down?",
+                     "can you open https://example.com/page?"):
+            with self.subTest(text=text):
+                self.assertEqual(self.prompt_of(text), text)
+
+    def test_a_long_path_inside_the_vault_is_not_masked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            inside = (root / "projects" / "acme2026" / "sources" / "kickoff-notes").as_posix()
+            self.assertEqual(self.prompt_of(f"read {inside}", root), f"read {inside}")
+
+    def test_a_secret_the_kept_length_cuts_is_masked_whole(self):
+        text = "key wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        cfg = dict(self.cfg, prompt_max_chars=text.index("/K7"))
+        event = {"hook_event_name": "UserPromptSubmit", "prompt": text}
+        got = ledger.build_record(event, ROOT, cfg, "2026-08-29T10:00:00")["prompt"]
+        self.assertNotIn("wJalr", got)
+
     def test_empty_fields_are_dropped_rather_than_written_as_null(self):
         event = {"hook_event_name": "SessionEnd", "session_id": "s1", "reason": "clear"}
         record = ledger.build_record(event, ROOT, self.cfg, "2026-08-29T10:00:00")

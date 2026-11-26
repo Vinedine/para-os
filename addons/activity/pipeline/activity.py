@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Append-only record of how a vault actually gets used.
 
-para-os-integration: activity 2026.11.02
+para-os-integration: activity 2026.12.01
 
 A Claude Code hook. Reads one event as JSON on stdin, writes one JSONL line into
 `<vault>/resources/logs/sessions/`, exits 0 no matter what.
@@ -375,6 +375,31 @@ def redact_paths(prompt, root, limit):
     return ("".join(out) + prompt[at:max(at, limit)])[:limit]
 
 
+_QUERY = re.compile(r"""(\b[A-Za-z][A-Za-z0-9+.-]*://[^\s?"'<>]*)\?[^\s"'<>]+""")
+_PREFIXED_KEY = re.compile(r"\b(?:sk-|shpat_|xox[a-z]-|ghp_|github_pat_|AKIA)[A-Za-z0-9_-]{16,}")
+_KEY_RUN = re.compile(r"[A-Za-z0-9+/=_-]{32,}")
+_LETTER_BESIDE_DIGIT = re.compile(r"[A-Za-z]\d|\d[A-Za-z]")
+
+
+def mask_tokens(text):
+    text = _PREFIXED_KEY.sub("[redacted: token]", text)
+    return _KEY_RUN.sub(lambda m: "[redacted: token]" if _LETTER_BESIDE_DIGIT.search(m.group(0))
+                        else m.group(0), text)
+
+
+def mask_secrets(prompt):
+    """The prompt with a URL's query string made `[redacted: query]`, and a key with a known
+    prefix or a run of 32 or more key characters with a letter beside a digit made
+    `[redacted: token]`, so a dated slug stays. A path is left whole for `redact_paths`. A
+    password typed as plain words is not caught."""
+    prompt = _QUERY.sub(r"\1[redacted: query]", prompt)
+    out, at = [], 0
+    for m in _PROMPT_PATH.finditer(prompt):
+        out += [mask_tokens(prompt[at:m.start()]), m.group(0)]
+        at = m.end()
+    return "".join(out) + mask_tokens(prompt[at:])
+
+
 def keep_prompt(prompt, cfg, root):
     """The prompt truncated, or - when prompts are off - only the slash command in it.
 
@@ -386,7 +411,7 @@ def keep_prompt(prompt, cfg, root):
     if not isinstance(prompt, str):
         return None
     if cfg["record_prompts"]:
-        return redact_paths(prompt, root, cfg["prompt_max_chars"])
+        return redact_paths(mask_secrets(prompt), root, cfg["prompt_max_chars"])
     m = re.match(r"\s*(/[A-Za-z0-9:._-]+)", prompt)
     return m.group(1) if m else None
 
