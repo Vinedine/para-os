@@ -559,22 +559,22 @@ class Ledger(Offline):
         self.state = home / "Acme" / "resources" / "scripts" / "plaud.synced.json"
 
     def test_record_merges_what_another_run_saved(self):
-        plaud.record("one@Acme", "a.md", "Acme")
+        plaud.record("one", "a.md", "Acme")
         on_disk = json.loads(self.state.read_text(encoding="utf-8"))
-        self.state.write_text(json.dumps({**on_disk, "two@Acme": "b.md"}), encoding="utf-8")
-        plaud.record("three@Acme", "c.md", "Acme")
+        self.state.write_text(json.dumps({**on_disk, "two": "b.md"}), encoding="utf-8")
+        plaud.record("three", "c.md", "Acme")
         self.assertEqual(json.loads(self.state.read_text(encoding="utf-8")),
-                         {"one@Acme": "a.md", "two@Acme": "b.md", "three@Acme": "c.md"})
+                         {"one": "a.md", "two": "b.md", "three": "c.md"})
 
     def test_the_legacy_ledger_is_read_and_its_vaults_entries_carried_into_each_vault(self):
         legacy = plaud.LEGACY[0]
         legacy.parent.mkdir(parents=True)
-        legacy.write_text('{"old@Acme": "a.md", "old@Home": "b.md"}', encoding="utf-8")
+        legacy.write_text('{"old@Acme": "a.md", "older@Home": "b.md"}', encoding="utf-8")
         before = legacy.read_bytes()
-        self.assertEqual(plaud.load_ledger(["Acme"]), {"old@Acme": "a.md", "old@Home": "b.md"})
-        plaud.record("new@Home", "c.md", "Home")
+        self.assertEqual(plaud.load_ledger(["Acme"]), {"old": "a.md", "older": "b.md"})
+        plaud.record("new", "c.md", "Home")
         self.assertEqual(json.loads(plaud.ledger_path("Home").read_text(encoding="utf-8")),
-                         {"old@Home": "b.md", "new@Home": "c.md"})
+                         {"older@Home": "b.md", "new": "c.md"})
         self.assertFalse(self.state.exists())
         self.assertEqual(legacy.read_bytes(), before)
 
@@ -583,7 +583,7 @@ class Ledger(Offline):
         for text in ("{half", "[]"):
             self.state.write_text(text, encoding="utf-8")
             with self.assertRaises(SystemExit):
-                plaud.record("one@Acme", "a.md", "Acme")
+                plaud.record("one", "a.md", "Acme")
             self.assertEqual(self.state.read_text(encoding="utf-8"), text)
 
 
@@ -671,9 +671,9 @@ class MainLoop(Offline):
         return sorted(p.name for p in folder.iterdir()) if folder.exists() else []
 
     def ledger(self):
-        """The keys of every vault's ledger this run could write: this vault's and "Home"'s."""
-        paths = [self.state, self.vault.parent / "Home" / "resources" / "scripts" / "plaud.synced.json"]
-        return sorted(k for q in paths if q.exists() for k in json.loads(q.read_text(encoding="utf-8")))
+        """The keys of each ledger this run could write, this vault's and "Home"'s, by vault."""
+        paths = {"Acme": self.state, "Home": self.vault.parent / "Home" / "resources" / "scripts" / "plaud.synced.json"}
+        return {v: sorted(json.loads(q.read_text(encoding="utf-8"))) for v, q in paths.items() if q.exists()}
 
     def test_dry_run_writes_nothing(self):
         out = self.run_main()
@@ -697,8 +697,8 @@ class MainLoop(Offline):
         self.assertIn("## Transcript\n\n[00:00] **Speaker 1:** Welcome to the site. The roof comes first.\n\n"
                       "[01:05] **Speaker 2:** Agreed.", note)
         self.assertNotIn("Not the transcript.", note)
-        self.assertEqual(self.ledger(), ["ready1@Acme"])
-        self.assertEqual(json.loads(self.state.read_text(encoding="utf-8"))["ready1@Acme"],
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"]})
+        self.assertEqual(json.loads(self.state.read_text(encoding="utf-8"))["ready1"],
                          str(self.vault / "triage" / self.triage()[0]))
 
         out = self.run_main("--write")
@@ -713,11 +713,17 @@ class MainLoop(Offline):
         self.assertIn("skipped(exists): 1", out)
         self.assertEqual(self.triage(), [])
 
+    def test_a_ledger_written_under_another_vault_folder_name_is_honoured(self):
+        self.state.write_text('{"ready1@Acme Shared": "filed elsewhere"}', encoding="utf-8")
+        out = self.run_main("--write")
+        self.assertIn("wrote: 0 · skipped(exists): 1", out)
+        self.assertEqual(self.triage(), [])
+
     def test_hold_then_write_after_the_cap(self):
         self.list = [self.list[1]]
         out = self.run_main("--write")
         self.assertIn("HELD, no transcript or summary yet - retried next run", out)
-        self.assertEqual((self.triage(), self.ledger()), ([], []))
+        self.assertEqual((self.triage(), self.ledger()), ([], {}))
 
         self.list[0]["created_at"] = self.ago(hours=plaud.HOLD_HOURS + 1)
         out = self.run_main("--write")
@@ -727,7 +733,7 @@ class MainLoop(Offline):
         note = (self.vault / "triage" / name).read_text(encoding="utf-8")
         self.assertIn("_(no summary available)_", note)
         self.assertIn("_(no transcript available)_", note)
-        self.assertEqual(self.ledger(), ["busy22@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["busy22"]})
 
     def test_a_transcript_without_its_summary_holds_until_the_cap(self):
         self.list = [self.list[1]]
@@ -751,7 +757,7 @@ class MainLoop(Offline):
         self.assertIn("HELD, unreadable", out)
         self.assertIn("py plaud.py --dump ready1", out)
         self.assertIn("held(unreadable): 1", out)
-        self.assertEqual((self.triage(), self.ledger()), ([], []))
+        self.assertEqual((self.triage(), self.ledger()), ([], {}))
 
     def test_single_vault_mode_takes_every_recording(self):
         plaud.CONFIG_PATH.unlink()
@@ -763,7 +769,7 @@ class MainLoop(Offline):
         self.assertEqual(names, ["Project review.md", "acme - Site visit.md"])  # full titles, prefix kept
         note = next((self.vault / "triage").glob("* Project review.md")).read_text(encoding="utf-8")
         self.assertIn("Polished words only.", note)  # the polished copy when there is no raw one
-        self.assertEqual(self.ledger(), ["other3@Acme", "ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["other3", "ready1"]})
 
     def test_one_failed_recording_does_not_stop_the_run(self):
         self.list.insert(0, {"id": "down55", "name": "ACME - Flaky", "created_at": self.ago(hours=5)})
@@ -773,13 +779,13 @@ class MainLoop(Offline):
         self.assertIn("FAILED (GET /open/third-party/files/down55 -> HTTP 502", out)
         self.assertIn("FAILED (GET data_link at files.example.test", out)
         self.assertIn("wrote: 0 · skipped(exists): 0 · held(pending): 1 · held(unreadable): 0 · failed: 2", out)
-        self.assertEqual(self.ledger(), [])
+        self.assertEqual(self.ledger(), {})
 
         self.errors.clear()
         self.detail["down55"] = self.detail["ready1"]
         out = self.run_main("--write")
         self.assertIn("wrote: 2", out)
-        self.assertEqual(self.ledger(), ["down55@Acme", "ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["down55", "ready1"]})
 
     def test_listing_failure_stops_cleanly(self):
         self.errors["/open/third-party/files/"] = urllib.error.URLError("unreachable")
@@ -807,7 +813,7 @@ class MainLoop(Offline):
 
         out = self.run_main("--write")
         self.assertIn("wrote: 0 · recorded: 1 · skipped(exists): 0", out)
-        self.assertEqual(self.ledger(), ["ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"]})
         self.assertEqual(note.read_bytes(), before)
 
     def test_undated_recordings_are_counted(self):
@@ -847,7 +853,7 @@ class MainLoop(Offline):
         out = self.run_main("--write", "--vault", "Home")
         self.assertIn("routing -> Home", out)
         self.assertEqual([name[9:] for name in self.triage(home)], ["Plumber.md"])
-        self.assertIn("home55@Home", self.ledger())
+        self.assertEqual(self.ledger()["Home"], ["home55"])
 
     def test_all_writes_every_routed_vault_in_one_pass(self):
         home = self.routed_home()
@@ -856,7 +862,7 @@ class MainLoop(Offline):
         self.assertIn("wrote: 2", out)
         self.assertEqual([name[9:] for name in self.triage(home)], ["Plumber.md"])
         self.assertEqual(len(self.triage()), 1)
-        self.assertEqual(self.ledger(), ["home55@Home", "ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"], "Home": ["home55"]})
 
     def test_dump_prints_the_raw_recording_and_writes_nothing(self):
         out = self.run_main("--dump", "ready1", "--write")
