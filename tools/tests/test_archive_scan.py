@@ -432,6 +432,21 @@ class Lifecycle(VaultCase):
         self.assertEqual(lc["reason"], {"field": "Lost reason", "raw": "timing, later",
                                         "key": "timing", "allowed": None, "ok": None})
 
+    def test_stages_sharing_a_home_match_the_one_the_stage_line_names(self):
+        write(self.root, "CLAUDE.md", "\n".join([
+            "# Vault", "", "## Deal lifecycle", "",
+            "| Stage | PARA home |", "|---|---|",
+            "| Qualified | `resources/ideas/<company>/` |",
+            "| Won | `archive/ideas/<company>/` |",
+            "| Lost | `archive/ideas/<company>/` |", "",
+        ]) + "\n")
+        write(self.root, "resources/ideas/acme/brief.md",
+              "# Acme\n\n**Stage:** Lost (since 2026-09-15)\n**Lost reason:** timing, later\n")
+        lc = self.plan("acme")["lifecycle"]
+        self.assertEqual(lc["destination_matches"], "Lost")
+        self.assertTrue(lc["stage_line_names_destination"])
+        self.assertEqual(lc["reason"]["field"], "Lost reason")
+
     def test_no_rules_dir_at_all_gives_allowed_null(self):
         self.assertIsNone(reason_allowed(self.root, "Lost"))
 
