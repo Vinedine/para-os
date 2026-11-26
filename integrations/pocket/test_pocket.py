@@ -461,20 +461,20 @@ class Ledger(unittest.TestCase):
         before = self.legacy.read_bytes()
         self.state.parent.mkdir(parents=True)
         self.state.write_text('{"both@Acme": "new.md"}', encoding="utf-8")
-        self.assertEqual(pocket.load_ledger(["Acme"]), {"old@Acme": "a.md", "both@Acme": "new.md"})
-        pocket.record("three@Acme", "c.md", "Acme")
+        self.assertEqual(pocket.load_ledger(["Acme"]), {"old": "a.md", "both": "new.md"})
+        pocket.record("three", "c.md", "Acme")
         self.assertEqual(json.loads(self.state.read_text(encoding="utf-8")),
-                         {"old@Acme": "a.md", "both@Acme": "new.md", "three@Acme": "c.md"})
+                         {"old@Acme": "a.md", "both@Acme": "new.md", "three": "c.md"})
         self.assertEqual(self.legacy.read_bytes(), before)
 
     def test_an_entry_goes_to_the_ledger_of_the_vault_it_was_written_to(self):
         self.legacy.parent.mkdir(parents=True)
         self.legacy.write_text('{"old@Acme": "a.md"}', encoding="utf-8")
-        pocket.record("one@Home", "b.md", "Home")
+        pocket.record("one", "b.md", "Home")
         self.assertFalse(self.state.exists())
         self.assertEqual(json.loads(pocket.ledger_path("Home").read_text(encoding="utf-8")),
-                         {"one@Home": "b.md"})
-        self.assertEqual(pocket.load_ledger(["Acme", "Home"]), {"old@Acme": "a.md", "one@Home": "b.md"})
+                         {"one": "b.md"})
+        self.assertEqual(pocket.load_ledger(["Acme", "Home"]), {"old": "a.md", "one": "b.md"})
 
     def test_unreadable_legacy_ledger_stops(self):
         self.legacy.parent.mkdir(parents=True)
@@ -483,20 +483,20 @@ class Ledger(unittest.TestCase):
             pocket.load_ledger(["Acme"])
 
     def test_record_merges_what_another_run_saved(self):
-        pocket.record("one@Acme", "a.md", "Acme")
+        pocket.record("one", "a.md", "Acme")
         # Another machine's run saves while this one is going.
         on_disk = json.loads(self.state.read_text(encoding="utf-8"))
-        self.state.write_text(json.dumps({**on_disk, "two@Acme": "b.md"}), encoding="utf-8")
-        pocket.record("three@Acme", "c.md", "Acme")
+        self.state.write_text(json.dumps({**on_disk, "two": "b.md"}), encoding="utf-8")
+        pocket.record("three", "c.md", "Acme")
         self.assertEqual(json.loads(self.state.read_text(encoding="utf-8")),
-                         {"one@Acme": "a.md", "two@Acme": "b.md", "three@Acme": "c.md"})
+                         {"one": "a.md", "two": "b.md", "three": "c.md"})
         self.assertEqual([q.name for q in self.state.parent.iterdir()], ["pocket.synced.json"])
 
     def test_unreadable_ledger_stops_rather_than_being_overwritten(self):
         self.state.parent.mkdir(parents=True)
         self.state.write_text("{half", encoding="utf-8")
         with self.assertRaises(SystemExit):
-            pocket.record("one@Acme", "a.md", "Acme")
+            pocket.record("one", "a.md", "Acme")
         self.assertEqual(self.state.read_text(encoding="utf-8"), "{half")
 
 
@@ -662,9 +662,9 @@ class MainLoop(unittest.TestCase):
         return sorted(p.name for p in folder.iterdir()) if folder.exists() else []
 
     def ledger(self):
-        """The keys of every vault's ledger this run could write: this vault's and "Home"'s."""
-        paths = [self.state, self.vault.parent / "Home" / "resources" / "scripts" / "pocket.synced.json"]
-        return sorted(k for q in paths if q.exists() for k in json.loads(q.read_text(encoding="utf-8")))
+        """The keys of each ledger this run could write, this vault's and "Home"'s, by vault."""
+        paths = {"Acme": self.state, "Home": self.vault.parent / "Home" / "resources" / "scripts" / "pocket.synced.json"}
+        return {v: sorted(json.loads(q.read_text(encoding="utf-8"))) for v, q in paths.items() if q.exists()}
 
     def test_dry_run_write_rerun(self):
         out = self.run_main()
@@ -684,7 +684,7 @@ class MainLoop(unittest.TestCase):
         note = (self.vault / "triage" / name).read_text(encoding="utf-8")
         self.assertIn("**Speaker 0:** So, this is a short recap.", note)
         self.assertIn("- Split the roles", note)
-        self.assertEqual(self.ledger(), ["ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"]})
 
         out = self.run_main("--write")
         self.assertIn("wrote: 0 · skipped(exists): 1 · held(processing): 1", out)
@@ -700,7 +700,7 @@ class MainLoop(unittest.TestCase):
         out = self.run_main("--write")
         self.assertIn("wrote: 1 · skipped(exists): 1", out)
         self.assertEqual([name[9:] for name in self.triage()], ["Fresh.md"])
-        self.assertEqual(self.ledger(), ["fresh8@Acme", "ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["fresh8", "ready1@Acme"]})
         self.assertEqual(self.legacy.read_bytes(), before)
 
     def test_entries_in_both_ledgers_are_honoured(self):
@@ -713,6 +713,12 @@ class MainLoop(unittest.TestCase):
         self.assertIn("wrote: 0 · skipped(exists): 2", out)
         self.assertEqual(self.triage(), [])
 
+    def test_a_ledger_written_under_another_vault_folder_name_is_honoured(self):
+        self.state.write_text('{"ready1@Acme Shared": "filed elsewhere"}', encoding="utf-8")
+        out = self.run_main("--write")
+        self.assertIn("wrote: 0 · skipped(exists): 1", out)
+        self.assertEqual(self.triage(), [])
+
     def test_unreadable_hold_points_at_dump(self):
         self.detail["ready1"] = {"transcript": {"utterances_v9": [{"words": "hello there"}]},
                                  "summarizations": {"s1": {"title": "Summary", "markdown": "• Split the roles"}}}
@@ -721,7 +727,7 @@ class MainLoop(unittest.TestCase):
         self.assertIn("py pocket.py --dump ready1", out)
         self.assertIn("held(processing): 1 · held(unreadable): 1", out)
         self.assertEqual(self.triage(), [])
-        self.assertEqual(self.ledger(), [])
+        self.assertEqual(self.ledger(), {})
 
     def test_finished_recording_without_speech_is_written(self):
         self.detail["ready1"] = {"transcript": {"segments": [], "text": ""}, "summarizations": None}
@@ -731,7 +737,7 @@ class MainLoop(unittest.TestCase):
         note = (self.vault / "triage" / name).read_text(encoding="utf-8")
         self.assertIn("_(no transcript available)_", note)
         self.assertIn("_(no summary available)_", note)
-        self.assertEqual(self.ledger(), ["ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"]})
 
     def test_one_failed_recording_does_not_stop_the_run(self):
         self.list.insert(0, {"id": "down55", "title": "ACME - Flaky", "recording_at": self.list[0]["recording_at"],
@@ -740,13 +746,13 @@ class MainLoop(unittest.TestCase):
         out = self.run_main("--write")
         self.assertIn("FAILED (GET /public/recordings/down55 -> HTTP 502", out)
         self.assertIn("wrote: 1 · skipped(exists): 0 · held(processing): 1 · held(unreadable): 0 · failed: 1", out)
-        self.assertEqual(self.ledger(), ["ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"]})
 
         del self.errors["/public/recordings/down55"]
         self.detail["down55"] = self.detail["ready1"]
         out = self.run_main("--write")
         self.assertIn("wrote: 1 · skipped(exists): 1", out)
-        self.assertEqual(self.ledger(), ["down55@Acme", "ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["down55", "ready1"]})
 
     def test_listing_failure_stops_cleanly(self):
         self.errors["/public/recordings"] = urllib.error.URLError("unreachable")
@@ -762,7 +768,7 @@ class MainLoop(unittest.TestCase):
         self.errors["/public/recordings/crash6"] = KeyboardInterrupt()
         with self.assertRaises(KeyboardInterrupt):
             self.run_main("--write")
-        self.assertEqual(self.ledger(), ["ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"]})
 
     def test_undated_recordings_are_counted(self):
         self.list.append({"id": "nodate7", "title": "ACME - Undated", "recording_at": "soon", "created_at": None})
@@ -801,7 +807,7 @@ class MainLoop(unittest.TestCase):
         out = self.run_main("--write")
         self.assertIn("(exists, recorded)", out)
         self.assertIn("wrote: 0 · recorded: 1 · skipped(exists): 0", out)
-        self.assertEqual(self.ledger(), ["ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"]})
         self.assertEqual(note.read_bytes(), before)
 
         out = self.run_main("--write")
@@ -845,7 +851,7 @@ class MainLoop(unittest.TestCase):
         out = self.run_main("--write", "--vault", "Home")
         self.assertIn("routing -> Home", out)
         self.assertEqual([p.name[9:] for p in home.iterdir()], ["Plumber.md"])
-        self.assertIn("home55@Home", self.ledger())
+        self.assertEqual(self.ledger()["Home"], ["home55"])
 
     def test_all_writes_every_routed_vault_in_one_pass(self):
         home = self.routed_home()
@@ -854,7 +860,7 @@ class MainLoop(unittest.TestCase):
         self.assertIn("wrote: 2", out)
         self.assertEqual([p.name[9:] for p in home.iterdir()], ["Plumber.md"])
         self.assertEqual(len(self.triage()), 1)
-        self.assertEqual(self.ledger(), ["home55@Home", "ready1@Acme"])
+        self.assertEqual(self.ledger(), {"Acme": ["ready1"], "Home": ["home55"]})
 
     def test_dump_prints_the_raw_recording_and_writes_nothing(self):
         out = self.run_main("--dump", "ready1", "--write")

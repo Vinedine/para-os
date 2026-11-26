@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """pocket.py - pull recent Pocket recordings (AI summary + transcript) into a vault's triage/.
-para-os-integration: pocket 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+para-os-integration: pocket 2026.12.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 Pocket (heypocket.com) is a wearable recorder; its app transcribes and summarises every
 conversation. Drop this file in <vault>/resources/scripts/ and run it there. By default every
@@ -489,10 +489,11 @@ def ledger_path(vault):
 
 
 def load_ledger(vaults):
-    """The legacy machine ledgers, then the ledger of each vault this run may write to."""
+    """The legacy machine ledgers, then the ledger of each vault this run may write to, by
+    recording id: older copies keyed `<id>@<vault folder>`, and a folder's name is per machine."""
     out = {}
     for path in (*LEGACY, *(ledger_path(v) for v in vaults)):
-        out.update(read_ledger(path))
+        out.update((key.partition("@")[0], note) for key, note in read_ledger(path).items())
     return out
 
 
@@ -753,7 +754,7 @@ def main(argv=None):
 
         vault = r["vault"]
         dest, exists = pick_path(r["dir"], when, r["desc"], rid)
-        if state.get(f"{rid}@{vault}"):
+        if state.get(rid):
             print(f"  ==  {label}-> {vault}/{subdir} (exists, skip)")
             n["skipped"] += 1
             continue
@@ -762,7 +763,7 @@ def main(argv=None):
             # now, or it is imported again once /para-triage files the note out of this folder.
             print(f"  ==  {label}-> {vault}/{subdir}/{dest.name} (exists, {'recorded' if args.write else 'would record'})")
             if args.write:
-                record(f"{rid}@{vault}", str(dest), vault)
+                record(rid, str(dest), vault)
             n["recorded"] += 1
             continue
 
@@ -789,7 +790,7 @@ def main(argv=None):
               f"[sum {sum(len(b) for _, b in summaries)}c · actions {actions.count(chr(10) + '- ') + bool(actions)} · tr {len(transcript)}c]")
         if args.write:
             write_atomic(dest, render_note(rec, when, transcript, summaries, actions))
-            record(f"{rid}@{vault}", str(dest), vault)
+            record(rid, str(dest), vault)
         n["written"] += 1
 
     tail = f" · unrouted: {n['unrouted']} · other vaults: {n['elsewhere']}" if routes else ""

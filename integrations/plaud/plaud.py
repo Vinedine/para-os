@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """plaud.py - pull recent Plaud recordings (AI summary + transcript) into a vault's triage/.
-para-os-integration: plaud 2026.10.04 - see CHANGELOG.md; /para-upgrade reports drift against this line.
+para-os-integration: plaud 2026.12.01 - see CHANGELOG.md; /para-upgrade reports drift against this line.
 
 Plaud (plaud.ai) is a wearable recorder (NotePin, Note); its app transcribes and summarises every
 recording. Drop this file in <vault>/resources/scripts/ and run it there. By default every
@@ -271,10 +271,11 @@ def ledger_path(vault):
 
 
 def load_ledger(vaults):
-    """The legacy machine ledger, then the ledger of each vault this run may write to."""
+    """The legacy machine ledger, then the ledger of each vault this run may write to, by
+    recording id: older copies keyed `<id>@<vault folder>`, and a folder's name is per machine."""
     out = {}
     for path in (*LEGACY, *(ledger_path(v) for v in vaults)):
-        out.update(read_ledger(path))
+        out.update((key.partition("@")[0], note) for key, note in read_ledger(path).items())
     return out
 
 
@@ -650,7 +651,7 @@ def main(argv=None):
             continue
 
         vault = r["vault"]
-        if state.get(f"{fid}@{vault}"):
+        if state.get(fid):
             print(f"  ==  {label}-> {vault}/{subdir} (exists, skip)")
             n["skipped"] += 1
             continue
@@ -670,7 +671,7 @@ def main(argv=None):
             # now, or it is imported again once /para-triage files the note out of this folder.
             print(f"  ==  {label}-> {vault}/{subdir}/{dest.name} (exists, {'recorded' if args.write else 'would record'})")
             if args.write:
-                record(f"{fid}@{vault}", str(dest), vault)
+                record(fid, str(dest), vault)
             n["recorded"] += 1
             continue
 
@@ -693,7 +694,7 @@ def main(argv=None):
               f"[sum {sum(len(b) for _, b in summ)}c · tr {len(transcript)}c]")
         if args.write:
             write_atomic(dest, render_note(title or "(untitled)", when, fid, minutes, summ, transcript))
-            record(f"{fid}@{vault}", str(dest), vault)
+            record(fid, str(dest), vault)
         n["written"] += 1
 
     tail = f" · unrouted: {n['unrouted']} · other vaults: {n['elsewhere']}" if routes else ""
