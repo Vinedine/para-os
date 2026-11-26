@@ -1834,6 +1834,20 @@ class Move(VaultCase):
         self.assertIn("[the notes](../../resources/orchard-lane/notes.md)",
                       (self.root / "areas/network/piet.md").read_text("utf-8"))
 
+    def test_the_vaults_own_skills_are_repointed_and_a_worktree_is_not(self):
+        self.build()
+        skill = write(self.root, ".claude/skills/orchard-report/SKILL.md",
+                      "Read [the brief](../../../areas/properties/orchard-lane/brief.md).\n")
+        tree = "See [the brief](../../../../../areas/properties/orchard-lane/brief.md).\n"
+        copy = write(self.root, ".claude/worktrees/w/areas/network/piet.md", tree)
+        code, got = self.run_move("areas/properties/orchard-lane",
+                                  "archive/properties/orchard-lane", "--apply")
+        self.assertEqual(code, 0)
+        self.assertEqual(got["missed"], [])
+        self.assertEqual(skill.read_text("utf-8"),
+                         "Read [the brief](../../../archive/properties/orchard-lane/brief.md).\n")
+        self.assertEqual(copy.read_text("utf-8"), tree)
+
     def test_a_rename_reports_the_lines_that_still_name_the_old_file(self):
         self.build()
         write(self.root, "areas/properties/orchard-lane/sources/20260418 Acme Statement.md", "# SoW" + chr(10))

@@ -1933,11 +1933,11 @@ def under_any(rel, folders):
     return any(rel == f or rel.startswith(f + "/") for f in (d.strip("/") for d in folders))
 
 
-def vault_paths(vault, pattern="*"):
-    """`rglob(pattern)` over the vault, sorted, less NOT_VAULT_CONTENT: copies of something else."""
+def vault_paths(vault, pattern="*", skip=NOT_VAULT_CONTENT):
+    """`rglob(pattern)` over the vault, sorted, less `skip`: copies of something else."""
     cut = len(Path(vault).parts)
     return [p for p in sorted(Path(vault).rglob(pattern))
-            if not under_any("/".join(p.parts[cut:]), NOT_VAULT_CONTENT)]
+            if not under_any("/".join(p.parts[cut:]), skip)]
 
 
 def is_under(path, base):
@@ -2106,7 +2106,7 @@ def first_mention(text, name, parent=None):
     return -1
 
 
-def inbound_references(vault, name, parent=None):
+def inbound_references(vault, name, parent=None, skip=NOT_VAULT_CONTENT):
     """Every live line in the vault naming `name`, with the shape it is written in.
 
     A reference is anywhere the path is written, not only a `](...)` target: a link's display
@@ -2122,15 +2122,15 @@ def inbound_references(vault, name, parent=None):
     `projects/p/README.md`. Without it any substring counts, for a caller that sorts the
     loose hits itself.
     """
-    return inbound_references_by_name(vault, [name], parent)[name]
+    return inbound_references_by_name(vault, [name], parent, skip)[name]
 
 
-def inbound_references_by_name(vault, names, parent=None):
+def inbound_references_by_name(vault, names, parent=None, skip=NOT_VAULT_CONTENT):
     """{name: its `inbound_references`} from one walk of the vault: a walk per name reads every
     file once per name, which a vault's contact cards turn into minutes."""
     vault = Path(vault)
     out = {name: [] for name in names}
-    for path in vault_paths(vault, "*.md"):
+    for path in vault_paths(vault, "*.md", skip):
         rel = rel_posix(vault, path)
         in_sources = "sources" in Path(rel).parts[:-1]
         lines = read_lines(path)
@@ -2182,9 +2182,9 @@ def move_plan(vault, src, dst):
     `inside`: a link in what moves whose target lies outside it, resolved from the old
     location and rewritten relative to the new one, never shifted by the difference in depth.
     A link to something that travels with the folder keeps its href and is not listed.
-    `inbound`: a link from the rest of the vault into what moves, with the href it must
-    become. A mention that is not a link has no href to rewrite and stays with
-    `inbound_references`. `move` applies both.
+    `inbound`: a link from the rest of the vault, its own skills included, into what moves,
+    with the href it must become. A mention that is not a link has no href to rewrite and
+    stays with `inbound_references`. `move` applies both.
     """
     vault = Path(vault)
     src_path, dst_path = vault_path(vault, src), vault_path(vault, dst)
@@ -2199,7 +2199,7 @@ def move_plan(vault, src, dst):
                 inside.append(link_rewrite(vault, path, line, href, raw, target, target,
                                            moved.parent))
     inbound = []
-    for hit in inbound_references(vault, src_path.name):
+    for hit in inbound_references(vault, src_path.name, skip=(".git", ".claude/worktrees")):
         path = vault / hit["file"]
         if is_under(path, src_path):
             continue
