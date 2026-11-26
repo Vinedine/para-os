@@ -62,7 +62,7 @@ A generated subject reads `Mirror live vault: 3 added, 7 modified, 1 deleted`, w
 - **It skips only files no script can read**, on both sides, so the mirror keeps whatever copy its history holds: Google Drive's native-format pointers (`.gdoc`, `.gsheet`, `.gslides` and the rest), the GUID-named marker OneDrive keeps locked in a synced root, and Office's `~$` lock files. It never copies a `.git`.
 - **It stages with `git add -A`, so the mirror's `.git/info/exclude` decides what the history keeps.** A path listed there sits in the mirror's working tree and is never committed. Keep the rules there, never in a `.gitignore` inside the mirror, which the next run deletes because the vault holds none.
 - **`info-exclude.template` is the starting file.** It re-includes `CLAUDE.md`, `CLAUDE.local.md` and `.claude/`, which a global gitignore often keeps out, and keeps out the activity log in `resources/logs/`, script caches and operating-system litter. Uncomment `archive/`, or list any large folder, to keep bulk as a copy only. `.mcp.json` is left to your global gitignore, since it can hold a live token: add `!.mcp.json` when the vault's copy holds none. `git -C <mirror> status --ignored` lists what the rules keep out.
-- **A fresh clone of a mirror does not carry `.git/info/exclude`**: copy it over by hand when you rebuild one.
+- **A run stops while `.git/info/exclude` holds no rules**, as a fresh clone leaves it.
 - **Paths over 260 characters** are reached on Windows through the extended-length prefix, with no machine setting.
 
 ## The `~/.paraos` contract

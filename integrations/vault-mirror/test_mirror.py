@@ -27,6 +27,11 @@ spec.loader.exec_module(mirror)
 # A filename outside the Windows code page, cp1252.
 NON_CP1252 = "Notes \u0141 \u4e2d.md"
 
+# What `git init` and a clone leave in .git/info/exclude: comments only.
+GIT_DEFAULT_EXCLUDE = ("# git ls-files --others --exclude-from=.git/info/exclude\n"
+                       "# Lines that start with '#' are comments.\n"
+                       "# *.[oa]\n# *~\n\n   \n")
+
 
 def git(repo, *args):
     return subprocess.run(["git", "-c", "core.longpaths=true", "-C", str(repo), *args],
@@ -53,6 +58,7 @@ def setUpModule():
                        # a commit returns, under a test that asserts nothing changed.
                        ("gc.auto", "0"), ("maintenance.auto", "false")):
         git(TEMPLATE, "config", key, value)
+    write(TEMPLATE / ".git" / "info" / "exclude", "__pycache__/\n")
 
 
 def make_mirror(path):
@@ -219,6 +225,22 @@ class Refusals(MirrorCase):
             mirror.main(["--mirror", str(plain)])
         self.assertIn("Not a git repository", str(stop.exception.code))
 
+    def test_an_exclude_file_with_no_rules_stops_the_run_until_the_template_is_copied(self):
+        write(self.vault / "resources" / "scripts" / "__pycache__" / "m.pyc")
+        write(self.vault / "notes.md")
+        exclude = self.mirror / ".git" / "info" / "exclude"
+        for content in (None, GIT_DEFAULT_EXCLUDE):
+            with self.subTest(exclude="missing" if content is None else "comments only"):
+                exclude.unlink(missing_ok=True)
+                if content:
+                    write(exclude, content)
+                before = tree(self.mirror)
+                self.assertIn("info-exclude.template", self.refused())
+                self.assertEqual(tree(self.mirror), before)
+        shutil.copyfile(HERE / "info-exclude.template", exclude)
+        self.run_mirror()
+        self.assertEqual(tracked(self.mirror), {"notes.md"})
+
     def test_no_mirror_named_anywhere_stops(self):
         with mock.patch.dict(os.environ, {"PARAOS_VAULT_MIRROR": ""}), \
                 self.assertRaises(SystemExit) as stop:
@@ -258,6 +280,15 @@ class DryRun(MirrorCase):
         before = tree(self.mirror)
         out = self.run_mirror("--dry-run")
         self.assertIn("would refuse", out)
+        self.assertEqual(tree(self.mirror), before)
+
+    def test_a_dry_run_with_no_exclude_rules_warns_and_carries_on(self):
+        self.exclude(GIT_DEFAULT_EXCLUDE)
+        write(self.vault / "a.md")
+        before = tree(self.mirror)
+        out = self.run_mirror("--dry-run")
+        self.assertIn("info-exclude.template", out)
+        self.assertIn("+ a.md", out)
         self.assertEqual(tree(self.mirror), before)
 
 
