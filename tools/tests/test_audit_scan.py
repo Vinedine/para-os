@@ -420,6 +420,17 @@ class CopiesCase(CloneCase):
         self.assertEqual(len(found), 1)
         self.assertIn("`.claude/rules/filing.md` is missing", found[0]["detail"])
 
+    def test_a_retired_file_the_vault_rewrote_is_no_finding(self):
+        clone = self.work / "para-os"
+        shutil.copytree(self.clone, clone)
+        write(clone, "CHANGELOG.md", changelog("2026.10.01", "2026.09.05", "2026.09.01")
+              + "Retired: `.claude/rules/old.md`\n")
+        fixture_git(clone, "commit", "-q", "-m", "retire", "CHANGELOG.md")
+        kit = open_clone(clone, "main")[2]
+        build_vault(self.work / "v")
+        write(self.work / "v", ".claude/rules/old.md", RULE.replace("Filing", "Ours"))
+        self.assertEqual(audit_scan.audit_vault(self.entry("v"), kit, "main", None)["findings"], [])
+
     def test_an_integration_naming_no_master(self):
         build_vault(self.work / "v")
         write(self.work / "v", "resources/scripts/other.py",
