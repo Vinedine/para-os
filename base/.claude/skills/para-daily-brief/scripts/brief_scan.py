@@ -465,24 +465,29 @@ def delivered(vault, row, paraos_home):
 
 
 def unattended(vault, paraos_home=None):
-    """The newest unattended triage run's count per action, and whether a proposal waits:
-    para-triage/scripts/auto_execute.py's quarantine and proposals, under the vault's
-    registry name, else its folder name. Null where neither exists."""
+    """The newest unattended triage run, its count per action, and whether a proposal waits:
+    para-triage/scripts/auto_execute.py's quarantine and proposals (decided ones included),
+    under the vault's registry name, else its folder name. A run that only proposed writes no
+    quarantine manifest, so its proposal dates it. Null where neither exists."""
     name = vault_name(vault, paraos_home)
     home = paraos_home_dir(paraos_home)
+    proposals = home / "cache" / "triage" / "proposals"
     runs = sorted((home / "quarantine" / name).glob("*/manifest.json"))
-    found = triage_proposals(home / "cache" / "triage" / "proposals", name)
+    found = triage_proposals(proposals, name)
     waiting = bool(found) and any(i["state"] == "unchanged" for i in found[-1]["items"])
-    if not runs and not waiting:
+    proposed = [p.stem[len(name) + 1:] for d in (proposals, proposals / "decided")
+                for p in d.glob(f"{name}-{'[0-9]' * 8}-{'[0-9]' * 4}.md")]
+    run = max([r.parent.name for r in runs] + proposed, default=None)
+    if not run:
         return None
     acted = {}
     try:
-        for item in json.loads(runs[-1].read_text(encoding="utf-8"))["items"] if runs else []:
+        newest = runs[-1] if runs and runs[-1].parent.name == run else None
+        for item in json.loads(newest.read_text(encoding="utf-8"))["items"] if newest else []:
             acted[item["action"]] = acted.get(item["action"], 0) + 1
     except (OSError, ValueError, KeyError):
         pass
-    return {"run": runs[-1].parent.name if runs else None, "acted": acted,
-            "proposal_waiting": waiting}
+    return {"run": run, "acted": acted, "proposal_waiting": waiting}
 
 
 def last_deep_clean(vault, paraos_home=None):

@@ -1022,7 +1022,25 @@ class Unattended(VaultCase):
     def test_a_proposal_whose_items_left_triage_is_not_waiting(self):
         write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
         self.propose("north-20260102-0700").unlink()
-        self.assertIsNone(self.unattended())
+        self.assertEqual(self.unattended(), {"run": "20260102-0700", "acted": {},
+                                             "proposal_waiting": False})
+
+    def test_a_newer_run_that_only_proposed_dates_the_row_and_acted_nothing(self):
+        write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
+        write(self.home, "quarantine/north/20260101-070000/manifest.json",
+              json.dumps({"items": [{"action": "Dismiss (noise)"}]}))
+        write(self.home, "cache/triage/proposals/decided/north-20260105-0616.md", "x\n")
+        self.assertEqual(self.unattended(), {"run": "20260105-0616", "acted": {},
+                                             "proposal_waiting": False})
+
+    def test_a_run_that_acted_and_proposed_counts_what_it_acted_on(self):
+        write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
+        write(self.home, "quarantine/north/20260105-061612/manifest.json",
+              json.dumps({"items": [{"action": "Dismiss (noise)"}]}))
+        self.propose("north-20260105-0616")
+        self.assertEqual(self.unattended(), {"run": "20260105-061612",
+                                             "acted": {"Dismiss (noise)": 1},
+                                             "proposal_waiting": True})
 
     def test_a_proposal_of_a_vault_whose_name_extends_this_one_is_not_waiting(self):
         write(self.home, "vaults.json", json.dumps([{"name": "north", "path": str(self.vault)}]))
