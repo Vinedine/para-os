@@ -5,19 +5,20 @@
                          [--clone <path>] [--templates-dir <dir>]... [--dated-pattern <regex>]
                          [--next-steps-heading <heading>]... [--generated-dir <dir>]...
                          [--indent N]
+    py -3 clean_scan.py --vault <path> --stamp [--today YYYY-MM-DD]
     python3 clean_scan.py --vault <path> --phase 1
 
 Prints one JSON document on stdout: the preconditions every phase checks, plus the
-candidate findings for the phase asked for. It never writes to the vault - not even the
-phase-3 file it reads for staleness - and never judges a candidate: exclusions for
-third-party verbatim content, frozen records, or a vault's own declared contract are the
-skill's job, per references/phase1-structural.md, phase3-open-items.md and
-SKILL.md's Phase 4. Phase 2 has no script: README normalisation is judgment start to finish.
+candidate findings for the phase asked for. It never writes to the vault but under
+`--stamp`, the last step of a pass, which dates it in `resources/logs/deep-clean.txt` for
+/para-daily-brief on every machine. It never judges a candidate: exclusions for third-party
+verbatim content, frozen records, or a vault's own declared contract are the skill's job,
+per references/phase1-structural.md, phase3-open-items.md and SKILL.md's Phase 4. Phase 2
+has no script: README normalisation is judgment start to finish.
 
 What it deliberately does NOT do, so the skill keeps owning it: decide whether a finding
-is a real defect or an exempt third-party file, propose a fix, ask a question, or write
-anything but phase 3's date to `deep_clean_stamp`, outside the vault, which /para-daily-brief
-reads. Every list here is candidates for the skill to judge.
+is a real defect or an exempt third-party file, propose a fix, or ask a question. Every list
+here is candidates for the skill to judge.
 """
 
 import argparse
@@ -35,13 +36,13 @@ if SHARED_DIR.is_dir() and str(SHARED_DIR) not in sys.path:
 
 try:
     from paraos_vault import (  # noqa: E402
-        FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE,
+        DEEP_CLEAN_LOG, FALSELY_OVERDUE_DAYS, FROZEN_MARKER_RE,
         HEADING_RE, LINK_ROOTS, MARKED_SUFFIXES, NOT_CARDS, OPEN_ITEM_CAP, STALE_UNDATED_DAYS,
         abspath, action_files, cap_count, contact_names, dangling_links, date_arg,
         deep_clean_stamp, duplicates, emit, entity_candidates, entity_doc, extract_links, field_ci,
         find_clone, git, git_blame_line_date, hashes, header_fields, inbound_references_by_name,
-        integration_markers, is_separator_row, iso, kit_files, lifecycles, link_files, link_spans,
-        live_lines,
+        integration_markers, is_separator_row, iso, kit_files, last_deep_clean, lifecycles,
+        link_files, link_spans, live_lines,
         log_entries, misplaced_checkboxes, norm, open_tasks, operator_card, other_checkbox_paths,
         over_grown_briefs, parse_date, read_lines, read_text, reference_shape, rel_posix,
         resolve_entity, resolve_link, snapshot, split_lines, strip_code, table_cells,
@@ -965,11 +966,10 @@ def lines_at(vault, rel, day):
 def briefs(vault):
     """(briefs to read, each with its reasons; live briefs skipped; whether growth since the
     last deep clean could be measured). A brief is read when it is over the line cap, has
-    grown by more than half since the last deep clean's stamp, or holds more development-log
+    grown by more than half since `last_deep_clean`, or holds more development-log
     entries than its entity has open actions. An area README is read whatever it holds, so
     one is never listed as skipped."""
-    stamp = deep_clean_stamp(vault)
-    last = parse_date(read_text(stamp).strip()) if stamp.is_file() else None
+    last = last_deep_clean(vault)
     growth = "no deep clean on record" if last is None else \
         "measured" if git(vault, ["rev-parse", "--git-dir"]) is not None else "no git history"
     over = {b["file"] for b in over_grown_briefs(vault)}
@@ -1145,12 +1145,6 @@ def scan(vault, today, phase, ref, clone, templates_dirs, dated_pattern, heading
         report["phase1"] = phase1(vault, templates_dirs, dated_pattern, generated_dirs)
     elif phase == "3":
         report["phase3"] = phase3(vault, today, headings)
-        stamp = deep_clean_stamp(vault)
-        try:
-            stamp.parent.mkdir(parents=True, exist_ok=True)
-            stamp.write_text(iso(today) + "\n", encoding="utf-8")
-        except OSError:
-            pass  # the brief then calls the deep clean due, which is the safe side
     elif phase == "4":
         report["phase4"] = phase4(vault, templates_dirs, dated_pattern, today, generated_dirs)
     return report, 0
@@ -1193,10 +1187,20 @@ def record_findings(vault, today, phase, report):
         pass
 
 
+def stamp(vault, today):
+    path = Path(vault) / DEEP_CLEAN_LOG
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(iso(today) + "\n", encoding="utf-8")
+    return {"stamp": DEEP_CLEAN_LOG, "date": iso(today)}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Scan a vault for /para-deep-clean's mechanical checks.")
     ap.add_argument("--vault", default=".", help="vault root (default: current directory)")
-    ap.add_argument("--phase", required=True, choices=["1", "3", "4"], help="which phase to scan")
+    mode = ap.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--phase", choices=["1", "3", "4"], help="which phase to scan")
+    mode.add_argument("--stamp", action="store_true",
+                      help=f"date the pass in {DEEP_CLEAN_LOG}, its last step")
     ap.add_argument("--today", type=date_arg, help="date to measure against (default: the system date)")
     ap.add_argument("--ref", default="origin/stable",
                     help="committed para-os ref for the template-marker precondition")
@@ -1226,6 +1230,9 @@ def main(argv=None):
     root = Path(args.vault)
     if not root.is_dir():
         ap.error(f"no such vault: {root}")
+    if args.stamp:
+        emit(stamp(root, today), args.indent)
+        return 0
     headings = args.next_steps_heading or list(DEFAULT_NEXT_STEPS_HEADINGS)
 
     report, code = scan(root, today, args.phase, args.ref, args.clone,

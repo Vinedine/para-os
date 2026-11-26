@@ -1051,7 +1051,7 @@ class Unattended(VaultCase):
 
 
 class DeepCleanDue(VaultCase):
-    """The day /para-deep-clean's phase 3 last ran, where that is over a month ago or never."""
+    """The day a /para-deep-clean pass last ran, where that is over a month ago or never."""
 
     def setUp(self):
         super().setUp()
@@ -1074,6 +1074,17 @@ class DeepCleanDue(VaultCase):
         write(self.home, "data/deep-clean/vault.txt", "2026-09-20\n")
         write(self.home, "data/deep-clean/north.txt", "2026-08-21\n")
         self.assertEqual(self.due(), {"last": "2026-08-21", "days": 31})
+
+    def test_a_vault_stamp_from_another_machine_is_a_recent_run(self):
+        write(self.vault, "resources/logs/deep-clean.txt", "2026-09-20\n")
+        self.assertIsNone(self.due())
+
+    def test_the_newer_of_the_vault_and_machine_stamps_counts(self):
+        write(self.vault, "resources/logs/deep-clean.txt", "2026-08-01\n")
+        write(self.home, "data/deep-clean/vault.txt", "2026-08-11\n")
+        self.assertEqual(self.due(), {"last": "2026-08-11", "days": 41})
+        write(self.vault, "resources/logs/deep-clean.txt", "2026-08-15\n")
+        self.assertEqual(self.due(), {"last": "2026-08-15", "days": 37})
 
     def test_an_entity_scope_does_not_check_it(self):
         self.assertIsNone(self.due(entity="acme-website"))

@@ -229,11 +229,21 @@ def vault_name(vault, paraos_home=None):
                 Path(vault).name)
 
 
+DEEP_CLEAN_LOG = "resources/logs/deep-clean.txt"
+
+
 def deep_clean_stamp(vault, paraos_home=None):
-    """The file /para-deep-clean's phase-3 scan writes its date to, outside the vault, for
-    the daily brief to read."""
+    """This machine's deep-clean file under the para-os home: `last_deep_clean` reads its date
+    beside the vault's, and the `--record` audit sits beside it."""
     return (paraos_home_dir(paraos_home) / "data" / "deep-clean"
             / f"{vault_name(vault, paraos_home)}.txt")
+
+
+def last_deep_clean(vault, paraos_home=None):
+    """The newer date of the vault's deep-clean stamp and this machine's, else None."""
+    dates = (parse_date(read_text(path).strip())
+             for path in (Path(vault) / DEEP_CLEAN_LOG, deep_clean_stamp(vault, paraos_home)))
+    return max((d for d in dates if d), default=None)
 
 
 def registry_holding(entries, name, exclude=None):

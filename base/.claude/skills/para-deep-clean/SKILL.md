@@ -72,6 +72,8 @@ Report a clean state, or the residual issues with proposed fixes.
 
 A final summary: what was fixed, by phase; a status snapshot, one row per entity with its key numbers; the remaining open items of each active entity; suggestions for a next pass.
 
+Last, unless the run was `audit`, run Step 0's script with `--stamp` in place of `--phase`: it dates the pass for the brief on every machine.
+
 ## Strict rules
 
 **Everything in [para-shared/operating-discipline.md](../para-shared/operating-discipline.md) applies.** Specific to this skill:

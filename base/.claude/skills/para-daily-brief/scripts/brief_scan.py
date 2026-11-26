@@ -44,11 +44,11 @@ try:
         unticked_tasks, utf8_stdout, waiting_on,
     )
     from paraos_vault import (  # noqa: E402
-        DEEP_CLEAN_DUE_DAYS, deep_clean_stamp, paraos_home_dir, same_place, triage_sources,
+        DEEP_CLEAN_DUE_DAYS, last_deep_clean, paraos_home_dir, same_place, triage_sources,
         vault_name)
     from paraos_vault import (  # noqa: E402
         QUIET_DAYS, TEMPLATE_BEHIND, TRIAGE_AGE_DAYS, TRIAGE_PILE, WAITS_PAST_FLAG,
-        find_clone, read_text, skill_reviews, triage_proposals, vault_marker)
+        find_clone, skill_reviews, triage_proposals, vault_marker)
     from paraos_clone import (  # noqa: E402
         changelog_entries, clone_read, clone_session, entries_between, master_template)
     from paraos_mail import ingest_ledger  # noqa: E402
@@ -490,12 +490,8 @@ def unattended(vault, paraos_home=None):
     return {"run": run, "acted": acted, "proposal_waiting": waiting}
 
 
-def last_deep_clean(vault, paraos_home=None):
-    return parse_date(read_text(deep_clean_stamp(vault, paraos_home)).strip())
-
-
 def deep_clean_due(vault, today, paraos_home=None):
-    """The day /para-deep-clean's phase 3 last ran on this vault, from its stamp, where that
+    """The day a /para-deep-clean pass last ran on this vault, by `last_deep_clean`, where that
     is over DEEP_CLEAN_DUE_DAYS ago or never: `{"last", "days"}`, both null for never. Null
     while it is recent."""
     last = last_deep_clean(vault, paraos_home)
