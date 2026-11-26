@@ -10,8 +10,9 @@
 !.claude/
 !.claude/**
 
-# ...but never Claude Code runtime state
+# ...but never Claude Code runtime state, or a machine's own permission settings
 .claude/*.lock
+.claude/settings.local.json
 
 # ...and never .mcp.json, which holds live tokens: tracked wiring goes in a redacted .mcp.json.example
 .mcp.json
