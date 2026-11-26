@@ -1904,6 +1904,8 @@ LINK_OPEN_RE = re.compile(r"\]\(")
 SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 LINK_ROOTS = ("projects", "areas", "resources", "triage")
 NOT_VAULT_CONTENT = (".git", ".claude/skills", ".claude/worktrees")
+# Links only: a skill's prose names example paths (`areas/network/`) no move may rewrite.
+LINKS_TO_MOVE = (".git", ".claude/worktrees")
 
 
 def abspath(path):
@@ -2199,7 +2201,7 @@ def move_plan(vault, src, dst):
                 inside.append(link_rewrite(vault, path, line, href, raw, target, target,
                                            moved.parent))
     inbound = []
-    for hit in inbound_references(vault, src_path.name, skip=(".git", ".claude/worktrees")):
+    for hit in inbound_references(vault, src_path.name, skip=LINKS_TO_MOVE):
         path = vault / hit["file"]
         if is_under(path, src_path):
             continue

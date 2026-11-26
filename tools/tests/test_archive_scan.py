@@ -918,6 +918,18 @@ class Verify(VaultCase):
                             or "archive/projects/acme/brief.md](../../archive" in m["text"]
                             for m in v["stale_mentions"]))
 
+    def test_a_link_in_the_vaults_own_skills_is_read_and_a_mention_there_is_not(self):
+        write(self.root, ".claude/skills/report/SKILL.md",
+              "# Report\n\nRead [the brief](../../../projects/acme/brief.md) in projects/acme.\n")
+        write(self.root, ".claude/skills/report/notes.md",
+              "# Notes\n\n[Gone](../../../archive/projects/acme/gone.md)\n")
+        v = self.verify("projects/acme", "archive/projects/acme")
+        self.assertEqual([s["file"] for s in v["stale_links"]], [".claude/skills/report/SKILL.md"])
+        self.assertEqual([u["file"] for u in v["inbound_resolved"]["unresolved"]],
+                         [".claude/skills/report/notes.md"])
+        self.assertEqual(v["stale_mentions"], [])
+        self.assertFalse(v["clean"])
+
     def test_a_mention_the_operator_approved_keeping_does_not_fail_the_verify(self):
         write(self.root, "areas/network/jan.md",
               "# Jan\n\nAs filed at the time under projects/acme.\nOr projects/acme here.\n")
@@ -993,19 +1005,6 @@ class Verify(VaultCase):
         v = self.verify("projects/acme", "archive/projects/acme",
                         routed=["resources/acme/playbook.md"])
         self.assertEqual(len(v["inside"]["dangling"]), 2)
-
-    def test_installed_skill_copies_are_not_vault_content(self):
-        # move.md Step 6: installed skill copies are not vault content, before or after.
-        write(self.root, ".claude/skills/para-archive/SKILL.md", "\n".join([
-            "# Skill", "",
-            "Old [brief](../../../projects/acme/brief.md), or projects/acme in prose.",
-            "New [actions](../../../archive/projects/acme/actions.md), never written.", "",
-        ]))
-        v = self.verify("projects/acme", "archive/projects/acme")
-        self.assertEqual(v["stale_links"], [])
-        self.assertEqual(v["stale_mentions"], [])
-        self.assertEqual(v["inbound_resolved"], {"resolved": 0, "unresolved": []})
-        self.assertTrue(v["clean"])
 
     def test_a_mention_opening_its_line_is_stale(self):
         write(self.root, "areas/network/jan.md", "# Jan\n\nprojects/acme was the old home.\n")
