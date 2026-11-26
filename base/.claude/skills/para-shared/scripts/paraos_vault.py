@@ -1962,14 +1962,18 @@ def extract_links(text):
     out = []
     for start, end, _ in link_spans(text):
         raw = LINK_TITLE_RE.sub("", text[start:end].strip())
-        target = raw
-        if raw.startswith("<") and raw.endswith(">") and ("/" in raw or "." in raw):
-            target = raw[1:-1]
-        href = unquote(re.split(r"[?#]", target, maxsplit=1)[0]).strip()
+        href = link_path(raw)
         if not href or SCHEME_RE.match(href) or "<" in href:
             continue
         out.append((text.count("\n", 0, start) + 1, href, raw))
     return out
+
+
+def link_path(raw):
+    """A target as written, less its `<...>`, `?query` and `#fragment`, percent-decoded."""
+    if raw.startswith("<") and raw.endswith(">") and ("/" in raw or "." in raw):
+        raw = raw[1:-1]
+    return unquote(re.split(r"[?#]", raw, maxsplit=1)[0]).strip()
 
 
 def resolve_link(from_file, href):
@@ -2180,8 +2184,9 @@ def move_plan(vault, src, dst):
 
 
 def rewrite_links(path, rows):
-    """Write each row's `new_href` over its `raw` target on its `line`, every other byte of the
-    file kept; the rows whose link is not there, or could not be written, come back."""
+    """Write each row's `new_href` over its `raw` target on its `line`, and over a label that
+    spells the old target or its file name, every other byte of the file kept; the rows whose
+    link is not there, or could not be written, come back."""
     try:
         data = Path(path).read_bytes()
         bom = UTF8_BOM if data.startswith(UTF8_BOM) else b""
@@ -2189,15 +2194,22 @@ def rewrite_links(path, rows):
     except (OSError, UnicodeDecodeError):
         return list(rows)
     code = strip_code(text)
-    spans = [(s, e) for s, e, _ in link_spans(code)]
+    spans = link_spans(code)
     edits, missed = [], []
     for row in rows:
-        for s, e in spans:
+        for s, e, b in spans:
             written = LINK_TITLE_RE.sub("", text[s:e].strip())
             if written == row["raw"] and code.count("\n", 0, s) + 1 == row["line"]:
                 at = text.index(written, s)
                 edits.append((at, at + len(written), row["new_href"]))
-                spans.remove((s, e))
+                old, new = link_path(row["raw"]), link_path(row["new_href"])
+                labels = {old: new, row["raw"]: row["new_href"],
+                          PurePosixPath(old).name: PurePosixPath(new).name}
+                label = text[b + 1:s - 2].strip() if b is not None else ""
+                if label and label in labels:
+                    at = text.index(label, b + 1)
+                    edits.append((at, at + len(label), labels[label]))
+                spans.remove((s, e, b))
                 break
         else:
             missed.append(row)
