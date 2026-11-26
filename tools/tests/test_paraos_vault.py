@@ -1823,8 +1823,33 @@ class Move(VaultCase):
                                   "--apply")
         self.assertEqual(code, 0)
         self.assertEqual(out["mentions"], [{"file": "areas/network/piet.md", "line": 3}])
-        self.assertIn("(../properties/orchard-lane/sources/20260418%20Acme%20-%20Statement.md)",
+        self.assertIn("[20260418 Acme - Statement.md]"
+                      "(../properties/orchard-lane/sources/20260418%20Acme%20-%20Statement.md)",
                       (self.root / "areas/network/piet.md").read_text("utf-8"))
+
+    def test_a_label_spelling_the_old_target_or_its_file_name_follows_it(self):
+        write(self.root, "areas/properties/elm-road/README.md", "# Elm\n")
+        piet = write(self.root, "areas/network/piet.md",
+                     "[../properties/elm-road/README.md](../properties/elm-road/README.md)\n"
+                     "[ README.md ](../properties/elm-road/README.md#status)\n")
+        _, out = self.run_move("areas/properties/elm-road/README.md",
+                               "areas/properties/elm-road/brief.md", "--apply")
+        self.assertEqual(piet.read_text("utf-8"),
+                         "[../properties/elm-road/brief.md](../properties/elm-road/brief.md)\n"
+                         "[ brief.md ](../properties/elm-road/brief.md#status)\n")
+        self.assertEqual(out["mentions"], [])
+
+    def test_a_label_in_other_words_is_left_as_written(self):
+        write(self.root, "areas/properties/elm-road/README.md", "# Elm\n")
+        piet = write(self.root, "areas/network/piet.md",
+                     "[the elm brief](../properties/elm-road/README.md)\n"
+                     "[see elm-road/README.md](../properties/elm-road/README.md)\n")
+        _, out = self.run_move("areas/properties/elm-road/README.md",
+                               "areas/properties/elm-road/brief.md", "--apply")
+        self.assertEqual(piet.read_text("utf-8"),
+                         "[the elm brief](../properties/elm-road/brief.md)\n"
+                         "[see elm-road/README.md](../properties/elm-road/brief.md)\n")
+        self.assertEqual(out["mentions"], [{"file": "areas/network/piet.md", "line": 2}])
 
     def test_a_shared_file_name_is_a_mention_only_with_its_folder(self):
         self.build()

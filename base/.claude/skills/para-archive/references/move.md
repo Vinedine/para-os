@@ -22,7 +22,7 @@ After re-checking the snapshot ([scripts.md](../../para-shared/scripts.md)), in 
 2. Delete approved stale snapshots.
 3. Create the successor scaffold, if chosen.
 4. Retense `brief.md` and `actions.md` to their archived form.
-5. Apply the approved repoints that lead anywhere but the archive path; display text spelling the old path gets the new one.
+5. Apply the approved repoints that lead anywhere but the archive path.
 6. Where `destination.exists`, stop and settle the collision with the operator (a further version, a re-archive, a distinct entity needing another name); never merge into or overwrite it. Otherwise move the entity, which repoints the links left.
 
 ## Step 8 - Verify and report
