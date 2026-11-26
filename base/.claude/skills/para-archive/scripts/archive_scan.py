@@ -215,8 +215,10 @@ def lifecycle_block(vault, doc, dest, folder_name):
     ]
 
     dest_path = (dest.get("path") or "").rstrip("/")
-    destination_matches = next((t["name"] for t in terminal_stages if dest_path
-                                and t["concrete_home"].rstrip("/") == dest_path), None)
+    matches = [t["name"] for t in terminal_stages
+               if dest_path and t["concrete_home"].rstrip("/") == dest_path]
+    destination_matches = next((m for m in matches if m.strip().lower() == name),
+                               matches[0] if matches else None)
 
     stage_line_names_destination = bool(
         destination_matches
