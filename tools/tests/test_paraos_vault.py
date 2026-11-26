@@ -578,15 +578,18 @@ class VaultRootCheck(VaultCase):
     def test_a_bare_folder_reports_everything_it_lacks(self):
         got = vault_root(self.root)
         self.assertFalse(got["root"])
-        self.assertEqual(set(got["missing"]),
-                         {"projects/", "areas/ or archive/", "CLAUDE.md"})
+        self.assertEqual(set(got["missing"]), {"projects/, areas/ or archive/", "CLAUDE.md"})
 
-    def test_projects_with_no_areas_or_archive_is_not_a_root(self):
-        (self.root / "projects").mkdir()
+    def test_any_one_bucket_with_a_claude_md_is_a_root(self):
+        for bucket in ("projects", "areas", "archive"):
+            root = self.root / bucket
+            (root / bucket).mkdir(parents=True)
+            write(root, "CLAUDE.md", "# v\n")
+            self.assertEqual(vault_root(root), {"root": True, "missing": []}, bucket)
+
+    def test_a_claude_md_with_no_bucket_is_not_a_root(self):
         write(self.root, "CLAUDE.md", "# v\n")
-        got = vault_root(self.root)
-        self.assertFalse(got["root"])
-        self.assertEqual(got["missing"], ["areas/ or archive/"])
+        self.assertEqual(vault_root(self.root)["missing"], ["projects/, areas/ or archive/"])
 
 
 class Registry(VaultCase):

@@ -150,20 +150,20 @@ class VaultRoot(unittest.TestCase):
         out = json.loads(buf.getvalue())
         self.assertIsNone(out["vault"]["hint"])
 
-    def test_a_vault_root_missing_only_triage_is_not_a_root(self):
+    def test_a_vault_with_no_projects_or_triage_folder_reads_as_empty(self):
         import tempfile
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
-        for d in ("projects", "areas", "archive"):
-            (root / d).mkdir()
+        (root / "areas").mkdir()
         write(root, "CLAUDE.md", "# Vault\n")
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             code = main(["--vault", str(root), "--now", "2026-09-22T12:00:00+00:00"])
-        self.assertEqual(code, 3)
+        self.assertEqual(code, 0)
         out = json.loads(buf.getvalue())
-        self.assertIn("triage/", out["vault"]["missing"])
+        self.assertTrue(out["vault"]["root"])
+        self.assertTrue(out["items"]["empty"])
 
     def test_registered_root_carries_name_and_active_from_the_exact_entry(self):
         import tempfile
