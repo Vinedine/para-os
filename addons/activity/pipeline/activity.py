@@ -153,7 +153,7 @@ def redact_tool_input(tool_name, tool_input, root):
     for key in PATH_KEYS:
         if isinstance(tool_input.get(key), str):
             return relative_to_vault(tool_input[key], root)
-    if tool_name == "Bash" and isinstance(tool_input.get("command"), str):
+    if tool_name in ("Bash", "PowerShell") and isinstance(tool_input.get("command"), str):
         # First token only. The rest of a command line is where a secret gets pasted.
         return command_name(tool_input["command"])
     return None
