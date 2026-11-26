@@ -42,7 +42,8 @@ The five checks of `audit_vault`, every defect a `finding` with its `fix` and a 
 5. skills        Each bundled skill the table lists, one finding per skill folder, and a
                  bundled `para-*` folder no master ships. A vault's own skill is not a copy.
 
-A row the table calls `own` is the vault's, and no check reads it.
+A row the table calls `own` is the vault's, and no check reads it; one it calls `ahead` is
+current.
 """
 
 import re
@@ -294,7 +295,8 @@ def audit_vault(entry, kit, ref, in_development):
     declared, resolvable = declaration_check(vault, declarations(vault))
     found += declared + roster_check(vault)
     if revision["verdict"] not in ("ahead", "unverified"):
-        rows = [r for r in files_block(vault, kit, resolvable) if r["state"] != "own"]
+        rows = [dict(r, state="current" if r["state"] == "ahead" else r["state"])
+                for r in files_block(vault, kit, resolvable) if r["state"] != "own"]
         found += addon_check(kit, resolvable, ref) + rules_check(vault, rows)
         found += integration_check([r for r in rows if r["kind"] == "integration"
                                     and r["state"] != "current"], ref)

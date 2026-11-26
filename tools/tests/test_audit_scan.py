@@ -431,6 +431,26 @@ class CopiesCase(CloneCase):
         write(self.work / "v", ".claude/rules/old.md", RULE.replace("Filing", "Ours"))
         self.assertEqual(audit_scan.audit_vault(self.entry("v"), kit, "main", None)["findings"], [])
 
+    def test_a_copy_from_main_ahead_of_stable_counts_as_current(self):
+        clone = self.work / "para-os"
+        shutil.copytree(self.clone, clone)
+        write(clone, "base/.claude/skills/para-notes/SKILL.md", skill(3))
+        write(clone, "integrations/logbook/logbook.py", logbook("2026.10.01", "v3"))
+        fixture_git(clone, "commit", "-q", "-m", "next", "base/.claude/skills/para-notes/SKILL.md",
+                    "integrations/logbook/logbook.py")
+        fixture_git(clone, "update-ref", "refs/remotes/origin/main", "HEAD")
+        kit = open_clone(clone, None)[2]
+        build_vault(self.work / "v", skill_version=3, logbook_body="v3")
+        self.assertEqual(audit_scan.audit_vault(self.entry("v"), kit, "origin/stable", None)
+                         ["findings"], [])
+        build_vault(self.work / "mine", skill_version=4, logbook_body="v4")
+        mine = audit_scan.audit_vault(self.entry("mine"), kit, "origin/stable", None)
+        self.assertEqual([(f["check"], f["route"]) for f in mine["findings"]],
+                         [("integrations", "upgrade"), ("skills", "upgrade")])
+        self.assertIn("1 edited", self.findings(mine, "skills")[0]["detail"])
+        self.assertEqual([f["check"] for f in self.audit("v")["findings"]],
+                         ["integrations", "skills"])
+
     def test_an_integration_naming_no_master(self):
         build_vault(self.work / "v")
         write(self.work / "v", "resources/scripts/other.py",

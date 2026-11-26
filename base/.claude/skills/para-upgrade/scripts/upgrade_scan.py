@@ -32,12 +32,14 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
                  JSON file, keys and list entries of its own (settings with more deny rules).
                  untouched: bytes the master held at some commit along the ref, or those with
                  inserted lines (`own`) whose neighbours the ref still holds, so a re-copy
-                 loses nothing local. edited: any other bytes, with `diff` from the master to
-                 the copy, and `own` where only the ref's change to a neighbour stopped them.
-                 missing. no-master: an integration the ref ships no master for. retired: a
-                 file a changelog `Retired:` line names that the kit no longer ships, holding
-                 bytes the kit shipped at any path, `master` null. own: such a file holding
-                 bytes the kit never shipped, which the vault rewrote as its own.
+                 loses nothing local. ahead: bytes the master held only along `origin/main`,
+                 where the clone has it: a copy taken from main before a release. edited: any
+                 other bytes, with `diff` from the master to the copy, and `own` where only
+                 the ref's change to a neighbour stopped them. missing. no-master: an
+                 integration the ref ships no master for. retired: a file a changelog
+                 `Retired:` line names that the kit no longer ships, holding bytes the kit
+                 shipped at any path, `master` null. own: such a file holding bytes the kit
+                 never shipped, which the vault rewrote as its own.
           Bytes are compared as git blob ids, line endings and a byte-order mark normalised.
 own       The vault's own `CLAUDE.md`, which no upgrade edits. `repeats`: each line of it
           (`line`, `text`) that a kit file holds word for word (`in`): the core, a declared
@@ -92,6 +94,7 @@ except ImportError as missing:  # para-shared/scripts.md: the skill stops
     sys.exit(2)
 
 STABLE = "origin/stable"
+MAIN = "origin/main"
 SECTIONS = "CLAUDE.md.sections"
 DIFF_CAP = 200
 REACTION_RE = re.compile(r"^- (.+?)[ \t]*$", re.M)
@@ -109,7 +112,7 @@ class Kit:
 
     def __init__(self, clone, commit):
         self.clone, self.commit = clone, commit
-        self.tree, self._shipped, self.master = {}, None, None
+        self.tree, self._shipped, self.master, self.main = {}, None, None, None
         for item in (git_bytes(clone, ["ls-tree", "-r", "-z", commit]) or b"").split(b"\0"):
             if b"\t" in item:
                 meta, path = item.split(b"\t", 1)
@@ -155,6 +158,9 @@ def open_clone(clone, ref_arg):
     if kit.master is None:
         block["error"] = f"{ref}:{stamp['path']} carries no para-os-template marker"
         return block, 4, None
+    main = clone_ref(clone, MAIN)
+    if main and main["commit"] != kit.commit:
+        kit.main = Kit(clone, main["commit"])
     return block, 0, kit
 
 
@@ -403,6 +409,9 @@ def files_block(vault, kit, decl, user_dir=None):
     rows = {}
     for path, (kind, master) in planned.items():
         rows[path] = {"kind": kind, "master": master, "state": state_of(path, kit, master)}
+        if rows[path]["state"] == "edited" and kit.main and \
+                blob_ids(path.read_bytes()) & kit.main.shipped(master):
+            rows[path]["state"] = "ahead"
         added = rows[path]["state"] == "edited" and with_own_lines(path.read_bytes(), kit, master)
         if added:
             rows[path]["own"] = [line.rstrip("\n") for line in added[1]]
