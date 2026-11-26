@@ -572,7 +572,7 @@ function renderPanel(panel, n, ctx) {
   if (n.kind === 'vault') {
     const v = ctx.vaults.find((x) => x.vault === n.ref) || {};
     if (v.note) panel.append(make('p', null, v.note));
-    if (!v.state) panel.append(kv([['Pulled by', v.machine || 'this machine'], ['New this week', v.machine ? '' : v.routed], ['In triage', v.machine ? '' : v.triage_items + (Number(v.triage_oldest_days) ? ', oldest ' + v.triage_oldest_days + ' days' : '')], ['Held for you', v.machine ? '' : v.held], ['Late', v.overdue], ['Last edit', v.last_edit]]));
+    if (!v.state) panel.append(kv([['Pulled by', v.machine || 'this machine'], ['New this week', v.machine ? '' : v.routed], ['In triage', v.triage_items + (Number(v.triage_oldest_days) ? ', oldest ' + v.triage_oldest_days + ' days' : '')], ['Held for you', v.machine ? '' : v.held], ['Late', v.overdue], ['Last edit', v.last_edit]]));
     if (ctx.health.some((x) => x.vault === n.ref)) panel.append(make('h4', null, 'Health'));
     const ul = make('ul');
     for (const h of ctx.health.filter((x) => x.vault === n.ref)) {

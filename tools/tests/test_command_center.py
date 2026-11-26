@@ -101,7 +101,7 @@ class Pieces(unittest.TestCase):
 
     def test_a_vault_with_no_card_is_not_judged_and_a_past_vault_is_handed_over(self):
         scan = {"vaults": [{"name": "a", "role": None, "treatment": "full", "machine": None, "open": 4,
-                            "overdue": 1, "triage": None}]}
+                            "overdue": 1, "triage": 0}]}
         feed = {"held": {"a": 2}, "routed": {}, "acted": {}}
         past = [{"name": "old", "ended": "last spring", "neighbourhood": "Clients", "street": "Sold", "note": "Gone."},
                 {"name": "older"}, {"name": "a"}, {"nope": 1}, "junk"]

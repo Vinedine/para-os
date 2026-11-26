@@ -26,6 +26,8 @@ import tempfile
 import unittest
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "base" / ".claude" / "skills" / "para-daily-brief" / "scripts"
@@ -1090,15 +1092,29 @@ class Health(VaultCase):
     def card(self, model=None):
         return scan(self.vault, self.today, paraos_home=self.home, model=model)["health"]
 
-    def age(self, rel, days):
+    def arrived(self, rel, days):
+        """When `rel` arrived, patched: no call sets a change time on every platform."""
         stamp = datetime.combine(self.today - timedelta(days=days), time(12)).timestamp()
-        os.utime(self.vault / rel, (stamp, stamp))
+        name, real = Path(rel).name, Path.stat
+
+        def stat(path, *args, **kwargs):
+            st = real(path, *args, **kwargs)
+            if Path(path).name != name:
+                return st
+            fields = {k: getattr(st, k) for k in dir(st) if k.startswith("st_")}
+            return SimpleNamespace(**dict(fields, st_ctime=stamp))
+        return mock.patch.object(Path, "stat", stat)
 
     def test_an_old_triage_item_needs_care_and_a_new_one_is_ok(self):
         self.assertEqual(self.card()["signals"]["triage"]["level"], "ok")
-        self.age("triage/20260919 Something - Note.md", 20)
-        got = self.card()["signals"]["triage"]
+        with self.arrived("triage/20260919 Something - Note.md", 20):
+            got = self.card()["signals"]["triage"]
         self.assertEqual((got["level"], got["items"], got["oldest_days"]), ("care", 1, 20))
+
+    def test_an_item_ages_from_its_arrival_not_its_modified_date(self):
+        old = datetime(2005, 6, 1, 12).timestamp()
+        os.utime(self.vault / "triage/20260919 Something - Note.md", (old, old))
+        self.assertLess(self.card()["signals"]["triage"]["oldest_days"], 2)
 
     def test_a_pile_of_new_items_reads_watch(self):
         for n in range(20):

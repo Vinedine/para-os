@@ -1056,8 +1056,9 @@ class Hygiene(VaultCase):
     def test_no_triage_folder_is_no_items(self):
         self.assertEqual(triage_items(self.root), [])
 
-    def test_triage_counts_files_not_the_gitkeep(self):
-        write(self.root, "triage/.gitkeep", "")
+    def test_triage_counts_files_not_hidden_or_system_ones(self):
+        for name in (".gitkeep", ".DS_Store", "Desktop.ini", "THUMBS.DB"):
+            write(self.root, f"triage/{name}", "")
         write(self.root, "triage/20260919 Something - Note.md", "note\n")
         self.assertEqual(triage_items(self.root), ["20260919 Something - Note.md"])
 

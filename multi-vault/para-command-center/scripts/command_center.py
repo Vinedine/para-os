@@ -267,7 +267,7 @@ def vault_rows(scan, entries, inbound, repos, today, past):
             "vault": name, "role": v["role"] or "", "treatment": v["treatment"],
             "machine": v["machine"] or "", "state": "", "note": "",
             "level": card["level"], "word": card["word"], "open": v["open"],
-            "overdue": v["overdue"], "triage_items": v["triage"] or 0,
+            "overdue": v["overdue"], "triage_items": v["triage"],
             "triage_oldest_days": int(oldest.group(1)) if oldest else 0,
             "held": inbound["held"].get(name, 0), "routed": inbound["routed"].get(name, 0),
             "acted": inbound["acted"].get(name, 0), "last_edit": value.get("last_edit", ""),

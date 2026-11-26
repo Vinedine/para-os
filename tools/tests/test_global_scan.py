@@ -95,10 +95,10 @@ class GlobalScan(unittest.TestCase):
         excluded = {(e["name"], e["status"]) for e in self.report()["excluded"]}
         self.assertEqual(excluded, {("east", "UNREACHABLE"), (None, "INVALID")})
 
-    def test_a_vault_another_machine_pulls_keeps_its_health_but_no_inbound_counts(self):
+    def test_a_vault_another_machine_pulls_keeps_its_counts(self):
         self.entries[0]["machine"] = "the studio laptop"
         north, south = self.report()["vaults"]
-        self.assertEqual((north["machine"], north["triage"]), ("the studio laptop", None))
+        self.assertEqual((north["machine"], north["triage"]), ("the studio laptop", 1))
         self.assertEqual((north["open"], north["overdue"]), (4, 1))
         self.assertEqual(north["health"]["signals"]["triage"]["items"], 1)
         self.assertEqual((south["machine"], south["triage"]), (None, 0))

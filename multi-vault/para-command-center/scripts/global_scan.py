@@ -16,7 +16,7 @@ them is `health` only, since action lines carry no assignee yet.
 
 `vaults`, in registry order: `name`, `role` (null where the roster does not name the
 operator), `treatment`, `machine` (the registry's, naming the machine that pulls the vault,
-else null), `open`, `overdue`, `triage` (loose files in `triage/`, null with a `machine`),
+else null), `open`, `overdue`, `triage` (loose files in `triage/`),
 `health`, the vault's health card as brief_scan.py's `health()` gives it, `kit` and
 `deep_clean_audit`.
 
@@ -143,7 +143,7 @@ def vault_row(entry, report, home, role, shown, kit=None):
     t = report["totals"]
     name, machine = entry["name"], entry.get("machine") or None
     return {"name": name, "role": role, "treatment": shown, "machine": machine, "open": t["open"],
-            "overdue": t["overdue"], "triage": None if machine else len(report["triage"]),
+            "overdue": t["overdue"], "triage": len(report["triage"]),
             "health": report["health"], "kit": kit_signal(entry, *(kit or (None, None, None))),
             "deep_clean_audit": deep_clean_audit(entry["path"], home)}
 
