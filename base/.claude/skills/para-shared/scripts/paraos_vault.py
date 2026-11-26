@@ -1121,15 +1121,26 @@ def writer(vault, card):
 
 
 def reserved_for(row, writers, me):
-    """The roster writer a source row's `pulled_by` names, matched on their name or card,
-    unless the running writer `me` is known to be them: their runs alone pull the row. None
-    with no marker, no roster, or a name the roster does not hold."""
+    """Whose runs pull a source row, as (verdict, detail): ("pull", None) with no marker, or
+    one naming the running writer `me`; ("skip", person) where `pulled_by` names another
+    roster writer, matched on their name or card; ("held", why) where the row names or
+    implies a puller this run cannot confirm: no roster (`writers` None), a name it does not
+    hold, no running writer known, or `mentions_puller` with no `pulled_by`."""
     name = row.get("pulled_by")
-    if not name or not writers:
-        return None
+    if not name:
+        if row.get("mentions_puller"):
+            return "held", "says who pulls it, but not as `pulled by <name>`"
+        return "pull", None
+    if writers is None:
+        return "held", f"pulled by {name}, in a vault with no `## {ROSTER_HEADING}` roster"
     key = norm(name)
     named = next((w for w in writers if key in (norm(w["person"]), w["card"])), None)
-    return named["person"] if named and not (me and named["card"] == me["card"]) else None
+    if named is None:
+        return "held", f"pulled by {name}, who is not on the roster"
+    if me is None:
+        return "held", (f"pulled by {named['person']}, and operator.json does not say whether "
+                        "that is you")
+    return ("pull", None) if named["card"] == me["card"] else ("skip", named["person"])
 
 
 # --- what the vault declares ---------------------------------------------------------------
@@ -1370,6 +1381,7 @@ BACKTICK_SPAN_RE = re.compile(r"`([^`]+)`")
 CADENCE_HINT_RE = re.compile(r"🔁️?\s*(every(?:\s+\d+)?\s+[A-Za-z]+)")
 SENT_HINT_RE = re.compile(r"📤️?\s*sent\b", re.IGNORECASE)
 PULLED_BY_RE = re.compile(r"\bpulled by\s+([^,;:()|]+)", re.IGNORECASE)
+PULLER_RE = re.compile(r"\bpull(?:s|ed)\b", re.IGNORECASE)
 
 
 def _pulled_by(cells):
@@ -1482,6 +1494,7 @@ def _triage_row(header, cells, lineno):
         "drive_id": _triage_drive_id(endpoint_raw) if kind == "drive" else None,
         "relevant_when": cell("relevant").strip(), "cadence": cadence,
         "sent": bool(SENT_HINT_RE.search(type_text)), "pulled_by": _pulled_by(cells),
+        "mentions_puller": any(PULLER_RE.search(c) for c in cells),
     }
 
 
@@ -1495,7 +1508,8 @@ def triage_sources(vault):
     a row's `🔁 every <period>` hint, in any cell: how often the source should deliver.
     `sent` is whether its Type cell carries `📤 sent`, asking for the sent-mail pass of
     connectors.md; neither hint changes the row's `kind` or `connector`. `pulled_by` is the
-    writer a `pulled by <name>` in any cell reserves the row for, else None.
+    writer a `pulled by <name>` in any cell reserves the row for, else None, and
+    `mentions_puller` whether any cell says `pulls` or `pulled`, in whatever form.
     """
     path = Path(vault) / "CLAUDE.md"
     if not path.is_file():

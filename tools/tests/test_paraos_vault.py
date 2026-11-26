@@ -35,7 +35,7 @@ from paraos_vault import (
     match_encoding, misplaced_checkboxes, move_plan, next_occurrence, norm, normalised, rewrite_links,
     notice_date, open_items, open_tasks, operator_card, over_grown_briefs, parse_markers,
     register_rows, registered_vault, registry, registry_holding, rel_posix, resolve_entity,
-    resolve_link, roster, scope_of, skill_reviews, snapshot, split_lines, stage_line, stage_of,
+    reserved_for, resolve_link, roster, scope_of, skill_reviews, snapshot, split_lines, stage_line, stage_of,
     stray_checkboxes, strip_code, table_cells, template_marker, trash, triage_items,
     triage_sources, unticked_tasks, vault_root, waiting_on, weekday_after, weekday_index,
     working_days, writer, year_end_of,
@@ -1429,6 +1429,24 @@ class Roster(VaultCase):
         self.assertIsNone(writer(self.root, "cas-janssens"))
         self.assertIsNone(writer(self.root, None))
 
+    def test_a_reserved_row_is_pulled_skipped_or_held_by_what_the_vault_confirms(self):
+        writers = [{"person": "Ada Peeters", "card": "ada-peeters"},
+                   {"person": "Bram Wouters", "card": "bram-wouters"}]
+        ada = writers[0]
+
+        def row(name=None, mentions=False):
+            return {"pulled_by": name, "mentions_puller": mentions or bool(name)}
+
+        got = [reserved_for(*case) for case in (
+            (row(), writers, ada), (row("ada peeters"), writers, ada),
+            (row("Bram Wouters"), writers, ada), (row("Bram Wouters"), None, ada),
+            (row("Cas Janssens"), writers, ada), (row("Bram Wouters"), writers, None),
+            (row(mentions=True), writers, ada))]
+        self.assertEqual([verdict for verdict, _ in got],
+                         ["pull", "pull", "skip", "held", "held", "held", "held"])
+        self.assertEqual(got[2][1], "Bram Wouters")
+        self.assertEqual(len({why for verdict, why in got if verdict == "held"}), 4)
+
 
 class TaskLinks(VaultCase):
 
@@ -2628,6 +2646,15 @@ class TriageSourcesTable(VaultCase):
         self.assertEqual([r["pulled_by"] for r in got],
                          ["Sam Peeters", "Sam Peeters", "Robin Maes", None])
         self.assertEqual(got[0]["mailbox"], "sam@biz.example")
+
+    def test_a_row_saying_who_pulls_it_in_any_form_mentions_a_puller(self):
+        got = self.rows(
+            "| mail | connector: google-workspace | `sam@biz.example` | Sam pulls it at home. |",
+            "| home | fetch-script | `resources/scripts/outlook.py fetch`, Pulled By: Sam | Mail. |",
+            "| notes | sync-script | `resources/scripts/notes-sync.js`, pulled by Sam | Meetings. |",
+            "| work | connector: google-workspace | `ann@example.com` | Pull requests. |")
+        self.assertEqual([(r["pulled_by"], r["mentions_puller"]) for r in got],
+                         [(None, True), (None, True), ("Sam", True), (None, False)])
 
     def test_a_script_row_naming_no_script_has_no_path(self):
         got = self.rows("| mail | fetch-script | ask Alex which script, `TBD` | Leads. |",

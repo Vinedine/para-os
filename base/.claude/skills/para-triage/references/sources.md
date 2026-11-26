@@ -1,6 +1,6 @@
 # Configured triage sources (Step 2)
 
-**The scan's `plan` decides each `## Triage sources` row**: `pull` and `run` execute below; `sent` runs only [the sent pass](../../para-shared/connectors.md); `skip`, `lookup` and `unknown` pull nothing. The summary carries `ingest.reason` unless it reads `pulled as normal`; a row another writer pulls says `<source>: <reason>`. What a source pulls flows on as loose files.
+**The scan's `plan` decides each `## Triage sources` row**: `pull` and `run` execute below; `sent` runs only [the sent pass](../../para-shared/connectors.md); `skip`, `held`, `lookup` and `unknown` pull nothing. The summary carries `ingest.reason` unless it reads `pulled as normal`; a row another writer pulls or the scan holds says `<source>: <reason>`. What a source pulls flows on as loose files.
 
 ## sync-script sources
 
