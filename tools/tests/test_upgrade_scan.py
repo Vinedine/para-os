@@ -70,6 +70,7 @@ REV_A = {
     "base/README.md.template": "# {{Vault Name}}\n",
     "base/.gitignore": "*.pyc\n",
     "base/projects/README.md": "# projects\n\n<!-- Placeholder so the folder exists. -->\n",
+    "base/triage/README.md": "# Triage\n",
     "base/.claude/settings.json": '{"autoMemoryEnabled": false}\n',
     "base/.claude/rules/filing.md": RULE.format("v1"),
     "base/.claude/rules/prefs.md": PREFS.format("v1"),
@@ -111,7 +112,7 @@ def build_clone(root):
     git_in(root, "commit", "-q", "-m", "2026.09.01")
     for rel, text in REV_B.items():
         write(root, rel, text)
-    git_in(root, "rm", "-q", "base/.claude/skills/para-notes/old.md")
+    git_in(root, "rm", "-q", "base/.claude/skills/para-notes/old.md", "base/triage/README.md")
     git_in(root, "add", "-A")
     git_in(root, "commit", "-q", "-m", "2026.10.01")
     git_in(root, "update-ref", "refs/remotes/origin/stable", "HEAD")
@@ -373,23 +374,41 @@ class StatesCase(CloneCase):
         self.assertTrue(row["diff"].endswith("more lines\n"))
         self.assertEqual(row["diff"].count("\n"), upgrade_scan.DIFF_CAP + 1)
 
-    def test_a_no_master_file_a_retired_line_names_is_retired(self):
-        clone = self.tmp / "retire-integration-clone"
+    def retire(self, name, line, shipped):
+        """A copy of the clone that shipped `shipped` {path: text}, then retired it on `line`."""
+        clone = self.tmp / name
         shutil.copytree(self.clone, clone)
-        write(clone, "CHANGELOG.md", REV_B["CHANGELOG.md"].replace(
-            "`triage/README.md`", "`resources/scripts/other.py`"))
-        git_in(clone, "commit", "-q", "-am", "retire an integration")
-        v = self.vault("retire-int", files={
-            "resources/scripts/other.py": "# para-os-integration: nonesuch 2026.09.01\n"})
+        for rel, text in shipped.items():
+            write(clone, rel, text)
+        git_in(clone, "add", "-A")
+        git_in(clone, "commit", "-q", "-m", "ship")
+        git_in(clone, "rm", "-q", *shipped)
+        write(clone, "CHANGELOG.md", REV_B["CHANGELOG.md"].replace("`triage/README.md`", line))
+        git_in(clone, "commit", "-q", "-am", "retire")
+        return clone
+
+    def test_a_retired_file_holding_bytes_the_kit_shipped_stays_retired(self):
+        v = self.vault("retired-shipped")
+        write(v, ".claude/skills/para-notes/old.md", "Old.\n", newline="\r\n")
+        self.assertEqual(self.states(self.scan(v)[0])[".claude/skills/para-notes/old.md"], "retired")
+
+    def test_a_retired_file_the_vault_rewrote_is_its_own(self):
+        v = self.vault("retired-own", files={".claude/skills/para-notes/old.md": "Ours now.\n"})
+        row = next(r for r in self.scan(v)[0]["files"]
+                   if r["path"] == ".claude/skills/para-notes/old.md")
+        self.assertEqual((row["kind"], row["master"], row["state"]), ("skill", None, "own"))
+
+    def test_a_no_master_file_a_retired_line_names_is_retired(self):
+        text = "# para-os-integration: nonesuch 2026.09.01\n"
+        clone = self.retire("retire-integration-clone", "`resources/scripts/other.py`",
+                            {"integrations/nonesuch/other.py": text})
+        v = self.vault("retire-int", files={"resources/scripts/other.py": text})
         states = self.states(self.scan(v, ref="main", clone=clone)[0])
         self.assertEqual(states["resources/scripts/other.py"], "retired")
 
     def test_a_folder_named_by_a_retired_line_retires_every_file_under_it(self):
-        clone = self.tmp / "retire-clone"
-        shutil.copytree(self.clone, clone)
-        write(clone, "CHANGELOG.md", REV_B["CHANGELOG.md"].replace(
-            "`triage/README.md`", "`resources/old/`, `../escape.md`"))
-        git_in(clone, "commit", "-q", "-am", "retire a folder")
+        clone = self.retire("retire-clone", "`resources/old/`, `../escape.md`",
+                            {"base/resources/old/a/b.md": "B\n", "base/resources/old/c.md": "C\n"})
         write(self.tmp, "escape.md", "Outside the vault.\n")
         v = self.vault("retire", files={"resources/old/a/b.md": "B\n", "resources/old/c.md": "C\n"})
         states = self.states(self.scan(v, ref="main", clone=clone)[0])

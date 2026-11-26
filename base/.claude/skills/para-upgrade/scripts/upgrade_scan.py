@@ -35,8 +35,9 @@ files     Every vault file the kit owns that is not `current`: `path` (vault-rel
                  loses nothing local. edited: any other bytes, with `diff` from the master to
                  the copy, and `own` where only the ref's change to a neighbour stopped them.
                  missing. no-master: an integration the ref ships no master for. retired: a
-                 file a changelog `Retired:` line names that the kit no longer ships, `master`
-                 null.
+                 file a changelog `Retired:` line names that the kit no longer ships, holding
+                 bytes the kit shipped at any path, `master` null. own: such a file holding
+                 bytes the kit never shipped, which the vault rewrote as its own.
           Bytes are compared as git blob ids, line endings and a byte-order mark normalised.
 own       The vault's own `CLAUDE.md`, which no upgrade edits. `repeats`: each line of it
           (`line`, `text`) that a kit file holds word for word (`in`): the core, a declared
@@ -103,7 +104,8 @@ KIT_FIXED = "para-os"   # the folder of fixed files, in base/.claude/, an add-on
 
 class Kit:
     """The clone at one commit: its tree as {path: blob id}, and every blob id each path held
-    along its history, which is what makes a copy untouched."""
+    along its history, which is what makes a copy untouched; under None, every one any path
+    held, which is what makes a retired file the kit's."""
 
     def __init__(self, clone, commit):
         self.clone, self.commit = clone, commit
@@ -113,7 +115,7 @@ class Kit:
                 meta, path = item.split(b"\t", 1)
                 self.tree[path.decode("utf-8", "replace")] = meta.split()[2].decode()
 
-    def shipped(self, path):
+    def shipped(self, path=None):
         if self._shipped is None:
             self._shipped, out = {}, (git_bytes(self.clone, [
                 "log", "-m", "--raw", "-z", "--no-renames", "--no-abbrev", "--format=",
@@ -121,6 +123,7 @@ class Kit:
             for meta, name in zip(out[::2], out[1::2]):
                 self._shipped.setdefault(name.decode("utf-8", "replace"), set()).update(
                     meta.decode().split()[2:4])
+            self._shipped[None] = set().union(*self._shipped.values())
         return self._shipped.get(path, set())
 
     def text(self, path, commit=None):
@@ -244,6 +247,10 @@ def blob_id(data):
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
+def blob_ids(data):
+    return {blob_id(data), blob_id(normalised(data))}
+
+
 def plan_files(vault, kit, decl, user_dir):
     """{absolute vault-side path: (kind, master or None)} for every file the kit owns for
     this vault."""
@@ -307,7 +314,7 @@ def state_of(path, kit, master):
     if not path.is_file():
         return "missing"
     data = path.read_bytes()
-    ids = {blob_id(data), blob_id(normalised(data))}
+    ids = blob_ids(data)
     if kit.tree[master] in ids:
         return "current"
     if ids & kit.shipped(master):
@@ -408,7 +415,8 @@ def files_block(vault, kit, decl, user_dir=None):
             posix = path.as_posix()
             kind = "skill" if "/.claude/skills/" in posix or user_dir in path.parents else \
                 "rule" if "/.claude/rules/" in posix else planned.get(path, (None,))[0]
-            rows[path] = {"kind": kind, "master": None, "state": "retired"}
+            rows[path] = {"kind": kind, "master": None, "state": "retired"
+                          if blob_ids(path.read_bytes()) & kit.shipped() else "own"}
     return [dict({"path": shown(p, vault)}, **rows[p]) for p in sorted(rows, key=str)]
 
 
