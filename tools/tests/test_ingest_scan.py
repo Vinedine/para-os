@@ -558,14 +558,18 @@ class Routing(Case):
         got = self.route(self.prepare(), [gmail_thread()])
         self.assertEqual(len(got["to_judge"]), 1)
 
-    def test_a_lifecycle_home_is_searched(self):
+    def test_a_lifecycle_home_matches_a_whole_address_never_its_domain(self):
         claude = ("# alpha\n\n## Deal lifecycle\n\n| Stage | PARA home |\n|---|---|\n"
                   "| Lead | areas/sales/leads.md (row) |\n| Won | projects/ |\n")
         write(self.alpha, "CLAUDE.md", claude + SOURCES.format(rows=connector_row(WORK)))
         write(self.alpha, "areas/sales/leads.md", "| Name | Mail |\n|---|---|\n"
                                                   "| Anna | anna@client.example |\n")
-        thread = self.run_file(self.route(self.prepare(), [gmail_thread()]))["threads"][0]
-        self.assertEqual(thread["routed"], ["alpha"])
+        got = self.route(self.prepare(), [gmail_thread(),
+                                          gmail_thread("t2", sender="Bea <bea@client.example>")])
+        self.assertEqual([t["routed"] for t in self.run_file(got)["threads"]], [["alpha"], None])
+        item = got["to_judge"][0]
+        self.assertEqual((item["thread_id"], item["candidates"]), ("t2", ["alpha", "beta"]))
+        self.assertNotIn("boards", item)
 
     def test_hits_in_two_vaults_narrow_without_deciding(self):
         self.vault("gamma", [connector_row(WORK, "Everything else.")])
@@ -619,16 +623,6 @@ class Routing(Case):
                         "seen_date": "2026-10-24T09:00:00+00:00"}}))
         got = self.route(self.prepare(), [gmail_thread()])
         self.assertEqual((got["counts"]["already_seen"], got["to_judge"]), (1, []))
-
-    def test_a_domain_a_board_holds_is_evidence_not_a_decision(self):
-        claude = ("# alpha\n\n## Deal lifecycle\n\n| Stage | PARA home |\n|---|---|\n"
-                  "| Lead | areas/sales/leads.md (row) |\n")
-        write(self.alpha, "CLAUDE.md", claude + SOURCES.format(rows=connector_row(WORK)))
-        write(self.alpha, "areas/sales/leads.md", "| Lead | Mail |\n|---|---|\n"
-                                                  "| Bea | bea@client.example |\n")
-        item = self.route(self.prepare(), [gmail_thread()])["to_judge"][0]
-        self.assertEqual((item["candidates"], item["boards"]),
-                         (["alpha", "beta"], {"client.example": ["alpha"]}))
 
     def test_a_message_no_dedup_key_fits_is_refused(self):
         thread = gmail_thread()
